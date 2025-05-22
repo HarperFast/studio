@@ -8,7 +8,6 @@ import {
 	NavigationMenuItem,
 	NavigationMenuLink,
 	NavigationMenuList,
-	navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
 import { QueryCache } from '@tanstack/react-query';

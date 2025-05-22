@@ -1,6 +1,4 @@
 import { getRouteApi, Link } from '@tanstack/react-router';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Card, CardContent } from '@/components/ui/card';
 import NewInstanceModal from './modals/NewInstanceModal';
 import { DataTable } from '@/components/DataTable';

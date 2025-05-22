@@ -18,10 +18,7 @@ import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 // import { useQueryClient } from '@tanstack/react-query';
 // import { queryKeys } from '@/react-query/constants';
-import {
-	InstanceLoginCredentials,
-	useCreateInstanceLoginMutation,
-} from '@/features/instance/operations/mutations/readInstanceLogin';
+import { InstanceLoginCredentials } from '@/features/instance/operations/mutations/readInstanceLogin';
 import useCluster from '../hooks/useCluster';
 
 const NewClusterSchema = z.object({
@@ -50,8 +47,6 @@ function InstanceLogInModal({
 		},
 	});
 	const clusterAuth = useCluster();
-	// const { mutate: submitInstanceLoginInfo } = useCreateInstanceLoginMutation();
-	// const queryClient = useQueryClient();
 
 	const submitForm = async (formData: { username: string; password: string }) => {
 		const updatedFormData = {
@@ -64,7 +59,7 @@ function InstanceLogInModal({
 			toast.success('Logged in to instance');
 			form.reset();
 		} catch (error) {
-			toast.error('Error logging in to instance');
+			toast.error(`Error: ${error}`);
 			return;
 		}
 		// submitInstanceLoginInfo(updatedFormData, {

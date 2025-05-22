@@ -17,7 +17,7 @@ interface RadioButtonOption {
 interface RadioButtonGroupProps<
 	TFieldValues extends FieldValues = FieldValues,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+	_TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 > {
 	options: RadioButtonOption[];
 	defaultValue?: string;
@@ -53,7 +53,7 @@ function RadioButtonGroup<
 					>
 						{options.map((option) => (
 							<div key={option.value} className="flex items-center space-x-2">
-								<RadioGroupItem value={option.value} id={`${name}-${option.value}`} className="peer sr-only" />
+								<RadioGroupItem value={option.value} id={`${name}-${option.value}`} className="sr-only peer" />
 								<Label
 									htmlFor={`${name}-${option.value}`}
 									className={cn(
@@ -84,7 +84,7 @@ function RadioButtonGroup<
 		<RadioGroup value={localValue} onValueChange={handleValueChange} className="flex flex-wrap gap-2" name={name}>
 			{options.map((option) => (
 				<div key={option.value} className="flex items-center space-x-2">
-					<RadioGroupItem value={option.value} id={`${name}-${option.value}`} className="peer sr-only" />
+					<RadioGroupItem value={option.value} id={`${name}-${option.value}`} className="sr-only peer" />
 					<Label
 						htmlFor={`${name}-${option.value}`}
 						className={cn(
