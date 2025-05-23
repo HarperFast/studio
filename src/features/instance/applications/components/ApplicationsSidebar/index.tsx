@@ -1,9 +1,9 @@
-import EmptyView from '@/features/instance/applications/components/ApplicationsSidebar/EmptyView';
+import EmptyApplicationsView from '@/features/instance/applications/components/ApplicationsSidebar/EmptyApplicationsView';
 
 function ApplicationsSidebar() {
 	return (
 		<>
-			<EmptyView />
+			<EmptyApplicationsView />
 		</>
 	);
 }

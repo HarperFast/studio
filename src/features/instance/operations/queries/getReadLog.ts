@@ -31,6 +31,7 @@ function getReadLogQueryOptions({
 			}) as unknown;
 		},
 		enabled: !!instanceId,
+		retry: false,
 	});
 }
 

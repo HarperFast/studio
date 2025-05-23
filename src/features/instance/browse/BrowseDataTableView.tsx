@@ -127,8 +127,8 @@ function BrowseDataTableView() {
 		schemaName,
 		tableName,
 		pagination.pageSize,
+		pagination.pageIndex,
 		describeTableData.record_count,
-		pagination,
 	]);
 
 	// @ts-expect-error Row<TData> should be defined but can't grab TData from tanstack/react-table

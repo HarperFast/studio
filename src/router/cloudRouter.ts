@@ -25,7 +25,9 @@ import Browse from '@/features/instance/browse';
 import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
 import BrowseDataTableView from '@/features/instance/browse/BrowseDataTableView';
 import Logs from '@/features/instance/log';
-import Applications from '@/features/instance/applications';
+import ApplicationsIndex from '@/features/instance/applications';
+import NewApplications from '@/features/instance/applications/new';
+import EditApplications from '@/features/instance/applications/editor';
 
 const rootRoute = createRootRouteWithContext<{
 	queryClient: QueryClient;
@@ -181,10 +183,23 @@ const instanceLogsRoute = createRoute({
 	path: 'logs',
 	component: Logs,
 });
-const instanceApplicationsRoute = createRoute({
+
+const instanceApplicationsIndexRoute = createRoute({
 	getParentRoute: () => instanceLayoutRoute,
 	path: 'applications',
-	component: Applications,
+	component: ApplicationsIndex,
+});
+
+const instanceApplicationsNewRoute = createRoute({
+	getParentRoute: () => instanceLayoutRoute,
+	path: 'applications/new',
+	component: NewApplications,
+});
+
+const instanceApplicationsEditorRoute = createRoute({
+	getParentRoute: () => instanceLayoutRoute,
+	path: 'applications/editor',
+	component: EditApplications,
 });
 
 export const cloudRouteTree = rootRoute.addChildren([
@@ -202,7 +217,9 @@ export const cloudRouteTree = rootRoute.addChildren([
 						instanceLayoutRoute.addChildren([
 							instanceIndexRoute,
 							instanceBrowseRoute.addChildren([browseDatabaseRoute, browseTableRoute, instanceLogsRoute]),
-							instanceApplicationsRoute,
+							instanceApplicationsIndexRoute,
+							instanceApplicationsNewRoute,
+							instanceApplicationsEditorRoute,
 						]),
 					]),
 				]),

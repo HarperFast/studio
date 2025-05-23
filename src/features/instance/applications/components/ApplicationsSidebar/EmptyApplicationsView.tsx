@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { FolderOpen, Plus } from 'lucide-react';
 
-function EmptyView() {
+function EmptyApplicationsView() {
 	return (
 		<div className="flex flex-col items-center justify-center h-full px-4 text-center">
 			<FolderOpen className="w-10 h-10 mt-16 mb-4 text-gray-400" />
@@ -13,4 +13,4 @@ function EmptyView() {
 		</div>
 	);
 }
-export default EmptyView;
+export default EmptyApplicationsView;

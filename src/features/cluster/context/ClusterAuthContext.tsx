@@ -8,7 +8,6 @@ import { createContext, useState, PropsWithChildren, useCallback, useEffect } fr
 
 type ClusterContextValue = {
 	isAuthenticated: boolean;
-	// isAuth: boolean;
 	instances: Instance[];
 	clusterId: string | null;
 	isLoading: boolean;
@@ -74,7 +73,7 @@ const ClusterProvider = ({ children }: PropsWithChildren) => {
 	}, []);
 
 	const checkAuth = useCallback(async () => {
-		// check auth code here
+		// check auth with registration info. Check at a cluster level initially, if that's valid, check at an instance level
 		return false;
 	}, []);
 
@@ -82,7 +81,6 @@ const ClusterProvider = ({ children }: PropsWithChildren) => {
 
 	const contextValue = {
 		isAuthenticated: currentCluster?.isAuthenticated ?? false,
-		// isAuth: currentCluster?.isAuthenticated ?? false,
 		isLoading,
 		loadCluster: setCluster,
 		instances: currentCluster?.instances ?? ([] as Instance[]),

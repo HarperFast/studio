@@ -17,6 +17,7 @@ function getDescribeAllQueryOptions(instanceId: string) {
 			});
 			return data as DescribeAllResponse;
 		},
+		retry: false,
 	});
 }
 

@@ -131,7 +131,7 @@ function ClusterIndex() {
 				},
 			},
 		],
-		[clusterId, organizationId]
+		[clusterId, organizationId, isAuthenticated]
 	);
 	return (
 		<>
