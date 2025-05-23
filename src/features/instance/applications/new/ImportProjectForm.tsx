@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioButtonGroup } from '@/components/RadioButtonGroup';
+import { useState } from 'react';
 
 const ImportProjectSchema = z.object({
 	projectName: z
@@ -27,6 +28,7 @@ const route = getRouteApi('');
 function ImportProjectForm() {
 	const navigate = useNavigate();
 	const { organizationId, clusterId, instanceId } = route.useParams();
+	const [projectUrlType, setProjectUrlType] = useState('');
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
@@ -81,7 +83,7 @@ function ImportProjectForm() {
 							<FormItem>
 								<FormLabel className="pb-1 ">Deployment Target</FormLabel>
 								<FormControl>
-									<Select>
+									<Select {...field}>
 										<SelectTrigger className="w-full bg-black">
 											<SelectValue placeholder="Select deployment target" />
 										</SelectTrigger>
@@ -94,33 +96,49 @@ function ImportProjectForm() {
 							</FormItem>
 						)}
 					/>
-					<RadioButtonGroup options={urlTypesList} name="size" />
-					<FormField
-						control={form.control}
-						name="githubProjectUrl"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1 ">GitHub Project URL</FormLabel>
-								<FormControl>
-									<Input type="text" placeholder="e-commerce-store" className="bg-black " {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
+					<RadioButtonGroup
+						options={urlTypesList}
+						name="size"
+						onChange={() => {
+							setProjectUrlType((prev) => (prev === 'github' ? 'custom' : 'github'));
+						}}
 					/>
-					<FormField
-						control={form.control}
-						name="customProjectUrl"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1 ">Custom Project URL</FormLabel>
-								<FormControl>
-									<Input type="text" placeholder="e-commerce-store" className="bg-black " {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					{projectUrlType === 'github' ? (
+						<FormField
+							control={form.control}
+							name="githubProjectUrl"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1 ">GitHub Project URL</FormLabel>
+									<FormControl>
+										<Input type="url" placeholder="https://github.com/....." className="bg-black " {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					) : projectUrlType === 'custom' ? (
+						<FormField
+							control={form.control}
+							name="customProjectUrl"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1 ">Custom Project URL</FormLabel>
+									<FormControl>
+										<Input
+											type="text"
+											placeholder="https://custom.projecturl.com/projectName.tar"
+											className="bg-black "
+											{...field}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					) : (
+						''
+					)}
 
 					<Button className="w-full mt-4" variant="submit" type="submit" disabled={!form.formState.isDirty}>
 						Create <ArrowRight />
