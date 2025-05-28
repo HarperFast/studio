@@ -54,7 +54,7 @@ function ImportProjectForm() {
 			const response = await getGithubRepo(new URL(url));
 			if (response) {
 				form.setValue('newApplicationName', response);
-				toast.success(`Application "${response}" fetched successfully`);
+				toast.success(`Application "${response}" found successfully`);
 			} else {
 				toast.error('Invalid GitHub repository URL');
 			}
