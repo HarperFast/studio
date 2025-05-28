@@ -8,4 +8,4 @@ function isValidTarballUrl(url: string) {
 
 // function getCustomApplicationRepo() {}
 
-export { isValidTarballUrl };
+export default isValidTarballUrl;

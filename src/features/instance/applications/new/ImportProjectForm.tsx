@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { FormEvent } from 'react';
 import { getGithubRepo } from './functions/getGithubRepo';
-import { getCustomApplicationRepo, isValidTarballUrl } from './functions/getCustomPackageRepo';
+import isValidTarballUrl from './functions/isValidTarballUrl';
 
 const ImportProjectSchema = z.object({
 	newApplicationName: z
