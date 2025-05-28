@@ -2,14 +2,14 @@ import { useMutation } from '@tanstack/react-query';
 import instanceClient from '@/config/instanceClient';
 
 type CreateComponentFormData = {
-	newProjectName: string;
+	newApplicationName: string;
 };
 
 const onCreateComponentSubmit = async (formData: CreateComponentFormData) => {
-	const { newProjectName } = formData;
+	const { newApplicationName } = formData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_component',
-		project: newProjectName,
+		project: newApplicationName,
 	});
 	return data;
 };
@@ -21,3 +21,4 @@ const useCreateComponentMutation = () => {
 };
 
 export { useCreateComponentMutation };
+export type { CreateComponentFormData };

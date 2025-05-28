@@ -5,12 +5,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useCreateComponentMutation } from '../../operations/mutations/createComponent';
+import {
+	CreateComponentFormData,
+	useCreateComponentMutation,
+} from '@/features/instance/operations/mutations/createComponent';
 import { toast } from 'sonner';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 
 const NewProjectSchema = z.object({
-	newProjectName: z
+	newApplicationName: z
 		.string()
 		.min(1, { message: 'Project name is required' })
 		.max(75, { message: 'Project name must be less than 75 characters' })
@@ -25,14 +28,14 @@ function CreateNewProjectFrom() {
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
-			newProjectName: '',
+			newApplicationName: '',
 		},
 	});
 	const { mutate: createNewProject } = useCreateComponentMutation();
-	const submitForm = async (formData: { newProjectName: string }) => {
+	const submitForm = async (formData: CreateComponentFormData) => {
 		createNewProject(formData, {
 			onSuccess: () => {
-				toast.success(`Project ${formData.newProjectName} created successfully`);
+				toast.success(`Project ${formData.newApplicationName} created successfully`);
 				navigate({ to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications/editor` });
 			},
 			onError: (error) => {
@@ -46,7 +49,7 @@ function CreateNewProjectFrom() {
 				<form onSubmit={form.handleSubmit(submitForm)} className="text-white">
 					<FormField
 						control={form.control}
-						name="newProjectName"
+						name="newApplicationName"
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel className="pb-1 text-center">New Project Name</FormLabel>

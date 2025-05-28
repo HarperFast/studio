@@ -30,6 +30,7 @@ import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluste
 import { renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 import { getInstanceTypeOptions } from '../queries/getInstanceTypeQuery';
 import { toast } from 'sonner';
+import isValidUrl from '@/shared/functions/isValidUrl';
 
 // TODO: consolidate this with the storage size options in the NewClusterModal
 const storageSizeOptions = [
@@ -76,14 +77,6 @@ function NewInstanceModal({ clusterId }: { clusterId: string }) {
 			storage: '',
 		},
 	});
-
-	const isValidUrl = (url: string) => {
-		try {
-			return Boolean(new URL(url));
-		} catch {
-			return false;
-		}
-	};
 
 	const parseUrlInput = (url: string) => {
 		if (isValidUrl(url)) {
