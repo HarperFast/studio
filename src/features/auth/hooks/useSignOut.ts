@@ -5,10 +5,8 @@ import { useMutation } from '@tanstack/react-query';
 
 export const onSignOutSubmit = async () => {
 	const { status } = await apiClient.post('/Logout');
-	if (status === 200) {
+	if (status === 204) {
 		return;
-	} else {
-		throw new Error('Something went wrong');
 	}
 };
 
