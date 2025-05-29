@@ -8,11 +8,15 @@ type DeployComponentFormData = {
 
 const onDeployComponentSubmit = async (formData: DeployComponentFormData) => {
 	const { newApplicationName, applicationUrl } = formData;
-	const { data } = await instanceClient.post('/', {
-		operation: 'deploy_component',
-		package: applicationUrl,
-		project: newApplicationName,
-	});
+	const { data } = await instanceClient.post(
+		'/',
+		{
+			operation: 'deploy_component',
+			package: applicationUrl,
+			project: newApplicationName,
+		},
+		{ timeout: 60000 }
+	);
 	return data;
 };
 
