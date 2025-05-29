@@ -22,7 +22,7 @@ function OrgCard({
 	return (
 		<Card className="relative">
 			<CardHeader>
-				<CardDescription className="flex justify-between items-center">
+				<CardDescription className="flex items-center justify-between">
 					<span>ORG ID: {organizationId}</span>
 					<DropdownMenu>
 						<DropdownMenuTrigger>
@@ -48,7 +48,7 @@ function OrgCard({
 					aria-label={`View ${organizationName}`}
 					title={`View ${organizationName}`}
 				>
-					<span className="hover:border-b-2 border-0 transition-all duration-100 ease-in-out py-2">
+					<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2">
 						View <ArrowRight className="inline-block" />
 					</span>
 				</Link>

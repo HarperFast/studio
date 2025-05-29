@@ -1,18 +1,34 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FolderPlus, Import } from 'lucide-react';
+import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
 import CreateNewProjectFrom from './CreateNewProjectFrom';
 import { useState } from 'react';
 import ImportProjectForm from './ImportProjectForm';
+import { getRouteApi, Link } from '@tanstack/react-router';
+
+const route = getRouteApi('');
 
 function NewApplications() {
 	const [appType, setAppType] = useState('');
+	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
 			<Card className="w-full h-full max-w-xl">
-				<CardHeader className="text-center">
-					<CardTitle>Create/Import An Application</CardTitle>
-					<CardDescription>Create a new or import an existing application</CardDescription>
+				<CardHeader>
+					<Link
+						to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}
+						className="text-sm"
+						aria-label={`Go back to applications main menu`}
+						title={`Go back to applications main menu`}
+					>
+						<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2">
+							<ArrowLeft className="inline-block" /> Back
+						</span>
+					</Link>
+					<div className="text-center">
+						<CardTitle>Create/Import An Application</CardTitle>
+						<CardDescription>Create a new or import an existing application</CardDescription>
+					</div>
 				</CardHeader>
 				<CardContent>
 					<div className="flex justify-center mb-4">
