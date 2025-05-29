@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -37,7 +37,7 @@ function ImportProjectForm() {
 		},
 	});
 
-	const { mutate: deployNewApplication } = useDeployComponentMutation();
+	const { mutate: deployNewApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 	const submitForm = async (formData: DeployComponentFormData) => {
 		deployNewApplication(formData, {
 			onSuccess: () => {
@@ -105,8 +105,19 @@ function ImportProjectForm() {
 							</FormItem>
 						)}
 					/>
-					<Button className="w-full mt-4" variant="submit" type="submit" disabled={!form.formState.isDirty}>
-						Create <ArrowRight />
+					<Button
+						className="w-full mt-4"
+						variant="submit"
+						type="submit"
+						disabled={!form.formState.isDirty || isDeployComponentPending}
+					>
+						{!isDeployComponentPending ? (
+							<>
+								Create <ArrowRight />
+							</>
+						) : (
+							<Loader className="animate-spin" />
+						)}
 					</Button>
 				</form>
 			</Form>
