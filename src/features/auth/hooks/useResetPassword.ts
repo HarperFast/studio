@@ -12,9 +12,9 @@ type ResetPasswordResponse = {
 };
 
 const onResetPasswordSubmit = async ({ token, password }: ResetPasswordRequest): Promise<ResetPasswordResponse> => {
-	const { data } = await apiClient.post('/ResetPassword', {
+	const { data } = await apiClient.put('/ResetPassword', {
 		token,
-		password,
+		newPassword: password,
 	});
 	return data as ResetPasswordResponse;
 };
