@@ -1,6 +1,10 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
-import { getReadLogQueryOptions, LogFiltersSchema } from '@/features/instance/operations/queries/getReadLog';
+import {
+	getReadLogQueryOptions,
+	LogFiltersSchema,
+	ReadLogItem,
+} from '@/features/instance/operations/queries/getReadLog';
 import { getRouteApi } from '@tanstack/react-router';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import ViewLogModal from '@/features/instance/modals/ViewLogModal';
@@ -15,15 +19,11 @@ import { Button } from '@/components/ui/button';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-interface LogRow {
-	level: 'notify' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'stderr' | 'stdout';
-	timestamp: string;
-	thread: string;
-	tags: string[];
-	message: string;
-}
+type RowData = {
+	original: ReadLogItem;
+};
 
-const columns: ColumnDef<LogRow>[] = [
+const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'level',
 		header: 'Status',
@@ -84,16 +84,13 @@ const route = getRouteApi('');
 
 function Logs() {
 	const { instanceId } = route.useParams();
-	const [logFilters, setLogFilters] = useState({
+	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersSchema>>({
 		limit: 1000,
-		level: undefined,
-		from: undefined,
-		until: undefined,
 		order: 'desc',
 	});
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
-	const [selectedLogData, setSelectedLogData] = useState();
+	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
 	const {
 		data: instanceLogs,
 		isLoading,
@@ -108,7 +105,7 @@ function Logs() {
 		mode: 'onChange',
 	});
 
-	const onRowClick = (rowData) => {
+	const onRowClick = (rowData: RowData): void => {
 		setSelectedLogData(rowData.original);
 		setIsViewLogModalOpen(true);
 	};
@@ -142,9 +139,9 @@ function Logs() {
 	};
 
 	return (
-		<div className="grid grid-cols-1 gap-4 md:grid-cols-12 text-white">
+		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
 			<section className="col-span-1 md:col-span-4 lg:col-span-3">
-				<h2 className="text-2xl pb-6">Log Filters</h2>
+				<h2 className="pb-6 text-2xl">Log Filters</h2>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitFilters)} className="flex-col space-y-5">
 						<FormField
@@ -218,7 +215,17 @@ function Logs() {
 								<FormItem>
 									<FormLabel>Start Date:</FormLabel>
 									<FormControl>
-										<Input type="datetime-local" {...field} />
+										<Input
+											type="datetime-local"
+											value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ''}
+											onChange={(e) => {
+												const val = e.target.value;
+												field.onChange(val ? new Date(val) : undefined);
+											}}
+											onBlur={field.onBlur}
+											name={field.name}
+											ref={field.ref}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -231,7 +238,17 @@ function Logs() {
 								<FormItem>
 									<FormLabel>End Date:</FormLabel>
 									<FormControl>
-										<Input type="datetime-local" {...field} />
+										<Input
+											type="datetime-local"
+											value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ''}
+											onChange={(e) => {
+												const val = e.target.value;
+												field.onChange(val ? new Date(val) : undefined);
+											}}
+											onBlur={field.onBlur}
+											name={field.name}
+											ref={field.ref}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -277,7 +294,7 @@ function Logs() {
 					<div>Loading...</div>
 				) : (
 					<div className="h-32">
-						<LogsDataTable columns={columns} data={instanceLogs.data} onRowClick={onRowClick} />
+						<LogsDataTable columns={columns} data={instanceLogs} onRowClick={onRowClick} />
 					</div>
 				)}
 			</section>

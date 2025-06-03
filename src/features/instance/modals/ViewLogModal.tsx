@@ -2,14 +2,10 @@ import Loading from '@/components/Loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-	BadgeLogLevelVariant,
-	BadgeStatus,
-	renderBadgeLogLevelText,
-	renderBadgeLogLevelVariant,
-} from '@/components/ui/utils/badgeLogLevel';
+import { BadgeStatus, renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
+import { ReadLogItem } from '@/features/instance/operations/queries/getReadLog';
 
 function isJsonString(str: string) {
 	try {
@@ -27,13 +23,7 @@ function ViewLogModal({
 }: {
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
-	data: {
-		level: BadgeLogLevelVariant;
-		timestamp: string;
-		thread: string;
-		tags: string[];
-		message: string;
-	};
+	data: ReadLogItem | undefined;
 }) {
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>

@@ -18,26 +18,26 @@ async function getGithubRepo(url: URL) {
 	}
 }
 
-async function getGithubTags(user, repo) {
+async function getGithubTags(user: string, repo: string) {
 	const response = await fetch(`https://api.github.com/repos/${user}/${repo}/git/refs/tags`);
 
 	if (response.status < 400) {
 		const tagData = await response.json();
-		return tagData.map((tag) => tag.ref.split('/').slice(-1)[0]);
+		return tagData.map((tag: { ref: string }) => tag.ref.split('/').slice(-1)[0]);
 	}
 
 	return [];
 }
 
-async function findNpmPackageName(query) {
+async function findNpmPackageName(query: string) {
 	const response = await fetch(`https://registry.npmjs.org/-/v1/search?text=${query}`);
 	const packages = await response.json();
-	const pkg = packages.objects.find((p) => p.package.name === query);
+	const pkg = packages.objects.find((p: { package: { name: string } }) => p.package.name === query);
 
 	return pkg?.package?.name;
 }
 
-async function getNpmDistTags(packageName) {
+async function getNpmDistTags(packageName: string) {
 	// searching for a non-existent package via https://registry.npmjs.org/<packageName> will throw a cors error
 	// so instead, we search for repo using api /search endpoint, compare desired package name
 	// against the returned results array. If one exactly matches, that package exists.
@@ -50,12 +50,25 @@ async function getNpmDistTags(packageName) {
 	return packageResponseData['dist-tags'];
 }
 
-function parsePackageType(pkg) {
+interface PackageInput {
+	url: string;
+}
+
+interface PackageMeta {
+	type: 'url' | 'github' | 'npm' | null;
+	user: string | null;
+	repo: string | null;
+	url: string | null;
+	package: string | null;
+	tag: string | null;
+}
+
+function parsePackageType(pkg: PackageInput | null): PackageMeta | null {
 	if (!pkg) {
 		return null;
 	}
 
-	const meta = {
+	const meta: PackageMeta = {
 		type: null,
 		user: null,
 		repo: null,
