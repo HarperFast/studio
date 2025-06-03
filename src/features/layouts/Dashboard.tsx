@@ -2,7 +2,6 @@ import { Outlet, Navigate } from '@tanstack/react-router';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 import { NavBar } from '@/components/Navbar';
 import Loading from '@/components/Loading';
-import { QueryCache, QueryClient } from '@tanstack/react-query';
 // import { useUserInfoMutation } from '@/hooks/instance/useUserInfo';
 // import { useEffect } from 'react';
 
