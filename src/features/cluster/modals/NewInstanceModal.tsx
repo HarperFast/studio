@@ -27,7 +27,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluster/hooks/useCreateNewInstance';
-import { renderInstanceTypeOption } from '@/shared/functions/InstanceType';
+import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 import { getInstanceTypeOptions } from '../queries/getInstanceTypeQuery';
 import { toast } from 'sonner';
 
@@ -71,27 +71,19 @@ function NewInstanceModal({ clusterId }: { clusterId: string }) {
 		resolver: zodResolver(NewInstanceSchema),
 		defaultValues: {
 			name: '',
-			instanceType: '',
+			instanceTypeId: '',
 			url: '',
 			storage: '',
 		},
 	});
 
-	const isValidUrl = (url: string) => {
-		try {
-			return Boolean(new URL(url));
-		} catch {
-			return false;
-		}
-	};
-
-	const parseUrlInput = (url: string) => {
-		if (isValidUrl(url)) {
-			const parsedUrl = new URL(url);
-			const { protocol, hostname, port } = parsedUrl;
-			return { protocol, hostname, port };
-		}
-	};
+	// const parseUrlInput = (url: string) => {
+	// 	if (isValidUrl(url)) {
+	// 		const parsedUrl = new URL(url);
+	// 		const { protocol, hostname, port } = parsedUrl;
+	// 		return { protocol, hostname, port };
+	// 	}
+	// };
 
 	// console.log('test url:', parseUrlInput('http://127.0.0.2:9925'));
 	const { mutate: submitNewInstanceData } = useCreateNewInstanceMutation();
@@ -165,7 +157,7 @@ function NewInstanceModal({ clusterId }: { clusterId: string }) {
 												<SelectGroup>
 													{instanceTypes?.map((type) => (
 														<SelectItem key={type.id} value={type.id}>
-															{renderInstanceTypeOption(type.id)}
+															{renderInstanceTypeOption(type.id as InstanceTypes)}
 														</SelectItem>
 													))}
 												</SelectGroup>

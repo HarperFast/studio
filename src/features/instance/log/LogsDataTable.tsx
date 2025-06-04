@@ -3,15 +3,20 @@
 import { ColumnDef, flexRender, getCoreRowModel, Row, useReactTable } from '@tanstack/react-table';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ReadLogItem } from '../operations/queries/getReadLog';
 
-interface DataTableProps<TData, TValue> {
-	columns: ColumnDef<TData, TValue>[];
+interface DataTableProps<TData extends ReadLogItem, TValue> {
+	columns: ColumnDef<ReadLogItem, TValue>[];
 	data: TData[];
 	onRowClick?: (row: Row<TData>) => void;
 	containerClassName?: string;
 }
 
-export function LogsDataTable<TData, TValue>({ columns, data, onRowClick }: DataTableProps<TData, TValue>) {
+export function LogsDataTable<TData extends ReadLogItem, TValue>({
+	columns,
+	data,
+	onRowClick,
+}: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
 		columns,
@@ -19,7 +24,7 @@ export function LogsDataTable<TData, TValue>({ columns, data, onRowClick }: Data
 	});
 
 	return (
-		<div className="bg-black-dark rounded-md logsTable">
+		<div className="rounded-md bg-black-dark logsTable">
 			<Table className="text-xs">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -41,7 +46,7 @@ export function LogsDataTable<TData, TValue>({ columns, data, onRowClick }: Data
 								key={row.id}
 								data-state={row.getIsSelected() && 'selected'}
 								className="hover:bg-muted/10 data-[state=selected]:bg-muted max-w-full"
-								onClick={() => onRowClick?.(row)}
+								onClick={() => onRowClick?.(row as Row<TData>)}
 							>
 								{row.getVisibleCells().map((cell) => (
 									<TableCell key={cell.id} className="p-1">

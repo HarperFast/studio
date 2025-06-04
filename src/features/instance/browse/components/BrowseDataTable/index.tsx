@@ -56,7 +56,7 @@ function BrowseDataTable<TData, TValue>({
 
 	return (
 		<div>
-			<div className="bg-black-dark rounded-md">
+			<div className="rounded-md bg-black-dark">
 				<Table>
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
@@ -82,7 +82,7 @@ function BrowseDataTable<TData, TValue>({
 							</TableRow>
 						))}
 					</TableHeader>
-					<TableBody className="bg-black  border-grey-700 border">
+					<TableBody className="bg-black border border-grey-700">
 						{table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => (
 								<TableRow
@@ -92,7 +92,7 @@ function BrowseDataTable<TData, TValue>({
 									className="hover:bg-muted/10 data-[state=selected]:bg-muted"
 								>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id} className="p-2 max-w-32 overflow-x-hidden text-ellipsis whitespace-nowrap">
+										<TableCell key={cell.id} className="p-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}
@@ -108,7 +108,7 @@ function BrowseDataTable<TData, TValue>({
 					</TableBody>
 				</Table>
 			</div>
-			<div className="flex items-center justify-end space-x-2 py-4">
+			<div className="flex items-center justify-end py-4 space-x-2">
 				<div className="flex items-center space-x-2">
 					<p className="text-sm font-medium">Rows per page</p>
 					<Select

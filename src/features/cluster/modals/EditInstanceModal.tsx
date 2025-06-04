@@ -19,10 +19,12 @@ function DeleteInstanceContent({
 	onInstanceDelete,
 	instanceId,
 	instanceName,
+	setIsDeleteContentDisplayed,
 }: {
 	onInstanceDelete: () => void;
 	instanceId: string;
 	instanceName: string;
+	setIsDeleteContentDisplayed: (value: boolean) => void;
 }) {
 	const { mutate: deleteInstance, isPending } = useDeleteInstance();
 
@@ -142,6 +144,7 @@ function EditInstanceModal({ instanceId, instanceName }: { instanceId: string; i
 						onInstanceDelete={onInstanceDelete}
 						instanceId={instanceId}
 						instanceName={instanceName}
+						setIsDeleteContentDisplayed={setIsDeleteContentDisplayed}
 					/>
 				) : (
 					<UpdateInstanceContent setIsDeleteContentDisplayed={setIsDeleteContentDisplayed} />

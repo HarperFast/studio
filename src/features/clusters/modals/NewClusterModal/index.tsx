@@ -30,7 +30,7 @@ import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTy
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
 import RegionFormInputs from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
-import { renderInstanceTypeOption } from '@/shared/functions/InstanceType';
+import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 
 // TODO: consolidate this with the storage size options in the NewInstanceModal
 const storageSizeOptions = [
@@ -108,7 +108,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<Button variant="positive" className="rounded-full w-full md:w-44">
+				<Button variant="positive" className="w-full rounded-full md:w-44">
 					<Plus /> New Cluster
 				</Button>
 			</DialogTrigger>
@@ -118,7 +118,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 					<DialogDescription>Create a new cluster here.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 md:grid-cols-6 gap-6 text-white">
+					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
 						<FormField
 							control={form.control}
 							name="clusterName"
@@ -160,7 +160,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 												<SelectGroup>
 													{instanceTypes?.map((type) => (
 														<SelectItem key={type.id} value={type.id}>
-															{renderInstanceTypeOption(type.id)}
+															{renderInstanceTypeOption(type.id as InstanceTypes)}
 														</SelectItem>
 													))}
 												</SelectGroup>
@@ -199,7 +199,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 								</FormItem>
 							)}
 						/>
-						<div className="md:col-span-6 bg-accent h-36 overflow-y-auto p-4 rounded-md">
+						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent h-36">
 							{fieldArray.fields.length > 0 ? (
 								fieldArray.fields.map((field, index) => (
 									<RegionFormInputs

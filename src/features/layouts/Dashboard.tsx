@@ -22,7 +22,7 @@ function Dashboard() {
 	}
 
 	if (isUserLoading) {
-		return <Loading className="fixed translate-1/2 z-50" />;
+		return <Loading className="fixed z-50 translate-1/2" />;
 	}
 
 	return (

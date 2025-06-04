@@ -1,30 +1,37 @@
 import { Button } from '@/components/ui/button';
-import { Import, Plus } from 'lucide-react';
+import { getRouteApi, Link } from '@tanstack/react-router';
+import { Edit, FolderPlus } from 'lucide-react';
 
-function Applications() {
+const route = getRouteApi('');
+
+function ApplicationsIndex() {
+	const { organizationId, clusterId, instanceId } = route.useParams();
+
 	return (
-		<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-			<section className='className="col-span-1 text-white md:col-span-4 lg:col-span-3'>
-				<div>
-					<p>You have no Harper applications yet.</p>
-					<p>See the documentation for more info on Harper Applications.</p>
-					<p>Click "+ app" above to create one!</p>
-				</div>
-			</section>
-			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
-				<div>
-					<h1 className="text-2xl font-bold">Applications</h1>
-					<p className="mt-2 text-gray-500">No applications found.</p>
-					<Button className="mt-4" variant="positiveOutline">
-						<Plus /> Create A New Application Using The Default Template
+		<div className="flex flex-col justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
+			<h1 className="text-2xl font-bold text-center text-white">Applications</h1>
+			<div className="flex flex-col items-center justify-center gap-8 md:flex-row">
+				<Link
+					to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications/editor`}
+					className="w-full max-w-80"
+				>
+					<Button className="w-full py-10 text-lg" variant="positiveOutline">
+						<Edit />
+						Edit Applications
 					</Button>
-					<Button className="mt-4" variant="positiveOutline">
-						<Import /> Import Or Deploy A Remote Application Package
+				</Link>
+				<Link
+					to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications/new`}
+					className="w-full max-w-80"
+				>
+					<Button className="w-full py-10 text-lg" variant="positiveOutline">
+						<FolderPlus />
+						Create/Import A New Application
 					</Button>
-				</div>
-			</section>
+				</Link>
+			</div>
 		</div>
 	);
 }
 
-export default Applications;
+export default ApplicationsIndex;

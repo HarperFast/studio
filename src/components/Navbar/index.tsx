@@ -8,11 +8,9 @@ import {
 	NavigationMenuItem,
 	NavigationMenuLink,
 	NavigationMenuList,
-	navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
-import { QueryCache } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { QueryCache, QueryClient } from '@tanstack/react-query';
 
 function MobileNav({ signOut }: { signOut: () => void }) {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -121,20 +119,22 @@ export function NavBar() {
 	const { mutate: signOut } = useSignOutMutation();
 	const navigate = useNavigate();
 	const queryCache = new QueryCache();
+	const queryClient = new QueryClient();
 	const handleSignOut = () => {
 		signOut(undefined, {
 			onSuccess: () => {
-				toast.success('Success', {
-					description: 'You have been signed out successfully.',
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
+				// toast.success('Success', {
+				// 	description: 'You have been signed out successfully.',
+				// 	action: {
+				// 		label: 'Dismiss',
+				// 		onClick: () => toast.dismiss(),
+				// 	},
+				// });
+				queryCache.clear();
+				queryClient.invalidateQueries();
 				navigate({ to: '/' });
 			},
 		});
-		queryCache.clear();
 	};
 	return (
 		<>

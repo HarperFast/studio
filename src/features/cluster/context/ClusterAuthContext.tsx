@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createContext, useState, PropsWithChildren, useCallback, useEffect } from 'react';
 
 type ClusterContextValue = {
-	isAuth: boolean;
+	isAuthenticated: boolean;
 	instances: Instance[];
 	clusterId: string | null;
 	isLoading: boolean;
@@ -73,14 +73,14 @@ const ClusterProvider = ({ children }: PropsWithChildren) => {
 	}, []);
 
 	const checkAuth = useCallback(async () => {
-		// check auth code here
+		// check auth with registration info. Check at a cluster level initially, if that's valid, check at an instance level
 		return false;
 	}, []);
 
 	const setCluster = useCallback((clusterId: string) => setClusterId(clusterId), []);
 
 	const contextValue = {
-		isAuth: currentCluster?.isAuthenticated ?? false,
+		isAuthenticated: currentCluster?.isAuthenticated ?? false,
 		isLoading,
 		loadCluster: setCluster,
 		instances: currentCluster?.instances ?? ([] as Instance[]),
