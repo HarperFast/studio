@@ -39,47 +39,47 @@ function directorySortComparator(a, b) {
 
 const isFolder = (entry) => Boolean(entry.entries);
 
-function ProjectIcon({ toggleClosed, isOpen }) {
-	return (
-		<i
-			onClick={toggleClosed}
-			onKeyDown={toggleClosed}
-			// className={cn(`project-icon fas fa-file-code`)}
-			tabIndex={0}
-			aria-expanded={isOpen}
-			aria-controls="folder"
-			aria-label={isOpen ? 'close project' : 'open project'}
-			role="button"
-		/>
-	);
-}
-function FolderIcon({ toggleClosed, isOpen }) {
-	return (
-		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
-		<i
-			onClick={toggleClosed}
-			onKeyDown={toggleClosed}
-			// className={cn(`folder-icon fas ${isOpen ? 'fa-folder-open' : 'fa-folder'}`)}
-			tabIndex={0}
-			aria-expanded={isOpen}
-			aria-controls="folder"
-			aria-label={isOpen ? 'close folder' : 'open folder'}
-			role="button"
-		/>
-	);
-}
+// function ProjectIcon({ toggleClosed, isOpen }) {
+// 	return (
+// 		<i
+// 			onClick={toggleClosed}
+// 			onKeyDown={toggleClosed}
+// 			// className={cn(`project-icon fas fa-file-code`)}
+// 			tabIndex={0}
+// 			aria-expanded={isOpen}
+// 			aria-controls="folder"
+// 			aria-label={isOpen ? 'close project' : 'open project'}
+// 			role="button"
+// 		/>
+// 	);
+// }
+// function FolderIcon({ toggleClosed, isOpen }) {
+// 	return (
+// 		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+// 		<i
+// 			onClick={toggleClosed}
+// 			onKeyDown={toggleClosed}
+// 			// className={cn(`folder-icon fas ${isOpen ? 'fa-folder-open' : 'fa-folder'}`)}
+// 			tabIndex={0}
+// 			aria-expanded={isOpen}
+// 			aria-controls="folder"
+// 			aria-label={isOpen ? 'close folder' : 'open folder'}
+// 			role="button"
+// 		/>
+// 	);
+// }
 
-function FiletypeIcon({ extension }) {
-	switch (extension) {
-		case 'js':
-			// return <i className={cn('file-icon filetype-js fab fa-js')} />;
-			return <i className={'file-icon filetype-js fab fa-js'} />;
-		case 'yaml':
-			return <i className={'file-icon filetype-yaml fas fa-cog'} />;
-		default:
-			return <i className={'file-icon filetype-unknown far fa-file-alt'} />;
-	}
-}
+// function FiletypeIcon({ extension }) {
+// 	switch (extension) {
+// 		case 'js':
+// 			// return <i className={cn('file-icon filetype-js fab fa-js')} />;
+// 			return <i className={'file-icon filetype-js fab fa-js'} />;
+// 		case 'yaml':
+// 			return <i className={'file-icon filetype-yaml fas fa-cog'} />;
+// 		default:
+// 			return <i className={'file-icon filetype-unknown far fa-file-alt'} />;
+// 	}
+// }
 
 function PackageIcon() {
 	return <i className={'package-icon fas fa-cube'} />;
@@ -181,7 +181,7 @@ function File({
 			// // })}
 			// onKeyDown={noOp}
 		>
-			<Icon className="filename-icon" />
+			{/* <Icon className="filename-icon" /> */}
 			<span className="filename-text">{directoryEntry.name}</span>
 		</button>
 	);
@@ -202,18 +202,18 @@ function Folder({
 	const [open, setOpen] = useState(true);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
-	const fileExtension = parseFileExtension(directoryEntry.name);
+	// const fileExtension = parseFileExtension(directoryEntry.name);
 
-	let Icon;
+	// let Icon;
 	// top-level dir === package
 	// FolderIcon/PackageIcon is func so we can give it open args now, but instantiate it later.
-	if (directoryEntry.path.split('/').length === 2) {
-		Icon = () => ProjectIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
-	} else if (directoryEntry.entries) {
-		Icon = () => FolderIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
-	} else {
-		Icon = () => FiletypeIcon({ extension: fileExtension });
-	}
+	// if (directoryEntry.path.split('/').length === 2) {
+	// 	Icon = () => ProjectIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
+	// } else if (directoryEntry.entries) {
+	// 	Icon = () => FolderIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
+	// } else {
+	// 	Icon = () => FiletypeIcon({ extension: fileExtension });
+	// }
 
 	return (
 		<>
@@ -237,7 +237,7 @@ function Folder({
 							/>
 						) : (
 							<File
-								Icon={Icon}
+								// Icon={Icon}
 								// selectedFile={selectedFile}
 								// selectedFolder={selectedFolder}
 								// selectedPackage={selectedPackage}
