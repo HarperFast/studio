@@ -21,12 +21,12 @@ function parsePackageType(pkg: { url: string }) {
 		tag: null,
 	};
 
-	if (pkg.url.match('://')) {
+	if (pkg.url.includes('://')) {
 		// it's a url
 		meta.url = pkg.url;
 		meta.type = 'url';
 	} else if (pkg.url.match('semver:')) {
-		// it's a github repo
+		// it's a GitHub repo
 		const [user, repo, semverTag] = pkg.url.split(/[/#]/);
 		meta.type = 'github';
 		meta.user = user;

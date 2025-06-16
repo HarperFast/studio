@@ -2,7 +2,7 @@ function isValidProjectName(name: string) {
 	return /^[a-zA-Z0-9-_]+$/.test(name);
 }
 
-async function getGithubRepo(url: URL) {
+async function getGitHubRepo(url: URL) {
 	if (url && url.pathname && url.hostname.includes('github.com')) {
 		const parts = url.pathname.split('/').filter(Boolean);
 
@@ -10,15 +10,14 @@ async function getGithubRepo(url: URL) {
 			const response = await fetch(`https://api.github.com/repos/${parts[0]}/${parts[1]}`);
 			const data = await response.json();
 
-			return response.status < 400 ? data.name : null;
-			// eslint-disable-next-line
+			return response.ok ? data.name : null;
 		} catch (e) {
 			return null;
 		}
 	}
 }
 
-async function getGithubTags(user: string, repo: string) {
+async function getGitHubTags(user: string, repo: string) {
 	const response = await fetch(`https://api.github.com/repos/${user}/${repo}/git/refs/tags`);
 
 	if (response.status < 400) {
@@ -77,13 +76,13 @@ function parsePackageType(pkg: PackageInput | null): PackageMeta | null {
 		tag: null,
 	};
 
-	if (pkg.url.match('://')) {
+	if (pkg.url.includes('://')) {
 		// it's a url
 		meta.url = pkg.url;
 		meta.type = 'url';
 	} else if (pkg.url.match('semver:')) {
 		// it's a github repo
-		const [user, repo, semverTag] = pkg.url.split(/[/#]/);
+		const [user, repo, semverTag] = pkg.url.split(/[\/#]/);
 		meta.type = 'github';
 		meta.user = user;
 		meta.repo = repo;
@@ -116,4 +115,4 @@ function parsePackageType(pkg: PackageInput | null): PackageMeta | null {
 	return meta;
 }
 
-export { isValidProjectName, getGithubRepo, getGithubTags, findNpmPackageName, getNpmDistTags, parsePackageType };
+export { isValidProjectName, getGitHubRepo, getGitHubTags, findNpmPackageName, getNpmDistTags, parsePackageType };
