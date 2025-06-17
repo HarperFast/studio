@@ -75,4 +75,4 @@ function getComponentsQueryOptions(instanceId: string) {
 }
 
 export { getComponentsQueryOptions };
-export type { GetComponentsResponse };
+export type { GetComponentsResponse, DirectoryEntry };

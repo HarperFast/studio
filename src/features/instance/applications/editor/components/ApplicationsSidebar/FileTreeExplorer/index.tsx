@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { GetComponentsResponse, DirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import { useState } from 'react';
+
 // import cn from 'classnames';
 
 // function NoProjects() {
@@ -190,25 +192,27 @@ function File({
 
 function Folder({
 	directoryEntry,
-	// userOnSelect,
-	// onFolderSelect,
-	// onDeployProject,
-	// onFileSelect,
-	// onPackageSelect,
-	// onFileRename,
-	// selectedFile,
-	// selectedFolder,
-	// selectedPackage,
+}: // userOnSelect,
+// onFolderSelect,
+// onDeployProject,
+// onFileSelect,
+// onPackageSelect,
+// onFileRename,
+// selectedFile,
+// selectedFolder,
+// selectedPackage,
+{
+	directoryEntry: DirectoryEntry;
 }) {
 	const [open, setOpen] = useState(true);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
-	// const fileExtension = parseFileExtension(directoryEntry.name);
+	const fileExtension = parseFileExtension(directoryEntry.name);
 
 	let Icon;
 	// top-level dir === package
 	// FolderIcon/PackageIcon is func so we can give it open args now, but instantiate it later.
-	if (directoryEntry.path.split('/').length === 2) {
+	if (directoryEntry.path && directoryEntry.path.split('/').length === 2) {
 		Icon = () => ProjectIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
 	} else if (directoryEntry.entries) {
 		Icon = () => FolderIcon({ isOpen: open, toggleClosed: () => setOpen(!open) });
@@ -287,15 +291,17 @@ function Folder({
 // A recursive directory tree representation
 function FileTreeExplorer({
 	files,
-	// userOnSelect,
-	// onFileSelect,
-	// onPackageSelect,
-	// onDeployProject,
-	// onFileRename,
-	// onFolderSelect,
-	// selectedFile,
-	// selectedFolder,
-	// selectedPackage,
+}: // userOnSelect,
+// onFileSelect,
+// onPackageSelect,
+// onDeployProject,
+// onFileRename,
+// onFolderSelect,
+// selectedFile,
+// selectedFolder,
+// selectedPackage,
+{
+	files: GetComponentsResponse;
 }) {
 	return (
 		<div className="file-browser-scroll-container">
