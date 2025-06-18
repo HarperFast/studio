@@ -14,7 +14,7 @@ function InfoForm() {
 					<FormItem className="">
 						<FormLabel className="pb-1">Cluster Name</FormLabel>
 						<FormControl>
-							<Input type="text" placeholder="User Cluster" maxLength={25} {...field} className="max-w-64" />
+							<Input type="text" placeholder="User Cluster" maxLength={255} {...field} className="max-w-64" />
 						</FormControl>
 						<FormMessage />
 					</FormItem>
@@ -27,7 +27,7 @@ function InfoForm() {
 					<FormItem className="">
 						<FormLabel className="pb-1">Abbreviated Name</FormLabel>
 						<FormControl>
-							<Input type="text" placeholder="ex. cluster-1" maxLength={10} {...field} className="max-w-64" />
+							<Input type="text" placeholder="ex. cluster-1" maxLength={20} {...field} className="max-w-64" />
 						</FormControl>
 						<FormMessage />
 					</FormItem>

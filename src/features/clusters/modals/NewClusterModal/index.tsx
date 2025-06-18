@@ -51,8 +51,11 @@ const storageSizeOptions = [
 ];
 
 const NewClusterSchema = z.object({
-	clusterName: z.string().min(4, 'Must be at least 4 characters long.').max(25, 'Must be at most 25 characters long.'),
-	abbreviatedName: z.string().min(4, 'Must be at least 4 characters long.').max(10, 'Must be at most 10 characters long.'),
+	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
+	abbreviatedName: z.string()
+		.min(1, 'Must be at least 1 character long.')
+		.max(20, 'Must be at most 20 characters long.')
+		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
 	instanceTypes: z.string({
 		required_error: 'Please select an instance type.',
 	}),
@@ -126,7 +129,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 								<FormItem className="md:col-span-3">
 									<FormLabel className="pb-1">Cluster Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="User Cluster" maxLength={25} {...field} className="" />
+										<Input type="text" placeholder="User Cluster" maxLength={255} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -139,7 +142,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 								<FormItem className="md:col-span-3">
 									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. cluster-1" maxLength={10} {...field} className="" />
+										<Input type="text" placeholder="ex. cluster-1" maxLength={20} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
