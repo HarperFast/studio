@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 export type NewClusterInfo = {
 	clusterName: string;
 	organizationId: string;
-	clusterTag: string;
+	abbreviatedName: string;
 };
 
 type NewClusterInfoResponse = {
@@ -17,11 +17,11 @@ type NewClusterInfoResponse = {
 export const onNewClusterSubmit = async ({
 	clusterName,
 	organizationId,
-	clusterTag,
+	abbreviatedName,
 }: NewClusterInfo): Promise<NewClusterInfoResponse> => {
 	const { data } = await apiClient.post('/Cluster', {
 		name: clusterName,
-		tag: clusterTag,
+		abbreviatedName,
 		organizationId,
 	});
 	if (data) {
