@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { FormEvent } from 'react';
-import { getGithubRepo } from './functions/getGithubRepo';
+import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
 import isValidTarballUrl from './functions/isValidTarballUrl';
 
 const ImportProjectSchema = z.object({
@@ -51,7 +51,7 @@ function ImportProjectForm() {
 	};
 	const handleFetchApplication = async (url: string) => {
 		if (url.includes('github.com')) {
-			const response = await getGithubRepo(new URL(url));
+			const response = await getGitHubRepo(new URL(url));
 			if (response) {
 				form.setValue('newApplicationName', response);
 				toast.success(`Application "${response}" found successfully`);

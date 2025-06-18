@@ -13,8 +13,11 @@ function DesktopInstanceNavBar() {
 				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`}>
 					<List className="inline-block" /> Browse
 				</Link>
-				<Link to={'#about'}>
-					<User className="inline-block" /> Users & Roles
+				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/users`}>
+					<User className="inline-block" /> Users
+				</Link>
+				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/roles`}>
+					<User className="inline-block" /> Roles
 				</Link>
 				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}>
 					<Package className="inline-block" /> Applications

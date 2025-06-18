@@ -27,7 +27,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluster/hooks/useCreateNewInstance';
-import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
+import { type InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 import { getInstanceTypeOptions } from '../queries/getInstanceTypeQuery';
 import { toast } from 'sonner';
 

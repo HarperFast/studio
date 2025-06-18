@@ -24,7 +24,7 @@ const route = getRouteApi('');
 type ColumnTypes = {
 	id: string;
 	name: string;
-	fqdns: string[];
+	instanceFqdn: string;
 	instanceTypeId: string;
 	status: string;
 	version: string;
@@ -58,14 +58,13 @@ function ClusterIndex() {
 				header: 'Name', // Column header
 			},
 			{
-				accessorKey: 'fqdns',
+				accessorKey: 'instanceFqdn',
 				header: 'Instance Url',
 				cell: (cell) => {
-					const dnsURLs: string[] = cell.getValue() as string[];
+					const instanceURL = cell.getValue() as string;
 					if (!['CLONE_READY', 'RUNNING', 'UPDATED'].includes(cell.row.original.status)) {
 						return <p>N/A</p>;
 					}
-					const instanceURL = dnsURLs[0];
 					// isLoggedIn is being used inside the JSX below
 					return (
 						<>

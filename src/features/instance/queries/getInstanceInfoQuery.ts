@@ -25,7 +25,7 @@ type Instance = {
 	instanceTypeId: string;
 	hostId: string;
 	createdByUserId: string;
-	fqdns: string[];
+	instanceFqdn: string;
 	replicationHosts: string[];
 	clusterId: string;
 	name: string;
