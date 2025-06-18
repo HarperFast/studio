@@ -66,7 +66,7 @@ const verifyEmailRoute = createRoute({
 	component: VerifyEmail,
 });
 
-const resetpasswordRoute = createRoute({
+const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'resetpassword',
 	component: ResetPassword,
@@ -203,7 +203,7 @@ const instanceApplicationsEditorRoute = createRoute({
 });
 
 export const cloudRouteTree = rootRoute.addChildren([
-	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetpasswordRoute]),
+	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetPasswordRoute]),
 	dashboardLayout.addChildren([
 		profileRoute,
 		orgsLayoutRoute.addChildren([
