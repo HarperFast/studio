@@ -40,7 +40,7 @@ export const onNewInstanceSubmit = async ({
 		instanceTypeId,
 		clusterId,
 		storage,
-		fqdns: url,
+		instanceFqdn: url,
 		hostId: 'hos-zyknwmtjs3obunoy',
 		gtmFqdn: 'gtmFqdn',
 		operationsApiPort,

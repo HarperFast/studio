@@ -15,7 +15,7 @@ function InstanceLayout() {
 	}
 	// Set the base URL for the instance client to the first FQDN of the instance
 	// This allows all subsequent API calls to use the correct base URL for the instance
-	instanceClient.defaults.baseURL = instanceInfo.fqdns[0];
+	instanceClient.defaults.baseURL = instanceInfo.instanceFqdn;
 	return (
 		<>
 			<nav className="sticky z-40 px-4 top-20 md:px-12 bg-grey-700">
