@@ -15,12 +15,14 @@ type SignInResponse = {
 };
 
 export const onLoginSubmit = async ({ email, password }: SignInCredentials): Promise<SignInResponse> => {
-	const { data } = await apiClient.post('/Login', {
+	// TODO: The OpenAPI request body for this endpoint isn't defined.
+	const { data } = await apiClient.post('/Login/', {
 		email,
 		password,
 	});
 	if (data) {
-		return data as SignInResponse;
+		// TODO: The OpenAPI response for this endpoint isn't defined.
+		return data as never as SignInResponse;
 	} else {
 		throw new Error('Something went wrong');
 	}

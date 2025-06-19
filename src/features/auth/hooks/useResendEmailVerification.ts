@@ -13,10 +13,12 @@ type ResendVerificationEmailResponse = {
 const onResendEmailVerificationSubmit = async ({
 	email,
 }: ResendEmailVerificationRequest): Promise<ResendVerificationEmailResponse> => {
-	const { data } = await apiClient.post('/ResendVerificationEmail', {
+	// TODO: The OpenAPI request body for this endpoint isn't very descriptive.
+	const { data } = await apiClient.post<ResendEmailVerificationRequest>('/ResendVerificationEmail/', {
 		email,
 	});
-	return data as ResendVerificationEmailResponse;
+	// TODO: The OpenAPI response for this endpoint isn't very descriptive.
+	return data as never as ResendVerificationEmailResponse;
 };
 
 export function useResendEmailVerification() {

@@ -7,7 +7,8 @@ type DeleteInstanceResponse = {
 };
 
 const onDeleteInstanceSubmit = async (instanceId: string): Promise<DeleteInstanceResponse> => {
-	const { data } = await apiClient.delete(`/HDBInstance/${instanceId}`);
+	// TODO: The OpenAPI response types aren't very descriptive.
+	const { data } = await apiClient.delete(`/HDBInstance/${instanceId}` as '/HDBInstance/{id}');
 	if (data) {
 		return data as DeleteInstanceResponse;
 	} else {

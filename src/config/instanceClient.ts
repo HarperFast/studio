@@ -7,4 +7,5 @@ const instanceClient = axios.create({
 		'Content-Type': 'application/json',
 	},
 });
+// TODO: }) as TypedAxios?
 export default instanceClient;

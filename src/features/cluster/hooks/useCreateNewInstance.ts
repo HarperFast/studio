@@ -35,7 +35,7 @@ export const onNewInstanceSubmit = async ({
 	operationsApiPort,
 	operationsApiSecure,
 }: NewInstanceInfo): Promise<NewInstanceInfoResponse> => {
-	const { data } = await apiClient.post('/HDBInstance', {
+	const { data } = await apiClient.post('/HDBInstance/', {
 		name,
 		instanceTypeId,
 		clusterId,
@@ -47,7 +47,8 @@ export const onNewInstanceSubmit = async ({
 		operationsApiSecure,
 	});
 	if (data) {
-		return data as NewInstanceInfoResponse;
+		// TODO: We need to work through the disagreements between the SchemaHdbInstance type and our local type here.
+		return data as never as NewInstanceInfoResponse;
 	} else {
 		throw new Error('Something went wrong');
 	}

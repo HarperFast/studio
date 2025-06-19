@@ -15,7 +15,8 @@ type SignInResponse = {
 };
 
 export const onUserInfoSubmit = async (): Promise<SignInResponse> => {
-	const { data } = await apiClient.post('/', {
+	// TODO: The OpenAPI specs don't describe this endpoint.
+	const { data } = await apiClient.post('/' as never, {
 		operation: 'user_info',
 	});
 	if (data) {
