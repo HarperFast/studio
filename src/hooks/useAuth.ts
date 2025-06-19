@@ -27,7 +27,7 @@
 // 	// const {data: user, isLoading: isUserLoading} = useQuery<User | null>({
 // 	// 	queryKey: ['user'],
 // 	// 	queryFn: async () => {
-// 	// 		const response = await apiClient.get('/User/current');
+// 	// 		const response = await apiClient.get('/User/current' as '/User/{id}');
 // 	// 		if (response.status == 200 && response.data) {
 // 	// 			return response.data as User;
 // 	// 		}
@@ -38,7 +38,8 @@
 
 // 	const login = useMutation({
 // 		mutationFn: async ({ email, password }: SignInCredentials) => {
-// 			const { status, data } = await apiClient.post('/Login', {
+//      // TODO: The OpenAPI types for /Login/ aren't very comprehensive.
+// 			const { status, data } = await apiClient.post('/Login/', {
 // 				email,
 // 				password,
 // 			});
@@ -56,7 +57,8 @@
 // 	const logout = useQuery<User | null>({
 // 		queryKey: [queryKeys.user],
 // 		queryFn: async () => {
-// 			const response = await apiClient.get('/Logout');
+//      // TODO: Pretty sure this is a POST, not a GET...
+// 			const response = await apiClient.post('/Logout/');
 // 			if (response.status == 200 && response.data) {
 // 				queryClient.setQueryData(['user'], null);
 // 				queryCache.clear();

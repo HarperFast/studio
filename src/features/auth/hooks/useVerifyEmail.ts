@@ -12,7 +12,9 @@ type VerifyEmailResponse = {
 };
 
 const onVerifyEmailTokenSubmit = async (token: VerifyEmailToken): Promise<VerifyEmailResponse> => {
-	const { data } = await apiClient.put('/VerifyEmail', {
+	// TODO: The OpenAPI types don't describe a top level /VerifyEmail/
+	// TODO: The OpenAPI types don't describe the request body, either; Record<string, never>
+	const { data } = await apiClient.put<VerifyEmailToken>('/VerifyEmail' as '/VerifyEmail/{id}', {
 		token: token.toString(),
 	});
 	return data as VerifyEmailResponse;

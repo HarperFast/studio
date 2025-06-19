@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { TypedAxios } from './typed-axios';
 
 const apiClient = axios.create({
 	withCredentials: true,
@@ -7,5 +8,6 @@ const apiClient = axios.create({
 	headers: {
 		'Content-Type': 'application/json',
 	},
-});
+}) as TypedAxios;
+
 export default apiClient;

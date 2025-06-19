@@ -19,13 +19,14 @@ export const onNewClusterSubmit = async ({
 	organizationId,
 	abbreviatedName,
 }: NewClusterInfo): Promise<NewClusterInfoResponse> => {
-	const { data } = await apiClient.post('/Cluster', {
+	// TODO: Work through any disagreements between the SchemaCluster and our local types here.
+	const { data } = await apiClient.post('/Cluster/', {
 		name: clusterName,
 		abbreviatedName,
 		organizationId,
 	});
 	if (data) {
-		return data as NewClusterInfoResponse;
+		return data as never as NewClusterInfoResponse;
 	} else {
 		throw new Error('Something went wrong');
 	}

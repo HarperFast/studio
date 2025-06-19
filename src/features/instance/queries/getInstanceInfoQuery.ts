@@ -36,7 +36,8 @@ type Instance = {
 };
 
 const getInstanceInfo = async (instanceId: string) => {
-	const { data } = await apiClient.get(`/HDBInstance/${instanceId}`);
+	// TODO: Work through any disagreements between the SchemaInstanceType and our local types here.
+	const { data } = await apiClient.get(`/HDBInstance/${instanceId}` as '/HDBInstance/{id}');
 	return data as Instance;
 };
 

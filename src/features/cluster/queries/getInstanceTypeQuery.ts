@@ -16,6 +16,7 @@ type InstanceType = {
 };
 
 const getInstanceTypes = async () => {
+	// TODO: Work through any disagreements between the SchemaInstanceType and our local types here.
 	const { data } = await apiClient.get(`/InstanceType/`);
 	return data as InstanceTypes;
 };

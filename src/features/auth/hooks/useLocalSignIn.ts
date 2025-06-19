@@ -15,7 +15,8 @@ export const onInstanceLoginSubmit = async ({
 	username,
 	password,
 }: InstanceLoginCredentials): Promise<RegistrationInfoResponse> => {
-	const { data } = await apiClient.post('/', {
+	// TODO: The OpenAPI specs don't describe this route.
+	const { data } = await apiClient.post('/' as never, {
 		operation: 'login',
 		username,
 		password,

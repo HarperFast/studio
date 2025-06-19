@@ -11,11 +11,12 @@ type ForgotPasswordResponse = {
 };
 
 export const onResetPasswordSubmit = async ({ email }: ForgotPasswordCredential): Promise<ForgotPasswordResponse> => {
-	const { data } = await apiClient.post('/ForgotPassword', {
+	const { data } = await apiClient.post('/ForgotPassword/', {
 		email,
 	});
 	if (data) {
-		return data as ForgotPasswordResponse;
+		// TODO: The OpenAPI description isn't accurate.
+		return data as never as ForgotPasswordResponse;
 	} else {
 		throw new Error('Something went wrong');
 	}

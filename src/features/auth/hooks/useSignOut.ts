@@ -4,7 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 // TODO: Consolidate with useOnSignUpSubmitMutation
 
 export const onSignOutSubmit = async () => {
-	const { status } = await apiClient.post('/Logout');
+	// TODO: OpenAPI only describes a 200, not a 204.
+	const { status } = await apiClient.post('/Logout/');
 	if (status === 204) {
 		return;
 	}
