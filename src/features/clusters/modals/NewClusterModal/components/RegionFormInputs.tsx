@@ -16,7 +16,7 @@ import { Control } from 'react-hook-form';
 type RegionFormInputsProps = {
 	control: Control<{
 		clusterName: string;
-		clusterTag: string;
+		abbreviatedName: string;
 		instanceTypes: string;
 		storage: string;
 		regions?: { region: string; count: number; cloudProvider: string }[] | undefined;

@@ -51,8 +51,11 @@ const storageSizeOptions = [
 ];
 
 const NewClusterSchema = z.object({
-	clusterName: z.string().min(4, 'Must be at least 4 characters long.').max(25, 'Must be at most 25 characters long.'),
-	clusterTag: z.string().min(4, 'Must be at least 4 characters long.').max(10, 'Must be at most 10 characters long.'),
+	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
+	abbreviatedName: z.string()
+		.min(1, 'Must be at least 1 character long.')
+		.max(20, 'Must be at most 20 characters long.')
+		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
 	instanceTypes: z.string({
 		required_error: 'Please select an instance type.',
 	}),
@@ -77,7 +80,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 		resolver: zodResolver(NewClusterSchema),
 		defaultValues: {
 			clusterName: '',
-			clusterTag: '',
+			abbreviatedName: '',
 			regions: [], // Initialize regions as an empty array
 		},
 	});
@@ -92,7 +95,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 
 	const selectedRegions = form.watch('regions');
 
-	const submitForm = async (formData: { clusterName: string; clusterTag: string }) => {
+	const submitForm = async (formData: { clusterName: string; abbreviatedName: string }) => {
 		const updatedFormData = {
 			organizationId: orgId,
 			...formData,
@@ -126,7 +129,7 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 								<FormItem className="md:col-span-3">
 									<FormLabel className="pb-1">Cluster Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="User Cluster" {...field} className="" />
+										<Input type="text" placeholder="User Cluster" maxLength={255} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -134,12 +137,12 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 						/>
 						<FormField
 							control={form.control}
-							name="clusterTag"
+							name="abbreviatedName"
 							render={({ field }) => (
 								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Cluster Tag</FormLabel>
+									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. user-cluster-1" {...field} className="" />
+										<Input type="text" placeholder="ex. cluster-1" maxLength={20} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
