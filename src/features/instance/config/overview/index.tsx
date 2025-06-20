@@ -1,15 +1,18 @@
+import { useState } from 'react';
 import { useParams } from '@tanstack/react-router';
+import { toast } from 'sonner';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo.ts';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration.ts';
 import Editor from '@monaco-editor/react';
 import { Button } from '@/components/ui/button.tsx';
 import { RemoveInstanceModal } from '../../modals/RemoveInstanceModal';
-import { useState } from 'react';
 import { TextLoadingSkeleton } from '@/components/text-loading-skeleton';
+import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
 
 export function ConfigOverviewIndex() {
 	const { instanceId } = useParams({ strict: false });
+	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
 	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
 
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
@@ -18,16 +21,50 @@ export function ConfigOverviewIndex() {
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
 		getConfigurationQueryOptions(instanceId)
 	);
+
+	const submitInstanceRemoval = async () => {
+		if (!instanceId) {
+			return;
+		}
+		await deleteInstance(instanceId, {
+			onSuccess: () => {
+				toast.success('Success', {
+					description: `Instance successfully removed.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+				setTimeout(() => {
+					// Redirect to the cluster(instances) page or perform any other action
+				}, 3000);
+			},
+			onError: () => {
+				toast.error('Error', {
+					description: `Failed to remove instance.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+		});
+	};
+
 	return (
 		<>
 			<dl className="grid grid-cols-1 sm:grid-cols-3">
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance URL</dt>
-					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
+					<dd className="text-sm/6 sm:mt-2">
+						<TextLoadingSkeleton />
+					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Application URL</dt>
-					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
+					<dd className="text-sm/6 sm:mt-2">
+						<TextLoadingSkeleton />
+					</dd>
 				</div>
 				<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
 					<Button
@@ -43,23 +80,33 @@ export function ConfigOverviewIndex() {
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance Node Name (for clustering)</dt>
-					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
+					<dd className="text-sm/6 sm:mt-2">
+						<TextLoadingSkeleton />
+					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Created</dt>
-					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
+					<dd className="text-sm/6 sm:mt-2">
+						<TextLoadingSkeleton />
+					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Total Price</dt>
-					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton className="w-10" /></dd>
+					<dd className="text-sm/6 sm:mt-2">
+						<TextLoadingSkeleton className="w-10" />
+					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Harper Version</dt>
-					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.version}</dd>
+					<dd className="text-sm/6 sm:mt-2">
+						{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.version}
+					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">RAM</dt>
-					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.ram_allocation} MB</dd>
+					<dd className="text-sm/6 sm:mt-2">
+						{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.ram_allocation} MB
+					</dd>
 				</div>
 			</dl>
 			<div>
@@ -80,7 +127,12 @@ export function ConfigOverviewIndex() {
 					</>
 				)}
 			</div>
-			<RemoveInstanceModal isModalOpen={isRemoveInstanceModalOpen} setIsModalOpen={setIsRemoveInstanceModalOpen} />
+			<RemoveInstanceModal
+				isModalOpen={isRemoveInstanceModalOpen}
+				setIsModalOpen={setIsRemoveInstanceModalOpen}
+				submitInstanceRemoval={submitInstanceRemoval}
+				isPending={isDeleteInstancePending}
+			/>
 		</>
 	);
 }

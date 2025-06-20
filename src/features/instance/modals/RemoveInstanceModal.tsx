@@ -12,9 +12,13 @@ import { Ban, Trash, TriangleAlert } from 'lucide-react';
 export function RemoveInstanceModal({
 	isModalOpen = false,
 	setIsModalOpen,
+	submitInstanceRemoval,
+	isPending,
 }: {
 	isModalOpen?: boolean;
 	setIsModalOpen: (value: boolean) => void;
+	submitInstanceRemoval: () => void;
+	isPending?: boolean;
 }) {
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -59,7 +63,14 @@ export function RemoveInstanceModal({
 						<Button variant="submit" className="rounded-full" onClick={() => setIsModalOpen(false)}>
 							<Ban /> Cancel
 						</Button>
-						<Button variant="destructive" className="rounded-full">
+						<Button
+							variant="destructive"
+							className="rounded-full"
+							disabled={isPending}
+							onClick={() => {
+								submitInstanceRemoval();
+							}}
+						>
 							<Trash /> Remove
 						</Button>
 					</div>
