@@ -3,10 +3,10 @@ import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration.ts';
 import Editor from '@monaco-editor/react';
-import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button.tsx';
 import { RemoveInstanceModal } from '../../modals/RemoveInstanceModal';
 import { useState } from 'react';
+import { TextLoadingSkeleton } from '@/components/text-loading-skeleton';
 
 export function ConfigOverviewIndex() {
 	const { instanceId } = useParams({ strict: false });
@@ -23,11 +23,11 @@ export function ConfigOverviewIndex() {
 			<dl className="grid grid-cols-1 sm:grid-cols-3">
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance URL</dt>
-					<dd className="text-sm/6 sm:mt-2">http://localhost:9925</dd>
+					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Application URL</dt>
-					<dd className="text-sm/6 sm:mt-2">http://localhost:9926</dd>
+					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
 				</div>
 				<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
 					<Button
@@ -43,23 +43,23 @@ export function ConfigOverviewIndex() {
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance Node Name (for clustering)</dt>
-					<dd className="text-sm/6 sm:mt-2">clustering not enabled</dd>
+					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Created</dt>
-					<dd className="text-sm/6 sm:mt-2">N/A</dd>
+					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton /></dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Total Price</dt>
-					<dd className="text-sm/6 sm:mt-2">FREE</dd>
+					<dd className="text-sm/6 sm:mt-2"><TextLoadingSkeleton className="w-10" /></dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Harper Version</dt>
-					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? '...' : registrationInfo.version}</dd>
+					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.version}</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">RAM</dt>
-					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? '...' : registrationInfo.ram_allocation} MB</dd>
+					<dd className="text-sm/6 sm:mt-2">{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.ram_allocation} MB</dd>
 				</div>
 			</dl>
 			<div>
@@ -73,7 +73,11 @@ export function ConfigOverviewIndex() {
 						value={JSON.stringify(configurationInfo, null, 4)}
 					/>
 				) : (
-					<Loading />
+					<>
+						<TextLoadingSkeleton className="w-full" />
+						<TextLoadingSkeleton className="w-full" />
+						<TextLoadingSkeleton className="w-1/2" />
+					</>
 				)}
 			</div>
 			<RemoveInstanceModal isModalOpen={isRemoveInstanceModalOpen} setIsModalOpen={setIsRemoveInstanceModalOpen} />
