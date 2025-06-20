@@ -1,5 +1,5 @@
 import { BadgeStatus } from '@/components/ui/utils/badgeStatus';
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Save, Settings, Trash } from 'lucide-react';
 import { useState } from 'react';
 
-function BrowseSettingsModal() {
+export function BrowseSettingsModal() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -35,4 +35,3 @@ function BrowseSettingsModal() {
 		</Dialog>
 	);
 }
-export default BrowseSettingsModal;

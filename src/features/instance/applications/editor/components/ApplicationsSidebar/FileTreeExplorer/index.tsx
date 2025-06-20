@@ -289,7 +289,7 @@ function Folder({
 }
 
 // A recursive directory tree representation
-function FileTreeExplorer({
+export function FileTreeExplorer({
 	files,
 }: // userOnSelect,
 // onFileSelect,
@@ -324,5 +324,3 @@ function FileTreeExplorer({
 		</div>
 	);
 }
-
-export default FileTreeExplorer;

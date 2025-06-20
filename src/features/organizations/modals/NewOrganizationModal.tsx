@@ -39,7 +39,7 @@ const NewOrganizationSchema = z.object({
 		}),
 });
 
-function NewOrganizationModal() {
+export function NewOrganizationModal() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(NewOrganizationSchema),
@@ -112,5 +112,3 @@ function NewOrganizationModal() {
 		</Dialog>
 	);
 }
-
-export default NewOrganizationModal;

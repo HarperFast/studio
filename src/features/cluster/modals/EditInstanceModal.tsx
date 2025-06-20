@@ -112,7 +112,7 @@ function UpdateInstanceContent({
 	);
 }
 
-function EditInstanceModal({ instanceId, instanceName }: { instanceId: string; instanceName: string }) {
+export function EditInstanceModal({ instanceId, instanceName }: { instanceId: string; instanceName: string }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isDeleteContentDisplayed, setIsDeleteContentDisplayed] = useState(false);
 
@@ -153,5 +153,3 @@ function EditInstanceModal({ instanceId, instanceName }: { instanceId: string; i
 		</Dialog>
 	);
 }
-
-export default EditInstanceModal;

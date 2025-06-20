@@ -12,8 +12,8 @@ import {
 import { toast } from 'sonner';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { FormEvent } from 'react';
-import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
-import isValidTarballUrl from './functions/isValidTarballUrl';
+import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGithubRepo';
+import { isValidTarballUrl } from './functions/isValidTarballUrl';
 
 const ImportProjectSchema = z.object({
 	newApplicationName: z
@@ -26,7 +26,7 @@ const ImportProjectSchema = z.object({
 
 const route = getRouteApi('');
 
-function ImportProjectForm() {
+export function ImportProjectForm() {
 	const navigate = useNavigate();
 	const { organizationId, clusterId, instanceId } = route.useParams();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
@@ -124,4 +124,3 @@ function ImportProjectForm() {
 		</div>
 	);
 }
-export default ImportProjectForm;

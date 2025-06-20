@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 
-const NotFoundComponent = () => {
+export function NotFoundComponent() {
 	const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 	return (
 		<div className="flex items-center justify-center h-screen px-3">
@@ -34,6 +34,4 @@ const NotFoundComponent = () => {
 			</Card>
 		</div>
 	);
-};
-
-export default NotFoundComponent;
+}

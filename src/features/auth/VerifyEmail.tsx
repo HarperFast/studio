@@ -75,7 +75,7 @@ function SendEmailVerification() {
 	);
 }
 
-function VerifyEmail() {
+export function VerifyEmail() {
 	const { token } = useSearch({ strict: false });
 	const navigate = useNavigate();
 
@@ -114,4 +114,4 @@ function VerifyEmail() {
 	);
 }
 
-export default VerifyEmail;
+

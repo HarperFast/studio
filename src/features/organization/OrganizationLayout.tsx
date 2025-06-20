@@ -1,7 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 
-function OrganizationLayout() {
+export function OrganizationLayout() {
 	return <Outlet />;
 }
 
-export default OrganizationLayout;
+

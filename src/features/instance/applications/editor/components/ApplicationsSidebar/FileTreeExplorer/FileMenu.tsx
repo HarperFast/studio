@@ -51,7 +51,7 @@ export function DeleteFileButton({ onClick, disabled, text = '', extraClasses = 
 	);
 }
 
-function FileMenu({ children }: { children: React.ReactNode[] }) {
+export function FileMenu({ children }: { children: React.ReactNode[] }) {
 	return (
 		<ul className="file-menu text-nowrap">
 			{children.map(
@@ -65,5 +65,3 @@ function FileMenu({ children }: { children: React.ReactNode[] }) {
 		</ul>
 	);
 }
-
-export default FileMenu;

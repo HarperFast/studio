@@ -30,7 +30,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	setPagination: Dispatch<SetStateAction<PaginationState>>;
 }
 
-function BrowseDataTable<TData, TValue>({
+export function BrowseDataTable<TData, TValue>({
 	columns,
 	data,
 	totalPages,
@@ -150,5 +150,3 @@ function BrowseDataTable<TData, TValue>({
 		</div>
 	);
 }
-
-export default BrowseDataTable;

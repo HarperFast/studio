@@ -2,7 +2,7 @@ import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input';
 import { useFormContext } from 'react-hook-form';
 
-function InfoForm() {
+export function InfoForm() {
 	const form = useFormContext();
 
 	return (
@@ -36,5 +36,3 @@ function InfoForm() {
 		</>
 	);
 }
-
-export default InfoForm;

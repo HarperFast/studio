@@ -1,11 +1,11 @@
-import Loading from '@/components/Loading';
+import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
 import { useState } from 'react';
 
-function EditTableRowModal({
+export function EditTableRowModal({
 	setIsModalOpen,
 	isModalOpen,
 	data,
@@ -78,5 +78,3 @@ function EditTableRowModal({
 		</Dialog>
 	);
 }
-
-export default EditTableRowModal;

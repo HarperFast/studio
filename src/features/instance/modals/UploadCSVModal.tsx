@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { FileSpreadsheet, UploadCloud } from 'lucide-react';
 import { useState } from 'react';
 
-function UploadCSVModal() {
+export function UploadCSVModal() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -28,4 +28,3 @@ function UploadCSVModal() {
 		</Dialog>
 	);
 }
-export default UploadCSVModal;

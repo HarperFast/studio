@@ -1,12 +1,14 @@
 import { Editor } from '@monaco-editor/react';
-import ApplicationsSidebar from '@/features/instance/applications/editor/components/ApplicationsSidebar';
+import {
+	ApplicationsSidebar,
+} from '@/features/instance/applications/editor/components/ApplicationsSidebar';
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
 import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
 const route = getRouteApi('');
 
-function EditApplications() {
+export function EditApplications() {
 	const { instanceId } = route.useParams();
 	const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
 
@@ -22,4 +24,4 @@ function EditApplications() {
 	);
 }
 
-export default EditApplications;
+

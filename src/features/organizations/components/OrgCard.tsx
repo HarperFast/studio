@@ -10,7 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-function OrgCard({
+export function OrgCard({
 	organizationId,
 	organizationName,
 	roleName,
@@ -56,5 +56,3 @@ function OrgCard({
 		</Card>
 	);
 }
-
-export default OrgCard;

@@ -12,7 +12,7 @@ type Structure = {
 	};
 };
 
-const buildInstanceDataStructure = (dbResponse: DescribeAllResponse): Structure => {
+export function buildInstanceDataStructure(dbResponse: DescribeAllResponse): Structure {
 	const structure: Structure = {};
 
 	if (!dbResponse.error) {
@@ -32,6 +32,4 @@ const buildInstanceDataStructure = (dbResponse: DescribeAllResponse): Structure 
 	}
 
 	return structure;
-};
-
-export default buildInstanceDataStructure;
+}

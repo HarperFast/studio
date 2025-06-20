@@ -22,7 +22,7 @@ const NewProjectSchema = z.object({
 
 const route = getRouteApi('');
 
-function CreateNewProjectFrom() {
+export function CreateNewProjectFrom() {
 	const navigate = useNavigate();
 	const { organizationId, clusterId, instanceId } = route.useParams();
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
@@ -68,4 +68,3 @@ function CreateNewProjectFrom() {
 		</div>
 	);
 }
-export default CreateNewProjectFrom;

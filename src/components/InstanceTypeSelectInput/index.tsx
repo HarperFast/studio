@@ -4,7 +4,7 @@
 // import { useQuery } from '@tanstack/react-query';
 // import { Controller } from 'react-hook-form';
 
-// function InstanceTypeSelectInput({ defaultValue, name, control, rules }) {
+// export function InstanceTypeSelectInput({ defaultValue, name, control, rules }) {
 // 	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
 // 	return (
 // 		<Controller
@@ -31,5 +31,3 @@
 // 		/>
 // 	);
 // }
-
-// export default InstanceTypeSelectInput;

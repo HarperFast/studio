@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
 // TODO: Consolidate with useOnSignUpSubmitMutation
@@ -26,7 +26,7 @@ type NewInstanceInfoResponse = {
 	tempPassword: string;
 };
 
-export const onNewInstanceSubmit = async ({
+export async function onNewInstanceSubmit({
 	name,
 	instanceTypeId,
 	url,
@@ -34,7 +34,7 @@ export const onNewInstanceSubmit = async ({
 	storage,
 	operationsApiPort,
 	operationsApiSecure,
-}: NewInstanceInfo): Promise<NewInstanceInfoResponse> => {
+}: NewInstanceInfo): Promise<NewInstanceInfoResponse> {
 	const { data } = await apiClient.post('/HDBInstance/', {
 		name,
 		instanceTypeId,
@@ -52,7 +52,7 @@ export const onNewInstanceSubmit = async ({
 	} else {
 		throw new Error('Something went wrong');
 	}
-};
+}
 
 export function useCreateNewInstanceMutation() {
 	return useMutation<NewInstanceInfoResponse, Error, NewInstanceInfo>({

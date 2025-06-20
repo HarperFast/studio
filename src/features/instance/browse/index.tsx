@@ -2,9 +2,11 @@ import { Suspense, useState } from 'react';
 import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
-import buildInstanceDataStructure from '@/features/instance/browse/functions/buildInstanceDataStructure';
-import Loading from '@/components/Loading';
-import BrowseSideBar from '@/features/instance/browse/components/BrowseSideBar';
+import {
+	buildInstanceDataStructure,
+} from '@/features/instance/browse/functions/buildInstanceDataStructure';
+import { Loading } from '@/components/Loading';
+import { BrowseSidebar as BrowseSideBar } from '@/features/instance/browse/components/BrowseSideBar';
 
 const route = getRouteApi('');
 
@@ -12,7 +14,7 @@ const getTableList = (structure: Record<string, unknown>, selectedDatabase: stri
 	return Object.keys(structure?.[selectedDatabase] || []);
 };
 
-function Browse() {
+export function Browse() {
 	const navigate = useNavigate();
 	const { organizationId, clusterId, instanceId, schemaName, tableName } = route.useParams();
 	const { data: describeAllQueryData } = useSuspenseQuery(getDescribeAllQueryOptions(instanceId));
@@ -75,5 +77,3 @@ function Browse() {
 		</main>
 	);
 }
-
-export default Browse;

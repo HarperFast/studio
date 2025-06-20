@@ -4,7 +4,7 @@ import { Edit, FolderPlus } from 'lucide-react';
 
 const route = getRouteApi('');
 
-function ApplicationsIndex() {
+export function ApplicationsIndex() {
 	const { organizationId, clusterId, instanceId } = route.useParams();
 
 	return (
@@ -34,4 +34,4 @@ function ApplicationsIndex() {
 	);
 }
 
-export default ApplicationsIndex;
+

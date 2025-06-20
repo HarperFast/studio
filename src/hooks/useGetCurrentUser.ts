@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { useQuery } from '@tanstack/react-query';
 import { SchemaOrganizationRole, SchemaUser } from '@/lib/api.gen';

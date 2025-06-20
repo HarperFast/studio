@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import instanceClient from '@/config/instanceClient';
+import { instanceClient } from '@/config/instanceClient';
 
 type DeleteTableRecordsData = {
 	databaseName: string;

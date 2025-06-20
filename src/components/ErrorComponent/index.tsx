@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft } from 'lucide-react';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 
-const ErrorComponent = ({ error }: { error: Error }) => {
+export function ErrorComponent({ error }: { error: Error }) {
 	const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 
 	return (
@@ -34,6 +34,4 @@ const ErrorComponent = ({ error }: { error: Error }) => {
 			</CardContent>
 		</Card>
 	);
-};
-
-export default ErrorComponent;
+}

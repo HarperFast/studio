@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import CreateNewTableModal from '@/features/instance/modals/CreateNewTableModal';
+import { CreateNewTableModal } from '@/features/instance/modals/CreateNewTableModal';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,7 +37,7 @@ const NewDatabaseSchema = z.object({
 		.regex(/^[a-zA-Z0-9_]+$/, { message: 'Database name can only contain letters, numbers, and underscores' }),
 });
 
-function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, tables, onSelectTable }: BrowseSidebarProps) {
+export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, tables, onSelectTable }: BrowseSidebarProps) {
 	const queryClient = useQueryClient();
 	const { organizationId, clusterId, instanceId, schemaName } = route.useParams();
 	const navigate = useNavigate();
@@ -226,5 +226,3 @@ function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, tables, 
 		</div>
 	);
 }
-
-export default BrowseSidebar;

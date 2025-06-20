@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import { SchemaUser } from '@/lib/api.gen';
 
@@ -16,7 +16,8 @@ type SignUpResponse = {
 	firstname: string;
 	lastname: string;
 };
-export const onSignUpSubmit = async (signUpCredentials: SignUpCredentials): Promise<SignUpResponse> => {
+
+export async function onSignUpSubmit(signUpCredentials: SignUpCredentials): Promise<SignUpResponse> {
 	// TODO: The types in our OpenAPI for this endpoint aren't defined.
 	const { data } = await apiClient.post<SignUpCredentials>('/User/', signUpCredentials);
 	if (data) {
@@ -24,7 +25,7 @@ export const onSignUpSubmit = async (signUpCredentials: SignUpCredentials): Prom
 	} else {
 		throw new Error('Something went wrong');
 	}
-};
+}
 
 export function useSignUpMutation() {
 	return useMutation<SignUpResponse, Error, SignUpCredentials>({

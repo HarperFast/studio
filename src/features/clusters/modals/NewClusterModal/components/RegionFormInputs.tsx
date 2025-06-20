@@ -27,7 +27,7 @@ type RegionFormInputsProps = {
 	selectedRegions: { region: string; count: number; cloudProvider: string }[] | undefined;
 };
 
-const RegionFormInputs = ({ control, index, remove, regionLocations, selectedRegions }: RegionFormInputsProps) => {
+export function RegionFormInputs({ control, index, remove, regionLocations, selectedRegions }: RegionFormInputsProps) {
 	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.region) ?? []);
 
 	return (
@@ -116,6 +116,4 @@ const RegionFormInputs = ({ control, index, remove, regionLocations, selectedReg
 			</Button>
 		</div>
 	);
-};
-
-export default RegionFormInputs;
+}

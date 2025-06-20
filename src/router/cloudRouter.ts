@@ -1,33 +1,33 @@
 import { createRootRouteWithContext, createRoute } from '@tanstack/react-router';
 import { QueryClient } from '@tanstack/react-query';
-import StudioCloud from '@/StudioCloud';
-import Dashboard from '@/features/layouts/Dashboard';
-import ProfileIndex from '@/features/profile';
-import OrganizationsIndex from '@/features/organizations';
-import OrganizationIndex from '@/features/organization';
-import ClusterIndex from '@/features/cluster';
-import ClusterList from '@/features/clusters/ClustersList';
-import AuthLayout from '@/features/auth/AuthLayout';
-import SignIn from '@/features/auth/SignIn';
-import SignUp from '@/features/auth/SignUp';
-import ForgotPassword from '@/features/auth/ForgotPassword';
-import ClustersLayoutComponent from '@/features/clusters';
-import OrganizationsLayout from '@/features/organizations/OrganizationsLayout';
-import OrganizationLayout from '@/features/organization/OrganizationLayout';
-import ClusterLayout from '@/features/cluster/ClusterLayout';
-import VerifyEmail from '@/features/auth/VerifyEmail';
-import ResetPassword from '@/features/auth/ResetPassword';
-
+import { StudioCloud } from '@/StudioCloud';
+import { Dashboard } from '@/features/layouts/Dashboard';
+import { ProfileIndex } from '@/features/profile';
+import { OrganizationsIndex } from '@/features/organizations';
+import { OrganizationIndex } from '@/features/organization';
+import { ClusterIndex } from '@/features/cluster';
+import { ClustersList as ClusterList } from '@/features/clusters/ClustersList';
+import { AuthLayout } from '@/features/auth/AuthLayout';
+import { SignIn } from '@/features/auth/SignIn';
+import { SignUp } from '@/features/auth/SignUp';
+import { ForgotPassword } from '@/features/auth/ForgotPassword';
+import { ClustersLayoutComponent } from '@/features/clusters';
+import { OrganizationsLayout } from '@/features/organizations/OrganizationsLayout';
+import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
+import { ClusterLayout } from '@/features/cluster/ClusterLayout';
+import { VerifyEmail } from '@/features/auth/VerifyEmail';
+import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import InstanceLayout from '@/features/instance/InstanceLayout';
-import Browse from '@/features/instance/browse';
+import { InstanceLayout } from '@/features/instance/InstanceLayout';
+import { Browse } from '@/features/instance/browse';
 import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
-import BrowseDataTableView from '@/features/instance/browse/BrowseDataTableView';
-import Logs from '@/features/instance/log';
-import ApplicationsIndex from '@/features/instance/applications';
-import NewApplications from '@/features/instance/applications/new';
-import EditApplications from '@/features/instance/applications/editor';
+import { BrowseDataTableView } from '@/features/instance/browse/BrowseDataTableView';
+import { Logs } from '@/features/instance/log';
+import { ApplicationsIndex } from '@/features/instance/applications';
+import { NewApplications } from '@/features/instance/applications/new';
+import { EditApplications } from '@/features/instance/applications/editor';
+import { ConfigIndex } from '@/features/instance/config';
 
 const rootRoute = createRootRouteWithContext<{
 	queryClient: QueryClient;
@@ -202,6 +202,12 @@ const instanceApplicationsEditorRoute = createRoute({
 	component: EditApplications,
 });
 
+const instanceConfigRoute = createRoute({
+	getParentRoute: () => instanceLayoutRoute,
+	path: 'config',
+	component: ConfigIndex,
+});
+
 export const cloudRouteTree = rootRoute.addChildren([
 	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetPasswordRoute]),
 	dashboardLayout.addChildren([
@@ -220,6 +226,7 @@ export const cloudRouteTree = rootRoute.addChildren([
 							instanceApplicationsIndexRoute,
 							instanceApplicationsNewRoute,
 							instanceApplicationsEditorRoute,
+							instanceConfigRoute,
 						]),
 					]),
 				]),

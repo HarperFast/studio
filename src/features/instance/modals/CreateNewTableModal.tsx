@@ -44,7 +44,7 @@ const CreateTableSchema = z.object({
 		}),
 });
 
-function CreateNewTableModal({ databaseName, instanceId }: { databaseName: string; instanceId: string }) {
+export function CreateNewTableModal({ databaseName, instanceId }: { databaseName: string; instanceId: string }) {
 	const queryClient = useQueryClient();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
@@ -126,5 +126,3 @@ function CreateNewTableModal({ databaseName, instanceId }: { databaseName: strin
 		</Dialog>
 	);
 }
-
-export default CreateNewTableModal;

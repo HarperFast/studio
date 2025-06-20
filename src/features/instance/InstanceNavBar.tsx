@@ -22,8 +22,8 @@ function DesktopInstanceNavBar() {
 				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}>
 					<Package className="inline-block" /> Applications
 				</Link>
-				<Link to={'#contact'}>
-					<ChartBarBig className="inline-block" /> Status & Config
+				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/config`}>
+					<ChartBarBig className="inline-block" /> Config
 				</Link>
 				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/logs`}>
 					<NotepadText className="inline-block" /> Logs
@@ -69,7 +69,7 @@ function MobileInstanceNavBar() {
 	);
 }
 
-function InstanceNavBar() {
+export function InstanceNavBar() {
 	return (
 		<>
 			<MobileInstanceNavBar />
@@ -77,5 +77,3 @@ function InstanceNavBar() {
 		</>
 	);
 }
-
-export default InstanceNavBar;
