@@ -219,6 +219,6 @@
   }
   body {
     /* @apply font-ubuntu bg-linear-(--purple-dark-to-light-gradient) dark:bg-linear-(--black-dark-gradient) text-foreground bg-no-repeat h-full; */
-    @apply h-full bg-black font-ubuntu text-foreground;
+    @apply h-full bg-black font-ubuntu text-white;
   }
 }
