@@ -9,11 +9,14 @@ import { Button } from '@/components/ui/button.tsx';
 import { RemoveInstanceModal } from '../../modals/RemoveInstanceModal';
 import { TextLoadingSkeleton } from '@/components/text-loading-skeleton';
 import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
+import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery.ts';
+import { useHumanFileSize } from '@/hooks/use-human-file-size.ts';
 
 export function ConfigOverviewIndex() {
 	const { instanceId } = useParams({ strict: false });
 	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
 	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
+	const { data: instanceInfo, isLoading: loadingInstanceInfo } = useSuspenseQuery(getInstanceInfoQueryOptions(instanceId));
 
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
 		getRegistrationInfoQueryOptions(instanceId)
@@ -21,6 +24,7 @@ export function ConfigOverviewIndex() {
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
 		getConfigurationQueryOptions(instanceId)
 	);
+	const ramAllocation = useHumanFileSize(registrationInfo?.ram_allocation, 1024 * 1024);
 
 	const submitInstanceRemoval = async () => {
 		if (!instanceId) {
@@ -57,13 +61,13 @@ export function ConfigOverviewIndex() {
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						<TextLoadingSkeleton />
+						{ loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.instanceFqdn }
 					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Application URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						<TextLoadingSkeleton />
+						{ loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.cluster.fqdn }
 					</dd>
 				</div>
 				<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
@@ -81,7 +85,7 @@ export function ConfigOverviewIndex() {
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance Node Name (for clustering)</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						<TextLoadingSkeleton />
+						{ loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.name }
 					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
@@ -105,7 +109,7 @@ export function ConfigOverviewIndex() {
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">RAM</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : registrationInfo.ram_allocation} MB
+						{loadingRegistration ? <TextLoadingSkeleton className="w-10" /> : ramAllocation}
 					</dd>
 				</div>
 			</dl>

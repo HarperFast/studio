@@ -5,6 +5,7 @@ import { queryOptions } from '@tanstack/react-query';
 type Cluster = {
 	id: string;
 	name: string;
+	fqdn: string;
 	organizationId: string;
 };
 
