@@ -1,11 +1,9 @@
 import { Outlet } from '@tanstack/react-router';
 
-function FabricLocal() {
+export function StudioLocal() {
 	return (
 		<>
 			<Outlet />
 		</>
 	);
 }
-
-export default FabricLocal;

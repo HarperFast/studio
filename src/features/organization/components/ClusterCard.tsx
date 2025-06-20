@@ -12,7 +12,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-function ClusterCard({
+export function ClusterCard({
 	clusterId,
 	clusterName,
 	organizationId,
@@ -60,5 +60,3 @@ function ClusterCard({
 		</Card>
 	);
 }
-
-export default ClusterCard;

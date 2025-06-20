@@ -1,12 +1,12 @@
-import instanceClient from '@/config/instanceClient';
+import { instanceClient } from '@/config/instanceClient';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
 import { Outlet, getRouteApi } from '@tanstack/react-router';
-import InstanceNavBar from '@/features/instance/InstanceNavBar';
+import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 
 const route = getRouteApi('');
 
-function InstanceLayout() {
+export function InstanceLayout() {
 	const { instanceId } = route.useParams();
 	const { data: instanceInfo, isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(instanceId));
 
@@ -28,4 +28,4 @@ function InstanceLayout() {
 	);
 }
 
-export default InstanceLayout;
+

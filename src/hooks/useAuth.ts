@@ -20,10 +20,10 @@
 // 	password: string;
 // };
 
-// const useAuth = () => {
+// export function useAuth {
 // 	const queryClient = useQueryClient();
 // 	const queryCache = new QueryCache();
-
+//
 // 	// const {data: user, isLoading: isUserLoading} = useQuery<User | null>({
 // 	// 	queryKey: ['user'],
 // 	// 	queryFn: async () => {
@@ -35,7 +35,7 @@
 // 	// 	},
 // 	// 	retry: false,
 // 	// });
-
+//
 // 	const login = useMutation({
 // 		mutationFn: async ({ email, password }: SignInCredentials) => {
 //      // TODO: The OpenAPI types for /Login/ aren't very comprehensive.
@@ -53,7 +53,7 @@
 // 		// 	queryClient.setQueryData(['user'], data);
 // 		// },
 // 	});
-
+//
 // 	const logout = useQuery<User | null>({
 // 		queryKey: [queryKeys.user],
 // 		queryFn: async () => {
@@ -68,9 +68,7 @@
 // 		},
 // 		retry: false,
 // 	});
-
+//
 // 	return { login, logout };
 // 	// return { user, isPending, isSuccess, login, logout, isAuthenticated };
-// };
-
-// export default useAuth;
+// }

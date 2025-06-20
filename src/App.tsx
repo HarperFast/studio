@@ -8,10 +8,10 @@ import { ClusterProvider } from '@/features/cluster/context/ClusterAuthContext';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 // import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import ErrorComponent from '@/components/ErrorComponent';
-import NotFoundComponent from '@/components/NotFoundComponent';
+import { ErrorComponent } from '@/components/ErrorComponent';
+import { NotFoundComponent } from '@/components/NotFoundComponent';
 
-function App() {
+export function App() {
 	// const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO == 'true';
 	const hashHistory = createHashHistory();
 	// const loadedRouter = isLocalStudio ? localRouteTree : cloudRouteTree;
@@ -69,5 +69,3 @@ function App() {
 		</>
 	);
 }
-
-export default App;

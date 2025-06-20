@@ -7,7 +7,7 @@ import {
 } from '@/features/instance/operations/queries/getReadLog';
 import { getRouteApi } from '@tanstack/react-router';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
-import ViewLogModal from '@/features/instance/modals/ViewLogModal';
+import { ViewLogModal } from '@/features/instance/modals/ViewLogModal';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
@@ -82,7 +82,7 @@ const isValidDateRange = (startDate?: Date, endDate?: Date) => {
 
 const route = getRouteApi('');
 
-function Logs() {
+export function Logs() {
 	const { instanceId } = route.useParams();
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersSchema>>({
 		limit: 1000,
@@ -303,4 +303,4 @@ function Logs() {
 	);
 }
 
-export default Logs;
+

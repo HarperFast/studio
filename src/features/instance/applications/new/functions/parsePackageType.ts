@@ -7,7 +7,7 @@ type PackageMetaType = {
 	tag: string | null;
 };
 
-function parsePackageType(pkg: { url: string }) {
+export function parsePackageType(pkg: { url: string }) {
 	if (!pkg) {
 		return null;
 	}
@@ -59,5 +59,3 @@ function parsePackageType(pkg: { url: string }) {
 
 	return meta;
 }
-
-export default parsePackageType;

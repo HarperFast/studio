@@ -19,7 +19,7 @@ import { useState } from 'react';
 // import { useQueryClient } from '@tanstack/react-query';
 // import { queryKeys } from '@/react-query/constants';
 import { InstanceLoginCredentials } from '@/features/instance/operations/mutations/readInstanceLogin';
-import useCluster from '../hooks/useCluster';
+import { useCluster } from '../hooks/useCluster';
 
 const NewClusterSchema = z.object({
 	username: z.string({
@@ -30,7 +30,7 @@ const NewClusterSchema = z.object({
 	}),
 });
 
-function InstanceLogInModal({
+export function InstanceLogInModal({
 	instanceUrl,
 	instanceName,
 }: {
@@ -126,5 +126,3 @@ function InstanceLogInModal({
 		</Dialog>
 	);
 }
-
-export default InstanceLogInModal;

@@ -29,7 +29,9 @@ import {
 import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
-import RegionFormInputs from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import {
+	RegionFormInputs,
+} from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 
 // TODO: consolidate this with the storage size options in the NewInstanceModal
@@ -73,7 +75,7 @@ const NewClusterSchema = z.object({
 		.optional(),
 });
 
-function NewClusterModal({ orgId }: { orgId: string }) {
+export function NewClusterModal({ orgId }: { orgId: string }) {
 	const queryClient = useQueryClient();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
@@ -244,5 +246,3 @@ function NewClusterModal({ orgId }: { orgId: string }) {
 		</Dialog>
 	);
 }
-
-export default NewClusterModal;

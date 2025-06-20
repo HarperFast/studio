@@ -1,14 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
-import CreateNewProjectFrom from './CreateNewProjectFrom';
+import { CreateNewProjectFrom } from './CreateNewProjectFrom';
 import { useState } from 'react';
-import ImportProjectForm from './ImportProjectForm';
+import { ImportProjectForm } from './ImportProjectForm';
 import { getRouteApi, Link } from '@tanstack/react-router';
 
 const route = getRouteApi('');
 
-function NewApplications() {
+export function NewApplications() {
 	const [appType, setAppType] = useState('');
 	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
@@ -57,4 +57,4 @@ function NewApplications() {
 	);
 }
 
-export default NewApplications;
+

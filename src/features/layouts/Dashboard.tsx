@@ -1,13 +1,13 @@
 import { Outlet, Navigate } from '@tanstack/react-router';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 import { NavBar } from '@/components/Navbar';
-import Loading from '@/components/Loading';
+import { Loading } from '@/components/Loading';
 // import { useUserInfoMutation } from '@/hooks/instance/useUserInfo';
 // import { useEffect } from 'react';
 
 // const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO === 'true';
 
-function Dashboard() {
+export function Dashboard() {
 	const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
 	// const { mutate: submitUserInfoData, data: userInfo, isPending: isUserInfoLoading } = useUserInfoMutation();
 
@@ -36,5 +36,3 @@ function Dashboard() {
 		</div>
 	);
 }
-
-export default Dashboard;

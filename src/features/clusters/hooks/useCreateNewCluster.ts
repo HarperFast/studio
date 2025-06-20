@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
 export type NewClusterInfo = {
@@ -14,11 +14,11 @@ type NewClusterInfoResponse = {
 	tag: string;
 };
 
-export const onNewClusterSubmit = async ({
+export async function onNewClusterSubmit({
 	clusterName,
 	organizationId,
 	abbreviatedName,
-}: NewClusterInfo): Promise<NewClusterInfoResponse> => {
+}: NewClusterInfo): Promise<NewClusterInfoResponse> {
 	// TODO: Work through any disagreements between the SchemaCluster and our local types here.
 	const { data } = await apiClient.post('/Cluster/', {
 		name: clusterName,
@@ -30,7 +30,7 @@ export const onNewClusterSubmit = async ({
 	} else {
 		throw new Error('Something went wrong');
 	}
-};
+}
 
 export function useCreateNewClusterMutation() {
 	return useMutation<NewClusterInfoResponse, Error, NewClusterInfo>({

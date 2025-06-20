@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
 export type NewOrganizationInfo = {
@@ -13,10 +13,10 @@ type NewClusterInfoResponse = {
 	subdomain: string;
 };
 
-export const onNewOrganizationSubmit = async ({
+export async function onNewOrganizationSubmit({
 	orgName,
 	orgSubdomain,
-}: NewOrganizationInfo): Promise<NewClusterInfoResponse> => {
+}: NewOrganizationInfo): Promise<NewClusterInfoResponse> {
 	const { data } = await apiClient.post('/Organization/', {
 		name: orgName,
 		subdomain: orgSubdomain,
@@ -27,7 +27,7 @@ export const onNewOrganizationSubmit = async ({
 	} else {
 		throw new Error('Something went wrong');
 	}
-};
+}
 
 export function useCreateNewOrganizationMutation() {
 	return useMutation<NewClusterInfoResponse, Error, NewOrganizationInfo>({

@@ -1,4 +1,4 @@
-function ProfileIndex() {
+export function ProfileIndex() {
 	return (
 		<div>
 			<h1>Profile</h1>
@@ -6,4 +6,4 @@ function ProfileIndex() {
 	);
 }
 
-export default ProfileIndex;
+

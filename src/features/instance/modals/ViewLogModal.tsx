@@ -1,4 +1,4 @@
-import Loading from '@/components/Loading';
+import { Loading } from '@/components/Loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,7 +16,7 @@ function isJsonString(str: string) {
 	return true;
 }
 
-function ViewLogModal({
+export function ViewLogModal({
 	setIsModalOpen,
 	isModalOpen,
 	data,
@@ -89,5 +89,3 @@ function ViewLogModal({
 		</Dialog>
 	);
 }
-
-export default ViewLogModal;

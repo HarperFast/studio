@@ -17,7 +17,7 @@ const ForgotPasswordSchema = z.object({
 		.email({ message: 'Please enter a valid email address' }),
 });
 
-function ForgotPassword() {
+export function ForgotPassword() {
 	const navigate = useNavigate();
 	const form = useForm<z.infer<typeof ForgotPasswordSchema>>({
 		resolver: zodResolver(ForgotPasswordSchema),
@@ -85,4 +85,4 @@ function ForgotPassword() {
 	);
 }
 
-export default ForgotPassword;
+

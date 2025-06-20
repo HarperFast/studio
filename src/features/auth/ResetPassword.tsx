@@ -19,7 +19,7 @@ const ResetPasswordSchema = z
 		path: ['confirmPassword'],
 	});
 
-function RestPassword() {
+export function RestPassword() {
 	const { token } = useSearch({ strict: false });
 	const navigate = useNavigate();
 
@@ -110,4 +110,4 @@ function RestPassword() {
 	);
 }
 
-export default RestPassword;
+

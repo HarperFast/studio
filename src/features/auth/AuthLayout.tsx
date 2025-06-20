@@ -9,7 +9,7 @@ function ListItem({ title, children }: { title: string; children: React.ReactNod
 	);
 }
 
-function AuthLayout() {
+export function AuthLayout() {
 	return (
 		<div className="grid h-screen grid-cols-1 md:grid-cols-2">
 			<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
@@ -78,4 +78,4 @@ function AuthLayout() {
 	);
 }
 
-export default AuthLayout;
+

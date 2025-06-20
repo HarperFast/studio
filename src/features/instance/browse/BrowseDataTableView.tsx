@@ -4,14 +4,14 @@ import { getRouteApi } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
-import BrowseDataTable from '@/features/instance/browse/components/BrowseDataTable';
-import EditTableRowModal from '@/features/instance/modals/EditTableRowModal';
+import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
+import { EditTableRowModal } from '@/features/instance/modals/EditTableRowModal';
 import { getSearchByHashOptions } from '@/features/instance/operations/queries/getSearchByHash';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
 import { PaginationState } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import UploadCSVModal from '@/features/instance/modals/UploadCSVModal';
+import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
 
 // TODO: Define on describe table data call
 // type AttributesTypes = {
@@ -34,7 +34,7 @@ import UploadCSVModal from '@/features/instance/modals/UploadCSVModal';
 
 const route = getRouteApi('');
 
-function BrowseDataTableView() {
+export function BrowseDataTableView() {
 	const { instanceId, schemaName, tableName } = route.useParams();
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
@@ -178,5 +178,3 @@ function BrowseDataTableView() {
 		</>
 	);
 }
-
-export default BrowseDataTableView;

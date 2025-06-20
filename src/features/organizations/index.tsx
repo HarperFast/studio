@@ -1,10 +1,10 @@
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import OrgCard from '@/features/organizations/components/OrgCard';
+import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
-import NewOrganizationModal from '@/features/organizations/modals/NewOrganizationModal';
-function OrganizationsIndex() {
+import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
+export function OrganizationsIndex() {
 	const { data: user } = useGetCurrentUser();
 	return (
 		<div>
@@ -35,4 +35,4 @@ function OrganizationsIndex() {
 	);
 }
 
-export default OrganizationsIndex;
+

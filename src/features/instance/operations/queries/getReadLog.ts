@@ -1,4 +1,4 @@
-import instanceClient from '@/config/instanceClient';
+import { instanceClient } from '@/config/instanceClient';
 
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';

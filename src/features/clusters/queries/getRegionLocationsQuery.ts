@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { SchemaLocation } from '@/lib/api.gen';
 

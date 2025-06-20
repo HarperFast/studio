@@ -1,7 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 
-function ClusterLayout() {
+export function ClusterLayout() {
 	return <Outlet />;
 }
 
-export default ClusterLayout;
+

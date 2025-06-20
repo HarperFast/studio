@@ -21,7 +21,7 @@ const LocalSignInSchema = z.object({
 		.max(50, { message: 'Password must be less than 50 characters' }),
 });
 
-function LocalSignIn() {
+export function LocalSignIn() {
 	const navigate = useNavigate();
 	const router = useRouter();
 	const form = useForm<z.infer<typeof LocalSignInSchema>>({
@@ -94,5 +94,3 @@ function LocalSignIn() {
 		</div>
 	);
 }
-
-export default LocalSignIn;

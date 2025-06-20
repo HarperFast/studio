@@ -1,16 +1,16 @@
 import { getRouteApi, Link } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
-import NewInstanceModal from './modals/NewInstanceModal';
+import { NewInstanceModal } from './modals/NewInstanceModal';
 import { DataTable } from '@/components/DataTable';
 import { useEffect, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
-import EditInstanceModal from './modals/EditInstanceModal';
+import { EditInstanceModal } from './modals/EditInstanceModal';
 import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 // import { useRegistrationInfo } from '@/hooks/instance/useRegistrationInfo';
-import InstanceLogInModal from './modals/InstanceLoginInModal';
+import { InstanceLogInModal } from './modals/InstanceLoginInModal';
 import { renderInstanceTypeOption, InstanceTypes } from '@/shared/functions/InstanceType';
-import useCluster from '@/features/cluster/hooks/useCluster';
+import { useCluster } from '@/features/cluster/hooks/useCluster';
 
 // 1. Once successfully logging into one instance, we should be able to use the same credentials(cookie) for all instances in the cluster.
 // Essentially looping through and do a query to logging into all the other instances.
@@ -42,7 +42,7 @@ function EmptyCluster({ clusterId }: { clusterId: string }) {
 	);
 }
 
-function ClusterIndex() {
+export function ClusterIndex() {
 	const { organizationId, clusterId } = route.useParams();
 	const { currentCluster, isAuthenticated, loadCluster, isLoading } = useCluster(); // Assuming currentCluster is the one we need
 	// const { mutate: submitRegistrationData, data: registrationInfo } = useRegistrationInfo();
@@ -164,4 +164,4 @@ function ClusterIndex() {
 	);
 }
 
-export default ClusterIndex;
+

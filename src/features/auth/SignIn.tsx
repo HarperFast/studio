@@ -22,7 +22,7 @@ const SignInSchema = z.object({
 		.max(50, { message: 'Password must be less than 50 characters' }),
 });
 
-function SignIn() {
+export function SignIn() {
 	const navigate = useNavigate();
 	const router = useRouter();
 	const form = useForm<z.infer<typeof SignInSchema>>({
@@ -102,4 +102,4 @@ function SignIn() {
 	);
 }
 
-export default SignIn;
+

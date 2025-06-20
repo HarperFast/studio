@@ -35,7 +35,7 @@ const SignInSchema = z.object({
 		.max(50, { message: 'Password must be less than 50 characters.' }),
 });
 
-function SignUp() {
+export function SignUp() {
 	const navigate = useNavigate();
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
@@ -156,4 +156,4 @@ function SignUp() {
 	);
 }
 
-export default SignUp;
+

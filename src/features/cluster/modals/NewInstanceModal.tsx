@@ -64,7 +64,7 @@ const NewInstanceSchema = z.object({
 	}),
 });
 
-function NewInstanceModal({ clusterId }: { clusterId: string }) {
+export function NewInstanceModal({ clusterId }: { clusterId: string }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
 	const form = useForm({
@@ -220,5 +220,3 @@ function NewInstanceModal({ clusterId }: { clusterId: string }) {
 		</Dialog>
 	);
 }
-
-export default NewInstanceModal;

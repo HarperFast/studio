@@ -1,4 +1,4 @@
-import apiClient from '@/config/apiClient';
+import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
 // TODO: Consolidate with useOnSignUpSubmitMutation
@@ -10,7 +10,7 @@ type ForgotPasswordResponse = {
 	email: string;
 };
 
-export const onResetPasswordSubmit = async ({ email }: ForgotPasswordCredential): Promise<ForgotPasswordResponse> => {
+export async function onResetPasswordSubmit({ email }: ForgotPasswordCredential): Promise<ForgotPasswordResponse> {
 	const { data } = await apiClient.post('/ForgotPassword/', {
 		email,
 	});
@@ -20,7 +20,7 @@ export const onResetPasswordSubmit = async ({ email }: ForgotPasswordCredential)
 	} else {
 		throw new Error('Something went wrong');
 	}
-};
+}
 
 export function useForgotPasswordMutation() {
 	return useMutation<ForgotPasswordResponse, Error, ForgotPasswordCredential>({

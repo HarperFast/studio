@@ -1,4 +1,4 @@
-import instanceClient from '@/config/instanceClient';
+import { instanceClient } from '@/config/instanceClient';
 import { useMutation } from '@tanstack/react-query';
 
 // TODO: Consolidate with useOnSignUpSubmitMutation
