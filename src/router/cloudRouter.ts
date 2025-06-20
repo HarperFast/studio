@@ -28,6 +28,9 @@ import { ApplicationsIndex } from '@/features/instance/applications';
 import { NewApplications } from '@/features/instance/applications/new';
 import { EditApplications } from '@/features/instance/applications/editor';
 import { ConfigIndex } from '@/features/instance/config';
+import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigUsersIndex } from '@/features/instance/config/users';
+import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 
 const rootRoute = createRootRouteWithContext<{
 	queryClient: QueryClient;
@@ -202,10 +205,26 @@ const instanceApplicationsEditorRoute = createRoute({
 	component: EditApplications,
 });
 
+// TODO: Do I need to add these to localRouter too?
 const instanceConfigRoute = createRoute({
 	getParentRoute: () => instanceLayoutRoute,
 	path: 'config',
 	component: ConfigIndex,
+});
+const instanceOverviewRoute = createRoute({
+	getParentRoute: () => instanceConfigRoute,
+	path: '/',
+	component: ConfigOverviewIndex,
+});
+const instanceConfigRolesRoute = createRoute({
+	getParentRoute: () => instanceConfigRoute,
+	path: 'roles',
+	component: ConfigRolesIndex,
+});
+const instanceConfigUsersRoute = createRoute({
+	getParentRoute: () => instanceConfigRoute,
+	path: 'users',
+	component: ConfigUsersIndex,
 });
 
 export const cloudRouteTree = rootRoute.addChildren([
@@ -226,7 +245,7 @@ export const cloudRouteTree = rootRoute.addChildren([
 							instanceApplicationsIndexRoute,
 							instanceApplicationsNewRoute,
 							instanceApplicationsEditorRoute,
-							instanceConfigRoute,
+							instanceConfigRoute.addChildren([instanceOverviewRoute, instanceConfigRolesRoute, instanceConfigUsersRoute]),
 						]),
 					]),
 				]),
