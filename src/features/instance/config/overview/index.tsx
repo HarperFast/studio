@@ -58,8 +58,8 @@ export function ConfigOverviewIndex() {
 	};
 
 	return (
-		<>
-			<dl className="grid grid-cols-1 sm:grid-cols-3">
+		<div className="h-full flex flex-col">
+			<dl className="flex-none grid grid-cols-1 sm:grid-cols-3">
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
@@ -113,8 +113,8 @@ export function ConfigOverviewIndex() {
 					</dd>
 				</div>
 			</dl>
-			<div>
-				<h3 className="font-bold text-sm/6">Instance Config (read only)</h3>
+			<h3 className="flex-none font-bold text-sm/6">Instance Config (read only)</h3>
+			<div className="grow">
 				{!loadingConfig ? (
 					<Editor
 						className="w-full min-h-full h-96"
@@ -137,6 +137,6 @@ export function ConfigOverviewIndex() {
 				submitInstanceRemoval={submitInstanceRemoval}
 				isPending={isDeleteInstancePending}
 			/>
-		</>
+		</div>
 	);
 }

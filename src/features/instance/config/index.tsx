@@ -6,7 +6,7 @@ import { Cog, Handshake, Users } from 'lucide-react';
 export function ConfigIndex() {
 	const { organizationId, clusterId, instanceId } = useParams({ strict: false });
 	return (
-		<main className="grid grid-cols-1 gap-4 md:grid-cols-12">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 border-r-2">
 				<h2>
 					<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/config`}>
@@ -36,6 +36,6 @@ export function ConfigIndex() {
 					<Outlet />
 				</Suspense>
 			</section>
-		</main>
+		</div>
 	);
 }

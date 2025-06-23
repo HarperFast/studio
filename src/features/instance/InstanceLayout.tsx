@@ -18,14 +18,12 @@ export function InstanceLayout() {
 	instanceClient.defaults.baseURL = instanceInfo.instanceFqdn;
 	return (
 		<>
-			<nav className="sticky z-40 px-4 top-20 md:px-12 bg-grey-700">
+			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
 				<InstanceNavBar />
 			</nav>
-			<div className="h-full px-4 pt-4 md:px-8">
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<Outlet />
 			</div>
 		</>
 	);
 }
-
-
