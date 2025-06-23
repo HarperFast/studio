@@ -41,8 +41,14 @@ export function ConfigOverviewIndex() {
 		});
 		restartInstance(instanceId, {
 			onSuccess: () => {
+				toast.success('Success', {
+					description: `Instance restarted!`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
 				toast.dismiss(toastId);
-				toast.success('Instance restarted!');
 			},
 			onError: () => {
 				toast.error('Error', {
