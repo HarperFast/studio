@@ -17,10 +17,10 @@ export function ConfigOverviewIndex() {
 	const { instanceId } = useParams({ strict: false });
 	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
 	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
+	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: instanceInfo, isLoading: loadingInstanceInfo } = useSuspenseQuery(
 		getInstanceInfoQueryOptions(instanceId)
 	);
-
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
 		getRegistrationInfoQueryOptions(instanceId)
 	);
@@ -28,9 +28,10 @@ export function ConfigOverviewIndex() {
 		getConfigurationQueryOptions(instanceId)
 	);
 
-	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
-
-	const restartingInstance = async () => {
+	const restartingInstance = () => {
+		if (!instanceId) {
+			return;
+		}
 		const toastId = toast.warning('Restarting', {
 			description: 'Restarting HarperDB. This may take up to 60 seconds.',
 			duration: 60000, // Keep the toast open until dismissed
@@ -64,11 +65,11 @@ export function ConfigOverviewIndex() {
 
 	const ramAllocation = useHumanFileSize(registrationInfo?.ram_allocation, 1024 * 1024);
 
-	const submitInstanceRemoval = async () => {
+	const submitInstanceRemoval = () => {
 		if (!instanceId) {
 			return;
 		}
-		await deleteInstance(instanceId, {
+		deleteInstance(instanceId, {
 			onSuccess: () => {
 				toast.success('Success', {
 					description: `Instance successfully removed.`,
@@ -119,7 +120,7 @@ export function ConfigOverviewIndex() {
 					<Button
 						variant="positiveOutline"
 						className="ml-4 rounded-full cursor-pointer"
-						onClick={() => restartingInstance()}
+						onClick={restartingInstance}
 						disabled={isRestartInstancePending}
 					>
 						Restart Instance
