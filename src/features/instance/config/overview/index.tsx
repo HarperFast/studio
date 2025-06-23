@@ -11,6 +11,7 @@ import { TextLoadingSkeleton } from '@/components/text-loading-skeleton';
 import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
 import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery.ts';
 import { useHumanFileSize } from '@/hooks/use-human-file-size.ts';
+import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 
 export function ConfigOverviewIndex() {
 	const { instanceId } = useParams({ strict: false });
@@ -26,6 +27,35 @@ export function ConfigOverviewIndex() {
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
 		getConfigurationQueryOptions(instanceId)
 	);
+
+	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
+
+	const restartingInstance = async () => {
+		const toastId = toast.warning('Restarting', {
+			description: 'Restarting HarperDB. This may take up to 60 seconds.',
+			duration: 60000, // Keep the toast open until dismissed
+			action: {
+				label: 'Dismiss',
+				onClick: () => toast.dismiss(),
+			},
+		});
+		restartInstance(instanceId, {
+			onSuccess: () => {
+				toast.dismiss(toastId);
+				toast.success('Instance restarted!');
+			},
+			onError: () => {
+				toast.error('Error', {
+					description: `Failed to restart instance.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+		});
+	};
+
 	const ramAllocation = useHumanFileSize(registrationInfo?.ram_allocation, 1024 * 1024);
 
 	const submitInstanceRemoval = async () => {
@@ -80,7 +110,12 @@ export function ConfigOverviewIndex() {
 					>
 						Remove Instance
 					</Button>
-					<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer">
+					<Button
+						variant="positiveOutline"
+						className="ml-4 rounded-full cursor-pointer"
+						onClick={() => restartingInstance()}
+						disabled={isRestartInstancePending}
+					>
 						Restart Instance
 					</Button>
 				</div>
