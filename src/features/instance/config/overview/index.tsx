@@ -88,18 +88,18 @@ export function ConfigOverviewIndex() {
 					<dt className="font-bold text-sm/6">Instance Node Name (for clustering)</dt>
 					<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.name}</dd>
 				</div>
-				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
-					<dt className="font-bold text-sm/6">Created</dt>
-					<dd className="text-sm/6 sm:mt-2">
-						<TextLoadingSkeleton />
-					</dd>
-				</div>
-				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
-					<dt className="font-bold text-sm/6">Total Price</dt>
-					<dd className="text-sm/6 sm:mt-2">
-						<TextLoadingSkeleton className="w-10" />
-					</dd>
-				</div>
+				{/*<div className="px-4 pb-4 sm:col-span-1 sm:px-0">*/}
+				{/*	<dt className="font-bold text-sm/6">Created</dt>*/}
+				{/*	<dd className="text-sm/6 sm:mt-2">*/}
+				{/*		<TextLoadingSkeleton />*/}
+				{/*	</dd>*/}
+				{/*</div>*/}
+				{/*<div className="px-4 pb-4 sm:col-span-1 sm:px-0">*/}
+				{/*	<dt className="font-bold text-sm/6">Total Price</dt>*/}
+				{/*	<dd className="text-sm/6 sm:mt-2">*/}
+				{/*		<TextLoadingSkeleton className="w-10" />*/}
+				{/*	</dd>*/}
+				{/*</div>*/}
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Harper Version</dt>
 					<dd className="text-sm/6 sm:mt-2">
