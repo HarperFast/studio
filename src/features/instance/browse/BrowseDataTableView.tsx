@@ -189,11 +189,9 @@ export function BrowseDataTableView() {
 				setPagination={setPagination}
 			>
 				<UploadCSVModal />
-				{/*TODO: Auto switch*/}
-				{/*TODO: Only cached switch?*/}
-				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <RefreshCwIcon /></Button>
-				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <SearchIcon /></Button>
-				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <PlusIcon /></Button>
+				<Button variant="defaultOutline" onClick={notYetImplemented}><RefreshCwIcon /></Button>
+				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>
+				<Button variant="positiveOutline" onClick={notYetImplemented}><PlusIcon /></Button>
 			</BrowseDataTable>
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}
