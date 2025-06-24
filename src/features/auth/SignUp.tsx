@@ -51,9 +51,9 @@ export function SignUp() {
 
 	const submitForm = async (formData: z.infer<typeof SignInSchema>) => {
 		submitSignUpData(formData, {
-			onSuccess: (message) => {
+			onSuccess: () => {
 				toast.success('Success', {
-					description: `${message}`,
+					description: 'Your account has been created! Please sign in with your new credentials.',
 					action: {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
