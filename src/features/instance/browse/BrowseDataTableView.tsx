@@ -8,7 +8,7 @@ import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDat
 import { EditTableRowModal } from '@/features/instance/modals/EditTableRowModal';
 import { getSearchByHashOptions } from '@/features/instance/operations/queries/getSearchByHash';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
-import { PaginationState } from '@tanstack/react-table';
+import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
@@ -50,6 +50,7 @@ export function BrowseDataTableView() {
 		schemaName,
 		tableName,
 		hashAttribute: [''],
+		refetch: false,
 	});
 
 	const { data: searchByHashData, refetch: refetchSearchByHash } = useQuery(getSearchByHashOptions(searchByHashParams));
@@ -59,7 +60,9 @@ export function BrowseDataTableView() {
 	const [sortTableDataParams, setSortTableDataParams] = useState({
 		attribute: '',
 		descending: false,
+		refetch: false,
 	});
+
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pagination, setPagination] = useState<PaginationState>({
 		pageIndex: 0,
@@ -80,7 +83,20 @@ export function BrowseDataTableView() {
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
-	const onRecordUpdate = async (data: object[]) => {
+	useEffect(() => {
+		if (searchByHashParams.refetch) {
+			void refetchSearchByHash();
+			setSearchByHashParams({ ...searchByHashParams, refetch: false });
+		}
+	}, [searchByHashParams, refetchSearchByHash, setSearchByHashParams]);
+	useEffect(() => {
+		if (sortTableDataParams.refetch) {
+			void refetchSearchByValueOptions();
+			setSortTableDataParams({ ...sortTableDataParams, refetch: false });
+		}
+	}, [sortTableDataParams, setSortTableDataParams, refetchSearchByValueOptions]);
+
+	const onRecordUpdate = async (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
 				databaseName: schemaName,
@@ -89,6 +105,7 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
+					refetchDescribeTableQueryOptions();
 					refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
@@ -106,6 +123,7 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
+					refetchDescribeTableQueryOptions();
 					refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
@@ -114,49 +132,38 @@ export function BrowseDataTableView() {
 		);
 	};
 
-	// TODO: fix this. It reloads the table several times unnecessarily
 	useEffect(() => {
-		refetchDescribeTableQueryOptions();
-		refetchSearchByValueOptions();
 		setTotalRecords(describeTableData.record_count);
 		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
 	}, [
-		refetchDescribeTableQueryOptions,
-		refetchSearchByValueOptions,
-		instanceId,
-		schemaName,
-		tableName,
 		pagination.pageSize,
 		pagination.pageIndex,
 		describeTableData.record_count,
 	]);
 
-	// @ts-expect-error Row<TData> should be defined but can't grab TData from tanstack/react-table
-	const onRowClick = async (rowData) => {
-		await setSearchByHashParams({
+	const onRowClick = async (rowData: Row<Record<string, unknown>>) => {
+		setSearchByHashParams({
 			instanceId,
 			schemaName,
 			tableName,
-			hashAttribute: rowData.original[`${hash_attribute}`],
+			hashAttribute: rowData.original[hash_attribute] as string[],
+			refetch: true,
 		});
-		refetchSearchByHash();
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 
-	const onColumnClick = async (accessorKey: string, isDescending: boolean) => {
-		await setSortTableDataParams({
+	const onColumnClick = async (accessorKey: string, isAscending: boolean) => {
+		setSortTableDataParams({
 			attribute: accessorKey,
-			descending: isDescending,
+			descending: !isAscending,
+			refetch: true,
 		});
-		refetchSearchByValueOptions();
 	};
 
 	return (
 		<>
-			<div>
-				<UploadCSVModal />
-			</div>
-			<BrowseDataTable
+			<UploadCSVModal />
+			<BrowseDataTable<Record<string, unknown>, unknown>
 				data={tableData.data}
 				columns={dataTableColumns}
 				onRowClick={onRowClick}

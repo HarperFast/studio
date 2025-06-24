@@ -13,7 +13,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { Dispatch, SetStateAction } from 'react';
 
 interface BrowseDataTableProps<TData, TValue> {
@@ -63,18 +63,20 @@ export function BrowseDataTable<TData, TValue>({
 							<TableRow key={headerGroup.id} className="border-none">
 								{headerGroup.headers.map((header) => {
 									return (
-										<TableHead key={header.id} className="p-4">
+										<TableHead key={header.id} className="px-0">
 											<Button
 												type="button"
 												variant="ghost"
+												className="rounded-none"
 												onClick={() => {
 													header.column.toggleSorting(header.column.getIsSorted() === 'asc');
+													const willSortByAscending = header.column.getIsSorted() === false || header.column.getIsSorted() !== 'asc';
 													// @ts-expect-error accessorKey does exist unsure why ts is complaining
-													onColumnClick?.(header.column.columnDef.accessorKey, header.column.getIsSorted() === 'desc');
+													onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 												}}
 											>
 												{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-												<ArrowUpDown />
+												{header.column.getIsSorted() === 'asc' ? <ArrowUp /> : header.column.getIsSorted() === 'desc' ? <ArrowDown /> : <ArrowUpDown className="text-gray-600" />}
 											</Button>
 										</TableHead>
 									);
@@ -92,7 +94,7 @@ export function BrowseDataTable<TData, TValue>({
 									className="hover:bg-muted/10 data-[state=selected]:bg-muted"
 								>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id} className="p-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
+										<TableCell key={cell.id} className="py-2 px-3 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 											{flexRender(cell.column.columnDef.cell, cell.getContext())}
 										</TableCell>
 									))}

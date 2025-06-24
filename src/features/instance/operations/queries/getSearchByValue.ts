@@ -45,8 +45,9 @@ function getSearchByValueOptions({
 }) {
 	return queryOptions({
 		queryKey: [instanceId, 'search_by_value'] as const,
+		staleTime: 2000,
 		queryFn: () =>
-			instanceClient.post('/', {
+			instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_value',
 				get_attributes: ['*'],
 				schema: schemaName,

@@ -17,7 +17,7 @@ export function EditTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	data: { id: string | number }[];
-	onSaveChanges: (data: object[]) => Promise<void>;
+	onSaveChanges: (data: Record<string, unknown>[]) => Promise<void>;
 	onDeleteRecord: (data: (string | number)[]) => Promise<void>;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
