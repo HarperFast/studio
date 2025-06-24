@@ -32,7 +32,7 @@ export function ConfigOverviewIndex() {
 		if (!instanceId) {
 			return;
 		}
-		const toastId = toast.warning('Restarting', {
+		const toastId = toast.loading('Restarting', {
 			description: 'Restarting HarperDB. This may take up to 60 seconds.',
 			duration: 60000, // Keep the toast open until dismissed
 			action: {
@@ -42,6 +42,7 @@ export function ConfigOverviewIndex() {
 		});
 		restartInstance(instanceId, {
 			onSuccess: () => {
+				toast.dismiss(toastId);
 				toast.success('Success', {
 					description: `Instance restarted!`,
 					action: {
@@ -49,7 +50,6 @@ export function ConfigOverviewIndex() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				toast.dismiss(toastId);
 			},
 			onError: () => {
 				toast.error('Error', {
