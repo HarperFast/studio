@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -12,6 +12,9 @@ import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
+import { Button } from '@/components/ui/button.tsx';
+import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
+import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
 
 // TODO: Define on describe table data call
 // type AttributesTypes = {
@@ -58,10 +61,14 @@ export function BrowseDataTableView() {
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [sortTableDataParams, setSortTableDataParams] = useState({
-		attribute: '',
+		attribute: hash_attribute,
 		descending: false,
 		refetch: false,
 	});
+	const sortingState = useMemo(() => ([{
+		desc: sortTableDataParams.descending,
+		id: sortTableDataParams.attribute,
+	}]), [sortTableDataParams]);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pagination, setPagination] = useState<PaginationState>({
@@ -136,10 +143,18 @@ export function BrowseDataTableView() {
 		setTotalRecords(describeTableData.record_count);
 		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
 	}, [
+		describeTableData,
 		pagination.pageSize,
 		pagination.pageIndex,
-		describeTableData.record_count,
 	]);
+	useEffect(() => {
+		void refetchSearchByValueOptions()
+	}, [
+		refetchSearchByValueOptions,
+		pagination.pageSize,
+		pagination.pageIndex,
+	]);
+
 
 	const onRowClick = async (rowData: Row<Record<string, unknown>>) => {
 		setSearchByHashParams({
@@ -162,7 +177,6 @@ export function BrowseDataTableView() {
 
 	return (
 		<>
-			<UploadCSVModal />
 			<BrowseDataTable<Record<string, unknown>, unknown>
 				data={tableData.data}
 				columns={dataTableColumns}
@@ -171,8 +185,16 @@ export function BrowseDataTableView() {
 				totalPages={totalPages}
 				totalRecords={totalRecords}
 				paginationState={pagination}
+				sortingState={sortingState}
 				setPagination={setPagination}
-			/>
+			>
+				<UploadCSVModal />
+				{/*TODO: Auto switch*/}
+				{/*TODO: Only cached switch?*/}
+				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <RefreshCwIcon /></Button>
+				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <SearchIcon /></Button>
+				<Button variant="positiveOutline" className="ml-4 rounded-full cursor-pointer" onClick={notYetImplemented}> <PlusIcon /></Button>
+			</BrowseDataTable>
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
