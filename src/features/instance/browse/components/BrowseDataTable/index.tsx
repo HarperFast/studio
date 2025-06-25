@@ -51,36 +51,39 @@ export function BrowseDataTable<TData, TValue>({
 		onPaginationChange: setPagination,
 	});
 
+	const paging = <>
+		<div className="flex items-center space-x-2">
+			<p className="text-sm font-medium">Rows per page</p>
+			<Select defaultValue={table.getState().pagination.pageSize.toString()} onValueChange={(value) => {
+				table.setPageSize(Number(value));
+			}}>
+				<SelectTrigger className="h-8 w-[80px]">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent side="top">
+					{[20, 50, 100, 250].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>
+						{pageSize}
+					</SelectItem>))}
+				</SelectContent>
+			</Select>
+		</div>
+		<span>Total Rows: {totalRecords}</span>
+		<Button variant="defaultOutline" size="sm" onClick={table.previousPage} className="select-none"
+				disabled={paginationState.pageIndex === 0}>
+			Previous
+		</Button>
+		<Button variant="defaultOutline" size="sm" onClick={table.nextPage} className="select-none"
+				disabled={paginationState.pageIndex === totalPages - 1}>
+			Next
+		</Button>
+	</>;
+
 	return (<>
-		<div className="flex items-center justify-end space-x-2">
+		<div className="flex items-center justify-end space-x-2 py-4">
+			<div className="grow lg:hidden"></div>
 			{children}
-			<div className="grow"></div>
-			<div className="flex items-center justify-end py-4 space-x-2">
-				<div className="flex items-center space-x-2">
-					<p className="text-sm font-medium">Rows per page</p>
-					<Select defaultValue={table.getState().pagination.pageSize.toString()} onValueChange={(value) => {
-						table.setPageSize(Number(value));
-					}}>
-						<SelectTrigger className="h-8 w-[80px]">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent side="top">
-							{[20, 50, 100, 250].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>
-								{pageSize}
-							</SelectItem>))}
-						</SelectContent>
-					</Select>
-				</div>
-				<span>Total Rows: {totalRecords}</span>
-				<Button variant="defaultOutline" size="sm" onClick={table.previousPage} className="select-none"
-						disabled={paginationState.pageIndex === 0}>
-					Previous
-				</Button>
-				<Button variant="defaultOutline" size="sm" onClick={table.nextPage} className="select-none"
-						disabled={paginationState.pageIndex === totalPages - 1}>
-					Next
-				</Button>
-			</div>
+			<div className="grow hidden lg:visible"></div>
+			<div className="items-center justify-end space-x-2 hidden lg:flex">{paging}</div>
 		</div>
 		<Table containerClassName="rounded-md bg-black-dark">
 			<TableHeader>
@@ -118,5 +121,6 @@ export function BrowseDataTable<TData, TValue>({
 				</TableRow>)}
 			</TableBody>
 		</Table>
+		<div className="flex items-center justify-end py-4 space-x-2 lg:invisible">{paging}</div>
 	</>);
 }
