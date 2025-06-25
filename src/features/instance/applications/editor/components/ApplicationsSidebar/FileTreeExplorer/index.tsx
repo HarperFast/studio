@@ -25,10 +25,19 @@ import { useState } from 'react';
 // 	);
 // }
 
-function parseFileExtension(name) {
-	return name && [...name].includes('.') ? name.split('.').slice(-1)[0] : null;
+interface ParseFileExtension {
+	(name: string): string | null;
 }
-function directorySortComparator(a, b) {
+
+const parseFileExtension: ParseFileExtension = (name) => {
+	return name && [...name].includes('.') ? name.split('.').slice(-1)[0] : null;
+};
+interface DirectorySortComparatorEntry {
+	name: string;
+	entries?: DirectoryEntry[];
+}
+
+function directorySortComparator(a: DirectorySortComparatorEntry, b: DirectorySortComparatorEntry): number {
 	// TODO: refactor.
 
 	// directories first, then flat files sorted
@@ -39,9 +48,19 @@ function directorySortComparator(a, b) {
 	return A === B ? a.name.localeCompare(b.name) : B - A;
 }
 
-const isFolder = (entry) => Boolean(entry.entries);
+// interface IsFolder {
+// 	(entry: DirectoryEntry): boolean;
+// }
 
-function ProjectIcon({ toggleClosed, isOpen }) {
+// const isFolder: IsFolder = (entry) => Boolean(entry.entries);
+
+function ProjectIcon({
+	toggleClosed,
+	isOpen,
+}: {
+	toggleClosed: (event: React.MouseEvent | React.KeyboardEvent) => void;
+	isOpen: boolean;
+}) {
 	return (
 		<i
 			onClick={toggleClosed}
@@ -56,7 +75,13 @@ function ProjectIcon({ toggleClosed, isOpen }) {
 	);
 }
 
-function FolderIcon({ toggleClosed, isOpen }) {
+function FolderIcon({
+	toggleClosed,
+	isOpen,
+}: {
+	toggleClosed: (event: React.MouseEvent | React.KeyboardEvent) => void;
+	isOpen: boolean;
+}) {
 	return (
 		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
 		<i
@@ -72,7 +97,7 @@ function FolderIcon({ toggleClosed, isOpen }) {
 	);
 }
 
-function FiletypeIcon({ extension }) {
+function FiletypeIcon({ extension }: { extension: string | null }) {
 	switch (extension) {
 		case 'js':
 			// return <i className={cn('file-icon filetype-js fab fa-js')} />;
@@ -90,9 +115,13 @@ function PackageIcon() {
 
 function Package({
 	name,
-	url,
-	// onPackageSelect,
-	// selectedPackage
+}: // url,
+// url,
+// onPackageSelect,
+// selectedPackage
+{
+	name: string;
+	url: string;
 }) {
 	// FIXME: when we click another package, they both get selected.
 	// const [selected, setSelected] = useState(Boolean(selectedPackage) && name === selectedPackage?.name);
@@ -118,6 +147,7 @@ function Package({
 			// onKeyDown={() => {}}
 		>
 			<PackageIcon />
+
 			<span className="package-text">{name}</span>
 		</button>
 	);
@@ -125,15 +155,18 @@ function Package({
 
 function File({
 	directoryEntry,
-	// selectedFile,
-	// selectedFolder,
-	// onFileSelect,
-	// onFolderSelect,
-	// Icon
+	Icon,
+}: {
+	directoryEntry: DirectoryEntry;
+	// selectedFile?: string;
+	// selectedFolder?: DirectoryEntry;
+	// onFileSelect?: (entry: DirectoryEntry | null) => void;
+	// onFolderSelect?: (entry: DirectoryEntry | null) => void;
+	Icon?: React.ComponentType<unknown>;
 }) {
-	const isDir = isFolder(directoryEntry);
-	const renameFileIconClass = 'rename-file';
-	const deployFileIconClass = 'deploy-project';
+	// const isDir = isFolder(directoryEntry);
+	// const renameFileIconClass = 'rename-file';
+	// const deployFileIconClass = 'deploy-project';
 	// const isFileSelected = directoryEntry.path === selectedFile;
 	// const isFolderSelected = directoryEntry.path === selectedFolder?.path;
 	// file receives open/close toggle func from
@@ -141,38 +174,38 @@ function File({
 	// if it's a flat file, calls onFileSelect so
 	// parent can get file content.
 
-	function noOp() {
-		// TODO: figure out how to handle keyboard events properly.
-		// for now, use this to avoid react a11y errors.
-	}
+	// function noOp() {
+	// 	// TODO: figure out how to handle keyboard events properly.
+	// 	// for now, use this to avoid react a11y errors.
+	// }
 
-	function handleToggleSelected(e) {
-		// TODO FIX HANDLING SO WE CAN HAVE NUANCED CLICK BEHAVIOR
+	// function handleToggleSelected(e) {
+	// 	// TODO FIX HANDLING SO WE CAN HAVE NUANCED CLICK BEHAVIOR
 
-		// set the folder/file as currently selected folder/file
-		// visually highlight directory name
-		// note: if directory already highlighted, make sure if we've clicked on the pencil/edit icon
-		// that we don't untoggle directory selection; leave selected if icon clicked.
-		const iconWasClicked =
-			e.target.classList.contains(renameFileIconClass) || e.target.classList.contains(deployFileIconClass);
-		// if icon's clicked, select, but don't unselect.
-		// if (iconWasClicked) return;
+	// 	// set the folder/file as currently selected folder/file
+	// 	// visually highlight directory name
+	// 	// note: if directory already highlighted, make sure if we've clicked on the pencil/edit icon
+	// 	// that we don't untoggle directory selection; leave selected if icon clicked.
+	// 	const iconWasClicked =
+	// 		e.target.classList.contains(renameFileIconClass) || e.target.classList.contains(deployFileIconClass);
+	// 	// if icon's clicked, select, but don't unselect.
+	// 	// if (iconWasClicked) return;
 
-		if (isDir) {
-			// one click on dir name toggles selected / highlighted state / ui
-			if (isFolderSelected && iconWasClicked) {
-				// TODO: don't
-			} else {
-				onFolderSelect(isFolderSelected ? null : directoryEntry);
-			}
-		} else if (isFileSelected) {
-			onFileSelect(null);
-		} else {
-			// one click on file name sets it to selected / highlighted
-			// AND retrieves file content
-			onFileSelect(directoryEntry);
-		}
-	}
+	// 	if (isDir) {
+	// 		// one click on dir name toggles selected / highlighted state / ui
+	// 		if (isFolderSelected && iconWasClicked) {
+	// 			// TODO: don't
+	// 		} else {
+	// 			onFolderSelect(isFolderSelected ? null : directoryEntry);
+	// 		}
+	// 	} else if (isFileSelected) {
+	// 		onFileSelect(null);
+	// 	} else {
+	// 		// one click on file name sets it to selected / highlighted
+	// 		// AND retrieves file content
+	// 		onFileSelect(directoryEntry);
+	// 	}
+	// }
 
 	return (
 		<button
@@ -184,8 +217,8 @@ function File({
 			// // })}
 			// onKeyDown={noOp}
 		>
-			{/* <Icon className="filename-icon" /> */}
-			<span className="filename-text">{directoryEntry.name}</span>
+			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
+			{Icon ? <Icon /> : null}.<span className="filename-text">{directoryEntry.name}</span>
 		</button>
 	);
 }
@@ -242,7 +275,7 @@ function Folder({
 							/>
 						) : (
 							<File
-								// Icon={Icon}
+								Icon={Icon}
 								// selectedFile={selectedFile}
 								// selectedFolder={selectedFolder}
 								// selectedPackage={selectedPackage}

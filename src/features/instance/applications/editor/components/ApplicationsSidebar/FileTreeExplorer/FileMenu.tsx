@@ -1,6 +1,16 @@
 import React from 'react';
 
-export function AddProjectButton({ onClick, disabled = false, text = '', extraClasses = '' }) {
+export function AddProjectButton({
+	onClick,
+	disabled = false,
+	text = '',
+	extraClasses = '',
+}: {
+	onClick: React.MouseEventHandler<HTMLButtonElement>;
+	disabled?: boolean;
+	text?: string;
+	extraClasses?: string;
+}) {
 	return (
 		<button type="button" disabled={disabled} onClick={onClick} className={extraClasses} title="Create a new app">
 			<i className="fas fa-plus" />
@@ -9,7 +19,17 @@ export function AddProjectButton({ onClick, disabled = false, text = '', extraCl
 	);
 }
 
-export function AddProjectFolderButton({ onClick, disabled = false, text = '', extraClasses = '' }) {
+export function AddProjectFolderButton({
+	onClick,
+	disabled = false,
+	text = '',
+	extraClasses = '',
+}: {
+	onClick: React.MouseEventHandler<HTMLButtonElement>;
+	disabled?: boolean;
+	text?: string;
+	extraClasses?: string;
+}) {
 	return (
 		<button type="button" disabled={disabled} onClick={onClick} className={extraClasses} title="Add a folder">
 			<i className="fas fa-plus" />
@@ -18,7 +38,17 @@ export function AddProjectFolderButton({ onClick, disabled = false, text = '', e
 	);
 }
 
-export function DeleteFolderButton({ onClick, disabled = false, text = '', extraClasses = '' }) {
+export function DeleteFolderButton({
+	onClick,
+	disabled = false,
+	text = '',
+	extraClasses = '',
+}: {
+	onClick: React.MouseEventHandler<HTMLButtonElement>;
+	disabled?: boolean;
+	text?: string;
+	extraClasses?: string;
+}) {
 	return (
 		<button
 			type="button"
@@ -33,7 +63,17 @@ export function DeleteFolderButton({ onClick, disabled = false, text = '', extra
 	);
 }
 
-export function AddFileButton({ onClick, disabled, text = '', extraClasses = '' }) {
+export function AddFileButton({
+	onClick,
+	disabled,
+	text = '',
+	extraClasses = '',
+}: {
+	onClick: React.MouseEventHandler<HTMLButtonElement>;
+	disabled?: boolean;
+	text?: string;
+	extraClasses?: string;
+}) {
 	return (
 		<button type="button" disabled={disabled} onClick={onClick} className={extraClasses} title="Add a new file">
 			<i className="fas fa-plus" />
@@ -42,7 +82,17 @@ export function AddFileButton({ onClick, disabled, text = '', extraClasses = '' 
 	);
 }
 
-export function DeleteFileButton({ onClick, disabled, text = '', extraClasses = '' }) {
+export function DeleteFileButton({
+	onClick,
+	disabled = false,
+	text = '',
+	extraClasses = '',
+}: {
+	onClick: React.MouseEventHandler<HTMLButtonElement>;
+	disabled?: boolean;
+	text?: string;
+	extraClasses?: string;
+}) {
 	return (
 		<button type="button" onClick={onClick} disabled={disabled} className={extraClasses} title="Delete selected file">
 			<i className="fas fa-minus" />
