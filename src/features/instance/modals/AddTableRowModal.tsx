@@ -29,24 +29,12 @@ export function AddTableRowModal({
 		setIsValidJSON(markers.length === 0);
 	}, [setIsValidJSON]);
 	const sampleJSON = useMemo(() => {
-		// is_primary_key
-		/*[
-    {
-        "attribute": "id",
-        "type": "ID",
-        "is_primary_key": true
-    },
-    {
-        "attribute": "name",
-        "type": "String",
-        "indexed": true
-    },*/
 		const sample: Record<string, unknown> = {};
 		for (const attribute of schema.attributes) {
 			if (attribute.is_primary_key) {
 				continue;
 			}
-			sample[attribute.attribute] = attribute.type;
+			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
 		}
 		return JSON.stringify(sample, null, 4);
 	}, [schema]);
@@ -82,4 +70,23 @@ export function AddTableRowModal({
 			</DialogFooter>
 		</DialogContent>
 	</Dialog>;
+}
+
+function defaultByAttributeType(type: string) {
+	switch (type) {
+		case 'Date':
+			return new Date().toISOString();
+		case 'Id':
+		case 'String':
+			return '';
+		case 'Boolean':
+			return false;
+		case 'Int':
+		case 'Long':
+		case 'Float':
+		case 'BigInt':
+			return 0;
+		default:
+			return null;
+	}
 }
