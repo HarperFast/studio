@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
 import { Button } from '@/components/ui/button.tsx';
 import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
 import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
+import { useAgo } from '@/hooks/use-ago.ts';
 
 // TODO: Define on describe table data call
 // type AttributesTypes = {
@@ -77,7 +78,7 @@ export function BrowseDataTableView() {
 	});
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pagination.pageSize));
 
-	const { data: tableData, refetch: refetchSearchByValueOptions } = useSuspenseQuery(
+	const { data: tableData, refetch: refetchSearchByValueOptions, dataUpdatedAt, isFetching } = useSuspenseQuery(
 		getSearchByValueOptions({
 			instanceId,
 			schemaName,
@@ -175,6 +176,11 @@ export function BrowseDataTableView() {
 		});
 	};
 
+	const onRefreshClick = useCallback(() => {
+		void refetchSearchByValueOptions?.();
+	}, [refetchSearchByValueOptions]);
+	const lastUpdatedAt = useAgo(dataUpdatedAt);
+
 	return (
 		<>
 			<BrowseDataTable<Record<string, unknown>, unknown>
@@ -189,9 +195,10 @@ export function BrowseDataTableView() {
 				setPagination={setPagination}
 			>
 				<UploadCSVModal />
-				<Button variant="defaultOutline" onClick={notYetImplemented}><RefreshCwIcon /></Button>
+				<Button variant="defaultOutline" onClick={onRefreshClick}><RefreshCwIcon /></Button>
 				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>
-				<Button variant="positiveOutline" onClick={notYetImplemented}><PlusIcon /></Button>
+				<Button variant="positiveOutline" onClick={notYetImplemented} disabled={isFetching}><PlusIcon /></Button>
+				<span className="text-gray-600 text-xs invisible lg:visible">{lastUpdatedAt}</span>
 			</BrowseDataTable>
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}
