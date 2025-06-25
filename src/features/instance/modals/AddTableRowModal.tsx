@@ -1,0 +1,85 @@
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import Editor from '@monaco-editor/react';
+import { Save } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { DescribeTableDataResponse } from '@/features/instance/operations/queries/getDescribeTable';
+
+export function AddTableRowModal({
+	isAddTableRecordsPending,
+	isModalOpen,
+	onSaveChanges,
+	schema,
+	setIsModalOpen,
+}: {
+	isAddTableRecordsPending: boolean;
+	isModalOpen: boolean;
+	onSaveChanges: (data: Record<string, unknown>[] | Record<string, unknown>) => Promise<void>;
+	schema: DescribeTableDataResponse;
+	setIsModalOpen: (open: boolean) => void;
+}) {
+	const [isValidJSON, setIsValidJSON] = useState(true);
+	const [addTableRecordData, setAddTableRecordData] = useState<string>();
+	const onSubmitClick = useCallback(() => {
+		if (addTableRecordData && isValidJSON) {
+			void onSaveChanges(JSON.parse(addTableRecordData));
+		}
+	}, [addTableRecordData, onSaveChanges, isValidJSON]);
+	const onValidate = useCallback((markers: unknown[]) => {
+		setIsValidJSON(markers.length === 0);
+	}, [setIsValidJSON]);
+	const sampleJSON = useMemo(() => {
+		// is_primary_key
+		/*[
+    {
+        "attribute": "id",
+        "type": "ID",
+        "is_primary_key": true
+    },
+    {
+        "attribute": "name",
+        "type": "String",
+        "indexed": true
+    },*/
+		const sample: Record<string, unknown> = {};
+		for (const attribute of schema.attributes) {
+			if (attribute.is_primary_key) {
+				continue;
+			}
+			sample[attribute.attribute] = attribute.type;
+		}
+		return JSON.stringify(sample, null, 4);
+	}, [schema]);
+
+	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+		{/* NOTE - Is this okay to do for the aria describedby? */}
+		<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => {
+			event.preventDefault();
+		}}>
+			<DialogHeader>
+				<DialogTitle>Add New</DialogTitle>
+			</DialogHeader>
+			{schema?.hash_attribute &&
+							<div className="text-sm text-gray-500">
+								The hash_attribute for this table is <strong>&ldquo;{schema.hash_attribute}&rdquo;</strong>, and will
+								auto-generate. You may manually add it if you want to specify its value.</div>}
+			<Editor className="w-full h-96" language="json" theme="vs-dark"
+					value={sampleJSON}
+					onValidate={onValidate}
+					onChange={(updatedValue) => {
+						setAddTableRecordData(updatedValue);
+					}} />
+			<div className="text-sm text-gray-500">
+				<strong>You may paste in an array</strong> if you want to add more than one record at a time.
+			</div>
+			<DialogFooter>
+				<div className="flex justify-between w-full">
+					<Button variant="submit" className="rounded-full" onClick={onSubmitClick}
+							disabled={!isValidJSON || isAddTableRecordsPending}>
+						<Save /> Save Changes
+					</Button>
+				</div>
+			</DialogFooter>
+		</DialogContent>
+	</Dialog>;
+}

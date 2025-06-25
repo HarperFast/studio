@@ -14,26 +14,9 @@ import { useDeleteTableRecords } from '@/features/instance/operations/mutations/
 import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
-import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
-
-// TODO: Define on describe table data call
-// type AttributesTypes = {
-// 	attribute: string;
-// 	is_primary_key: boolean;
-// 	type: string;
-// 	indexed: boolean;
-// 	elements: string;
-// };
-
-// type DataTableState = {
-// 	dataTableColumns: ColumnDef<string[]>[];
-// 	tableData: string[][];
-// 	dynamicAttributesFromDataTable: string[];
-// 	hashAttribute: string;
-// 	page: number;
-// 	pageSize: number;
-// 	schemaAttributes: AttributesTypes[];
-// };
+import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { AddTableRowModal } from '@/features/instance/modals/AddTableRowModal';
+import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 
 const route = getRouteApi('');
 
@@ -45,10 +28,10 @@ export function BrowseDataTableView() {
 			instanceId,
 			schemaName,
 			tableName,
-		})
+		}),
 	);
 
-	const [searchByHashParams, setSearchByHashParams] = useState({
+	const [{ refetch: refetchBySearchHash, ...searchByHashParams }, setSearchByHashParams] = useState({
 		instanceId,
 		schemaName,
 		tableName,
@@ -56,11 +39,15 @@ export function BrowseDataTableView() {
 		refetch: false,
 	});
 
-	const { data: searchByHashData, refetch: refetchSearchByHash } = useQuery(getSearchByHashOptions(searchByHashParams));
+	const {
+		data: searchByHashData,
+		refetch: refetchSearchByHash,
+	} = useQuery(getSearchByHashOptions(searchByHashParams));
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useState({
+	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+	const [{ refetch: refetchBySortTableParams, ...sortTableDataParams }, setSortTableDataParams] = useState({
 		attribute: hash_attribute,
 		descending: false,
 		refetch: false,
@@ -85,23 +72,42 @@ export function BrowseDataTableView() {
 			hash_attribute,
 			sortTableDataParams,
 			pagination,
-		})
+		}),
 	);
+	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
 	useEffect(() => {
-		if (searchByHashParams.refetch) {
+		if (refetchBySearchHash) {
 			void refetchSearchByHash();
 			setSearchByHashParams({ ...searchByHashParams, refetch: false });
 		}
-	}, [searchByHashParams, refetchSearchByHash, setSearchByHashParams]);
+	}, [refetchBySearchHash, refetchSearchByHash, setSearchByHashParams, searchByHashParams]);
 	useEffect(() => {
-		if (sortTableDataParams.refetch) {
+		if (refetchBySortTableParams) {
 			void refetchSearchByValueOptions();
 			setSortTableDataParams({ ...sortTableDataParams, refetch: false });
 		}
-	}, [sortTableDataParams, setSortTableDataParams, refetchSearchByValueOptions]);
+	}, [sortTableDataParams, setSortTableDataParams, refetchBySortTableParams, refetchSearchByValueOptions]);
+
+	const onRecordAdd = async (data: Record<string, unknown>[] | Record<string, unknown>) => {
+		addTableRecords(
+			{
+				databaseName: schemaName,
+				tableName,
+				records: Array.isArray(data) ? data : [data],
+			},
+			{
+				onSuccess: () => {
+					refetchDescribeTableQueryOptions();
+					refetchSearchByValueOptions();
+					setIsAddModalOpen(false);
+					toast.success('Record added successfully');
+				},
+			},
+		);
+	};
 
 	const onRecordUpdate = async (data: Record<string, unknown>[]) => {
 		updateTableRecords(
@@ -117,7 +123,7 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			}
+			},
 		);
 	};
 
@@ -135,7 +141,7 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			}
+			},
 		);
 	};
 
@@ -148,7 +154,7 @@ export function BrowseDataTableView() {
 		pagination.pageIndex,
 	]);
 	useEffect(() => {
-		void refetchSearchByValueOptions()
+		void refetchSearchByValueOptions();
 	}, [
 		refetchSearchByValueOptions,
 		pagination.pageSize,
@@ -167,7 +173,7 @@ export function BrowseDataTableView() {
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 
-	const onColumnClick = async (accessorKey: string, isAscending: boolean) => {
+	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
 		setSortTableDataParams({
 			attribute: accessorKey,
 			descending: !isAscending,
@@ -178,6 +184,10 @@ export function BrowseDataTableView() {
 	const onRefreshClick = useCallback(() => {
 		void refetchSearchByValueOptions?.();
 	}, [refetchSearchByValueOptions]);
+
+	const onAddClicked = useCallback(() => {
+		setIsAddModalOpen(true);
+	}, [setIsAddModalOpen]);
 
 	return (
 		<>
@@ -193,10 +203,19 @@ export function BrowseDataTableView() {
 				setPagination={setPagination}
 			>
 				<UploadCSVModal />
-				<Button variant="defaultOutline" onClick={onRefreshClick}><RefreshCwIcon /></Button>
+				<Button variant="defaultOutline" onClick={onRefreshClick}
+						disabled={isFetching}><RefreshCwIcon /></Button>
 				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>
-				<Button variant="positiveOutline" onClick={notYetImplemented} disabled={isFetching}><PlusIcon /></Button>
+				<Button variant="positiveOutline" onClick={onAddClicked}
+						disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>
 			</BrowseDataTable>
+			<AddTableRowModal
+				schema={describeTableData}
+				setIsModalOpen={setIsAddModalOpen}
+				isModalOpen={isAddModalOpen}
+				onSaveChanges={onRecordAdd}
+				isAddTableRecordsPending={isAddTableRecordsPending}
+			/>
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}

@@ -4,10 +4,16 @@ import {
 	ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, PaginationState, Row, SortingState, useReactTable,
 } from '@tanstack/react-table';
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHeader,
+	TableHeadSortable,
+	TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import React, { Dispatch, SetStateAction } from 'react';
 
 interface BrowseDataTableProps<TData, TValue> {
@@ -16,7 +22,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	totalPages: number;
 	totalRecords: number;
 	onRowClick?: (row: Row<TData>) => void;
-	onColumnClick?: (accessorKey: string, isDescending: boolean) => Promise<void>;
+	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
 	paginationState: {
 		pageIndex: number; pageSize: number;
 	};
@@ -88,21 +94,7 @@ export function BrowseDataTable<TData, TValue>({
 		<Table containerClassName="rounded-md bg-black-dark">
 			<TableHeader>
 				{table.getHeaderGroups().map((headerGroup) => (<TableRow key={headerGroup.id} className="border-none">
-					{headerGroup.headers.map((header) => {
-						return (<TableHead key={header.id} className="px-0">
-							<Button type="button" variant="ghost" className="rounded-none" onClick={() => {
-								header.column.toggleSorting(header.column.getIsSorted() === 'asc');
-								const willSortByAscending = header.column.getIsSorted() === false || header.column.getIsSorted() !== 'asc';
-								// @ts-expect-error accessorKey does exist unsure why ts is complaining
-								onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
-							}}>
-								{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-								{header.column.getIsSorted() === 'asc' ?
-									<ArrowUp /> : header.column.getIsSorted() === 'desc' ? <ArrowDown /> :
-										<ArrowUpDown className="text-gray-600" />}
-							</Button>
-						</TableHead>);
-					})}
+					{headerGroup.headers.map((header) => <TableHeadSortable key={header.id} header={header} onColumnClick={onColumnClick} />)}
 				</TableRow>))}
 			</TableHeader>
 			<TableBody className="bg-black border border-grey-700">
