@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
+import { notYetImplemented } from '@/lib/not-yet-implemented';
 
 const route = getRouteApi('');
 

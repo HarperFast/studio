@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
-import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
+import { notYetImplemented } from '@/lib/not-yet-implemented';
 
 export function OrganizationsIndex() {
 	const { data: user } = useGetCurrentUser();

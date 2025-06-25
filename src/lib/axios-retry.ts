@@ -1,5 +1,5 @@
 import { AxiosResponse } from 'axios';
-import { sleep } from '@/lib/sleep.ts';
+import { sleep } from '@/lib/sleep';
 
 export async function axiosRetry<T = unknown, R = AxiosResponse<T>>(requestPromise: () => Promise<R>, retries = 3, delay = 1000): Promise<R> {
 	let attempt = 0;

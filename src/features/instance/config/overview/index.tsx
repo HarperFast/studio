@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useParams } from '@tanstack/react-router';
 import { toast } from 'sonner';
-import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo.ts';
+import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration.ts';
+import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
 import Editor from '@monaco-editor/react';
-import { Button } from '@/components/ui/button.tsx';
+import { Button } from '@/components/ui/button';
 import { RemoveInstanceModal } from '../../modals/RemoveInstanceModal';
 import { TextLoadingSkeleton } from '@/components/text-loading-skeleton';
 import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
-import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery.ts';
-import { useHumanFileSize } from '@/hooks/use-human-file-size.ts';
+import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
+import { useHumanFileSize } from '@/hooks/use-human-file-size';
 import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 
 export function ConfigOverviewIndex() {

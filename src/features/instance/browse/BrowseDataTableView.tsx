@@ -12,7 +12,7 @@ import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
-import { Button } from '@/components/ui/button.tsx';
+import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
 import { notYetImplemented } from '@/lib/not-yet-implemented.ts';
 

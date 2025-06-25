@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
 import { sleep } from '@/lib/sleep';
-import { axiosRetry } from '@/lib/axios-retry.ts';
+import { axiosRetry } from '@/lib/axios-retry';
 
 type UpdateRestartInstanceResponse = {
 	message: string;

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { humanFileSize } from '@/shared/functions/human-file-size.ts';
+import { humanFileSize } from '@/shared/functions/human-file-size';
 
 export function useHumanFileSize(size: number | undefined, multiplier: number = 1): string {
 	return useMemo(() => {

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useInterval } from '@/hooks/use-interval.ts';
+import { useInterval } from '@/hooks/use-interval';
 
 export function useAgo(msOrDate: number | Date | undefined | null): string {
 	const startMs = useMemo(() => !msOrDate ? null : msOrDate instanceof Date ? msOrDate.getTime() : msOrDate, [msOrDate]);
