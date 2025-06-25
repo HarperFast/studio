@@ -13,7 +13,7 @@ interface RegionLocation extends SchemaLocation {
 type RegionLocations = RegionLocation[];
 
 async function getRegionLocations(): Promise<RegionLocations> {
-	const { data } = await apiClient.get(`/Location/`);
+	const { data } = await apiClient.get(`/Region`);
 	// TODO: The OpenAPI specs don't describe arrays correctly.
 	return data as RegionLocations;
 }

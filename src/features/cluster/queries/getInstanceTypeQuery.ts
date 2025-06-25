@@ -17,14 +17,13 @@ type InstanceType = {
 
 const getInstanceTypes = async () => {
 	// TODO: Work through any disagreements between the SchemaInstanceType and our local types here.
-	// @ts-expect-error /InstanceType/ was removed from the API?
-	const { data } = await apiClient.get(`/InstanceType/`);
+	const { data } = await apiClient.get(`/Plan/`);
 	return data as InstanceTypes;
 };
 
 function getInstanceTypeOptions() {
 	return queryOptions({
-		queryKey: [queryKeys.cluster, 'instanceType'],
+		queryKey: [queryKeys.cluster, 'instancePlan'],
 		queryFn: getInstanceTypes,
 		retry: false,
 	});

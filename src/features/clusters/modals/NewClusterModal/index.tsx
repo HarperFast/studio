@@ -6,15 +6,13 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRight, Plus, PlusIcon } from 'lucide-react';
+import { ArrowRight, PlusIcon } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { NewClusterInfo, useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
-import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
 import {
@@ -29,10 +27,12 @@ import {
 import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
-import {
-	RegionFormInputs,
-} from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
+import { RadioGroup } from '@/components/ui/radio-group';
+import { RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { InstanceTypeCard } from './components/InstanceTypeCard';
 
 // TODO: consolidate this with the storage size options in the NewInstanceModal
 const storageSizeOptions = [
@@ -54,7 +54,8 @@ const storageSizeOptions = [
 
 const NewClusterSchema = z.object({
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
-	abbreviatedName: z.string()
+	abbreviatedName: z
+		.string()
 		.min(1, 'Must be at least 1 character long.')
 		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
@@ -75,9 +76,16 @@ const NewClusterSchema = z.object({
 		.optional(),
 });
 
-export function NewClusterModal({ orgId }: { orgId: string }) {
+export function NewClusterModal({
+	orgId,
+	isModalOpen,
+	setIsModalOpen,
+}: {
+	orgId: string;
+	isModalOpen: boolean;
+	setIsModalOpen: (isOpen: boolean) => void;
+}) {
 	const queryClient = useQueryClient();
-	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
 		defaultValues: {
@@ -112,11 +120,6 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-			<DialogTrigger asChild>
-				<Button variant="positive" className="w-full rounded-full md:w-44">
-					<Plus /> New Cluster
-				</Button>
-			</DialogTrigger>
 			<DialogContent className="sm:max-w-[625px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Cluster</DialogTitle>
@@ -124,6 +127,48 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
+						<FormField
+							control={form.control}
+							name="instanceTypes"
+							render={({ field }) => (
+								<FormItem className="md:col-span-6">
+									<FormLabel className="pb-1">Cluster Configuration</FormLabel>
+									<FormControl>
+										{/* <RadioGroup defaultValue="option-one">
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem value="option-one" id="option-one" />
+												<Label htmlFor="option-one">Option One</Label>
+											</div>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem value="option-two" id="option-two" />
+												<Label htmlFor="option-two">Option Two</Label>
+											</div>
+										</RadioGroup> */}
+										{/* <RadioButtonGroup
+											options={[
+												{ value: 'typ-1', label: 'Self-hosted' },
+												{ value: 'typ-2', label: 'Config 1' },
+												{ value: 'typ-3', label: 'Config 2' },
+											]}
+											defaultValue=""
+											name="cloudProvider"
+											control={form.control}
+											onChange={field.onChange}
+											rules={{ required: 'Please select a cloud provider.' }}
+										/> */}
+										{/* <InstanceTypeCard
+											{...field}
+											name="instanceTypes"
+											options={instanceTypes || []}
+											selectedPlan={field.value}
+											errors={form.formState.errors}
+											control={form.control}
+										/> */}
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
 						<FormField
 							control={form.control}
 							name="clusterName"
@@ -137,6 +182,7 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 								</FormItem>
 							)}
 						/>
+
 						<FormField
 							control={form.control}
 							name="abbreviatedName"
