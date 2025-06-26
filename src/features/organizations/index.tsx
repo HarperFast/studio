@@ -11,7 +11,7 @@ export function OrganizationsIndex() {
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-				<div className="flex-row items-center justify-between hidden h-full text-sm text-white md:flex sm:hidden">
+				<div className="flex items-center justify-between h-full text-sm text-white">
 					<div className="w-full">
 						<Input placeholder="Filter organizations by name" className="inline-block w-3/5 md:w-64" onChange={notYetImplemented} />
 						<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>

@@ -7,7 +7,7 @@ const route = getRouteApi('');
 function DesktopInstanceNavBar() {
 	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
-		<div className="flex-row items-center justify-between hidden h-full text-sm text-white md:flex sm:hidden">
+		<div className="items-center justify-between hidden h-full text-sm text-white md:flex sm:hidden">
 			<h1 className="text-xl font-bold">Instance:</h1>
 			<div className="flex space-x-2 *:hover:text-grey">
 				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`} className="p-2">
@@ -31,7 +31,7 @@ function MobileInstanceNavBar() {
 	const [isInstanceMenuOpen, setIsInstanceMenuOpen] = useState(false);
 	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
-		<div className="flex flex-row items-center justify-between p-4 text-white md:hidden bg-grey-700">
+		<div className="flex items-center justify-between p-4 text-white md:hidden bg-grey-700">
 			<h1 className="text-xl font-bold">Instance:</h1>
 			<button
 				type="button"

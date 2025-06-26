@@ -136,7 +136,7 @@ export function ClusterIndex() {
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
 				{currentCluster?.instances.length ? (
-					<div className="flex-row items-center justify-between hidden h-full text-sm text-white md:flex sm:hidden">
+					<div className="flex items-center justify-between h-full text-sm text-white">
 						<div className="w-full text-white">
 							<h2 className="text-xl font-semibold">{currentCluster?.name}</h2>
 							<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
