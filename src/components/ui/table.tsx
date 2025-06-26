@@ -58,7 +58,6 @@ export function TableHeadSortable<TData extends RowData>({ header, onColumnClick
 	header: Header<TData, unknown>;
 	onColumnClick?: (accessorKey: string, willSortByAscending: boolean) => void;
 }) {
-	console.log(header.column.columnDef);
 	const onClickSort = useCallback(() => {
 		header.column.toggleSorting(header.column.getIsSorted() === 'asc');
 		const willSortByAscending = header.column.getIsSorted() === false || header.column.getIsSorted() !== 'asc';
