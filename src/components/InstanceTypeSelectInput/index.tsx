@@ -1,11 +1,11 @@
 // import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
+// import { getPlanTypesOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
 // import { renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 // import { useQuery } from '@tanstack/react-query';
 // import { Controller } from 'react-hook-form';
 
 // export function InstanceTypeSelectInput({ defaultValue, name, control, rules }) {
-// 	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
+// 	const { data: instanceTypes } = useQuery(getPlanTypesOptions());
 // 	return (
 // 		<Controller
 // 			control={control}

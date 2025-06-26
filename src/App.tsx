@@ -1,7 +1,7 @@
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { cloudRouteTree } from './router/cloudRouter';
-// import { localRouteTree } from './router/localRouter';
+import { localRouteTree } from './router/localRouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/react-query/queryClient';
 import { ClusterProvider } from '@/features/cluster/context/ClusterAuthContext';
@@ -12,10 +12,10 @@ import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
 
 export function App() {
-	// const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO == 'true';
+	const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO == 'true';
 	const hashHistory = createHashHistory();
-	// const loadedRouter = isLocalStudio ? localRouteTree : cloudRouteTree;
-	const loadedRouter = cloudRouteTree;
+	const loadedRouter = isLocalStudio ? localRouteTree : cloudRouteTree;
+	// const loadedRouter = cloudRouteTree;
 
 	const router = createRouter({
 		routeTree: loadedRouter,

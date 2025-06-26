@@ -2,9 +2,9 @@ import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
-type InstanceTypes = InstanceType[];
+type PlanTypes = PlanType[];
 
-type InstanceType = {
+type PlanType = {
 	id: string;
 	selfHosted: boolean;
 	useSharedProcess: boolean;
@@ -15,18 +15,18 @@ type InstanceType = {
 	writeIops?: number;
 };
 
-const getInstanceTypes = async () => {
+const getPlanTypes = async () => {
 	// TODO: Work through any disagreements between the SchemaInstanceType and our local types here.
-	const { data } = await apiClient.get(`/Plan/`);
-	return data as InstanceTypes;
+	const { data } = await apiClient.get(`/Plan`);
+	return data as PlanTypes;
 };
 
-function getInstanceTypeOptions() {
+function getPlanTypesOptions() {
 	return queryOptions({
 		queryKey: [queryKeys.cluster, 'instancePlan'],
-		queryFn: getInstanceTypes,
+		queryFn: getPlanTypes,
 		retry: false,
 	});
 }
 
-export { getInstanceTypeOptions };
+export { getPlanTypesOptions };

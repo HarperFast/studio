@@ -24,7 +24,7 @@ import {
 	SelectLabel,
 	SelectItem,
 } from '@/components/ui/select';
-import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
+import { getPlanTypesOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
@@ -53,6 +53,12 @@ const storageSizeOptions = [
 ];
 
 const NewClusterSchema = z.object({
+	regionList: z.string({
+		required_error: 'Please select a region.',
+	}),
+	planTypes: z.string({
+		required_error: 'Please select a plan type.',
+	}),
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
 	abbreviatedName: z
 		.string()
@@ -69,8 +75,9 @@ const NewClusterSchema = z.object({
 		.array(
 			z.object({
 				region: z.string().nonempty('Region is required.'),
-				cloudProvider: z.string().nonempty('Cloud Provider is required.'),
+				planType: z.string().nonempty('Plan Type is required.'),
 				count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
+				price: z.string().optional(),
 			})
 		)
 		.optional(),
@@ -99,7 +106,7 @@ export function NewClusterModal({
 		name: 'regions', // This is the name of the field array
 	});
 
-	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
+	const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
@@ -120,55 +127,13 @@ export function NewClusterModal({
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-			<DialogContent className="sm:max-w-[625px]">
+			<DialogContent className="sm:max-w-[825px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Cluster</DialogTitle>
 					<DialogDescription>Create a new cluster here.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
-						<FormField
-							control={form.control}
-							name="instanceTypes"
-							render={({ field }) => (
-								<FormItem className="md:col-span-6">
-									<FormLabel className="pb-1">Cluster Configuration</FormLabel>
-									<FormControl>
-										{/* <RadioGroup defaultValue="option-one">
-											<div className="flex items-center space-x-2">
-												<RadioGroupItem value="option-one" id="option-one" />
-												<Label htmlFor="option-one">Option One</Label>
-											</div>
-											<div className="flex items-center space-x-2">
-												<RadioGroupItem value="option-two" id="option-two" />
-												<Label htmlFor="option-two">Option Two</Label>
-											</div>
-										</RadioGroup> */}
-										{/* <RadioButtonGroup
-											options={[
-												{ value: 'typ-1', label: 'Self-hosted' },
-												{ value: 'typ-2', label: 'Config 1' },
-												{ value: 'typ-3', label: 'Config 2' },
-											]}
-											defaultValue=""
-											name="cloudProvider"
-											control={form.control}
-											onChange={field.onChange}
-											rules={{ required: 'Please select a cloud provider.' }}
-										/> */}
-										{/* <InstanceTypeCard
-											{...field}
-											name="instanceTypes"
-											options={instanceTypes || []}
-											selectedPlan={field.value}
-											errors={form.formState.errors}
-											control={form.control}
-										/> */}
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
 						<FormField
 							control={form.control}
 							name="clusterName"
@@ -183,74 +148,7 @@ export function NewClusterModal({
 							)}
 						/>
 
-						<FormField
-							control={form.control}
-							name="abbreviatedName"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
-									<FormControl>
-										<Input type="text" placeholder="ex. cluster-1" maxLength={20} {...field} className="" />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="instanceTypes"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Instance Type</FormLabel>
-									<FormControl>
-										<Select onValueChange={field.onChange} {...field}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select Instance Type" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{instanceTypes?.map((type) => (
-														<SelectItem key={type.id} value={type.id}>
-															{renderInstanceTypeOption(type.id as InstanceTypes)}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						{/* TODO: consolidate this with the storage size options in the NewInstanceModal */}
-						<FormField
-							control={form.control}
-							name="storage"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Storage Size</FormLabel>
-									<FormControl>
-										<Select onValueChange={field.onChange} {...field}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select Storage Size" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													<SelectLabel>Storage Size</SelectLabel>
-													{storageSizeOptions.map((option, index) => (
-														<SelectItem key={index} value={option.value}>
-															{option.label}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent h-36">
+						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent min-h-32 max-h-70">
 							{fieldArray.fields.length > 0 ? (
 								fieldArray.fields.map((field, index) => (
 									<RegionFormInputs
@@ -258,6 +156,7 @@ export function NewClusterModal({
 										control={form.control}
 										index={index}
 										regionLocations={regionLocations || []}
+										planTypes={planTypes || []}
 										selectedRegions={selectedRegions || []}
 										remove={() => {
 											fieldArray.remove(index);
