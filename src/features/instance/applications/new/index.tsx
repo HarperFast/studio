@@ -4,9 +4,7 @@ import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
 import { CreateNewProjectFrom } from './CreateNewProjectFrom';
 import { useState } from 'react';
 import { ImportProjectForm } from './ImportProjectForm';
-import { getRouteApi, Link } from '@tanstack/react-router';
-
-const route = getRouteApi('');
+import { Link } from '@tanstack/react-router';
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
