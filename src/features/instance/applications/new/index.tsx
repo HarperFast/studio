@@ -10,13 +10,12 @@ const route = getRouteApi('');
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
 			<Card className="w-full h-full max-w-xl">
 				<CardHeader>
 					<Link
-						to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}
+						to={`applications`}
 						className="text-sm"
 						aria-label={`Go back to applications main menu`}
 						title={`Go back to applications main menu`}

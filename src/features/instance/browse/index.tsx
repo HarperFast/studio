@@ -1,4 +1,4 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
 import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
@@ -10,39 +10,32 @@ import { BrowseSidebar as BrowseSideBar } from '@/features/instance/browse/compo
 
 const route = getRouteApi('');
 
-const getTableList = (structure: Record<string, unknown>, selectedDatabase: string) => {
-	return Object.keys(structure?.[selectedDatabase] || []);
-};
-
 export function Browse() {
 	const navigate = useNavigate();
-	const { organizationId, clusterId, instanceId, schemaName, tableName } = route.useParams();
+	const { instanceId, schemaName, tableName } = route.useParams();
 	const { data: describeAllQueryData } = useSuspenseQuery(getDescribeAllQueryOptions(instanceId));
-	const structure = buildInstanceDataStructure(describeAllQueryData);
 
-	const [selectedDatabase, setSelectedDatabase] = useState<string | undefined>(schemaName);
-	const [selectedTable, setSelectedTable] = useState<string | undefined>(tableName);
-	const databaseList = Object.keys(structure || {});
-	// @ts-expect-error unsure how to fix this error 🤔. Would love some insight
-	let tables = Object.keys(structure[selectedDatabase] || []);
+	const structure = useMemo(() => buildInstanceDataStructure(describeAllQueryData), [describeAllQueryData]);
 
-	const onSelectDatabase = (databaseName: string) => {
-		setSelectedDatabase(databaseName);
-		navigate({
-			to: `/orgs/$organizationId/clusters/$clusterId/instance/$instanceId/browse/$schemaName`,
-			params: {
-				organizationId: organizationId,
-				clusterId: clusterId,
-				instanceId: instanceId,
-				schemaName: databaseName,
-			},
-		});
-		tables = getTableList(structure, databaseName);
-	};
+	const { databaseList, tables } = useMemo(() => {
+		const databaseList = Object.keys(structure || {}).sort();
+		const tables = schemaName ? Object.keys(structure[schemaName] || []).sort() : [];
+		return {
+			databaseList,
+			tables,
+		};
+	}, [structure, schemaName]);
 
-	const onSelectTable = (tableName: string) => {
-		setSelectedTable(tableName);
-	};
+	const onSelectDatabase = useCallback((newSchemaName: string | undefined) => {
+		const tables = newSchemaName ? Object.keys(structure[newSchemaName] || []).sort() : [];
+		const parts = [schemaName ? '../' : '', tableName ? '../' : '', newSchemaName, tables[0]].filter(Boolean);
+		void navigate({ to: parts.join('/') });
+	}, [navigate, structure, schemaName, tableName]);
+
+	const onSelectTable = useCallback((newTableName: string | undefined) => {
+		const parts = [tableName ? '../' : '', newTableName].filter(Boolean);
+		void navigate({ to: parts.join('/') });
+	}, [tableName, navigate]);
 
 	return (
 		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
@@ -50,24 +43,24 @@ export function Browse() {
 				<BrowseSideBar
 					databases={databaseList}
 					onSelectDatabase={onSelectDatabase}
-					selectedDatabase={selectedDatabase}
-					tables={tables}
 					onSelectTable={onSelectTable}
+					tables={tables}
 				/>
 			</section>
 			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
-				{!selectedDatabase ? (
+				{!schemaName ? (
 					<div className="flex items-center justify-center h-full">
 						<p className="pt-2 text-sm text-center">Please select a database.</p>
 					</div>
-				) : !selectedTable ? (
+				) : !tableName ? (
 					<div className="flex items-center justify-center h-full">
 						<p className="pt-2 text-sm text-center">Please select a table.</p>
 					</div>
 				) : (
 					<Suspense
 						fallback={
-							<Loading className="flex flex-col items-center justify-center h-full" text="Loading Data Table" />
+							<Loading className="flex flex-col items-center justify-center h-full"
+									 text="Loading Data Table" />
 						}
 					>
 						<Outlet />

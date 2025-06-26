@@ -10,7 +10,7 @@ import {
 	useCreateComponentMutation,
 } from '@/features/instance/operations/mutations/createComponent';
 import { toast } from 'sonner';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 
 const NewProjectSchema = z.object({
 	newApplicationName: z
@@ -20,11 +20,8 @@ const NewProjectSchema = z.object({
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
 });
 
-const route = getRouteApi('');
-
 export function CreateNewProjectFrom() {
 	const navigate = useNavigate();
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
@@ -32,11 +29,11 @@ export function CreateNewProjectFrom() {
 		},
 	});
 	const { mutate: createNewProject } = useCreateComponentMutation();
-	const submitForm = async (formData: CreateComponentFormData) => {
+	const submitForm = (formData: CreateComponentFormData) => {
 		createNewProject(formData, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
-				navigate({ to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications/editor` });
+				void navigate({ to: `../editor` });
 			},
 			onError: (error) => {
 				toast.error(`Error creating project: ${error.message}`);

@@ -1,25 +1,22 @@
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { X, Menu, List, Package, ChartBarBig, NotepadText } from 'lucide-react';
-
-const route = getRouteApi('');
+import { ChartBarBig, List, Menu, NotepadText, Package, X } from 'lucide-react';
 
 function DesktopInstanceNavBar() {
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<h1 className="text-xl font-bold">Instance:</h1>
 			<div className="flex space-x-2 *:hover:text-grey">
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`} className="p-2">
+				<Link to={`browse`} className="p-2">
 					<List className="inline-block" /> Browse
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`} className="p-2">
+				<Link to={`applications`} className="p-2">
 					<Package className="inline-block" /> Applications
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/config`} className="p-2">
+				<Link to={`config`} className="p-2">
 					<ChartBarBig className="inline-block" /> Config
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/logs`} className="p-2">
+				<Link to={`logs`} className="p-2">
 					<NotepadText className="inline-block" /> Logs
 				</Link>
 			</div>
@@ -29,7 +26,6 @@ function DesktopInstanceNavBar() {
 
 function MobileInstanceNavBar() {
 	const [isInstanceMenuOpen, setIsInstanceMenuOpen] = useState(false);
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
 		<div className="flex md:hidden items-center justify-between p-4 text-white bg-grey-700">
 			<h1 className="text-xl font-bold">Instance:</h1>
@@ -44,16 +40,16 @@ function MobileInstanceNavBar() {
 				{isInstanceMenuOpen ? <X /> : <Menu />}
 			</button>
 			<div className="flex space-x-4">
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`} className="p-2">
+				<Link to={`browse`} className="p-2">
 					Browse
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`} className="p-2">
+				<Link to={`applications`} className="p-2">
 					Applications
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/config`} className="p-2">
+				<Link to={`config`} className="p-2">
 					Config
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/logs`} className="p-2">
+				<Link to={`logs`} className="p-2">
 					Logs
 				</Link>
 			</div>

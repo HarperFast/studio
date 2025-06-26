@@ -34,8 +34,7 @@ export function ClustersList() {
 				{isSuccess && orgInfo?.clusters?.length ? (<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 						{orgInfo?.clusters.map((cluster) => (
 							<div key={cluster.id} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-								<ClusterCard clusterName={cluster.name} clusterId={cluster.id} organizationId={cluster.organizationId}
-														 status={cluster.status} />
+								<ClusterCard clusterName={cluster.name} clusterId={cluster.id} status={cluster.status} />
 							</div>))}
 					</div>) : (<div className="flex-col space-y-5 items-center justify-center text-center">
 						<h2 className="text-2xl text-center text-white">No clusters found. Create a new cluster.</h2>

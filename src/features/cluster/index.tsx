@@ -43,7 +43,7 @@ function EmptyCluster({ clusterId }: { clusterId: string }) {
 }
 
 export function ClusterIndex() {
-	const { organizationId, clusterId } = route.useParams();
+	const { clusterId } = route.useParams();
 	const { currentCluster, isAuthenticated, loadCluster, isLoading } = useCluster(); // Assuming currentCluster is the one we need
 	// const { mutate: submitRegistrationData, data: registrationInfo } = useRegistrationInfo();
 
@@ -76,7 +76,7 @@ export function ClusterIndex() {
 								/>
 							) : (
 								<Link
-									to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${cell.row.original.id}/browse`}
+									to={`instance/${cell.row.original.id}/browse`}
 									className="text-sm"
 									aria-label={`Go to ${cell.row.original.name} instance`}
 									title={`Go to ${cell.row.original.name} instance`}
@@ -130,7 +130,7 @@ export function ClusterIndex() {
 				},
 			},
 		],
-		[clusterId, organizationId, isAuthenticated]
+		[clusterId, isAuthenticated]
 	);
 	return (
 		<>

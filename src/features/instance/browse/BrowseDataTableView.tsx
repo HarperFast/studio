@@ -90,6 +90,21 @@ export function BrowseDataTableView() {
 			setSortTableDataParams({ ...sortTableDataParams, refetch: false });
 		}
 	}, [sortTableDataParams, setSortTableDataParams, refetchBySortTableParams, refetchSearchByValueOptions]);
+	useEffect(() => {
+		setTotalRecords(describeTableData.record_count);
+		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
+	}, [
+		describeTableData,
+		pagination.pageSize,
+		pagination.pageIndex,
+	]);
+	useEffect(() => {
+		void refetchSearchByValueOptions();
+	}, [
+		refetchSearchByValueOptions,
+		pagination.pageSize,
+		pagination.pageIndex,
+	]);
 
 	const onRecordAdd = async (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
@@ -108,7 +123,6 @@ export function BrowseDataTableView() {
 			},
 		);
 	};
-
 	const onRecordUpdate = async (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
@@ -126,7 +140,6 @@ export function BrowseDataTableView() {
 			},
 		);
 	};
-
 	const onDeleteRecord = async (data: (string | number)[]) => {
 		deleteTableRecords(
 			{
@@ -144,24 +157,6 @@ export function BrowseDataTableView() {
 			},
 		);
 	};
-
-	useEffect(() => {
-		setTotalRecords(describeTableData.record_count);
-		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
-	}, [
-		describeTableData,
-		pagination.pageSize,
-		pagination.pageIndex,
-	]);
-	useEffect(() => {
-		void refetchSearchByValueOptions();
-	}, [
-		refetchSearchByValueOptions,
-		pagination.pageSize,
-		pagination.pageIndex,
-	]);
-
-
 	const onRowClick = async (rowData: Row<Record<string, unknown>>) => {
 		setSearchByHashParams({
 			instanceId,
@@ -172,7 +167,6 @@ export function BrowseDataTableView() {
 		});
 		setIsEditModalOpen(!isEditModalOpen);
 	};
-
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
 		setSortTableDataParams({
 			attribute: accessorKey,
@@ -180,7 +174,6 @@ export function BrowseDataTableView() {
 			refetch: true,
 		});
 	};
-
 	const onRefreshClick = useCallback(() => {
 		void refetchSearchByValueOptions?.();
 	}, [refetchSearchByValueOptions]);

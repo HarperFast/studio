@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,10 +19,9 @@ import { DeleteTableData, useDeleteTableMutation } from '@/features/instance/ope
 
 type BrowseSidebarProps = {
 	databases: string[];
-	onSelectDatabase: (databaseName: string) => void;
-	selectedDatabase?: string;
+	onSelectDatabase: (schemaName: string | undefined) => void;
+	onSelectTable: (tableName: string | undefined) => void;
 	tables?: string[];
-	onSelectTable: (tableName: string) => void;
 };
 
 const route = getRouteApi('');
@@ -37,10 +36,9 @@ const NewDatabaseSchema = z.object({
 		.regex(/^[a-zA-Z0-9_]+$/, { message: 'Database name can only contain letters, numbers, and underscores' }),
 });
 
-export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, tables, onSelectTable }: BrowseSidebarProps) {
+export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTable }: BrowseSidebarProps) {
 	const queryClient = useQueryClient();
-	const { organizationId, clusterId, instanceId, schemaName } = route.useParams();
-	const navigate = useNavigate();
+	const { instanceId, schemaName, tableName } = route.useParams();
 
 	const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
 
@@ -51,47 +49,39 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 		},
 	});
 
-	const handleSelectedTable = (selectedTableName: string) => {
-		onSelectTable(selectedTableName);
-		navigate({
-			to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse/${selectedDatabase}/${selectedTableName}`,
-		});
-	};
-
 	const { mutate: createNewDatabase } = useCreateDatabaseSubmitMutation();
 	const { mutate: deleteDatabase } = useDeleteDatabaseMutation();
 	const { mutate: deleteTable } = useDeleteTableMutation();
 
-	const submitNewDatabase = async (formData: z.infer<typeof NewDatabaseSchema>) => {
-		await createNewDatabase(formData, {
+	const submitNewDatabase = (formData: z.infer<typeof NewDatabaseSchema>) => {
+		createNewDatabase(formData, {
 			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] });
-				toast.success(`Database ${formData.newDatabaseName} created successfully`);
+				queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] })
+					.then(() => onSelectDatabase(formData.newDatabaseName));
 				setIsCreatingDatabase(false);
 				form.reset();
+				toast.success(`Database ${formData.newDatabaseName} created successfully`);
 			},
 		});
 	};
 
-	const deleteSelectedDatabase = async (databaseName: string) => {
+	const deleteSelectedDatabase = (databaseName: string) => {
 		deleteDatabase(databaseName, {
 			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: [instanceId] });
+				void queryClient.invalidateQueries({ queryKey: [instanceId] });
 				toast.success(`Database ${databaseName} deleted successfully`);
-				navigate({
-					to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`,
-				});
+				onSelectDatabase(undefined);
 			},
 		});
 	};
 
-	const deleteSelectedTable = async (data: DeleteTableData) => {
+	const deleteSelectedTable = (data: DeleteTableData) => {
 		deleteTable(data, {
 			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] });
-				navigate({
-					to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse/${schemaName}`,
-				});
+				void queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] });
+				if (data.tableName === tableName) {
+					onSelectTable(undefined);
+				}
 				toast.success(`Table ${data.tableName} deleted successfully`);
 			},
 		});
@@ -109,7 +99,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 				<div className="flex space-x-2">
 					<Select
 						name="databaseSelect"
-						defaultValue={selectedDatabase}
+						value={schemaName || ''}
 						onValueChange={(selectedDatabaseName) => {
 							onSelectDatabase(selectedDatabaseName);
 						}}
@@ -139,10 +129,10 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 						className="inline-block"
 						aria-label="Delete selected database"
 						variant="destructiveOutline"
-						disabled={!selectedDatabase}
+						disabled={!schemaName}
 						onClick={() => {
-							if (!selectedDatabase) return;
-							deleteSelectedDatabase(selectedDatabase);
+							if (!schemaName) return;
+							deleteSelectedDatabase(schemaName);
 						}}
 					>
 						<Trash />
@@ -180,14 +170,14 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 				</TabsList>
 				<ScrollArea className="border rounded-md h-80 border-grey-700">
 					<TabsContent value="tables" className="h-full">
-						{(tables ?? []).length === 0 && selectedDatabase?.length ? (
+						{(tables ?? []).length === 0 && schemaName?.length ? (
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
 								<div className="mx-auto max-w-48">
-									<CreateNewTableModal databaseName={selectedDatabase || ''} instanceId={instanceId} />
+									<CreateNewTableModal databaseName={schemaName || ''} instanceId={instanceId} />
 								</div>
 							</div>
-						) : (tables ?? []).length === 0 && !selectedDatabase?.length ? (
+						) : (tables ?? []).length === 0 && !schemaName?.length ? (
 							// If no database is selected, show a message
 							<p className="pt-2 text-sm text-center">Please select a database.</p>
 						) : (
@@ -205,13 +195,13 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 										<Trash className="inline-block " />
 									</Button>
 									<Button
-										onClick={() => handleSelectedTable(table)}
+										onClick={() => onSelectTable(table)}
 										size="lg"
 										className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent"
 									>
-										<span>{table}</span>
+										{table}
 										<span>
-											<ArrowRight />
+											{tableName === table && <ArrowRight />}
 										</span>
 									</Button>
 								</li>
@@ -220,8 +210,8 @@ export function BrowseSidebar({ databases, onSelectDatabase, selectedDatabase, t
 					</TabsContent>
 				</ScrollArea>
 			</Tabs>
-			{selectedDatabase?.length && (
-				<CreateNewTableModal databaseName={selectedDatabase || ''} instanceId={instanceId} />
+			{schemaName?.length && (
+				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} />
 			)}
 		</div>
 	);
