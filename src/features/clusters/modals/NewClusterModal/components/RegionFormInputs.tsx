@@ -16,15 +16,27 @@ import { Control } from 'react-hook-form';
 type RegionFormInputsProps = {
 	control: Control<{
 		clusterName: string;
-		planTypes: [];
-		regions?: { region: string; count: number; cloudProvider: string; price?: string }[] | undefined;
+		planTypes: unknown;
+		regions?: { region: string; count: number; planType: string; price?: string }[] | undefined;
 	}>;
 	index: number;
 	remove: () => void;
 	regionLocations: RegionLocations;
-	selectedRegions: { region: string; count: number; cloudProvider: string }[] | undefined;
+	selectedRegions: { region: string; count: number; planType: string; price?: string }[] | undefined;
+	planTypes?: {
+		id: string;
+		name: string;
+		price: string;
+		resourcesPerInstance?: {
+			cpuCores?: number;
+			memoryMb?: number;
+			readIopsLimit?: number;
+			writeIopsLimit?: number;
+			storageGb?: number;
+			threads?: number;
+		};
+	}[];
 };
-
 export function RegionFormInputs({
 	control,
 	index,
@@ -34,7 +46,15 @@ export function RegionFormInputs({
 	planTypes,
 }: RegionFormInputsProps) {
 	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.region) ?? []);
+	const currentPlanTypeObj = planTypes?.find((plan) => plan.id === selectedRegions?.[index]?.planType);
+	const currentRegionCount = selectedRegions?.[index]?.count ?? 0;
 
+	const currentPrice = currentPlanTypeObj
+		? (parseInt(currentPlanTypeObj.price?.replace(/\$/g, '')) ?? 0) * currentRegionCount
+		: 0;
+
+	const { cpuCores, memoryMb, readIopsLimit, writeIopsLimit, storageGb, threads } =
+		currentPlanTypeObj?.resourcesPerInstance ?? {};
 	return (
 		<div className="grid grid-cols-3 gap-2 mb-4 md:grid-cols-12 md:items-end">
 			<FormField
@@ -65,6 +85,9 @@ export function RegionFormInputs({
 								</SelectContent>
 							</Select>
 						</FormControl>
+						<small className="text-xs text-muted-foreground">
+							{regionLocations?.find((r) => r.id === regionField.value)?.latencyDescription || ''}
+						</small>
 					</FormItem>
 				)}
 			/>
@@ -75,25 +98,31 @@ export function RegionFormInputs({
 					<FormItem className="col-span-3 md:col-span-4">
 						<FormLabel>Plan Type</FormLabel>
 						<FormControl>
-							<div>
-								<Select onValueChange={planTypeSelectionField.onChange} {...planTypeSelectionField}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Choose Plan" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											<SelectLabel>Plan</SelectLabel>
-											{planTypes?.map((planType) => (
-												<SelectItem key={planType.id} value={planType.id}>
-													{planType.name}
-												</SelectItem>
-											))}
-											<SelectItem value="linode">Linode</SelectItem>
-										</SelectGroup>
-									</SelectContent>
-								</Select>
-							</div>
+							<Select onValueChange={planTypeSelectionField.onChange} {...planTypeSelectionField}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Choose Plan" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectGroup>
+										<SelectLabel>Plan</SelectLabel>
+										{planTypes?.map((planType) => (
+											<SelectItem key={planType.id} value={planType.id}>
+												{planType.name}
+											</SelectItem>
+										))}
+										<SelectItem value="linode">Linode</SelectItem>
+									</SelectGroup>
+								</SelectContent>
+							</Select>
 						</FormControl>
+						<small className="text-xs text-muted-foreground">
+							{currentPlanTypeObj?.resourcesPerInstance ? (
+								<>
+									{cpuCores} CPU Cores /{threads} Threads /{memoryMb} MB Memory /{storageGb} GB Storage /{readIopsLimit}{' '}
+									Read IOPS /{writeIopsLimit} Write IOPS
+								</>
+							) : null}
+						</small>
 					</FormItem>
 				)}
 			/>
@@ -126,7 +155,15 @@ export function RegionFormInputs({
 						<FormItem className="col-span-1 md:col-span-1">
 							<FormLabel>Price</FormLabel>
 							<FormControl>
-								<Input type="number" placeholder="$0.00" {...priceField} className="max-w-64" min={0} readOnly />
+								<Input
+									type="number"
+									placeholder="$0.00"
+									{...priceField}
+									value={currentPrice.toFixed(2)}
+									className="max-w-64"
+									min={0}
+									readOnly
+								/>
 							</FormControl>
 						</FormItem>
 					)}

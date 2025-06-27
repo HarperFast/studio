@@ -24,7 +24,7 @@ import {
 	SelectLabel,
 	SelectItem,
 } from '@/components/ui/select';
-import { getPlanTypesOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
+import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
@@ -53,12 +53,6 @@ const storageSizeOptions = [
 ];
 
 const NewClusterSchema = z.object({
-	regionList: z.string({
-		required_error: 'Please select a region.',
-	}),
-	planTypes: z.string({
-		required_error: 'Please select a plan type.',
-	}),
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
 	abbreviatedName: z
 		.string()
@@ -111,6 +105,7 @@ export function NewClusterModal({
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
 	const selectedRegions = form.watch('regions');
+	// console.log('Selected Regions:', selectedRegions);
 
 	const submitForm = async (formData: { clusterName: string; abbreviatedName: string }) => {
 		const updatedFormData = {
@@ -173,7 +168,7 @@ export function NewClusterModal({
 								variant="positive"
 								className="rounded-full"
 								onClick={() => {
-									fieldArray.append({ region: '', cloudProvider: '', count: 0 });
+									fieldArray.append({ region: '', planType: '', count: 0, price: '' });
 								}}
 							>
 								<PlusIcon />

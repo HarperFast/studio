@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluster/hooks/useCreateNewInstance';
 import { type PlanTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
-import { getPlanTypesOptions } from '../queries/getInstanceTypeQuery';
+import { getPlanTypesOptions } from '../queries/getPlanTypesQuery';
 import { toast } from 'sonner';
 
 // TODO: consolidate this with the storage size options in the NewClusterModal
