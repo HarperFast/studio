@@ -13,30 +13,22 @@ import {
 } from '@/components/ui/select';
 import { Control } from 'react-hook-form';
 import { useCallback } from 'react';
+import { PlanTypes } from '@/features/cluster/queries/getPlanTypesQuery';
 
 type RegionFormInputsProps = {
 	control: Control<{
-		clusterName: string;
-		planTypes: unknown;
-		regions?: { region: string; count: number; planType: string; price?: string }[] | undefined;
+		regions: {
+			region: string;
+			planType: string;
+			count?: number;
+			price: string;
+		}[];
 	}>;
 	index: number;
 	remove: () => void;
 	regionLocations: RegionLocations;
 	selectedRegions: { region: string; count: number; planType: string; price?: string }[] | undefined;
-	planTypes?: {
-		id: string;
-		name: string;
-		price: string;
-		resourcesPerInstance?: {
-			cpuCores?: number;
-			memoryMb?: number;
-			readIopsLimit?: number;
-			writeIopsLimit?: number;
-			storageGb?: number;
-			threads?: number;
-		};
-	}[];
+	planTypes?: PlanTypes;
 };
 
 export function RegionFormInputs({

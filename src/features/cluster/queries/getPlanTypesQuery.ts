@@ -6,13 +6,16 @@ type PlanTypes = PlanType[];
 
 type PlanType = {
 	id: string;
-	selfHosted: boolean;
-	useSharedProcess: boolean;
-	threads?: number;
-	cpu?: number;
-	memory?: number;
-	readIops?: number;
-	writeIops?: number;
+	name: string;
+	price: string;
+	resourcesPerInstance?: {
+		cpuCores?: number;
+		memoryMb?: number;
+		readIopsLimit?: number;
+		writeIopsLimit?: number;
+		storageGb?: number;
+		threads?: number;
+	};
 };
 
 const getPlanTypes = async () => {
@@ -30,3 +33,4 @@ function getPlanTypesOptions() {
 }
 
 export { getPlanTypesOptions };
+export type { PlanTypes, PlanType };

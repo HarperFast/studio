@@ -29,12 +29,6 @@ const NewClusterSchema = z.object({
 		.min(1, 'Must be at least 1 character long.')
 		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
-	instanceTypes: z.string({
-		required_error: 'Please select an instance type.',
-	}),
-	storage: z.string({
-		required_error: 'Please select a storage size.',
-	}),
 	regions: z
 		.array(
 			z.object({
@@ -77,7 +71,8 @@ export function NewClusterModal({
 	const selectedRegions = form.watch('regions');
 	// console.log('Selected Regions:', selectedRegions);
 
-	const submitForm = async (formData: { clusterName: string; abbreviatedName: string }) => {
+	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
+		console.log('Form Data:', formData);
 		const updatedFormData = {
 			organizationId: orgId,
 			...formData,
@@ -107,6 +102,19 @@ export function NewClusterModal({
 									<FormLabel className="pb-1">Cluster Name</FormLabel>
 									<FormControl>
 										<Input type="text" placeholder="User Cluster" maxLength={255} {...field} className="" />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="abbreviatedName"
+							render={({ field }) => (
+								<FormItem className="md:col-span-3">
+									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
+									<FormControl>
+										<Input type="text" placeholder="user-cluster" maxLength={20} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
