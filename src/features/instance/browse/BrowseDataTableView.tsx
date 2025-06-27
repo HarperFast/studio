@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -8,29 +8,13 @@ import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDat
 import { EditTableRowModal } from '@/features/instance/modals/EditTableRowModal';
 import { getSearchByHashOptions } from '@/features/instance/operations/queries/getSearchByHash';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
-import { PaginationState } from '@tanstack/react-table';
+import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
-
-// TODO: Define on describe table data call
-// type AttributesTypes = {
-// 	attribute: string;
-// 	is_primary_key: boolean;
-// 	type: string;
-// 	indexed: boolean;
-// 	elements: string;
-// };
-
-// type DataTableState = {
-// 	dataTableColumns: ColumnDef<string[]>[];
-// 	tableData: string[][];
-// 	dynamicAttributesFromDataTable: string[];
-// 	hashAttribute: string;
-// 	page: number;
-// 	pageSize: number;
-// 	schemaAttributes: AttributesTypes[];
-// };
+import { Button } from '@/components/ui/button';
+import { PlusIcon, RefreshCwIcon } from 'lucide-react';
+import { AddTableRowModal } from '@/features/instance/modals/AddTableRowModal';
+import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 
 const route = getRouteApi('');
 
@@ -42,7 +26,7 @@ export function BrowseDataTableView() {
 			instanceId,
 			schemaName,
 			tableName,
-		})
+		}),
 	);
 
 	const [searchByHashParams, setSearchByHashParams] = useState({
@@ -52,14 +36,20 @@ export function BrowseDataTableView() {
 		hashAttribute: [''],
 	});
 
-	const { data: searchByHashData, refetch: refetchSearchByHash } = useQuery(getSearchByHashOptions(searchByHashParams));
+	const { data: searchByHashData } = useQuery(getSearchByHashOptions(searchByHashParams));
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [sortTableDataParams, setSortTableDataParams] = useState({
-		attribute: '',
+		attribute: hash_attribute,
 		descending: false,
 	});
+	const sortingState = useMemo(() => ([{
+		desc: sortTableDataParams.descending,
+		id: sortTableDataParams.attribute,
+	}]), [sortTableDataParams]);
+
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pagination, setPagination] = useState<PaginationState>({
 		pageIndex: 0,
@@ -67,7 +57,7 @@ export function BrowseDataTableView() {
 	});
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pagination.pageSize));
 
-	const { data: tableData, refetch: refetchSearchByValueOptions } = useSuspenseQuery(
+	const { data: tableData, refetch: refetchSearchByValueOptions, isFetching: tableDataFetching } = useQuery(
 		getSearchByValueOptions({
 			instanceId,
 			schemaName,
@@ -75,12 +65,39 @@ export function BrowseDataTableView() {
 			hash_attribute,
 			sortTableDataParams,
 			pagination,
-		})
+		}),
 	);
+	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
-	const onRecordUpdate = async (data: object[]) => {
+	useEffect(() => {
+		setTotalRecords(describeTableData.record_count);
+		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
+	}, [
+		describeTableData,
+		pagination.pageSize,
+		pagination.pageIndex,
+	]);
+
+	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
+		addTableRecords(
+			{
+				databaseName: schemaName,
+				tableName,
+				records: Array.isArray(data) ? data : [data],
+			},
+			{
+				onSuccess: () => {
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
+					setIsAddModalOpen(false);
+					toast.success('Record added successfully');
+				},
+			},
+		);
+	};
+	const onRecordUpdate = (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
 				databaseName: schemaName,
@@ -89,15 +106,15 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
-					refetchSearchByValueOptions();
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			}
+			},
 		);
 	};
-
-	const onDeleteRecord = async (data: (string | number)[]) => {
+	const onDeleteRecord = (data: (string | number)[]) => {
 		deleteTableRecords(
 			{
 				databaseName: schemaName,
@@ -106,65 +123,64 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
-					refetchSearchByValueOptions();
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			}
+			},
 		);
 	};
-
-	// TODO: fix this. It reloads the table several times unnecessarily
-	useEffect(() => {
-		refetchDescribeTableQueryOptions();
-		refetchSearchByValueOptions();
-		setTotalRecords(describeTableData.record_count);
-		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
-	}, [
-		refetchDescribeTableQueryOptions,
-		refetchSearchByValueOptions,
-		instanceId,
-		schemaName,
-		tableName,
-		pagination.pageSize,
-		pagination.pageIndex,
-		describeTableData.record_count,
-	]);
-
-	// @ts-expect-error Row<TData> should be defined but can't grab TData from tanstack/react-table
-	const onRowClick = async (rowData) => {
-		await setSearchByHashParams({
+	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
+		setSearchByHashParams({
 			instanceId,
 			schemaName,
 			tableName,
-			hashAttribute: rowData.original[`${hash_attribute}`],
+			hashAttribute: rowData.original[hash_attribute] as string[],
 		});
-		refetchSearchByHash();
 		setIsEditModalOpen(!isEditModalOpen);
 	};
-
-	const onColumnClick = async (accessorKey: string, isDescending: boolean) => {
-		await setSortTableDataParams({
+	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
+		setSortTableDataParams({
 			attribute: accessorKey,
-			descending: isDescending,
+			descending: !isAscending,
 		});
-		refetchSearchByValueOptions();
 	};
+	const onRefreshClick = useCallback(() => {
+		void refetchSearchByValueOptions?.();
+	}, [refetchSearchByValueOptions]);
+
+	const onAddClicked = useCallback(() => {
+		setIsAddModalOpen(true);
+	}, [setIsAddModalOpen]);
 
 	return (
 		<>
-			<div>
-				<UploadCSVModal />
-			</div>
-			<BrowseDataTable
-				data={tableData.data}
+			<BrowseDataTable<Record<string, unknown>, unknown>
+				data={tableData?.data || []}
+				isFetching={tableDataFetching}
 				columns={dataTableColumns}
 				onRowClick={onRowClick}
 				onColumnClick={onColumnClick}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
 				paginationState={pagination}
+				sortingState={sortingState}
 				setPagination={setPagination}
+			>
+				{/*<UploadCSVModal />*/}
+				<Button variant="defaultOutline" onClick={onRefreshClick}
+						disabled={tableDataFetching}><RefreshCwIcon /></Button>
+				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>*/}
+				<Button variant="positiveOutline" onClick={onAddClicked}
+						disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>
+			</BrowseDataTable>
+			<AddTableRowModal
+				schema={describeTableData}
+				setIsModalOpen={setIsAddModalOpen}
+				isModalOpen={isAddModalOpen}
+				onSaveChanges={onRecordAdd}
+				isAddTableRecordsPending={isAddTableRecordsPending}
 			/>
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}

@@ -10,7 +10,7 @@ import {
 	useDeployComponentMutation,
 } from '@/features/instance/operations/mutations/deployComponent';
 import { toast } from 'sonner';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { FormEvent } from 'react';
 import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGithubRepo';
 import { isValidTarballUrl } from './functions/isValidTarballUrl';
@@ -24,11 +24,8 @@ const ImportProjectSchema = z.object({
 	applicationUrl: z.string(),
 });
 
-const route = getRouteApi('');
-
 export function ImportProjectForm() {
 	const navigate = useNavigate();
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
@@ -42,7 +39,7 @@ export function ImportProjectForm() {
 		deployNewApplication(formData, {
 			onSuccess: () => {
 				toast.success(`Application ${formData} created successfully`);
-				navigate({ to: `/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications/editor` });
+				navigate({ to: `../editor` });
 			},
 			onError: (error) => {
 				toast.error(`Error creating Application: ${error.message}`);

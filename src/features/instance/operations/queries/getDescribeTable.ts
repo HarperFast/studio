@@ -2,7 +2,7 @@ import { instanceClient } from '@/config/instanceClient';
 
 import { queryOptions } from '@tanstack/react-query';
 
-type DescribeTableAttribute = {
+export type DescribeTableAttribute = {
 	attribute: string;
 	is_primary_key?: boolean;
 	type?: string;
@@ -10,7 +10,7 @@ type DescribeTableAttribute = {
 	elements?: string;
 };
 
-type DescribeTableDataResponse = {
+export type DescribeTableDataResponse = {
 	attributes: DescribeTableAttribute[];
 	audit: boolean;
 	db_audit_size: number;
@@ -25,7 +25,7 @@ type DescribeTableDataResponse = {
 	table_size: number;
 };
 
-function getDescribeTableQueryOptions({
+export function getDescribeTableQueryOptions({
 	instanceId,
 	schemaName,
 	tableName,
@@ -35,7 +35,7 @@ function getDescribeTableQueryOptions({
 	tableName: string;
 }) {
 	return queryOptions({
-		queryKey: [instanceId, 'describe_table'] as const,
+		queryKey: [instanceId, schemaName, tableName, 'describe_table'] as const,
 		queryFn: async () => {
 			const response = await instanceClient.post('/', {
 				operation: 'describe_table',
@@ -44,10 +44,8 @@ function getDescribeTableQueryOptions({
 			});
 			return response.data as DescribeTableDataResponse;
 		},
+		staleTime: 5000,
 		enabled: !!instanceId && !!schemaName && !!tableName,
 		retry: false,
 	});
 }
-
-export { getDescribeTableQueryOptions };
-export type { DescribeTableDataResponse, DescribeTableAttribute };

@@ -9,7 +9,7 @@ export function UploadCSVModal() {
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			<DialogTrigger asChild>
-				<Button className="rounded-full ">
+				<Button variant="defaultOutline">
 					<FileSpreadsheet /> Upload CSV
 				</Button>
 			</DialogTrigger>

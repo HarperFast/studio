@@ -17,8 +17,8 @@ export function EditTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	data: { id: string | number }[];
-	onSaveChanges: (data: object[]) => Promise<void>;
-	onDeleteRecord: (data: (string | number)[]) => Promise<void>;
+	onSaveChanges: (data: Record<string, unknown>[]) => void;
+	onDeleteRecord: (data: (string | number)[]) => void;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
 }) {
@@ -28,7 +28,7 @@ export function EditTableRowModal({
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
-			<DialogContent aria-describedby={undefined}>
+			<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => { event.preventDefault(); } }>
 				<DialogHeader>
 					<DialogTitle>Edit Row</DialogTitle>
 				</DialogHeader>

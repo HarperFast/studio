@@ -1,31 +1,22 @@
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { X, Menu, List, User, Package, ChartBarBig, NotepadText } from 'lucide-react';
-
-const route = getRouteApi('');
+import { ChartBarBig, List, Menu, NotepadText, Package, X } from 'lucide-react';
 
 function DesktopInstanceNavBar() {
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
-		<div className="flex-row items-center justify-between hidden p-3 text-sm text-white md:flex">
+		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<h1 className="text-xl font-bold">Instance:</h1>
-			<div className="flex space-x-6 *:hover:text-grey">
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/browse`}>
+			<div className="flex space-x-2 *:hover:text-grey">
+				<Link to={`browse`} className="p-2">
 					<List className="inline-block" /> Browse
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/users`}>
-					<User className="inline-block" /> Users
-				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/roles`}>
-					<User className="inline-block" /> Roles
-				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}>
+				<Link to={`applications`} className="p-2">
 					<Package className="inline-block" /> Applications
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/config`}>
+				<Link to={`config`} className="p-2">
 					<ChartBarBig className="inline-block" /> Config
 				</Link>
-				<Link to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/logs`}>
+				<Link to={`logs`} className="p-2">
 					<NotepadText className="inline-block" /> Logs
 				</Link>
 			</div>
@@ -36,7 +27,7 @@ function DesktopInstanceNavBar() {
 function MobileInstanceNavBar() {
 	const [isInstanceMenuOpen, setIsInstanceMenuOpen] = useState(false);
 	return (
-		<div className="flex flex-row items-center justify-between p-4 text-white md:hidden bg-grey-700">
+		<div className="flex md:hidden items-center justify-between p-4 text-white bg-grey-700">
 			<h1 className="text-xl font-bold">Instance:</h1>
 			<button
 				type="button"
@@ -49,19 +40,16 @@ function MobileInstanceNavBar() {
 				{isInstanceMenuOpen ? <X /> : <Menu />}
 			</button>
 			<div className="flex space-x-4">
-				<Link to={'#home'} className="hover:text-grey-400">
+				<Link to={`browse`} className="p-2">
 					Browse
 				</Link>
-				<Link to={'#about'} className="hover:text-grey-400">
-					Users & Roles
-				</Link>
-				<Link to={'#contact'} className="hover:text-grey-400">
+				<Link to={`applications`} className="p-2">
 					Applications
 				</Link>
-				<Link to={'#contact'} className="hover:text-grey-400">
-					Status & Config
+				<Link to={`config`} className="p-2">
+					Config
 				</Link>
-				<Link to={'#contact'} className="hover:text-grey-400">
+				<Link to={`logs`} className="p-2">
 					Logs
 				</Link>
 			</div>
@@ -72,8 +60,8 @@ function MobileInstanceNavBar() {
 export function InstanceNavBar() {
 	return (
 		<>
-			<MobileInstanceNavBar />
 			<DesktopInstanceNavBar />
+			<MobileInstanceNavBar />
 		</>
 	);
 }

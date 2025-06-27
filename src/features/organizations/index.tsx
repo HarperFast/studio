@@ -4,15 +4,17 @@ import { Input } from '@/components/ui/input';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
+import { notYetImplemented } from '@/lib/not-yet-implemented';
+
 export function OrganizationsIndex() {
 	const { data: user } = useGetCurrentUser();
 	return (
-		<div>
-			<section className="py-5 bg-muted-foreground/20">
-				<div className="flex flex-col-reverse justify-between items-center gap-4 md:gap-0 md:flex-row px-4 md:px-12">
+		<>
+			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
+				<div className="flex items-center justify-between h-full text-sm text-white">
 					<div className="w-full">
-						<Input placeholder="Filter organizations by name" className="inline-block w-3/5 md:w-64" />
-						<Button className="inline-block w-2/5 md:w-auto md:ml-4">
+						<Input placeholder="Filter organizations by name" className="inline-block w-3/5 md:w-64" onChange={notYetImplemented} />
+						<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>
 							Sort by A-Z
 							<span>
 								<ChevronDown className="inline-block" />
@@ -21,8 +23,8 @@ export function OrganizationsIndex() {
 					</div>
 					<NewOrganizationModal />
 				</div>
-			</section>
-			<section className="px-4 md:px-12 pt-4">
+			</nav>
+			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 					{user?.roles.map(({ organizationId, organizationName, roleName }) => (
 						<div key={organizationId} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
@@ -31,7 +33,7 @@ export function OrganizationsIndex() {
 					))}
 				</div>
 			</section>
-		</div>
+		</>
 	);
 }
 

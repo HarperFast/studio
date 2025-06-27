@@ -4,19 +4,16 @@ import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
 import { CreateNewProjectFrom } from './CreateNewProjectFrom';
 import { useState } from 'react';
 import { ImportProjectForm } from './ImportProjectForm';
-import { getRouteApi, Link } from '@tanstack/react-router';
-
-const route = getRouteApi('');
+import { Link } from '@tanstack/react-router';
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
-	const { organizationId, clusterId, instanceId } = route.useParams();
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
 			<Card className="w-full h-full max-w-xl">
 				<CardHeader>
 					<Link
-						to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${instanceId}/applications`}
+						to={`applications`}
 						className="text-sm"
 						aria-label={`Go back to applications main menu`}
 						title={`Go back to applications main menu`}

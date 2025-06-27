@@ -15,12 +15,10 @@ import {
 export function ClusterCard({
 	clusterId,
 	clusterName,
-	organizationId,
 	status,
 }: {
 	clusterId: string;
 	clusterName: string;
-	organizationId: string;
 	status: BadgeStatusVariant;
 }) {
 	return (
@@ -47,7 +45,7 @@ export function ClusterCard({
 			<CardContent className="flex justify-between">
 				<Badge variant={renderBadgeStatusVariant(status)}>{renderBadgeStatusText(status)}</Badge>
 				<Link
-					to={`/orgs/${organizationId}/clusters/${clusterId}`}
+					to={`${clusterId}`}
 					className="text-sm"
 					aria-label={`View ${clusterName}`}
 					title={`View ${clusterName}`}

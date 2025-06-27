@@ -43,7 +43,7 @@ function EmptyCluster({ clusterId }: { clusterId: string }) {
 }
 
 export function ClusterIndex() {
-	const { organizationId, clusterId } = route.useParams();
+	const { clusterId } = route.useParams();
 	const { currentCluster, isAuthenticated, loadCluster, isLoading } = useCluster(); // Assuming currentCluster is the one we need
 	// const { mutate: submitRegistrationData, data: registrationInfo } = useRegistrationInfo();
 
@@ -76,7 +76,7 @@ export function ClusterIndex() {
 								/>
 							) : (
 								<Link
-									to={`/orgs/${organizationId}/clusters/${clusterId}/instance/${cell.row.original.id}/browse`}
+									to={`instance/${cell.row.original.id}/browse`}
 									className="text-sm"
 									aria-label={`Go to ${cell.row.original.name} instance`}
 									title={`Go to ${cell.row.original.name} instance`}
@@ -130,24 +130,22 @@ export function ClusterIndex() {
 				},
 			},
 		],
-		[clusterId, organizationId, isAuthenticated]
+		[clusterId, isAuthenticated]
 	);
 	return (
 		<>
-			<div>
-				<section className="py-5 bg-muted-foreground/20">
-					{currentCluster?.instances.length ? (
-						<div className="flex flex-col items-center justify-between gap-4 px-4 md:gap-0 md:flex-row md:px-12">
-							<div className="w-full text-white">
-								<h2 className="text-xl font-semibold">{currentCluster?.name}</h2>
-								<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
-							</div>
-							<NewInstanceModal clusterId={clusterId} />
+			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
+				{currentCluster?.instances.length ? (
+					<div className="flex items-center justify-between h-full text-sm text-white">
+						<div className="w-full text-white">
+							<h2 className="text-xl font-semibold">{currentCluster?.name}</h2>
+							<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
 						</div>
-					) : null}
-				</section>
-			</div>
-			<div className="px-4 pt-4 mx-auto max-w-7xl md:px-12">
+						<NewInstanceModal clusterId={clusterId} />
+					</div>
+				) : null}
+			</nav>
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<Card className="p-0 mt-4 min-h-96">
 					<CardContent className="p-0 min-h-96">
 						{isLoading ? (
