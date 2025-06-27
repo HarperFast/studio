@@ -1,8 +1,7 @@
-import { createRootRouteWithContext, createRoute } from '@tanstack/react-router';
+import { createRootRouteWithContext, createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { QueryClient } from '@tanstack/react-query';
 import { StudioCloud } from '@/StudioCloud';
 import { Dashboard } from '@/features/layouts/Dashboard';
-import { ProfileIndex } from '@/features/profile';
 import { OrganizationsIndex } from '@/features/organizations';
 import { OrganizationIndex } from '@/features/organization';
 import { ClusterIndex } from '@/features/cluster';
@@ -87,7 +86,7 @@ const dashboardLayout = createRoute({
 const profileRoute = createRoute({
 	getParentRoute: () => dashboardLayout,
 	path: 'profile',
-	component: ProfileIndex,
+	component: lazyRouteComponent(async () => import('@/features/profile/index'), 'ProfileIndex'),
 });
 
 // Organizations Routes
