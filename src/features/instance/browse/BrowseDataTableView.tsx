@@ -31,26 +31,21 @@ export function BrowseDataTableView() {
 		}),
 	);
 
-	const [{ refetch: refetchBySearchHash, ...searchByHashParams }, setSearchByHashParams] = useState({
+	const [searchByHashParams, setSearchByHashParams] = useState({
 		instanceId,
 		schemaName,
 		tableName,
 		hashAttribute: [''],
-		refetch: false,
 	});
 
-	const {
-		data: searchByHashData,
-		refetch: refetchSearchByHash,
-	} = useQuery(getSearchByHashOptions(searchByHashParams));
+	const { data: searchByHashData } = useQuery(getSearchByHashOptions(searchByHashParams));
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [{ refetch: refetchBySortTableParams, ...sortTableDataParams }, setSortTableDataParams] = useState({
+	const [sortTableDataParams, setSortTableDataParams] = useState({
 		attribute: hash_attribute,
 		descending: false,
-		refetch: false,
 	});
 	const sortingState = useMemo(() => ([{
 		desc: sortTableDataParams.descending,
@@ -79,18 +74,6 @@ export function BrowseDataTableView() {
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
 	useEffect(() => {
-		if (refetchBySearchHash) {
-			void refetchSearchByHash();
-			setSearchByHashParams({ ...searchByHashParams, refetch: false });
-		}
-	}, [refetchBySearchHash, refetchSearchByHash, setSearchByHashParams, searchByHashParams]);
-	useEffect(() => {
-		if (refetchBySortTableParams) {
-			void refetchSearchByValueOptions();
-			setSortTableDataParams({ ...sortTableDataParams, refetch: false });
-		}
-	}, [sortTableDataParams, setSortTableDataParams, refetchBySortTableParams, refetchSearchByValueOptions]);
-	useEffect(() => {
 		setTotalRecords(describeTableData.record_count);
 		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
 	}, [
@@ -98,15 +81,8 @@ export function BrowseDataTableView() {
 		pagination.pageSize,
 		pagination.pageIndex,
 	]);
-	useEffect(() => {
-		void refetchSearchByValueOptions();
-	}, [
-		refetchSearchByValueOptions,
-		pagination.pageSize,
-		pagination.pageIndex,
-	]);
 
-	const onRecordAdd = async (data: Record<string, unknown>[] | Record<string, unknown>) => {
+	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
 			{
 				databaseName: schemaName,
@@ -115,15 +91,15 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
-					refetchDescribeTableQueryOptions();
-					refetchSearchByValueOptions();
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
 			},
 		);
 	};
-	const onRecordUpdate = async (data: Record<string, unknown>[]) => {
+	const onRecordUpdate = (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
 				databaseName: schemaName,
@@ -132,15 +108,15 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
-					refetchDescribeTableQueryOptions();
-					refetchSearchByValueOptions();
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
 			},
 		);
 	};
-	const onDeleteRecord = async (data: (string | number)[]) => {
+	const onDeleteRecord = (data: (string | number)[]) => {
 		deleteTableRecords(
 			{
 				databaseName: schemaName,
@@ -149,21 +125,20 @@ export function BrowseDataTableView() {
 			},
 			{
 				onSuccess: () => {
-					refetchDescribeTableQueryOptions();
-					refetchSearchByValueOptions();
+					void refetchDescribeTableQueryOptions();
+					void refetchSearchByValueOptions();
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
 			},
 		);
 	};
-	const onRowClick = async (rowData: Row<Record<string, unknown>>) => {
+	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		setSearchByHashParams({
 			instanceId,
 			schemaName,
 			tableName,
 			hashAttribute: rowData.original[hash_attribute] as string[],
-			refetch: true,
 		});
 		setIsEditModalOpen(!isEditModalOpen);
 	};
@@ -171,7 +146,6 @@ export function BrowseDataTableView() {
 		setSortTableDataParams({
 			attribute: accessorKey,
 			descending: !isAscending,
-			refetch: true,
 		});
 	};
 	const onRefreshClick = useCallback(() => {

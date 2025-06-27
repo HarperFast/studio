@@ -22,6 +22,7 @@ type SearchByValueRequest = {
 		descending: boolean;
 	};
 };
+
 function getSearchByValueOptions({
 	instanceId,
 	schemaName,
@@ -44,8 +45,18 @@ function getSearchByValueOptions({
 	};
 }) {
 	return queryOptions({
-		queryKey: [instanceId, schemaName, tableName, 'search_by_value'] as const,
-		staleTime: 2000,
+		queryKey: [
+			'search_by_value',
+			hash_attribute,
+			instanceId,
+			pagination.pageIndex || 0,
+			pagination.pageSize || 0,
+			schemaName,
+			sortTableDataParams.attribute || 'default',
+			sortTableDataParams.descending || false,
+			tableName,
+		] as const,
+		staleTime: 5000,
 		queryFn: () =>
 			instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_value',

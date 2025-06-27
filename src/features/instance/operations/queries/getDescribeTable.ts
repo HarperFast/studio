@@ -44,6 +44,7 @@ export function getDescribeTableQueryOptions({
 			});
 			return response.data as DescribeTableDataResponse;
 		},
+		staleTime: 5000,
 		enabled: !!instanceId && !!schemaName && !!tableName,
 		retry: false,
 	});

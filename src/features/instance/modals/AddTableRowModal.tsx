@@ -14,7 +14,7 @@ export function AddTableRowModal({
 }: {
 	isAddTableRecordsPending: boolean;
 	isModalOpen: boolean;
-	onSaveChanges: (data: Record<string, unknown>[] | Record<string, unknown>) => Promise<void>;
+	onSaveChanges: (data: Record<string, unknown>[] | Record<string, unknown>) => void;
 	schema: DescribeTableDataResponse;
 	setIsModalOpen: (open: boolean) => void;
 }) {
@@ -22,7 +22,7 @@ export function AddTableRowModal({
 	const [addTableRecordData, setAddTableRecordData] = useState<string>();
 	const onSubmitClick = useCallback(() => {
 		if (addTableRecordData && isValidJSON) {
-			void onSaveChanges(JSON.parse(addTableRecordData));
+			onSaveChanges(JSON.parse(addTableRecordData));
 		}
 	}, [addTableRecordData, onSaveChanges, isValidJSON]);
 	const onValidate = useCallback((markers: unknown[]) => {
@@ -72,7 +72,7 @@ export function AddTableRowModal({
 	</Dialog>;
 }
 
-function defaultByAttributeType(type: string) {
+function defaultByAttributeType(type: string | undefined) {
 	switch (type) {
 		case 'Date':
 			return new Date().toISOString();
