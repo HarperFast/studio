@@ -12,6 +12,7 @@ import {
 	SelectItem,
 } from '@/components/ui/select';
 import { Control } from 'react-hook-form';
+import { useCallback } from 'react';
 
 type RegionFormInputsProps = {
 	control: Control<{
@@ -37,6 +38,7 @@ type RegionFormInputsProps = {
 		};
 	}[];
 };
+
 export function RegionFormInputs({
 	control,
 	index,
@@ -45,13 +47,39 @@ export function RegionFormInputs({
 	selectedRegions,
 	planTypes,
 }: RegionFormInputsProps) {
-	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.region) ?? []);
-	const currentPlanTypeObj = planTypes?.find((plan) => plan.id === selectedRegions?.[index]?.planType);
-	const currentRegionCount = selectedRegions?.[index]?.count ?? 0;
+	const getPlanObj = useCallback(
+		(planId: string | undefined) => {
+			return planTypes?.find((plan) => plan.id === planId);
+		},
+		[planTypes]
+	);
 
-	const currentPrice = currentPlanTypeObj
-		? (parseInt(currentPlanTypeObj.price?.replace(/\$/g, '')) ?? 0) * currentRegionCount
-		: 0;
+	const getPlanPrice = useCallback(
+		(planId: string | undefined) => {
+			const priceAsStr = getPlanObj(planId)?.price?.replace(/\$/g, '') ?? '0';
+			return parseInt(priceAsStr);
+		},
+		[getPlanObj]
+	);
+
+	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.region) ?? []);
+	const currentPlanTypeObj = getPlanObj(selectedRegions?.[index]?.planType);
+	const currentSelectedRegion = selectedRegions?.[index];
+	const currentSelectedRegionCount = currentSelectedRegion?.count ?? 0;
+	const planPrice = getPlanPrice(selectedRegions?.[index]?.planType);
+
+	const currentPrice = planPrice * currentSelectedRegionCount;
+
+	const updateSelectionPrice = useCallback(
+		({ planId, count }: { planId?: string; count?: number }) => {
+			if (currentSelectedRegion) {
+				const newPlanPrice = planId ? getPlanPrice(planId) : planPrice;
+				const newCount = count ?? currentSelectedRegion.count;
+				currentSelectedRegion.price = (newPlanPrice * newCount).toFixed(2);
+			}
+		},
+		[getPlanPrice, planPrice, currentSelectedRegion]
+	);
 
 	const { cpuCores, memoryMb, readIopsLimit, writeIopsLimit, storageGb, threads } =
 		currentPlanTypeObj?.resourcesPerInstance ?? {};
@@ -98,7 +126,13 @@ export function RegionFormInputs({
 					<FormItem className="col-span-3 md:col-span-4">
 						<FormLabel>Plan Type</FormLabel>
 						<FormControl>
-							<Select onValueChange={planTypeSelectionField.onChange} {...planTypeSelectionField}>
+							<Select
+								onValueChange={(planId) => {
+									planTypeSelectionField.onChange(planId);
+									updateSelectionPrice({ planId });
+								}}
+								{...planTypeSelectionField}
+							>
 								<SelectTrigger className="w-full truncate" title={currentPlanTypeObj?.name}>
 									<SelectValue placeholder="Choose Plan" />
 								</SelectTrigger>
@@ -140,7 +174,9 @@ export function RegionFormInputs({
 								className="max-w-64"
 								min={0}
 								onChange={(e) => {
-									countField.onChange(Number(e.target.value));
+									const count = e.target.valueAsNumber;
+									updateSelectionPrice({ count });
+									countField.onChange(count);
 								}}
 							/>
 						</FormControl>
