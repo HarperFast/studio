@@ -69,10 +69,8 @@ export function NewClusterModal({
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
 	const selectedRegions = form.watch('regions');
-	// console.log('Selected Regions:', selectedRegions);
 
 	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
-		console.log('Form Data:', formData);
 		const updatedFormData = {
 			organizationId: orgId,
 			...formData,
