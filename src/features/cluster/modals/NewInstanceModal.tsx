@@ -27,7 +27,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluster/hooks/useCreateNewInstance';
-import { type PlanTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
+import { type InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
 import { getPlanTypesOptions } from '../queries/getPlanTypesQuery';
 import { toast } from 'sonner';
 

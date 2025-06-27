@@ -56,7 +56,7 @@ export function RegionFormInputs({
 	const { cpuCores, memoryMb, readIopsLimit, writeIopsLimit, storageGb, threads } =
 		currentPlanTypeObj?.resourcesPerInstance ?? {};
 	return (
-		<div className="grid grid-cols-3 gap-2 mb-4 md:grid-cols-12 md:items-end">
+		<div className="grid grid-cols-3 gap-2 mb-4 md:grid-cols-12 md:items-start">
 			<FormField
 				control={control}
 				name={`regions.${index}.region`}
@@ -99,7 +99,7 @@ export function RegionFormInputs({
 						<FormLabel>Plan Type</FormLabel>
 						<FormControl>
 							<Select onValueChange={planTypeSelectionField.onChange} {...planTypeSelectionField}>
-								<SelectTrigger className="w-full">
+								<SelectTrigger className="w-full truncate" title={currentPlanTypeObj?.name}>
 									<SelectValue placeholder="Choose Plan" />
 								</SelectTrigger>
 								<SelectContent>
@@ -172,7 +172,7 @@ export function RegionFormInputs({
 			<Button
 				type="button"
 				variant="destructive"
-				className="w-full col-span-3 rounded-full md:col-span-2"
+				className="w-full col-span-3 mt-5 rounded-full md:col-span-2"
 				onClick={() => {
 					remove();
 				}}

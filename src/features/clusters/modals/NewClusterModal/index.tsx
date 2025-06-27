@@ -15,42 +15,12 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import { NewClusterInfo, useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import {
-	Select,
-	SelectTrigger,
-	SelectValue,
-	SelectContent,
-	SelectGroup,
-	SelectLabel,
-	SelectItem,
-} from '@/components/ui/select';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
-import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
-import { RadioGroup } from '@/components/ui/radio-group';
-import { RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { InstanceTypeCard } from './components/InstanceTypeCard';
 
 // TODO: consolidate this with the storage size options in the NewInstanceModal
-const storageSizeOptions = [
-	{ value: '1', label: '1GB' },
-	{ value: '10', label: '10GB' },
-	{ value: '100', label: '100GB' },
-	{ value: '250', label: '250GB' },
-	{ value: '500', label: '500GB' },
-	{ value: '1000', label: '1TB' },
-	{ value: '1500', label: '1.5TB' },
-	{ value: '2000', label: '2TB' },
-	{ value: '2500', label: '2.5TB' },
-	{ value: '3000', label: '3TB' },
-	{ value: '3500', label: '3.5TB' },
-	{ value: '4000', label: '4TB' },
-	{ value: '4500', label: '4.5TB' },
-	{ value: '5000', label: '5TB' },
-];
 
 const NewClusterSchema = z.object({
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
