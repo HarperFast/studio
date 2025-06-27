@@ -15,10 +15,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React, { Dispatch, SetStateAction } from 'react';
+import { Loading } from '@/components/Loading';
 
 interface BrowseDataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
+	isFetching?: boolean;
 	totalPages: number;
 	totalRecords: number;
 	onRowClick?: (row: Row<TData>) => void;
@@ -34,6 +36,7 @@ interface BrowseDataTableProps<TData, TValue> {
 export function BrowseDataTable<TData, TValue>({
 	columns,
 	data,
+	isFetching,
 	totalPages,
 	totalRecords,
 	onRowClick,
@@ -108,7 +111,7 @@ export function BrowseDataTable<TData, TValue>({
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>
 					<TableCell colSpan={columns.length} className="h-24 text-center">
-						No results.
+						{isFetching ? <div><Loading className="m-12" /></div> : <span>No results.</span>}
 					</TableCell>
 				</TableRow>)}
 			</TableBody>

@@ -11,10 +11,8 @@ import { formatBrowseDataTableHeader } from '@/features/instance/browse/function
 import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import { UploadCSVModal } from '@/features/instance/modals/UploadCSVModal';
 import { Button } from '@/components/ui/button';
-import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
-import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { AddTableRowModal } from '@/features/instance/modals/AddTableRowModal';
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 
@@ -59,7 +57,7 @@ export function BrowseDataTableView() {
 	});
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pagination.pageSize));
 
-	const { data: tableData, refetch: refetchSearchByValueOptions, isFetching } = useSuspenseQuery(
+	const { data: tableData, refetch: refetchSearchByValueOptions, isFetching: tableDataFetching } = useQuery(
 		getSearchByValueOptions({
 			instanceId,
 			schemaName,
@@ -159,7 +157,8 @@ export function BrowseDataTableView() {
 	return (
 		<>
 			<BrowseDataTable<Record<string, unknown>, unknown>
-				data={tableData.data}
+				data={tableData?.data || []}
+				isFetching={tableDataFetching}
 				columns={dataTableColumns}
 				onRowClick={onRowClick}
 				onColumnClick={onColumnClick}
@@ -169,10 +168,10 @@ export function BrowseDataTableView() {
 				sortingState={sortingState}
 				setPagination={setPagination}
 			>
-				<UploadCSVModal />
+				{/*<UploadCSVModal />*/}
 				<Button variant="defaultOutline" onClick={onRefreshClick}
-						disabled={isFetching}><RefreshCwIcon /></Button>
-				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>
+						disabled={tableDataFetching}><RefreshCwIcon /></Button>
+				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>*/}
 				<Button variant="positiveOutline" onClick={onAddClicked}
 						disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>
 			</BrowseDataTable>
