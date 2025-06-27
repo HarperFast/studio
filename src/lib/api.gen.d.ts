@@ -64,6 +64,7 @@ export interface paths {
                     instances?: components["schemas"]["HDBInstance"][];
                     name?: string;
                     organizationId?: unknown;
+                    plans?: components["schemas"]["RegionPlan"][];
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: unknown;
@@ -124,6 +125,7 @@ export interface paths {
                     instances?: components["schemas"]["HDBInstance"][];
                     name?: string;
                     organizationId?: unknown;
+                    plans?: components["schemas"]["RegionPlan"][];
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: unknown;
@@ -329,30 +331,32 @@ export interface paths {
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: unknown;
-                    cpu?: number;
+                    cpuCores?: number;
                     createdByUserId?: unknown;
+                    dynamicallyAllocated?: boolean;
                     host?: components["schemas"]["Host"];
                     hostId?: string;
                     id?: unknown;
                     instanceFqdn?: string;
-                    instanceType?: components["schemas"]["InstanceType"];
-                    instanceTypeId?: unknown;
-                    memory?: number;
+                    memoryMb?: number;
                     name?: string;
                     operationsApiPort?: number;
                     operationsApiSecure?: boolean;
-                    readIops?: number;
+                    plan?: components["schemas"]["Plan"];
+                    planId?: unknown;
+                    readIopsLimit?: number;
+                    regionId?: string;
                     replicationFqdn?: string;
                     replicationHosts?: string[];
                     status?: string;
-                    storage?: number;
+                    storageGb?: number;
                     tempPassword?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: unknown;
                     threads?: number;
                     useSharedProcess?: boolean;
                     version?: string;
-                    writeIops?: number;
+                    writeIopsLimit?: number;
                 };
                 header?: never;
                 path?: never;
@@ -406,30 +410,32 @@ export interface paths {
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: unknown;
-                    cpu?: number;
+                    cpuCores?: number;
                     createdByUserId?: unknown;
+                    dynamicallyAllocated?: boolean;
                     host?: components["schemas"]["Host"];
                     hostId?: string;
                     id?: unknown;
                     instanceFqdn?: string;
-                    instanceType?: components["schemas"]["InstanceType"];
-                    instanceTypeId?: unknown;
-                    memory?: number;
+                    memoryMb?: number;
                     name?: string;
                     operationsApiPort?: number;
                     operationsApiSecure?: boolean;
-                    readIops?: number;
+                    plan?: components["schemas"]["Plan"];
+                    planId?: unknown;
+                    readIopsLimit?: number;
+                    regionId?: string;
                     replicationFqdn?: string;
                     replicationHosts?: string[];
                     status?: string;
-                    storage?: number;
+                    storageGb?: number;
                     tempPassword?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: unknown;
                     threads?: number;
                     useSharedProcess?: boolean;
                     version?: string;
-                    writeIops?: number;
+                    writeIopsLimit?: number;
                 };
                 header?: never;
                 path?: never;
@@ -596,16 +602,16 @@ export interface paths {
                     ipAddress?: string;
                     location?: components["schemas"]["Location"];
                     locationId?: unknown;
-                    maxCPU?: number;
-                    maxMemory?: number;
-                    maxStorage?: number;
+                    maxCPUCores?: number;
+                    maxMemoryMb?: number;
+                    maxStorageGb?: number;
                     name?: string;
                     organizationIds?: unknown[];
                     status?: string;
                     updated?: number;
-                    usedCPU?: number;
-                    usedMemory?: number;
-                    usedStorage?: number;
+                    usedCPUCores?: number;
+                    usedMemoryMb?: number;
+                    usedStorageGb?: number;
                 };
                 header?: never;
                 path?: never;
@@ -665,16 +671,16 @@ export interface paths {
                     ipAddress?: string;
                     location?: components["schemas"]["Location"];
                     locationId?: unknown;
-                    maxCPU?: number;
-                    maxMemory?: number;
-                    maxStorage?: number;
+                    maxCPUCores?: number;
+                    maxMemoryMb?: number;
+                    maxStorageGb?: number;
                     name?: string;
                     organizationIds?: unknown[];
                     status?: string;
                     updated?: number;
-                    usedCPU?: number;
-                    usedMemory?: number;
-                    usedStorage?: number;
+                    usedCPUCores?: number;
+                    usedMemoryMb?: number;
+                    usedStorageGb?: number;
                 };
                 header?: never;
                 path?: never;
@@ -809,229 +815,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": PathsHostIdPropertyGetResponses200ContentApplicationJson;
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/InstanceType/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description search for records by the specified property name and value pairs */
-        get: {
-            parameters: {
-                query?: {
-                    cpu?: number;
-                    id?: unknown;
-                    memory?: number;
-                    readIops?: number;
-                    selfHosted?: boolean;
-                    threads?: number;
-                    useSharedProcess?: boolean;
-                    writeIops?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InstanceType"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        /** @description create a new record auto-assigning a primary key */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["InstanceType"];
-                };
-            };
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        /** @description primary key of new record */
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": string;
-                    };
-                };
-            };
-        };
-        /** @description delete all the records that match the provided query */
-        delete: {
-            parameters: {
-                query?: {
-                    cpu?: number;
-                    id?: unknown;
-                    memory?: number;
-                    readIops?: number;
-                    selfHosted?: boolean;
-                    threads?: number;
-                    useSharedProcess?: boolean;
-                    writeIops?: number;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successfully processed request, no content returned to client */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/InstanceType/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description retrieve a record by its primary key */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description primary key of record */
-                    id: unknown;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["InstanceType"];
-                    };
-                };
-            };
-        };
-        /** @description create or update the record with the URL path that maps to the record's primary key */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description primary key of record */
-                    id: unknown;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["InstanceType"];
-                };
-            };
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** @description delete a record with the given primary key */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description primary key of record */
-                    id: unknown;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successfully processed request, no content returned to client */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/InstanceType/{id}.{property}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description used to retrieve the specified property of the specified record */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description primary key of record */
-                    id: unknown;
-                    property: PathsInstanceTypeIdPropertyGetParametersPathProperty;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": PathsInstanceTypeIdPropertyGetResponses200ContentApplicationJson;
                     };
                 };
             };
@@ -1880,6 +1663,442 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/Plan/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    id?: unknown;
+                    locationsPerPlan?: number;
+                    name?: string;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    stripeProductId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    id?: unknown;
+                    locationsPerPlan?: number;
+                    name?: string;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    stripeProductId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Plan/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Plan/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                    property: PathsPlanIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsPlanIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Region/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    id?: unknown;
+                    latencyDescription?: string;
+                    locations?: components["schemas"]["Location"][];
+                    region?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Region"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string;
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    id?: unknown;
+                    latencyDescription?: string;
+                    locations?: components["schemas"]["Location"][];
+                    region?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Region/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Region"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Region/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: unknown;
+                    property: PathsRegionIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsRegionIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ResendVerificationEmail/": {
         parameters: {
             query?: never;
@@ -2388,6 +2607,7 @@ export interface components {
             name?: string;
             /** Format: ID */
             organizationId?: unknown;
+            plans?: components["schemas"]["RegionPlan"][];
             /** Format: String */
             status?: string;
             /** Format: Date */
@@ -2403,9 +2623,11 @@ export interface components {
             /** Format: ID */
             clusterId?: unknown;
             /** Format: Float */
-            cpu?: number;
+            cpuCores?: number;
             /** Format: ID */
             createdByUserId?: unknown;
+            /** Format: Boolean */
+            dynamicallyAllocated?: boolean;
             host?: components["schemas"]["Host"];
             /** Format: String */
             hostId?: string;
@@ -2413,26 +2635,28 @@ export interface components {
             id?: unknown;
             /** Format: String */
             instanceFqdn?: string;
-            instanceType?: components["schemas"]["InstanceType"];
-            /** Format: ID */
-            instanceTypeId?: unknown;
             /** Format: Int */
-            memory?: number;
+            memoryMb?: number;
             /** Format: String */
             name?: string;
             /** Format: Int */
             operationsApiPort?: number;
             /** Format: Boolean */
             operationsApiSecure?: boolean;
+            plan?: components["schemas"]["Plan"];
+            /** Format: ID */
+            planId?: unknown;
             /** Format: Int */
-            readIops?: number;
+            readIopsLimit?: number;
+            /** Format: String */
+            regionId?: string;
             /** Format: String */
             replicationFqdn?: string;
             replicationHosts?: string[];
             /** Format: String */
             status?: string;
             /** Format: Int */
-            storage?: number;
+            storageGb?: number;
             /** Format: String */
             tempPassword?: string;
             /** Format: Date */
@@ -2446,7 +2670,7 @@ export interface components {
             /** Format: String */
             version?: string;
             /** Format: Int */
-            writeIops?: number;
+            writeIopsLimit?: number;
         };
         Host: {
             /** Format: String */
@@ -2466,11 +2690,11 @@ export interface components {
             /** Format: ID */
             locationId?: unknown;
             /** Format: Int */
-            maxCPU?: number;
+            maxCPUCores?: number;
             /** Format: Int */
-            maxMemory?: number;
+            maxMemoryMb?: number;
             /** Format: Int */
-            maxStorage?: number;
+            maxStorageGb?: number;
             /** Format: String */
             name?: string;
             organizationIds?: unknown[];
@@ -2478,30 +2702,12 @@ export interface components {
             status?: string;
             /** Format: Float */
             updated?: number;
-            /** Format: Float */
-            usedCPU?: number;
-            /** Format: Float */
-            usedMemory?: number;
-            /** Format: Float */
-            usedStorage?: number;
-        };
-        InstanceType: {
             /** Format: Int */
-            cpu?: number;
-            /** Format: ID */
-            id?: unknown;
+            usedCPUCores?: number;
             /** Format: Int */
-            memory?: number;
+            usedMemoryMb?: number;
             /** Format: Int */
-            readIops?: number;
-            /** Format: Boolean */
-            selfHosted?: boolean;
-            /** Format: Int */
-            threads?: number;
-            /** Format: Boolean */
-            useSharedProcess?: boolean;
-            /** Format: Int */
-            writeIops?: number;
+            usedStorageGb?: number;
         };
         LinodeMetadata: {
             /** Format: Int */
@@ -2558,8 +2764,58 @@ export interface components {
             users?: components["schemas"]["User"][];
         };
         Payment: Record<string, never>;
+        Plan: {
+            /** Format: ID */
+            id?: unknown;
+            /** Format: Int */
+            locationsPerPlan?: number;
+            /** Format: String */
+            name?: string;
+            resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+            /** Format: String */
+            status?: string;
+            /** Format: String */
+            stripePriceId?: string;
+            /** Format: String */
+            stripeProductId?: string;
+        };
+        Region: {
+            /** Format: ID */
+            id?: unknown;
+            /** Format: String */
+            latencyDescription?: string;
+            locations?: components["schemas"]["Location"][];
+            /** Format: String */
+            region?: string;
+        };
+        RegionPlan: {
+            /** Format: Boolean */
+            autoRenew?: boolean;
+            /** Format: Int */
+            count?: number;
+            /** Format: Plan */
+            plan?: unknown;
+            /** Format: ID */
+            planId?: unknown;
+            /** Format: String */
+            regionId?: string;
+        };
         ResendVerificationEmail: Record<string, never>;
         ResetPassword: Record<string, never>;
+        ResourcesPerInstance: {
+            /** Format: Int */
+            cpuCores?: number;
+            /** Format: Int */
+            memoryMb?: number;
+            /** Format: Int */
+            readIopsLimit?: number;
+            /** Format: Int */
+            storageGb?: number;
+            /** Format: Int */
+            threads?: number;
+            /** Format: Int */
+            writeIopsLimit?: number;
+        };
         Role: Record<string, never>;
         User: {
             /** Format: String */
@@ -2593,7 +2849,6 @@ export type SchemaCluster = components['schemas']['Cluster'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];
 export type SchemaHost = components['schemas']['Host'];
-export type SchemaInstanceType = components['schemas']['InstanceType'];
 export type SchemaLinodeMetadata = components['schemas']['LinodeMetadata'];
 export type SchemaLocation = components['schemas']['Location'];
 export type SchemaLogin = components['schemas']['Login'];
@@ -2601,8 +2856,12 @@ export type SchemaLogout = components['schemas']['Logout'];
 export type SchemaOrganization = components['schemas']['Organization'];
 export type SchemaOrganizationRole = components['schemas']['OrganizationRole'];
 export type SchemaPayment = components['schemas']['Payment'];
+export type SchemaPlan = components['schemas']['Plan'];
+export type SchemaRegion = components['schemas']['Region'];
+export type SchemaRegionPlan = components['schemas']['RegionPlan'];
 export type SchemaResendVerificationEmail = components['schemas']['ResendVerificationEmail'];
 export type SchemaResetPassword = components['schemas']['ResetPassword'];
+export type SchemaResourcesPerInstance = components['schemas']['ResourcesPerInstance'];
 export type SchemaRole = components['schemas']['Role'];
 export type SchemaUser = components['schemas']['User'];
 export type SchemaVerifyEmail = components['schemas']['VerifyEmail'];
@@ -2617,7 +2876,8 @@ export enum PathsClusterIdPropertyGetParametersPathProperty {
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     fqdn = "fqdn",
-    enableGtm = "enableGtm"
+    enableGtm = "enableGtm",
+    plans = "plans"
 }
 export enum PathsClusterIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -2629,7 +2889,8 @@ export enum PathsClusterIdPropertyGetResponses200ContentApplicationJson {
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     fqdn = "fqdn",
-    enableGtm = "enableGtm"
+    enableGtm = "enableGtm",
+    plans = "plans"
 }
 export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     id = "id",
@@ -2643,22 +2904,24 @@ export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     instanceFqdn = "instanceFqdn",
     replicationFqdn = "replicationFqdn",
     clusterFqdn = "clusterFqdn",
-    instanceTypeId = "instanceTypeId",
-    instanceType = "instanceType",
-    storage = "storage",
+    regionId = "regionId",
+    planId = "planId",
+    plan = "plan",
+    storageGb = "storageGb",
     useSharedProcess = "useSharedProcess",
-    cpu = "cpu",
-    memory = "memory",
+    cpuCores = "cpuCores",
+    memoryMb = "memoryMb",
     threads = "threads",
-    readIops = "readIops",
-    writeIops = "writeIops",
+    readIopsLimit = "readIopsLimit",
+    writeIopsLimit = "writeIopsLimit",
     version = "version",
     replicationHosts = "replicationHosts",
     tempPassword = "tempPassword",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
-    operationsApiSecure = "operationsApiSecure"
+    operationsApiSecure = "operationsApiSecure",
+    dynamicallyAllocated = "dynamicallyAllocated"
 }
 export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -2672,22 +2935,24 @@ export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     instanceFqdn = "instanceFqdn",
     replicationFqdn = "replicationFqdn",
     clusterFqdn = "clusterFqdn",
-    instanceTypeId = "instanceTypeId",
-    instanceType = "instanceType",
-    storage = "storage",
+    regionId = "regionId",
+    planId = "planId",
+    plan = "plan",
+    storageGb = "storageGb",
     useSharedProcess = "useSharedProcess",
-    cpu = "cpu",
-    memory = "memory",
+    cpuCores = "cpuCores",
+    memoryMb = "memoryMb",
     threads = "threads",
-    readIops = "readIops",
-    writeIops = "writeIops",
+    readIopsLimit = "readIopsLimit",
+    writeIopsLimit = "writeIopsLimit",
     version = "version",
     replicationHosts = "replicationHosts",
     tempPassword = "tempPassword",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
-    operationsApiSecure = "operationsApiSecure"
+    operationsApiSecure = "operationsApiSecure",
+    dynamicallyAllocated = "dynamicallyAllocated"
 }
 export enum PathsHostIdPropertyGetParametersPathProperty {
     id = "id",
@@ -2700,12 +2965,12 @@ export enum PathsHostIdPropertyGetParametersPathProperty {
     cloudInstanceType = "cloudInstanceType",
     cloudInstanceId = "cloudInstanceId",
     cloudFirewallId = "cloudFirewallId",
-    maxStorage = "maxStorage",
-    maxMemory = "maxMemory",
-    maxCPU = "maxCPU",
-    usedStorage = "usedStorage",
-    usedMemory = "usedMemory",
-    usedCPU = "usedCPU",
+    maxStorageGb = "maxStorageGb",
+    maxMemoryMb = "maxMemoryMb",
+    maxCPUCores = "maxCPUCores",
+    usedStorageGb = "usedStorageGb",
+    usedMemoryMb = "usedMemoryMb",
+    usedCPUCores = "usedCPUCores",
     organizationIds = "organizationIds",
     updated = "updated",
     instances = "instances"
@@ -2721,35 +2986,15 @@ export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     cloudInstanceType = "cloudInstanceType",
     cloudInstanceId = "cloudInstanceId",
     cloudFirewallId = "cloudFirewallId",
-    maxStorage = "maxStorage",
-    maxMemory = "maxMemory",
-    maxCPU = "maxCPU",
-    usedStorage = "usedStorage",
-    usedMemory = "usedMemory",
-    usedCPU = "usedCPU",
+    maxStorageGb = "maxStorageGb",
+    maxMemoryMb = "maxMemoryMb",
+    maxCPUCores = "maxCPUCores",
+    usedStorageGb = "usedStorageGb",
+    usedMemoryMb = "usedMemoryMb",
+    usedCPUCores = "usedCPUCores",
     organizationIds = "organizationIds",
     updated = "updated",
     instances = "instances"
-}
-export enum PathsInstanceTypeIdPropertyGetParametersPathProperty {
-    id = "id",
-    selfHosted = "selfHosted",
-    useSharedProcess = "useSharedProcess",
-    cpu = "cpu",
-    memory = "memory",
-    threads = "threads",
-    readIops = "readIops",
-    writeIops = "writeIops"
-}
-export enum PathsInstanceTypeIdPropertyGetResponses200ContentApplicationJson {
-    id = "id",
-    selfHosted = "selfHosted",
-    useSharedProcess = "useSharedProcess",
-    cpu = "cpu",
-    memory = "memory",
-    threads = "threads",
-    readIops = "readIops",
-    writeIops = "writeIops"
 }
 export enum PathsLocationIdPropertyGetParametersPathProperty {
     id = "id",
@@ -2810,6 +3055,36 @@ export enum PathsOrganizationRoleIdPropertyGetResponses200ContentApplicationJson
     organizationId = "organizationId",
     userIds = "userIds",
     users = "users"
+}
+export enum PathsPlanIdPropertyGetParametersPathProperty {
+    id = "id",
+    name = "name",
+    status = "status",
+    stripeProductId = "stripeProductId",
+    stripePriceId = "stripePriceId",
+    locationsPerPlan = "locationsPerPlan",
+    resourcesPerInstance = "resourcesPerInstance"
+}
+export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    name = "name",
+    status = "status",
+    stripeProductId = "stripeProductId",
+    stripePriceId = "stripePriceId",
+    locationsPerPlan = "locationsPerPlan",
+    resourcesPerInstance = "resourcesPerInstance"
+}
+export enum PathsRegionIdPropertyGetParametersPathProperty {
+    id = "id",
+    region = "region",
+    latencyDescription = "latencyDescription",
+    locations = "locations"
+}
+export enum PathsRegionIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    region = "region",
+    latencyDescription = "latencyDescription",
+    locations = "locations"
 }
 export enum PathsUserIdPropertyGetParametersPathProperty {
     id = "id",

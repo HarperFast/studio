@@ -1,8 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { getRouteApi, Link } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { Edit, FolderPlus } from 'lucide-react';
-
-const route = getRouteApi('');
 
 export function ApplicationsIndex() {
 	return (
