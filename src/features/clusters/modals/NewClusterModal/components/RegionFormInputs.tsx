@@ -136,7 +136,6 @@ export function RegionFormInputs({
 												{planType.name}
 											</SelectItem>
 										))}
-										<SelectItem value="linode">Linode</SelectItem>
 									</SelectGroup>
 								</SelectContent>
 							</Select>
