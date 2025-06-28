@@ -20,8 +20,6 @@ import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegion
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 
-// TODO: consolidate this with the storage size options in the NewInstanceModal
-
 const NewClusterSchema = z.object({
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
 	abbreviatedName: z
@@ -69,6 +67,14 @@ export function NewClusterModal({
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
 	const selectedRegions = form.watch('regions');
+
+	// NOTE: Don't like how this is done, but works. Would like to find a better way to calculate the total price of selected regions.
+	const totalPriceNumber =
+		selectedRegions?.reduce((acc, region) => {
+			const price = region.price ? Number(region.price) : 0;
+			return acc + price;
+		}, 0) ?? 0;
+	const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
 
 	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
 		const updatedFormData = {
@@ -150,6 +156,9 @@ export function NewClusterModal({
 								<PlusIcon />
 								Add a Region
 							</Button>
+						</div>
+						<div className="md:col-span-6">
+							<p>Total Price: {totalPrice}</p>
 						</div>
 						<DialogFooter className="md:col-span-6">
 							<Button type="submit" variant="submit" className="rounded-full">
