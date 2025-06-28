@@ -14,14 +14,14 @@ export function AuthLayout() {
 		<div className="grid h-screen grid-cols-1 md:grid-cols-2">
 			<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
 				<div>
-					<h1 className="text-4xl font-bold">HarperDB Studio</h1>
-					<span>Manage all your HarperDB instances.</span>
+					<h1 className="text-4xl font-bold">Harper Studio</h1>
+					<span>Manage all your Harper instances.</span>
 					<ul className="ps-5">
 						<ListItem title="Manage All Instances">
 							<span>View, create, and delete instances from one location.</span>
 						</ListItem>
 						<ListItem title="Embedded API Server">
-							<span>HarperDB components give you unlimited application flexibility</span>
+							<span>Harper components give you unlimited application flexibility</span>
 						</ListItem>
 
 						<ListItem

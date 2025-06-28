@@ -33,7 +33,7 @@ export function ConfigOverviewIndex() {
 			return;
 		}
 		const toastId = toast.loading('Restarting', {
-			description: 'Restarting HarperDB. This may take up to 60 seconds.',
+			description: 'Restarting instance. This may take up to 60 seconds.',
 			duration: 60000, // Keep the toast open until dismissed
 			action: {
 				label: 'Dismiss',
