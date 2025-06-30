@@ -6,6 +6,7 @@ import { ForgotPassword } from '@/features/auth/ForgotPassword';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';
 import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
 import { rootRoute } from '@/router/root-route';
+import { LocalSignIn } from '@/features/auth/LocalSignIn';
 
 const authLayout = createRoute({
 	getParentRoute: () => rootRoute,
@@ -21,6 +22,18 @@ const signInRoute = createRoute({
 		if (context.authentication.user) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/orgs' });
+		}
+	},
+});
+
+const localSignInRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: '/',
+	component: LocalSignIn,
+	beforeLoad: ({ context, location }) => {
+		if (context.authentication.user) {
+			const search: Record<string, string> = location?.search;
+			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/instance/browse' });
 		}
 	},
 });
@@ -50,3 +63,7 @@ const resetPasswordRoute = createRoute({
 
 export const authRouteTree =
 	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetPasswordRoute]);
+
+export const localAuthRouteTree = [
+	localSignInRoute,
+];

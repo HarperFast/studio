@@ -1,22 +1,17 @@
-import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { instanceClient } from '@/config/instanceClient';
+import { LocalUser } from '@/lib/api.patch';
 
-// TODO: Consolidate with useOnSignUpSubmitMutation
 export type InstanceLoginCredentials = {
 	username: string;
 	password: string;
 };
 
-type RegistrationInfoResponse = {
-	message: string;
-};
-
 export async function onInstanceLoginSubmit({
 	username,
 	password,
-}: InstanceLoginCredentials): Promise<RegistrationInfoResponse> {
-	// TODO: The OpenAPI specs don't describe this route.
-	const { data } = await apiClient.post('/' as never, {
+}: InstanceLoginCredentials): Promise<LocalUser> {
+	const { data } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
 		password,
@@ -29,7 +24,7 @@ export async function onInstanceLoginSubmit({
 }
 
 export function useLocalSignIn() {
-	return useMutation<RegistrationInfoResponse, Error, InstanceLoginCredentials>({
+	return useMutation<LocalUser, Error, InstanceLoginCredentials>({
 		mutationFn: (instanceData) => onInstanceLoginSubmit(instanceData),
 	});
 }

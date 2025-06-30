@@ -12,14 +12,18 @@ import { ConfigIndex } from '@/features/instance/config';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
+import { dashboardLayout } from '@/router/dashboard-route';
+import { isLocalStudio } from '@/config/constants';
 
 export const instanceLayoutRoute = createRoute({
-	getParentRoute: () => clusterLayoutRoute,
-	path: 'instance/$instanceId',
+	getParentRoute: () => isLocalStudio ? dashboardLayout : clusterLayoutRoute,
+	path: isLocalStudio ? 'instance' : 'instance/$instanceId',
 	component: InstanceLayout,
-	loader: (opts) => {
-		opts.context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(opts.params.instanceId));
-	},
+	loader: isLocalStudio
+		? (() => undefined)
+		: ((opts) => {
+			opts.context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(opts.params.instanceId));
+		}),
 });
 
 const instanceIndexRoute = createRoute({

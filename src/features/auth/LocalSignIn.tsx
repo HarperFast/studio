@@ -1,4 +1,4 @@
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useLocalSignIn } from '@/features/auth/hooks/useLocalSignIn';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { queryKeys } from '@/react-query/constants';
+import { useQueryClient } from '@tanstack/react-query';
 
 const LocalSignInSchema = z.object({
 	username: z
@@ -24,6 +27,10 @@ const LocalSignInSchema = z.object({
 export function LocalSignIn() {
 	const navigate = useNavigate();
 	const router = useRouter();
+	const queryClient = useQueryClient();
+	const { redirect } = useSearch({ strict: false });
+	const { setUser } = useAuthenticationContext();
+
 	const form = useForm<z.infer<typeof LocalSignInSchema>>({
 		resolver: zodResolver(LocalSignInSchema),
 		defaultValues: {
@@ -35,10 +42,12 @@ export function LocalSignIn() {
 	const { mutate: submitLocalSignInCredentials } = useLocalSignIn();
 
 	const submitForm = async (formData: z.infer<typeof LocalSignInSchema>) => {
-		await submitLocalSignInCredentials(formData, {
-			onSuccess: () => {
-				navigate({ to: '/instance/browse' });
+		submitLocalSignInCredentials(formData, {
+			onSuccess: async (data) => {
+				setUser(data);
+				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '/instance/browse' });
 			},
 		});
 	};

@@ -14,6 +14,8 @@ import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { queryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { isLocalStudio } from '@/config/constants';
+import { useLocalSignOutMutation } from '@/features/auth/hooks/useLocalSignOut';
 
 const activeLinkProps = { className: 'text-white' };
 
@@ -39,17 +41,19 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 					isMenuOpen ? 'block' : 'hidden'
 				} md:hidden space-y-1 pb-3 bg-black-dark absolute left-0 top-full w-full rounded-b-md`}
 			>
-				<Link to="/orgs" className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md">
+				{!isLocalStudio && <Link
+					to="/orgs"
+					className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md">
 					<BuildingIcon className="mr-4" />
 					Organizations
-				</Link>
-				<Link
+				</Link>}
+				{!isLocalStudio && <Link
 					to="/profile"
 					className="flex flex-row items-center px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
 				>
 					<UserIcon className="mr-4" />
 					Profile
-				</Link>
+				</Link>}
 				<Link
 					to="/docs"
 					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
@@ -84,20 +88,20 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-grey-400">
-						<NavigationMenuItem>
+						{!isLocalStudio && <NavigationMenuItem>
 							<NavigationMenuLink asChild>
 								<Link to="/orgs" className="flex-row items-center" activeProps={activeLinkProps}>
 									<BuildingIcon /> Organizations
 								</Link>
 							</NavigationMenuLink>
-						</NavigationMenuItem>
-						<NavigationMenuItem>
+						</NavigationMenuItem>}
+						{!isLocalStudio && <NavigationMenuItem>
 							<NavigationMenuLink asChild>
 								<Link to="/profile" className="flex-row items-center" activeProps={activeLinkProps}>
 									<UserIcon /> <span className="hidden lg:inline-block">Profile</span>
 								</Link>
 							</NavigationMenuLink>
-						</NavigationMenuItem>
+						</NavigationMenuItem>}
 						<NavigationMenuItem>
 							<NavigationMenuLink asChild>
 								<Link to="https://docs.harperdb.io/docs" target="_blank" rel="noreferrer noopener"
@@ -170,8 +174,10 @@ function Logo() {
 	</>;
 }
 
+const useSignOut = isLocalStudio ? useLocalSignOutMutation : useSignOutMutation;
+
 export function NavBar() {
-	const { mutate: signOut } = useSignOutMutation();
+	const { mutate: signOut } = useSignOut();
 	const navigate = useNavigate();
 	const { user, setUser } = useAuthenticationContext();
 	const router = useRouter();

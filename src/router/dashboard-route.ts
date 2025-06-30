@@ -7,6 +7,8 @@ export const dashboardLayout = createRoute({
 	id: '_dashboardLayout',
 	component: Dashboard,
 	beforeLoad: ({ context, location }) => {
+		// TODO: Sometimes when I refresh the page, we're getting isLoading: false, user: null for one frame. We double
+		//  redirect the user back to where they were, but it's not ideal.
 		if (!context.authentication.isLoading && !context.authentication.user) {
 			throw redirect({
 				to: '/',

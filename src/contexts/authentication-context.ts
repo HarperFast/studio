@@ -1,16 +1,19 @@
 import { createContext } from 'react';
-import { User } from '@/lib/api.patch';
+import { LocalUser, User } from '@/lib/api.patch';
 
 export interface AuthenticationContextType {
 	isLoading: boolean;
-	isLocal: boolean;
-	setUser: (user: User | null) => void;
-	user: User | null;
+	setUser: (user: User | LocalUser | null) => void;
+	user: User | LocalUser | null;
 }
 
 export const AuthenticationContext = createContext<AuthenticationContextType>({
 	isLoading: true,
-	isLocal: import.meta.env.VITE_LOCAL_STUDIO === 'true',
-	setUser: () => {},
+	setUser: () => {
+	},
 	user: null,
 });
+
+export function isLocalUser(user: User | LocalUser | null): user is LocalUser {
+	return user !== null && !!(user as LocalUser).username;
+}

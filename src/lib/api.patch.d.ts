@@ -21,3 +21,17 @@ export interface User extends SchemaUser {
 	lastname: string;
 	roles: OrgRoles[];
 }
+
+export interface LocalUser {
+	active: boolean;
+	username: string;
+	role: {
+		permission: {
+			super_user: boolean;
+		};
+		role: string;
+		id: string;
+		__updatedtime__: number;
+		__createdtime__: number;
+	};
+}

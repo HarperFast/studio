@@ -1,28 +1,23 @@
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { cloudRouteTree } from './router/cloudRouter';
 import { queryClient } from '@/react-query/queryClient';
 import { ClusterProvider } from '@/features/cluster/context/ClusterAuthContext';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
-import {
-	useAuthenticationContext,
-} from '@/hooks/use-authentication-context';
-import { localRouteTree } from '@/router/localRouter';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { useRootAuthenticationContextValue } from '@/hooks/use-root-authentication-context-value';
 import { AuthenticationContext } from '@/contexts/authentication-context';
+import { rootRouteTree } from '@/router/root-route-tree';
 
 export function App() {
-	const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO == 'true';
 	const hashHistory = createHashHistory();
-	const loadedRouter = isLocalStudio ? localRouteTree : cloudRouteTree;
 	const authenticationContextValue = useRootAuthenticationContextValue();
 
 	const userContext = useAuthenticationContext();
 	const router = createRouter({
-		routeTree: loadedRouter,
+		routeTree: rootRouteTree,
 		history: hashHistory,
 		defaultNotFoundComponent: () => <NotFoundComponent />,
 		defaultErrorComponent: ({ error }) => <ErrorComponent error={error} />,

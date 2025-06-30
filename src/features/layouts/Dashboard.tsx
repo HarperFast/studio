@@ -5,8 +5,6 @@ import { Loading } from '@/components/Loading';
 // import { useUserInfoMutation } from '@/hooks/instance/useUserInfo';
 // import { useEffect } from 'react';
 
-// const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO === 'true';
-
 export function Dashboard() {
 	const { isLoading: isUserLoading } = useAuthenticationContext();
 	// const { mutate: submitUserInfoData, data: userInfo, isPending: isUserInfoLoading } = useUserInfoMutation();
