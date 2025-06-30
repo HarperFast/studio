@@ -1,4 +1,5 @@
 import { Outlet } from '@tanstack/react-router';
+import { NavBar } from '@/components/Navbar';
 
 function ListItem({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
@@ -10,9 +11,14 @@ function ListItem({ title, children }: { title: string; children: React.ReactNod
 }
 
 export function AuthLayout() {
-	return (
-		<div className="grid h-screen grid-cols-1 md:grid-cols-2">
-			<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
+	return <>
+		<header
+			className="fixed top-0 z-40 w-full h-20 p-4 bg-black-dark dark:bg-black-dark dark:border-b dark:border-black md:px-12">
+			<NavBar />
+		</header>
+		<div className="mt-20 grid h-screen grid-cols-1 md:grid-cols-2">
+			<section
+				className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
 				<div>
 					<h1 className="text-4xl font-bold">Harper Studio</h1>
 					<span>Manage all your Harper instances.</span>
@@ -62,20 +68,12 @@ export function AuthLayout() {
 					</ul>
 				</div>
 			</section>
-			<section className="flex items-center justify-center px-6 bg-linear-(--purple-gradient) dark:bg-linear-(--black-dark-gradient)">
+			<section
+				className="flex items-center justify-center px-6 bg-linear-(--purple-gradient) dark:bg-linear-(--black-dark-gradient)">
 				<Outlet />
 			</section>
-			<button
-				className="fixed p-2 text-white bg-blue-400 rounded-md bottom-4 right-4"
-				onClick={() => {
-					document.documentElement.classList.toggle('dark');
-					localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-				}}
-			>
-				Toggle Theme
-			</button>
 		</div>
-	);
+	</>;
 }
 
 

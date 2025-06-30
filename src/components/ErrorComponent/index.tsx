@@ -27,7 +27,7 @@ export function ErrorComponent({ error }: { error: Error }) {
 					<Link to="/">
 						<Button>
 							{' '}
-							<ArrowLeft /> Go Sign In Page
+							<ArrowLeft /> Go to Sign In Page
 						</Button>
 					</Link>
 				)}
