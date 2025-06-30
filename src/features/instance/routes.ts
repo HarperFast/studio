@@ -19,11 +19,9 @@ export const instanceLayoutRoute = createRoute({
 	getParentRoute: () => isLocalStudio ? dashboardLayout : clusterLayoutRoute,
 	path: isLocalStudio ? 'instance' : 'instance/$instanceId',
 	component: InstanceLayout,
-	loader: isLocalStudio
-		? (() => undefined)
-		: ((opts) => {
-			opts.context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(opts.params.instanceId));
-		}),
+	loader: ((opts) => {
+		opts.context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(opts.params.instanceId));
+	}),
 });
 
 const instanceIndexRoute = createRoute({
