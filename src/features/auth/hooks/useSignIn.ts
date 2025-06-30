@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { User } from '@/lib/api.patch';
 
 // TODO: Consolidate with useOnSignUpSubmitMutation
 export type SignInCredentials = {
@@ -7,14 +8,7 @@ export type SignInCredentials = {
 	password: string;
 };
 
-type SignInResponse = {
-	id: string;
-	email: string;
-	firstname: string;
-	lastname: string;
-};
-
-export async function onLoginSubmit({ email, password }: SignInCredentials): Promise<SignInResponse> {
+export async function onLoginSubmit({ email, password }: SignInCredentials): Promise<User> {
 	// TODO: The OpenAPI request body for this endpoint isn't defined.
 	const { data } = await apiClient.post('/Login/', {
 		email,
@@ -22,14 +16,14 @@ export async function onLoginSubmit({ email, password }: SignInCredentials): Pro
 	});
 	if (data) {
 		// TODO: The OpenAPI response for this endpoint isn't defined.
-		return data as never as SignInResponse;
+		return data as never as User;
 	} else {
 		throw new Error('Something went wrong');
 	}
 }
 
 export function useLoginMutation() {
-	return useMutation<SignInResponse, Error, SignInCredentials>({
+	return useMutation<User, Error, SignInCredentials>({
 		mutationFn: (loginData) => onLoginSubmit(loginData),
 	});
 }

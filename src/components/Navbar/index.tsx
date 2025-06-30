@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { X, Menu } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { Menu, X } from 'lucide-react';
 
 import {
 	NavigationMenu,
@@ -10,7 +10,9 @@ import {
 	NavigationMenuList,
 } from '@/components/ui/navigation-menu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
-import { QueryCache, QueryClient } from '@tanstack/react-query';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { queryClient } from '@/react-query/queryClient';
+import { toast } from 'sonner';
 
 function MobileNav({ signOut }: { signOut: () => void }) {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -118,24 +120,28 @@ const DesktopNav = ({ signOut }: { signOut: () => void }) => {
 export function NavBar() {
 	const { mutate: signOut } = useSignOutMutation();
 	const navigate = useNavigate();
-	const queryCache = new QueryCache();
-	const queryClient = new QueryClient();
-	const handleSignOut = () => {
+	const { setUser } = useAuthenticationContext();
+	const router = useRouter();
+	const handleSignOut = useCallback(() => {
 		signOut(undefined, {
-			onSuccess: () => {
-				// toast.success('Success', {
-				// 	description: 'You have been signed out successfully.',
-				// 	action: {
-				// 		label: 'Dismiss',
-				// 		onClick: () => toast.dismiss(),
-				// 	},
-				// });
-				queryCache.clear();
-				queryClient.invalidateQueries();
-				navigate({ to: '/' });
+			onSuccess: async () => {
+				const loadingId = toast.loading('Signing out');
+				setUser(null);
+				queryClient.getQueryCache().clear();
+				await queryClient.invalidateQueries();
+				router.invalidate();
+				await navigate({ to: '/' });
+				toast.dismiss(loadingId);
+				toast.success('Success', {
+					description: 'You have been signed out successfully.',
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
 			},
 		});
-	};
+	}, [signOut, setUser, router, navigate]);
 	return (
 		<>
 			<MobileNav signOut={handleSignOut} />

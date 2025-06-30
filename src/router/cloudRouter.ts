@@ -1,4 +1,4 @@
-import { createRootRouteWithContext, createRoute, lazyRouteComponent } from '@tanstack/react-router';
+import { createRootRouteWithContext, createRoute, lazyRouteComponent, redirect } from '@tanstack/react-router';
 import { QueryClient } from '@tanstack/react-query';
 import { StudioCloud } from '@/StudioCloud';
 import { Dashboard } from '@/features/layouts/Dashboard';
@@ -30,9 +30,11 @@ import { ConfigIndex } from '@/features/instance/config';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
+import { AuthenticationContextType } from '@/contexts/authentication-context';
 
 const rootRoute = createRootRouteWithContext<{
 	queryClient: QueryClient;
+	authentication: AuthenticationContextType;
 }>()({
 	component: StudioCloud,
 });
@@ -49,16 +51,22 @@ const signInRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: '/',
 	component: SignIn,
+	beforeLoad: ({ context, location }) => {
+		if (context.authentication.user) {
+			const search: Record<string, string> = location?.search;
+			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/orgs' });
+		}
+	},
 });
 
 const signUpRoute = createRoute({
 	getParentRoute: () => authLayout,
-	path: 'signup',
+	path: 'sign-up',
 	component: SignUp,
 });
 const forgotPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
-	path: 'forgotpassword',
+	path: 'forgot-password',
 	component: ForgotPassword,
 });
 
@@ -80,6 +88,16 @@ const dashboardLayout = createRoute({
 	getParentRoute: () => rootRoute,
 	id: '_dashboardLayout',
 	component: Dashboard,
+	beforeLoad: ({ context, location }) => {
+		if (!context.authentication.isLoading && !context.authentication.user) {
+			throw redirect({
+				to: '/',
+				search: {
+					redirect: location.href,
+				},
+			});
+		}
+	},
 });
 
 //Profile Route

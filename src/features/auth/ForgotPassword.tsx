@@ -77,7 +77,7 @@ export function ForgotPassword() {
 				<Link className="text-sm" to="/">
 					Sign in to your account
 				</Link>
-				<Link className="text-sm" to="/signup">
+				<Link className="text-sm" to="/sign-up">
 					Sign up for free
 				</Link>
 			</div>

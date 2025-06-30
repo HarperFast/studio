@@ -1,4 +1,4 @@
-import { Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/react-query/constants';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 
 const SignInSchema = z.object({
 	email: z
@@ -25,6 +28,10 @@ const SignInSchema = z.object({
 export function SignIn() {
 	const navigate = useNavigate();
 	const router = useRouter();
+	const queryClient = useQueryClient();
+	const { redirect } = useSearch({ strict: false });
+	const { setUser } = useAuthenticationContext();
+
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
@@ -33,13 +40,15 @@ export function SignIn() {
 		},
 	});
 
-	const { mutate: submitLoginData } = useLoginMutation();
+	const { mutate: submitLoginData, isPending } = useLoginMutation();
 
-	const submitForm = async (formData: z.infer<typeof SignInSchema>) => {
-		await submitLoginData(formData, {
-			onSuccess: () => {
-				navigate({ to: '/orgs' });
+	const submitForm = (formData: z.infer<typeof SignInSchema>) => {
+		submitLoginData(formData, {
+			onSuccess: async (data) => {
+				setUser(data);
+				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '/orgs' });
 			},
 		});
 	};
@@ -85,16 +94,16 @@ export function SignIn() {
 							</FormItem>
 						)}
 					/>
-					<Button type="submit" variant="submit" className="w-full my-2 rounded-full">
+					<Button type="submit" variant="submit" className="w-full my-2 rounded-full" disabled={isPending}>
 						Sign In
 					</Button>
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="text-sm" to="/signup">
+				<Link className="text-sm" to="/sign-up">
 					Sign up for free
 				</Link>
-				<Link className="text-sm" to="/forgotpassword">
+				<Link className="text-sm" to="/forgot-password">
 					Forgot password?
 				</Link>
 			</div>

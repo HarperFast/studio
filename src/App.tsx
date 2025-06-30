@@ -1,22 +1,26 @@
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { cloudRouteTree } from './router/cloudRouter';
-import { localRouteTree } from './router/localRouter';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '@/react-query/queryClient';
 import { ClusterProvider } from '@/features/cluster/context/ClusterAuthContext';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
-// import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
+import {
+	useAuthenticationContext,
+} from '@/hooks/use-authentication-context';
+import { localRouteTree } from '@/router/localRouter';
+import { useRootAuthenticationContextValue } from '@/hooks/use-root-authentication-context-value';
+import { AuthenticationContext } from '@/contexts/authentication-context';
 
 export function App() {
 	const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO == 'true';
 	const hashHistory = createHashHistory();
 	const loadedRouter = isLocalStudio ? localRouteTree : cloudRouteTree;
-	// const loadedRouter = cloudRouteTree;
+	const authenticationContextValue = useRootAuthenticationContextValue();
 
+	const userContext = useAuthenticationContext();
 	const router = createRouter({
 		routeTree: loadedRouter,
 		history: hashHistory,
@@ -29,18 +33,20 @@ export function App() {
 		scrollRestoration: true,
 		context: {
 			queryClient,
+			authentication: authenticationContextValue,
 		},
 	});
 
 	return (
 		<>
-			<QueryClientProvider client={queryClient}>
+			<AuthenticationContext value={authenticationContextValue}>
 				<ClusterProvider>
-					<RouterProvider router={router} />
+					<RouterProvider router={router} context={{ user: userContext }} />
 				</ClusterProvider>
-				<ReactQueryDevtools buttonPosition="bottom-left" />
-				<TanStackRouterDevtools router={router} />
-				{/* <button
+			</AuthenticationContext>
+			<ReactQueryDevtools buttonPosition="bottom-left" />
+			<TanStackRouterDevtools router={router} />
+			{/* <button
 					className="fixed p-2 text-white bg-blue-400 rounded-md bottom-4 right-4"
 					onClick={() => {
 						document.documentElement.classList.toggle('dark');
@@ -49,7 +55,7 @@ export function App() {
 				>
 					Toggle Theme
 				</button> */}
-				{/* <button
+			{/* <button
 					className="fixed p-2 text-white bg-blue-400 rounded-md bottom-20 right-20"
 					onClick={() => {
 						toast.success('Error', {
@@ -64,8 +70,7 @@ export function App() {
 				>
 					testing toast component
 				</button> */}
-				<Toaster richColors />
-			</QueryClientProvider>
+			<Toaster richColors />
 		</>
 	);
 }

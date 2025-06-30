@@ -2,10 +2,10 @@ import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 
 export function ErrorComponent({ error }: { error: Error }) {
-	const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
+	const { user, isLoading: isUserLoading } = useAuthenticationContext();
 
 	return (
 		<Card className="text-red p-5 border border-red rounded-md">

@@ -1,5 +1,5 @@
-import { Outlet, Navigate } from '@tanstack/react-router';
-import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
+import { Outlet } from '@tanstack/react-router';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { NavBar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
 // import { useUserInfoMutation } from '@/hooks/instance/useUserInfo';
@@ -8,7 +8,7 @@ import { Loading } from '@/components/Loading';
 // const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO === 'true';
 
 export function Dashboard() {
-	const { data: user, isLoading: isUserLoading } = useGetCurrentUser();
+	const { isLoading: isUserLoading } = useAuthenticationContext();
 	// const { mutate: submitUserInfoData, data: userInfo, isPending: isUserInfoLoading } = useUserInfoMutation();
 
 	// useEffect(() => {
@@ -16,10 +16,6 @@ export function Dashboard() {
 	// 		submitUserInfoData();
 	// 	}
 	// }, [isUserInfoLoading, submitUserInfoData, userInfo]);
-
-	if (!user && !isUserLoading) {
-		return <Navigate to="/" />;
-	}
 
 	if (isUserLoading) {
 		return <Loading className="fixed z-50 translate-1/2" />;

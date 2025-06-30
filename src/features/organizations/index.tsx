@@ -2,12 +2,12 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
-import { useGetCurrentUser } from '@/hooks/useGetCurrentUser';
+import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
 import { notYetImplemented } from '@/lib/not-yet-implemented';
 
 export function OrganizationsIndex() {
-	const { data: user } = useGetCurrentUser();
+	const { user } = useAuthenticationContext();
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
