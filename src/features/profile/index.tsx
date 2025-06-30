@@ -5,5 +5,3 @@ export function ProfileIndex() {
 		</div>
 	);
 }
-
-
