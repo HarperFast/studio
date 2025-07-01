@@ -24,7 +24,7 @@ export function ClusterCard({
 	return (
 		<Card className="relative">
 			<CardHeader>
-				<CardDescription className="flex justify-between items-center">
+				<CardDescription className="flex items-center justify-between">
 					<span>CLUSTER ID: {clusterId.slice(0, 15)}....</span>
 					<DropdownMenu>
 						<DropdownMenuTrigger>
@@ -34,7 +34,9 @@ export function ClusterCard({
 							<DropdownMenuLabel>Cluster options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem>Edit</DropdownMenuItem>
-							<DropdownMenuItem>Delete</DropdownMenuItem>
+							<DropdownMenuItem className="bg-red focus:bg-red/70 focus:text-white" onClick={() => {}}>
+								Delete
+							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</CardDescription>
@@ -50,7 +52,7 @@ export function ClusterCard({
 					aria-label={`View ${clusterName}`}
 					title={`View ${clusterName}`}
 				>
-					<span className="hover:border-b-2 py-2">
+					<span className="py-2 hover:border-b-2">
 						View <ArrowRight className="inline-block" />
 					</span>
 				</Link>

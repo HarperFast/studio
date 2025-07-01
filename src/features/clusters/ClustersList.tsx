@@ -1,18 +1,20 @@
 import { getRouteApi } from '@tanstack/react-router';
 import { ClusterCard } from '@/features/organization/components/ClusterCard';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { useState } from 'react';
 
 const route = getRouteApi('');
 
 export function ClustersList() {
 	const { organizationId } = route.useParams();
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
+	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
 
 	return (<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
@@ -27,21 +29,51 @@ export function ClustersList() {
 								</span>
 							</Button>
 						</div>
-						<NewClusterModal orgId={organizationId} />
-					</div>) : null}
+
+						<Button
+							variant="positive"
+							className="w-full rounded-full md:w-44"
+							onClick={() => setIsNewClusterModalOpen(true)}
+						>
+							<Plus /> New Cluster
+						</Button>
+					</div>
+				) : null}
 			</nav>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-				{isSuccess && orgInfo?.clusters?.length ? (<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-						{orgInfo?.clusters.map((cluster) => (
-							<div key={cluster.id} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-								<ClusterCard clusterName={cluster.name} clusterId={cluster.id} status={cluster.status} />
-							</div>))}
-					</div>) : (<div className="flex-col space-y-5 items-center justify-center text-center">
-						<h2 className="text-2xl text-center text-white">No clusters found. Create a new cluster.</h2>
-						<NewClusterModal orgId={organizationId} />
-					</div>)}
+				<>
+					{isSuccess && orgInfo?.clusters?.length ? (
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+							{orgInfo?.clusters.map((cluster) => (
+								<div key={cluster.id} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
+									<ClusterCard
+										clusterName={cluster.name}
+										clusterId={cluster.id}
+										status={cluster.status}
+									/>
+								</div>
+							))}
+						</div>
+					) : (
+						<div className="flex-col space-y-5 items-center justify-center text-center">
+							<h2 className="text-2xl text-center text-white">No clusters found. Create a new cluster.</h2>
+
+							<Button
+								variant="positive"
+								className="w-full rounded-full md:w-44"
+								onClick={() => setIsNewClusterModalOpen(true)}
+							>
+								<Plus /> New Cluster
+							</Button>
+						</div>
+					)}
+				</>
 			</section>
-		</>);
+			<NewClusterModal
+				orgId={organizationId}
+				isModalOpen={isNewClusterModalOpen}
+				setIsModalOpen={() => setIsNewClusterModalOpen(false)}
+			/>
+		</>
+	);
 }
-
-

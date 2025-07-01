@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/select';
 import { NewInstanceInfo, useCreateNewInstanceMutation } from '@/features/cluster/hooks/useCreateNewInstance';
 import { type InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
-import { getInstanceTypeOptions } from '../queries/getInstanceTypeQuery';
+import { getPlanTypesOptions } from '../queries/getPlanTypesQuery';
 import { toast } from 'sonner';
 
 // TODO: consolidate this with the storage size options in the NewClusterModal
@@ -66,7 +66,7 @@ const NewInstanceSchema = z.object({
 
 export function NewInstanceModal({ clusterId }: { clusterId: string }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
-	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
+	const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const form = useForm({
 		resolver: zodResolver(NewInstanceSchema),
 		defaultValues: {
@@ -155,9 +155,9 @@ export function NewInstanceModal({ clusterId }: { clusterId: string }) {
 											</SelectTrigger>
 											<SelectContent>
 												<SelectGroup>
-													{instanceTypes?.map((type) => (
+													{planTypes?.map((type) => (
 														<SelectItem key={type.id} value={type.id}>
-															{renderInstanceTypeOption(type.id as InstanceTypes)}
+															{renderInstanceTypeOption(type.id as PlanTypes)}
 														</SelectItem>
 													))}
 												</SelectGroup>

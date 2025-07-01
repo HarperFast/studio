@@ -6,78 +6,49 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ArrowRight, Plus, PlusIcon } from 'lucide-react';
+import { ArrowRight, PlusIcon } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { NewClusterInfo, useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
-import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import {
-	Select,
-	SelectTrigger,
-	SelectValue,
-	SelectContent,
-	SelectGroup,
-	SelectLabel,
-	SelectItem,
-} from '@/components/ui/select';
-import { getInstanceTypeOptions } from '@/features/cluster/queries/getInstanceTypeQuery';
+import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
-import {
-	RegionFormInputs,
-} from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
-import { InstanceTypes, renderInstanceTypeOption } from '@/shared/functions/InstanceType';
-
-// TODO: consolidate this with the storage size options in the NewInstanceModal
-const storageSizeOptions = [
-	{ value: '1', label: '1GB' },
-	{ value: '10', label: '10GB' },
-	{ value: '100', label: '100GB' },
-	{ value: '250', label: '250GB' },
-	{ value: '500', label: '500GB' },
-	{ value: '1000', label: '1TB' },
-	{ value: '1500', label: '1.5TB' },
-	{ value: '2000', label: '2TB' },
-	{ value: '2500', label: '2.5TB' },
-	{ value: '3000', label: '3TB' },
-	{ value: '3500', label: '3.5TB' },
-	{ value: '4000', label: '4TB' },
-	{ value: '4500', label: '4.5TB' },
-	{ value: '5000', label: '5TB' },
-];
+import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 
 const NewClusterSchema = z.object({
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
-	abbreviatedName: z.string()
+	abbreviatedName: z
+		.string()
 		.min(1, 'Must be at least 1 character long.')
 		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
-	instanceTypes: z.string({
-		required_error: 'Please select an instance type.',
-	}),
-	storage: z.string({
-		required_error: 'Please select a storage size.',
-	}),
 	regions: z
 		.array(
 			z.object({
 				region: z.string().nonempty('Region is required.'),
-				cloudProvider: z.string().nonempty('Cloud Provider is required.'),
+				planType: z.string().nonempty('Plan Type is required.'),
 				count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
+				price: z.string().optional(),
 			})
 		)
 		.optional(),
 });
 
-export function NewClusterModal({ orgId }: { orgId: string }) {
+export function NewClusterModal({
+	orgId,
+	isModalOpen,
+	setIsModalOpen,
+}: {
+	orgId: string;
+	isModalOpen: boolean;
+	setIsModalOpen: (isOpen: boolean) => void;
+}) {
 	const queryClient = useQueryClient();
-	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
 		defaultValues: {
@@ -91,13 +62,21 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 		name: 'regions', // This is the name of the field array
 	});
 
-	const { data: instanceTypes } = useQuery(getInstanceTypeOptions());
+	const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
 	const selectedRegions = form.watch('regions');
 
-	const submitForm = async (formData: { clusterName: string; abbreviatedName: string }) => {
+	// NOTE: Don't like how this is done, but works. Would like to find a better way to calculate the total price of selected regions.
+	const totalPriceNumber =
+		selectedRegions?.reduce((acc, region) => {
+			const price = region.price ? Number(region.price) : 0;
+			return acc + price;
+		}, 0) ?? 0;
+	const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
+
+	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
 		const updatedFormData = {
 			organizationId: orgId,
 			...formData,
@@ -112,12 +91,7 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-			<DialogTrigger asChild>
-				<Button variant="positive" className="w-full rounded-full md:w-44">
-					<Plus /> New Cluster
-				</Button>
-			</DialogTrigger>
-			<DialogContent className="sm:max-w-[625px]">
+			<DialogContent className="sm:max-w-[825px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Cluster</DialogTitle>
 					<DialogDescription>Create a new cluster here.</DialogDescription>
@@ -144,67 +118,14 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 								<FormItem className="md:col-span-3">
 									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. cluster-1" maxLength={20} {...field} className="" />
+										<Input type="text" placeholder="user-cluster" maxLength={20} {...field} className="" />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
-						<FormField
-							control={form.control}
-							name="instanceTypes"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Instance Type</FormLabel>
-									<FormControl>
-										<Select onValueChange={field.onChange} {...field}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select Instance Type" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{instanceTypes?.map((type) => (
-														<SelectItem key={type.id} value={type.id}>
-															{renderInstanceTypeOption(type.id as InstanceTypes)}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						{/* TODO: consolidate this with the storage size options in the NewInstanceModal */}
-						<FormField
-							control={form.control}
-							name="storage"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Storage Size</FormLabel>
-									<FormControl>
-										<Select onValueChange={field.onChange} {...field}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Select Storage Size" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													<SelectLabel>Storage Size</SelectLabel>
-													{storageSizeOptions.map((option, index) => (
-														<SelectItem key={index} value={option.value}>
-															{option.label}
-														</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent h-36">
+
+						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent min-h-32 max-h-70">
 							{fieldArray.fields.length > 0 ? (
 								fieldArray.fields.map((field, index) => (
 									<RegionFormInputs
@@ -212,6 +133,7 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 										control={form.control}
 										index={index}
 										regionLocations={regionLocations || []}
+										planTypes={planTypes || []}
 										selectedRegions={selectedRegions || []}
 										remove={() => {
 											fieldArray.remove(index);
@@ -228,12 +150,15 @@ export function NewClusterModal({ orgId }: { orgId: string }) {
 								variant="positive"
 								className="rounded-full"
 								onClick={() => {
-									fieldArray.append({ region: '', cloudProvider: '', count: 0 });
+									fieldArray.append({ region: '', planType: '', count: 0, price: '' });
 								}}
 							>
 								<PlusIcon />
 								Add a Region
 							</Button>
+						</div>
+						<div className="md:col-span-6">
+							<p>Total Price: {totalPrice}</p>
 						</div>
 						<DialogFooter className="md:col-span-6">
 							<Button type="submit" variant="submit" className="rounded-full">

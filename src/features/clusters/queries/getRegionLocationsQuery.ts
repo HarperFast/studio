@@ -6,14 +6,13 @@ import { SchemaLocation } from '@/lib/api.gen';
 interface RegionLocation extends SchemaLocation {
 	id: string;
 	region: string;
-	cloudProvider: 'linode' | 'aws' | 'gcp' | 'azure' | 'self-hosted' | 'none';
-	location: string;
+	latencyDescription: string;
 }
 
 type RegionLocations = RegionLocation[];
 
 async function getRegionLocations(): Promise<RegionLocations> {
-	const { data } = await apiClient.get(`/Location/`);
+	const { data } = await apiClient.get(`/Region/`);
 	// TODO: The OpenAPI specs don't describe arrays correctly.
 	return data as RegionLocations;
 }
