@@ -6,7 +6,6 @@ import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
-import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { useRootAuthenticationContextValue } from '@/hooks/use-root-authentication-context-value';
 import { AuthenticationContext } from '@/contexts/authentication-context';
 import { rootRouteTree } from '@/router/root-route-tree';
@@ -15,7 +14,6 @@ export function App() {
 	const hashHistory = createHashHistory();
 	const authenticationContextValue = useRootAuthenticationContextValue();
 
-	const userContext = useAuthenticationContext();
 	const router = createRouter({
 		routeTree: rootRouteTree,
 		history: hashHistory,
@@ -36,7 +34,7 @@ export function App() {
 		<>
 			<AuthenticationContext value={authenticationContextValue}>
 				<ClusterProvider>
-					<RouterProvider router={router} context={{ user: userContext }} />
+					<RouterProvider router={router} context={{ authentication: authenticationContextValue }} />
 				</ClusterProvider>
 			</AuthenticationContext>
 			<ReactQueryDevtools buttonPosition="bottom-left" />
