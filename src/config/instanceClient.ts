@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { localStudioDevUrl } from '@/config/constants';
+import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 
 export const instanceClient = axios.create({
 	withCredentials: true,
@@ -10,6 +10,6 @@ export const instanceClient = axios.create({
 });
 // TODO: as TypedAxios?
 
-if (localStudioDevUrl) {
+if (isLocalStudio && localStudioDevUrl) {
 	instanceClient.defaults.baseURL = localStudioDevUrl;
 }

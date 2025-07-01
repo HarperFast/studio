@@ -33,7 +33,7 @@ const localSignInRoute = createRoute({
 	beforeLoad: ({ context, location }) => {
 		if (context.authentication.user) {
 			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/instance/browse' });
+			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
 		}
 	},
 });

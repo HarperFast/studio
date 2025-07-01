@@ -47,7 +47,7 @@ export function LocalSignIn() {
 				setUser(data);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '/instance/browse' });
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
 			},
 		});
 	};
