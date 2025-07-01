@@ -53,7 +53,8 @@ export function SignUp() {
 		submitSignUpData(formData, {
 			onSuccess: () => {
 				toast.success('Success', {
-					description: 'Your account has been created! Please sign in with your new credentials.',
+					description: 'Your account has been created! Please check your email to finish activating your' +
+						' account.',
 					action: {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
