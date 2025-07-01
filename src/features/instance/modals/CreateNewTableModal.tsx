@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCreateTableMutation } from '@/features/instance/operations/mutations/createTable';
 import { toast } from 'sonner';
+import { useRouter } from '@tanstack/react-router';
 
 const CreateTableSchema = z.object({
 	tableName: z
@@ -44,8 +45,13 @@ const CreateTableSchema = z.object({
 		}),
 });
 
-export function CreateNewTableModal({ databaseName, instanceId }: { databaseName: string; instanceId: string }) {
+export function CreateNewTableModal({ databaseName, instanceId, onSelectTable }: {
+	readonly databaseName: string;
+	readonly instanceId: string;
+	readonly onSelectTable: (tableName: string | undefined) => void;
+}) {
 	const queryClient = useQueryClient();
+	const router = useRouter();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(CreateTableSchema),
@@ -64,10 +70,12 @@ export function CreateNewTableModal({ databaseName, instanceId }: { databaseName
 		};
 		submitNewTableData(updatedFormData, {
 			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] });
+				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
 				toast.success(`Table ${formData.tableName} created successfully`);
 				setIsModalOpen(false);
 				form.reset();
+				onSelectTable(formData.tableName);
+				await router.invalidate();
 			},
 		});
 	};

@@ -13,7 +13,7 @@ type DescribeAllResponse = {
 		[key: string]: DBTableInfo;
 	};
 };
-function getDescribeAllQueryOptions(instanceId: string) {
+function getDescribeAllQueryOptions(instanceId?: string) {
 	return queryOptions({
 		queryKey: [instanceId, 'describe_all'] as const,
 		queryFn: async () => {

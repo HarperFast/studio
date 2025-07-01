@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getRouteApi } from '@tanstack/react-router';
+import { getRouteApi, useRouter } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -37,6 +37,7 @@ const NewDatabaseSchema = z.object({
 });
 
 export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTable }: BrowseSidebarProps) {
+	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { instanceId, schemaName, tableName } = route.useParams();
 
@@ -55,20 +56,22 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 
 	const submitNewDatabase = (formData: z.infer<typeof NewDatabaseSchema>) => {
 		createNewDatabase(formData, {
-			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] })
-					.then(() => onSelectDatabase(formData.newDatabaseName));
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
+				await router.invalidate();
 				setIsCreatingDatabase(false);
 				form.reset();
 				toast.success(`Database ${formData.newDatabaseName} created successfully`);
+				onSelectDatabase(formData.newDatabaseName);
 			},
 		});
 	};
 
 	const deleteSelectedDatabase = (databaseName: string) => {
 		deleteDatabase(databaseName, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [instanceId] });
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
+				await router.invalidate();
 				toast.success(`Database ${databaseName} deleted successfully`);
 				onSelectDatabase(undefined);
 			},
@@ -77,12 +80,13 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 
 	const deleteSelectedTable = (data: DeleteTableData) => {
 		deleteTable(data, {
-			onSuccess: () => {
-				void queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'] });
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
+				await router.invalidate();
+				toast.success(`Table ${data.tableName} deleted successfully`);
 				if (data.tableName === tableName) {
 					onSelectTable(undefined);
 				}
-				toast.success(`Table ${data.tableName} deleted successfully`);
 			},
 		});
 	};
@@ -174,7 +178,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
 								<div className="mx-auto max-w-48">
-									<CreateNewTableModal databaseName={schemaName || ''} instanceId={instanceId} />
+									<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
 								</div>
 							</div>
 						) : (tables ?? []).length === 0 && !schemaName?.length ? (
@@ -211,7 +215,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 				</ScrollArea>
 			</Tabs>
 			{schemaName?.length && (
-				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} />
+				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
 			)}
 		</div>
 	);

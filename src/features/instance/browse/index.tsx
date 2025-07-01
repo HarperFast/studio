@@ -1,19 +1,16 @@
 import { Suspense, useCallback, useMemo } from 'react';
 import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
-import {
-	buildInstanceDataStructure,
-} from '@/features/instance/browse/functions/buildInstanceDataStructure';
+import { buildInstanceDataStructure } from '@/features/instance/browse/functions/buildInstanceDataStructure';
 import { Loading } from '@/components/Loading';
 import { BrowseSidebar as BrowseSideBar } from '@/features/instance/browse/components/BrowseSideBar';
+import { DescribeAllResponse } from '@/features/instance/operations/queries/getDescribeAll';
 
 const route = getRouteApi('');
 
 export function Browse() {
 	const navigate = useNavigate();
-	const { instanceId, schemaName, tableName } = route.useParams();
-	const { data: describeAllQueryData } = useSuspenseQuery(getDescribeAllQueryOptions(instanceId));
+	const { schemaName, tableName } = route.useParams();
+	const describeAllQueryData = route.useLoaderData() as DescribeAllResponse;
 
 	const structure = useMemo(() => buildInstanceDataStructure(describeAllQueryData), [describeAllQueryData]);
 
@@ -28,12 +25,12 @@ export function Browse() {
 
 	const onSelectDatabase = useCallback((newSchemaName: string | undefined) => {
 		const tables = newSchemaName ? Object.keys(structure[newSchemaName] || []).sort() : [];
-		const parts = [schemaName ? '../' : '', tableName ? '../' : '', newSchemaName, tables[0]].filter(Boolean);
+		const parts = [schemaName ? '..' : '', tableName ? '..' : '', newSchemaName, tables[0]].filter(Boolean);
 		void navigate({ to: parts.join('/') });
 	}, [navigate, structure, schemaName, tableName]);
 
 	const onSelectTable = useCallback((newTableName: string | undefined) => {
-		const parts = [tableName ? '../' : '', newTableName].filter(Boolean);
+		const parts = [tableName ? '..' : '', newTableName].filter(Boolean);
 		void navigate({ to: parts.join('/') });
 	}, [tableName, navigate]);
 
