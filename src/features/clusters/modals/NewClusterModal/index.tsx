@@ -12,7 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowRight, PlusIcon } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { NewClusterInfo, useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
+import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
@@ -20,7 +20,7 @@ import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegion
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 
-const NewClusterSchema = z.object({
+export const NewClusterSchema = z.object({
 	clusterName: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
 	abbreviatedName: z
 		.string()
@@ -78,7 +78,7 @@ export function NewClusterModal({
 		const updatedFormData = {
 			organizationId: orgId,
 			...formData,
-		} as NewClusterInfo;
+		};
 		submitNewClusterData(updatedFormData, {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });

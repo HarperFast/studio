@@ -1,11 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
-
-export type NewClusterInfo = {
-	clusterName: string;
-	organizationId: string;
-	abbreviatedName: string;
-};
+import { NewClusterSchema } from '../modals/NewClusterModal';
+import z from 'zod';
 
 type NewClusterInfoResponse = {
 	id: string;
@@ -14,16 +10,14 @@ type NewClusterInfoResponse = {
 	tag: string;
 };
 
-export async function onNewClusterSubmit({
-	clusterName,
-	organizationId,
-	abbreviatedName,
-}: NewClusterInfo): Promise<NewClusterInfoResponse> {
+export async function onNewClusterSubmit(
+	clusterInfo: z.infer<typeof NewClusterSchema>
+): Promise<NewClusterInfoResponse> {
 	// TODO: Work through any disagreements between the SchemaCluster and our local types here.
+	const { clusterName } = clusterInfo;
 	const { data } = await apiClient.post('/Cluster/', {
 		name: clusterName,
-		abbreviatedName,
-		organizationId,
+		...clusterInfo,
 	});
 	if (data) {
 		return data as never as NewClusterInfoResponse;
@@ -33,7 +27,7 @@ export async function onNewClusterSubmit({
 }
 
 export function useCreateNewClusterMutation() {
-	return useMutation<NewClusterInfoResponse, Error, NewClusterInfo>({
+	return useMutation<NewClusterInfoResponse, Error, z.infer<typeof NewClusterSchema>>({
 		mutationFn: (clusterInfo) => onNewClusterSubmit(clusterInfo),
 	});
 }
