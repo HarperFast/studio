@@ -49,7 +49,6 @@ export function ClustersList() {
 									<ClusterCard
 										clusterName={cluster.name}
 										clusterId={cluster.id}
-										organizationId={cluster.organizationId}
 										status={cluster.status}
 									/>
 								</div>
