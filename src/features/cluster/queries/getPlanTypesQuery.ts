@@ -20,7 +20,7 @@ type PlanType = {
 
 const getPlanTypes = async () => {
 	// TODO: Work through any disagreements between the SchemaInstanceType and our local types here.
-	const { data } = await apiClient.get(`/Plan`);
+	const { data } = await apiClient.get(`/Plan/`);
 	return data as PlanTypes;
 };
 

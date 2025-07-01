@@ -5,15 +5,23 @@ import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useAuthenticationContext } from '@/hooks/use-authentication-context';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
 import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { isLocalUser } from '@/contexts/authentication-context';
 
 export function OrganizationsIndex() {
 	const { user } = useAuthenticationContext();
+	if (isLocalUser(user)) {
+		throw new Error('Local users cannot access organizations.');
+	}
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
 				<div className="flex items-center justify-between h-full text-sm text-white">
 					<div className="w-full">
-						<Input placeholder="Filter organizations by name" className="inline-block w-3/5 md:w-64" onChange={notYetImplemented} />
+						<Input
+							placeholder="Filter organizations by name"
+							className="inline-block w-3/5 md:w-64"
+							onChange={notYetImplemented}
+						/>
 						<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>
 							Sort by A-Z
 							<span>
@@ -36,5 +44,3 @@ export function OrganizationsIndex() {
 		</>
 	);
 }
-
-

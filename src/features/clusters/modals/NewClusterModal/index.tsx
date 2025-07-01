@@ -27,16 +27,14 @@ const NewClusterSchema = z.object({
 		.min(1, 'Must be at least 1 character long.')
 		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
-	regions: z
-		.array(
-			z.object({
-				region: z.string().nonempty('Region is required.'),
-				planType: z.string().nonempty('Plan Type is required.'),
-				count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
-				price: z.string().optional(),
-			})
-		)
-		.optional(),
+	regions: z.array(
+		z.object({
+			region: z.string().nonempty('Region is required.'),
+			planType: z.string().nonempty('Plan Type is required.'),
+			count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
+			price: z.string(),
+		})
+	),
 });
 
 export function NewClusterModal({
@@ -130,6 +128,7 @@ export function NewClusterModal({
 								fieldArray.fields.map((field, index) => (
 									<RegionFormInputs
 										key={field.id} // Use the unique id provided by fieldArray
+										// @ts-expect-error come back to this later
 										control={form.control}
 										index={index}
 										regionLocations={regionLocations || []}

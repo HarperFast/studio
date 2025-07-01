@@ -1,6 +1,5 @@
 import { getRouteApi, Link } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
-import { NewInstanceModal } from './modals/NewInstanceModal';
 import { DataTable } from '@/components/DataTable';
 import { useEffect, useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
@@ -33,11 +32,10 @@ type ColumnTypes = {
 	memory: string;
 };
 
-function EmptyCluster({ clusterId }: { clusterId: string }) {
+function EmptyCluster() {
 	return (
 		<div className="flex-col items-center justify-center px-16 space-y-3 text-center pt-30">
 			<p>No instances found.</p>
-			<NewInstanceModal clusterId={clusterId} />
 		</div>
 	);
 }
@@ -141,7 +139,6 @@ export function ClusterIndex() {
 							<h2 className="text-xl font-semibold">{currentCluster?.name}</h2>
 							<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
 						</div>
-						<NewInstanceModal clusterId={clusterId} />
 					</div>
 				) : null}
 			</nav>
@@ -153,7 +150,7 @@ export function ClusterIndex() {
 						) : currentCluster?.instances.length ? (
 							<DataTable data={currentCluster?.instances as unknown as ColumnTypes[]} columns={columns} />
 						) : (
-							<EmptyCluster clusterId={clusterId} />
+							<EmptyCluster />
 						)}
 					</CardContent>
 				</Card>
@@ -161,5 +158,3 @@ export function ClusterIndex() {
 		</>
 	);
 }
-
-

@@ -100,13 +100,13 @@ export function ConfigOverviewIndex() {
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.instanceFqdn}
+						{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo?.instanceFqdn}
 					</dd>
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Application URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.cluster.fqdn}
+						{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo?.cluster.fqdn}
 					</dd>
 				</div>
 				<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
@@ -128,7 +128,7 @@ export function ConfigOverviewIndex() {
 				</div>
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Instance Node Name (for clustering)</dt>
-					<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo.name}</dd>
+					<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo?.name}</dd>
 				</div>
 				{/*<div className="px-4 pb-4 sm:col-span-1 sm:px-0">*/}
 				{/*	<dt className="font-bold text-sm/6">Created</dt>*/}

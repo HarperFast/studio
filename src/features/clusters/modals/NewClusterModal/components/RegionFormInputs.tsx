@@ -27,7 +27,7 @@ type RegionFormInputsProps = {
 	index: number;
 	remove: () => void;
 	regionLocations: RegionLocations;
-	selectedRegions: { region: string; count: number; planType: string; price?: string }[] | undefined;
+	selectedRegions: { region: string; count: number; planType: string; price: string }[];
 	planTypes?: PlanTypes;
 };
 
