@@ -29,17 +29,12 @@ export function BrowseDataTableView() {
 		}),
 	);
 
-	const [searchByHashParams, setSearchByHashParams] = useState({
-		instanceId,
-		schemaName,
-		tableName,
-		hashAttribute: [''],
-	});
+	const [selectedHashAttribute, setSelectedHashAttribute] = useState<null | unknown>(null);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-	const { data: searchByHashData } = useQuery(getSearchByHashOptions(searchByHashParams));
+	const { data: searchByHashData } = useQuery(getSearchByHashOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedHashAttribute));
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
-	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [sortTableDataParams, setSortTableDataParams] = useState({
 		attribute: hash_attribute,
@@ -132,12 +127,7 @@ export function BrowseDataTableView() {
 		);
 	};
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-		setSearchByHashParams({
-			instanceId,
-			schemaName,
-			tableName,
-			hashAttribute: rowData.original[hash_attribute] as string[],
-		});
+		setSelectedHashAttribute(rowData.original[hash_attribute]);
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {

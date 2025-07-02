@@ -1,37 +1,15 @@
 import { instanceClient } from '@/config/instanceClient';
 import { queryOptions } from '@tanstack/react-query';
 
-// type SearchConditions = {
-// 	search_attribute: string;
-// 	search_type: string;
-// 	search_value: string;
-// };
-
-// type SearchByValueRequest = {
-// 	conditions?: [SearchConditions];
-// 	schema: string;
-// 	table: string;
-// 	search_attribute: string;
-// 	search_value: string;
-// 	// get_attributes: string[];
-// 	limit: number;
-// 	offset: number;
-// };
-function getSearchByHashOptions({
-	instanceId,
-	schemaName,
-	tableName,
-	hashAttribute,
-}: // ...options
-{
-	instanceId: string;
-	schemaName: string;
-	tableName: string;
-	hashAttribute: string[];
-	// options?: SearchByValueRequest;
-}) {
+function getSearchByHashOptions(
+	isEditModalOpen: boolean,
+	instanceId: string,
+	schemaName: string,
+	tableName: string,
+	hashAttribute?: unknown,
+) {
 	return queryOptions({
-		queryKey: [instanceId, 'search_by_hash'] as const,
+		queryKey: ['search_by_hash', instanceId, schemaName, tableName, hashAttribute] as const,
 		queryFn: () =>
 			instanceClient.post('/', {
 				operation: 'search_by_hash',
@@ -43,7 +21,7 @@ function getSearchByHashOptions({
 				table: tableName,
 				search_value: '*',
 			}),
-		enabled: false,
+		enabled: isEditModalOpen && !!hashAttribute,
 		retry: false,
 	});
 }
