@@ -60,7 +60,7 @@ function ConfigIndex() {
       setInstanceConfig(false);
       const result = await getConfiguration({ auth: instanceAuth, url });
       if (!result.error) {
-        const nodeName = clusterEngine === 'nats' ? result.clustering.nodeName : result.NODE_NAME;
+        const nodeName = clusterEngine === 'nats' ? result.clustering?.nodeName : result.NODE_NAME;
         setClusterNodeName(nodeName);
         setInstanceConfig(result);
       }

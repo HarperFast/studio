@@ -1,119 +1,117 @@
 .btn {
-  align-items: center;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 31%, rgba(0, 0, 0, 0.05) 100%);
-  border: 1px solid $faintest-white-overlay !important;
-  border-radius: $border-radius;
-  // box-shadow: 0 0 3px $grey-overlay !important;
-  display: inline-flex;
-  font-family: $font-family-sans;
-  font-size: $font-size-root;
-  font-weight: $font-weight-light;
-  height: 38px;
-  justify-content: center;
-  overflow: hidden;
-  padding-left: 5px;
-  padding-right: 5px;
-  position: relative;
-  text-decoration: none !important;
-  transition: none !important;
+	align-items: center;
+	background: linear-gradient(to bottom, rgb(255 255 255 / 5%) 31%, rgb(0 0 0 / 5%) 100%);
+	border-radius: $border-radius;
+	display: inline-flex;
+	font-family: $font-family-ubuntu;
+	font-size: $font-size-root;
+	font-weight: $font-weight-light;
+	height: 38px;
+	justify-content: center;
+	overflow: hidden;
+	padding-left: 5px;
+	padding-right: 5px;
+	position: relative;
+	text-decoration: none !important;
+	transition: none !important;
 
-  &.btn-block {
-    width: 100% !important;
-  }
+	&.btn-block {
+		width: 100% !important;
+	}
 
-  &:active {
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 31%, rgba(255, 255, 255, 0.05) 100%);
-  }
+	&:active {
+		background: linear-gradient(to bottom, rgb(0 0 0 / 5%) 31%, rgb(255 255 255 / 5%) 100%);
+	}
 
-  &.btn-sm {
-    height: auto !important;
-  }
+	&.btn-sm {
+		height: auto !important;
+	}
 
-  &.no-shadow {
-    box-shadow: none !important;
-  }
+	&.no-shadow {
+		box-shadow: none !important;
+	}
 
-  &.round {
-    height: 25px !important;
-    padding: 0;
-    width: 25px !important;
-  }
+	&.round {
+		height: 25px !important;
+		padding: 0;
+		width: 25px !important;
+	}
 
-  &.datatable {
-    font-size: 11px;
-    height: 24px !important;
-    padding: 0 !important;
-    width: 80px !important;
-  }
+	&.datatable {
+		font-size: 11px;
+		height: 24px !important;
+		padding: 0 !important;
+		width: 80px !important;
+	}
 
-  &.btn-link {
-    background: none;
-    border: 0 !important;
-    box-shadow: none !important;
-    height: auto;
-    padding: 0;
-    vertical-align: baseline !important;
+	&.btn-link {
+		background: none;
+		border: 0 !important;
+		box-shadow: none !important;
+		height: auto;
+		padding: 0;
+		vertical-align: baseline !important;
 
-    &:hover,
-    &:focus {
-      text-decoration: none !important;
-    }
-  }
+		&:hover,
+		&:focus {
+			text-decoration: none !important;
+		}
+	}
 
-  &.btn-success {
-    background-color: $color-success !important;
-    color: $color-white !important;
-  }
+	&.btn-success {
+		background-color: $color-success !important;
+		color: $color-white !important;
+	}
 
-  &.btn-outline-success {
-    background-color: $color-white !important;
-    border-color: $color-success !important;
-    color: $color-success !important;
-  }
+	&.btn-outline-success {
+		background-color: $color-white !important;
+		border-color: $color-success !important;
+		color: $color-success !important;
+	}
 
-  &.btn-danger {
-    background-color: $color-danger !important;
-    color: $color-white !important;
-  }
+	&.btn-danger {
+		background-color: $color-danger !important;
+		color: $color-white !important;
+	}
 
-  &.btn-outline-danger {
-    background-color: $color-white !important;
-    border-color: $color-danger !important;
-    color: $color-danger !important;
-  }
+	&.btn-outline-danger {
+		background-color: $color-white !important;
+		border-color: $color-danger !important;
+		color: $color-danger !important;
+	}
 
-  &.btn-grey {
-    background-color: $color-darkgrey !important;
-    color: $color-white !important;
-  }
+	&.btn-grey {
+		background-color: $color-darkgrey !important;
+		color: $color-white !important;
+	}
 
-  &.btn-outline-grey {
-    background-color: $color-white !important;
-    color: $color-darkgrey !important;
-  }
+	&.btn-outline-grey {
+		background-color: $color-white !important;
+		color: $color-darkgrey !important;
+	}
 
-  &.btn-black {
-    background-color: $color-black !important;
-    color: $color-white !important;
-  }
+	&.btn-black {
+		background-color: $color-black !important;
+		color: $color-white !important;
+	}
 
-  &.btn-purple {
-    background-color: $color-purple !important;
-    color: $color-white !important;
-  }
+	&.btn-purple {
+		background-color: $color-purple !important;
+		color: $color-white !important;
+	}
 
-  &.btn-darkpurple {
-    background-color: $color-darkpurple !important;
-    color: $color-white !important;
-  }
+	&.btn-darkpurple {
+		background-color: $color-darkpurple !important;
+		color: $color-white !important;
+	}
 
-  &.btn-pagination {
-    background-color: $color-white !important;
-    border: 1px solid $lighter-grey-overlay !important;
-    color: $color-black !important;
-  }
+	&.btn-pagination {
+		background-color: $color-white !important;
+		border: 1px solid $lighter-grey-overlay !important;
+		color: $color-black !important;
+	}
 }
 
 .btn-group-sm > .btn {
-  height: auto !important;
+	height: auto !important;
 }

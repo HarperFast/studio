@@ -1,83 +1,83 @@
 #organizations {
-  .navbar-nav {
-    max-width: 400px;
-  }
+	.navbar-nav {
+		max-width: 400px;
+	}
 
-  .card {
-    box-shadow: 0 0 5px $dark-grey-overlay;
-    height: 170px;
-    min-width: 278px;
+	.card {
+		box-shadow: 0 0 5px $dark-grey-overlay;
+		height: 170px;
+		min-width: 278px;
 
-    &.clickable {
-      cursor: pointer;
-    }
+		&.clickable {
+			cursor: pointer;
+		}
 
-    &.new {
-      color: $color-purple;
-      font-size: 95%;
+		&.new {
+			color: $color-purple;
+			font-size: 95%;
 
-      .new-org-plus {
-        transform: rotate(-90deg);
-        transition: transform 500ms ease-in-out;
-      }
+			.new-org-plus {
+				transform: rotate(-90deg);
+				transition: transform 500ms ease-in-out;
+			}
 
-      &:hover {
-        .new-org-plus {
-          transform: rotate(90deg);
-        }
-      }
-    }
+			&:hover {
+				.new-org-plus {
+					transform: rotate(90deg);
+				}
+			}
+		}
 
-    .org-name {
-      height: 17px;
-      line-height: 1 !important;
-      overflow: hidden;
-      padding-top: 2px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+		.org-name {
+			height: 17px;
+			line-height: 1 !important;
+			overflow: hidden;
+			padding-top: 2px;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
 
-    .status-icons {
-      cursor: pointer;
-      position: relative;
-      text-align: right;
+		.status-icons {
+			cursor: pointer;
+			position: relative;
+			text-align: right;
 
-      .status-icon {
-        margin-left: 10px;
+			.status-icon {
+				margin-left: 10px;
 
-        i {
-          font-size: 12px;
-        }
-      }
-    }
+				i {
+					font-size: 12px;
+				}
+			}
+		}
 
-    .org-status {
-      font-size: 12px !important;
-      height: 16px;
-      margin: 12px 0;
-      overflow: hidden;
-      padding-top: 1px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+		.org-status {
+			font-size: 12px !important;
+			height: 16px;
+			margin: 12px 0;
+			overflow: hidden;
+			padding-top: 1px;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
 
-    .action-buttons {
-      margin-top: 20px;
-    }
+		.action-buttons {
+			margin-top: 20px;
+		}
 
-    .card-front-status-row {
-      font-size: 62%;
-      text-transform: uppercase;
+		.card-front-status-row {
+			font-size: 62%;
+			text-transform: uppercase;
 
-      div {
-        overflow: hidden;
-        white-space: nowrap;
+			div {
+				overflow: hidden;
+				white-space: nowrap;
 
-        hr {
-          margin-bottom: 0.2rem !important;
-          margin-top: 0.2rem !important;
-        }
-      }
-    }
-  }
+				hr {
+					margin-bottom: 0.2rem !important;
+					margin-top: 0.2rem !important;
+				}
+			}
+		}
+	}
 }

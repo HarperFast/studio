@@ -1,51 +1,51 @@
 #chart-modal {
-  .modal-body {
-    .query-text {
-      color: $color-grey;
-    }
+	.modal-body {
+		.query-text {
+			color: $color-grey;
+		}
 
-    .chart-holder {
-      height: 220px;
-    }
-  }
+		.chart-holder {
+			height: 220px;
+		}
+	}
 }
 
 .single-value-chart {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  height: 220px;
-  justify-content: center;
-  position: relative;
+	align-items: center;
+	display: flex;
+	flex-direction: column;
+	height: 220px;
+	justify-content: center;
+	position: relative;
 
-  .title {
-    font-weight: $font-weight-bold;
-    left: 25px;
-    position: absolute;
-    top: 20px;
-  }
+	.title {
+		font-weight: $font-weight-bold;
+		left: 25px;
+		position: absolute;
+		top: 20px;
+	}
 
-  &.dashboard {
-    height: 235px;
+	&.dashboard {
+		height: 235px;
 
-    .title {
-      left: 10px;
-      top: 5px;
-    }
-  }
+		.title {
+			left: 10px;
+			top: 5px;
+		}
+	}
 }
 
 .apexcharts-tooltip {
-  background: $color-white !important;
-  color: $color-black !important;
+	background: $color-white !important;
+	color: $color-black !important;
 
-  .apexcharts-tooltip-title {
-    background: $color-white !important;
-  }
+	.apexcharts-tooltip-title {
+		background: $color-white !important;
+	}
 }
 
 div[type='pie'] {
-  .apexcharts-tooltip {
-    color: $color-white !important;
-  }
+	.apexcharts-tooltip {
+		color: $color-white !important;
+	}
 }

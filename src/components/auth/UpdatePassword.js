@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardBody, Input, Button } from 'reactstrap';
-import useAsyncEffect from 'use-async-effect';
+import { Label, Input, Button } from 'reactstrap';
 import { useNavigate } from 'react-router-dom';
 import { useStoreState } from 'pullstate';
 
@@ -8,91 +7,88 @@ import appState from '../../functions/state/appState';
 
 import updatePassword from '../../functions/api/lms/updatePassword';
 import Loader from '../shared/Loader';
+import usePersistedUser from '../../functions/state/persistedUser';
 
 function UpdatePassword() {
-  const navigate = useNavigate();
-  const auth = useStoreState(appState, (s) => s.auth);
-  const [formState, setFormState] = useState({});
-  const [formData, setFormData] = useState({});
+	const navigate = useNavigate();
+	const auth = useStoreState(appState, (s) => s.auth);
+	const [formState, setFormState] = useState({});
+	const [formData, setFormData] = useState({});
+	const [persistedUser, setPersistedUser] = usePersistedUser({});
 
-  const setPasswordError = () => {
-    setFormData({});
-    setTimeout(() => setFormState({ error: '8 char min., 1 lower case, 1 upper case, 1 number, 1 special char.' }), 0);
-  };
+	const setPasswordError = () => {
+		setFormData({});
+		setFormState({ error: true });
+	};
 
-  // NOTE: Marketing requested to send a conversion event when this page is 
-  // loaded to indicate that the user in fact signed up.  Triggering here for now
-  // because the only route to get here is via signup form.  if this becomes a destination
-  // from multiple places, we need a solution that scopes the conversion call to the 
-  // correct action.
-  useEffect(() => {
-    if (window.lintrk) {
-      window.lintrk('track', { conversion_id: 11485730 });
-    }
-  }, []);
+	// NOTE: Marketing requested to send a conversion event when this page is
+	// loaded to indicate that the user in fact signed up.  Triggering here for now
+	// because the only route to get here is via signup form.  if this becomes a destination
+	// from multiple places, we need a solution that scopes the conversion call to the
+	// correct action.
+	useEffect(() => {
+		if (window.lintrk) {
+			window.lintrk('track', { conversion_id: 11485730 });
+		}
+	}, []);
 
-  useAsyncEffect(async () => {
-    const { submitted, processing } = formState;
-    if (submitted && !processing) {
-      const { password } = formData;
+	const submit = async () => {
+		setFormState({ submitted: true });
+		const { password } = formData;
+		if (!password || !/^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*])[\w!@#$%^&*]{8,}$/.test(password)) {
+			setPasswordError();
+		} else {
+			setFormState({ processing: true });
 
-      if (!password || !/^(?=.*[\d])(?=.*[A-Z])(?=.*[a-z])(?=.*[!@#$%^&*])[\w!@#$%^&*]{8,}$/.test(password)) {
-        setPasswordError();
-      } else {
-        setFormState({ processing: true });
-        updatePassword({ auth, ...auth, password });
-      }
-    }
-  }, [formState]);
+			const newAuth = await updatePassword({ auth, user_id: auth.user_id, password });
 
-  useEffect(() => {
-    if (auth?.passwordSuccess) {
-      navigate('/');
-    } else if (auth?.passwordError) {
-      setPasswordError();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
+			if (!newAuth || newAuth.passwordError) {
+				setPasswordError();
+			} else {
+				setPersistedUser({ ...persistedUser, pass: password });
+				setTimeout(navigate('/'), 100);
+			}
+		}
+	};
 
-  useAsyncEffect(() => !formState.submitted && setFormState({}), [formData]);
-
-  return (
-    <div id="login-form">
-      {formState.processing ? (
-        <Loader header="adding account password" spinner relative />
-      ) : (
-        <>
-          <Card className="mb-3">
-            <CardBody onKeyDown={(e) => e.keyCode !== 13 || setFormState({ submitted: true })}>
-              <div className="instructions">
-                Add an account password
-                <br />
-                <br />
-                {formState.error ? (
-                  <i className="text-small text-danger text-bold">{formState.error}</i>
-                ) : (
-                  <i className="text-small text-bold">8 char min., 1 lower case, 1 upper case, 1 number, 1 special char.</i>
-                )}
-              </div>
-              <Input
-                id="password1"
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                disabled={formState.submitted}
-                className="mb-2 text-center"
-                type="password"
-                title="password"
-                placeholder="add password"
-              />
-              <Button id="updateMyPassword" onClick={() => setFormState({ submitted: true })} disabled={formState.submitted} title="Add Account Password" block color="purple">
-                Add Account Password
-              </Button>
-            </CardBody>
-          </Card>
-          <div className="login-nav-link">&nbsp;</div>
-        </>
-      )}
-    </div>
-  );
+	return (
+		<div className="d-flex justify-content-center align-items-center auth-centered-container">
+			<div className="login-form">
+				{formState.processing ? (
+					<Loader header="setting account password" spinner relative />
+				) : (
+					<>
+						<h2 className="mb-2 instructions">Add an account password</h2>
+						<span className={`text-small text-bold d-inline-block my-2 ${formState.error ? 'text-danger' : ''}`}>
+							<i>8 char min., 1 lower case, 1 upper case, 1 number, 1 special char.</i>
+						</span>
+						<Label className="mb-4 d-block">
+							<Input
+								id="password1"
+								onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+								disabled={formState.submitted}
+								className="mb-2 text-center"
+								type="password"
+								title="password"
+								placeholder="Add Password"
+							/>
+						</Label>
+						<Button
+							type="submit"
+							id="updateMyPassword"
+							className="border-0 rounded-pill btn-gradient-blue"
+							block
+							onClick={submit}
+							disabled={formState.submitted || formData.processing}
+							title="Add Account Password"
+						>
+							Submit Account Password
+						</Button>
+					</>
+				)}
+			</div>
+		</div>
+	);
 }
 
 export default UpdatePassword;

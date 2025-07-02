@@ -1,92 +1,91 @@
 .entity-manager {
-  padding-bottom: 10px;
+	padding-bottom: 10px;
 
-  .card {
-    overflow: hidden;
+	.card {
+		overflow: hidden;
 
-    .card-body {
-      padding: 0 0.75rem;
+		.card-body {
+			padding: 0 0.75rem;
 
-      &.scrollable {
-        max-height: calc(50vh - 160px);
-        min-height: 49px;
-        overflow-x: hidden;
-        overflow-y: auto;
+			&.scrollable {
+				max-height: calc(50vh - 160px);
+				min-height: 49px;
+				overflow: hidden auto;
 
-        &.creating {
-          max-height: calc(50vh - 209px);
-        }
-      }
+				&.creating {
+					max-height: calc(50vh - 209px);
+				}
+			}
 
-      .item-row {
-        border-top: 1px solid $lighter-grey-overlay;
-        cursor: pointer;
-        height: 49px;
-        overflow: hidden;
+			.item-row {
+				border-top: 1px solid $lighter-grey-overlay;
+				cursor: pointer;
+				height: 49px;
+				overflow: hidden;
 
-        &.active {
-          font-weight: $font-weight-bold;
-        }
+				&.active {
+					font-weight: $font-weight-bold;
+				}
 
-        &:first-child {
-          border-top: 0;
-        }
+				&:first-child {
+					border-top: 0;
+				}
 
-        .input-holder {
-          flex-grow: 1;
-          flex-shrink: 0;
-          padding: 0 6px;
-          width: 100%;
+				.input-holder {
+					flex-grow: 1;
+					flex-shrink: 0;
+					padding: 0 6px;
+					width: 100%;
 
-          input {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: transparent;
-            color: $color-black;
+					input {
+						background: rgb(255 255 255 / 30%);
+						border-color: transparent;
+						color: $color-black;
 
-            &.is-invalid {
-              border-color: $color-danger;
-            }
+						&.is-invalid {
+							border-color: $color-danger;
+						}
 
-            &.table {
-              width: 50%;
-            }
-          }
-        }
+						&.table {
+							width: 50%;
+						}
+					}
+				}
 
-        .item-label,
-        .item-action,
-        .input-holder {
-          align-items: center;
-          display: flex;
-        }
+				.item-label,
+				.item-action,
+				.input-holder {
+					align-items: center;
+					display: flex;
+				}
 
-        .item-label {
-          justify-content: flex-start;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
+				.item-label {
+					justify-content: flex-start;
+					overflow: hidden;
+					text-overflow: ellipsis;
+					white-space: nowrap;
+				}
 
-        .item-action {
-          flex-grow: 0;
-          flex-shrink: 1;
-          justify-content: flex-end;
-          min-width: 80px;
-          padding-left: 0;
+				.item-action {
+					flex-grow: 0;
+					flex-shrink: 1;
+					justify-content: flex-end;
+					min-width: 80px;
+					padding-left: 0;
 
-          .btn {
-            box-shadow: none !important;
-          }
-        }
-      }
-    }
-  }
+					.btn {
+						box-shadow: none !important;
+					}
+				}
+			}
+		}
+	}
 
-  .fa-sm {
-    font-size: 0.8rem;
-  }
+	.fa-sm {
+		font-size: 0.8rem;
+	}
 
-  &-footer {
-    color: $color-white;
-  }
+	&-footer {
+		color: $color-white;
+	}
 }

@@ -1,118 +1,114 @@
 #support {
-  .card-body {
-    &.installation {
-      min-height: 414px;
+	.card-body {
+		&.installation {
+			min-height: 414px;
 
-      @media only screen and (max-width: 991px) {
-        min-height: 0;
-      }
-    }
-  }
+			@media only screen and (width <= 991px) {
+				min-height: 0;
+			}
+		}
+	}
 
-  a {
-    text-decoration: underline !important;
+	a {
+		text-decoration: underline !important;
 
-    &.btn {
-      text-decoration: none !important;
-    }
-  }
+		&.btn {
+			text-decoration: none !important;
+		}
+	}
 
-  .alert {
-    overflow-x: auto;
-    white-space: nowrap;
-  }
+	.alert {
+		overflow-x: auto;
+		white-space: nowrap;
+	}
 
-  .video-scroller {
-    max-height: 500px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding-right: 5px;
-  }
+	.video-scroller {
+		max-height: 500px;
+		overflow: hidden auto;
+		padding-right: 5px;
+	}
 
-  .youtube-thumbnail {
-    cursor: pointer;
-    height: 100px;
-    margin-bottom: 15px;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
+	.youtube-thumbnail {
+		cursor: pointer;
+		height: 100px;
+		margin-bottom: 15px;
+		overflow: hidden;
+		position: relative;
+		width: 100%;
 
-    .title {
-      align-items: center;
-      background: $dark-grey-overlay;
-      bottom: 0;
-      color: $color-white;
-      display: flex;
-      font-weight: $font-weight-bold;
-      height: 100%;
-      justify-content: center;
-      left: 0;
-      padding: 15px;
-      position: absolute;
-      right: 0;
-      text-align: center;
-      top: 0;
-      width: 100%;
-    }
+		.title {
+			align-items: center;
+			background: $dark-grey-overlay;
+			color: $color-white;
+			display: flex;
+			font-weight: $font-weight-bold;
+			height: 100%;
+			inset: 0;
+			justify-content: center;
+			padding: 15px;
+			position: absolute;
+			text-align: center;
+			width: 100%;
+		}
 
-    &.active {
-      border: 1px solid $color-white;
+		&.active {
+			border: 1px solid $color-white;
 
-      .title {
-        border: 1px solid $faint-white-overlay;
-      }
-    }
-  }
+			.title {
+				border: 1px solid $faint-white-overlay;
+			}
+		}
+	}
 
-  .custom-example-prompt {
-    white-space: nowrap;
+	.custom-example-prompt {
+		white-space: nowrap;
 
-    @media only screen and (max-width: 991px) {
-      white-space: normal;
-    }
-  }
+		@media only screen and (width <= 991px) {
+			white-space: normal;
+		}
+	}
 
-  .integration-driver-card {
-    height: 100%;
-    position: relative;
+	.integration-driver-card {
+		height: 100%;
+		position: relative;
 
-    .card-icon {
-      font-size: 1.5rem;
-      max-height: 22px;
-      max-width: 50px;
-      position: absolute;
-      right: 1.25rem;
-      top: 15px;
-    }
+		.card-icon {
+			font-size: 1.5rem;
+			max-height: 22px;
+			max-width: 50px;
+			position: absolute;
+			right: 1.25rem;
+			top: 15px;
+		}
 
-    .star-rating-container {
-      .star-icon {
-        width: 16px;
-      }
+		.star-rating-container {
+			.star-icon {
+				width: 16px;
+			}
 
-      .your-rating {
-        display: none;
-      }
+			.your-rating {
+				display: none;
+			}
 
-      &.disabled {
-        cursor: not-allowed;
-      }
+			&.disabled {
+				cursor: not-allowed;
+			}
 
-      &.enabled {
-        &:hover {
-          .avg-rating {
-            display: none;
-          }
+			&.enabled {
+				&:hover {
+					.avg-rating {
+						display: none;
+					}
 
-          .your-rating {
-            display: block;
-          }
-        }
-      }
-    }
+					.your-rating {
+						display: block;
+					}
+				}
+			}
+		}
 
-    .marketplace-description {
-      margin-top: 15px;
-    }
-  }
+		.marketplace-description {
+			margin-top: 15px;
+		}
+	}
 }

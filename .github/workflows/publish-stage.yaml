@@ -1,107 +1,107 @@
 on:
   push:
     branches:
-      - "stage"
+      - 'stage'
   workflow_dispatch:
 name: Publish Stage
 jobs:
   publishStageStudio:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Write config file
-      run: |
-        #!/bin/bash
+      - uses: actions/checkout@v3
+      - name: Write config file
+        run: |
+          #!/bin/bash
 
-        PACKAGE_VERSION=$(sed -nr 's/^\s*\"version": "([0-9]{1,}\.[0-9]{1,}.*)",$/\1/p' package.json)
-        cat <<EOF > ./src/config/index.js
-        export default {
-          env: 'stage',
-          stripe_public_key: '${{secrets.STRIPE_PUBLIC_KEY}}',
-          lms_api_url: 'https://dev.harperdbcloudservices.com/',
-          google_analytics_code: '${{secrets.GOOGLE_ANALYTICS_CODE}}',
-          tc_version: '2020-01-01',
-          check_version_interval: 300000,
-          check_user_interval: 900000,
-          refresh_content_interval: 15000,
-          free_cloud_instance_limit: 1,
-          max_file_upload_size: 10380902,
-          studio_version:'$PACKAGE_VERSION',
-          alarm_badge_threshold: 86400,
-          maintenance: 0,
-          errortest: 0,
-          is_local_studio: false,
-        };
-        EOF
-    - name: Write manifest file
-      run: |
-        #!/bin/bash
+          PACKAGE_VERSION=$(sed -nr 's/^\s*\"version": "([0-9]{1,}\.[0-9]{1,}.*)",$/\1/p' package.json)
+          cat <<EOF > ./src/config/index.js
+          export default {
+            env: 'stage',
+            stripe_public_key: '${{secrets.STRIPE_PUBLIC_KEY}}',
+            lms_api_url: 'https://dev.harperdbcloudservices.com/',
+            google_analytics_code: '${{secrets.GOOGLE_ANALYTICS_CODE}}',
+            tc_version: '2020-01-01',
+            check_version_interval: 300000,
+            check_user_interval: 900000,
+            refresh_content_interval: 15000,
+            free_cloud_instance_limit: 1,
+            max_file_upload_size: 10380902,
+            studio_version:'$PACKAGE_VERSION',
+            alarm_badge_threshold: 86400,
+            maintenance: 0,
+            errortest: 0,
+            is_local_studio: false,
+          };
+          EOF
+      - name: Write manifest file
+        run: |
+          #!/bin/bash
 
-        cat <<EOF > ./public/manifest.json
-        {
-          "short_name": "HarperDB Studio",
-          "name": "HarperDB Studio",
-          "icons": [
-            {
-              "src": "favicon.ico",
-              "sizes": "16x16",
-              "type": "image/x-icon"
-            },
-            {
-              "src": "images/logo_vertical_white.png",
-              "type": "image/png",
-              "sizes": "536x672"
-            }
-          ],
-          "start_url": "https://stage.studio.harperdb.io",
-          "display": "standalone",
-          "theme_color": "#480b8a",
-          "background_color": "#ffffff"
-        }
-        EOF
-    - name: Setup Node
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18.16.0
-    - name: Build
-      run: |
-        #!/bin/bash
-
-        yarn
-        yarn lint-prod
-        yarn build:stage
-    - name: Clean Remote Directory
-      env:
-        CI_PRIVATE_KEY: ${{ secrets.CI_PRIVATE_KEY }}
-      run: |
-        #!/bin/bash
-        echo "$CI_PRIVATE_KEY" > private_key && chmod 600 private_key
-        ssh -i private_key -o ConnectTimeout=10 -o ConnectionAttempts=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR ubuntu@studio.harperdb.io \
-          "rm -rf /home/ubuntu/sites/studio-stage/*"
-    - name: Copy built files
-      env:
-        CI_PRIVATE_KEY: ${{ secrets.CI_PRIVATE_KEY }}
-      run: |
-        #!/bin/bash
-        scp -r -i private_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-          build/* "ubuntu@studio.harperdb.io:/home/ubuntu/sites/studio-stage/"
-    - name: Update version in LMS
-      run: |
-        #!/bin/bash
-
-        PACKAGE_VERSION=$(sed -nr 's/^\s*\"version": "([0-9]{1,}\.[0-9]{1,}.*)",$/\1/p' package.json)
-
-        curl --location --request POST 'https://dev-lms.harperdbcloudservices.com' \
-        --header 'Content-Type: application/json' \
-        --header 'Authorization: Basic ${{secrets.LMS_AUTH_KEY}}' \
-        --data-raw '{
-        "operation":"update",
-        "schema":"hdb_lms",
-        "table":"versions",
-        "records": [
+          cat <<EOF > ./public/manifest.json
           {
-            "product":"studio",
-            "version": "'$PACKAGE_VERSION'"    
+            "short_name": "HarperDB Studio",
+            "name": "HarperDB Studio",
+            "icons": [
+              {
+                "src": "favicon.ico",
+                "sizes": "16x16",
+                "type": "image/x-icon"
+              },
+              {
+                "src": "images/logo_vertical_white.png",
+                "type": "image/png",
+                "sizes": "536x672"
+              }
+            ],
+            "start_url": "https://stage.studio.harperdb.io",
+            "display": "standalone",
+            "theme_color": "#480b8a",
+            "background_color": "#ffffff"
           }
-        ]
-        }'
+          EOF
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.9.0
+      - name: Build
+        run: |
+          #!/bin/bash
+
+          yarn
+          yarn lint-prod
+          yarn build:stage
+      - name: Clean Remote Directory
+        env:
+          CI_PRIVATE_KEY: ${{ secrets.CI_PRIVATE_KEY }}
+        run: |
+          #!/bin/bash
+          echo "$CI_PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -i private_key -o ConnectTimeout=10 -o ConnectionAttempts=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR ubuntu@studio.harperdb.io \
+            "rm -rf /home/ubuntu/sites/studio-stage/*"
+      - name: Copy built files
+        env:
+          CI_PRIVATE_KEY: ${{ secrets.CI_PRIVATE_KEY }}
+        run: |
+          #!/bin/bash
+          scp -r -i private_key -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+            build/* "ubuntu@studio.harperdb.io:/home/ubuntu/sites/studio-stage/"
+      - name: Update version in LMS
+        run: |
+          #!/bin/bash
+
+          PACKAGE_VERSION=$(sed -nr 's/^\s*\"version": "([0-9]{1,}\.[0-9]{1,}.*)",$/\1/p' package.json)
+
+          curl --location --request POST 'https://dev-lms.harperdbcloudservices.com' \
+          --header 'Content-Type: application/json' \
+          --header 'Authorization: Basic ${{secrets.LMS_AUTH_KEY}}' \
+          --data-raw '{
+          "operation":"update",
+          "schema":"hdb_lms",
+          "table":"versions",
+          "records": [
+            {
+              "product":"studio",
+              "version": "'$PACKAGE_VERSION'"    
+            }
+          ]
+          }'

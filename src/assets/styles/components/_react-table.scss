@@ -2,12 +2,11 @@
   .react-table-scroller {
     border-bottom: 1px solid $lighter-grey-overlay;
     font-size: 12px;
-    min-height: calc(100vh - 328px);
-    overflow-x: auto;
-    overflow-y: hidden;
+    min-height: calc(100vh - 348px);
+    overflow: auto hidden;
     width: 100%;
 
-    @media screen and (max-width: 767px) {
+    @media screen and (width <= 767px) {
       min-height: calc(100vh - 626px);
     }
 
@@ -19,6 +18,11 @@
         min-width: 100px;
         white-space: nowrap;
 
+        &.disabled-column {
+          background-color: $lighter-grey-overlay !important;
+          cursor: not-allowed;
+        }
+
         &.sorted {
           &.desc {
             box-shadow: inset 0 -2px 0 0 $lighter-grey-overlay;
@@ -27,7 +31,6 @@
           &.asc {
             box-shadow: inset 0 2px 0 0 $lighter-grey-overlay;
           }
-
         }
       }
     }
@@ -38,7 +41,6 @@
 
         input,
         select {
-          background: $light-grey-overlay;
           box-shadow: none;
           color: $color-black;
           height: 24px !important;
@@ -119,7 +121,7 @@
     .btn {
       max-width: 100px;
 
-      @media screen and (max-width: 575px) {
+      @media screen and (width <= 575px) {
         max-width: 100%;
       }
     }
@@ -129,7 +131,6 @@
         float: right;
       }
     }
-
 
     .paginator {
       align-items: center;

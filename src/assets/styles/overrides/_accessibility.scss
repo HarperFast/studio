@@ -8,27 +8,27 @@ i,
 .card,
 .btn,
 [role='button'] {
-  &:focus {
-    outline: 1px solid $color-lightpurple !important;
-    outline-offset: 3px !important;
-  }
+	&:focus {
+		outline: 1px solid $color-lightpurple !important;
+		outline-offset: 3px !important;
+	}
 }
 
 input,
 textarea,
 .item-row,
 [role='button'] {
-  &:focus {
-    outline-offset: -1px !important;
-  }
+	&:focus {
+		outline-offset: -1px !important;
+	}
 }
 
 .navbar-nav .react-toggle--focus {
-  outline: 1px solid $color-lightpurple !important;
-  outline-offset: 3px !important;
+	outline: 1px solid $color-lightpurple !important;
+	outline-offset: 3px !important;
 }
 
 #creatingItem {
-  outline: none !important;
-  outline-offset: 0 !important;
+	outline: none !important;
+	outline-offset: 0 !important;
 }

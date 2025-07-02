@@ -1,21 +1,21 @@
 .copyable-text-holder {
-  .copy-icon {
-    flex-grow: 0;
-    flex-shrink: 1;
-    min-width: 15px;
+	.copy-icon {
+		flex-grow: 0;
+		flex-shrink: 1;
+		min-width: 15px;
 
-    i {
-      color: $color-grey !important;
-      cursor: copy;
-    }
-  }
+		i {
+			color: $color-grey !important;
+			cursor: copy;
+		}
+	}
 
-  .text-container {
-    flex-grow: 1;
-    flex-shrink: 0;
-    overflow: hidden;
-    padding-top: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+	.text-container {
+		flex-grow: 1;
+		flex-shrink: 0;
+		overflow: hidden;
+		padding-top: 0;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 }

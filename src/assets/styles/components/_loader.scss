@@ -1,34 +1,33 @@
 .loader {
-  align-items: center;
-  background-color: transparent;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  left: 50%;
-  position: absolute;
-  top: 40%;
-  transform: translate(-50%, -50%);
+	align-items: center;
+	background-color: transparent;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	left: 50%;
+	position: absolute;
+	top: 40%;
+	transform: translate(-50%, -50%);
 
-  &.relative {
-    left: auto;
-    position: relative;
-    top: auto;
-    transform: none;
-  }
+	&.relative {
+		left: auto;
+		position: relative;
+		top: auto;
+		transform: none;
+	}
 
-  .card {
-    background: $faint-white-overlay !important;
-    border: 1px solid $faint-white-overlay !important;
-    box-shadow: 0 0 4px $lighter-grey-overlay !important;
-    color: $color-white !important;
-    width: 270px !important;
+	.card {
+		background: $faint-white-overlay !important;
+		border: 1px solid $faint-white-overlay !important;
+		box-shadow: 0 0 4px $lighter-grey-overlay !important;
+		color: $color-white !important;
+		width: 270px !important;
 
-    .card-body {
-      align-content: center;
-      display: flex;
-      flex-direction: column;
-      height: 205px;
-      justify-content: center;
-    }
-  }
+		.card-body {
+			display: flex;
+			flex-direction: column;
+			height: 205px;
+			place-content: center center;
+		}
+	}
 }

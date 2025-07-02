@@ -1,45 +1,45 @@
 #charts {
-  .instructions {
-    color: $color-white;
-  }
+	.instructions {
+		color: $color-white;
+	}
 
-  .dashboard-divider {
-    background: $faint-white-overlay;
-  }
+	.dashboard-divider {
+		background: $faint-white-overlay;
+	}
 
-  .data-loader {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    height: 250px;
-    justify-content: center;
-    padding: 0 50px;
-    text-align: center;
-    white-space: normal;
-  }
+	.data-loader {
+		align-items: center;
+		display: flex;
+		flex-direction: column;
+		height: 250px;
+		justify-content: center;
+		padding: 0 50px;
+		text-align: center;
+		white-space: normal;
+	}
 
-  .chart-remove {
-    position: absolute;
-    right: 30px;
-    top: 22px;
-    z-index: 97;
-  }
+	.chart-remove {
+		position: absolute;
+		right: 30px;
+		top: 22px;
+		z-index: 97;
+	}
 
-  .chart-loading {
-    position: absolute;
-    right: 85px;
-    top: 22px;
-    z-index: 97;
-  }
+	.chart-loading {
+		position: absolute;
+		right: 85px;
+		top: 22px;
+		z-index: 97;
+	}
 
-  .chart-remove-confirm {
-    position: absolute;
-    right: 21px;
-    top: 17px;
-    z-index: 97;
-  }
+	.chart-remove-confirm {
+		position: absolute;
+		right: 21px;
+		top: 17px;
+		z-index: 97;
+	}
 
-  .dashboard-chart {
-    height: 277px;
-  }
+	.dashboard-chart {
+		height: 277px;
+	}
 }

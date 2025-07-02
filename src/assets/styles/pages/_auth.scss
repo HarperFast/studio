@@ -1,131 +1,164 @@
-#login-form {
-  left: 50%;
-  max-width: 270px;
-  min-width: 270px;
-  position: relative;
-  top: 40%;
-  transform: translate(-50%, -50%);
-  width: 100%;
+.auth-studio-info {
+	background: linear-gradient(44.5deg, $color-darkblue 39.04%, $color-pink 98.58%);
+	color: $color-white;
+}
 
-  .card {
-    background: $faint-white-overlay !important;
-    border: 1px solid $faint-white-overlay !important;
-    box-shadow: none !important;
-    z-index: 2;
+.auth-studio-info-container {
+	max-width: 450px;
+}
 
-    .card-body {
-      color: $color-white;
-      min-height: 205px;
+.btn-gradient-blue {
+	background: linear-gradient(90deg, $color-lightblue 0%, $color-blue 100%) !important;
 
-      .instructions {
-        color: $color-white;
-        padding-bottom: 16.5px;
-        text-align: center;
-      }
-    }
-  }
+	&:hover {
+		background: $color-blue !important;
+	}
+}
 
-  &.sign-up {
-    max-width: 770px;
+.auth-title {
+	font-size: 2.25rem !important;
+	margin-bottom: 0.5rem !important;
+}
 
-    .card-body {
-      padding: 2rem !important;
-    }
+.auth-subtitle {
+	font-family: $font-family-ubuntu;
+	font-size: 1.2rem;
+	font-weight: 100 !important;
+}
 
-    @media screen and (max-width: 767px), screen and (max-height: 530px) {
-      margin-bottom: 50px;
-      top: -50px;
-      transform: translateX(-50%);
-    }
+.auth-info-list-items {
+	font-family: $font-family-ubuntu;
+	list-style-image: url('../../images/svg/checkmark.svg');
 
-    hr {
-      background: $faint-white-overlay;
-    }
+	li {
+		margin-bottom: 1.5rem;
 
-    .sign-up-header {
-      border-bottom: 1px solid $faint-white-overlay;
-      font-size: 1.5rem !important;
-      line-height: 1 !important;
-      margin-bottom: 25px !important;
-      padding-bottom: 25px;
-      text-align: center;
-      width: 100%;
+		.item-title {
+			font-size: 1.2rem !important;
+			font-weight: $font-weight-bold;
+			margin-bottom: 0.5rem !important;
+		}
 
-      @media screen and (max-width: 767px) {
-        font-size: 1.1rem !important;
-      }
-    }
+		.item-subtitle {
+			display: inline-block;
+			font-size: 1rem;
+			font-weight: $font-weight-light;
+			letter-spacing: 0.05em;
+		}
 
-    .sign-up-content {
-      width: 100%;
+		.deploy-subitem {
+			border: 2px solid $color-lightblue;
+			border-radius: 5px;
+			color: $color-white !important;
+			display: inline-block;
+			font-size: $font-size-medium;
+			margin-right: 0.5rem;
+			padding: 0.5rem;
+			text-decoration: none;
+		}
+	}
+}
 
-      h3 {
-        font-size: 1.1rem !important;
-        padding-top: 15px;
-      }
-    }
+.auth-centered-container {
+	height: calc(100% - 135px);
+}
 
-    .sign-up-form {
-      .subdomain-explanation {
-        display: block;
-        font-size: 0.7rem;
-        padding-bottom: 8px;
-      }
-    }
-  }
+.auth-form-container {
+	background-color: $color-darkpurple;
+}
 
-  input {
-    background: $faint-white-overlay !important;
-    color: $color-white;
-    text-align: center !important;
+.login-form {
+	color: $color-white;
+	max-width: 320px;
+	width: 100%;
 
-    &::placeholder {
-      color: $white-overlay !important;
-      font-family: $font-family-sans;
-      font-weight: $font-weight-light;
-      text-align: center !important;
-    }
-  }
+	.instructions {
+		font-size: 1.5rem !important;
+		font-weight: $font-weight-light;
+	}
 
-  .disclaimer {
-    color: $white-overlay !important;
-    font-size: $font-size-small;
+	&.sign-up {
+		max-width: 770px;
 
-    a,
-    a:hover {
-      color: $light-white-overlay !important;
-      text-decoration: underline !important;
-    }
-  }
+		@media screen and (width <= 767px), screen and (height <= 530px) {
+			margin-bottom: 50px;
+			top: -50px;
+			transform: translateX(-50%);
+		}
 
-  .btn {
-    text-transform: lowercase;
-  }
+		hr {
+			background: $faint-white-overlay;
+		}
 
-  .login-nav-link-holder {
-    &:last-child {
-      text-align: right;
-    }
-  }
+		.sign-up-content {
+			width: 100%;
 
-  .login-nav-link {
-    color: $white-overlay !important;
-    display: inline-block;
-    font-size: 85%;
-    height: 16px;
-    text-transform: lowercase;
-    white-space: nowrap;
+			h3 {
+				font-size: 1.1rem !important;
+				padding-top: 15px;
+			}
+		}
 
-    &:hover {
-      color: $color-white !important;
-    }
+		.sign-up-form {
+			.subdomain-explanation {
+				display: block;
+				font-size: 0.7rem;
+				padding-bottom: 8px;
+			}
+		}
+	}
 
-    &.error {
-      color: $color-danger !important;
-      font-weight: $font-weight-bold;
-      text-align: center;
-      white-space: normal;
-      width: 100%;
-    }
-  }
+	input {
+		background: $faint-white-overlay !important;
+		color: $color-white;
+
+		&::placeholder {
+			color: $white-overlay !important;
+			font-family: $font-family-ubuntu;
+			font-weight: $font-weight-light;
+		}
+
+		&:focus {
+			border-color: $color-lightblue;
+			color: $color-white;
+			outline: 0;
+		}
+	}
+
+	.disclaimer {
+		color: $color-white !important;
+		font-size: $font-size-small;
+
+		a,
+		a:hover {
+			color: $light-white-overlay !important;
+			text-decoration: underline !important;
+		}
+	}
+
+	.login-nav-link-holder {
+		&:last-child {
+			text-align: right;
+		}
+	}
+
+	.login-nav-link {
+		color: $color-white !important;
+		font-size: $font-size-root;
+		height: 16px;
+		text-transform: lowercase;
+		white-space: nowrap;
+
+		&:hover {
+			color: $color-white !important;
+		}
+
+		&.error {
+			color: $color-danger !important;
+			font-weight: $font-weight-bold;
+			text-align: center;
+			white-space: normal;
+			width: 100%;
+		}
+	}
 }

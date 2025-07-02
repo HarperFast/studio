@@ -1,11 +1,11 @@
 export default (array, key) => {
-  const existingCustomerIds = {};
+	const existingCustomerIds = {};
 
-  return array.filter((item) => {
-    if (existingCustomerIds[item[key]]) {
-      return false;
-    }
-    existingCustomerIds[item[key]] = true;
-    return true;
-  });
+	return array.filter((item) => {
+		if (existingCustomerIds[item[key]]) {
+			return false;
+		}
+		existingCustomerIds[item[key]] = true;
+		return true;
+	});
 };

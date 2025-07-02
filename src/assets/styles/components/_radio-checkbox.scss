@@ -1,55 +1,55 @@
 .radio-checkbox {
-  border: 1px solid $color-lightgrey;
-  border-radius: 10px;
-  box-shadow: none !important;
-  color: $color-white;
-  cursor: pointer;
-  display: inline-block;
-  height: 20px;
-  position: relative;
-  text-align: center;
-  width: 20px;
+	border: 1px solid $color-lightgrey;
+	border-radius: 10px;
+	box-shadow: none !important;
+	color: $color-white;
+	cursor: pointer;
+	display: inline-block;
+	height: 20px;
+	position: relative;
+	text-align: center;
+	width: 20px;
 
-  .dot {
-    background: $color-white;
-    border: 5px solid $color-white;
-    border-radius: 50%;
-    height: 18px;
-    left: 0;
-    position: absolute;
-    top: 0;
-    width: 18px;
-  }
+	.dot {
+		background: $color-white;
+		border: 5px solid $color-white;
+		border-radius: 50%;
+		height: 18px;
+		left: 0;
+		position: absolute;
+		top: 0;
+		width: 18px;
+	}
 
-  .checkmark {
-    font-size: 12px;
-    font-weight: $font-weight-bold;
-    left: 0;
-    position: absolute;
-    right: 0;
-    top: 1px;
-    visibility: hidden;
-  }
+	.checkmark {
+		font-size: 12px;
+		font-weight: $font-weight-bold;
+		left: 0;
+		position: absolute;
+		right: 0;
+		top: 1px;
+		visibility: hidden;
+	}
 
-  &.show {
-    background-color: $color-purple !important;
-    border-color: $color-purple !important;
+	&.show {
+		background-color: $color-purple !important;
+		border-color: $color-purple !important;
 
-    .checkmark {
-      visibility: visible;
-    }
+		.checkmark {
+			visibility: visible;
+		}
 
-    .dot {
-      background: $color-purple;
-    }
-  }
+		.dot {
+			background: $color-purple;
+		}
+	}
 }
 
 .radio-checkbox-label {
-  display: inline-block;
-  height: 20px;
-  line-height: 1;
-  margin-left: 20px;
-  margin-top: 3px;
-  vertical-align: top;
+	display: inline-block;
+	height: 20px;
+	line-height: 1;
+	margin-left: 20px;
+	margin-top: 3px;
+	vertical-align: top;
 }

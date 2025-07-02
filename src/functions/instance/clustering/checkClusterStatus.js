@@ -20,10 +20,10 @@ const checkClusterStatus = async ({ auth, url }) => {
   if (!users.error) {
     cluster_user = cluster_role && users.find((u) => u.role === cluster_role.role);
   }
-  const is_enabled = clusterEngine === 'nats' ? config.clustering.enabled : config.CLUSTERING;
-  const config_cluster_user = clusterEngine === 'nats' ? config.clustering.user : config.CLUSTERING_USER;
-  const config_cluster_port = clusterEngine === 'nats' ? config.clustering.hubServer.cluster.network.port : config.CLUSTERING_PORT;
-  const node_name = clusterEngine === 'nats' ? config.clustering.nodeName : config.NODE_NAME;
+  const is_enabled = clusterEngine === 'nats' ? config.clustering?.enabled : config.CLUSTERING;
+  const config_cluster_user = clusterEngine === 'nats' ? config.clustering?.user : config.CLUSTERING_USER;
+  const config_cluster_port = clusterEngine === 'nats' ? config.clustering?.hubServer?.cluster?.network?.port : config.CLUSTERING_PORT;
+  const node_name = clusterEngine === 'nats' ? config.clustering?.nodeName : config.NODE_NAME;
 
   const is_ready = !!is_enabled && !!cluster_user && !!config_cluster_user && !!cluster_role && !!config_cluster_port && !!node_name;
 

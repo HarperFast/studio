@@ -3,113 +3,119 @@ select,
 textarea,
 .fake-input,
 .form-control {
+	border: 1px solid $lighter-grey-overlay !important;
+	border-radius: $border-radius;
+	box-shadow: none !important;
+	color: $color-black;
+	font-family: $font-family-ubuntu;
+	font-size: $font-size-root;
+	font-weight: $font-weight-light;
+	height: 38px;
+	outline: 0;
+	transition: none;
+	width: 100%;
 
-  border: 1px solid $lighter-grey-overlay !important;
-  border-radius: $border-radius;
-  box-shadow: none !important;
-  color: $color-black;
-  font-family: $font-family-sans;
-  font-size: $font-size-root;
-  font-weight: $font-weight-light;
-  height: 38px;
-  outline: 0;
-  transition: none;
-  width: 100%;
+	&:checked {
+		outline: 0 !important;
+	}
 
-  &:checked {
-    outline: 0 !important;
-  }
+	&.is-invalid,
+	&.error {
+		border: 1px solid $color-danger !important;
+	}
 
-  &.is-invalid,
-  &.error {
-    border: 1px solid $color-danger !important;
-  }
+	&[readOnly],
+	&[readOnly]:active,
+	&[readOnly]:focus {
+		border: 1px solid $lightest-grey-overlay !important;
+		cursor: not-allowed !important;
+		outline-color: transparent !important;
+		user-select: none !important;
+	}
 
-  &[readOnly],
-  &[readOnly]:active,
-  &[readOnly]:focus {
-    border: 1px solid $lightest-grey-overlay !important;
-    cursor: not-allowed !important;
-    outline-color: transparent !important;
-    user-select: none !important;
-  }
-
-  &.is-valid {
-    border: 1px solid $lightest-grey-overlay !important;
-  }
+	&.is-valid {
+		border: 1px solid $lightest-grey-overlay !important;
+	}
 }
 
 .form-validation-error {
-  color: transparent;
-  padding: 10px 0;
+	color: transparent;
+	padding: 10px 0;
 
-  &.error {
-    color: $color-danger;
-  }
+	&.error {
+		color: $color-danger;
+	}
 }
 
 textarea {
-  height: auto !important;
-  resize: none;
+	height: auto !important;
+	resize: none;
 }
 
 ::placeholder {
-  color: $color-grey !important;
-  font-family: $font-family-sans;
-  font-weight: $font-weight-light;
+	color: $color-grey !important;
+	font-family: $font-family-ubuntu;
+	font-weight: $font-weight-light;
 }
 
 .form-status {
-  .card-body {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+	.card-body {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
 }
 
 .input-static,
 .fake-input {
-  cursor: not-allowed;
-  height: 38px;
-  overflow: hidden;
-  padding: 10px 12px 0;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+	cursor: not-allowed;
+	height: 38px;
+	overflow: hidden;
+	padding: 10px 12px 0;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .radio-button > div {
-  border-bottom: 1px solid $color-lightergrey;
-  padding: 5px 0 3px;
-  white-space: nowrap;
+	border-bottom: 1px solid $color-lightergrey;
+	padding: 5px 0 3px;
+	white-space: nowrap;
 }
 
 .radio-checkbox-label {
-  overflow-x: hidden;
-  white-space: nowrap;
+	overflow-x: hidden;
+	white-space: nowrap;
 }
 
 .subdomain-form {
-  padding-right: 0;
-  width: 120px;
+	padding-right: 0;
+	width: 120px;
 }
 
 .subdomain-label {
-  color: $color-white;
-  font-size: 0.7rem !important;
-  padding-left: 0;
-  padding-top: 14px;
-  white-space: nowrap;
+	color: $color-white;
+	font-size: 1.1rem !important;
+	padding-left: 0;
+	padding-right: 0;
+	padding-top: 0.5rem;
+	white-space: nowrap;
 
-  .btn-link {
-    color: $color-white;
-    display: inline-block;
-    font-size: 0.5rem !important;
-    margin-top: -5px;
-  }
+	p {
+		height: 100%;
+		margin-bottom: 0 !important;
+		vertical-align: middle;
+	}
+
+	.btn-link {
+		color: $color-white;
+		display: inline-block;
+		font-size: 0.5rem !important;
+		margin-top: -5px;
+	}
 }
 
 #ccCountry,
 #ccRegion {
-  padding-left: 5px;
+	padding-left: 5px;
 }

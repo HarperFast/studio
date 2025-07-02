@@ -1,84 +1,84 @@
 a {
-  color: $color-lightpurple !important;
-  cursor: pointer !important;
+	color: $color-lightpurple !important;
+	cursor: pointer !important;
 
-  &:hover {
-    color: $color-lightpurple !important;
-  }
+	&:hover {
+		color: $color-lightpurple !important;
+	}
 }
 
 ul {
-  padding-inline-start: 16px;
+	padding-inline-start: 16px;
 
-  li {
-    margin-bottom: 4px;
-  }
+	li {
+		margin-bottom: 4px;
+	}
 }
 
 .full-height {
-  height: calc(100vh - 230px) !important;
+	height: calc(100vh - 230px) !important;
 }
 
 .no-shadow {
-  box-shadow: none !important;
+	box-shadow: none !important;
 }
 
 .no-border {
-  border: 0 !important;
+	border: 0 !important;
 }
 
 .no-background {
-  background: none !important;
+	background: none !important;
 }
 
 .error {
-  border-color: $color-danger !important;
+	border-color: $color-danger !important;
 }
 
 .scrollable {
-  overflow-x: hidden;
-  overflow-y: auto;
+	overflow: hidden auto;
 }
 
 .clickable {
-  cursor: pointer;
+	cursor: pointer;
 }
 
 hr {
-  background-color: $grey-overlay; /* Modern Browsers */
-  border: 0 none;
-  /* Set the hr color */
-  color: $light-grey-overlay; /* old IE */
-  height: 1px !important;
-  overflow: hidden;
+	background-color: $grey-overlay; /* Modern Browsers */
+	border: 0 none;
 
-  &.white {
-    background-color: $light-white-overlay; /* Modern Browsers */
-    color: $light-white-overlay; /* old IE */
-  }
+	/* Set the hr color */
+	color: $light-grey-overlay; /* old IE */
+	height: 1px !important;
+	overflow: hidden;
+
+	&.white {
+		background-color: $light-white-overlay; /* Modern Browsers */
+		color: $light-white-overlay; /* old IE */
+	}
 }
 
 .version {
-  bottom: 15px;
-  color: $color-lightgrey;
-  font-size: $font-size-small;
-  font-weight: $font-weight-bold;
-  position: fixed;
-  right: 30px;
+	bottom: 15px;
+	color: $color-lightgrey;
+	font-size: $font-size-small;
+	font-weight: $font-weight-bold;
+	position: fixed;
+	right: 30px;
 }
 
 ::-webkit-scrollbar {
-  height: 3px;
-  width: 3px;
+	height: 3px;
+	width: 3px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
-  border: 0;
+	background: transparent;
+	border: 0;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: $color-grey;
-  border: 0;
-  border-radius: 0;
+	background-color: $color-grey;
+	border: 0;
+	border-radius: 0;
 }

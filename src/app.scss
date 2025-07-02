@@ -2,7 +2,6 @@
 @import '~bootstrap-scss/bootstrap-reboot';
 @import '~bootstrap-scss/bootstrap-grid';
 @import 'assets/styles/core/vars';
-
 @import '~bootstrap-scss/bootstrap-utilities';
 @import '~bootstrap-scss/button-group';
 @import '~bootstrap-scss/buttons';
@@ -25,6 +24,7 @@
 @import 'assets/styles/pages/organizations';
 @import 'assets/styles/pages/organization';
 @import 'assets/styles/pages/auth';
+@import 'assets/styles/pages/logs';
 @import 'assets/styles/pages/config';
 @import 'assets/styles/pages/clustering';
 @import 'assets/styles/pages/resources';
@@ -62,8 +62,6 @@
 // override styles
 @import 'assets/styles/overrides/dark';
 @import 'assets/styles/overrides/light';
-@import 'assets/styles/overrides/lumen';
-@import 'assets/styles/overrides/verizon';
 @import 'assets/styles/overrides/akamai';
 @import 'assets/styles/overrides/accessibility';
 @import 'assets/styles/overrides/maintenance';

@@ -2,121 +2,123 @@ import { lazy, React } from 'react';
 
 import Browse from './browse';
 import config from '../../config';
-
-const Charts = lazy(() => import(/* webpackChunkName: "instance-charts" */ './charts'));
-const Query = lazy(() => import(/* webpackChunkName: "instance-query" */ './query'));
+import supportsApplications from '../../functions/instance/functions/supportsApplications';
+// NOTE: Temporarily disabling. Query is used in Charts.
+// const Charts = lazy(() => import(/* webpackChunkName: "instance-charts" */ './charts'));
+// NOTE: Temporarily disabling. The SQL engine in HarperDB is not optimized and when users use it, it can create significant production issues.
+// const Query = lazy(() => import(/* webpackChunkName: "instance-query" */ './query'));
 const Cluster = lazy(() => import(/* webpackChunkName: "instance-cluster" */ './replication'));
 const Config = lazy(() => import(/* webpackChunkName: "instance-config" */ './config'));
 const Metrics = lazy(() => import(/* webpackChunkName: "instance-status" */ './status'));
+const LogsIndex = lazy(() => import(/* webpackChunkName: "instance-logs" */ './logs'));
 const Users = lazy(() => import(/* webpackChunkName: "instance-users" */ './users'));
 const Roles = lazy(() => import(/* webpackChunkName: "instance-roles" */ './roles'));
 const Functions = lazy(() => import(/* webpackChunkName: "custom-functions" */ './functions'));
 
 const routes = ({ super_user, version = null }) => {
-  const browse = {
-    element: <Browse />,
-    path: `browse/:schema?/:table?/:action?/:hash?`,
-    link: 'browse',
-    label: 'browse',
-    icon: 'list',
-  };
+	const useApplications = supportsApplications({ version });
 
-  const query = {
-    element: <Query />,
-    path: `query`,
-    link: 'query',
-    label: 'query',
-    icon: 'search',
-  };
+	const browse = {
+		element: <Browse />,
+		path: `browse/:schema?/:table?/:action?/:hash?`,
+		link: 'browse',
+		label: 'browse',
+		icon: 'list',
+	};
 
-  const users = {
-    element: <Users />,
-    path: `users/:username?`,
-    link: 'users',
-    label: 'users',
-    icon: 'users',
-  };
+	// NOTE: Temporarily disabling. The SQL engine in HarperDB is not optimized and when users use it, it can create significant production issues.
+	// const query = {
+	//   element: <Query />,
+	//   path: `query`,
+	//   link: 'query',
+	//   label: 'query',
+	//   icon: 'search',
+	// };
 
-  const roles = {
-    element: <Roles />,
-    path: `roles/:role_id?`,
-    link: 'roles',
-    label: 'roles',
-    icon: 'check-square',
-  };
+	const users = {
+		element: <Users />,
+		path: `users/:username?`,
+		link: 'users',
+		label: 'users',
+		icon: 'users',
+	};
 
-  const charts = {
-    element: <Charts />,
-    path: `charts`,
-    link: 'charts',
-    label: 'charts',
-    icon: 'chart-line',
-  };
+	const roles = {
+		element: <Roles />,
+		path: `roles/:role_id?`,
+		link: 'roles',
+		label: 'roles',
+		icon: 'check-square',
+	};
 
-  const cluster = {
-    element: <Cluster />,
-    path: `replication`,
-    link: 'replication',
-    label: 'replication',
-    icon: 'cubes',
-  };
+	// NOTE: Temporarily disabling. Query is used in Charts.
+	// const charts = {
+	//   element: <Charts />,
+	//   path: `charts`,
+	//   link: 'charts',
+	//   label: 'charts',
+	//   icon: 'chart-line',
+	// };
 
-  const functions = {
-    element: <Functions />,
-    path: `functions/:action?/:project?/:type?/:file?`,
-    link: 'functions',
-    label: 'functions',
-    icon: 'project-diagram',
-  };
+	const cluster = {
+		element: <Cluster />,
+		path: `replication`,
+		link: 'replication',
+		label: 'replication',
+		icon: 'cubes',
+	};
 
-  const applications = {
-    element: <Functions />,
-    path: 'applications',
-    link: 'applications',
-    label: 'applications',
-    icon: 'project-diagram',
-  };
+	const functions = {
+		element: <Functions />,
+		path: `functions/:action?/:project?/:type?/:file?`,
+		link: 'functions',
+		label: 'functions',
+		icon: 'project-diagram',
+	};
 
-  const metrics = {
-    element: <Metrics />,
-    path: `status`,
-    link: 'status',
-    label: 'status',
-    icon: 'tachometer-alt',
-  };
+	const applications = {
+		element: <Functions />,
+		path: 'applications',
+		link: 'applications',
+		label: 'applications',
+		icon: 'project-diagram',
+	};
 
-  const configure = {
-    element: <Config />,
-    path: `config`,
-    link: 'config',
-    label: 'config',
-    icon: 'wrench',
-  };
+	const metrics = {
+		element: <Metrics />,
+		path: `status`,
+		link: 'status',
+		label: 'status',
+		icon: 'tachometer-alt',
+	};
+	const logs = {
+		element: <LogsIndex />,
+		path: `logs`,
+		link: 'logs',
+		label: 'logs',
+		icon: 'tachometer-alt',
+	};
 
-  let supportsApplications = false;
+	const configure = {
+		element: <Config />,
+		path: `config`,
+		link: 'config',
+		label: 'config',
+		icon: 'wrench',
+	};
 
-  if (version) {
-    const [a, b] = version?.split('.') || [];
+	if (config.is_local_studio && super_user) {
+		return [browse, users, roles, cluster, useApplications ? applications : functions, metrics, configure, logs];
+	}
 
-    const major = parseInt(a, 10);
-    const minor = parseInt(b, 10);
-    const versionAsFloat = parseFloat(`${major}.${minor}`);
+	if (super_user) {
+		return [browse, users, roles, cluster, useApplications ? applications : functions, metrics, configure, logs];
+	}
 
-    supportsApplications = versionAsFloat >= 4.2;
-  }
+	if (config.is_local_studio) {
+		return [browse];
+	}
 
-  if (config.is_local_studio && super_user) {
-    return [browse, query, users, roles, cluster, supportsApplications ? applications : functions, metrics, configure];
-  }
-
-  if (super_user) {
-    return [browse, query, users, roles, charts, cluster, supportsApplications ? applications : functions, metrics, configure];
-  }
-
-  if (config.is_local_studio) {
-    return [browse, query, charts];
-  }
-
-  return [browse, query];
+	return [browse];
 };
 export default routes;

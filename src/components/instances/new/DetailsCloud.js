@@ -25,36 +25,23 @@ function DetailsCloud() {
   const products = useStoreState(
     appState,
     (s) =>
-      newInstance.cloud_provider === 'lumen'
-        ? s.products.lumen_compute?.filter((p) => p.value.active) || []
-        : newInstance.cloud_provider === 'verizon'
-          ? s.products.wavelength_compute?.filter((p) => p.value.active) || []
-          : newInstance.cloud_provider === 'akamai'
-            ? s.products.akamai_compute?.filter((p) => p.value.active) || []
-            : newInstance.showPrepaidCompute
-              ? unusedCompute
-              : s.products.cloud_compute.filter((p) => p.value.active),
+      newInstance.cloud_provider === 'verizon'
+        ? s.products.wavelength_compute?.filter((p) => p.value.active) || []
+        : newInstance.cloud_provider === 'akamai'
+          ? s.products.akamai_compute?.filter((p) => p.value.active) || []
+          : newInstance.showPrepaidCompute
+            ? unusedCompute
+            : s.products.cloud_compute.filter((p) => p.value.active),
     [newInstance.showPrepaidCompute],
   );
   const storage = useStoreState(
     appState,
-    (s) =>
-      newInstance.cloud_provider === 'lumen' || newInstance.cloud_provider === 'akamai'
-        ? false
-        : newInstance.showPrepaidStorage
-          ? unusedStorage
-          : s.products.cloud_storage.filter((p) => p.value.active),
+    (s) => (newInstance.cloud_provider === 'akamai' ? false : newInstance.showPrepaidStorage ? unusedStorage : s.products.cloud_storage.filter((p) => p.value.active)),
     [newInstance.showPrepaidStorage],
   );
 
   const regions = useStoreState(appState, (s) =>
-    newInstance.cloud_provider === 'lumen'
-      ? []
-      : newInstance.cloud_provider === 'verizon'
-        ? s.wavelengthRegions
-        : newInstance.cloud_provider === 'akamai'
-          ? s.akamaiRegions
-          : s.regions,
+    newInstance.cloud_provider === 'verizon' ? s.wavelengthRegions : newInstance.cloud_provider === 'akamai' ? s.akamaiRegions : s.regions,
   );
   const hasCard = useStoreState(appState, (s) => s.hasCard);
   const [formState, setFormState] = useState({});
@@ -64,8 +51,7 @@ function DetailsCloud() {
   const totalFreeCloudInstances = orgs.filter((o) => user_id === o.owner_user_id).reduce((a, b) => a + b.free_cloud_instance_count, 0);
   const freeCloudInstanceLimit = config.free_cloud_instance_limit;
   const canAddFreeCloudInstance = totalFreeCloudInstances < freeCloudInstanceLimit;
-  const canProceedToNextPage =
-    formData.stripe_plan_id && formData.instance_region && (newInstance.cloud_provider === 'lumen' || newInstance.cloud_provider === 'akamai' || formData.stripe_storage_plan_id);
+  const canProceedToNextPage = formData.stripe_plan_id && formData.instance_region && (newInstance.cloud_provider === 'akamai' || formData.stripe_storage_plan_id);
 
   useAsyncEffect(() => {
     const { submitted } = formState;

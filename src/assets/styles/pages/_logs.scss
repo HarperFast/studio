@@ -1,0 +1,98 @@
+#logs {
+	height: 100%;
+	.filters-header {
+		color: $color-white;
+		font-weight: $font-weight-bold;
+		white-space: nowrap;
+		font-size: 13px !important;
+	}
+
+	.instance-details {
+		.card-body {
+			padding-bottom: 0;
+		}
+
+		.nowrap-scroll {
+			overflow: hidden;
+			overflow-x: auto;
+			white-space: nowrap;
+		}
+	}
+
+	.react-select__control {
+		background-color: $color-white !important;
+	}
+
+	.react-select__single-value {
+		color: $color-darkgrey !important;
+	}
+
+	.react-select__placeholder {
+		color: $color-darkgrey !important;
+	}
+
+	.input-label {
+		color: $color-white;
+		font-weight: $font-weight-bold;
+		white-space: nowrap;
+		font-size: 13px !important;
+		display: block;
+	}
+
+	.item-list {
+		font-size: 0.65rem;
+		padding: 0;
+
+		.header {
+			padding: 16px 16px 8px;
+		}
+
+		hr {
+			background-color: $color-grey !important;
+		}
+
+		.item-scroller {
+			height: calc(100vh - 275px);
+			overflow: hidden auto;
+
+			&::-webkit-scrollbar {
+				width: 10px;
+			}
+
+			.item-row {
+				border-bottom: 1px solid $lightest-grey-overlay;
+				padding: 4px;
+
+				.text-nowrap {
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+
+				.error,
+				.fatal {
+					color: $color-danger;
+				}
+
+				.warn {
+					color: $color-warning;
+				}
+
+				.complete,
+				.notify {
+					color: $color-success;
+				}
+				pre {
+					margin-bottom: 0;
+					font-size: 12px;
+				}
+			}
+		}
+	}
+
+	.configLoader {
+		height: 38px;
+		padding-top: 15px;
+		text-align: center;
+		width: 100%;
+	}
+}

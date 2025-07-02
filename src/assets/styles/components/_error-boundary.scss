@@ -1,32 +1,35 @@
+.w-400 {
+	width: 400px;
+}
+
 .error-boundary {
-  font-size: $font-size-small;
-  overflow: hidden;
+	font-size: $font-size-small;
+	overflow: hidden;
 
-  .error-message {
-    color: $color-danger;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-  }
+	.error-message {
+		color: $color-danger;
+		overflow: auto hidden;
+		white-space: nowrap;
+	}
 
-  .stack-trace {
-    color: $color-black;
-    font-size: 75%;
-    margin-bottom: 8px;
-    max-height: 250px;
-    overflow: auto;
-  }
+	.stack-trace {
+		color: $color-black;
+		font-size: 75%;
+		margin-bottom: 8px;
+		max-height: 250px;
+		overflow: auto;
+	}
 
-  &.entity-card {
-    height: 170px;
-    left: auto;
-    min-width: 278px;
-    position: relative;
-    top: auto;
-    transform: none;
+	&.entity-card {
+		height: 170px;
+		left: auto;
+		min-width: 278px;
+		position: relative;
+		top: auto;
+		transform: none;
 
-    .stack-trace {
-      max-height: 50px;
-    }
-  }
+		.stack-trace {
+			max-height: 50px;
+		}
+	}
 }

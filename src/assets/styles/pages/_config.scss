@@ -1,15 +1,5 @@
-#local-studio {
-  #config {
-    .instance-details {
-      min-height: auto !important;
-    }
-  }
-}
-
 #config {
   .instance-details {
-    min-height: 152px;
-
     .card-body {
       padding-bottom: 0;
     }
@@ -34,9 +24,8 @@
     }
 
     .item-scroller {
-      height: calc(100vh - 494px);
-      overflow-x: hidden;
-      overflow-y: auto;
+      height: calc(100vh - 434px);
+      overflow: hidden auto;
 
       .item-row {
         border-bottom: 1px solid $lightest-grey-overlay;

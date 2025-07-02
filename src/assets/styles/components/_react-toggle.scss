@@ -1,89 +1,89 @@
 .react-toggle {
-  background-color: transparent;
-  cursor: pointer;
-  display: inline-block;
-  height: 24px;
-  position: relative;
-  touch-action: pan-x;
-  user-select: none;
-  width: 100%;
+	background-color: transparent;
+	cursor: pointer;
+	display: inline-block;
+	height: 24px;
+	position: relative;
+	touch-action: pan-x;
+	user-select: none;
+	width: 100%;
 
-  .react-toggle-screenreader-only {
-    border: 0;
-    clip: rect(0 0 0 0);
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    width: 1px;
-  }
+	.react-toggle-screenreader-only {
+		border: 0;
+		clip: rect(0 0 0 0);
+		height: 1px;
+		margin: -1px;
+		overflow: hidden;
+		padding: 0;
+		position: absolute;
+		width: 1px;
+	}
 
-  .react-toggle-track {
-    background: $light-grey-overlay !important;
-    border: 1px solid $faintest-white-overlay !important;
-    border-radius: 30px;
-    box-shadow: inset 0 0 5px $lighter-grey-overlay !important;
-    display: inline-block;
-    height: 100%;
-    overflow: hidden;
-    transition: all 0.2s ease;
-    width: 100%;
-  }
+	.react-toggle-track {
+		background: $light-grey-overlay !important;
+		border: 1px solid $faintest-white-overlay !important;
+		border-radius: 30px;
+		box-shadow: inset 0 0 5px $lighter-grey-overlay !important;
+		display: inline-block;
+		height: 100%;
+		overflow: hidden;
+		transition: all 0.2s ease;
+		width: 100%;
+	}
 
-  .react-toggle-track-check,
-  .react-toggle-track-x {
-    align-items: center;
-    color: $color-white !important;
-    display: flex;
-    font-size: 12px;
-    font-weight: $font-weight-bold;
-    height: 100%;
-    justify-content: flex-end;
-    line-height: 1;
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-top: 0;
-    text-shadow: 0 0 2px $lighter-grey-overlay !important;
-    transition: opacity 0.25s ease;
-    white-space: nowrap;
+	.react-toggle-track-check,
+	.react-toggle-track-x {
+		align-items: center;
+		color: $color-white !important;
+		display: flex;
+		font-size: 12px;
+		font-weight: $font-weight-bold;
+		height: 100%;
+		justify-content: flex-end;
+		line-height: 1;
+		padding-left: 10px;
+		padding-right: 10px;
+		padding-top: 0;
+		text-shadow: 0 0 2px $lighter-grey-overlay !important;
+		transition: opacity 0.25s ease;
+		white-space: nowrap;
 
-    svg {
-      margin-top: 2px;
-    }
-  }
+		svg {
+			margin-top: 2px;
+		}
+	}
 
-  .react-toggle-thumb {
-    background-color: $color-white;
-    border-radius: 50%;
-    box-shadow: 0 0 5px $lighter-grey-overlay !important;
-    box-sizing: border-box;
-    height: 20px;
-    left: 2px;
-    position: absolute;
-    top: 2px;
-    transition: all 0.25s ease;
-    width: 20px;
-  }
+	.react-toggle-thumb {
+		background-color: $color-white;
+		border-radius: 50%;
+		box-shadow: 0 0 5px $lighter-grey-overlay !important;
+		box-sizing: border-box;
+		height: 20px;
+		left: 2px;
+		position: absolute;
+		top: 2px;
+		transition: all 0.25s ease;
+		width: 20px;
+	}
 
-  &--disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-    transition: opacity 0.25s;
-  }
+	&--disabled {
+		cursor: not-allowed;
+		opacity: 0.5;
+		transition: opacity 0.25s;
+	}
 
-  &--checked {
-    .react-toggle-track {
-      background-color: $color-success !important;
-    }
+	&--checked {
+		.react-toggle-track {
+			background-color: $color-success !important;
+		}
 
-    .react-toggle-track-check,
-    .react-toggle-track-x {
-      justify-content: flex-start;
-    }
+		.react-toggle-track-check,
+		.react-toggle-track-x {
+			justify-content: flex-start;
+		}
 
-    .react-toggle-thumb {
-      left: calc(100% - 22px);
-    }
-  }
+		.react-toggle-thumb {
+			left: calc(100% - 22px);
+		}
+	}
 }

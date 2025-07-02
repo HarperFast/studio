@@ -1,55 +1,55 @@
 .floating-card-header {
-  color: $color-white;
-  font-weight: $font-weight-bold;
-  height: 15px !important;
-  margin-bottom: 0.5rem !important;
-  white-space: nowrap;
+	color: $color-white;
+	font-weight: $font-weight-bold;
+	height: 15px !important;
+	margin-bottom: 0.5rem !important;
+	white-space: nowrap;
 
-  i {
-    color: $color-white !important;
-    cursor: pointer;
-  }
+	i {
+		color: $color-white !important;
+		cursor: pointer;
+	}
 
-  .btn-link {
-    color: $color-white !important;
-    cursor: pointer;
-  }
+	.btn-link {
+		color: $color-white !important;
+		cursor: pointer;
+	}
 }
 
 .card {
-  background: $color-white !important;
-  border: 1px solid $color-lightgrey;
-  border-radius: $border-radius !important;
-  box-shadow: 0 0 8px $lighter-grey-overlay !important;
-  color: $color-darkgrey !important;
+	background: $color-white !important;
+	border: 1px solid $color-lightgrey;
+	border-radius: $border-radius !important;
+	box-shadow: 0 0 8px $lighter-grey-overlay !important;
+	color: $color-darkgrey !important;
 
-  .card-body {
-    height: 100%;
-  }
+	.card-body {
+		height: 100%;
+	}
 
-  &.error,
-  &.success {
-    border: 1px solid $color-lightgrey !important;
-    font-size: $font-size-small;
-    font-weight: $font-weight-bold;
-    text-align: center;
-  }
+	&.error,
+	&.success {
+		border: 1px solid $color-lightgrey !important;
+		font-size: $font-size-small;
+		font-weight: $font-weight-bold;
+		text-align: center;
+	}
 
-  &.error {
-    .card-body {
-      align-items: center;
-      color: $color-danger;
-      display: flex;
-      justify-content: center;
-      line-height: 1;
-      min-height: 36px;
-      padding: 10px !important;
-    }
-  }
+	&.error {
+		.card-body {
+			align-items: center;
+			color: $color-danger;
+			display: flex;
+			justify-content: center;
+			line-height: 1;
+			min-height: 36px;
+			padding: 10px !important;
+		}
+	}
 
-  &.success {
-    .card-body {
-      color: $color-success;
-    }
-  }
+	&.success {
+		.card-body {
+			color: $color-success;
+		}
+	}
 }

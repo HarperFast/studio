@@ -1,21 +1,26 @@
 body {
-  background: $color-purple;
-  min-width: $min-width;
-  overflow-x: hidden;
-  position: relative;
+	background: $color-purple;
+	min-width: $min-width;
+	overflow-x: hidden;
+	position: relative;
 
-  #app {
-    min-width: $min-width;
+	#app {
+		min-width: $min-width;
 
-    #app-container {
-      height: calc(100vh - 135px);
-      margin-top: 135px;
-      min-width: $min-width;
-      padding: 0 2rem;
+		#app-container {
+			height: calc(100vh - 165px);
+			margin-top: 165px;
+			min-width: $min-width;
+			padding: 0 2rem;
 
-      @media screen and (max-width: 991px) {
-        padding: 0 1rem;
-      }
-    }
-  }
+			@media screen and (width <= 991px) {
+				padding: 0 1rem;
+			}
+		}
+
+		.auth-container {
+			height: calc(100vh - 80px);
+			margin-top: 80px;
+		}
+	}
 }

@@ -7,18 +7,25 @@ import updateFilter from '../../../functions/organizations/updateFilter';
 import clearFilter from '../../../functions/organizations/clearFilter';
 
 function Search() {
-  const orgSearch = useStoreState(appState, (s) => s.orgSearch);
+	const orgSearch = useStoreState(appState, (s) => s.orgSearch);
 
-  return (
-    <>
-      <Input id="filter_orgs" type="text" className="text-center" onChange={updateFilter} placeholder="filter your organizations" value={orgSearch || ''} />
-      {orgSearch && (
-        <Button className="clear-filter" onClick={clearFilter}>
-          <i className="fa fa-times" />
-        </Button>
-      )}
-    </>
-  );
+	return (
+		<>
+			<Input
+				id="filter_orgs"
+				type="text"
+				className="text-center"
+				onChange={updateFilter}
+				placeholder="filter your organizations"
+				value={orgSearch || ''}
+			/>
+			{orgSearch && (
+				<Button className="clear-filter" onClick={clearFilter}>
+					<i className="fa fa-times" />
+				</Button>
+			)}
+		</>
+	);
 }
 
 export default Search;

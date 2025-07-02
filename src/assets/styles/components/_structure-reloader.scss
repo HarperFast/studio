@@ -1,21 +1,21 @@
 .structure-reloader {
-  display: inline-block;
+	display: inline-block;
 
-  button {
-    background: none !important;
-    border: 0;
-    color: $color-white !important;
-    cursor: pointer;
-    display: inline-block;
-    padding: 0 !important;
-    text-decoration: none !important;
+	button {
+		background: none !important;
+		border: 0;
+		color: $color-white !important;
+		cursor: pointer;
+		display: inline-block;
+		padding: 0 !important;
+		text-decoration: none !important;
 
-    i {
-      width: 14px;
-    }
+		i {
+			width: 14px;
+		}
 
-    &:hover {
-      color: $color-white !important;
-    }
-  }
+		&:hover {
+			color: $color-white !important;
+		}
+	}
 }

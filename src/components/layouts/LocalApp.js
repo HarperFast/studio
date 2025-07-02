@@ -20,53 +20,65 @@ const SignIn = lazy(() => import(/* webpackChunkName: "signIn" */ '../auth/Local
 let controller;
 
 function LocalApp() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [fetchingUser, setFetchingUser] = useState(true);
-  const [persistedUser, setPersistedUser] = usePersistedUser({});
-  const [instanceAuths] = useInstanceAuth({});
+	const navigate = useNavigate();
+	const location = useLocation();
+	const [fetchingUser, setFetchingUser] = useState(true);
+	const [persistedUser, setPersistedUser] = usePersistedUser({});
+	const [instanceAuths] = useInstanceAuth({});
 
-  useEffect(() => {
-    changeFavIcon(persistedUser?.theme);
-  }, [persistedUser?.theme]);
+	useEffect(() => {
+		changeFavIcon(persistedUser?.theme);
+	}, [persistedUser?.theme]);
 
-  useEffect(() => {
-    init({ currentPath: location.pathname, navigate, persistedUser, setPersistedUser, setFetchingUser, instanceAuths, controller });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+	useEffect(() => {
+		init({
+			currentPath: location.pathname,
+			navigate,
+			persistedUser,
+			setPersistedUser,
+			setFetchingUser,
+			instanceAuths,
+			controller,
+		});
+		// eslint-disable-next-line
+	}, []);
 
-  return (
-    <div id="local-studio" className={`${persistedUser.theme}`}>
-      <div id="app-container">
-        <Suspense fallback={<Loader header=" " spinner />}>
-          <TopNav loggedIn={instanceAuths?.local?.valid} />
-        </Suspense>
-        {fetchingUser ? (
-          <Loader header="signing in" spinner />
-        ) : instanceAuths?.local?.valid ? (
-          <ErrorBoundary FallbackComponent={ErrorFallback}>
-            <Suspense fallback={<Loader header=" " spinner />}>
-              {/* can we put instance routes in here, each in a suspense tag (since they're lazily loaded) */}
-              <Routes>
-                <Route element={<Instance />} path="/o/:customer_id/i/:compute_stack_id/*" />
-                <Route element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        ) : (
-          <ErrorBoundary FallbackComponent={ErrorFallbackAuth}>
-            <Suspense fallback={<Loader header=" " spinner />}>
-              <Routes>
-                <Route element={<SignIn />} path="/" />
-              </Routes>
-            </Suspense>
-          </ErrorBoundary>
-        )}
-      </div>
-      <div id="app-bg-color" />
-      <div className="version">HarperDB Local Studio v{config.studio_version}</div>
-    </div>
-  );
+	return (
+		<div id="local-studio" className={`${persistedUser.theme}`}>
+			<div className="vh-100">
+				<Suspense fallback={<Loader header=" " spinner />}>
+					<TopNav loggedIn={instanceAuths?.local?.valid} />
+				</Suspense>
+				{fetchingUser ? (
+					<Loader header="Signing in" spinner />
+				) : instanceAuths?.local?.valid ? (
+					<div id="app-container">
+						<ErrorBoundary FallbackComponent={ErrorFallback}>
+							<Suspense fallback={<Loader header=" " spinner />}>
+								{/* can we put instance routes in here, each in a suspense tag (since they're lazily loaded) */}
+								<Routes>
+									<Route element={<Instance />} path="/o/:customer_id/i/:compute_stack_id/*" />
+									<Route element={<Navigate to="/" replace />} />
+								</Routes>
+							</Suspense>
+						</ErrorBoundary>
+					</div>
+				) : (
+					<div className="d-flex justify-content-center align-items-center h-100">
+						<ErrorBoundary FallbackComponent={ErrorFallbackAuth}>
+							<Suspense fallback={<Loader header=" " spinner />}>
+								<Routes>
+									<Route element={<SignIn />} path="/" />
+								</Routes>
+							</Suspense>
+						</ErrorBoundary>
+					</div>
+				)}
+			</div>
+			<div id="app-bg-color" />
+			<div className="version">Harper Local Studio v{config.studio_version}</div>
+		</div>
+	);
 }
 
 export default LocalApp;

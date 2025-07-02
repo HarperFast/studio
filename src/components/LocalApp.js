@@ -6,13 +6,13 @@ import AlertTemplate from './shared/Alert';
 import App from './layouts/LocalApp';
 
 function Template() {
-  return (
-    <Provider template={AlertTemplate} timeout={4000} position={positions.TOP_CENTER}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </Provider>
-  );
+	return (
+		<Provider template={AlertTemplate} timeout={4000} position={positions.TOP_CENTER}>
+			<BrowserRouter>
+				<App />
+			</BrowserRouter>
+		</Provider>
+	);
 }
 
 export default Template;

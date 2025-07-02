@@ -1,279 +1,308 @@
 .dark {
-  #app-nav {
-    background: $color-pureblack !important;
-    border-bottom: 1px solid $color-darkestgrey;
+	#app-nav {
+		.navbar-nav {
+			.active-org {
+				background: $faintest-white-overlay !important;
+			}
+		}
+	}
 
-    .navbar-nav {
-      .active-org {
-        background: $faintest-white-overlay !important;
-      }
-    }
-  }
+	.app-subnav {
+		border-bottom: 1px solid $color-darkestgrey;
 
-  .app-subnav {
-    border-bottom: 1px solid $color-darkestgrey;
+		.filter-holder {
+			input {
+				background: none !important;
+				border-color: $faint-white-overlay !important;
+			}
+		}
+	}
 
-    .filter-holder {
-      input {
-        background: none !important;
-        border-color: $faint-white-overlay !important;
-      }
-    }
-  }
+	#app-bg-color {
+		background: $color-pureblack !important;
+		z-index: -2;
+	}
 
-  #app-bg-color {
-    background: $color-pureblack !important;
-    z-index: -2;
-  }
+	a {
+		color: $color-lightgrey !important;
 
-  a {
-    color: $color-lightgrey !important;
+		&:hover {
+			color: $color-white !important;
+		}
+	}
 
-    &:hover {
-      color: $color-white !important;
-    }
-  }
+	.card {
+		background: $faintest-white-overlay !important;
+		border: 1px solid $color-darkestgrey !important;
+		box-shadow: 0 0 5px $color-pureblack !important;
+		color: $color-lightgrey !important;
+	}
 
-  .card {
-    background: $faintest-white-overlay !important;
-    border: 1px solid $color-darkestgrey !important;
-    box-shadow: 0 0 5px $color-pureblack !important;
-    color: $color-lightgrey !important;
-  }
+	hr,
+	.item-row,
+	.log-row,
+	.radio-button > div,
+	.modal-header,
+	.card.error,
+	.card.success,
+	.past-query {
+		border-color: $faint-white-overlay !important;
+	}
 
-  hr,
-  .item-row,
-  .log-row,
-  .radio-button > div,
-  .modal-header,
-  .card.error,
-  .card.success,
-  .past-query {
-    border-color: $faint-white-overlay !important;
-  }
+	.past-query {
+		background-color: $faintest-white-overlay !important;
+		color: $color-white;
+	}
 
-  .past-query {
-    background-color: $faintest-white-overlay !important;
-    color: $color-white;
-  }
+	.lolight {
+		background-color: $color-pureblack !important;
+		border: 1px solid $faint-white-overlay !important;
+	}
+	#logs {
+		.react-select__control {
+			background-color: $color-pureblack !important;
+		}
 
-  .lolight {
-    background-color: $color-pureblack !important;
-    border: 1px solid $faint-white-overlay !important;
-  }
+		.react-select__single-value {
+			color: $color-white !important;
+		}
 
-  input,
-  select,
-  textarea,
-  .fake-input,
-  .form-control {
-    background: $faintest-white-overlay !important;
-    border: 1px solid $faint-white-overlay !important;
-    color: $color-lightgrey !important;
-  }
+		.react-select__placeholder {
+			color: $color-white !important;
+		}
+	}
 
-  .entity-manager {
-    .card {
-      background-color: $color-pureblack !important;
-      border: 1px solid $color-black;
+	input,
+	select,
+	textarea,
+	.fake-input,
+	.form-control {
+		background: $faintest-white-overlay !important;
+		border: 1px solid $faint-white-overlay !important;
+		color: $color-white !important;
+	}
 
-      .item-row {
-        background-color: $faintest-white-overlay !important;
+	.entity-manager {
+		.card {
+			background-color: $color-pureblack !important;
+			border: 1px solid $color-black;
 
-        &.active {
-          background-color: $faintest-white-overlay !important;
-        }
-      }
-    }
-  }
+			.item-row {
+				background-color: $faintest-white-overlay !important;
 
-  .content-container {
-    .header-container {
-      border-bottom: 1px solid $faint-white-overlay;
-    }
-  }
+				&.active {
+					background-color: $faintest-white-overlay !important;
+				}
+			}
+		}
+	}
 
-  .react-table-scroller {
-    .header {
-      .col {
-        border-top: 1px solid $faint-white-overlay;
+	.content-container {
+		.header-container {
+			border-bottom: 1px solid $faint-white-overlay;
+		}
+	}
 
-        &.sorted {
-          &.desc {
-            box-shadow: inset 0 -2px 0 0 $faint-white-overlay;
-          }
+	.react-table-scroller {
+		.header {
+			.col {
+				border-top: 1px solid $faint-white-overlay;
 
-          &.asc {
-            box-shadow: inset 0 2px 0 0 $faint-white-overlay;
-          }
+				&.sorted {
+					&.desc {
+						box-shadow: inset 0 -2px 0 0 $faint-white-overlay;
+					}
 
-        }
-      }
-    }
+					&.asc {
+						box-shadow: inset 0 2px 0 0 $faint-white-overlay;
+					}
+				}
+			}
+		}
 
-    .rows {
-      border-bottom: 1px solid $faint-white-overlay;
-    }
+		.rows {
+			border-bottom: 1px solid $faint-white-overlay;
+		}
 
-    .row {
-      .col {
-        border-bottom: 1px solid $faint-white-overlay;
-      }
-    }
+		.row {
+			.col {
+				border-bottom: 1px solid $faint-white-overlay;
+			}
+		}
 
-    input,
-    select {
-      color: $color-white;
-    }
+		input,
+		select {
+			color: $color-white;
+		}
 
-    .image-renderer {
-      .preview-image {
-        &.no-image {
-          background: $color-white;
-        }
-      }
-    }
-  }
+		.image-renderer {
+			.preview-image {
+				&.no-image {
+					background: $color-white;
+				}
+			}
+		}
+	}
 
-  .react-select-container {
-    width: 100%;
+	.react-select-container {
+		width: 100%;
 
-    .react-select__control,
-    .react-select__control:hover,
-    .react-select__control:focus,
-    .react-select__control--menu-is-open,
-    .react-select__control--is-focused,
-    .react-select__indicator-separator {
-      background: $faintest-white-overlay !important;
-      border-color: $faint-white-overlay !important;
+		.react-select__control,
+		.react-select__control:hover,
+		.react-select__control:focus,
+		.react-select__control--menu-is-open,
+		.react-select__control--is-focused,
+		.react-select__indicator-separator {
+			background: $faintest-white-overlay !important;
+			border-color: $faint-white-overlay !important;
 
-      .react-select__single-value {
-        color: $color-lightgrey;
-      }
+			.react-select__single-value {
+				color: $color-lightgrey;
+			}
 
-      .react-select__indicator-separator {
-        background: $faint-white-overlay !important;
-      }
-    }
+			.react-select__indicator-separator {
+				background: $faint-white-overlay !important;
+			}
+		}
 
-    .react-select__option,
-    .react-select__option:hover,
-    .react-select__option:focus,
-    .react-select__option--is-focused {
-      background: $faintest-white-overlay !important;
-      border-bottom: 1px solid $faint-white-overlay;
-      color: $color-lightgrey !important;
+		.react-select__option,
+		.react-select__option:hover,
+		.react-select__option:focus,
+		.react-select__option--is-focused {
+			background: $faintest-white-overlay !important;
+			border-bottom: 1px solid $faint-white-overlay;
+			color: $color-lightgrey !important;
 
-      &:last-child {
-        border-bottom: 0;
-      }
-    }
+			&:last-child {
+				border-bottom: 0;
+			}
+		}
 
-    .react-select__menu {
-      background: $color-pureblack !important;
-    }
-  }
+		.react-select__menu {
+			background: $color-pureblack !important;
+		}
+	}
 
-  .react-toggle {
-    .react-toggle-track {
-      background: transparent !important;
-      border: 1px solid $faint-white-overlay !important;
-    }
+	.react-toggle {
+		.react-toggle-track {
+			background: transparent !important;
+			border: 1px solid $faint-white-overlay !important;
+		}
 
-    &--checked {
-      .react-toggle-track {
-        background: $color-success !important;
-      }
-    }
-  }
+		&--checked {
+			.react-toggle-track {
+				background: $color-success !important;
+			}
+		}
+	}
 
-  .drop-zone {
-    background: radial-gradient($faint-white-overlay 1px, transparent 0) !important;
-    background-size: 3px 3px !important;
-    color: $color-lightgrey !important;
-  }
+	.drop-zone {
+		background: radial-gradient($faint-white-overlay 1px, transparent 0) !important;
+		background-size: 3px 3px !important;
+		color: $color-lightgrey !important;
+	}
 
-  #replaceFile {
-    color: $color-white;
-  }
+	.filters-header {
+		color: $color-white !important;
+	}
 
-  .modal-content {
-    background: $color-pureblack !important;
-    color: $color-lightgrey !important;
+	#replaceFile {
+		color: $color-white;
+	}
 
-    .modal-header {
-      background: $dark-grey-overlay !important;
-    }
-  }
+	.modal-content {
+		background: $color-pureblack !important;
+		color: $color-lightgrey !important;
 
-  #login-form {
-    .card {
-      background: $color-pureblack !important;
-    }
+		.modal-header {
+			background: $dark-grey-overlay !important;
+		}
 
-    input {
-      background: $faintest-white-overlay !important;
-    }
-  }
+		code {
+			color: $color-white !important;
+		}
+	}
 
-  .apexcharts-tooltip {
-    background: $color-pureblack !important;
-    color: $color-white !important;
+	.auth-form-container {
+		background-color: $color-pureblack;
+	}
 
-    .apexcharts-tooltip-title {
-      background: $color-pureblack !important;
-    }
-  }
+	.login-form {
+		input {
+			background: $faint-white-overlay !important;
+			color: $color-white;
 
-  a,
-  button,
-  input,
-  textarea,
-  .item-row,
-  select,
-  i,
-  .card,
-  .btn,
-  [role='button'] {
-    &:focus {
-      outline-color: $light-white-overlay !important;
-    }
-  }
+			&::placeholder {
+				color: $white-overlay !important;
+				font-family: $font-family-ubuntu;
+				font-weight: $font-weight-light;
+			}
 
-  .btn-pagination {
-    background-color: $color-black !important;
-    border: 1px solid $faint-white-overlay !important;
-    color: $color-white !important;
-  }
+			&:focus {
+				border-color: $color-lightblue;
+				color: $color-white;
+				outline: 0;
+			}
+		}
+	}
 
-  #webide {
-    .file-browser-outer-container {
-      .file-browser-scroll-container {
-        background: $faintest-white-overlay !important;
+	.apexcharts-tooltip {
+		background: $color-pureblack !important;
+		color: $color-white !important;
 
-        .file-browser {
-          > li {
-            border-bottom-color: $faint-white-overlay !important;
-          }
+		.apexcharts-tooltip-title {
+			background: $color-pureblack !important;
+		}
+	}
 
-          .folder {
-            .folder-container {
-              .file {
-                &.file-selected {
-                  .filename-text {
-                    color: $color-white !important;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+	a,
+	button,
+	input,
+	textarea,
+	.item-row,
+	select,
+	i,
+	.card,
+	.btn,
+	[role='button'] {
+		&:focus {
+			outline-color: $light-white-overlay !important;
+		}
+	}
 
-    .editor-window {
-      background: $faintest-white-overlay !important;
-    }
-  }
+	.btn-pagination {
+		background-color: $color-black !important;
+		border: 1px solid $faint-white-overlay !important;
+		color: $color-white !important;
+	}
 
+	#webide {
+		.file-browser-outer-container {
+			.file-browser-scroll-container {
+				background: $faintest-white-overlay !important;
+
+				.file-browser {
+					> li {
+						border-bottom-color: $faint-white-overlay !important;
+					}
+
+					.folder {
+						.folder-container {
+							.file {
+								&.file-selected {
+									.filename-text {
+										color: $color-white !important;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		.editor-window {
+			background: $faintest-white-overlay !important;
+		}
+	}
 }

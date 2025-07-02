@@ -1,68 +1,87 @@
 #new-instance-modal,
 #new-org-modal {
-  &.modal-lg {
-    max-width: 830px;
-  }
+	&.modal-lg {
+		max-width: 830px;
+	}
 
-  .card {
-    box-shadow: none !important;
-  }
+	.card {
+		box-shadow: none !important;
+	}
 
-  .instance-form-card-holder {
-    @media screen and (max-width: 991px) {
-      margin-bottom: 1rem;
+	.instance-form-card-holder {
+		@media screen and (width <= 991px) {
+			margin-bottom: 1rem;
 
-      &:last-child {
-        @media screen and (max-width: 991px) {
-          margin-bottom: 0;
-        }
-      }
-    }
+			&:last-child {
+				@media screen and (width <= 991px) {
+					margin-bottom: 0;
+				}
+			}
+		}
 
-    .instance-form-card-body {
-      overflow: hidden;
-      white-space: nowrap;
-    }
-  }
+		.instance-form-card-body {
+			overflow: hidden;
+			white-space: nowrap;
+		}
+	}
 }
 
 .modal-dialog {
-  .modal-content {
-    border: 1px solid $faintest-white-overlay;
-    border-radius: $border-radius;
-    box-shadow: 0 0 5px $dark-grey-overlay;
-    min-width: 304px;
-    overflow: hidden;
+	.modal-content {
+		border: 1px solid $faintest-white-overlay;
+		border-radius: $border-radius;
+		box-shadow: 0 0 5px $dark-grey-overlay;
+		min-width: 304px;
+		overflow: hidden;
 
-    .modal-header {
-      background: $gradient-purple-magenta !important;
-      border-bottom: 1px solid $faintest-white-overlay !important;
-      border-radius: $border-radius $border-radius 0 0 !important;
-      color: $color-white !important;
+		.modal-header {
+			background: $gradient-purple-magenta !important;
+			border-bottom: 1px solid $faintest-white-overlay !important;
+			border-radius: $border-radius $border-radius 0 0 !important;
+			color: $color-white !important;
 
-      &::after {
-        background: radial-gradient($color-purple 1px, transparent 0);
-        background-size: 3px 3px;
-      }
+			&::after {
+				background: radial-gradient($color-purple 1px, transparent 0);
+				background-size: 3px 3px;
+			}
 
-      .btn-close {
-        background: none !important;
-        border: 0;
-        font-size: 18px;
-        line-height: 1;
-        margin-right: 5px;
-        padding: 0;
+			.btn-close {
+				background: none !important;
+				border: 0;
+				font-size: 18px;
+				line-height: 1;
+				margin-right: 5px;
+				padding: 0;
 
-        &::before {
-          color: $color-white;
-          content: '\f057';
-          font-family: 'Font Awesome 5 Free', sans-serif;
-        }
-      }
+				&::before {
+					color: $color-white;
+					content: '\f057';
+					font-family: 'Font Awesome 5 Free', sans-serif;
+				}
+			}
 
-      .modal-title {
-        font-size: 1.1rem !important;
-      }
-    }
-  }
+			.modal-title {
+				font-size: 1.1rem !important;
+			}
+		}
+	}
+}
+
+#log-info-modal {
+	.error,
+	.fatal {
+		color: $color-danger;
+	}
+
+	.warn {
+		color: $color-warning;
+	}
+
+	.complete,
+	.notify {
+		color: $color-success;
+	}
+	code {
+		color: initial;
+	}
 }

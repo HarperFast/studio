@@ -1,33 +1,33 @@
 .content-container {
-  margin-bottom: 30px;
+	margin-bottom: 30px;
 
-  .header-container {
-    border-bottom: 1px solid $color-lightgrey;
-    display: flex;
-    flex-wrap: nowrap;
-    font-size: $font-size-small;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    white-space: nowrap;
+	.header-container {
+		border-bottom: 1px solid $color-lightgrey;
+		display: flex;
+		flex-wrap: nowrap;
+		font-size: $font-size-small;
+		margin-bottom: 0.5rem;
+		padding-bottom: 0.5rem;
+		white-space: nowrap;
 
-    .header {
-      font-weight: $font-weight-bold;
-    }
+		.header {
+			font-weight: $font-weight-bold;
+		}
 
-    .subheader {
-      color: $color-lightpurple;
-      font-style: italic;
-      text-align: right;
-      text-transform: lowercase;
-      width: 100%;
-    }
-  }
+		.subheader {
+			color: $color-lightpurple;
+			font-style: italic;
+			text-align: right;
+			text-transform: lowercase;
+			width: 100%;
+		}
+	}
 
-  &:last-child {
-    margin-bottom: 0;
-  }
+	&:last-child {
+		margin-bottom: 0;
+	}
 
-  .scrollable {
-    margin-top: -0.5rem;
-  }
+	.scrollable {
+		margin-top: -0.5rem;
+	}
 }

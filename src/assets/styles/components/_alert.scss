@@ -1,33 +1,33 @@
 .alert {
-  border: 0;
-  border-radius: $border-radius;
-  display: flex;
-  margin-top: 5px;
-  padding: 17px;
-  z-index: 9999;
+	border: 0;
+	border-radius: $border-radius;
+	display: flex;
+	margin-top: 5px;
+	padding: 17px;
+	z-index: 9999;
 
-  .icon {
-    flex-grow: 0;
-    width: 40px;
-  }
+	.icon {
+		flex-grow: 0;
+		width: 40px;
+	}
 
-  .message {
-    flex-grow: 1;
-    overflow: hidden;
-    padding-top: 0;
-    text-overflow: clip;
-    white-space: nowrap;
-  }
+	.message {
+		flex-grow: 1;
+		overflow: hidden;
+		padding-top: 0;
+		text-overflow: clip;
+		white-space: nowrap;
+	}
 
-  &.success {
-    background-color: $color-success;
-  }
+	&.success {
+		background-color: $color-success;
+	}
 
-  &.info {
-    background-color: $dark-grey-overlay;
-  }
+	&.info {
+		background-color: $dark-grey-overlay;
+	}
 
-  &.error {
-    background-color: $color-danger;
-  }
+	&.error {
+		background-color: $color-danger;
+	}
 }

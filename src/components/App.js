@@ -9,15 +9,15 @@ import AlertTemplate from './shared/Alert';
 import App from './layouts/App';
 
 function Template() {
-  return (
-    <Elements stripe={stripePromise}>
-      <Provider template={AlertTemplate} timeout={4000} position={positions.TOP_CENTER}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </Provider>
-    </Elements>
-  );
+	return (
+		<Elements stripe={stripePromise}>
+			<Provider template={AlertTemplate} timeout={4000} position={positions.TOP_CENTER}>
+				<BrowserRouter>
+					<App />
+				</BrowserRouter>
+			</Provider>
+		</Elements>
+	);
 }
 
 export default Template;

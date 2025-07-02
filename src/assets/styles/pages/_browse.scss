@@ -1,33 +1,33 @@
 #browse {
-  .missing-primary-key {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 262px) !important;
-    justify-content: center;
-    line-height: 1.5 !important;
+	.missing-primary-key {
+		align-items: center;
+		display: flex;
+		flex-direction: column;
+		height: calc(100vh - 262px) !important;
+		justify-content: center;
+		line-height: 1.5 !important;
 
-    > .warning-text {
-      color: $color-warning !important;
-    }
+		> .warning-text {
+			color: $color-warning !important;
+		}
 
-    &.narrow {
-      padding-left: 25%;
-      padding-right: 25%;
-    }
+		&.narrow {
+			padding-left: 25%;
+			padding-right: 25%;
+		}
 
-    .card-body {
-      align-items: center;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      line-height: 1.5 !important;
-          padding-left: 25%;
-    padding-right: 25%;
+		.card-body {
+			align-items: center;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			line-height: 1.5 !important;
+			padding-left: 25%;
+			padding-right: 25%;
 
-      .fa.fa-warning {
-        color: $color-danger;
-      }
-    }
-  }
+			.fa.fa-warning {
+				color: $color-danger;
+			}
+		}
+	}
 }

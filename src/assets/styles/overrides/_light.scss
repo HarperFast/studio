@@ -1,446 +1,427 @@
 .light {
-  #app-nav {
-    background: $color-white !important;
-    border-bottom: 1px solid $color-lightgrey;
-
-    #logo {
-      background-image: url('../../images/logo/logo_dog_light.png');
-      @media screen and (max-width: 530px) {
-        background-image: url('../../images/logo/logo_dog_only.png');
-      }
-    }
-
-    .navbar-nav {
-      .active-org {
-        border-right-color: $color-lightgrey !important;
-
-
-        &.open {
-          border-color: $color-lightgrey !important;
-        }
-
-        .org-name {
-          color: $color-black !important;
-        }
-      }
-
-      .nav-item {
-        .btn-link,
-        .nav-link,
-        a {
-          color: $grey-overlay !important;
-
-          &.active {
-            color: $black-overlay !important;
-          }
-        }
-      }
-    }
-  }
-
-  #app-bg-color {
-    background: $color-white !important;
-    z-index: -2;
-  }
-
-  .app-subnav {
-    background: $gradient-white-lightgrey, $light-white-overlay !important;
-    border-bottom: 1px solid $color-lightgrey;
-
-    .navbar-nav {
-      .nav-item {
-        .nav-link {
-          color: $grey-overlay !important;
-
-          &.active {
-            color: $black-overlay !important;
-          }
-        }
-      }
-    }
-
-    .react-select-container {
-      .react-select__control,
-      .react-select__control:hover,
-      .react-select__control:focus,
-      .react-select__control--menu-is-open,
-      .react-select__control--is-focused,
-      .react-select__indicator-separator {
-        background: transparent !important;
-        border-color: $lighter-grey-overlay !important;
-
-        .react-select__single-value {
-          color: $color-darkgrey;
-        }
-
-        .react-select__indicator-separator {
-          background: $lighter-grey-overlay !important;
-        }
-      }
-
-      .react-select__option,
-      .react-select__option:hover,
-      .react-select__option:focus,
-      .react-select__option--is-focused {
-        background: $color-lightergrey !important;
-        color: $color-darkgrey !important;
-      }
-
-      .react-select__menu {
-        background: $color-lightergrey !important;
-      }
-    }
-
-    .filter-holder {
-      input {
-        border: 1px solid $lighter-grey-overlay !important;
-        color: $color-darkgrey !important;
-      }
-
-      .clear-filter {
-        color: $color-darkgrey;
-      }
-    }
-
-    .refresh-instances {
-      color: $color-darkgrey;
-    }
-  }
-
-  a {
-    color: $color-lightpurple;
-
-    &:hover {
-      color: $color-purple;
-    }
-  }
-
-  hr,
-  .item-row,
-  .log-row,
-  .radio-button > div,
-  .modal-header,
-  .card.error,
-  .card.success,
-  .past-query {
-    border-color: $color-lightgrey !important;
-  }
-
-  .lolight {
-    background-color: $dark-grey-overlay !important;
-    border: 1px solid $color-lightgrey !important;
-  }
-
-  .loader {
-    .card {
-      background: $color-white !important;
-      border: 1px solid $color-lightgrey !important;
-      box-shadow: none;
-
-      .card-body {
-        background: none !important;
-        color: $color-darkgrey !important;
-      }
-    }
-  }
-
-  .floating-card-header {
-    color: $color-black !important;
-
-    i {
-      color: $color-grey !important;
-    }
-
-    .btn-link {
-      color: $color-black !important;
-    }
-  }
-
-  input,
-  select,
-  textarea,
-  .fake-input,
-  .form-control {
-    background: $color-white !important;
-    border: 1px solid $color-lightgrey !important;
-    color: $color-darkgrey !important;
-
-    &.is-invalid,
-    &.error {
-      border: 1px solid $color-danger !important;
-    }
-  }
-
-  ::placeholder {
-    color: $color-grey !important;
-  }
-
-  .entity-manager {
-    .card {
-      border: 1px solid $color-lightgrey;
-
-      .item-row {
-        background: $color-white !important;
-      }
-    }
-
-    &-footer {
-      color: $color-black;
-    }
-  }
-
-  .content-container {
-    .header-container {
-      border-bottom: 1px solid $lighter-grey-overlay;
-    }
-  }
-
-  .react-select-container {
-    width: 100%;
-
-    .react-select__control,
-    .react-select__control:hover,
-    .react-select__control:focus,
-    .react-select__control--menu-is-open,
-    .react-select__control--is-focused,
-    .react-select__indicator-separator {
-      background: $color-white !important;
-      border-color: $color-lightgrey !important;
-
-      .react-select__single-value {
-        color: $color-grey;
-      }
-
-      .react-select__indicator-separator {
-        background: $color-lightgrey !important;
-      }
-    }
-
-    .react-select__option,
-    .react-select__option:hover,
-    .react-select__option:focus,
-    .react-select__option--is-focused {
-      background: $color-white !important;
-      border-bottom: 1px solid $color-lightgrey !important;
-      color: $color-grey !important;
-
-      &:last-child {
-        border-bottom: 0 !important;
-      }
-    }
-
-    .react-select__menu {
-      background: $color-white !important;
-    }
-  }
-
-  .drop-zone {
-    background: radial-gradient($lighter-grey-overlay 1px, transparent 0) !important;
-    background-size: 3px 3px !important;
-    color: $color-grey !important;
-  }
-
-  .modal-content {
-    background: $color-white !important;
-    color: $color-grey !important;
-
-    .modal-header {
-      background: $gradient-white-lightgrey !important;
-      color: $black-overlay !important;
-
-      .btn-close {
-        &::before {
-          color: $black-overlay !important;
-        }
-      }
-    }
-  }
-
-  .structure-reloader {
-    button {
-      color: $color-darkgrey !important;
-    }
-  }
-
-  .json-editor-holder {
-    background: $lightest-grey-overlay;
-    box-shadow: inset 0 0 5px $lighter-grey-overlay !important;
-  }
-
-  .react-toggle {
-    .react-toggle-track {
-      background: $light-grey-overlay !important;
-    }
-
-    &--checked {
-      .react-toggle-track {
-        background-color: $color-success !important;
-      }
-    }
-  }
-
-  #login-form {
-    .card {
-      background: $color-white !important;
-      border: 1px solid $color-lightgrey !important;
-      color: $color-lightgrey !important;
-
-      .instructions {
-        color: $color-darkgrey;
-      }
-    }
-
-    &.sign-up {
-      .sign-up-content,
-      .sign-up-header {
-        color: $color-darkgrey !important;
-      }
-
-      .sign-up-header {
-        border-bottom: 1px solid $color-lightgrey;
-      }
-
-      hr {
-        background: $color-lightgrey;
-      }
-    }
-
-    input {
-      background: $color-white !important;
-      color: $color-black !important;
-
-      &::placeholder {
-        color: $color-grey !important;
-      }
-    }
-
-    .disclaimer {
-      color: $dark-grey-overlay !important;
-
-      a {
-        color: $dark-grey-overlay !important;
-      }
-    }
-
-    .login-nav-link {
-      color: $grey-overlay !important;
-
-      &:hover {
-        color: $grey-overlay !important;
-      }
-
-      &.error {
-        color: $color-danger !important;
-      }
-    }
-
-    .subdomain-label {
-      color: $dark-grey-overlay !important;
-
-      .btn-link {
-        color: $light-grey-overlay;
-      }
-    }
-  }
-
-  #charts {
-    .instructions {
-      color: $color-darkgrey;
-    }
-
-    .dashboard-divider {
-      background: $lighter-grey-overlay;
-    }
-  }
-
-  .version {
-    color: $color-darkgrey !important;
-  }
-
-
-
-  a,
-  button,
-  input,
-  textarea,
-  .item-row,
-  select,
-  i,
-  .card,
-  .btn,
-  [role='button'] {
-    &:focus {
-      outline-color: $color-lightpurple !important;
-    }
-  }
-
-  #webide {
-    color: $color-black !important;
-
-    .file-browser-outer-container {
-      .file-browser-scroll-container,
-      .editor-window {
-        background: $lightest-grey-overlay !important;
-        border: 1px solid $color-lightgrey !important;
-
-        .file-browser{
-          .folder {
-            .folder-container {
-              .file,
-              .package {
-                &.package-selected {
-                  .package-text {
-                    color: $color-black !important;
-                  }
-                }
-
-                &.file-selected {
-                  .filename-text {
-                    color: $color-black !important;
-                  }
-                }
-
-                &.folder-selected {
-                  .filename-text {
-                    color: $color-black !important;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      .file-menu-item,
-      .editor-menu-item {
-        color: $color-black !important;
-
-        button {
-          color: $color-black !important;
-        }
-
-        button:disabled,
-        button[disabled],
-        button:disabled::before,
-        button[disabled]::before {
-          color: $grey-overlay !important;
-        }
-      }
-    }
-  }
-
-  .editor-menu-item,
-  .file-menu-item {
-    span,
-    i {
-      color: $color_black !important;
-    }
-
-    button[disabled] {
-      span,
-      i {
-        color: $color_grey !important;
-      }
-    }
-  }
+	#app-nav {
+		.navbar-nav {
+			.active-org {
+				border-right-color: $color-lightgrey !important;
+
+				&.open {
+					border-color: $color-lightgrey !important;
+				}
+			}
+
+			.nav-item {
+				.btn-link,
+				.nav-link,
+				a {
+					color: $color-lightgrey !important;
+
+					&.active {
+						color: $color-white !important;
+					}
+				}
+			}
+		}
+	}
+
+	#app-bg-color {
+		background: $color-white !important;
+		z-index: -2;
+	}
+
+	.app-subnav {
+		background: $gradient-white-lightgrey, $light-white-overlay !important;
+		border-bottom: 1px solid $color-lightgrey;
+
+		.navbar-nav {
+			.nav-item {
+				.nav-link {
+					color: $grey-overlay !important;
+
+					&.active {
+						color: $black-overlay !important;
+					}
+				}
+			}
+		}
+
+		.react-select-container {
+			.react-select__control,
+			.react-select__control:hover,
+			.react-select__control:focus,
+			.react-select__control--menu-is-open,
+			.react-select__control--is-focused,
+			.react-select__indicator-separator {
+				background: transparent !important;
+				border-color: $lighter-grey-overlay !important;
+
+				.react-select__single-value {
+					color: $color-darkgrey;
+				}
+
+				.react-select__indicator-separator {
+					background: $lighter-grey-overlay !important;
+				}
+			}
+
+			.react-select__option,
+			.react-select__option:hover,
+			.react-select__option:focus,
+			.react-select__option--is-focused {
+				background: $color-lightergrey !important;
+				color: $color-darkgrey !important;
+			}
+
+			.react-select__menu {
+				background: $color-lightergrey !important;
+			}
+		}
+
+		.filter-holder {
+			input {
+				border: 1px solid $lighter-grey-overlay !important;
+				color: $color-darkgrey !important;
+			}
+
+			.clear-filter {
+				color: $color-darkgrey;
+			}
+		}
+
+		.refresh-instances {
+			color: $color-darkgrey;
+		}
+	}
+
+	a {
+		color: $color-lightpurple;
+
+		&:hover {
+			color: $color-purple;
+		}
+	}
+
+	hr,
+	.item-row,
+	.log-row,
+	.radio-button > div,
+	.modal-header,
+	.card.error,
+	.card.success,
+	.past-query {
+		border-color: $color-lightgrey !important;
+	}
+
+	.lolight {
+		background-color: $dark-grey-overlay !important;
+		border: 1px solid $color-lightgrey !important;
+	}
+
+	.loader {
+		.card {
+			background: $color-white !important;
+			border: 1px solid $color-lightgrey !important;
+			box-shadow: none;
+
+			.card-body {
+				background: none !important;
+				color: $color-darkgrey !important;
+			}
+		}
+	}
+
+	.floating-card-header {
+		color: $color-black !important;
+
+		i {
+			color: $color-grey !important;
+		}
+
+		.btn-link {
+			color: $color-black !important;
+		}
+	}
+
+	#logs {
+		.react-select__single-value {
+			color: $color-darkgrey !important;
+		}
+
+		.react-select__placeholder {
+			color: $color-darkgrey !important;
+		}
+	}
+	input,
+	select,
+	textarea,
+	.fake-input,
+	.form-control {
+		background: $color-white !important;
+		border: 1px solid $color-lightgrey !important;
+		color: $color-darkgrey !important;
+
+		&.is-invalid,
+		&.error {
+			border: 1px solid $color-danger !important;
+		}
+	}
+
+	::placeholder {
+		color: $color-grey !important;
+	}
+
+	.entity-manager {
+		.card {
+			border: 1px solid $color-lightgrey;
+
+			.item-row {
+				background: $color-white !important;
+			}
+		}
+
+		&-footer {
+			color: $color-black;
+		}
+	}
+
+	.content-container {
+		.header-container {
+			border-bottom: 1px solid $lighter-grey-overlay;
+		}
+	}
+
+	.react-select-container {
+		width: 100%;
+
+		.react-select__control,
+		.react-select__control:hover,
+		.react-select__control:focus,
+		.react-select__control--menu-is-open,
+		.react-select__control--is-focused,
+		.react-select__indicator-separator {
+			background: $color-white !important;
+			border-color: $color-lightgrey !important;
+
+			.react-select__single-value {
+				color: $color-grey;
+			}
+
+			.react-select__indicator-separator {
+				background: $color-lightgrey !important;
+			}
+		}
+
+		.react-select__option,
+		.react-select__option:hover,
+		.react-select__option:focus,
+		.react-select__option--is-focused {
+			background: $color-white !important;
+			border-bottom: 1px solid $color-lightgrey !important;
+			color: $color-grey !important;
+
+			&:last-child {
+				border-bottom: 0 !important;
+			}
+		}
+
+		.react-select__menu {
+			background: $color-white !important;
+		}
+	}
+
+	.drop-zone {
+		background: radial-gradient($lighter-grey-overlay 1px, transparent 0) !important;
+		background-size: 3px 3px !important;
+		color: $color-grey !important;
+	}
+
+	.filters-header {
+		color: $color-black !important;
+	}
+
+	.modal-content {
+		background: $color-white !important;
+		color: $color-grey !important;
+
+		.modal-header {
+			background: $gradient-white-lightgrey !important;
+			color: $black-overlay !important;
+
+			.btn-close {
+				&::before {
+					color: $black-overlay !important;
+				}
+			}
+		}
+	}
+
+	.structure-reloader {
+		button {
+			color: $color-darkgrey !important;
+		}
+	}
+
+	.json-editor-holder {
+		background: $lightest-grey-overlay;
+		box-shadow: inset 0 0 5px $lighter-grey-overlay !important;
+	}
+
+	.react-toggle {
+		.react-toggle-track {
+			background: $light-grey-overlay !important;
+		}
+
+		&--checked {
+			.react-toggle-track {
+				background-color: $color-success !important;
+			}
+		}
+	}
+
+	.auth-form-container {
+		background-color: $color-white;
+	}
+
+	.login-form {
+		color: $color-black;
+
+		.instructions {
+			color: $color-darkgrey;
+		}
+
+		input {
+			background: $color-white !important;
+			color: $color-black !important;
+
+			&::placeholder {
+				color: $color-grey !important;
+			}
+		}
+
+		.disclaimer {
+			color: $dark-grey-overlay !important;
+
+			a {
+				color: $dark-grey-overlay !important;
+			}
+		}
+
+		.login-nav-link {
+			color: $grey-overlay !important;
+
+			&:hover {
+				color: $grey-overlay !important;
+			}
+
+			&.error {
+				color: $color-danger !important;
+			}
+		}
+
+		.subdomain-label {
+			color: $dark-grey-overlay !important;
+
+			.btn-link {
+				color: $light-grey-overlay;
+			}
+		}
+	}
+
+	#charts {
+		.instructions {
+			color: $color-darkgrey;
+		}
+
+		.dashboard-divider {
+			background: $lighter-grey-overlay;
+		}
+	}
+
+	.version {
+		color: $color-darkgrey !important;
+	}
+
+	a,
+	button,
+	input,
+	textarea,
+	.item-row,
+	select,
+	i,
+	.card,
+	.btn,
+	[role='button'] {
+		&:focus {
+			outline-color: $color-lightpurple !important;
+		}
+	}
+
+	#webide {
+		color: $color-black !important;
+
+		.file-browser-outer-container {
+			.file-browser-scroll-container,
+			.editor-window {
+				background: $lightest-grey-overlay !important;
+				border: 1px solid $color-lightgrey !important;
+
+				.file-browser {
+					.folder {
+						.folder-container {
+							.file,
+							.package {
+								&.package-selected {
+									.package-text {
+										color: $color-black !important;
+									}
+								}
+
+								&.file-selected {
+									.filename-text {
+										color: $color-black !important;
+									}
+								}
+
+								&.folder-selected {
+									.filename-text {
+										color: $color-black !important;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			.file-menu-item,
+			.editor-menu-item {
+				color: $color-black !important;
+
+				button {
+					color: $color-black !important;
+				}
+
+				button:disabled,
+				button[disabled],
+				button:disabled::before,
+				button[disabled]::before {
+					color: $grey-overlay !important;
+				}
+			}
+		}
+	}
+
+	.editor-menu-item,
+	.file-menu-item {
+		span,
+		i {
+			color: $color_black !important;
+		}
+
+		button[disabled] {
+			span,
+			i {
+				color: $color_grey !important;
+			}
+		}
+	}
 }

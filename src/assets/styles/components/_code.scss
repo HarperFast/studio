@@ -1,71 +1,71 @@
 .code-holder {
-  position: relative;
+	position: relative;
 
-  .copy-icon {
-    background: $faint-white-overlay;
-    border-radius: 0 $border-radius;
-    color: $color-white;
-    cursor: copy;
-    padding: 4px;
-    position: absolute;
-    right: 0;
-    top: 0;
-  }
+	.copy-icon {
+		background: $faint-white-overlay;
+		border-radius: 0 $border-radius;
+		color: $color-white;
+		cursor: copy;
+		padding: 4px;
+		position: absolute;
+		right: 0;
+		top: 0;
+	}
 
-  .lolight {
-    background: $black-overlay;
-    border: 1px solid $faint-white-overlay !important;
-    border-radius: $border-radius;
-    font-size: 12px !important;
-    line-height: 1.3;
-    margin-bottom: 0 !important;
-    padding: 10px 30px 10px 20px;
+	.lolight {
+		background: $black-overlay;
+		border: 1px solid $faint-white-overlay !important;
+		border-radius: $border-radius;
+		font-size: 12px !important;
+		line-height: 1.3;
+		margin-bottom: 0 !important;
+		padding: 10px 30px 10px 20px;
 
-    .ll-nam {
-      /* words */
-      color: $color-lightgrey;
-    }
+		.ll-nam {
+			/* words */
+			color: $color-lightgrey;
+		}
 
-    .ll-num {
-      /* numbers */
-      color: $color-danger;
-    }
+		.ll-num {
+			/* numbers */
+			color: $color-danger;
+		}
 
-    .ll-str {
-      /* strings */
-      color: $color-success;
-    }
+		.ll-str {
+			/* strings */
+			color: $color-success;
+		}
 
-    .ll-rex {
-      /* regular expressions */
-      color: $color-warning;
-    }
+		.ll-rex {
+			/* regular expressions */
+			color: $color-warning;
+		}
 
-    .ll-pct {
-      /* operators, punctation */
-      color: $color-lightergrey;
-    }
+		.ll-pct {
+			/* operators, punctation */
+			color: $color-lightergrey;
+		}
 
-    .ll-key {
-      /* keywords */
-      color: $color-lightpurple;
-      font-weight: $font-weight-bold;
-    }
+		.ll-key {
+			/* keywords */
+			color: $color-lightpurple;
+			font-weight: $font-weight-bold;
+		}
 
-    .ll-com {
-      /* comments */
-      color: $color-lightgrey;
-      font-style: italic;
-    }
-  }
+		.ll-com {
+			/* comments */
+			color: $color-lightgrey;
+			font-style: italic;
+		}
+	}
 
-  .lolight-empty {
-    background: $color-black;
-    border-radius: $border-radius;
-    color: $color-lightergrey;
-    font-size: 12px !important;
-    line-height: 1.3;
-    margin-bottom: 0 !important;
-    padding: 10px 20px;
-  }
+	.lolight-empty {
+		background: $color-black;
+		border-radius: $border-radius;
+		color: $color-lightergrey;
+		font-size: 12px !important;
+		line-height: 1.3;
+		margin-bottom: 0 !important;
+		padding: 10px 20px;
+	}
 }

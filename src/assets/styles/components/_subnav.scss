@@ -1,161 +1,174 @@
 .app-subnav {
-  align-items: center;
-  background: $black-overlay !important;
-  border-bottom: 1px solid $black-overlay;
-  display: flex;
-  flex-flow: row nowrap;
-  height: 50px;
-  justify-content: flex-start;
-  left: 0;
-  min-width: $min-width;
-  padding: 0 1rem;
-  position: fixed;
-  right: 0;
-  top: 60px !important;
-  width: 100%;
-  z-index: 98 !important;
+	align-items: center;
+	background: $grey-overlay !important;
+	border-bottom: 1px solid $black-overlay;
+	display: flex;
+	flex-flow: row nowrap;
+	height: 50px;
+	justify-content: flex-start;
+	left: 0;
+	min-width: $min-width;
+	padding: 0 1rem;
+	position: fixed;
+	right: 0;
+	top: 80px !important;
+	width: 100%;
+	z-index: 98 !important;
 
-  @media screen and (max-width: 991px) {
-    padding: 5px 0;
-  }
+	@media screen and (width <= 991px) {
+		padding: 5px 0;
+	}
 
-  .navbar-nav {
-    display: flex;
-    flex-direction: row;
-    justify-content: center !important;
-    margin: 0 auto;
-    width: 100%;
+	.navbar-nav {
+		display: flex;
+		flex-direction: row;
+		justify-content: center !important;
+		margin: 0 auto;
+		width: 100%;
 
-    .react-select-container {
-      width: 100%;
+		.react-select-container {
+			width: 100%;
 
-      .react-select__control,
-      .react-select__control:hover,
-      .react-select__control:focus,
-      .react-select__control--menu-is-open,
-      .react-select__control--is-focused,
-      .react-select__indicator-separator {
-        background: transparent !important;
-        border-color: $faint-white-overlay !important;
+			.react-select__control,
+			.react-select__control:hover,
+			.react-select__control:focus,
+			.react-select__control--menu-is-open,
+			.react-select__control--is-focused,
+			.react-select__indicator-separator {
+				background: transparent !important;
+				border-color: $faint-white-overlay !important;
 
-        .react-select__single-value {
-          color: $color-white;
-        }
+				.react-select__single-value {
+					color: $color-white;
+				}
 
-        .react-select__indicator-separator {
-          background: $faint-white-overlay !important;
-        }
-      }
+				.react-select__indicator-separator {
+					background: $faint-white-overlay !important;
+				}
+			}
 
-      .react-select__option,
-      .react-select__option:hover,
-      .react-select__option:focus,
-      .react-select__option--is-focused {
-        background: $color-pureblack !important;
-        border-bottom: 1px solid $faint-white-overlay;
-        color: $color-lightgrey !important;
+			.react-select__option,
+			.react-select__option:hover,
+			.react-select__option:focus,
+			.react-select__option--is-focused {
+				background: $color-pureblack !important;
+				border-bottom: 1px solid $faint-white-overlay;
+				color: $color-lightgrey !important;
 
-        &:last-child {
-          border-bottom: 0;
-        }
-      }
+				&:last-child {
+					border-bottom: 0;
+				}
+			}
 
-      .react-select__menu {
-        background: $color-pureblack !important;
-      }
-    }
+			.react-select__menu {
+				background: $color-pureblack !important;
+			}
+		}
 
-    .nav-item {
-      line-height: 1 !important;
-      margin-bottom: 0;
-      padding: 0 8px;
+		.nav-item {
+			line-height: 1 !important;
+			margin-bottom: 0;
+			padding: 0 8px;
 
-      &:last-child {
-        padding-right: 0;
-      }
+			&:last-child {
+				padding-right: 0;
+			}
 
-      .nav-link,
-      a {
-        color: $whiter-overlay !important;
-        display: inline-block;
-        padding: 0 !important;
-        position: relative;
-        transition: color 250ms;
-        white-space: nowrap;
+			.nav-link,
+			a {
+				color: $whiter-overlay !important;
+				display: inline-block;
+				padding: 0 !important;
+				position: relative;
+				transition: color 250ms;
+				white-space: nowrap;
 
-        &.active,
-        &:hover {
-          color: $color-white !important;
-        }
+				&.active,
+				&:hover {
+					color: $color-white !important;
+				}
 
-        .fa {
-          font-size: 12px;
-        }
-      }
-    }
+				.fa {
+					font-size: 12px;
+				}
+			}
+		}
 
-    &.instance-nav {
-      justify-content: flex-end !important;
+		&.instance-nav {
+			justify-content: flex-end !important;
 
-      @media screen and (max-width: 767px) {
-        justify-content: center !important;
-      }
-    }
+			@media screen and (width <= 767px) {
+				justify-content: center !important;
+			}
+		}
 
-    &.instance-nav-select {
-      justify-content: flex-end !important;
-      padding-left: 7.5px;
-    }
+		&.instance-nav-select {
+			justify-content: flex-end !important;
+			padding-left: 7.5px;
+		}
 
-    &.instance-select {
-      justify-content: flex-start !important;
-      padding-right: 7.5px;
+		&.instance-select {
+			justify-content: flex-start !important;
+			padding-right: 7.5px;
 
-      .react-select-container {
-        max-width: 287px;
+			.react-select-container {
+				max-width: 287px;
 
-        @media screen and (max-width: 991px) {
-          max-width: 100%;
-        }
-      }
-    }
-  }
+				@media screen and (width <= 991px) {
+					max-width: 100%;
+				}
+			}
+		}
+	}
 
-  .instance-toggle-holder {
-    display: inline-block;
-    margin-right: 10px;
-    padding-top: 7px;
-    position: relative;
-    width: 95px;
-  }
+	.instance-toggle-holder {
+		display: inline-block;
+		margin-right: 10px;
+		padding-top: 7px;
+		position: relative;
+		width: 95px;
+	}
 
-  .filter-holder {
-    max-width: 270px;
-    position: relative;
+	.filter-holder {
+		max-width: 270px;
+		position: relative;
 
-    input {
-      background: $faint-white-overlay !important;
-      border: 1px solid $faintest-white-overlay !important;
-      color: $color-lightgrey !important;
-    }
+		input {
+			background: $faint-white-overlay !important;
+			border: 1px solid $faintest-white-overlay !important;
+			color: $color-lightgrey !important;
+		}
 
-    .clear-filter {
-      background: none !important;
-      border: 0 !important;
-      box-shadow: none !important;
-      position: absolute;
-      right: 8px;
-      top: 0;
-    }
-  }
+		.clear-filter {
+			background: none !important;
+			border: 0 !important;
+			box-shadow: none !important;
+			position: absolute;
+			right: 8px;
+			top: 0;
+		}
+	}
 
-  .refresh-instances {
-    color: $color-white;
-    margin-left: 15px;
-    width: 35px;
+	.refresh-instances {
+		color: $color-white;
+		margin-left: 15px;
+		width: 35px;
 
-    @media screen and (min-width: 768px) {
-      width: 105px;
-    }
-  }
+		@media screen and (width >= 768px) {
+			width: 105px;
+		}
+	}
+
+	.free-instances {
+		align-items: center;
+		color: $color-white;
+		display: inline-flex;
+		font-size: 13px !important;
+		font-weight: 300 !important;
+		height: 38px;
+		margin-left: 10px;
+		overflow: visible;
+		position: relative;
+		width: auto;
+	}
 }

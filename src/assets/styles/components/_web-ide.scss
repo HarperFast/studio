@@ -1,234 +1,283 @@
-#webide{
-  color: $color-white;
+#webide {
+	color: $color-white;
 
-  .file-menu,
-  .editor-menu {
-    align-items: baseline;
-    display: flex;
-    flex-direction: row;
-    margin-bottom: 16px;
-    margin-top: 0;
-    padding-bottom: 0;
-    padding-inline-start: 0 !important;
-    padding-top: 0;
+	.file-menu,
+	.editor-menu {
+		align-items: baseline;
+		display: flex;
+		flex-direction: row;
+		margin-bottom: 16px;
+		margin-top: 0;
+		padding-bottom: 0;
+		padding-inline-start: 0 !important;
+		padding-top: 0;
 
-    .file-menu-item,
-    .editor-menu-item {
-      color: $color-white !important;
-      list-style-type: none;
-      margin: 0 4px !important;
+		.file-menu-item,
+		.editor-menu-item {
+			color: $color-white !important;
+			list-style-type: none;
+			margin: 0 4px !important;
 
-      button {
-        background: transparent !important;
-        border: 0;
-        color: $color-white !important;
-        font-weight: bold;
-        margin: 0;
-        outline: none !important;
-        padding: 0;
-      }
+			button {
+				background: transparent !important;
+				border: 0;
+				color: $color-white !important;
+				font-weight: bold;
+				margin: 0;
+				outline: none !important;
+				padding: 0;
+			}
 
-      button:disabled,
-      button[disabled],
-      button:disabled::before,
-      button[disabled]::before{
-        color: $white-overlay !important;
-        cursor: not-allowed;
-      }
-    }
-  }
+			button:disabled,
+			button[disabled],
+			button:disabled::before,
+			button[disabled]::before {
+				color: $white-overlay !important;
+				cursor: not-allowed;
+			}
+		}
+	}
 
-  .editor-menu,
-  .file-menu-right {
-    justify-content: right !important;
-  }
+	.editor-menu,
+	.file-menu-right {
+		justify-content: right !important;
+	}
 
-  .file-browser-outer-container {
-    .card-body {
-      background: transparent !important;
-      padding: 0 !important;
-    }
+	.file-browser-outer-container {
+		.card-body {
+			background: transparent !important;
+			padding: 0 !important;
+		}
 
-    .file-browser-scroll-container {
-      background: $color-pureblack !important;
-      border: 1px solid $color-darkestgrey !important;
-      border-radius: $border-radius;
-      height: calc(100vh - 237px) !important;
-      overflow-x: hidden;
-      overflow-y: auto;
+		.file-browser-scroll-container {
+			background: $color-pureblack !important;
+			border: 1px solid $color-darkestgrey !important;
+			border-radius: $border-radius;
+			height: calc(100vh - 237px) !important;
+			overflow: hidden auto;
 
-      @media(max-width: 767px) {
-        max-height: 250px;
-      }
+			@media (width <= 767px) {
+				max-height: 250px;
+			}
 
-      .file-browser {
-        list-style-type: none !important;
-        margin-left: 0;
-        padding: 0 !important;
-        position: relative;
+			.file-browser {
+				list-style-type: none !important;
+				margin-left: 0;
+				padding: 0 !important;
+				position: relative;
 
-        > li {
-          border-bottom: 1px solid $white-overlay;
-          padding: 10px 5px;
-          width: 100%;
+				> li {
+					border-bottom: 1px solid $white-overlay;
+					padding: 10px 5px;
+					width: 100%;
 
-          &:last-child {
-            border-bottom: 0 !important;
-          }
-        }
+					&:last-child {
+						border-bottom: 0 !important;
+					}
+				}
 
-        .folder {
-          list-style-type: none !important;
-          padding: 0 !important;
-          padding-inline-start: 8px !important;
+				.folder {
+					list-style-type: none !important;
+					padding: 0 !important;
+					padding-inline-start: 8px !important;
 
-          .folder-container {
-            button::before,
-            i::before {
-              background: transparent !important;
-              border: 0;
-              font-size: 16px !important;
-              margin: 0;
-              outline: none !important;
-              padding: 0;
-            }
+					.file-container {
+						button::before,
+						i::before {
+							background: transparent !important;
+							border: 0;
+							font-size: 16px !important;
+							margin: 0;
+							outline: none !important;
+							padding: 0;
+						}
 
-            .package-text,
-            .filename-text {
-              color: $color-grey !important;
-              font-size: 14px !important;
-              padding-left: 8px;
-            }
+						.package-text,
+						.filename-text {
+							color: $color-grey !important;
+							font-size: 14px !important;
+							padding-left: 8px;
+						}
 
-            .file,
-            .package {
-              background: transparent;
-              border: 0;
-              margin: 1px 0;
-              outline: none !important; // TODO: fix this because it is not accessible; style differently
-              padding: 3px;
-              text-align: left;
-              white-space: nowrap;
+						.file,
+						.package {
+							background: transparent;
+							border: 0;
+							margin: 1px 0;
+							outline: none !important; // TODO: fix this because it is not accessible; style differently
+							padding: 3px;
+							text-align: left;
+							white-space: nowrap;
 
-              .project-icon,
-              .package-icon {
-                color: $color-success;
-              }
+							.filetype-js {
+								color: $color-warning;
+							}
 
-              .folder-icon {
-                color: $color-info;
-              }
+							.filetype-yaml {
+								color: $color-primary;
+							}
 
-              .filetype-js {
-                color: $color-warning;
-              }
+							.filetype-unknown {
+								color: $color-lightgrey;
+							}
 
-              .filetype-yaml {
-                color: $color-primary;
-              }
+							&.file-selected {
+								.filename-text {
+									color: $color-white !important;
 
-              .filetype-unknown {
-                color: $color-lightgrey;
-              }
+									&::after {
+										content: '\f35a' !important;
+										font-family: 'Font Awesome 5 Free', sans-serif !important;
+										font-size: 16px;
+										position: absolute;
+										right: 8px;
+									}
+								}
+							}
+						}
+					}
 
-              &.folder-selected {
-                .filename-text {
-                  color: $color-white !important;
-                }
-              }
+					.folder-container {
+						button::before,
+						i::before {
+							background: transparent !important;
+							border: 0;
+							font-size: 16px !important;
+							margin: 0;
+							outline: none !important;
+							padding: 0;
+						}
 
-              &.package-selected {
-                .package-text {
-                  color: $color-white !important;
-                }
-              }
+						.package-text,
+						.filename-text {
+							color: $color-grey !important;
+							font-size: 14px !important;
+							padding-left: 8px;
+						}
 
-              &.file-selected {
-                .filename-text {
-                  color: $color-white !important;
+						.file,
+						.package {
+							background: transparent;
+							border: 0;
+							margin: 1px 0;
+							outline: none !important; // TODO: fix this because it is not accessible; style differently
+							padding: 3px;
+							text-align: left;
+							white-space: nowrap;
 
-                  &::after {
-                    content: '\f35a' !important;
-                    font-family: 'Font Awesome 5 Free', sans-serif !important;
-                    font-size: 16px;
-                    position: absolute;
-                    right: 8px;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+							.project-icon,
+							.package-icon {
+								color: $color-success;
+							}
 
-  .editor-window-container {
-    .editor-window {
-      background: $color-pureblack !important;
-      border: 1px solid $color-darkestgrey !important;
-      border-radius: $border-radius;
-      height: calc(100vh - 237px) !important;
-      min-height: 281px;
-      overflow:hidden;
-      padding: 1vh 0;
+							.folder-icon {
+								color: $color-info;
+							}
 
-      @media(max-width: 767px) {
-        max-height: calc(100vh - 515px)
-      }
+							&.folder-selected {
+								.filename-text {
+									color: $color-white !important;
+								}
+							}
 
-      .card-body {
-        padding: 0 !important;
-      }
+							&.package-selected {
+								.package-text {
+									color: $color-white !important;
+								}
+							}
 
-      > section,
-      > section > div,
-      .monaco-editor,
-      .overflow-guard,
-      .card {
-        height: 70.8vh !important;
-      }
+							&.file-selected {
+								.filename-text {
+									color: $color-white !important;
 
-      .monaco-editor {
-        background: transparent !important;
-      }
-    }
-  }
+									&::after {
+										content: '\f35a' !important;
+										font-family: 'Font Awesome 5 Free', sans-serif !important;
+										font-size: 16px;
+										position: absolute;
+										right: 8px;
+									}
+								}
+							}
+						}
+					}
+				}
+				.folder-open ~ li {
+					display: block;
+				}
+				.folder-closed ~ li {
+					display: none;
+				}
+			}
+		}
+	}
 
-  .content-window {
-    align-items: center;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    justify-content: flex-start;
-    margin: 40px auto 0;
-    max-width: 400px;
-    width: 100%;
+	.editor-window-container {
+		.editor-window {
+			background: $color-pureblack !important;
+			border: 1px solid $color-darkestgrey !important;
+			border-radius: $border-radius;
+			height: calc(100vh - 237px) !important;
+			min-height: 281px;
+			overflow: hidden;
+			padding: 1vh 0;
 
-    .react-select__single-value {
-      color: $color-white;
-    }
+			@media (width <= 767px) {
+				max-height: calc(100vh - 515px);
+			}
 
-    .react-select__input-container {
-      margin: 0 !important;
-      padding: 0 !important;
-    }
+			.card-body {
+				padding: 0 !important;
+			}
 
-    hr {
-      background-color: $color-white !important;
-      color: $color-white !important;
-    }
+			> section,
+			> section > div,
+			.monaco-editor,
+			.overflow-guard,
+			.card {
+				height: 70.8vh !important;
+			}
 
-    .form-control {
-      background: transparent !important;
-      border: 1px solid $color-white !important;
-      border-radius: 0 !important;
-      color: $color-white !important;
+			.monaco-editor {
+				background: transparent !important;
+			}
+		}
+	}
 
-      &:active,
-      &:focus {
-        border: 1px solid $color-white !important;
-      }
-    }
-  }
+	.content-window {
+		align-items: center;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		justify-content: flex-start;
+		margin: 40px auto 0;
+		max-width: 400px;
+		width: 100%;
+
+		.react-select__single-value {
+			color: $color-white;
+		}
+
+		.react-select__input-container {
+			margin: 0 !important;
+			padding: 0 !important;
+		}
+
+		hr {
+			background-color: $color-white !important;
+			color: $color-white !important;
+		}
+
+		.form-control {
+			background: transparent !important;
+			border: 1px solid $color-white !important;
+			border-radius: 0 !important;
+			color: $color-white !important;
+
+			&:active,
+			&:focus {
+				border: 1px solid $color-white !important;
+			}
+		}
+	}
 }
