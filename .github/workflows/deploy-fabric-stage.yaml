@@ -1,0 +1,9 @@
+name: Deploy Fabric Stage
+on:
+  workflow_dispatch:
+jobs:
+  deployToFabricStage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Placeholder"
+        run: "Placeholder"
