@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { TypedAxios } from './typed-axios';
+import type { TypedAxios } from './typedAxios';
 
 export const apiClient = axios.create({
 	withCredentials: true,

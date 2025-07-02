@@ -6,9 +6,9 @@ import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 import { Toaster } from '@/components/ui/sonner';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
-import { useRootAuthenticationContextValue } from '@/hooks/use-root-authentication-context-value';
-import { AuthenticationContext } from '@/contexts/authentication-context';
-import { rootRouteTree } from '@/router/root-route-tree';
+import { useRootAuthenticationContextValue } from '@/hooks/useRootAuthenticationContextValue';
+import { AuthenticationContext } from '@/contexts/authenticationContext';
+import { rootRouteTree } from '@/router/rootRouteTree';
 
 export function App() {
 	const hashHistory = createHashHistory();

@@ -12,7 +12,7 @@ import { ConfigIndex } from '@/features/instance/config';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
-import { dashboardLayout } from '@/router/dashboard-route';
+import { dashboardLayout } from '@/router/dashboardRoute';
 import { isLocalStudio } from '@/config/constants';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { QueryClient } from '@tanstack/react-query';

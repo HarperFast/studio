@@ -1,5 +1,5 @@
 import { Outlet } from '@tanstack/react-router';
-import { NavBar } from '@/components/Navbar';
+import { Navbar } from '@/components/Navbar';
 
 function ListItem({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
@@ -14,7 +14,7 @@ export function AuthLayout() {
 	return <>
 		<header
 			className="fixed top-0 z-40 w-full h-20 p-4 bg-black-dark dark:bg-black-dark dark:border-b dark:border-black md:px-12">
-			<NavBar />
+			<Navbar />
 		</header>
 		<div className="mt-20 grid h-screen grid-cols-1 md:grid-cols-2">
 			<section

@@ -8,7 +8,7 @@ import { EditInstanceModal } from './modals/EditInstanceModal';
 import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 // import { useRegistrationInfo } from '@/hooks/instance/useRegistrationInfo';
 import { InstanceLogInModal } from './modals/InstanceLoginInModal';
-import { renderInstanceTypeOption, InstanceTypes } from '@/shared/functions/InstanceType';
+import { renderInstanceTypeOption, InstanceTypes } from '@/lib/InstanceType';
 import { useCluster } from '@/features/cluster/hooks/useCluster';
 
 // 1. Once successfully logging into one instance, we should be able to use the same credentials(cookie) for all instances in the cluster.

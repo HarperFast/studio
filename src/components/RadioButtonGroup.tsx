@@ -3,7 +3,7 @@
 import type React from 'react';
 
 import { useState } from 'react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Controller, type Control, type FieldValues, type FieldPath } from 'react-hook-form';
@@ -27,7 +27,7 @@ interface RadioButtonGroupProps<
 	rules?: Record<string, unknown>;
 }
 
-function RadioButtonGroup<
+export function RadioButtonGroup<
 	TFieldValues extends FieldValues = FieldValues,
 	TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
 >({ options, defaultValue, name, onChange, control, rules }: RadioButtonGroupProps<TFieldValues, TName>) {
@@ -100,5 +100,3 @@ function RadioButtonGroup<
 		</RadioGroup>
 	);
 }
-
-export { RadioButtonGroup };

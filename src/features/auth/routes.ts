@@ -5,7 +5,7 @@ import { SignUp } from '@/features/auth/SignUp';
 import { ForgotPassword } from '@/features/auth/ForgotPassword';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';
 import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
-import { rootRoute } from '@/router/root-route';
+import { rootRoute } from '@/router/rootRoute';
 import { LocalSignIn } from '@/features/auth/LocalSignIn';
 
 const authLayout = createRoute({
