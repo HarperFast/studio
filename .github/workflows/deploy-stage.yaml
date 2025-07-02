@@ -1,0 +1,24 @@
+name: Deploy to Stage
+on:
+  push:
+    branches:
+      - harper/fabric
+  workflow_dispatch:
+jobs:
+  deployToStage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+      - name: Install dependencies
+        run: pnpm install
+      - name: Build staging
+        run: pnpm build:staging
+      - name: Deploy to staging
+        run: |
+          rm -rf node_modules # Clean up node_modules, harper will install
+          echo "Placeholder"
