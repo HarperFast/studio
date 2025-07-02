@@ -16,10 +16,12 @@ export function ClusterCard({
 	clusterId,
 	clusterName,
 	status,
+	onDeleteClusterModal,
 }: {
 	clusterId: string;
 	clusterName: string;
 	status: BadgeStatusVariant;
+	onDeleteClusterModal: () => void;
 }) {
 	return (
 		<Card className="relative">
@@ -34,7 +36,7 @@ export function ClusterCard({
 							<DropdownMenuLabel>Cluster options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem>Edit</DropdownMenuItem>
-							<DropdownMenuItem className="bg-red focus:bg-red/70 focus:text-white" onClick={() => {}}>
+							<DropdownMenuItem className="bg-red focus:bg-red/70 focus:text-white" onClick={onDeleteClusterModal}>
 								Delete
 							</DropdownMenuItem>
 						</DropdownMenuContent>
@@ -46,12 +48,7 @@ export function ClusterCard({
 			</CardHeader>
 			<CardContent className="flex justify-between">
 				<Badge variant={renderBadgeStatusVariant(status)}>{renderBadgeStatusText(status)}</Badge>
-				<Link
-					to={`${clusterId}`}
-					className="text-sm"
-					aria-label={`View ${clusterName}`}
-					title={`View ${clusterName}`}
-				>
+				<Link to={`${clusterId}`} className="text-sm" aria-label={`View ${clusterName}`} title={`View ${clusterName}`}>
 					<span className="py-2 hover:border-b-2">
 						View <ArrowRight className="inline-block" />
 					</span>

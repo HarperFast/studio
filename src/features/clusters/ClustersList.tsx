@@ -4,18 +4,60 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { DeleteClusterConfirmationModal } from './modals/DeleteClusterConfirmationModal';
+import { useDeleteClusterMutation } from './mutations/deleteCluster';
+import { toast } from 'sonner';
+import { queryKeys } from '@/react-query/constants';
 
 const route = getRouteApi('');
 
 export function ClustersList() {
+	const queryClient = useQueryClient();
 	const { organizationId } = route.useParams();
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
-	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
 	const sortedClusters = useMemo(() => orgInfo?.clusters?.slice().sort((a, b) => a.name > b.name ? 1 : -1) || [], [orgInfo]);
+	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
+	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
+	const [isDeleteClusterModalOpen, setIsDeleteClusterModalOpen] = useState(false);
+	const [deleteClusterInfo, setDeleteClusterInfo] = useState({
+		id: '',
+		name: '',
+	});
 
-	return (<>
+	const handleDeleteCluster = (clusterInfo: { id: string; name: string }) => {
+		if (clusterInfo) {
+			deleteCluster(clusterInfo.id, {
+				onSuccess: () => {
+					toast.success('Success', {
+						description: `Cluster successfully deleted.`,
+						duration: 5000,
+						action: {
+							label: 'Dismiss',
+							onClick: () => toast.dismiss(),
+						},
+					});
+					queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+					setIsDeleteClusterModalOpen(false);
+				},
+				onError: () => {
+					toast.error('Error', {
+						description: `Failed to delete cluster: ${clusterInfo.name}.`,
+						duration: 5000,
+						action: {
+							label: 'Dismiss',
+							onClick: () => toast.dismiss(),
+						},
+					});
+					setIsDeleteClusterModalOpen(false);
+				},
+			});
+		}
+	};
+
+	return (
+		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
 				{isSuccess && orgInfo?.clusters?.length ? (
 					<div className="flex items-center justify-between h-full text-sm text-white">
@@ -50,14 +92,21 @@ export function ClustersList() {
 										clusterName={cluster.name}
 										clusterId={cluster.id}
 										status={cluster.status}
+										onDeleteClusterModal={() => {
+											setDeleteClusterInfo({
+												id: cluster.id,
+												name: cluster.name,
+											});
+											setIsDeleteClusterModalOpen(true);
+										}}
 									/>
 								</div>
 							))}
 						</div>
 					) : (
 						<div className="flex-col space-y-5 items-center justify-center text-center">
-							<h2 className="text-2xl text-center text-white">No clusters found. Create a new
-								cluster.</h2>
+							<h2 className="text-2xl text-center text-white">
+								No clusters found. Create a new cluster.</h2>
 
 							<Button
 								variant="positive"
@@ -74,6 +123,13 @@ export function ClustersList() {
 				orgId={organizationId}
 				isModalOpen={isNewClusterModalOpen}
 				setIsModalOpen={() => setIsNewClusterModalOpen(false)}
+			/>
+			<DeleteClusterConfirmationModal
+				clusterInfo={deleteClusterInfo}
+				isModalOpen={isDeleteClusterModalOpen}
+				isDeletingClusterPending={isDeletingClusterPending}
+				handleDeleteCluster={() => handleDeleteCluster(deleteClusterInfo)}
+				setIsModalOpen={() => setIsDeleteClusterModalOpen(false)}
 			/>
 		</>
 	);
