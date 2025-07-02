@@ -48,11 +48,18 @@ export function ClusterCard({
 			</CardHeader>
 			<CardContent className="flex justify-between">
 				<Badge variant={renderBadgeStatusVariant(status)}>{renderBadgeStatusText(status)}</Badge>
-				<Link to={`${clusterId}`} className="text-sm" aria-label={`View ${clusterName}`} title={`View ${clusterName}`}>
-					<span className="py-2 hover:border-b-2">
-						View <ArrowRight className="inline-block" />
-					</span>
-				</Link>
+				{['CLONE_READY', 'RUNNING', 'UPDATED'].includes(status) ? (
+					<Link
+						to={`${clusterId}`}
+						className="text-sm"
+						aria-label={`View ${clusterName}`}
+						title={`View ${clusterName}`}
+					>
+						<span className="py-2 hover:border-b-2">
+							View <ArrowRight className="inline-block" />
+						</span>
+					</Link>
+				) : null}
 			</CardContent>
 		</Card>
 	);
