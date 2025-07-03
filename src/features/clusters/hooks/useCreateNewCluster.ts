@@ -14,9 +14,7 @@ export async function onNewClusterSubmit(
 	clusterInfo: z.infer<typeof NewClusterSchema>
 ): Promise<NewClusterInfoResponse> {
 	// TODO: Work through any disagreements between the SchemaCluster and our local types here.
-	const { clusterName } = clusterInfo;
 	const { data } = await apiClient.post('/Cluster/', {
-		name: clusterName,
 		...clusterInfo,
 	});
 	if (data) {

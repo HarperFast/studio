@@ -17,9 +17,9 @@ import { PlanTypes } from '@/features/cluster/queries/getPlanTypesQuery';
 
 type RegionFormInputsProps = {
 	control: Control<{
-		regions: {
-			region: string;
-			planType: string;
+		regionPlans: {
+			regionId: string;
+			planId: string;
 			count?: number;
 			price: string;
 		}[];
@@ -27,7 +27,7 @@ type RegionFormInputsProps = {
 	index: number;
 	remove: () => void;
 	regionLocations: RegionLocations;
-	selectedRegions: { region: string; count: number; planType: string; price: string }[];
+	selectedRegions: { regionId: string; count: number; planId: string; price: string }[];
 	planTypes?: PlanTypes;
 };
 
@@ -54,11 +54,11 @@ export function RegionFormInputs({
 		[getPlanObj]
 	);
 
-	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.region) ?? []);
-	const currentPlanTypeObj = getPlanObj(selectedRegions?.[index]?.planType);
+	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.regionId) ?? []);
+	const currentPlanTypeObj = getPlanObj(selectedRegions?.[index]?.planId);
 	const currentSelectedRegion = selectedRegions?.[index];
 	const currentSelectedRegionCount = currentSelectedRegion?.count ?? 0;
-	const planPrice = getPlanPrice(selectedRegions?.[index]?.planType);
+	const planPrice = getPlanPrice(selectedRegions?.[index]?.planId);
 
 	const currentPrice = planPrice * currentSelectedRegionCount;
 
@@ -79,7 +79,7 @@ export function RegionFormInputs({
 		<div className="grid grid-cols-3 gap-2 mb-4 md:grid-cols-12 md:items-start">
 			<FormField
 				control={control}
-				name={`regions.${index}.region`}
+				name={`regionPlans.${index}.regionId`}
 				render={({ field: regionField }) => (
 					<FormItem className="col-span-3 md:col-span-3">
 						<FormLabel>Region {index + 1}</FormLabel>
@@ -113,7 +113,7 @@ export function RegionFormInputs({
 			/>
 			<FormField
 				control={control}
-				name={`regions.${index}.planType`}
+				name={`regionPlans.${index}.planId`}
 				render={({ field: planTypeSelectionField }) => (
 					<FormItem className="col-span-3 md:col-span-4">
 						<FormLabel>Plan Type</FormLabel>
@@ -126,7 +126,7 @@ export function RegionFormInputs({
 								{...planTypeSelectionField}
 							>
 								<SelectTrigger className="w-full truncate" title={currentPlanTypeObj?.name}>
-									<SelectValue placeholder="Choose Plan" />
+									<SelectValue placeholder="Choose a Plan" />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectGroup>
@@ -153,7 +153,7 @@ export function RegionFormInputs({
 			/>
 			<FormField
 				control={control}
-				name={`regions.${index}.count`}
+				name={`regionPlans.${index}.count`}
 				render={({ field: countField }) => (
 					<FormItem className="col-span-1 md:col-span-1">
 						<FormLabel>Count</FormLabel>
@@ -177,7 +177,7 @@ export function RegionFormInputs({
 			<div className="col-span-1 md:col-span-2">
 				<FormField
 					control={control}
-					name={`regions.${index}.price`}
+					name={`regionPlans.${index}.price`}
 					render={({ field: priceField }) => (
 						<FormItem className="col-span-1 md:col-span-1">
 							<FormLabel>Price</FormLabel>
