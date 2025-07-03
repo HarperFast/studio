@@ -1,25 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
-import { SchemaCluster, SchemaOrganization } from '@/lib/api.gen';
-
-// TODO: The OpenAPI type isn't very exhaustive.
-interface Cluster extends SchemaCluster {
-	id: string;
-	name: string;
-	organizationId: string;
-	prefix: string;
-	status: 'PROVISIONING' | 'RUNNING' | 'STOPPED' | 'TERMINATED';
-}
-
-// TODO: The OpenAPI type isn't very exhaustive.
-interface Organization extends SchemaOrganization {
-	id: string;
-	name: string;
-	subdomain: string;
-	createdByUserId: string;
-	clusters?: Cluster[];
-}
+import { Organization } from '@/lib/api.patch';
 
 async function getOrganization(orgId: string): Promise<Organization | null> {
 	const { status, data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
@@ -34,6 +16,7 @@ function getOrganizationQueryOptions(orgId: string) {
 		queryKey: [queryKeys.organization, orgId],
 		queryFn: () => getOrganization(orgId),
 		retry: false,
+		refetchInterval: 10000,
 	});
 }
 

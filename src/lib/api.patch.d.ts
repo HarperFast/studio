@@ -1,4 +1,10 @@
-import { SchemaOrganizationRole, SchemaUser, SchemaHdbInstance, SchemaCluster } from '@/lib/api.gen';
+import {
+	SchemaOrganizationRole,
+	SchemaUser,
+	SchemaHdbInstance,
+	SchemaCluster,
+	SchemaOrganization,
+} from '@/lib/api.gen';
 
 /*
  * Over time, it should be our goal to empty out this file. The types here should be described by our OpenAPI docs
@@ -11,6 +17,15 @@ interface OrgRoles extends SchemaOrganizationRole {
 	organizationId: string;
 	organizationName: string; // TODO: SchemaOrganizationRole does NOT have an organizationName...
 	roleName: 'admin' | 'member';
+}
+
+// TODO: The OpenAPI type isn't very exhaustive.
+export interface Organization extends SchemaOrganization {
+	id: string;
+	name: string;
+	subdomain: string;
+	createdByUserId: string;
+	clusters?: Cluster[];
 }
 
 // TODO: The OpenAPI SchemaUser has every property as optional.
@@ -63,6 +78,8 @@ export interface Cluster extends SchemaCluster {
 	organizationId: string;
 	name: string;
 	instances: Instance[];
+	prefix: string;
+	status: 'PROVISIONING' | 'RUNNING' | 'STOPPED' | 'CLONE_READY' | 'UPDATED' | 'TERMINATED';
 }
 
 type InstanceType = {

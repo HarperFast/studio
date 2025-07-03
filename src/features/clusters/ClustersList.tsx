@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { DeleteClusterConfirmationModal } from './modals/DeleteClusterConfirmationModal';
 import { useDeleteClusterMutation } from './mutations/deleteCluster';
 import { toast } from 'sonner';
 import { queryKeys } from '@/react-query/constants';
+import { groupBy } from '@/lib/group-by';
 
 const route = getRouteApi('');
 
@@ -17,7 +18,6 @@ export function ClustersList() {
 	const queryClient = useQueryClient();
 	const { organizationId } = route.useParams();
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
-	const sortedClusters = useMemo(() => orgInfo?.clusters?.slice().sort((a, b) => a.name > b.name ? 1 : -1) || [], [orgInfo]);
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
 	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
 	const [isDeleteClusterModalOpen, setIsDeleteClusterModalOpen] = useState(false);
@@ -26,7 +26,18 @@ export function ClustersList() {
 		name: '',
 	});
 
-	const handleDeleteCluster = (clusterInfo: { id: string; name: string }) => {
+	const sortedClusters = useMemo(() => orgInfo?.clusters?.slice().sort((a, b) => a.name > b.name ? 1 : -1) || [], [orgInfo]);
+	const clustersSortedByStatus = useMemo(() => {
+		if (isSuccess && orgInfo?.clusters) {
+			const { RUNNING, CLONE_READY, UPDATED, ...others } = groupBy(orgInfo.clusters, 'status');
+			const successBuckets = [...(RUNNING || []), ...(CLONE_READY || []), ...(UPDATED || [])];
+			const otherBuckets = [...Object.values(others).flat()];
+			return { successBuckets, otherBuckets };
+		}
+		return null;
+	}, [isSuccess, orgInfo]);
+
+	const handleDeleteCluster = useCallback((clusterInfo: { id: string; name: string }) => {
 		if (clusterInfo) {
 			deleteCluster(clusterInfo.id, {
 				onSuccess: () => {
@@ -54,7 +65,7 @@ export function ClustersList() {
 				},
 			});
 		}
-	};
+	}, [deleteCluster, queryClient, setIsDeleteClusterModalOpen]);
 
 	return (
 		<>
