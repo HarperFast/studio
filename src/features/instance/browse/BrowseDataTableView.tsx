@@ -6,7 +6,7 @@ import { getDescribeTableQueryOptions } from '@/features/instance/operations/que
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
 import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
 import { EditTableRowModal } from '@/features/instance/modals/EditTableRowModal';
-import { getSearchByHashOptions } from '@/features/instance/operations/queries/getSearchByHash';
+import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
 import { PaginationState, Row } from '@tanstack/react-table';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
@@ -29,17 +29,12 @@ export function BrowseDataTableView() {
 		}),
 	);
 
-	const [searchByHashParams, setSearchByHashParams] = useState({
-		instanceId,
-		schemaName,
-		tableName,
-		hashAttribute: [''],
-	});
+	const [selectedIds, setSelectedIds] = useState<null | unknown[]>(null);
+	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-	const { data: searchByHashData } = useQuery(getSearchByHashOptions(searchByHashParams));
+	const { data: searchByIdData } = useQuery(getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds));
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
-	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [sortTableDataParams, setSortTableDataParams] = useState({
 		attribute: hash_attribute,
@@ -132,12 +127,7 @@ export function BrowseDataTableView() {
 		);
 	};
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-		setSearchByHashParams({
-			instanceId,
-			schemaName,
-			tableName,
-			hashAttribute: rowData.original[hash_attribute] as string[],
-		});
+		setSelectedIds([rowData.original[hash_attribute]]);
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
@@ -185,7 +175,7 @@ export function BrowseDataTableView() {
 			<EditTableRowModal
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
-				data={searchByHashData?.data}
+				data={searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending}
