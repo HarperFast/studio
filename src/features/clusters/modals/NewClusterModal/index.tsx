@@ -19,6 +19,7 @@ import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuer
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { Input } from '@/components/ui/input';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { SchemaCluster } from '@/lib/api.gen';
 
 export const NewClusterSchema = z.object({
 	name: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
@@ -75,7 +76,7 @@ export function NewClusterModal({
 	const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
 
 	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
-		const updatedFormData = {
+		const updatedFormData: SchemaCluster = {
 			organizationId: orgId,
 			...formData,
 		};
