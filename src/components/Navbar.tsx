@@ -8,12 +8,12 @@ import {
 	NavigationMenuItem,
 	NavigationMenuLink,
 	NavigationMenuList,
-} from '@/components/ui/navigation-menu';
+} from '@/components/ui/navigationMenu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
-import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 import { queryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
-import { notYetImplemented } from '@/lib/not-yet-implemented';
+import { notYetImplemented } from '@/lib/notYetImplemented';
 import { isLocalStudio } from '@/config/constants';
 import { useLocalSignOutMutation } from '@/features/auth/hooks/useLocalSignOut';
 
@@ -176,7 +176,7 @@ function Logo() {
 
 const useSignOut = isLocalStudio ? useLocalSignOutMutation : useSignOutMutation;
 
-export function NavBar() {
+export function Navbar() {
 	const { mutate: signOut } = useSignOut();
 	const navigate = useNavigate();
 	const { user, setUser } = useAuthenticationContext();

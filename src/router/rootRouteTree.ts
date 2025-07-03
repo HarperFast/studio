@@ -1,7 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
-import { rootRoute } from '@/router/root-route';
+import { rootRoute } from '@/router/rootRoute';
 import { authRouteTree, localAuthRouteTree } from '@/features/auth/routes';
-import { dashboardLayout } from '@/router/dashboard-route';
+import { dashboardLayout } from '@/router/dashboardRoute';
 import { instanceLayoutRoute, instanceRouteTree } from '@/features/instance/routes';
 import { profileRouteTree } from '@/features/profile/routes';
 import { orgsLayoutRoute, orgsRouteTree } from '@/features/organizations/routes';

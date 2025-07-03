@@ -1,4 +1,4 @@
-import { isValidUrl } from '@/shared/functions/isValidUrl';
+import { isValidUrl } from '@/lib/isValidUrl';
 
 export function isValidTarballUrl(url: string) {
 	// npm restrictions on the tarball url install here: https://docs.npmjs.com/cli/v9/commands/npm-install

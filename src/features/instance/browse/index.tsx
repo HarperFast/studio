@@ -2,7 +2,7 @@ import { Suspense, useCallback, useMemo } from 'react';
 import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
 import { buildInstanceDataStructure } from '@/features/instance/browse/functions/buildInstanceDataStructure';
 import { Loading } from '@/components/Loading';
-import { BrowseSidebar as BrowseSideBar } from '@/features/instance/browse/components/BrowseSideBar';
+import { BrowseSidebar } from '@/features/instance/browse/components/BrowseSidebar';
 import { DescribeAllResponse } from '@/features/instance/operations/queries/getDescribeAll';
 
 const route = getRouteApi('');
@@ -37,7 +37,7 @@ export function Browse() {
 	return (
 		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3">
-				<BrowseSideBar
+				<BrowseSidebar
 					databases={databaseList}
 					onSelectDatabase={onSelectDatabase}
 					onSelectTable={onSelectTable}

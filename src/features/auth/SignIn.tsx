@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 
 const SignInSchema = z.object({
 	email: z

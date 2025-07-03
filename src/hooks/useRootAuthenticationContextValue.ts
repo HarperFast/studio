@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
 import { apiClient } from '@/config/apiClient';
-import { AuthenticationContextType } from '@/contexts/authentication-context';
+import { AuthenticationContextType } from '@/contexts/authenticationContext';
 import { isLocalStudio } from '@/config/constants';
 import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 

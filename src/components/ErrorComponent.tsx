@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 
 export function ErrorComponent({ error }: { error: Error }) {
 	const { user, isLoading: isUserLoading } = useAuthenticationContext();

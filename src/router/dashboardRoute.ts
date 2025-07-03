@@ -1,5 +1,5 @@
 import { createRoute, redirect } from '@tanstack/react-router';
-import { rootRoute } from '@/router/root-route';
+import { rootRoute } from '@/router/rootRoute';
 import { Dashboard } from '@/features/layouts/Dashboard';
 
 export const dashboardLayout = createRoute({

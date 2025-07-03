@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useIsomorphicLayoutEffect } from '@/hooks/use-isomorphic-layout-effect';
+import { useIsomorphicLayoutEffect } from '@/hooks/useIsomorphicLayoutEffect';
 
 export function useInterval(callback: () => void, delay: number | null) {
 	const savedCallback = useRef(callback);

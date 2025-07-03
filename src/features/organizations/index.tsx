@@ -2,10 +2,10 @@ import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
-import { useAuthenticationContext } from '@/hooks/use-authentication-context';
+import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
-import { notYetImplemented } from '@/lib/not-yet-implemented';
-import { isLocalUser } from '@/contexts/authentication-context';
+import { notYetImplemented } from '@/lib/notYetImplemented';
+import { isLocalUser } from '@/contexts/authenticationContext';
 
 export function OrganizationsIndex() {
 	const { user } = useAuthenticationContext();
