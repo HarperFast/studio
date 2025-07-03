@@ -30,6 +30,7 @@ type ColumnTypes = {
 	storage: string;
 	cpu: string;
 	memory: string;
+	operationsApiPort: number; // Added property
 };
 
 function EmptyCluster() {
@@ -70,6 +71,7 @@ export function ClusterIndex() {
 								<InstanceLogInModal
 									instanceId={cell.row.original.id}
 									instanceUrl={instanceURL}
+									port={cell.row.original.operationsApiPort}
 									instanceName={cell.row.original.name}
 								/>
 							) : (
