@@ -16,8 +16,6 @@ import { z } from 'zod';
 import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
-// import { useQueryClient } from '@tanstack/react-query';
-// import { queryKeys } from '@/react-query/constants';
 import { InstanceLoginCredentials } from '@/features/instance/operations/mutations/readInstanceLogin';
 import { useCluster } from '../hooks/useCluster';
 
@@ -32,10 +30,12 @@ const NewClusterSchema = z.object({
 
 export function InstanceLogInModal({
 	instanceUrl,
+	port,
 	instanceName,
 }: {
 	instanceId: string;
 	instanceUrl: string;
+	port: number;
 	instanceName: string;
 }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,26 +51,22 @@ export function InstanceLogInModal({
 	const submitForm = async (formData: { username: string; password: string }) => {
 		const updatedFormData = {
 			instanceUrl,
+			port, // Default port for HarperDB instances
 			...formData,
 		} as InstanceLoginCredentials;
 		try {
-			await clusterAuth.login(updatedFormData);
+			const response = await clusterAuth.login(updatedFormData);
 			setIsModalOpen(false);
-			toast.success('Logged in to instance');
+			if (response.success) {
+				toast.success(`${response.message}`);
+			} else {
+				toast.error(`Failed to log in: ${response.message}`);
+			}
 			form.reset();
 		} catch (error) {
 			toast.error(`Error: ${error}`);
 			return;
 		}
-		// submitInstanceLoginInfo(updatedFormData, {
-		// 	onSuccess: ({ message }) => {
-		// 		// queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-		// 		setIsModalOpen(false);
-		// 		onInstanceLogin?.();
-		// 		toast.success(message);
-		// 		form.reset();
-		// 	},
-		// });
 	};
 
 	return (
