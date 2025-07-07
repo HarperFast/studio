@@ -19,7 +19,8 @@ const onInstanceLoginSubmit = async ({
 	username,
 	password,
 }: InstanceLoginCredentials): Promise<InstanceLoginResponse> => {
-	const { data } = await instanceClient.post(`${instanceUrl}:${port}`, {
+	const url = instanceUrl.includes(':') ? instanceUrl : `${instanceUrl}:${port}`;
+	const { data } = await instanceClient.post(url, {
 		operation: 'login',
 		username,
 		password,
