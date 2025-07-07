@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
+import { authStore } from '@/lib/authStore';
 
 const SignInSchema = z.object({
 	email: z
@@ -30,7 +30,6 @@ export function SignIn() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
-	const { setUser } = useAuthenticationContext();
 
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
@@ -45,7 +44,7 @@ export function SignIn() {
 	const submitForm = (formData: z.infer<typeof SignInSchema>) => {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
-				setUser(data);
+				authStore.setUser('global', data);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/orgs' });

@@ -1,16 +1,17 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
-import { LocalUser } from '@/lib/api.patch';
+import { InstanceLoginResponse } from '@/features/instance/operations/mutations/readInstanceLogin';
 
 export type InstanceLoginCredentials = {
 	username: string;
 	password: string;
 };
 
+// TODO: Combine with onInstanceLoginSubmit
 export async function onInstanceLoginSubmit({
 	username,
 	password,
-}: InstanceLoginCredentials): Promise<LocalUser> {
+}: InstanceLoginCredentials): Promise<InstanceLoginResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
@@ -24,7 +25,7 @@ export async function onInstanceLoginSubmit({
 }
 
 export function useLocalSignIn() {
-	return useMutation<LocalUser, Error, InstanceLoginCredentials>({
+	return useMutation<InstanceLoginResponse, Error, InstanceLoginCredentials>({
 		mutationFn: (instanceData) => onInstanceLoginSubmit(instanceData),
 	});
 }

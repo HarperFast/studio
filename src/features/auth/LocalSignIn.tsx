@@ -6,9 +6,11 @@ import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient } from '@tanstack/react-query';
+import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { authStore } from '@/lib/authStore';
+import { toast } from 'sonner';
 
 const LocalSignInSchema = z.object({
 	username: z
@@ -29,7 +31,6 @@ export function LocalSignIn() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
-	const { setUser } = useAuthenticationContext();
 
 	const form = useForm<z.infer<typeof LocalSignInSchema>>({
 		resolver: zodResolver(LocalSignInSchema),
@@ -44,7 +45,9 @@ export function LocalSignIn() {
 	const submitForm = async (formData: z.infer<typeof LocalSignInSchema>) => {
 		submitLocalSignInCredentials(formData, {
 			onSuccess: async (data) => {
-				setUser(data);
+				toast.success(data.message);
+				const user = await getUserInfo();
+				authStore.setUser('global', user);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
@@ -66,6 +69,7 @@ export function LocalSignIn() {
 									<FormLabel>Instance User</FormLabel>
 									<FormControl>
 										<Input
+											autoComplete="username"
 											type="text"
 											placeholder="harpersys"
 											className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"

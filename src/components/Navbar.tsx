@@ -10,12 +10,11 @@ import {
 	NavigationMenuList,
 } from '@/components/ui/navigationMenu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
-import { queryClient } from '@/react-query/queryClient';
 import { toast } from 'sonner';
 import { notYetImplemented } from '@/lib/notYetImplemented';
 import { isLocalStudio } from '@/config/constants';
 import { useLocalSignOutMutation } from '@/features/auth/hooks/useLocalSignOut';
+import { useAuth } from '@/hooks/useAuth';
 
 const activeLinkProps = { className: 'text-white' };
 
@@ -42,18 +41,18 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 				} md:hidden space-y-1 pb-3 bg-black-dark absolute left-0 top-full w-full rounded-b-md`}
 			>
 				{!isLocalStudio && <Link
-					to="/orgs"
-					className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md">
-					<BuildingIcon className="mr-4" />
-					Organizations
-				</Link>}
+									to="/orgs"
+									className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md">
+									<BuildingIcon className="mr-4" />
+									Organizations
+								</Link>}
 				{!isLocalStudio && <Link
-					to="/profile"
-					className="flex flex-row items-center px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
-				>
-					<UserIcon className="mr-4" />
-					Profile
-				</Link>}
+									to="/profile"
+									className="flex flex-row items-center px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
+								>
+									<UserIcon className="mr-4" />
+									Profile
+								</Link>}
 				<Link
 					to="/docs"
 					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
@@ -89,19 +88,19 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 				<NavigationMenu>
 					<NavigationMenuList className="text-grey-400">
 						{!isLocalStudio && <NavigationMenuItem>
-							<NavigationMenuLink asChild>
-								<Link to="/orgs" className="flex-row items-center" activeProps={activeLinkProps}>
-									<BuildingIcon /> Organizations
-								</Link>
-							</NavigationMenuLink>
-						</NavigationMenuItem>}
+													<NavigationMenuLink asChild>
+														<Link to="/orgs" className="flex-row items-center" activeProps={activeLinkProps}>
+															<BuildingIcon /> Organizations
+														</Link>
+													</NavigationMenuLink>
+												</NavigationMenuItem>}
 						{!isLocalStudio && <NavigationMenuItem>
-							<NavigationMenuLink asChild>
-								<Link to="/profile" className="flex-row items-center" activeProps={activeLinkProps}>
-									<UserIcon /> <span className="hidden lg:inline-block">Profile</span>
-								</Link>
-							</NavigationMenuLink>
-						</NavigationMenuItem>}
+													<NavigationMenuLink asChild>
+														<Link to="/profile" className="flex-row items-center" activeProps={activeLinkProps}>
+															<UserIcon /> <span className="hidden lg:inline-block">Profile</span>
+														</Link>
+													</NavigationMenuLink>
+												</NavigationMenuItem>}
 						<NavigationMenuItem>
 							<NavigationMenuLink asChild>
 								<Link to="https://docs.harperdb.io/docs" target="_blank" rel="noreferrer noopener"
@@ -179,18 +178,11 @@ const useSignOut = isLocalStudio ? useLocalSignOutMutation : useSignOutMutation;
 export function Navbar() {
 	const { mutate: signOut } = useSignOut();
 	const navigate = useNavigate();
-	const { user, setUser } = useAuthenticationContext();
+	const { user } = useAuth();
 	const router = useRouter();
 	const handleSignOut = useCallback(() => {
 		signOut(undefined, {
 			onSuccess: async () => {
-				const loadingId = toast.loading('Signing out');
-				setUser(null);
-				queryClient.getQueryCache().clear();
-				await queryClient.invalidateQueries();
-				router.invalidate();
-				await navigate({ to: '/' });
-				toast.dismiss(loadingId);
 				toast.success('Success', {
 					description: 'You have been signed out successfully.',
 					action: {
@@ -198,9 +190,11 @@ export function Navbar() {
 						onClick: () => toast.dismiss(),
 					},
 				});
+				await navigate({ to: '/' });
+				router.invalidate();
 			},
 		});
-	}, [signOut, setUser, router, navigate]);
+	}, [signOut, router, navigate]);
 	if (!user) {
 		return <AnonymousNav />;
 	}

@@ -1,19 +1,10 @@
 import { Outlet } from '@tanstack/react-router';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
-// import { useUserInfoMutation } from '@/hooks/instance/useUserInfo';
-// import { useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 
 export function Dashboard() {
-	const { isLoading: isUserLoading } = useAuthenticationContext();
-	// const { mutate: submitUserInfoData, data: userInfo, isPending: isUserInfoLoading } = useUserInfoMutation();
-
-	// useEffect(() => {
-	// 	if (isLocalStudio && !userInfo && !isUserInfoLoading) {
-	// 		submitUserInfoData();
-	// 	}
-	// }, [isUserInfoLoading, submitUserInfoData, userInfo]);
+	const { isLoading: isUserLoading } = useAuth();
 
 	if (isUserLoading) {
 		return <Loading className="fixed z-50 translate-1/2" />;

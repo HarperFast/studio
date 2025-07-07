@@ -53,7 +53,7 @@ export function InstanceLogInModal({
 			instanceUrl,
 			port, // Default port for HarperDB instances
 			...formData,
-		} as InstanceLoginCredentials;
+		} satisfies InstanceLoginCredentials;
 		try {
 			const response = await clusterAuth.login(updatedFormData);
 			setIsModalOpen(false);

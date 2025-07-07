@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
+import { signOutOnSuccess } from '@/features/auth/hooks/signOutOnSuccess';
 
 type LogoutInfoResponse = {
 	message: string;
@@ -19,5 +20,6 @@ export async function onInstanceLogoutSubmit(): Promise<LogoutInfoResponse> {
 export function useLocalSignOutMutation() {
 	return useMutation<LogoutInfoResponse, Error>({
 		mutationFn: () => onInstanceLogoutSubmit(),
+		onSuccess: signOutOnSuccess,
 	});
 }

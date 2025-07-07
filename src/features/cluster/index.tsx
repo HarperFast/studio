@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { EditInstanceModal } from './modals/EditInstanceModal';
 import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 // import { useRegistrationInfo } from '@/hooks/instance/useRegistrationInfo';
-import { InstanceLogInModal } from './modals/InstanceLoginInModal';
+import { InstanceLogInModal } from './modals/InstanceLoginModal';
 import { renderInstanceTypeOption, InstanceTypes } from '@/lib/InstanceType';
 import { useCluster } from '@/features/cluster/hooks/useCluster';
 
