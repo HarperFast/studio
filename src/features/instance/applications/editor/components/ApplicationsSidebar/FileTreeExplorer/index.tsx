@@ -1,4 +1,5 @@
 import { GetComponentsResponse, DirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import './filetree.css';
 import { useState } from 'react';
 
 // import cn from 'classnames';
@@ -65,7 +66,7 @@ function ProjectIcon({
 		<i
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
-			// className={cn(`project-icon fas fa-file-code`)}
+			className={`project-icon fas fa-file-code text-green`}
 			tabIndex={0}
 			aria-expanded={isOpen}
 			aria-controls="folder"
@@ -87,7 +88,7 @@ function FolderIcon({
 		<i
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
-			// className={cn(`folder-icon fas ${isOpen ? 'fa-folder-open' : 'fa-folder'}`)}
+			className={`folder-icon fas text-purple ${isOpen ? 'fa-folder-open' : 'fa-folder'}`}
 			tabIndex={0}
 			aria-expanded={isOpen}
 			aria-controls="folder"
@@ -100,10 +101,35 @@ function FolderIcon({
 function FiletypeIcon({ extension }: { extension: string | null }) {
 	switch (extension) {
 		case 'js':
-			// return <i className={cn('file-icon filetype-js fab fa-js')} />;
-			return <i className={'file-icon filetype-js fab fa-js'} />;
+			return <i className={'file-icon filetype-js fab fa-js text-yellow'} />;
+		case 'jsx':
+			return <i className={'file-icon filetype-jsx fab fa-js text-yellow'} />;
+		case 'cjs':
+			return <i className={'file-icon filetype-cjs fab fa-js text-yellow'} />;
 		case 'yaml':
-			return <i className={'file-icon filetype-yaml fas fa-cog'} />;
+			return <i className={'file-icon filetype-yaml fas fa-file'} />;
+		case 'css':
+			return <i className={'file-icon filetype-css fas fa-file text-blue'} />;
+		case 'html':
+			return <i className={'file-icon filetype-html fas fa-html5 text-orange'} />;
+		case 'json':
+			return <i className={'file-icon filetype-json fas fa-cog'} />;
+		case 'ts':
+			return <i className={'file-icon filetype-ts fas fa-file text-blue'} />;
+		case 'tsx':
+			return <i className={'file-icon filetype-tsx fas fa-file text-blue'} />;
+		case 'png':
+			return <i className={'file-icon filetype-png fas fa-image'} />;
+		case 'jpg':
+			return <i className={'file-icon filetype-jpg fas fa-image'} />;
+		case 'jpeg':
+			return <i className={'file-icon filetype-jpeg fas fa-image'} />;
+		case 'gif':
+			return <i className={'file-icon filetype-gif fas fa-image'} />;
+		case 'svg':
+			return <i className={'file-icon filetype-svg fas fa-file-svg'} />;
+		case 'vue':
+			return <i className={'file-icon filetype-vue fab fa-vuejs text-green'} />;
 		default:
 			return <i className={'file-icon filetype-unknown far fa-file-alt'} />;
 	}
@@ -218,7 +244,8 @@ function File({
 			// onKeyDown={noOp}
 		>
 			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
-			{Icon ? <Icon /> : null}.<span className="filename-text">{directoryEntry.name}</span>
+			{Icon ? <Icon /> : null}
+			<span className="filename-text">{directoryEntry.name}</span>
 		</button>
 	);
 }
@@ -242,7 +269,7 @@ function Folder({
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
 	const fileExtension = parseFileExtension(directoryEntry.name);
 
-	let Icon;
+	let Icon: React.ComponentType<HTMLElement>;
 	// top-level dir === package
 	// FolderIcon/PackageIcon is func so we can give it open args now, but instantiate it later.
 	if (directoryEntry.path && directoryEntry.path.split('/').length === 2) {
@@ -260,11 +287,12 @@ function Folder({
 				directoryEntry.name !== 'components' ? (
 					<li
 						key={directoryEntry.key}
-						// className={cn(
-						// 	`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
-						// 		open ? 'folder-open' : 'folder-closed'
-						// 	}`
-						// )}
+						className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
+							open ? 'folder-open' : 'folder-closed'
+						}`}
+						// className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
+						// 	open ? 'folder-open' : 'folder-closed'
+						// }`}
 					>
 						{directoryEntry.package ? (
 							<Package
@@ -295,13 +323,7 @@ function Folder({
 
 			{entries.map((entry) => (
 				<li key={entry.key}>
-					<ul
-					// className={cn('folder', {
-					// 	// TODO: fix this logic, folders aren't closing.
-					// 	'folder-contents-open': true,
-					// 	'folder-contents-closed': false,
-					// })}
-					>
+					<ul className="pl-1">
 						<Folder
 							// selectedFile={selectedFile}
 							// selectedFolder={selectedFolder}
