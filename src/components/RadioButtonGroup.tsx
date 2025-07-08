@@ -5,7 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { Label } from '@/components/ui/label';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/cn';
 import { Controller, type Control, type FieldValues, type FieldPath } from 'react-hook-form';
 
 interface RadioButtonOption {
