@@ -17,7 +17,6 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
-
 class AuthStore {
 	private readonly users: Record<AuthenticatedConnectionKey, User | LocalUser | null> = {};
 	private readonly loading: Record<AuthenticatedConnectionKey, boolean> = {};

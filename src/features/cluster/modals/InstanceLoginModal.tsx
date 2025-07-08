@@ -33,8 +33,8 @@ export function InstanceLogInModal({
 	instanceName,
 	operationsUrl,
 }: {
-	instanceName: string;
-	operationsUrl: string;
+	readonly instanceName: string;
+	readonly operationsUrl: string;
 }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({

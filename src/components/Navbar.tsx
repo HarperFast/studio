@@ -23,7 +23,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 	return (
 		<div className="md:hidden" id="mobile-menu">
 			<div className="flex items-center justify-between">
-				<Link to="/orgs"><Logo /></Link>
+				<Link to={ isLocalStudio ? "/browse" : "/orgs" }><Logo /></Link>
 				<button
 					type="button"
 					className="shadow-xs text-grey-400 hover:text-white hover:bg-black-dark"
@@ -83,7 +83,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 		<div className="hidden md:block">
 			<div className="flex items-center justify-between">
 				<div className="inline-block">
-					<Link to="/orgs"><Logo /></Link>
+					<Link to={ isLocalStudio ? "/browse" : "/orgs" }><Logo /></Link>
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-grey-400">

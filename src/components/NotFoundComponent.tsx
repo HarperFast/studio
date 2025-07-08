@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { isLocalStudio } from '@/config/constants';
 
 export function NotFoundComponent() {
 	const { user, isLoading: isUserLoading } = useAuth();
@@ -16,10 +17,10 @@ export function NotFoundComponent() {
 				</CardHeader>
 				<CardContent>
 					{user && !isUserLoading ? (
-						<Link to="/orgs">
+						<Link to={ isLocalStudio ? "/browse" : "/orgs" }>
 							<Button>
 								{' '}
-								<ArrowLeft /> See Orgs List
+								<ArrowLeft /> Return to Home
 							</Button>
 						</Link>
 					) : (

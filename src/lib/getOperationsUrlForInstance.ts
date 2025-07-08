@@ -1,7 +1,7 @@
 import { Instance } from '@/lib/api.patch';
 
 export function getOperationsUrlForInstance(instance: Instance): string {
-	const url = new URL(instance.instanceFqdn!);
+	const url = new URL(instance.instanceFqdn);
 	if (instance.operationsApiPort) {
 		url.port = String(instance.operationsApiPort);
 	}

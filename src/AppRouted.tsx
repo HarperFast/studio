@@ -12,8 +12,8 @@ export function AppRouted() {
 	const router = createRouter({
 		routeTree: rootRouteTree,
 		history: hashHistory,
-		defaultNotFoundComponent: () => <NotFoundComponent />,
-		defaultErrorComponent: ({ error }) => <ErrorComponent error={error} />,
+		defaultNotFoundComponent: NotFoundComponent,
+		defaultErrorComponent: ErrorComponent,
 		defaultPreload: 'intent',
 		// Since we're using React Query, we don't want loader calls to ever be stale
 		// This will ensure that the loader is always called when the route is preloaded or visited
