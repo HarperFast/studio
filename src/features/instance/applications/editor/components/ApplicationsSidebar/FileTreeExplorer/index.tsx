@@ -236,6 +236,7 @@ function File({
 	return (
 		<button
 			type="button"
+			className="whitespace-nowrap"
 			// onClick={handleToggleSelected}
 			// // className={cn('file', {
 			// // 	'file-selected': isFileSelected,
@@ -244,8 +245,8 @@ function File({
 			// onKeyDown={noOp}
 		>
 			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
-			{Icon ? <Icon /> : null}
-			<span className="filename-text">{directoryEntry.name}</span>
+			{Icon ? <Icon /> : ''}
+			<span className="pl-2 filename-text">{directoryEntry.name}</span>
 		</button>
 	);
 }
@@ -323,7 +324,7 @@ function Folder({
 
 			{entries.map((entry) => (
 				<li key={entry.key}>
-					<ul className="pl-1">
+					<ul className="pl-2">
 						<Folder
 							// selectedFile={selectedFile}
 							// selectedFolder={selectedFolder}
