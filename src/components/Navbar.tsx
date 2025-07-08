@@ -13,7 +13,7 @@ import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
 import { toast } from 'sonner';
 import { notYetImplemented } from '@/lib/notYetImplemented';
 import { isLocalStudio } from '@/config/constants';
-import { useLocalSignOutMutation } from '@/features/auth/hooks/useLocalSignOut';
+import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
 import { useAuth } from '@/hooks/useAuth';
 
 const activeLinkProps = { className: 'text-white' };
@@ -173,7 +173,7 @@ function Logo() {
 	</>;
 }
 
-const useSignOut = isLocalStudio ? useLocalSignOutMutation : useSignOutMutation;
+const useSignOut = isLocalStudio ? useInstanceLogoutMutation : useSignOutMutation;
 
 export function Navbar() {
 	const { mutate: signOut } = useSignOut();

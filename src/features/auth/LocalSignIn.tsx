@@ -1,5 +1,5 @@
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useLocalSignIn } from '@/features/auth/hooks/useLocalSignIn';
+import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,12 +40,12 @@ export function LocalSignIn() {
 		},
 	});
 
-	const { mutate: submitLocalSignInCredentials } = useLocalSignIn();
+	const { mutate: submitInstanceLogin } = useInstanceLoginMutation();
 
 	const submitForm = async (formData: z.infer<typeof LocalSignInSchema>) => {
-		submitLocalSignInCredentials(formData, {
-			onSuccess: async (data) => {
-				toast.success(data.message);
+		submitInstanceLogin(formData, {
+			onSuccess: async (response) => {
+				toast.success(response.message);
 				const user = await getUserInfo();
 				authStore.setUser('global', user);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });

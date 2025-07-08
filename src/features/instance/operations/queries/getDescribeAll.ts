@@ -8,12 +8,12 @@ type DBTableInfo = {
 	[key: string]: unknown;
 };
 
-type DescribeAllResponse = {
+export type DescribeAllResponse = {
 	[key: string]: {
 		[key: string]: DBTableInfo;
 	};
 };
-function getDescribeAllQueryOptions(instanceId?: string) {
+export function getDescribeAllQueryOptions(instanceId?: string) {
 	return queryOptions({
 		queryKey: [instanceId, 'describe_all'] as const,
 		queryFn: async () => {
@@ -25,6 +25,3 @@ function getDescribeAllQueryOptions(instanceId?: string) {
 		retry: false,
 	});
 }
-
-export { getDescribeAllQueryOptions };
-export type { DescribeAllResponse };

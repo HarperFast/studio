@@ -1,13 +1,14 @@
-import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
 import { useEffect, useMemo, useState } from 'react';
 import { isLocalStudio } from '@/config/constants';
-import { isHDBInstance } from '@/lib/types/isHDBInstance';
+import { isInstance } from '@/lib/types/isInstance';
 import { isCluster } from '@/lib/types/isCluster';
 import { AuthenticatedConnection, AuthenticatedConnectionKey, authStore } from '@/lib/authStore';
+import { Cluster, Instance } from '@/lib/api.patch';
+import { getOperationsUrlForInstance } from '@/lib/getOperationsUrlForInstance';
 
 export function useAuth(): AuthenticatedConnection;
-export function useAuth(entity: SchemaHdbInstance | SchemaCluster | null): AuthenticatedConnection;
-export function useAuth(entity?: SchemaHdbInstance | SchemaCluster | null): AuthenticatedConnection {
+export function useAuth(entity: Instance | Cluster | null): AuthenticatedConnection;
+export function useAuth(entity?: Instance | Cluster | null): AuthenticatedConnection {
 	const key = useMemo(() =>
 		calculateKeyFromEntity(entity), [entity]);
 	const [connection, setConnection] = useState<AuthenticatedConnection>({ user: null, isLoading: true });
@@ -18,14 +19,15 @@ export function useAuth(entity?: SchemaHdbInstance | SchemaCluster | null): Auth
 	return connection;
 }
 
-function calculateKeyFromEntity(entity?: SchemaHdbInstance | SchemaCluster | null): AuthenticatedConnectionKey | undefined {
+function calculateKeyFromEntity(entity?: Instance | Cluster | null): AuthenticatedConnectionKey | undefined {
 	if (isLocalStudio || entity === undefined) {
 		return 'global';
 	}
-	if (isHDBInstance(entity)) {
-		return entity.instanceFqdn;
+	if (isInstance(entity)) {
+		return getOperationsUrlForInstance(entity);
 	}
 	if (isCluster(entity)) {
+		// TODO: Do we need to add the port and other stuff to the fqdn for the cluster like we did for an instance?
 		return entity.fqdn;
 	}
 	return undefined;

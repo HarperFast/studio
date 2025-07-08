@@ -108,7 +108,7 @@ class AuthStore {
 					user = await getCloudUser();
 				}
 			} else if (key) {
-				user = await getUserInfo({ queryKey: ['user_info', key] });
+				user = await getUserInfo({ operationsUrl: key });
 			}
 		} catch (error) {
 			// TODO: Only catch the errors we expect here (401? 403? w/e)
@@ -120,7 +120,6 @@ class AuthStore {
 		} else {
 			this.flagKeyAsSignedOut(key);
 		}
-		console.log('ok so key check:', key, user);
 		this.users[key] = user;
 		this.loading[key] = false;
 	}

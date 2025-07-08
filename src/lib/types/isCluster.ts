@@ -1,5 +1,5 @@
-import { SchemaCluster } from '@/lib/api.gen';
+import { Cluster } from '@/lib/api.patch';
 
-export function isCluster(value: unknown): value is SchemaCluster {
-	return !!(value as SchemaCluster)?.fqdn;
+export function isCluster(value: unknown): value is Cluster {
+	return !!(value as Cluster)?.fqdn;
 }
