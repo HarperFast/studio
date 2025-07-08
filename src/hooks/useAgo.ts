@@ -21,7 +21,7 @@ export function useAgo(msOrDate: number | Date | undefined | null): string {
 	return formattedDate;
 }
 
-function translateSecondsToAgo(secondsElapsed: number): string {
+export function translateSecondsToAgo(secondsElapsed: number): string {
 	if (secondsElapsed < 45) {
 		return 'a few seconds ago';
 	}
