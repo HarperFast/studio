@@ -14,5 +14,8 @@ export default defineConfig({
 	build: {
 		outDir: 'web',
 		emptyOutDir: true,
+		rollupOptions: {
+			external: ['**/*.test.*', '**/*.spec.*'],
+		},
 	},
 });

@@ -11,7 +11,9 @@
 		"fetch:types": "mkdir -p dist && curl --location 'http://127.0.0.1:9926/openapi' -u \"$HDB_ADMIN_USERNAME_FOR_OPENAPI:$HDB_ADMIN_PASSWORD_FOR_OPENAPI\" -o ./dist/central-manager.json",
 		"gen:types": "npx -y dotenv-cli -e .env.local -- npm run fetch:types && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o ./src/lib/api.gen.d.ts",
 		"lint": "eslint .",
-		"preview": "vite preview"
+		"preview": "vite preview",
+		"test": "vitest run",
+		"test:watch": "vitest"
 	},
 	"dependencies": {
 		"@hookform/resolvers": "^4.1.2",
@@ -61,7 +63,8 @@
 		"oxlint": "^0.15.12",
 		"typescript": "~5.7.2",
 		"typescript-eslint": "^8.22.0",
-		"vite": "^6.1.0"
+		"vite": "^6.1.0",
+		"vitest": "^3.2.4"
 	},
 	"packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
 }
