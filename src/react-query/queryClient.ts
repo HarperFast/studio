@@ -2,11 +2,13 @@ import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AxiosError } from 'axios';
 
-function errorHandler(rawErr: unknown) {
+export function errorHandler(rawErr: unknown) {
 	let errorMsg = 'We had some trouble!';
 	const axiosErr = rawErr as AxiosError<{ error?: string; message?: string; }>;
 	const otherErr = rawErr as { message?: string; };
-	if (axiosErr?.response?.data) {
+	if (typeof rawErr === 'string') {
+		errorMsg = rawErr;
+	} else if (axiosErr?.response?.data) {
 		if (axiosErr.response.data.error) {
 			errorMsg = axiosErr.response.data.error;
 		} else if (axiosErr.response.data.message) {
