@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
+import { signOutOnSuccess } from '@/features/auth/handlers/signOutOnSuccess';
 
 export async function onSignOutSubmit() {
 	await apiClient.post('/Logout/');
@@ -8,5 +9,6 @@ export async function onSignOutSubmit() {
 export function useSignOutMutation() {
 	return useMutation({
 		mutationFn: () => onSignOutSubmit(),
+		onSuccess: signOutOnSuccess,
 	});
 }

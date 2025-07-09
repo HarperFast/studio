@@ -1,21 +1,26 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
-import { LocalUser } from '@/lib/api.patch';
 
 export type InstanceLoginCredentials = {
 	username: string;
 	password: string;
+	operationsUrl?: string;
+};
+
+type LoginInfoResponse = {
+	message: string;
 };
 
 export async function onInstanceLoginSubmit({
 	username,
 	password,
-}: InstanceLoginCredentials): Promise<LocalUser> {
+	operationsUrl,
+}: InstanceLoginCredentials): Promise<LoginInfoResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
 		password,
-	});
+	}, { baseURL: operationsUrl });
 	if (data) {
 		return data;
 	} else {
@@ -23,8 +28,8 @@ export async function onInstanceLoginSubmit({
 	}
 }
 
-export function useLocalSignIn() {
-	return useMutation<LocalUser, Error, InstanceLoginCredentials>({
+export function useInstanceLoginMutation() {
+	return useMutation<LoginInfoResponse, Error, InstanceLoginCredentials>({
 		mutationFn: (instanceData) => onInstanceLoginSubmit(instanceData),
 	});
 }

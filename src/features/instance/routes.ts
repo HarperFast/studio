@@ -30,7 +30,9 @@ export const instanceLayoutRoute = isLocalStudio
 		getParentRoute: () => clusterLayoutRoute,
 		path: 'instance/$instanceId',
 		component: InstanceLayout,
-		loader: async (opts) => {
+		beforeLoad: async (opts) => {
+			// "beforeLoad" must resolve before "loader"s are invoked in parallel, which is perfect, because we need
+			// it to set our instanceClient baseURL!
 			return await opts.context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(opts.params.instanceId));
 		},
 	});

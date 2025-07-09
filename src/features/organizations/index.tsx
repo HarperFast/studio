@@ -1,11 +1,12 @@
 import { OrgCard } from '@/features/organizations/components/OrgCard';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
-import { isLocalUser } from '@/contexts/authenticationContext';
+import { isLocalUser } from '@/lib/types/isLocalUser';
+import { useAuth } from '@/hooks/useAuth';
 import { useMemo } from 'react';
 
 export function OrganizationsIndex() {
-	const { user } = useAuthenticationContext();
+	const { user } = useAuth();
+
 	if (isLocalUser(user)) {
 		throw new Error('Local users cannot access organizations.');
 	}
@@ -34,8 +35,7 @@ export function OrganizationsIndex() {
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 					{sortedRoles.map(({ organizationId, organizationName, roleName }) => (
 						<div key={organizationId} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-							<OrgCard organizationId={organizationId} organizationName={organizationName}
-									 roleName={roleName} />
+							<OrgCard organizationId={organizationId} organizationName={organizationName} roleName={roleName} />
 						</div>
 					))}
 				</div>

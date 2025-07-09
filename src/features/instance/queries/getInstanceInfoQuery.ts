@@ -3,40 +3,7 @@ import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 import { isLocalStudio } from '@/config/constants';
 import { instanceClient } from '@/config/instanceClient';
-
-type Cluster = {
-	id: string;
-	name: string;
-	fqdn: string;
-	organizationId: string;
-};
-
-type InstanceType = {
-	id: string;
-	selfHosted: boolean;
-	useSharedProcess: boolean;
-	threads: number;
-	cpu: number;
-	memory: number;
-	readIops: number;
-	writeIops: number;
-};
-
-type Instance = {
-	id: string;
-	status: 'PROVISIONING' | 'RUNNING' | 'STOPPED' | 'TERMINATED';
-	instanceTypeId: string;
-	hostId: string;
-	createdByUserId: string;
-	instanceFqdn: string;
-	replicationHosts: string[];
-	clusterId: string;
-	name: string;
-	version: string;
-	tempPassword: string;
-	cluster: Cluster;
-	instanceType: InstanceType;
-};
+import { Instance } from '@/lib/api.patch';
 
 const getInstanceInfo = async (instanceId: string) => {
 	if (isLocalStudio) {
@@ -49,7 +16,7 @@ const getInstanceInfo = async (instanceId: string) => {
 		// This allows all subsequent API calls to use the correct base URL for the instance
 		instanceClient.defaults.baseURL = data.instanceFqdn;
 	}
-	return data as Instance;
+	return data as unknown as Instance;
 };
 
 function getInstanceInfoQueryOptions(instanceId: string) {
@@ -60,5 +27,4 @@ function getInstanceInfoQueryOptions(instanceId: string) {
 	});
 }
 
-export type { Instance, InstanceType, Cluster };
 export { getInstanceInfoQueryOptions };

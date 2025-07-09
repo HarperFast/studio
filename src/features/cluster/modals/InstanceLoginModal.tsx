@@ -15,59 +15,58 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { useState } from 'react';
-import { InstanceLoginCredentials } from '@/features/instance/operations/mutations/readInstanceLogin';
-import { useCluster } from '../hooks/useCluster';
+import { useCallback, useState } from 'react';
+import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
+import { authStore } from '@/lib/authStore';
+import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 
-const NewClusterSchema = z.object({
+const InstanceLoginSchema = z.object({
 	username: z.string({
-		message: 'Please enter a cluster name.',
+		message: 'Please enter your instance username.',
 	}),
 	password: z.string({
-		message: 'Please enter a cluster prefix.',
+		message: 'Please enter your instance password.',
 	}),
 });
 
 export function InstanceLogInModal({
-	instanceUrl,
-	port,
 	instanceName,
+	operationsUrl,
 }: {
-	instanceId: string;
-	instanceUrl: string;
-	port: number;
-	instanceName: string;
+	readonly instanceName: string;
+	readonly operationsUrl: string;
 }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
-		resolver: zodResolver(NewClusterSchema),
+		resolver: zodResolver(InstanceLoginSchema),
 		defaultValues: {
 			username: '',
 			password: '',
 		},
 	});
-	const clusterAuth = useCluster();
+	const { mutate: submitInstanceLogin } = useInstanceLoginMutation();
 
-	const submitForm = async (formData: { username: string; password: string }) => {
-		const updatedFormData = {
-			instanceUrl,
-			port, // Default port for HarperDB instances
+	// TODO: We'll want to be able to redirect the user to this page if they access an instance page without being
+	//  signed into it (with a nice redirect, ideally). So we'll want it to be a whole page I think.
+	const submitForm = useCallback((formData: z.infer<typeof InstanceLoginSchema>) => {
+		submitInstanceLogin({
 			...formData,
-		} as InstanceLoginCredentials;
-		try {
-			const response = await clusterAuth.login(updatedFormData);
-			setIsModalOpen(false);
-			if (response.success) {
-				toast.success(`${response.message}`);
-			} else {
-				toast.error(`Failed to log in: ${response.message}`);
-			}
-			form.reset();
-		} catch (error) {
-			toast.error(`Error: ${error}`);
-			return;
-		}
-	};
+			operationsUrl,
+		}, {
+			onSuccess: async (response) => {
+				toast.success(response.message);
+				const user = await getUserInfo({ operationsUrl });
+				authStore.setUser(operationsUrl, user);
+				setIsModalOpen(false);
+				form.reset();
+				// TODO: jump to the instance browse page, or a redirect
+				//  await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
+			},
+			onError: (error) => {
+				toast.error(`Failed to log in: ${error}`);
+			},
+		});
+	}, [submitInstanceLogin, operationsUrl, form]);
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>

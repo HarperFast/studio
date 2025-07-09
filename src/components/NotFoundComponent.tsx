@@ -2,10 +2,11 @@ import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { useAuthenticationContext } from '@/hooks/useAuthenticationContext';
+import { useAuth } from '@/hooks/useAuth';
+import { isLocalStudio } from '@/config/constants';
 
 export function NotFoundComponent() {
-	const { user, isLoading: isUserLoading } = useAuthenticationContext();
+	const { user, isLoading: isUserLoading } = useAuth();
 	return (
 		<div className="flex items-center justify-center h-screen px-3">
 			<Card className="text-red p-5 border border-red rounded-md w-full max-w-md">
@@ -16,10 +17,10 @@ export function NotFoundComponent() {
 				</CardHeader>
 				<CardContent>
 					{user && !isUserLoading ? (
-						<Link to="/orgs">
+						<Link to={ isLocalStudio ? "/browse" : "/orgs" }>
 							<Button>
 								{' '}
-								<ArrowLeft /> See Orgs List
+								<ArrowLeft /> Return to Home
 							</Button>
 						</Link>
 					) : (

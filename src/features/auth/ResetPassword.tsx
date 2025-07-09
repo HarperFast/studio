@@ -40,7 +40,6 @@ export function RestPassword() {
 	const { mutate: submitResetPasswordData, isPending } = useResetPasswordMutation();
 
 	const submitForm = async (formData: { password: string; confirmPassword: string }) => {
-		console.log('Form submitted with data:', formData);
 		await submitResetPasswordData(
 			{ token: token as string, password: formData.password },
 			{

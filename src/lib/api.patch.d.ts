@@ -1,4 +1,4 @@
-import { SchemaOrganizationRole, SchemaUser } from '@/lib/api.gen';
+import { SchemaOrganizationRole, SchemaUser, SchemaHdbInstance, SchemaCluster } from '@/lib/api.gen';
 
 /*
  * Over time, it should be our goal to empty out this file. The types here should be described by our OpenAPI docs
@@ -35,3 +35,43 @@ export interface LocalUser {
 		__createdtime__: number;
 	};
 }
+
+// TODO: The OpenAPI types aren't very comprehensive for these two types.
+export interface Instance extends SchemaHdbInstance {
+	cluster: Cluster;
+	clusterId: string;
+	cpuCores: string;
+	createdByUserId: string;
+	hostId: string;
+	id: string;
+	instanceFqdn: string;
+	instanceType: InstanceType; // TODO: Not seeing this in the server types
+	instanceTypeId: string; // TODO: Not seeing this in the server types
+	memoryMb: string;
+	name: string;
+	operationsApiPort: number;
+	operationsApiSecure: boolean;
+	replicationHosts: string[];
+	status: BadgeStatus;
+	storageGb: string;
+	tempPassword: string;
+	version: string;
+}
+
+export interface Cluster extends SchemaCluster {
+	id: string;
+	organizationId: string;
+	name: string;
+	instances: Instance[];
+}
+
+type InstanceType = {
+	id: string;
+	selfHosted: boolean;
+	useSharedProcess: boolean;
+	threads: number;
+	cpu: number;
+	memory: number;
+	readIops: number;
+	writeIops: number;
+};

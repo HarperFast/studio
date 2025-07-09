@@ -1,74 +1,34 @@
-// import apiClient from '@/config/apiClient';
-// import { queryKeys } from '@/react-query/constants';
-// import { useQuery, useMutation, useQueryClient, QueryCache } from '@tanstack/react-query';
-// type OrgRoles = {
-// 	id: string;
-// 	organizationId: string;
-// 	organizationName: string;
-// 	roleName: 'admin' | 'member';
-// };
-// type User = {
-// 	id: string;
-// 	email: string;
-// 	firstname: string;
-// 	lastname: string;
-// 	roles?: OrgRoles[];
-// };
+import { useEffect, useMemo, useState } from 'react';
+import { isLocalStudio } from '@/config/constants';
+import { isInstance } from '@/lib/types/isInstance';
+import { isCluster } from '@/lib/types/isCluster';
+import { AuthenticatedConnection, AuthenticatedConnectionKey, authStore } from '@/lib/authStore';
+import { Cluster, Instance } from '@/lib/api.patch';
+import { getOperationsUrlForInstance } from '@/lib/getOperationsUrlForInstance';
 
-// type SignInCredentials = {
-// 	email: string;
-// 	password: string;
-// };
+export function useAuth(): AuthenticatedConnection;
+export function useAuth(entity: Instance | Cluster | null): AuthenticatedConnection;
+export function useAuth(entity?: Instance | Cluster | null): AuthenticatedConnection {
+	const key = useMemo(() =>
+		calculateKeyFromEntity(entity), [entity]);
+	const [connection, setConnection] = useState<AuthenticatedConnection>({ user: null, isLoading: true });
+	useEffect(() =>
+		authStore.listenToKey(key, connection => {
+			setConnection(connection);
+		}), [key]);
+	return connection;
+}
 
-// export function useAuth {
-// 	const queryClient = useQueryClient();
-// 	const queryCache = new QueryCache();
-//
-// 	// const {data: user, isLoading: isUserLoading} = useQuery<User | null>({
-// 	// 	queryKey: ['user'],
-// 	// 	queryFn: async () => {
-// 	// 		const response = await apiClient.get('/User/current' as '/User/{id}');
-// 	// 		if (response.status == 200 && response.data) {
-// 	// 			return response.data as User;
-// 	// 		}
-// 	// 		return null;
-// 	// 	},
-// 	// 	retry: false,
-// 	// });
-//
-// 	const login = useMutation({
-// 		mutationFn: async ({ email, password }: SignInCredentials) => {
-//      // TODO: The OpenAPI types for /Login/ aren't very comprehensive.
-// 			const { status, data } = await apiClient.post('/Login/', {
-// 				email,
-// 				password,
-// 			});
-// 			if (status === 200 && data) {
-// 				// return data as User;
-// 				return console.log('Login successful');
-// 			}
-// 			throw new Error('Login failed');
-// 		},
-// 		// onSuccess: (data: User) => {
-// 		// 	queryClient.setQueryData(['user'], data);
-// 		// },
-// 	});
-//
-// 	const logout = useQuery<User | null>({
-// 		queryKey: [queryKeys.user],
-// 		queryFn: async () => {
-//      // TODO: Pretty sure this is a POST, not a GET...
-// 			const response = await apiClient.post('/Logout/');
-// 			if (response.status == 200 && response.data) {
-// 				queryClient.setQueryData(['user'], null);
-// 				queryCache.clear();
-// 				return null;
-// 			}
-// 			throw new Error('Logout failed');
-// 		},
-// 		retry: false,
-// 	});
-//
-// 	return { login, logout };
-// 	// return { user, isPending, isSuccess, login, logout, isAuthenticated };
-// }
+function calculateKeyFromEntity(entity?: Instance | Cluster | null): AuthenticatedConnectionKey | undefined {
+	if (isLocalStudio || entity === undefined) {
+		return 'global';
+	}
+	if (isInstance(entity)) {
+		return getOperationsUrlForInstance(entity);
+	}
+	if (isCluster(entity)) {
+		// TODO: Do we need to add the port and other stuff to the fqdn for the cluster like we did for an instance?
+		return entity.fqdn;
+	}
+	return undefined;
+}

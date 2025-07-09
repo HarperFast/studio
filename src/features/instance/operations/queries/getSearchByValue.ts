@@ -9,6 +9,7 @@ type SearchConditions = {
 };
 
 type SearchByValueRequest = {
+	operation: 'search_by_value',
 	conditions?: [SearchConditions];
 	schema: string;
 	table: string;
@@ -17,7 +18,7 @@ type SearchByValueRequest = {
 	get_attributes?: string[];
 	limit: number;
 	offset: number;
-	sort: {
+	sort?: {
 		attribute: string;
 		descending: boolean;
 	};
@@ -68,7 +69,7 @@ function getSearchByValueOptions({
 				sort: sortTableDataParams.attribute.length ? sortTableDataParams : undefined,
 				limit: pagination.pageSize,
 				offset: pagination.pageIndex * pagination.pageSize,
-			} as SearchByValueRequest),
+			} satisfies SearchByValueRequest),
 	});
 }
 
