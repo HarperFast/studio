@@ -1,6 +1,7 @@
 import { GetComponentsResponse, DirectoryEntry } from '@/features/instance/operations/queries/getComponents';
 import './filetree.css';
 import { useState } from 'react';
+import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 
 // import cn from 'classnames';
 
@@ -184,11 +185,11 @@ function File({
 	Icon,
 }: {
 	directoryEntry: DirectoryEntry;
+	Icon?: React.ComponentType<unknown>;
 	// selectedFile?: string;
 	// selectedFolder?: DirectoryEntry;
 	// onFileSelect?: (entry: DirectoryEntry | null) => void;
 	// onFolderSelect?: (entry: DirectoryEntry | null) => void;
-	Icon?: React.ComponentType<unknown>;
 }) {
 	// const isDir = isFolder(directoryEntry);
 	// const renameFileIconClass = 'rename-file';
@@ -232,16 +233,21 @@ function File({
 	// 		onFileSelect(directoryEntry);
 	// 	}
 	// }
-
+	const { handleFileSelect } = useEditorView();
 	return (
 		<button
 			type="button"
 			className="whitespace-nowrap"
 			// onClick={handleToggleSelected}
-			// // className={cn('file', {
-			// // 	'file-selected': isFileSelected,
-			// // 	'folder-selected': isFolderSelected,
-			// // })}
+			onClick={() => {
+				if (directoryEntry.path) {
+					handleFileSelect({ filePath: directoryEntry.path, projectName: directoryEntry.project || '' });
+				}
+			}}
+			// className={cn('file', {
+			// 	'file-selected': isFileSelected,
+			// 	'folder-selected': isFolderSelected,
+			// })}
 			// onKeyDown={noOp}
 		>
 			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
@@ -313,7 +319,6 @@ function Folder({
 								// onFileRename={() => {
 								// 	onFileRename(directoryEntry);
 								// }}
-								// onFileSelect={onFileSelect}
 								// onFolderSelect={onFolderSelect}
 								// userOnSelect={userOnSelect}
 							/>
@@ -330,7 +335,6 @@ function Folder({
 							// selectedFolder={selectedFolder}
 							// selectedPackage={selectedPackage}
 							directoryEntry={entry}
-							// onFileSelect={onFileSelect}
 							// onDeployProject={onDeployProject}
 							// onFileRename={onFileRename}
 							// onFolderSelect={onFolderSelect}
@@ -368,7 +372,6 @@ export function FileTreeExplorer({
 						// selectedFile={selectedFile}
 						// selectedFolder={selectedFolder}
 						// selectedPackage={selectedPackage}
-						// onFileSelect={onFileSelect}
 						// onFileRename={onFileRename}
 						// onFolderSelect={onFolderSelect}
 						// onDeployProject={onDeployProject}
