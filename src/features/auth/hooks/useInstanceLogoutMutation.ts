@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
-import { signOutOnSuccess } from '@/features/auth/hooks/signOutOnSuccess';
+import { signOutOnSuccess } from '@/features/auth/handlers/signOutOnSuccess';
 
 type LogoutVariables = {
 	instanceFqdn?: string;
