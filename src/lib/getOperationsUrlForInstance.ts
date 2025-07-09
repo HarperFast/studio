@@ -1,7 +1,11 @@
 import { Instance } from '@/lib/api.patch';
 
-export function getOperationsUrlForInstance(instance: Instance): string {
-	const url = new URL(instance.instanceFqdn);
+export function getOperationsUrlForInstance(instance: Pick<Instance, 'instanceFqdn' | 'operationsApiSecure' | 'operationsApiPort'>): string {
+	let fqdn = instance.instanceFqdn;
+	if (!fqdn.match(/^https?:\/\//i)) {
+		fqdn = `https://${fqdn}`;
+	}
+	const url = new URL(fqdn);
 	if (instance.operationsApiPort) {
 		url.port = String(instance.operationsApiPort);
 	}
