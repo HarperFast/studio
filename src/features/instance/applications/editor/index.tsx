@@ -12,14 +12,14 @@ export function EditApplications() {
 
 	return (
 		<EditorViewProvider>
-			<main className="grid grid-cols-1 gap-4 md:grid-cols-12">
-				<section className="overflow-y-scroll text-white h-col-span-1 md:col-span-4 lg:col-span-3">
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-12 h-[calc(100vh-theme(spacing.32))]">
+				<section className="h-0 min-h-full col-span-1 overflow-y-scroll text-white md:col-span-4 lg:col-span-3">
 					<ApplicationsSidebar fileTreeQueryData={getComponentsQueryData} />
 				</section>
-				<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
+				<section className="h-full col-span-1 text-white md:col-span-8 lg:col-span-9">
 					<TextEditorView />
 				</section>
-			</main>
+			</div>
 		</EditorViewProvider>
 	);
 }

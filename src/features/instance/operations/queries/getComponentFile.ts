@@ -8,6 +8,8 @@ type GetComponentFileRequest = {
 };
 
 type GetComponentFileResponse = {
+	file: string;
+	project: string;
 	birthtime: string;
 	message: string;
 	mtime: string;
@@ -22,7 +24,10 @@ function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest)
 				operation: 'get_component_file',
 				...getComponentFileRequest,
 			});
-			return data;
+			return {
+				...getComponentFileRequest,
+				...data,
+			};
 		},
 		enabled: false, // Disable by default
 		retry: false,

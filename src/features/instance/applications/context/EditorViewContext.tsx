@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { createContext, PropsWithChildren, useState } from 'react';
+import { createContext, PropsWithChildren, useEffect, useState } from 'react';
 import { getComponentFileQuery } from '../../operations/queries/getComponentFile';
 import { set } from 'react-hook-form';
 
@@ -16,7 +16,7 @@ type EditorViewContextValue = {
 	canDeleteFolder?: boolean;
 	canAddProjectFolder?: boolean;
 	handleFileSelect: (params: HandleFileSelectParams) => void;
-	updateEditorContent?: (content: string) => string;
+	updateEditorContent?: (content: string) => void;
 };
 
 const EditorViewContext = createContext<EditorViewContextValue | null>(null);
@@ -36,10 +36,22 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 
 	const { data: getComponentFileQueryData, refetch: refetchComponentFile } = useQuery(
 		getComponentFileQuery({
-			file: selectedFile.filePath.split('/').splice(2).join('/'), // removes the first two segments (/components/<projectName>)
+			file: selectedFile.filePath.split('/').slice(2).join('/'), // removes the first two segments (/components/<projectName>)
 			project: selectedFile.projectName,
 		})
 	);
+
+	useEffect(() => {
+		if (
+			getComponentFileQueryData?.message &&
+			getComponentFileQueryData.file == selectedFile.filePath.split('/').slice(2).join('/')
+		) {
+			setSelectedFile((prev) => ({
+				...prev,
+				content: getComponentFileQueryData?.message,
+			}));
+		}
+	}, [getComponentFileQueryData]);
 
 	// const hasProjects = getComponentsQueryData?.entries?.length > 0;
 	// const canAddFile = Boolean(hasProjects && selectedFolder); // can only add a file if a target folder is selected
@@ -50,8 +62,7 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		await setSelectedFile({
 			...selectedFileInfo,
 		});
-		refetchComponentFile();
-		updateEditorContent(getComponentFileQueryData?.message || '');
+		await refetchComponentFile();
 	};
 
 	const updateEditorContent = (content: string) => {
