@@ -11,6 +11,7 @@ import { useDeleteClusterMutation } from './mutations/deleteCluster';
 import { toast } from 'sonner';
 import { queryKeys } from '@/react-query/constants';
 import { groupBy } from '@/lib/group-by';
+import { sortByName } from '@/lib/arrays/sort/byName';
 
 const route = getRouteApi('');
 
@@ -26,13 +27,15 @@ export function ClustersList() {
 		name: '',
 	});
 
-	const sortedClusters = useMemo(() => orgInfo?.clusters?.slice().sort((a, b) => a.name > b.name ? 1 : -1) || [], [orgInfo]);
-	const clustersSortedByStatus = useMemo(() => {
+	const clusterGroups = useMemo(() => {
 		if (isSuccess && orgInfo?.clusters) {
-			const { RUNNING, CLONE_READY, UPDATED, ...others } = groupBy(orgInfo.clusters, 'status');
-			const successBuckets = [...(RUNNING || []), ...(CLONE_READY || []), ...(UPDATED || [])];
-			const otherBuckets = [...Object.values(others).flat()];
-			return { successBuckets, otherBuckets };
+			const { RUNNING, PROVISIONING, CLONE_READY, UPDATED, ...others } = groupBy(orgInfo.clusters, 'status');
+			const successBuckets = [...(RUNNING || []), ...(PROVISIONING || []), ...(CLONE_READY || []), ...(UPDATED || [])].sort(sortByName);
+			const otherBuckets = [...Object.values(others).flat()].sort(sortByName);
+			return [
+				{ name: 'Running', clusters: successBuckets },
+				{ name: 'Stopped', clusters: otherBuckets },
+			].filter(group => group.clusters.length);
 		}
 		return null;
 	}, [isSuccess, orgInfo]);
@@ -94,40 +97,45 @@ export function ClustersList() {
 			</nav>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<>
-					{isSuccess && sortedClusters.length ? (
-						<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-							{sortedClusters.map((cluster) => (
-								<div key={cluster.id}
-									 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-									<ClusterCard
-										clusterName={cluster.name}
-										clusterId={cluster.id}
-										status={cluster.status}
-										onDeleteClusterModal={() => {
-											setDeleteClusterInfo({
-												id: cluster.id,
-												name: cluster.name,
-											});
-											setIsDeleteClusterModalOpen(true);
-										}}
-									/>
+					{clusterGroups?.length ?
+						clusterGroups?.map(clusterGroup =>
+							<>
+								<h2 className="mb-2">{clusterGroup.name}</h2>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4" key={clusterGroup.name}>
+									{clusterGroup.clusters.map((cluster) => (
+										<div key={cluster.id}
+											 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
+											<ClusterCard
+												clusterName={cluster.name}
+												clusterId={cluster.id}
+												status={cluster.status}
+												onDeleteClusterModal={() => {
+													setDeleteClusterInfo({
+														id: cluster.id,
+														name: cluster.name,
+													});
+													setIsDeleteClusterModalOpen(true);
+												}}
+											/>
+										</div>
+									))}
 								</div>
-							))}
-						</div>
-					) : (
-						<div className="flex-col space-y-5 items-center justify-center text-center">
-							<h2 className="text-2xl text-center text-white">
-								No clusters found. Create a new cluster.</h2>
+							</>,
+						)
+						: (
+							<div className="flex-col space-y-5 items-center justify-center text-center">
+								<h2 className="text-2xl text-center text-white">
+									No clusters found. Create a new cluster.</h2>
 
-							<Button
-								variant="positive"
-								className="w-full rounded-full md:w-44"
-								onClick={() => setIsNewClusterModalOpen(true)}
-							>
-								<Plus /> New Cluster
-							</Button>
-						</div>
-					)}
+								<Button
+									variant="positive"
+									className="w-full rounded-full md:w-44"
+									onClick={() => setIsNewClusterModalOpen(true)}
+								>
+									<Plus /> New Cluster
+								</Button>
+							</div>
+						)}
 				</>
 			</section>
 			<NewClusterModal
