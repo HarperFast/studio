@@ -4,6 +4,7 @@ import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterIndex } from '@/features/cluster/index';
 import { ClusterSignIn } from '@/features/cluster/ClusterSignIn';
+import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
 
 export const clusterLayoutRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,
@@ -37,7 +38,14 @@ const clusterSignInRoute = createRoute({
 	// },
 });
 
+const clusterSetPasswordRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'set-password',
+	component: ClusterSetPassword,
+});
+
 export const clusterRouteTree = [
 	clusterIndexRoute,
 	clusterSignInRoute,
+	clusterSetPasswordRoute,
 ];

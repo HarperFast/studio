@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, Ellipsis } from 'lucide-react';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Ellipsis } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import {
 	DropdownMenu,
@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { authStore } from '@/lib/authStore';
+import { ClusterCardAction } from '@/features/organization/components/ClusterCardAction';
 
 export function ClusterCard({
 	cluster,
@@ -71,30 +72,7 @@ export function ClusterCard({
 			<CardContent className="flex justify-between">
 				<Badge
 					variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>
-				{isReadyForInteraction && <>
-					{isSelfManaged ? (
-						<Link to={cluster.id} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
-							<span className="py-2 hover:border-b-2">
-								Instances <ArrowRight className="inline-block" />
-							</span>
-						</Link>
-					) : <>
-						{!auth.isLoading && !auth.user && (
-							<Link to={`${cluster.id}/sign-in`} className="text-sm" aria-label={`Sign In to ${cluster.name}`} title={`Sign In to ${cluster.name}`}>
-								<span className="py-2 hover:border-b-2">
-									Sign In <ArrowRight className="inline-block" />
-								</span>
-							</Link>
-						)}
-						{!auth.isLoading && auth.user && (
-							<Link to={`${cluster.id}/browse`} preload={false} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
-								<span className="py-2 hover:border-b-2">
-									View <ArrowRight className="inline-block" />
-								</span>
-							</Link>
-						)}
-					</>}
-				</>}
+				{isReadyForInteraction && <ClusterCardAction cluster={cluster} />}
 			</CardContent>
 		</Card>
 	);

@@ -7,7 +7,7 @@ export type InstanceLoginCredentials = {
 	operationsUrl?: string;
 };
 
-type LoginInfoResponse = {
+export type LoginInfoResponse = {
 	message: string;
 };
 
