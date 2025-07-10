@@ -87,7 +87,7 @@ export function ClusterCard({
 							</Link>
 						)}
 						{!auth.isLoading && auth.user && (
-							<Link to={`${cluster.id}/browse`} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+							<Link to={`${cluster.id}/browse`} preload={false} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 								<span className="py-2 hover:border-b-2">
 									View <ArrowRight className="inline-block" />
 								</span>
