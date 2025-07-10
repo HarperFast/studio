@@ -19,6 +19,8 @@ import { useCallback, useState } from 'react';
 import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { authStore } from '@/lib/authStore';
 import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { Instance } from '@/lib/api.patch';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
 const InstanceLoginSchema = z.object({
 	username: z.string({
@@ -29,14 +31,9 @@ const InstanceLoginSchema = z.object({
 	}),
 });
 
-export function InstanceLogInModal({
-	instanceName,
-	operationsUrl,
-}: {
-	readonly instanceName: string;
-	readonly operationsUrl: string;
-}) {
+export function InstanceLogInModal({ instance }: { readonly instance: Instance; }) {
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const operationsUrl = getOperationsUrlForInstance(instance);
 	const form = useForm({
 		resolver: zodResolver(InstanceLoginSchema),
 		defaultValues: {
@@ -56,7 +53,7 @@ export function InstanceLogInModal({
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getUserInfo({ operationsUrl });
-				authStore.setUser(operationsUrl, user);
+				authStore.setUserForEntity(instance, user);
 				setIsModalOpen(false);
 				form.reset();
 				// TODO: jump to the instance browse page, or a redirect
@@ -66,7 +63,7 @@ export function InstanceLogInModal({
 				toast.error(`Failed to log in: ${error}`);
 			},
 		});
-	}, [submitInstanceLogin, operationsUrl, form]);
+	}, [submitInstanceLogin, operationsUrl, instance, form]);
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -79,7 +76,7 @@ export function InstanceLogInModal({
 				<DialogHeader>
 					<DialogTitle>Enter Credentials</DialogTitle>
 					<DialogDescription>
-						Log into instance <strong>{instanceName}</strong>
+						Log into instance <strong>{instance.name}</strong>
 					</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>

@@ -14,6 +14,9 @@ import {
 import { Cluster } from '@/lib/api.patch';
 import { useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
+import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { authStore } from '@/lib/authStore';
 
 export function ClusterCard({
 	cluster,
@@ -30,7 +33,11 @@ export function ClusterCard({
 	const canDelete = useMemo(() => !['TERMINATING', 'TERMINATED', 'REMOVED'].includes(cluster.status), [cluster]);
 
 	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
-	const onSignOutClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
+	const onSignOutClick = useCallback(async () => {
+		const operationsUrl = getOperationsUrlForCluster(cluster)!;
+		await onInstanceLogoutSubmit({ operationsUrl });
+		authStore.setUserForEntity(cluster, null);
+	}, [cluster]);
 
 	return (
 		<Card className="relative">

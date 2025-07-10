@@ -1,9 +1,13 @@
-import { LocalUser, User } from '@/lib/api.patch';
+import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
 import { isLocalStudio } from '@/config/constants';
 import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 import { getCloudUser } from '@/features/auth/queries/getCurrentUser';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
 import { sleep } from '@/lib/sleep';
+import { isInstance } from '@/lib/types/isInstance';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { isCluster } from '@/lib/types/isCluster';
+import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -17,6 +21,8 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
+export const OverallAppSignIn = null;
+
 class AuthStore {
 	private readonly users: Record<AuthenticatedConnectionKey, User | LocalUser | null> = {};
 	private readonly loading: Record<AuthenticatedConnectionKey, boolean> = {};
@@ -29,7 +35,8 @@ class AuthStore {
 		this.potentiallyAuthenticatedKeys = localStorage.getItem(this.localStorageKey)?.split(',').filter(Boolean) || [];
 	}
 
-	public listenToKey(key: AuthenticatedConnectionKey | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
+	public listenToEntity(entity: Instance | Cluster | null | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
+		const key = this.calculateKeyFromEntity(entity);
 		if (!key) {
 			return undefined;
 		}
@@ -49,7 +56,11 @@ class AuthStore {
 		};
 	}
 
-	public setUser(key: AuthenticatedConnectionKey, user: User | LocalUser | null): void {
+	public setUserForEntity(entity: Instance | Cluster | null | undefined, user: User | LocalUser | null): void {
+		const key = this.calculateKeyFromEntity(entity);
+		if (!key) {
+			return;
+		}
 		this.users[key] = user;
 		this.loading[key] = false;
 		if (user) {
@@ -58,6 +69,19 @@ class AuthStore {
 			this.flagKeyAsSignedOut(key);
 		}
 		void this.updateListeners(key);
+	}
+
+	private calculateKeyFromEntity(entity?: Instance | Cluster | null): AuthenticatedConnectionKey | undefined {
+		if (isLocalStudio || entity === undefined) {
+			return 'global';
+		}
+		if (isInstance(entity)) {
+			return getOperationsUrlForInstance(entity);
+		}
+		if (isCluster(entity)) {
+			return getOperationsUrlForCluster(entity) || undefined;
+		}
+		return undefined;
 	}
 
 	private flagKeyAsSignedIn(key: AuthenticatedConnectionKey) {

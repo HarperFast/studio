@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import { authStore } from '@/lib/authStore';
+import { authStore, OverallAppSignIn } from '@/lib/authStore';
 
 const SignInSchema = z.object({
 	email: z
@@ -44,7 +44,7 @@ export function SignIn() {
 	const submitForm = (formData: z.infer<typeof SignInSchema>) => {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
-				authStore.setUser('global', data);
+				authStore.setUserForEntity(OverallAppSignIn, data);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/orgs' });

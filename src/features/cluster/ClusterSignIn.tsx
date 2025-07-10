@@ -70,16 +70,16 @@ export function ClusterSignIn() {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getUserInfo({ operationsUrl });
-				authStore.setUser(operationsUrl, user);
+				authStore.setUserForEntity(cluster, user);
 				// TODO: What should we invalidate for the cluster?
 				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				//  router.invalidate();
 				// TODO: Support redirecting within the cluster
 				//  await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
-				await navigate({ to: clusterId + '/browse' });
+				await navigate({ to: '../browse' });
 			},
 		});
-	}, [clusterId, navigate, operationsUrl, submitInstanceLogin]);
+	}, [cluster, navigate, operationsUrl, submitInstanceLogin]);
 
 	// TODO: There's a lot we can DRY up between the sign in form variants.
 	return (
