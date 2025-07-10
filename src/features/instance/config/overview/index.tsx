@@ -14,13 +14,15 @@ import { useHumanFileSize } from '@/hooks/useHumanFileSize';
 import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 
 export function ConfigOverviewIndex() {
-	const { instanceId } = useParams({ strict: false });
+	const { clusterId, instanceId } = useParams({ strict: false });
 	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
 	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
-	const { data: instanceInfo, isLoading: loadingInstanceInfo } = useSuspenseQuery(
-		getInstanceInfoQueryOptions(instanceId)
+	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
+		getInstanceInfoQueryOptions(clusterId, instanceId)
 	);
+	const clusterInfo = info?.cluster;
+	const instanceInfo = info?.instance;
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
 		getRegistrationInfoQueryOptions(instanceId)
 	);
@@ -106,7 +108,7 @@ export function ConfigOverviewIndex() {
 				<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 					<dt className="font-bold text-sm/6">Application URL</dt>
 					<dd className="text-sm/6 sm:mt-2">
-						{loadingInstanceInfo ? <TextLoadingSkeleton /> : instanceInfo?.cluster.fqdn}
+						{loadingInstanceInfo ? <TextLoadingSkeleton /> : clusterInfo?.fqdn}
 					</dd>
 				</div>
 				<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">

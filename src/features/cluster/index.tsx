@@ -19,7 +19,7 @@ const route = getRouteApi('');
 export function ClusterIndex() {
 	const { clusterId } = route.useParams();
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
-		getClusterInfoQueryOptions(clusterId),
+		getClusterInfoQueryOptions(clusterId, true),
 	);
 	// TODO: We can use this to track auth on the top level cluster.
 	// const { user: clusterUser, isLoading: clusterAuthIsLoading } = useAuth(cluster || null);

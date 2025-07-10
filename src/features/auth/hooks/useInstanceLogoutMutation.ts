@@ -3,7 +3,7 @@ import { instanceClient } from '@/config/instanceClient';
 import { signOutOnSuccess } from '@/features/auth/handlers/signOutOnSuccess';
 
 type LogoutVariables = {
-	instanceFqdn?: string;
+	operationsUrl?: string;
 }
 
 type LogoutInfoResponse = {
@@ -13,7 +13,7 @@ type LogoutInfoResponse = {
 export async function onInstanceLogoutSubmit(variables: LogoutVariables | void): Promise<LogoutInfoResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'logout',
-	}, { baseURL: variables?.instanceFqdn });
+	}, { baseURL: variables?.operationsUrl });
 	if (data) {
 		return data;
 	} else {

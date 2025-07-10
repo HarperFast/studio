@@ -3,18 +3,17 @@ import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 import { Cluster } from '@/lib/api.patch';
 
-async function getClusterInfo(context: { queryKey: (string | undefined)[] }) {
-	const { data } = await apiClient.get(`/Cluster/${context.queryKey[1]}` as '/Cluster/{id}');
+export async function getClusterInfo(clusterId: string) {
+	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
 	return data as unknown as Cluster;
 }
 
-function getClusterInfoQueryOptions(clusterId?: string) {
+export function getClusterInfoQueryOptions(clusterId?: string, refetch?: boolean) {
 	return queryOptions({
 		queryKey: [queryKeys.cluster, clusterId],
-		queryFn: getClusterInfo,
+		queryFn: () => getClusterInfo(clusterId!),
 		retry: false,
 		enabled: !!clusterId,
+		refetchInterval: refetch ? 10000 : undefined,
 	});
 }
-
-export { getClusterInfoQueryOptions };

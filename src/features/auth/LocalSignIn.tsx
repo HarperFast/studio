@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
-import { authStore } from '@/lib/authStore';
+import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { toast } from 'sonner';
 
 const LocalSignInSchema = z.object({
@@ -17,7 +17,7 @@ const LocalSignInSchema = z.object({
 		.string({
 			message: 'Please enter the instance username.',
 		})
-		.max(75, { message: 'Email must be less than 75 characters' }),
+		.max(75, { message: 'Username must be less than 75 characters' }),
 	password: z
 		.string({
 			message: 'Please enter your password',
@@ -47,7 +47,7 @@ export function LocalSignIn() {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getUserInfo();
-				authStore.setUser('global', user);
+				authStore.setUserForEntity(OverallAppSignIn, user);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
