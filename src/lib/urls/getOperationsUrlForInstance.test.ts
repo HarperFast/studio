@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getOperationsUrlForInstance } from '@/lib/getOperationsUrlForInstance';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
 describe('getOperationsUrlForInstance', () => {
 	it('parses through the url', () => {

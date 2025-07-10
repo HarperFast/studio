@@ -3,7 +3,7 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { InstanceLogInModal } from '@/features/cluster/modals/InstanceLoginModal';
 import { Link } from '@tanstack/react-router';
 import { Instance } from '@/lib/api.patch';
-import { getOperationsUrlForInstance } from '@/lib/getOperationsUrlForInstance';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
 export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useAuth(instance);

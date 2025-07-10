@@ -4,7 +4,8 @@ import { isInstance } from '@/lib/types/isInstance';
 import { isCluster } from '@/lib/types/isCluster';
 import { AuthenticatedConnection, AuthenticatedConnectionKey, authStore } from '@/lib/authStore';
 import { Cluster, Instance } from '@/lib/api.patch';
-import { getOperationsUrlForInstance } from '@/lib/getOperationsUrlForInstance';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 
 export function useAuth(): AuthenticatedConnection;
 export function useAuth(entity: Instance | Cluster | null): AuthenticatedConnection;
@@ -27,8 +28,7 @@ function calculateKeyFromEntity(entity?: Instance | Cluster | null): Authenticat
 		return getOperationsUrlForInstance(entity);
 	}
 	if (isCluster(entity)) {
-		// TODO: Do we need to add the port and other stuff to the fqdn for the cluster like we did for an instance?
-		return entity.fqdn;
+		return getOperationsUrlForCluster(entity) || undefined;
 	}
 	return undefined;
 }
