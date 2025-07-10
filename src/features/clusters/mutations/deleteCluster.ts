@@ -2,10 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/config/apiClient';
 
 const onDeleteCluster = async (clusterId: string) => {
-	const { data } = await apiClient.delete(`/Cluster/${clusterId}`, {
-		id: clusterId,
-		deleted: true,
-	});
+	const { data } = await apiClient.delete(`/Cluster/${clusterId}` as '/Cluster/{id}');
 	return data;
 };
 

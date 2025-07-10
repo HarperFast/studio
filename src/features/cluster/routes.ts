@@ -3,6 +3,7 @@ import { clustersLayoutRoute } from '@/features/clusters/routes';
 import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterIndex } from '@/features/cluster/index';
+import { ClusterSignIn } from '@/features/cluster/ClusterSignIn';
 
 export const clusterLayoutRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,
@@ -17,11 +18,26 @@ const clusterIndexRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/',
 	component: ClusterIndex,
+	// TODO: We're going to want to resolve auth by instanceId and clusterId too for faster checks...
 	// loader: ({ context, params }) => {
-	// 	context.ClusterAuthContext.checkAuth(params.clusterId);
+	// 	return context.ClusterAuthContext.checkAuth(params.clusterId);
+	// },
+});
+
+const clusterSignInRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'sign-in',
+	component: ClusterSignIn,
+	// beforeLoad: ({ context, location }) => {
+	// TODO: Check if signed into this cluster.
+	// if (context.authentication.user) {
+	// 	const search: Record<string, string> = location?.search;
+	// 	throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
+	// }
 	// },
 });
 
 export const clusterRouteTree = [
 	clusterIndexRoute,
+	clusterSignInRoute,
 ];

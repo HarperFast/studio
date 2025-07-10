@@ -34,7 +34,7 @@ export function ClustersList() {
 			const otherBuckets = [...Object.values(others).flat()].sort(sortByName);
 			return [
 				{ name: 'Running', clusters: successBuckets },
-				{ name: 'Stopped', clusters: otherBuckets },
+				{ name: 'Inactive', clusters: otherBuckets },
 			].filter(group => group.clusters.length);
 		}
 		return null;
@@ -99,16 +99,14 @@ export function ClustersList() {
 				<>
 					{clusterGroups?.length ?
 						clusterGroups?.map(clusterGroup =>
-							<>
+							<div key={clusterGroup.name}>
 								<h2 className="mb-2">{clusterGroup.name}</h2>
-								<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4" key={clusterGroup.name}>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
 									{clusterGroup.clusters.map((cluster) => (
 										<div key={cluster.id}
 											 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
 											<ClusterCard
-												clusterName={cluster.name}
-												clusterId={cluster.id}
-												status={cluster.status}
+												cluster={cluster}
 												onDeleteClusterModal={() => {
 													setDeleteClusterInfo({
 														id: cluster.id,
@@ -120,7 +118,7 @@ export function ClustersList() {
 										</div>
 									))}
 								</div>
-							</>,
+							</div>,
 						)
 						: (
 							<div className="flex-col space-y-5 items-center justify-center text-center">

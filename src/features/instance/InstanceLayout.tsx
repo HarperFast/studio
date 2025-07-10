@@ -6,8 +6,8 @@ import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 const route = getRouteApi('');
 
 export function InstanceLayout() {
-	const { instanceId } = route.useParams();
-	const { isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(instanceId));
+	const { clusterId, instanceId } = route.useParams();
+	const { isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(clusterId, instanceId));
 
 	if (!isSuccess) {
 		throw new Error('Instance info not found');
