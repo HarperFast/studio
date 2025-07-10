@@ -8,12 +8,13 @@ async function getClusterInfo(context: { queryKey: (string | undefined)[] }) {
 	return data as unknown as Cluster;
 }
 
-function getClusterInfoQueryOptions(clusterId?: string) {
+function getClusterInfoQueryOptions(clusterId?: string, refetch?: boolean) {
 	return queryOptions({
 		queryKey: [queryKeys.cluster, clusterId],
 		queryFn: getClusterInfo,
 		retry: false,
 		enabled: !!clusterId,
+		refetchInterval: refetch ? 10000 : undefined,
 	});
 }
 
