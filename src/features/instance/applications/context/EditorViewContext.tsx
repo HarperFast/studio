@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { createContext, PropsWithChildren, useEffect, useState } from 'react';
 import { getComponentFileQuery } from '../../operations/queries/getComponentFile';
-import { set } from 'react-hook-form';
+import { DirectoryEntry } from '../../operations/queries/getComponents';
+import { SetComponentFileRequest, useUpdateComponentFile } from '../../operations/mutations/updateComponentFile';
+import { toast } from 'sonner';
 
 type HandleFileSelectParams = {
 	filePath: string;
 	projectName: string;
-	content?: string; // Optional content for the file, if needed
+	content: string;
 };
 
 type EditorViewContextValue = {
@@ -15,8 +17,11 @@ type EditorViewContextValue = {
 	canAddFile?: boolean;
 	canDeleteFolder?: boolean;
 	canAddProjectFolder?: boolean;
+	isFolder: (entry: DirectoryEntry) => boolean;
 	handleFileSelect: (params: HandleFileSelectParams) => void;
 	updateEditorContent?: (content: string) => void;
+	onSaveFile: (data: SetComponentFileRequest) => void; // Optional save function
+	isSavingFile: boolean; // Optional saving state
 };
 
 const EditorViewContext = createContext<EditorViewContextValue | null>(null);
@@ -41,6 +46,8 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		})
 	);
 
+	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
+
 	useEffect(() => {
 		if (
 			getComponentFileQueryData?.message &&
@@ -58,6 +65,8 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	// const canDeleteFolder = Boolean(hasProjects && (selectedFolder || selectedPackage)); // can only delete a folder if a target folder is selected
 	const canAddProjectFolder = Boolean(selectedFolder); // can only add a folder to a project if a target folder is selected
 
+	const isFolder = (entry: DirectoryEntry) => Boolean(entry.entries);
+
 	const handleFileSelect = async (selectedFileInfo: HandleFileSelectParams) => {
 		await setSelectedFile({
 			...selectedFileInfo,
@@ -73,6 +82,23 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		}));
 		// Here you would typically update the state or make an API call to save the content to display in the editor
 	};
+
+	const onSaveFile = (data: SetComponentFileRequest) => {
+		saveComponentFile(data, {
+			onSuccess: () => {
+				toast.success('Success', {
+					description: `${data.file.split('/').pop()} saved successfully.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+			onError: (error) => {
+				console.error('Error saving file:', error);
+			},
+		});
+	};
 	return (
 		<EditorViewContext.Provider
 			value={{
@@ -84,6 +110,9 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				canAddProjectFolder,
 				handleFileSelect,
 				updateEditorContent,
+				onSaveFile,
+				isSavingFile,
+				isFolder,
 			}}
 		>
 			{children}

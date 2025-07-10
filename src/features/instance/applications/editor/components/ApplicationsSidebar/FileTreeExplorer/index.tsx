@@ -3,30 +3,6 @@ import './filetree.css';
 import { useState } from 'react';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 
-// import cn from 'classnames';
-
-// function NoProjects() {
-// 	return (
-// 		<div>
-// 			<div>
-// 				<div className="p-4">
-// 					You have no Harper applications yet. <br />
-// 					<br />
-// 					Click &quot;
-// 					<i className="fas fa-plus" /> app&quot; above to create one!
-// 					<br />
-// 					<br />
-// 					See the{' '}
-// 					<a className="docs-link" href="https://docs.harperdb.io" target="_blank" rel="noopener">
-// 						documentation
-// 					</a>{' '}
-// 					for more info on Harper Applications.
-// 				</div>
-// 			</div>
-// 		</div>
-// 	);
-// }
-
 interface ParseFileExtension {
 	(name: string): string | null;
 }
@@ -49,12 +25,6 @@ function directorySortComparator(a: DirectorySortComparatorEntry, b: DirectorySo
 
 	return A === B ? a.name.localeCompare(b.name) : B - A;
 }
-
-// interface IsFolder {
-// 	(entry: DirectoryEntry): boolean;
-// }
-
-// const isFolder: IsFolder = (entry) => Boolean(entry.entries);
 
 function ProjectIcon({
 	toggleClosed,
@@ -233,14 +203,14 @@ function File({
 	// 		onFileSelect(directoryEntry);
 	// 	}
 	// }
-	const { handleFileSelect } = useEditorView();
+	const { handleFileSelect, isFolder } = useEditorView();
 	return (
 		<button
 			type="button"
 			className="whitespace-nowrap"
 			// onClick={handleToggleSelected}
 			onClick={() => {
-				if (directoryEntry.path) {
+				if (directoryEntry.path && !isFolder(directoryEntry)) {
 					handleFileSelect({ filePath: directoryEntry.path, projectName: directoryEntry.project || '' });
 				}
 			}}
@@ -297,9 +267,6 @@ function Folder({
 						className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
 							open ? 'folder-open' : 'folder-closed'
 						}`}
-						// className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
-						// 	open ? 'folder-open' : 'folder-closed'
-						// }`}
 					>
 						{directoryEntry.package ? (
 							<Package

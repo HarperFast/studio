@@ -9,7 +9,7 @@ type DirectoryEntry = {
 	package?: string;
 	error?: string;
 	key?: string;
-	path: string;
+	path?: string;
 	project?: string;
 	readOnly?: boolean;
 };
