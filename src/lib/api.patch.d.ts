@@ -53,7 +53,6 @@ export interface LocalUser {
 
 // TODO: The OpenAPI types aren't very comprehensive for these two types.
 export interface Instance extends SchemaHdbInstance {
-	cluster: Cluster;
 	clusterId: string;
 	cpuCores: string;
 	createdByUserId: string;
