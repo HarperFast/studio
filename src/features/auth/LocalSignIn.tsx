@@ -17,7 +17,7 @@ const LocalSignInSchema = z.object({
 		.string({
 			message: 'Please enter the instance username.',
 		})
-		.max(75, { message: 'Email must be less than 75 characters' }),
+		.max(75, { message: 'Username must be less than 75 characters' }),
 	password: z
 		.string({
 			message: 'Please enter your password',
