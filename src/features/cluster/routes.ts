@@ -9,7 +9,7 @@ export const clusterLayoutRoute = createRoute({
 	path: '$clusterId',
 	component: ClusterLayout,
 	loader: ({ context, params }) => {
-		context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId));
+		return context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId));
 	},
 });
 

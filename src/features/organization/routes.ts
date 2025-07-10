@@ -8,7 +8,7 @@ export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '$organizationId',
 	loader: (opts) => {
-		opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId));
+		return opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId));
 	},
 	component: OrganizationLayout,
 });
