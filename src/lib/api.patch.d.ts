@@ -79,7 +79,8 @@ export interface Cluster extends SchemaCluster {
 	name: string;
 	instances: Instance[];
 	prefix: string;
-	status: 'PROVISIONING' | 'RUNNING' | 'STOPPED' | 'CLONE_READY' | 'UPDATED' | 'TERMINATED';
+	resetPassword?: boolean;
+	status: 'PROVISIONING' | 'RUNNING' | 'UPDATING_HDB_NODES' | 'UPDATING' | 'ERROR' | 'TERMINATING' | 'REMOVED' | 'STOPPED' | 'CLONE_READY' | 'CLONE_PENDING' | 'UPDATED' | 'TERMINATED';
 }
 
 type InstanceType = {
