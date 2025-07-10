@@ -96,45 +96,43 @@ export function ClustersList() {
 				) : null}
 			</nav>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-				<>
-					{clusterGroups?.length ?
-						clusterGroups?.map(clusterGroup =>
-							<div key={clusterGroup.name}>
-								<h2 className="mb-2">{clusterGroup.name}</h2>
-								<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
-									{clusterGroup.clusters.map((cluster) => (
-										<div key={cluster.id}
-											 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-											<ClusterCard
-												cluster={cluster}
-												onDeleteClusterModal={() => {
-													setDeleteClusterInfo({
-														id: cluster.id,
-														name: cluster.name,
-													});
-													setIsDeleteClusterModalOpen(true);
-												}}
-											/>
-										</div>
-									))}
-								</div>
-							</div>,
-						)
-						: (
-							<div className="flex-col space-y-5 items-center justify-center text-center">
-								<h2 className="text-2xl text-center text-white">
-									No clusters found. Create a new cluster.</h2>
-
-								<Button
-									variant="positive"
-									className="w-full rounded-full md:w-44"
-									onClick={() => setIsNewClusterModalOpen(true)}
-								>
-									<Plus /> New Cluster
-								</Button>
+				{clusterGroups?.length ?
+					clusterGroups?.map(clusterGroup =>
+						<div key={clusterGroup.name}>
+							<h2 className="mb-2">{clusterGroup.name}</h2>
+							<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
+								{clusterGroup.clusters.map((cluster) => (
+									<div key={cluster.id}
+										 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
+										<ClusterCard
+											cluster={cluster}
+											onDeleteClusterModal={() => {
+												setDeleteClusterInfo({
+													id: cluster.id,
+													name: cluster.name,
+												});
+												setIsDeleteClusterModalOpen(true);
+											}}
+										/>
+									</div>
+								))}
 							</div>
-						)}
-				</>
+						</div>,
+					)
+					: (
+						<div className="flex-col space-y-5 items-center justify-center text-center">
+							<h2 className="text-2xl text-center text-white">
+								No clusters found. Create a new cluster.</h2>
+
+							<Button
+								variant="positive"
+								className="w-full rounded-full md:w-44"
+								onClick={() => setIsNewClusterModalOpen(true)}
+							>
+								<Plus /> New Cluster
+							</Button>
+						</div>
+					)}
 			</section>
 			<NewClusterModal
 				orgId={organizationId}
