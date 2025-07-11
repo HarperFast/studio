@@ -8,7 +8,7 @@ import { useState } from 'react';
 export function FileMenuActionButtons() {
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
 	const [isAddingFolder, setIsAddingFolder] = useState(false);
-	const { selectedFolderFile } = useEditorView(); // Assuming useEditorView is imported from the correct context
+	const { isFolder, selectedFolderFile } = useEditorView(); // Assuming useEditorView is imported from the correct context
 	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
 
 	const handleAddFolderOrFile = (name: string) => {
@@ -20,39 +20,47 @@ export function FileMenuActionButtons() {
 	};
 
 	return (
-		<div className="p-2">
+		<div className="p-2 border-b border-gray-700">
 			<div>
-				<Button
-					onClick={() => {
-						setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked);
-						setIsAddingFolder(true);
-					}}
-					disabled={false}
-					variant="positiveOutline"
-					size="sm"
-					className="mr-2"
-				>
-					<Plus className="w-4 h-4" />
-					<span className="ms-1"> Folder</span>
-				</Button>
-				<Button
-					onClick={() => {
-						setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked);
-						setIsAddingFolder(false);
-					}}
-					disabled={false}
-					variant="positiveOutline"
-					size="sm"
-					className="mr-2"
-				>
-					<Plus className="w-4 h-4" />
-					<span className="ms-1"> File</span>
-				</Button>
+				{isFolder(selectedFolderFile.entries) ? (
+					<>
+						<Button
+							onClick={() => {
+								setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked);
+								setIsAddingFolder(true);
+							}}
+							disabled={false}
+							variant="positiveOutline"
+							size="sm"
+							className="mr-2 rounded-full"
+						>
+							<Plus className="w-4 h-4" />
+							<span className="ms-1"> Folder</span>
+						</Button>
+
+						<Button
+							onClick={() => {
+								setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked);
+								setIsAddingFolder(false);
+							}}
+							disabled={false}
+							variant="positiveOutline"
+							size="sm"
+							className="mr-2 rounded-full"
+						>
+							<Plus className="w-4 h-4" />
+							<span className="ms-1"> File</span>
+						</Button>
+					</>
+				) : (
+					''
+				)}
 				<Button
 					onClick={() => setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked)}
 					disabled={false}
 					variant="destructiveOutline"
 					size="sm"
+					className="rounded-full"
 				>
 					<Minus className="w-4 h-4" />
 					<span className="ms-1"> Delete</span>

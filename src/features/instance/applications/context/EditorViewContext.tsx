@@ -61,7 +61,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		}
 	}, [getComponentFileQueryData]);
 
-	const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries && entries.length > 0);
+	const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
 	// const hasProjects = getComponentsQueryData?.entries?.length > 0;
 	// const canAddFile = Boolean(hasProjects && selectedFolder); // can only add a file if a target folder is selected
 	// const canDeleteFolder = Boolean(hasProjects && (selectedFolder || selectedPackage)); // can only delete a folder if a target folder is selected
