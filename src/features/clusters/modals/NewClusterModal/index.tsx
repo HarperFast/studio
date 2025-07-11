@@ -76,7 +76,7 @@ export function NewClusterModal({
 	const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
 
 	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
-		const updatedFormData: SchemaCluster = {
+		const updatedFormData: Omit<SchemaCluster, 'id'> = {
 			organizationId: orgId,
 			...formData,
 		};

@@ -19,6 +19,9 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { authStore } from '@/lib/authStore';
 import { ClusterCardAction } from '@/features/organization/components/ClusterCardAction';
 
+const activeClusterStatuses = ['CLONE_READY', 'RUNNING', 'UPDATED'];
+const deletableClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
+
 export function ClusterCard({
 	cluster,
 	onDeleteClusterModal,
@@ -30,8 +33,8 @@ export function ClusterCard({
 	const navigate = useNavigate();
 
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
-	const isReadyForInteraction = useMemo(() => ['CLONE_READY', 'RUNNING', 'UPDATED'].includes(cluster.status), [cluster]);
-	const canDelete = useMemo(() => !['TERMINATING', 'TERMINATED', 'REMOVED'].includes(cluster.status), [cluster]);
+	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
+	const canDelete = useMemo(() => cluster.status && !deletableClusterStatuses.includes(cluster.status), [cluster]);
 
 	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
 	const onSignOutClick = useCallback(async () => {
@@ -70,8 +73,7 @@ export function ClusterCard({
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="flex justify-between">
-				<Badge
-					variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>
+				{cluster.status && <Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>}
 				{isReadyForInteraction && <ClusterCardAction cluster={cluster} />}
 			</CardContent>
 		</Card>

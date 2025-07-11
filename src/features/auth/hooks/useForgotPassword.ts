@@ -1,7 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
-// TODO: Consolidate with useOnSignUpSubmitMutation
 export type ForgotPasswordCredential = {
 	email: string;
 };
@@ -16,7 +15,7 @@ export async function onResetPasswordSubmit({ email }: ForgotPasswordCredential)
 	});
 	if (data) {
 		// TODO: The OpenAPI description isn't accurate.
-		return data as never as ForgotPasswordResponse;
+		return data as ForgotPasswordResponse;
 	} else {
 		throw new Error('Something went wrong');
 	}

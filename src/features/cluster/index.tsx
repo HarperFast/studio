@@ -85,7 +85,7 @@ export function ClusterIndex() {
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-				{cluster?.instances.length ? (
+				{cluster?.instances?.length ? (
 					<div className="flex items-center justify-between h-full text-sm text-white">
 						<div className="w-full text-white">
 							<h2 className="text-xl font-semibold">{cluster.name}</h2>
@@ -99,7 +99,7 @@ export function ClusterIndex() {
 					<CardContent className="p-0 min-h-96">
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
-							: cluster?.instances.length
+							: cluster?.instances?.length
 								? <DataTable data={cluster.instances} columns={columns} />
 								: <EmptyCluster />
 						}

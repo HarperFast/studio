@@ -4,11 +4,8 @@ import { queryOptions } from '@tanstack/react-query';
 import { Organization } from '@/lib/api.patch';
 
 async function getOrganization(orgId: string): Promise<Organization | null> {
-	const { status, data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
-	if (status == 200 && data) {
-		return data as Organization;
-	}
-	return null;
+	const { data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
+	return data;
 }
 
 function getOrganizationQueryOptions(orgId: string) {

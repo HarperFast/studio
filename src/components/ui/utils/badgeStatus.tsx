@@ -1,6 +1,7 @@
 import { Cluster } from '@/lib/api.patch';
 
 export type BadgeStatusVariant =
+	| string
 	| 'PROVISIONING'
 	| 'CLONE_PENDING'
 	| 'UPDATING_HDB_NODES'
@@ -33,13 +34,12 @@ const renderBadgeStatusVariant = (value: BadgeStatusVariant): BadgeStatusVariant
 		case 'TERMINATING':
 		case 'ERROR':
 		case 'REMOVED':
-			return 'destructive';
 		default:
-			return value;
+			return 'destructive';
 	}
 };
 
-const BADGE_STATUS_TEXT: Record<Cluster['status'], string> = {
+const BADGE_STATUS_TEXT: Record<Exclude<Cluster['status'], undefined>, string> = {
 	PROVISIONING: 'Provisioning',
 	RUNNING: 'Running',
 	STOPPED: 'Stopped',

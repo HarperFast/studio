@@ -5,7 +5,7 @@ import { Cluster } from '@/lib/api.patch';
 
 export async function getClusterInfo(clusterId: string) {
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
-	return data as unknown as Cluster;
+	return data as Cluster;
 }
 
 export function getClusterInfoQueryOptions(clusterId?: string, refetch?: boolean) {
