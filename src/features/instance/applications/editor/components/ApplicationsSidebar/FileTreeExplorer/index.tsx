@@ -129,7 +129,6 @@ function File({ directoryEntry, Icon }: { directoryEntry: DirectoryEntry; Icon?:
 			className={`whitespace-nowrap ${isFileSelected ? 'text-white' : ''}`}
 			onClick={() => {
 				if (isFileSelected) return; // Don't re-select the same file
-
 				handleFileSelect({
 					filePath: directoryEntry.path || '',
 					projectName: directoryEntry.project || '',
