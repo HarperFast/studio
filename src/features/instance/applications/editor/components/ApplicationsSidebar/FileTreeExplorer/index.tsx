@@ -203,16 +203,18 @@ function File({
 	// 		onFileSelect(directoryEntry);
 	// 	}
 	// }
-	const { handleFileSelect, isFolder } = useEditorView();
+	const { handleFileSelect } = useEditorView();
 	return (
 		<button
 			type="button"
 			className="whitespace-nowrap"
 			// onClick={handleToggleSelected}
 			onClick={() => {
-				if (directoryEntry.path && !isFolder(directoryEntry)) {
-					handleFileSelect({ filePath: directoryEntry.path, projectName: directoryEntry.project || '' });
-				}
+				handleFileSelect({
+					filePath: directoryEntry.path || '',
+					projectName: directoryEntry.project || '',
+					entries: directoryEntry.entries || [],
+				});
 			}}
 			// className={cn('file', {
 			// 	'file-selected': isFileSelected,

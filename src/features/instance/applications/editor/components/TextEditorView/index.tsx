@@ -2,6 +2,7 @@ import { Editor } from '@monaco-editor/react';
 import { useEditorView } from '../../../hooks/useEditorView';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
+import { Save } from 'lucide-react';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
@@ -55,7 +56,8 @@ export function TextEditorView() {
 						isSavingFile
 					}
 				>
-					Save
+					<Save />
+					<span className="ms-1">Save</span>
 				</Button>
 			</div>
 			<Editor

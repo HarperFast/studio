@@ -8,25 +8,26 @@ import { toast } from 'sonner';
 type HandleFileSelectParams = {
 	filePath: string;
 	projectName: string;
-	content: string;
+	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
+	entries?: DirectoryEntry[]; // Optional entries for directory entries
 };
 
-type EditorViewContextValue = {
+export type EditorViewContextValue = {
 	selectedFile: HandleFileSelectParams;
 	hasProjects?: boolean;
 	canAddFile?: boolean;
 	canDeleteFolder?: boolean;
-	canAddProjectFolder?: boolean;
-	isFolder: (entry: DirectoryEntry) => boolean;
+	// canAddProjectFolder?: boolean;
+	isFolder: (entry: DirectoryEntry[]) => boolean;
 	handleFileSelect: (params: HandleFileSelectParams) => void;
 	updateEditorContent?: (content: string) => void;
 	onSaveFile: (data: SetComponentFileRequest) => void; // Optional save function
 	isSavingFile: boolean; // Optional saving state
 };
 
-const EditorViewContext = createContext<EditorViewContextValue | null>(null);
+export const EditorViewContext = createContext<EditorViewContextValue | null>(null);
 
-const EditorViewProvider = ({ children }: PropsWithChildren) => {
+export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	// const { instanceId } = route.useParams();
 
 	// const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
@@ -35,7 +36,7 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		projectName: '',
 		content: '',
 	});
-	const [selectedFolder, setSelectedFolder] = useState({ name: '', url: '', packageName: '' }); // selectedFolder = { name, key }
+	// const [selectedFolder, setSelectedFolder] = useState({ name: '', url: '', packageName: '' }); // selectedFolder = { name, key }
 	// const [selectedPackage, setSelectedPackage] = useState({ name: '', url: '', packageName: '', content: '' }); // selectedPackage = { name, url }
 	// const [savingFile, setSavingFile] = useState(false);
 
@@ -60,18 +61,20 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		}
 	}, [getComponentFileQueryData]);
 
+	const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries && entries.length > 0);
 	// const hasProjects = getComponentsQueryData?.entries?.length > 0;
 	// const canAddFile = Boolean(hasProjects && selectedFolder); // can only add a file if a target folder is selected
 	// const canDeleteFolder = Boolean(hasProjects && (selectedFolder || selectedPackage)); // can only delete a folder if a target folder is selected
-	const canAddProjectFolder = Boolean(selectedFolder); // can only add a folder to a project if a target folder is selected
-
-	const isFolder = (entry: DirectoryEntry) => Boolean(entry.entries);
+	// const canAddProjectFolder = Boolean(selectedFolder); // can only add a folder to a project if a target folder is selected
 
 	const handleFileSelect = async (selectedFileInfo: HandleFileSelectParams) => {
+		console.log('handleFileSelect', selectedFileInfo);
 		await setSelectedFile({
 			...selectedFileInfo,
 		});
-		await refetchComponentFile();
+		if (!isFolder(selectedFileInfo.entries)) {
+			await refetchComponentFile();
+		}
 	};
 
 	const updateEditorContent = (content: string) => {
@@ -107,7 +110,7 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				// canDeleteFolder,
 				// getComponentFileQueryData,
 				selectedFile,
-				canAddProjectFolder,
+				// canAddProjectFolder,
 				handleFileSelect,
 				updateEditorContent,
 				onSaveFile,
@@ -119,6 +122,3 @@ const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		</EditorViewContext.Provider>
 	);
 };
-
-export { EditorViewContext, EditorViewProvider };
-export type { EditorViewContextValue };
