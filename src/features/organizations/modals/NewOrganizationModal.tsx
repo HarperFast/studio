@@ -17,20 +17,18 @@ import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/react-query/constants';
-import {
-	NewOrganizationInfo,
-	useCreateNewOrganizationMutation,
-} from '@/features/organizations/hooks/useCreateNewOrganization';
+import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
+import { SchemaOrganization } from '@/lib/api.gen';
 
 const NewOrganizationSchema = z.object({
-	orgName: z
+	name: z
 		.string({
 			message: 'Please enter a cluster name.',
 		})
 		.max(30, {
 			message: 'Cluster name must be less than 30 characters.',
 		}),
-	orgSubdomain: z
+	subdomain: z
 		.string({
 			message: 'Please enter a cluster prefix.',
 		})
@@ -44,15 +42,15 @@ export function NewOrganizationModal() {
 	const form = useForm({
 		resolver: zodResolver(NewOrganizationSchema),
 		defaultValues: {
-			orgName: '',
-			orgSubdomain: '',
+			name: '',
+			subdomain: '',
 		},
 	});
 
 	const { mutate: submitNewOrganizationData } = useCreateNewOrganizationMutation();
 	const queryClient = useQueryClient();
 
-	const submitForm = async (formData: NewOrganizationInfo) => {
+	const submitForm = async (formData: Omit<SchemaOrganization, "id">) => {
 		submitNewOrganizationData(formData, {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'active' });
@@ -77,7 +75,7 @@ export function NewOrganizationModal() {
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid gap-6 text-white">
 						<FormField
 							control={form.control}
-							name="orgName"
+							name="name"
 							render={({ field }) => (
 								<FormItem className="">
 									<FormLabel className="pb-1">Organization Name</FormLabel>
@@ -90,7 +88,7 @@ export function NewOrganizationModal() {
 						/>
 						<FormField
 							control={form.control}
-							name="orgSubdomain"
+							name="subdomain"
 							render={({ field }) => (
 								<FormItem className="">
 									<FormLabel className="pb-1">Organization Subdomain</FormLabel>

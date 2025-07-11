@@ -1,9 +1,10 @@
 import {
-	SchemaOrganizationRole,
-	SchemaUser,
-	SchemaHdbInstance,
 	SchemaCluster,
+	SchemaHdbInstance,
 	SchemaOrganization,
+	SchemaOrganizationRole,
+	SchemaPlan,
+	SchemaUser,
 } from '@/lib/api.gen';
 
 /*
@@ -12,29 +13,15 @@ import {
  * not updated the client side yet to reflect the reality of the API.
  */
 
-interface OrgRoles extends SchemaOrganizationRole {
-	id: string;
-	organizationId: string;
-	organizationName: string; // TODO: SchemaOrganizationRole does NOT have an organizationName...
+interface OrganizationRole extends SchemaOrganizationRole {
 	roleName: 'admin' | 'member';
+	organizationName: string; // TODO: Not descried by the API. Is it computed?
 }
 
-// TODO: The OpenAPI type isn't very exhaustive.
-export interface Organization extends SchemaOrganization {
-	id: string;
-	name: string;
-	subdomain: string;
-	createdByUserId: string;
-	clusters?: Cluster[];
-}
+export { SchemaOrganization as Organization };
 
-// TODO: The OpenAPI SchemaUser has every property as optional.
 export interface User extends SchemaUser {
-	id: string;
-	email: string;
-	firstname: string;
-	lastname: string;
-	roles: OrgRoles[];
+	roles: OrganizationRole[];
 }
 
 export interface LocalUser {
@@ -51,44 +38,15 @@ export interface LocalUser {
 	};
 }
 
-// TODO: The OpenAPI types aren't very comprehensive for these two types.
 export interface Instance extends SchemaHdbInstance {
-	clusterId: string;
-	cpuCores: string;
-	createdByUserId: string;
-	hostId: string;
-	id: string;
-	instanceFqdn: string;
-	instanceType: InstanceType; // TODO: Not seeing this in the server types
-	instanceTypeId: string; // TODO: Not seeing this in the server types
-	memoryMb: string;
-	name: string;
-	operationsApiPort: number;
-	operationsApiSecure: boolean;
-	replicationHosts: string[];
-	status: BadgeStatus;
-	storageGb: string;
-	tempPassword: string;
-	version: string;
+	status?: BadgeStatus;
+}
+
+export interface Plan extends SchemaPlan {
+	price?: string; // TODO: Is this computed?
 }
 
 export interface Cluster extends SchemaCluster {
-	id: string;
-	organizationId: string;
-	name: string;
-	instances: Instance[];
-	prefix: string;
-	resetPassword?: boolean;
-	status: 'PROVISIONING' | 'RUNNING' | 'UPDATING_HDB_NODES' | 'UPDATING' | 'ERROR' | 'TERMINATING' | 'REMOVED' | 'STOPPED' | 'CLONE_READY' | 'CLONE_PENDING' | 'UPDATED' | 'TERMINATED';
+	// TODO: Can we return enums from the server to make this easier?
+	status?: string | 'PROVISIONING' | 'RUNNING' | 'UPDATING_HDB_NODES' | 'UPDATING' | 'ERROR' | 'TERMINATING' | 'REMOVED' | 'STOPPED' | 'CLONE_READY' | 'CLONE_PENDING' | 'UPDATED' | 'TERMINATED';
 }
-
-type InstanceType = {
-	id: string;
-	selfHosted: boolean;
-	useSharedProcess: boolean;
-	threads: number;
-	cpu: number;
-	memory: number;
-	readIops: number;
-	writeIops: number;
-};

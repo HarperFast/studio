@@ -2,7 +2,6 @@ import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import { User } from '@/lib/api.patch';
 
-// TODO: Consolidate with useOnSignUpSubmitMutation
 export type SignInCredentials = {
 	email: string;
 	password: string;

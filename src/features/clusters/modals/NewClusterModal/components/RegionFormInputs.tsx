@@ -1,19 +1,19 @@
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { RegionLocations } from '@/features/clusters/queries/getRegionLocationsQuery';
 import {
 	Select,
-	SelectTrigger,
-	SelectValue,
 	SelectContent,
 	SelectGroup,
-	SelectLabel,
 	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
 } from '@/components/ui/select';
 import { Control } from 'react-hook-form';
 import { useCallback } from 'react';
-import { PlanTypes } from '@/features/cluster/queries/getPlanTypesQuery';
+import { Plan } from '@/lib/api.patch';
+import { SchemaRegion } from '@/lib/api.gen';
 
 type RegionFormInputsProps = {
 	control: Control<{
@@ -26,9 +26,9 @@ type RegionFormInputsProps = {
 	}>;
 	index: number;
 	remove: () => void;
-	regionLocations: RegionLocations;
+	regionLocations: SchemaRegion[];
 	selectedRegions: { regionId: string; count: number; planId: string; price: string }[];
-	planTypes?: PlanTypes;
+	planTypes?: Plan[];
 };
 
 export function RegionFormInputs({

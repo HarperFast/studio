@@ -1,7 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
-// TODO: Consolidate with useOnSignUpSubmitMutation
 export type NewInstanceInfo = {
 	name: string;
 	instanceTypeId: string;

@@ -13,10 +13,12 @@ jobs:
         uses: pnpm/action-setup@v4
       - name: Install dependencies
         run: pnpm install
+      - name: Run unit tests
+        run: pnpm test
       - name: Build staging
         run: pnpm build:staging
       - name: Install HarperDB
-        run: npm install -g harperdb@latest
+        run: npm install -g harperdb@4.6.0
       - name: Deploy to staging
         run: |
           rm -rf node_modules # Clean up node_modules, harper will install

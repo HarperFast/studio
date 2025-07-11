@@ -14,7 +14,7 @@ async function getInstanceInfo(clusterId: string, instanceId?: string) {
 	if (!cluster) {
 		return null;
 	}
-	const instance = cluster.instances.find(instance => instanceId === undefined || instance.id === instanceId);
+	const instance = cluster.instances?.find(instance => instanceId === undefined || instance.id === instanceId);
 	if (!instance) {
 		return null;
 	}

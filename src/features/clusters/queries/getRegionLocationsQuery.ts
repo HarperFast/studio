@@ -1,20 +1,9 @@
 import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
-import { SchemaLocation } from '@/lib/api.gen';
 
-// TODO: Work through any disagreements between the SchemaLocation and our local types here.
-interface RegionLocation extends SchemaLocation {
-	id: string;
-	region: string;
-	latencyDescription: string;
-}
-
-type RegionLocations = RegionLocation[];
-
-async function getRegionLocations(): Promise<RegionLocations> {
+async function getRegionLocations() {
 	const { data } = await apiClient.get(`/Region/`);
-	// TODO: The OpenAPI specs don't describe arrays correctly.
-	return data as RegionLocations;
+	return data;
 }
 
 function getRegionLocationsOptions() {
@@ -26,4 +15,3 @@ function getRegionLocationsOptions() {
 }
 
 export { getRegionLocationsOptions };
-export type { RegionLocations };

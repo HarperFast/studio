@@ -1,7 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 
-// TODO: Consolidate with useOnSignUpSubmitMutation
 export type ResendEmailVerificationRequest = {
 	email: string;
 };
@@ -17,8 +16,7 @@ const onResendEmailVerificationSubmit = async ({
 	const { data } = await apiClient.post<ResendEmailVerificationRequest>('/ResendVerificationEmail/', {
 		email,
 	});
-	// TODO: The OpenAPI response for this endpoint isn't very descriptive.
-	return data as never as ResendVerificationEmailResponse;
+	return data;
 };
 
 export function useResendEmailVerification() {
