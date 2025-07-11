@@ -109,13 +109,12 @@ export function ClusterSetPassword() {
 								name="username"
 								render={({ field }) => (
 									<FormItem className="my-4">
-										<FormLabel>Cluster User</FormLabel>
+										<FormLabel>Username</FormLabel>
 										<FormControl>
 											<Input
 												disabled={true}
 												autoComplete="username"
 												type="text"
-												placeholder="harpersys"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
@@ -129,11 +128,10 @@ export function ClusterSetPassword() {
 								name="password"
 								render={({ field }) => (
 									<FormItem className="my-4">
-										<FormLabel>Cluster Password</FormLabel>
+										<FormLabel>Password</FormLabel>
 										<FormControl>
 											<Input
 												type="password"
-												placeholder="password"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
@@ -151,7 +149,6 @@ export function ClusterSetPassword() {
 										<FormControl>
 											<Input
 												type="password"
-												placeholder="confirm password"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>

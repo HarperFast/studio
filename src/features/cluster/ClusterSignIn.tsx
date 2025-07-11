@@ -108,7 +108,7 @@ export function ClusterSignIn() {
 								name="username"
 								render={({ field }) => (
 									<FormItem className="my-4">
-										<FormLabel>Cluster User</FormLabel>
+										<FormLabel>Username</FormLabel>
 										<FormControl>
 											<Input
 												autoComplete="username"
@@ -127,7 +127,7 @@ export function ClusterSignIn() {
 								name="password"
 								render={({ field }) => (
 									<FormItem className="my-4">
-										<FormLabel>Cluster Password</FormLabel>
+										<FormLabel>Password</FormLabel>
 										<FormControl>
 											<Input
 												type="password"
