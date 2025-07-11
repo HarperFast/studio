@@ -1,0 +1,43 @@
+import { Link } from '@tanstack/react-router';
+import { ArrowRight } from 'lucide-react';
+import { useMemo } from 'react';
+import { Cluster } from '@/lib/api.patch';
+import { useAuth } from '@/hooks/useAuth';
+
+export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
+	const auth = useAuth(cluster);
+	const isPendingResetPassword = useMemo(() => cluster.resetPassword, [cluster]);
+	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
+
+	if (isSelfManaged) {
+		return <Link to={cluster.id} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+			<span className="py-2 hover:border-b-2">
+				Instances <ArrowRight className="inline-block" />
+			</span>
+		</Link>;
+	}
+
+	if (isPendingResetPassword) {
+		return <Link to={`${cluster.id}/set-password`} className="text-sm" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
+			<span className="py-2 hover:border-b-2">
+				Set Password <ArrowRight className="inline-block" />
+			</span>
+		</Link>;
+	}
+
+	if (auth.isLoading) {
+		return undefined;
+	}
+	if (auth.user) {
+		return <Link to={`${cluster.id}/browse`} preload={false} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+			<span className="py-2 hover:border-b-2">
+				View <ArrowRight className="inline-block" />
+			</span>
+		</Link>;
+	}
+	return <Link to={`${cluster.id}/sign-in`} className="text-sm" aria-label={`Sign In to ${cluster.name}`} title={`Sign In to ${cluster.name}`}>
+		<span className="py-2 hover:border-b-2">
+			Sign In <ArrowRight className="inline-block" />
+		</span>
+	</Link>;
+}

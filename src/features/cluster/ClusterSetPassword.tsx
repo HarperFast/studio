@@ -1,5 +1,4 @@
 import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
-import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,27 +10,30 @@ import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo'
 import { authStore } from '@/lib/authStore';
 import { toast } from 'sonner';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { useInstanceResetPasswordMutation } from '@/features/auth/hooks/useInstanceResetPasswordMutation';
 
-const ClusterSignInSchema = z.object({
-	username: z
-		.string({
-			message: 'Please enter the cluster username.',
-		})
-		.max(75, { message: 'Username must be less than 75 characters' }),
-	password: z
-		.string({
-			message: 'Please enter your password',
-		})
-		.min(1, { message: 'Password is required' })
-		.max(50, { message: 'Password must be less than 50 characters' }),
-});
+const ClusterSetPasswordSchema = z
+	.object({
+		username: z.string(),
+		password: z
+			.string({
+				message: 'Please enter your password',
+			})
+			.min(1, { message: 'Password is required' })
+			.max(50, { message: 'Password must be less than 50 characters' }),
+		confirmPassword: z.string(),
+	})
+	.refine((data) => data.password === data.confirmPassword, {
+		message: 'Passwords do not match',
+		path: ['confirmPassword'],
+	});
 
 const route = getRouteApi('');
 
-export function ClusterSignIn() {
+export function ClusterSetPassword() {
 	const { clusterId } = route.useParams();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
@@ -43,30 +45,30 @@ export function ClusterSignIn() {
 	// const router = useRouter();
 	// const queryClient = useQueryClient();
 
-	const form = useForm<z.infer<typeof ClusterSignInSchema>>({
-		resolver: zodResolver(ClusterSignInSchema),
+	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
+		resolver: zodResolver(ClusterSetPasswordSchema),
 		defaultValues: {
-			username: '',
+			username: 'HDB_ADMIN',
 			password: '',
+			confirmPassword: '',
 		},
 	});
-	useEffect(() => {
-		const currentValues = form.getValues();
-		const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
-		if (!currentValues.username && !currentValues.password && cluster?.resetPassword && tempPassword) {
-			form.setValue('username', 'HDB_ADMIN');
-			form.setValue('password', tempPassword);
-		}
-	}, [form, cluster]);
+	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
 
-	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
+	const { mutate: submitInstanceResetPassword, isPending } = useInstanceResetPasswordMutation();
 
-	const submitForm = useCallback(async (formData: z.infer<typeof ClusterSignInSchema>) => {
+	const submitForm = useCallback(async (formData: z.infer<typeof ClusterSetPasswordSchema>) => {
 		if (!operationsUrl) {
 			toast.error('Cluster is not yet fully loaded, please wait a moment before trying to sign in.');
 			return;
 		}
-		submitInstanceLogin({ ...formData, operationsUrl }, {
+		submitInstanceResetPassword({
+			clusterId,
+			newPassword: formData.password,
+			operationsUrl,
+			tempPassword,
+			username: formData.username,
+		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getUserInfo({ operationsUrl });
@@ -79,10 +81,10 @@ export function ClusterSignIn() {
 				await navigate({ to: '../browse' });
 			},
 		});
-	}, [cluster, navigate, operationsUrl, submitInstanceLogin]);
+	}, [cluster, clusterId, navigate, operationsUrl, submitInstanceResetPassword, tempPassword]);
 
-	if (cluster?.resetPassword) {
-		return <Navigate to="../set-password" />;
+	if (cluster && !cluster.resetPassword) {
+		return <Navigate to="../sign-in" />;
 	}
 
 	// TODO: There's a lot we can DRY up between the sign in form variants.
@@ -99,8 +101,7 @@ export function ClusterSignIn() {
 			</nav>
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
-					<h2 className="text-2xl font-light">
-						Sign in to Harper Cluster</h2>
+					<h2 className="text-2xl font-light">Set Harper Cluster Password</h2>
 					<Form {...form}>
 						<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
 							<FormField
@@ -111,9 +112,9 @@ export function ClusterSignIn() {
 										<FormLabel>Username</FormLabel>
 										<FormControl>
 											<Input
+												disabled={true}
 												autoComplete="username"
 												type="text"
-												placeholder="harpersys"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
@@ -131,7 +132,23 @@ export function ClusterSignIn() {
 										<FormControl>
 											<Input
 												type="password"
-												placeholder="password"
+												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="confirmPassword"
+								render={({ field }) => (
+									<FormItem className="my-4">
+										<FormLabel>Confirm Password</FormLabel>
+										<FormControl>
+											<Input
+												type="password"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
@@ -141,7 +158,7 @@ export function ClusterSignIn() {
 								)}
 							/>
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
-								Sign In
+								Set Cluster Admin Password
 							</Button>
 						</form>
 					</Form>
