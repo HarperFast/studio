@@ -17,6 +17,6 @@ describe('getOperationsUrlForCluster', () => {
 	it('can add the protocol', () => {
 		expect(getOperationsUrlForCluster({
 			fqdn: 'localhost',
-		})).toBe('https://localhost/');
+		})).toBe('https://localhost:9925/');
 	});
 });
