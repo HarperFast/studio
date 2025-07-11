@@ -72,7 +72,7 @@ export function ClusterSetPassword() {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getUserInfo({ operationsUrl });
-				authStore.setUserForEntity(cluster, user);
+				authStore.setUserForEntity(cluster || null, user);
 				// TODO: What should we invalidate for the cluster?
 				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				//  router.invalidate();

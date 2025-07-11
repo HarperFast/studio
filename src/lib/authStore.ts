@@ -12,7 +12,7 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 type AuthStoreListenerCleanup = () => void;
 
 export type AuthenticatedConnectionKey =
-	'global'
+	| OverallAppSignInType
 	| Required<SchemaHdbInstance>['instanceFqdn']
 	| Required<SchemaCluster>['fqdn'];
 
@@ -21,7 +21,9 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
-export const OverallAppSignIn = null;
+export const OverallAppSignIn = 'OverallAppSignIn' as const;
+type OverallAppSignInType = typeof OverallAppSignIn;
+type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
 class AuthStore {
 	private readonly users: Record<AuthenticatedConnectionKey, User | LocalUser | null> = {};
@@ -35,7 +37,7 @@ class AuthStore {
 		this.potentiallyAuthenticatedKeys = localStorage.getItem(this.localStorageKey)?.split(',').filter(Boolean) || [];
 	}
 
-	public listenToEntity(entity: Instance | Cluster | null | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
+	public listenToEntity(entity: EntityTypes, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
 		const key = this.calculateKeyFromEntity(entity);
 		if (!key) {
 			return undefined;
@@ -56,7 +58,7 @@ class AuthStore {
 		};
 	}
 
-	public setUserForEntity(entity: Instance | Cluster | null | undefined, user: User | LocalUser | null): void {
+	public setUserForEntity(entity: EntityTypes, user: User | LocalUser | null): void {
 		const key = this.calculateKeyFromEntity(entity);
 		if (!key) {
 			return;
@@ -71,9 +73,9 @@ class AuthStore {
 		void this.updateListeners(key);
 	}
 
-	private calculateKeyFromEntity(entity?: Instance | Cluster | null): AuthenticatedConnectionKey | undefined {
-		if (isLocalStudio || entity === undefined) {
-			return 'global';
+	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {
+		if (isLocalStudio || entity === OverallAppSignIn) {
+			return OverallAppSignIn;
 		}
 		if (isInstance(entity)) {
 			return getOperationsUrlForInstance(entity);
@@ -124,7 +126,7 @@ class AuthStore {
 		this.loading[key] = true;
 		let user: User | LocalUser | null = null;
 		try {
-			if (key === 'global') {
+			if (key === OverallAppSignIn) {
 				if (isLocalStudio) {
 					user = await getUserInfo();
 				} else {
