@@ -24,35 +24,35 @@ const extensionToLanguageMap = {
 };
 
 export function TextEditorView() {
-	const { selectedFile, onSaveFile, isSavingFile } = useEditorView();
+	const { selectedFolderFile, onSaveFile, isSavingFile } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
-	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFile.content || '');
+	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFolderFile.content || '');
 
-	const crumbPath = selectedFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
+	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
 
 	useEffect(() => {
-		const extension = parseFileExtension(selectedFile.filePath) as keyof typeof extensionToLanguageMap;
+		const extension = parseFileExtension(selectedFolderFile.filePath) as keyof typeof extensionToLanguageMap;
 		const updatedLanguage = extensionToLanguageMap[extension] || 'plaintext';
 		setLanguage(updatedLanguage);
-	}, [selectedFile]);
+	}, [selectedFolderFile]);
 
 	return (
 		<div className="h-full">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
-				<span className="p-2">{selectedFile.filePath ? crumbPath : 'Select a file'}</span>
+				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
 				<Button
 					variant="positiveOutline"
 					className="w-32 rounded-full"
 					onClick={() => {
 						onSaveFile({
-							file: selectedFile.filePath.split('/').slice(2).join('/'),
-							payload: updateFileContent || '',
-							project: selectedFile.projectName || '',
+							file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
+							payload: updateFileContent,
+							project: selectedFolderFile.projectName,
 						});
 					}}
 					disabled={
-						!selectedFile.filePath ||
-						(selectedFile.filePath && updateFileContent == selectedFile.content) ||
+						!selectedFolderFile.filePath ||
+						(selectedFolderFile.filePath && updateFileContent == selectedFolderFile.content) ||
 						isSavingFile
 					}
 				>
@@ -64,7 +64,7 @@ export function TextEditorView() {
 				className="w-full h-[500px]"
 				language={language}
 				theme="vs-dark"
-				value={selectedFile.content || ''}
+				value={selectedFolderFile.content || ''}
 				onChange={(updatedValue) => {
 					setUpdateFileContent(updatedValue || '');
 				}}

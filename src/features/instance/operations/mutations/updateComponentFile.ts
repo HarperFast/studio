@@ -3,7 +3,7 @@ import { instanceClient } from '@/config/instanceClient';
 
 type SetComponentFileRequest = {
 	file: string;
-	payload: string;
+	payload?: string;
 	project: string;
 };
 
