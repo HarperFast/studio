@@ -110,39 +110,9 @@ function PackageIcon() {
 	return <i className={'package-icon fas fa-cube'} />;
 }
 
-function Package({
-	name,
-}: // url,
-// url,
-// onPackageSelect,
-// selectedPackage
-{
-	name: string;
-	url: string;
-}) {
-	// FIXME: when we click another package, they both get selected.
-	// const [selected, setSelected] = useState(Boolean(selectedPackage) && name === selectedPackage?.name);
-
-	// useEffect(() => {
-	// 	setSelected(selectedPackage && selectedPackage.name === name);
-	// }, [selectedPackage, name]);
-
+function Package({ name }: { name: string }) {
 	return (
-		<button
-			type="button"
-			// onClick={(e) => {
-			// 	if (selected) {
-			// 		onPackageSelect(null);
-			// 	} else {
-			// 		onPackageSelect({ name, url, event: e });
-			// 	}
-			// 	setSelected(!selected);
-			// }}
-			// className={cn('package', {
-			// 	'package-selected': selected,
-			// })}
-			// onKeyDown={() => {}}
-		>
+		<button type="button">
 			<PackageIcon />
 
 			<span className="package-text">{name}</span>
@@ -150,77 +120,22 @@ function Package({
 	);
 }
 
-function File({
-	directoryEntry,
-	Icon,
-}: {
-	directoryEntry: DirectoryEntry;
-	Icon?: React.ComponentType<unknown>;
-	// selectedFile?: string;
-	// selectedFolder?: DirectoryEntry;
-	// onFileSelect?: (entry: DirectoryEntry | null) => void;
-	// onFolderSelect?: (entry: DirectoryEntry | null) => void;
-}) {
-	// const isDir = isFolder(directoryEntry);
-	// const renameFileIconClass = 'rename-file';
-	// const deployFileIconClass = 'deploy-project';
-	// const isFileSelected = directoryEntry.path === selectedFile;
-	// const isFolderSelected = directoryEntry.path === selectedFolder?.path;
-	// file receives open/close toggle func from
-	// parent. if it's a dir, calls toggle func on click
-	// if it's a flat file, calls onFileSelect so
-	// parent can get file content.
-
-	// function noOp() {
-	// 	// TODO: figure out how to handle keyboard events properly.
-	// 	// for now, use this to avoid react a11y errors.
-	// }
-
-	// function handleToggleSelected(e) {
-	// 	// TODO FIX HANDLING SO WE CAN HAVE NUANCED CLICK BEHAVIOR
-
-	// 	// set the folder/file as currently selected folder/file
-	// 	// visually highlight directory name
-	// 	// note: if directory already highlighted, make sure if we've clicked on the pencil/edit icon
-	// 	// that we don't untoggle directory selection; leave selected if icon clicked.
-	// 	const iconWasClicked =
-	// 		e.target.classList.contains(renameFileIconClass) || e.target.classList.contains(deployFileIconClass);
-	// 	// if icon's clicked, select, but don't unselect.
-	// 	// if (iconWasClicked) return;
-
-	// 	if (isDir) {
-	// 		// one click on dir name toggles selected / highlighted state / ui
-	// 		if (isFolderSelected && iconWasClicked) {
-	// 			// TODO: don't
-	// 		} else {
-	// 			onFolderSelect(isFolderSelected ? null : directoryEntry);
-	// 		}
-	// 	} else if (isFileSelected) {
-	// 		onFileSelect(null);
-	// 	} else {
-	// 		// one click on file name sets it to selected / highlighted
-	// 		// AND retrieves file content
-	// 		onFileSelect(directoryEntry);
-	// 	}
-	// }
-	const { handleFileSelect } = useEditorView();
+function File({ directoryEntry, Icon }: { directoryEntry: DirectoryEntry; Icon?: React.ComponentType<unknown> }) {
+	const { handleFileSelect, selectedFolderFile } = useEditorView();
+	const isFileSelected = selectedFolderFile.filePath === directoryEntry.path;
 	return (
 		<button
 			type="button"
-			className="whitespace-nowrap"
-			// onClick={handleToggleSelected}
+			className={`whitespace-nowrap ${isFileSelected ? 'text-white' : ''}`}
 			onClick={() => {
+				if (isFileSelected) return; // Don't re-select the same file
+
 				handleFileSelect({
 					filePath: directoryEntry.path || '',
 					projectName: directoryEntry.project || '',
-					entries: directoryEntry.entries || [],
+					entries: directoryEntry.entries,
 				});
 			}}
-			// className={cn('file', {
-			// 	'file-selected': isFileSelected,
-			// 	'folder-selected': isFolderSelected,
-			// })}
-			// onKeyDown={noOp}
 		>
 			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
 			{Icon ? <Icon /> : ''}
@@ -229,20 +144,7 @@ function File({
 	);
 }
 
-function Folder({
-	directoryEntry,
-}: // userOnSelect,
-// onFolderSelect,
-// onDeployProject,
-// onFileSelect,
-// onPackageSelect,
-// onFileRename,
-// selectedFile,
-// selectedFolder,
-// selectedPackage,
-{
-	directoryEntry: DirectoryEntry;
-}) {
+function Folder({ directoryEntry }: { directoryEntry: DirectoryEntry }) {
 	const [open, setOpen] = useState(true);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
@@ -271,26 +173,9 @@ function Folder({
 						}`}
 					>
 						{directoryEntry.package ? (
-							<Package
-								// selectedPackage={selectedPackage}
-								// onPackageSelect={onPackageSelect}
-								name={directoryEntry.name}
-								url={directoryEntry.package}
-							/>
+							<Package name={directoryEntry.name} />
 						) : (
-							<File
-								Icon={Icon}
-								// selectedFile={selectedFile}
-								// selectedFolder={selectedFolder}
-								// selectedPackage={selectedPackage}
-								directoryEntry={directoryEntry}
-								// onDeployProject={onDeployProject}
-								// onFileRename={() => {
-								// 	onFileRename(directoryEntry);
-								// }}
-								// onFolderSelect={onFolderSelect}
-								// userOnSelect={userOnSelect}
-							/>
+							<File Icon={Icon} directoryEntry={directoryEntry} />
 						)}
 					</li>
 				) : null
@@ -299,17 +184,7 @@ function Folder({
 			{entries.map((entry) => (
 				<li key={entry.key}>
 					<ul className="pl-2">
-						<Folder
-							// selectedFile={selectedFile}
-							// selectedFolder={selectedFolder}
-							// selectedPackage={selectedPackage}
-							directoryEntry={entry}
-							// onDeployProject={onDeployProject}
-							// onFileRename={onFileRename}
-							// onFolderSelect={onFolderSelect}
-							// onPackageSelect={onPackageSelect}
-							// userOnSelect={userOnSelect}
-						/>
+						<Folder directoryEntry={entry} />
 					</ul>
 				</li>
 			))}
@@ -318,35 +193,12 @@ function Folder({
 }
 
 // A recursive directory tree representation
-export function FileTreeExplorer({
-	files,
-}: // userOnSelect,
-// onFileSelect,
-// onPackageSelect,
-// onDeployProject,
-// onFileRename,
-// onFolderSelect,
-// selectedFile,
-// selectedFolder,
-// selectedPackage,
-{
-	files: GetComponentsResponse;
-}) {
+export function FileTreeExplorer({ files }: { files: GetComponentsResponse }) {
 	return (
-		<div className="file-browser-scroll-container">
+		<div>
 			<div>
-				<ul className="file-browser">
-					<Folder
-						directoryEntry={files}
-						// selectedFile={selectedFile}
-						// selectedFolder={selectedFolder}
-						// selectedPackage={selectedPackage}
-						// onFileRename={onFileRename}
-						// onFolderSelect={onFolderSelect}
-						// onDeployProject={onDeployProject}
-						// onPackageSelect={onPackageSelect}
-						// userOnSelect={userOnSelect}
-					/>
+				<ul className="text-gray-400">
+					<Folder directoryEntry={files} />
 				</ul>
 			</div>
 		</div>

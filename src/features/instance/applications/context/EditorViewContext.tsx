@@ -71,7 +71,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		await setSelectedFile({
 			...selectedFileInfo,
 		});
-		if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries != undefined) {
+		if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries == undefined) {
 			await refetchComponentFile();
 		}
 	};
