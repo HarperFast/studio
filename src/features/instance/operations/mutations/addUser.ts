@@ -27,10 +27,7 @@ export const AddUserFormSchema = z.object({
 	confirmPassword: z
 		.string({
 			message: 'Please enter the password again.',
-		})
-		// TODO: Verify restrictions
-		.min(8, { message: 'Password must be 8 characters or more.' })
-		.max(50, { message: 'Password must be less than 50 characters.' }),
+		}),
 })
 	.refine((data) => data.password === data.confirmPassword, {
 		message: 'Passwords do not match',

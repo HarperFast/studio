@@ -1,15 +1,26 @@
 import { useEffect, useState } from 'react';
-import { AuthenticatedConnection, authStore, OverallAppSignIn } from '@/lib/authStore';
+import {
+	AuthenticatedConnection,
+	AuthenticatedInstanceConnection,
+	authStore,
+	OverallAppSignIn,
+} from '@/lib/authStore';
 import { Cluster, Instance } from '@/lib/api.patch';
 
 export function useAuth(): AuthenticatedConnection;
-export function useAuth(entity: Instance | Cluster | null): AuthenticatedConnection;
-export function useAuth(entity?: Instance | Cluster | null): AuthenticatedConnection {
+export function useAuth(entity: Instance | Cluster | string | null): AuthenticatedConnection;
+export function useAuth(entity?: Instance | Cluster | string | null): AuthenticatedConnection {
 	const [connection, setConnection] = useState<AuthenticatedConnection>({ user: null, isLoading: true });
+	const noArgs = arguments.length === 0;
 	useEffect(() => {
-		return authStore.listenToEntity(entity === undefined ? OverallAppSignIn : entity, connection => {
+		const id = authStore.calculateIdFromEntity(noArgs ? OverallAppSignIn : entity);
+		return authStore.listenToEntity(id, connection => {
 			setConnection(connection);
 		});
-	}, [entity]);
+	}, [entity, noArgs]);
 	return connection;
+}
+
+export function useInstanceAuth(entity: Instance | string | null): AuthenticatedInstanceConnection {
+	return useAuth(entity) as AuthenticatedInstanceConnection;
 }

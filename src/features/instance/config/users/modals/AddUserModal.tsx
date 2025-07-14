@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Save } from 'lucide-react';
-import { useCallback } from 'react';
+import { Suspense, useCallback } from 'react';
 import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -9,16 +9,31 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 
 export function AddUserModal({
+	instanceId,
 	isModalOpen,
 	onChangesSaved,
 	setIsModalOpen,
 }: {
+	instanceId: string;
 	isModalOpen: boolean;
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
+	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceId));
 	const form = useForm<z.infer<typeof AddUserFormSchema>>({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
@@ -41,7 +56,10 @@ export function AddUserModal({
 				},
 				{
 					onSuccess: () => {
+						const lastRole = formData.role;
 						form.reset();
+						// Persist the selected role if they open the form again.
+						form.setValue('role', lastRole);
 						onChangesSaved();
 						toast.success('User added successfully!');
 						setIsModalOpen(false);
@@ -50,7 +68,6 @@ export function AddUserModal({
 			);
 		}
 	}, [addUser, form, onChangesSaved, setIsModalOpen]);
-	// TODO: Role select list.
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}
@@ -120,14 +137,27 @@ export function AddUserModal({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel className="pb-1">Role</FormLabel>
-								{/*TODO: Role picker*/}
-								<FormControl>
-									<Input
-										type="text"
-										placeholder=""
-										{...field}
-									/>
-								</FormControl>
+
+								<Suspense fallback={<TextLoadingSkeleton />}>
+									<FormControl>
+										<Select {...field} onValueChange={(role) => field.onChange(role)}>
+											<SelectTrigger className="w-full">
+												<SelectValue placeholder="Choose Role" />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectGroup>
+													<SelectLabel>Role</SelectLabel>
+													{roles?.map((role) => (
+														<SelectItem
+															key={role.id}
+															value={role.id}
+														>{role.role}</SelectItem>
+													))}
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</FormControl>
+								</Suspense>
 								<FormMessage />
 							</FormItem>
 						)}
