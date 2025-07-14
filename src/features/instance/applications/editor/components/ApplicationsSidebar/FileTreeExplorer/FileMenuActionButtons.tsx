@@ -1,22 +1,52 @@
 import { Button } from '@/components/ui/button';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
+import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
+import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
 import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
+import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
 import { Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
+const route = getRouteApi('');
+
 export function FileMenuActionButtons() {
+	const queryClient = useQueryClient();
+	const { instanceId } = route.useParams();
+	const { refetch: refetchComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
 	const [isAddingFolder, setIsAddingFolder] = useState(false);
-	const { isFolder, selectedFolderFile } = useEditorView(); // Assuming useEditorView is imported from the correct context
+	const [isDeleteFolderOrFileClicked, setIsDeleteFolderOrFileClicked] = useState(false);
+	const { isFolder, selectedFolderFile, handleFileSelect } = useEditorView();
 	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
+	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
 
-	const handleAddFolderOrFile = (name: string) => {
-		addFolderFile({
+	const handleAddFolderOrFile = async (name: string) => {
+		await addFolderFile({
 			file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}/${name}`,
 			project: selectedFolderFile.projectName,
-			payload: isAddingFolder ? undefined : '', // Adjust as needed
+			payload: isAddingFolder ? undefined : '',
 		});
+		refetchComponents();
+		setIsAddFolderOrFileClicked(false);
+	};
+
+	const handleDeleteFolderOrFile = async () => {
+		await deleteFolderFile({
+			file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
+			project: selectedFolderFile.projectName,
+		});
+		// Clear the selected file after deletion
+		handleFileSelect({
+			filePath: '',
+			projectName: '',
+			entries: [],
+			content: '',
+		});
+		refetchComponents();
+		setIsDeleteFolderOrFileClicked(false);
 	};
 
 	return (
@@ -56,7 +86,7 @@ export function FileMenuActionButtons() {
 					''
 				)}
 				<Button
-					onClick={() => setIsAddFolderOrFileClicked(!isAddFolderOrFileClicked)}
+					onClick={() => setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked)}
 					disabled={false}
 					variant="destructiveOutline"
 					size="sm"
@@ -73,6 +103,13 @@ export function FileMenuActionButtons() {
 				isAddingFolder={isAddingFolder}
 				handleAddFolderOrFile={handleAddFolderOrFile}
 				isPending={isAddFolderFilePending}
+			/>
+			<DeleteFolderFileModal
+				isModalOpen={isDeleteFolderOrFileClicked}
+				setIsModalOpen={setIsDeleteFolderOrFileClicked}
+				isFolderSelected={isFolder(selectedFolderFile.entries)}
+				isPending={isDeleteFolderFilePending}
+				handleDeleteFolderOrFile={handleDeleteFolderOrFile}
 			/>
 		</div>
 	);

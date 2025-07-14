@@ -174,6 +174,7 @@ function Folder({ directoryEntry }: { directoryEntry: DirectoryEntry }) {
 						{directoryEntry.package ? (
 							<Package name={directoryEntry.name} />
 						) : (
+							// @ts-expect-error Icon is erroring here, but it works fine.
 							<File Icon={Icon} directoryEntry={directoryEntry} />
 						)}
 					</li>

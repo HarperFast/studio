@@ -60,19 +60,25 @@ export function TextEditorView() {
 					<span className="ms-1">Save</span>
 				</Button>
 			</div>
-			<Editor
-				className="w-full h-[500px]"
-				language={language}
-				theme="vs-dark"
-				value={selectedFolderFile.content || ''}
-				onChange={(updatedValue) => {
-					setUpdateFileContent(updatedValue || '');
-				}}
-				options={{
-					automaticLayout: true,
-					minimap: { enabled: false },
-				}}
-			/>
+			{!selectedFolderFile.filePath ? (
+				<div className="flex items-center justify-center h-full">
+					<span className="text-white">No file selected</span>
+				</div>
+			) : (
+				<Editor
+					className="w-full h-[500px]"
+					language={language}
+					theme="vs-dark"
+					value={selectedFolderFile.content || ''}
+					onChange={(updatedValue) => {
+						setUpdateFileContent(updatedValue || '');
+					}}
+					options={{
+						automaticLayout: true,
+						minimap: { enabled: false },
+					}}
+				/>
+			)}
 		</div>
 	);
 }

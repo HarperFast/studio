@@ -17,28 +17,21 @@ export type EditorViewContextValue = {
 	hasProjects?: boolean;
 	canAddFile?: boolean;
 	canDeleteFolder?: boolean;
-	// canAddProjectFolder?: boolean;
 	isFolder: (entry: DirectoryEntry[] | undefined) => boolean;
 	handleFileSelect: (params: HandleFileSelectParams) => void;
 	updateEditorContent?: (content: string) => void;
-	onSaveFile: (data: SetComponentFileRequest) => void; // Optional save function
-	isSavingFile: boolean; // Optional saving state
+	onSaveFile: (data: SetComponentFileRequest) => void;
+	isSavingFile: boolean;
 };
 
 export const EditorViewContext = createContext<EditorViewContextValue | null>(null);
 
 export const EditorViewProvider = ({ children }: PropsWithChildren) => {
-	// const { instanceId } = route.useParams();
-
-	// const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
 	const [selectedFolderFile, setSelectedFile] = useState<HandleFileSelectParams>({
 		filePath: '',
 		projectName: '',
 		content: '',
 	});
-	// const [selectedFolder, setSelectedFolder] = useState({ name: '', url: '', packageName: '' }); // selectedFolder = { name, key }
-	// const [selectedPackage, setSelectedPackage] = useState({ name: '', url: '', packageName: '', content: '' }); // selectedPackage = { name, url }
-	// const [savingFile, setSavingFile] = useState(false);
 
 	const { data: getComponentFileQueryData, refetch: refetchComponentFile } = useQuery(
 		getComponentFileQuery({
@@ -62,10 +55,6 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	}, [getComponentFileQueryData]);
 
 	const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
-	// const hasProjects = getComponentsQueryData?.entries?.length > 0;
-	// const canAddFile = Boolean(hasProjects && selectedFolder); // can only add a file if a target folder is selected
-	// const canDeleteFolder = Boolean(hasProjects && (selectedFolder || selectedPackage)); // can only delete a folder if a target folder is selected
-	// const canAddProjectFolder = Boolean(selectedFolder); // can only add a folder to a project if a target folder is selected
 
 	const handleFileSelect = async (selectedFileInfo: HandleFileSelectParams) => {
 		await setSelectedFile({
@@ -77,12 +66,10 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	};
 
 	const updateEditorContent = (content: string) => {
-		// Logic to update the editor content
 		setSelectedFile((prev) => ({
 			...prev,
 			content: content,
 		}));
-		// Here you would typically update the state or make an API call to save the content to display in the editor
 	};
 
 	const onSaveFile = (data: SetComponentFileRequest) => {
@@ -104,12 +91,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	return (
 		<EditorViewContext.Provider
 			value={{
-				// hasProjects,
-				// canAddFile,
-				// canDeleteFolder,
-				// getComponentFileQueryData,
 				selectedFolderFile: selectedFolderFile,
-				// canAddProjectFolder,
 				handleFileSelect,
 				updateEditorContent,
 				onSaveFile,
