@@ -27,15 +27,37 @@ export interface User extends SchemaUser {
 export interface LocalUser {
 	active: boolean;
 	username: string;
-	role: {
-		permission: {
-			super_user: boolean;
-		};
-		role: string;
-		id: string;
-		__updatedtime__: number;
-		__createdtime__: number;
-	};
+	role: LocalRole;
+	__updatedtime__: number;
+	__createdtime__: number;
+}
+
+export interface LocalRole {
+	permission: LocalRolePermission;
+	role: string;
+	id: string;
+	__updatedtime__: number;
+	__createdtime__: number;
+}
+
+export interface LocalRolePermission {
+	super_user?: boolean;
+	cluster_user?: boolean;
+	structure_user?: boolean;
+
+	[record: string]: LocalRolePermissionRecord;
+}
+
+export interface LocalRolePermissionRecord {
+	tables: Record<string, LocalRolePermissionTable>;
+}
+
+export interface LocalRolePermissionTable {
+	read: boolean;
+	insert: boolean;
+	update: boolean;
+	delete: boolean;
+	attribute_permissions: unknown[];
 }
 
 export interface Instance extends SchemaHdbInstance {

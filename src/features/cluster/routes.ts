@@ -44,7 +44,7 @@ const clusterSetPasswordRoute = createRoute({
 	component: ClusterSetPassword,
 });
 
-export const clusterRouteTree = [
+export const clusterRoutes = [
 	clusterIndexRoute,
 	clusterSignInRoute,
 	clusterSetPasswordRoute,

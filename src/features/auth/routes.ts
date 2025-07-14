@@ -64,6 +64,6 @@ const resetPasswordRoute = createRoute({
 export const authRouteTree =
 	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetPasswordRoute]);
 
-export const localAuthRouteTree = [
+export const localAuthRoutes = [
 	localSignInRoute,
 ];

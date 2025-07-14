@@ -15,6 +15,6 @@ const clustersIndexRoute = createRoute({
 	component: ClusterList,
 });
 
-export const clustersRouteTree = [
+export const clustersRoutes = [
 	clustersIndexRoute,
 ];
