@@ -67,7 +67,7 @@ export function TextEditorView() {
 				</div>
 			) : (
 				<Editor
-					className="w-full h-[500px]"
+					className="w-full min-h-full h-80"
 					language={language}
 					theme="vs-dark"
 					value={selectedFolderFile.content || ''}
