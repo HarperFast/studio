@@ -4,6 +4,7 @@ import { getComponentFileQuery } from '../../operations/queries/getComponentFile
 import { DirectoryEntry } from '../../operations/queries/getComponents';
 import { SetComponentFileRequest, useUpdateComponentFile } from '../../operations/mutations/updateComponentFile';
 import { toast } from 'sonner';
+import { getRouteApi } from '@tanstack/react-router';
 
 type HandleFileSelectParams = {
 	filePath: string;
@@ -26,6 +27,9 @@ export type EditorViewContextValue = {
 
 export const EditorViewContext = createContext<EditorViewContextValue | null>(null);
 
+const route = getRouteApi('');
+const { instanceId } = route.useParams();
+
 export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	const [selectedFolderFile, setSelectedFile] = useState<HandleFileSelectParams>({
 		filePath: '',
@@ -34,10 +38,13 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	});
 
 	const { data: getComponentFileQueryData, refetch: refetchComponentFile } = useQuery(
-		getComponentFileQuery({
-			file: selectedFolderFile.filePath.split('/').slice(2).join('/'), // removes the first two segments (/components/<projectName>)
-			project: selectedFolderFile.projectName,
-		})
+		getComponentFileQuery(
+			{
+				file: selectedFolderFile.filePath.split('/').slice(2).join('/'), // removes the first two segments (/components/<projectName>)
+				project: selectedFolderFile.projectName,
+			},
+			instanceId
+		)
 	);
 
 	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();

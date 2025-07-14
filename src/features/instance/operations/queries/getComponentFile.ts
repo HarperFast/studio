@@ -1,4 +1,5 @@
 import { instanceClient } from '@/config/instanceClient';
+import { queryKeys } from '@/react-query/constants';
 
 import { queryOptions } from '@tanstack/react-query';
 
@@ -16,9 +17,9 @@ type GetComponentFileResponse = {
 	size: number;
 };
 
-function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest) {
+function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest, instanceId: string) {
 	return queryOptions({
-		queryKey: ['get_component_file'] as const,
+		queryKey: [instanceId, queryKeys.operations.get_component_file] as const,
 		queryFn: async () => {
 			const { data }: { data: GetComponentFileResponse } = await instanceClient.post('/', {
 				operation: 'get_component_file',
