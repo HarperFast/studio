@@ -124,7 +124,7 @@ function File({
 	Icon,
 }: {
 	readonly directoryEntry: DirectoryEntry;
-	Icon?: React.ComponentType<unknown>;
+	readonly Icon?: React.ComponentType<unknown>;
 }) {
 	const { handleFileSelect, selectedFolderFile } = useEditorView();
 	const isFileSelected = selectedFolderFile.filePath === directoryEntry.path;

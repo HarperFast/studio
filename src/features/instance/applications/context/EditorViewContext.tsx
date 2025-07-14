@@ -32,7 +32,7 @@ const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
 
 export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	const { instanceId } = route.useParams();
-	const [selectedFolderFile, setSelectedFile] = useState<HandleFileSelectParams>({
+	const [selectedFolderFile, setSelectedFolderFile] = useState<HandleFileSelectParams>({
 		filePath: '',
 		projectName: '',
 		content: '',
@@ -55,7 +55,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 			getComponentFileQueryData?.message &&
 			getComponentFileQueryData.file == selectedFolderFile.filePath.split('/').slice(2).join('/')
 		) {
-			setSelectedFile((prev) => ({
+			setSelectedFolderFile((prev) => ({
 				...prev,
 				content: getComponentFileQueryData?.message,
 			}));
@@ -64,7 +64,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 
 	const handleFileSelect = useCallback(
 		async (selectedFileInfo: HandleFileSelectParams) => {
-			await setSelectedFile({
+			await setSelectedFolderFile({
 				...selectedFileInfo,
 			});
 			if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries == undefined) {
@@ -75,7 +75,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	);
 
 	const updateEditorContent = useCallback((content: string) => {
-		setSelectedFile((prev) => ({
+		setSelectedFolderFile((prev) => ({
 			...prev,
 			content: content,
 		}));
