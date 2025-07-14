@@ -19,7 +19,12 @@ type GetComponentFileResponse = {
 
 function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest, instanceId: string) {
 	return queryOptions({
-		queryKey: [instanceId, queryKeys.operations.get_component_file] as const,
+		queryKey: [
+			instanceId,
+			queryKeys.operations.get_component_file,
+			getComponentFileRequest.file,
+			getComponentFileRequest.project,
+		] as const,
 		queryFn: async () => {
 			const { data }: { data: GetComponentFileResponse } = await instanceClient.post('/', {
 				operation: 'get_component_file',

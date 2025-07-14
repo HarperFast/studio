@@ -28,11 +28,11 @@ export type EditorViewContextValue = {
 export const EditorViewContext = createContext<EditorViewContextValue | null>(null);
 
 const route = getRouteApi('');
-const { instanceId } = route.useParams();
 
 const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
 
 export const EditorViewProvider = ({ children }: PropsWithChildren) => {
+	const { instanceId } = route.useParams();
 	const [selectedFolderFile, setSelectedFile] = useState<HandleFileSelectParams>({
 		filePath: '',
 		projectName: '',

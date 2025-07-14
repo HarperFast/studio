@@ -25,7 +25,7 @@ const extensionToLanguageMap = {
 };
 
 export function TextEditorView() {
-	const { selectedFolderFile, onSaveFile, isSavingFile } = useEditorView();
+	const { selectedFolderFile, onSaveFile, isSavingFile, isFolder } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
 	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFolderFile.content || '');
 
@@ -61,7 +61,7 @@ export function TextEditorView() {
 					<span className="ms-1">Save</span>
 				</Button>
 			</div>
-			{!selectedFolderFile.filePath ? (
+			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
 				<div className="flex items-center justify-center h-full">
 					<span className="text-white">No file selected</span>
 				</div>
