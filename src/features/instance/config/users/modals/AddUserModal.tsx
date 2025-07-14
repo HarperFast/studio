@@ -2,23 +2,21 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Save } from 'lucide-react';
 import { useCallback } from 'react';
-import { AddUserFormData, AddUserFormSchema } from '@/features/instance/operations/mutations/addUser';
+import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { notYetImplemented } from '@/lib/notYetImplemented';
+import { toast } from 'sonner';
 
 export function AddUserModal({
-	isAddPending,
 	isModalOpen,
-	onSaveChanges,
+	onChangesSaved,
 	setIsModalOpen,
 }: {
-	isAddPending: boolean;
 	isModalOpen: boolean;
-	onSaveChanges: (data: AddUserFormData) => void;
+	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const form = useForm<z.infer<typeof AddUserFormSchema>>({
@@ -30,14 +28,29 @@ export function AddUserModal({
 			confirmPassword: '',
 		},
 	});
+	const { mutate: addUser, isPending: isAddPending } = useAddUserMutation();
+
 	const onSubmitClick = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
-		// TODO: ...
-		console.log(formData, onSaveChanges);
-		// if (addTableRecordData) {
-		// 	onSaveChanges(JSON.parse(addTableRecordData));
-		// }
-		notYetImplemented();
-	}, [onSaveChanges]);
+		if (formData) {
+			addUser(
+				{
+					active: true,
+					password: formData.password,
+					role: formData.role,
+					username: formData.username,
+				},
+				{
+					onSuccess: () => {
+						form.reset();
+						onChangesSaved();
+						toast.success('User added successfully!');
+						setIsModalOpen(false);
+					},
+				},
+			);
+		}
+	}, [addUser, form, onChangesSaved, setIsModalOpen]);
+	// TODO: Role select list.
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}

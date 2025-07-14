@@ -12,7 +12,6 @@ import { Loading } from '@/components/Loading';
 import { toast } from 'sonner';
 import { sleep } from '@/lib/sleep';
 import { AddUserModal } from '@/features/instance/config/users/modals/AddUserModal';
-import { AddUserFormData, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 
 const route = getRouteApi('');
 
@@ -43,22 +42,14 @@ export function ConfigUsersIndex() {
 		id: sortTableDataParams.attribute,
 	}]), [sortTableDataParams]);
 
-	const { mutate: addUser, isPending: isAddPending } = useAddUserMutation();
 	// const { mutate: updateUser, isPending: isUpdatePending } = useUpdateUserMutation();
 	// const { mutate: deleteUser, isPending: isDeletePending } = useDeleteUserMutation();
 
-	const onUserAdd = (data: AddUserFormData) => {
-		addUser(
-			data,
-			{
-				onSuccess: () => {
-					void refetch();
-					setIsAddModalOpen(false);
-					toast.success('User added successfully!');
-				},
-			},
-		);
-	};
+	const onUsedAdded = useCallback(() => {
+		void refetch();
+		setIsAddModalOpen(false);
+	}, [refetch, setIsAddModalOpen]);
+
 	// const onRecordUpdate = (data: Record<string, unknown>[]) => {
 	// 	updateTableRecords(
 	// 		{
@@ -138,13 +129,12 @@ export function ConfigUsersIndex() {
 				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span
 					className="hidden lg:inline-block">Search</span></Button>
 				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
-						disabled={isAddModalOpen || isAddPending}><PlusIcon /> <span><u>A</u>dd</span></Button>
+						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
 			</BrowseDataTable>
 			<AddUserModal
 				setIsModalOpen={setIsAddModalOpen}
 				isModalOpen={isAddModalOpen}
-				onSaveChanges={onUserAdd}
-				isAddPending={isAddPending}
+				onChangesSaved={onUsedAdded}
 			/>
 			{/*<EditTableRowModal*/}
 			{/*	setIsModalOpen={setIsEditModalOpen}*/}
