@@ -1,13 +1,13 @@
-import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
 import { isLocalStudio } from '@/config/constants';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 import { getCloudUser } from '@/features/auth/queries/getCurrentUser';
+import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
+import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
 import { sleep } from '@/lib/sleep';
-import { isInstance } from '@/lib/types/isInstance';
-import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { isCluster } from '@/lib/types/isCluster';
+import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -21,56 +21,84 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
+export interface AuthenticatedGlobalConnection {
+	isLoading: boolean;
+	user: User | null;
+}
+
+export interface AuthenticatedInstanceConnection {
+	isLoading: boolean;
+	user: LocalUser | null;
+}
+
 export const OverallAppSignIn = 'OverallAppSignIn' as const;
 type OverallAppSignInType = typeof OverallAppSignIn;
+
+type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
 type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
 class AuthStore {
-	private readonly users: Record<AuthenticatedConnectionKey, User | LocalUser | null> = {};
-	private readonly loading: Record<AuthenticatedConnectionKey, boolean> = {};
-	private readonly listeners: Record<AuthenticatedConnectionKey, Array<(connection: AuthenticatedConnection) => void>> = {};
+	private readonly users: Record<EntityIds, User | LocalUser | null> = {};
+	private readonly loading: Record<EntityIds, boolean> = {};
+	private readonly listeners: Record<EntityIds, Array<(connection: AuthenticatedConnection) => void>> = {};
 
-	private readonly localStorageKey = 'Harper:Fabric:Auth:PotentiallyAuthenticatedHosts';
-	private readonly potentiallyAuthenticatedKeys: AuthenticatedConnectionKey[];
+	private readonly localStorageKey = 'Studio:PotentiallyAuthenticated';
+	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 
 	constructor() {
-		this.potentiallyAuthenticatedKeys = localStorage.getItem(this.localStorageKey)?.split(',').filter(Boolean) || [];
+		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}');
 	}
 
-	public listenToEntity(entity: EntityTypes, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
-		const key = this.calculateKeyFromEntity(entity);
-		if (!key) {
+	public listenToEntity(id: EntityIds | null | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
+		if (!id) {
 			return undefined;
 		}
-		if (!this.listeners[key]) {
-			this.listeners[key] = [];
-			void this.loadUserByKey(key).then(() => this.updateListeners(key));
+		if (!this.listeners[id]) {
+			this.listeners[id] = [];
+			void this.loadUserById(id).then(() => this.updateListeners(id));
 		}
-		if (!this.listeners[key].includes(listener)) {
-			this.listeners[key].push(listener);
+		if (!this.listeners[id].includes(listener)) {
+			this.listeners[id].push(listener);
 		}
-		this.updateListener(key, listener);
+		this.updateListener(id, listener);
 		return () => {
-			const index = this.listeners[key].indexOf(listener);
+			const index = this.listeners[id].indexOf(listener);
 			if (index >= 0) {
-				this.listeners[key].splice(index, 1);
+				this.listeners[id].splice(index, 1);
 			}
 		};
 	}
 
 	public setUserForEntity(entity: EntityTypes, user: User | LocalUser | null): void {
+		const id = this.calculateIdFromEntity(entity);
 		const key = this.calculateKeyFromEntity(entity);
-		if (!key) {
+		if (!id || !key) {
 			return;
 		}
 		this.users[key] = user;
 		this.loading[key] = false;
 		if (user) {
-			this.flagKeyAsSignedIn(key);
+			this.flagKeyAsSignedIn(id, key);
 		} else {
-			this.flagKeyAsSignedOut(key);
+			this.flagKeyAsSignedOut(id);
 		}
-		void this.updateListeners(key);
+		void this.updateListeners(id);
+	}
+
+	public calculateIdFromEntity(entity: EntityTypes | EntityIds | undefined): EntityIds | undefined {
+		if (isLocalStudio || entity === OverallAppSignIn) {
+			return OverallAppSignIn;
+		}
+		if (isInstance(entity)) {
+			return entity.id;
+		}
+		if (isCluster(entity)) {
+			return entity.id;
+		}
+		if (typeof entity === 'string') {
+			return entity;
+		}
+		return undefined;
 	}
 
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {
@@ -86,53 +114,53 @@ class AuthStore {
 		return undefined;
 	}
 
-	private flagKeyAsSignedIn(key: AuthenticatedConnectionKey) {
-		if (!this.potentiallyAuthenticatedKeys.includes(key)) {
-			this.potentiallyAuthenticatedKeys.push(key);
-			localStorage.setItem(this.localStorageKey, this.potentiallyAuthenticatedKeys.join(','));
+	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
+		if (this.potentiallyAuthenticated[id] !== key) {
+			this.potentiallyAuthenticated[id] = key;
+			localStorage.setItem(this.localStorageKey, JSON.stringify(this.potentiallyAuthenticated));
 		}
 	}
 
-	private flagKeyAsSignedOut(key: AuthenticatedConnectionKey) {
-		const index = this.potentiallyAuthenticatedKeys.indexOf(key);
-		if (index >= 0) {
-			this.potentiallyAuthenticatedKeys.splice(index, 1);
-			localStorage.setItem(this.localStorageKey, this.potentiallyAuthenticatedKeys.join(','));
+	private flagKeyAsSignedOut(id: EntityIds) {
+		if (this.potentiallyAuthenticated[id]) {
+			delete this.potentiallyAuthenticated[id];
+			localStorage.setItem(this.localStorageKey, JSON.stringify(this.potentiallyAuthenticated));
 		}
 	}
 
-	private async updateListeners(key: AuthenticatedConnectionKey): Promise<void> {
+	private async updateListeners(id: EntityIds): Promise<void> {
 		await sleep(1);
-		if (this.listeners[key]) {
-			for (const listener of this.listeners[key]) {
-				this.updateListener(key, listener);
+		if (this.listeners[id]) {
+			for (const listener of this.listeners[id]) {
+				this.updateListener(id, listener);
 			}
 		}
 	}
 
-	private updateListener(key: AuthenticatedConnectionKey, listener: (connection: AuthenticatedConnection) => void) {
+	private updateListener(id: EntityIds, listener: (connection: AuthenticatedConnection) => void) {
 		listener({
-			isLoading: this.loading[key] || false,
-			user: this.users[key] || null,
+			isLoading: this.loading[id] || false,
+			user: this.users[id] || null,
 		});
 	}
 
-	private async loadUserByKey(key: AuthenticatedConnectionKey): Promise<void> {
-		if (!this.potentiallyAuthenticatedKeys.includes(key)) {
-			this.loading[key] = false;
-			this.users[key] = null;
+	private async loadUserById(id: EntityIds): Promise<void> {
+		if (!this.potentiallyAuthenticated[id]) {
+			this.loading[id] = false;
+			this.users[id] = null;
 			return;
 		}
-		this.loading[key] = true;
+		const key = this.potentiallyAuthenticated[id];
+		this.loading[id] = true;
 		let user: User | LocalUser | null = null;
 		try {
-			if (key === OverallAppSignIn) {
+			if (id === OverallAppSignIn) {
 				if (isLocalStudio) {
 					user = await getUserInfo();
 				} else {
 					user = await getCloudUser();
 				}
-			} else if (key) {
+			} else if (id) {
 				user = await getUserInfo({ operationsUrl: key });
 			}
 		} catch (error) {
@@ -141,12 +169,12 @@ class AuthStore {
 			user = null;
 		}
 		if (user) {
-			this.flagKeyAsSignedIn(key);
+			this.flagKeyAsSignedIn(id, key);
 		} else {
-			this.flagKeyAsSignedOut(key);
+			this.flagKeyAsSignedOut(id);
 		}
-		this.users[key] = user;
-		this.loading[key] = false;
+		this.users[id] = user;
+		this.loading[id] = false;
 	}
 }
 
