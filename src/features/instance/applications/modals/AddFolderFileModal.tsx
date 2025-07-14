@@ -21,11 +21,11 @@ export function AddFolderFileModal({
 	isAddingFolder,
 	handleAddFolderOrFile,
 }: {
-	isModalOpen?: boolean;
-	setIsModalOpen: (value: boolean) => void;
-	isPending?: boolean;
-	isAddingFolder?: boolean;
-	handleAddFolderOrFile?: (name: string) => void;
+	readonly isModalOpen?: boolean;
+	readonly setIsModalOpen: (value: boolean) => void;
+	readonly isPending?: boolean;
+	readonly isAddingFolder?: boolean;
+	readonly handleAddFolderOrFile?: (name: string) => void;
 }) {
 	const NewFileFolderSchema = z.object({
 		name: z

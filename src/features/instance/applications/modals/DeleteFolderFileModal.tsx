@@ -9,11 +9,11 @@ export function DeleteFolderFileModal({
 	isFolderSelected,
 	handleDeleteFolderOrFile,
 }: {
-	isModalOpen: boolean;
-	setIsModalOpen: (value: boolean) => void;
-	isPending?: boolean;
-	isFolderSelected: boolean;
-	handleDeleteFolderOrFile: () => void;
+	readonly isModalOpen: boolean;
+	readonly setIsModalOpen: (value: boolean) => void;
+	readonly isPending?: boolean;
+	readonly isFolderSelected: boolean;
+	readonly handleDeleteFolderOrFile: () => void;
 }) {
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
