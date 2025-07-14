@@ -1,0 +1,8 @@
+@import url("@/assets/fontawesome/fontawesome.css");
+
+.folder-open ~ li {
+  display: block;
+}
+.folder-closed ~ li {
+  display: none;
+}

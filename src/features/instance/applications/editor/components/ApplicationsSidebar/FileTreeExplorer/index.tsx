@@ -1,29 +1,7 @@
 import { GetComponentsResponse, DirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import './filetree.css';
 import { useState } from 'react';
-
-// import cn from 'classnames';
-
-// function NoProjects() {
-// 	return (
-// 		<div>
-// 			<div>
-// 				<div className="p-4">
-// 					You have no Harper applications yet. <br />
-// 					<br />
-// 					Click &quot;
-// 					<i className="fas fa-plus" /> app&quot; above to create one!
-// 					<br />
-// 					<br />
-// 					See the{' '}
-// 					<a className="docs-link" href="https://docs.harperdb.io" target="_blank" rel="noopener">
-// 						documentation
-// 					</a>{' '}
-// 					for more info on Harper Applications.
-// 				</div>
-// 			</div>
-// 		</div>
-// 	);
-// }
+import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 
 interface ParseFileExtension {
 	(name: string): string | null;
@@ -38,7 +16,7 @@ interface DirectorySortComparatorEntry {
 }
 
 function directorySortComparator(a: DirectorySortComparatorEntry, b: DirectorySortComparatorEntry): number {
-	// TODO: refactor.
+	// NOTE: refactor.
 
 	// directories first, then flat files sorted
 	// ascending, alphanumerically
@@ -48,12 +26,6 @@ function directorySortComparator(a: DirectorySortComparatorEntry, b: DirectorySo
 	return A === B ? a.name.localeCompare(b.name) : B - A;
 }
 
-// interface IsFolder {
-// 	(entry: DirectoryEntry): boolean;
-// }
-
-// const isFolder: IsFolder = (entry) => Boolean(entry.entries);
-
 function ProjectIcon({
 	toggleClosed,
 	isOpen,
@@ -62,15 +34,15 @@ function ProjectIcon({
 	isOpen: boolean;
 }) {
 	return (
-		<i
+		// NOTE: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+		<button
+			type="button"
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
-			// className={cn(`project-icon fas fa-file-code`)}
+			className={`project-icon fas fa-file-code text-green`}
 			tabIndex={0}
 			aria-expanded={isOpen}
-			aria-controls="folder"
 			aria-label={isOpen ? 'close project' : 'open project'}
-			role="button"
 		/>
 	);
 }
@@ -83,27 +55,51 @@ function FolderIcon({
 	isOpen: boolean;
 }) {
 	return (
-		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
-		<i
+		// NOTE: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+		<button
+			type="button"
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
-			// className={cn(`folder-icon fas ${isOpen ? 'fa-folder-open' : 'fa-folder'}`)}
+			className={`folder-icon fas text-purple ${isOpen ? 'fa-folder-open' : 'fa-folder'}`}
 			tabIndex={0}
 			aria-expanded={isOpen}
-			aria-controls="folder"
 			aria-label={isOpen ? 'close folder' : 'open folder'}
-			role="button"
 		/>
 	);
 }
 
-function FiletypeIcon({ extension }: { extension: string | null }) {
+function FiletypeIcon({ extension }: { readonly extension: string | null }) {
 	switch (extension) {
 		case 'js':
-			// return <i className={cn('file-icon filetype-js fab fa-js')} />;
-			return <i className={'file-icon filetype-js fab fa-js'} />;
+			return <i className={'file-icon filetype-js fab fa-js text-yellow'} />;
+		case 'jsx':
+			return <i className={'file-icon filetype-jsx fab fa-js text-yellow'} />;
+		case 'cjs':
+			return <i className={'file-icon filetype-cjs fab fa-js text-yellow'} />;
 		case 'yaml':
-			return <i className={'file-icon filetype-yaml fas fa-cog'} />;
+			return <i className={'file-icon filetype-yaml fas fa-file'} />;
+		case 'css':
+			return <i className={'file-icon filetype-css fas fa-file text-blue'} />;
+		case 'html':
+			return <i className={'file-icon filetype-html fas fa-html5 text-orange'} />;
+		case 'json':
+			return <i className={'file-icon filetype-json fas fa-cog'} />;
+		case 'ts':
+			return <i className={'file-icon filetype-ts fas fa-file text-blue'} />;
+		case 'tsx':
+			return <i className={'file-icon filetype-tsx fas fa-file text-blue'} />;
+		case 'png':
+			return <i className={'file-icon filetype-png fas fa-image'} />;
+		case 'jpg':
+			return <i className={'file-icon filetype-jpg fas fa-image'} />;
+		case 'jpeg':
+			return <i className={'file-icon filetype-jpeg fas fa-image'} />;
+		case 'gif':
+			return <i className={'file-icon filetype-gif fas fa-image'} />;
+		case 'svg':
+			return <i className={'file-icon filetype-svg fas fa-file-svg'} />;
+		case 'vue':
+			return <i className={'file-icon filetype-vue fab fa-vuejs text-green'} />;
 		default:
 			return <i className={'file-icon filetype-unknown far fa-file-alt'} />;
 	}
@@ -113,39 +109,9 @@ function PackageIcon() {
 	return <i className={'package-icon fas fa-cube'} />;
 }
 
-function Package({
-	name,
-}: // url,
-// url,
-// onPackageSelect,
-// selectedPackage
-{
-	name: string;
-	url: string;
-}) {
-	// FIXME: when we click another package, they both get selected.
-	// const [selected, setSelected] = useState(Boolean(selectedPackage) && name === selectedPackage?.name);
-
-	// useEffect(() => {
-	// 	setSelected(selectedPackage && selectedPackage.name === name);
-	// }, [selectedPackage, name]);
-
+function Package({ name }: { readonly name: string }) {
 	return (
-		<button
-			type="button"
-			// onClick={(e) => {
-			// 	if (selected) {
-			// 		onPackageSelect(null);
-			// 	} else {
-			// 		onPackageSelect({ name, url, event: e });
-			// 	}
-			// 	setSelected(!selected);
-			// }}
-			// className={cn('package', {
-			// 	'package-selected': selected,
-			// })}
-			// onKeyDown={() => {}}
-		>
+		<button type="button">
 			<PackageIcon />
 
 			<span className="package-text">{name}</span>
@@ -157,92 +123,38 @@ function File({
 	directoryEntry,
 	Icon,
 }: {
-	directoryEntry: DirectoryEntry;
-	// selectedFile?: string;
-	// selectedFolder?: DirectoryEntry;
-	// onFileSelect?: (entry: DirectoryEntry | null) => void;
-	// onFolderSelect?: (entry: DirectoryEntry | null) => void;
-	Icon?: React.ComponentType<unknown>;
+	readonly directoryEntry: DirectoryEntry;
+	readonly Icon?: React.ComponentType<unknown>;
 }) {
-	// const isDir = isFolder(directoryEntry);
-	// const renameFileIconClass = 'rename-file';
-	// const deployFileIconClass = 'deploy-project';
-	// const isFileSelected = directoryEntry.path === selectedFile;
-	// const isFolderSelected = directoryEntry.path === selectedFolder?.path;
-	// file receives open/close toggle func from
-	// parent. if it's a dir, calls toggle func on click
-	// if it's a flat file, calls onFileSelect so
-	// parent can get file content.
-
-	// function noOp() {
-	// 	// TODO: figure out how to handle keyboard events properly.
-	// 	// for now, use this to avoid react a11y errors.
-	// }
-
-	// function handleToggleSelected(e) {
-	// 	// TODO FIX HANDLING SO WE CAN HAVE NUANCED CLICK BEHAVIOR
-
-	// 	// set the folder/file as currently selected folder/file
-	// 	// visually highlight directory name
-	// 	// note: if directory already highlighted, make sure if we've clicked on the pencil/edit icon
-	// 	// that we don't untoggle directory selection; leave selected if icon clicked.
-	// 	const iconWasClicked =
-	// 		e.target.classList.contains(renameFileIconClass) || e.target.classList.contains(deployFileIconClass);
-	// 	// if icon's clicked, select, but don't unselect.
-	// 	// if (iconWasClicked) return;
-
-	// 	if (isDir) {
-	// 		// one click on dir name toggles selected / highlighted state / ui
-	// 		if (isFolderSelected && iconWasClicked) {
-	// 			// TODO: don't
-	// 		} else {
-	// 			onFolderSelect(isFolderSelected ? null : directoryEntry);
-	// 		}
-	// 	} else if (isFileSelected) {
-	// 		onFileSelect(null);
-	// 	} else {
-	// 		// one click on file name sets it to selected / highlighted
-	// 		// AND retrieves file content
-	// 		onFileSelect(directoryEntry);
-	// 	}
-	// }
-
+	const { handleFileSelect, selectedFolderFile } = useEditorView();
+	const isFileSelected = selectedFolderFile.filePath === directoryEntry.path;
 	return (
 		<button
 			type="button"
-			// onClick={handleToggleSelected}
-			// // className={cn('file', {
-			// // 	'file-selected': isFileSelected,
-			// // 	'folder-selected': isFolderSelected,
-			// // })}
-			// onKeyDown={noOp}
+			className={`whitespace-nowrap ${isFileSelected ? 'text-white' : ''}`}
+			onClick={() => {
+				if (isFileSelected) return; // Don't re-select the same file
+				handleFileSelect({
+					filePath: directoryEntry.path || '',
+					projectName: directoryEntry.project || '',
+					entries: directoryEntry.entries,
+				});
+			}}
 		>
 			{/* NOTE: Doing this to pass the build time check, but not actually needing to do the ternary just <Icon /> */}
-			{Icon ? <Icon /> : null}.<span className="filename-text">{directoryEntry.name}</span>
+			{Icon ? <Icon /> : ''}
+			<span className="pl-2 filename-text">{directoryEntry.name}</span>
 		</button>
 	);
 }
 
-function Folder({
-	directoryEntry,
-}: // userOnSelect,
-// onFolderSelect,
-// onDeployProject,
-// onFileSelect,
-// onPackageSelect,
-// onFileRename,
-// selectedFile,
-// selectedFolder,
-// selectedPackage,
-{
-	directoryEntry: DirectoryEntry;
-}) {
+function Folder({ directoryEntry }: { readonly directoryEntry: DirectoryEntry }) {
 	const [open, setOpen] = useState(true);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
 	const fileExtension = parseFileExtension(directoryEntry.name);
 
-	let Icon;
+	let Icon: React.ComponentType<HTMLElement>;
 	// top-level dir === package
 	// FolderIcon/PackageIcon is func so we can give it open args now, but instantiate it later.
 	if (directoryEntry.path && directoryEntry.path.split('/').length === 2) {
@@ -260,34 +172,15 @@ function Folder({
 				directoryEntry.name !== 'components' ? (
 					<li
 						key={directoryEntry.key}
-						// className={cn(
-						// 	`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
-						// 		open ? 'folder-open' : 'folder-closed'
-						// 	}`
-						// )}
+						className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
+							open ? 'folder-open' : 'folder-closed'
+						}`}
 					>
 						{directoryEntry.package ? (
-							<Package
-								// selectedPackage={selectedPackage}
-								// onPackageSelect={onPackageSelect}
-								name={directoryEntry.name}
-								url={directoryEntry.package}
-							/>
+							<Package name={directoryEntry.name} />
 						) : (
-							<File
-								Icon={Icon}
-								// selectedFile={selectedFile}
-								// selectedFolder={selectedFolder}
-								// selectedPackage={selectedPackage}
-								directoryEntry={directoryEntry}
-								// onDeployProject={onDeployProject}
-								// onFileRename={() => {
-								// 	onFileRename(directoryEntry);
-								// }}
-								// onFileSelect={onFileSelect}
-								// onFolderSelect={onFolderSelect}
-								// userOnSelect={userOnSelect}
-							/>
+							// @ts-expect-error Icon is erroring here, but it works fine.
+							<File Icon={Icon} directoryEntry={directoryEntry} />
 						)}
 					</li>
 				) : null
@@ -295,25 +188,8 @@ function Folder({
 
 			{entries.map((entry) => (
 				<li key={entry.key}>
-					<ul
-					// className={cn('folder', {
-					// 	// TODO: fix this logic, folders aren't closing.
-					// 	'folder-contents-open': true,
-					// 	'folder-contents-closed': false,
-					// })}
-					>
-						<Folder
-							// selectedFile={selectedFile}
-							// selectedFolder={selectedFolder}
-							// selectedPackage={selectedPackage}
-							directoryEntry={entry}
-							// onFileSelect={onFileSelect}
-							// onDeployProject={onDeployProject}
-							// onFileRename={onFileRename}
-							// onFolderSelect={onFolderSelect}
-							// onPackageSelect={onPackageSelect}
-							// userOnSelect={userOnSelect}
-						/>
+					<ul className="pl-2">
+						<Folder directoryEntry={entry} />
 					</ul>
 				</li>
 			))}
@@ -322,36 +198,12 @@ function Folder({
 }
 
 // A recursive directory tree representation
-export function FileTreeExplorer({
-	files,
-}: // userOnSelect,
-// onFileSelect,
-// onPackageSelect,
-// onDeployProject,
-// onFileRename,
-// onFolderSelect,
-// selectedFile,
-// selectedFolder,
-// selectedPackage,
-{
-	files: GetComponentsResponse;
-}) {
+export function FileTreeExplorer({ files }: { readonly files: GetComponentsResponse }) {
 	return (
-		<div className="file-browser-scroll-container">
+		<div>
 			<div>
-				<ul className="file-browser">
-					<Folder
-						directoryEntry={files}
-						// selectedFile={selectedFile}
-						// selectedFolder={selectedFolder}
-						// selectedPackage={selectedPackage}
-						// onFileSelect={onFileSelect}
-						// onFileRename={onFileRename}
-						// onFolderSelect={onFolderSelect}
-						// onDeployProject={onDeployProject}
-						// onPackageSelect={onPackageSelect}
-						// userOnSelect={userOnSelect}
-					/>
+				<ul className="text-gray-400">
+					<Folder directoryEntry={files} />
 				</ul>
 			</div>
 		</div>

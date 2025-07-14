@@ -28,7 +28,12 @@ export function EditTableRowModal({
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
-			<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => { event.preventDefault(); } }>
+			<DialogContent
+				aria-describedby={undefined}
+				onEscapeKeyDown={(event) => {
+					event.preventDefault();
+				}}
+			>
 				<DialogHeader>
 					<DialogTitle>Edit Row</DialogTitle>
 				</DialogHeader>
