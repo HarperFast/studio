@@ -34,7 +34,9 @@ function ProjectIcon({
 	isOpen: boolean;
 }) {
 	return (
-		<i
+		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+		<button
+			type="button"
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
 			className={`project-icon fas fa-file-code text-green`}
@@ -55,7 +57,8 @@ function FolderIcon({
 }) {
 	return (
 		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
-		<i
+		<button
+			type="button"
 			onClick={toggleClosed}
 			onKeyDown={toggleClosed}
 			className={`folder-icon fas text-purple ${isOpen ? 'fa-folder-open' : 'fa-folder'}`}
