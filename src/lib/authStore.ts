@@ -21,11 +21,6 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
-export interface AuthenticatedGlobalConnection {
-	isLoading: boolean;
-	user: User | null;
-}
-
 export interface AuthenticatedInstanceConnection {
 	isLoading: boolean;
 	user: LocalUser | null;

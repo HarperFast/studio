@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
 	AuthenticatedConnection,
-	AuthenticatedGlobalConnection,
 	AuthenticatedInstanceConnection,
 	authStore,
 	OverallAppSignIn,
@@ -20,10 +19,6 @@ export function useAuth(entity?: Instance | Cluster | string | null): Authentica
 		});
 	}, [entity, noArgs]);
 	return connection;
-}
-
-export function useGlobalAuth(): AuthenticatedGlobalConnection {
-	return useAuth() as AuthenticatedGlobalConnection;
 }
 
 export function useInstanceAuth(entity: Instance | string | null): AuthenticatedInstanceConnection {
