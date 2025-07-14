@@ -43,7 +43,6 @@ function ProjectIcon({
 			tabIndex={0}
 			aria-expanded={isOpen}
 			aria-label={isOpen ? 'close project' : 'open project'}
-			role="button"
 		/>
 	);
 }
@@ -65,7 +64,6 @@ function FolderIcon({
 			tabIndex={0}
 			aria-expanded={isOpen}
 			aria-label={isOpen ? 'close folder' : 'open folder'}
-			role="button"
 		/>
 	);
 }
