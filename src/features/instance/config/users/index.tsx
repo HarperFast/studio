@@ -132,12 +132,13 @@ export function ConfigUsersIndex() {
 				{/*<UploadCSVModal />*/}
 				{/*disabled={tableDataFetching}*/}
 				<Button variant="defaultOutline" onClick={onRefreshClick}
+						accessKey="r"
 						disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
-					className="hidden lg:inline-block">Refresh</span></Button>
+					className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
 				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span
 					className="hidden lg:inline-block">Search</span></Button>
-				<Button variant="positiveOutline" onClick={onAddClicked}
-						disabled={isAddModalOpen || isAddPending}><PlusIcon /> Add</Button>
+				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
+						disabled={isAddModalOpen || isAddPending}><PlusIcon /> <span><u>A</u>dd</span></Button>
 			</BrowseDataTable>
 			<AddUserModal
 				setIsModalOpen={setIsAddModalOpen}
