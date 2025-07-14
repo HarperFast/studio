@@ -140,9 +140,7 @@ export function AddUserModal({
 
 								<Suspense fallback={<TextLoadingSkeleton />}>
 									<FormControl>
-										<Select {...field} onValueChange={(role) => {
-											field.onChange(role);
-										}}>
+										<Select {...field} onValueChange={(role) => field.onChange(role)}>
 											<SelectTrigger className="w-full">
 												<SelectValue placeholder="Choose Role" />
 											</SelectTrigger>

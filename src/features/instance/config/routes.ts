@@ -21,15 +21,27 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: 'roles',
 		component: ConfigRolesIndex,
 	});
+	const instanceConfigRoleRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'roles/$roleId',
+		component: ConfigRolesIndex,
+	});
 	const instanceConfigUsersRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'users',
+		component: ConfigUsersIndex,
+	});
+	const instanceConfigUserRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'users/$username',
 		component: ConfigUsersIndex,
 	});
 
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
 		instanceConfigRolesRoute,
+		instanceConfigRoleRoute,
 		instanceConfigUsersRoute,
+		instanceConfigUserRoute,
 	]);
 }

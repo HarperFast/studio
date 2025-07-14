@@ -1,40 +1,45 @@
-import { Suspense, useCallback, useMemo, useState } from 'react';
-import { getRouteApi } from '@tanstack/react-router';
-import { LocalUser } from '@/lib/api.patch';
-import { dataTableColumns, hashAttribute } from '@/features/instance/config/users/constants/tableDefinition';
-import { BrowseDataTable } from '@/features/instance/config/users/components/BrowseDataTable';
-import { notYetImplemented } from '@/lib/notYetImplemented';
-import { PlusIcon, RefreshCwIcon, SearchIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getListUsersQueryOptions } from '@/features/instance/operations/queries/getListUsers';
 import { Loading } from '@/components/Loading';
-import { toast } from 'sonner';
-import { sleep } from '@/lib/sleep';
+import { Button } from '@/components/ui/button';
+import { BrowseDataTable } from '@/features/instance/config/users/components/BrowseDataTable';
+import { dataTableColumns } from '@/features/instance/config/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/instance/config/users/modals/AddUserModal';
+import { EditUserModal } from '@/features/instance/config/users/modals/EditUserModal';
+import { getListUsersQueryOptions } from '@/features/instance/operations/queries/getListUsers';
+import { LocalUser } from '@/lib/api.patch';
+import { sleep } from '@/lib/sleep';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { Row } from '@tanstack/react-table';
+import { PlusIcon, RefreshCwIcon } from 'lucide-react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 const route = getRouteApi('');
 
 export function ConfigUsersIndex() {
-	// const navigate = useNavigate();
-	const { instanceId } = route.useParams();
+	const navigate = useNavigate();
+	const { instanceId, username } = route.useParams();
 	const {
 		data: localUsers,
 		refetch,
 		isFetching,
 		isRefetching,
 	} = useSuspenseQuery(getListUsersQueryOptions(instanceId));
+	const selectedUser = useMemo(
+		() => localUsers?.find(user => user.username === username),
+		[localUsers, username],
+	);
 
-	// const onSelectUser = useCallback((newUserId: string | undefined) => {
-	// 	const parts = [userId ? '..' : '', newUserId].filter(Boolean);
-	// 	void navigate({ to: parts.join('/') });
-	// }, [userId, navigate]);
+	const onSelectUser = useCallback((newUsername: string | undefined) => {
+		const parts = [username ? '..' : '', newUsername].filter(Boolean);
+		void navigate({ to: parts.join('/') });
+	}, [username, navigate]);
 
-	// const isEditModalOpen = !!userId;
+	const isEditModalOpen = !!username && !!selectedUser;
 
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useState({
-		attribute: hashAttribute,
+	const [sortTableDataParams] = useState({
+		attribute: 'username',
 		descending: false,
 	});
 	const sortingState = useMemo(() => ([{
@@ -42,58 +47,30 @@ export function ConfigUsersIndex() {
 		id: sortTableDataParams.attribute,
 	}]), [sortTableDataParams]);
 
-	// const { mutate: updateUser, isPending: isUpdatePending } = useUpdateUserMutation();
-	// const { mutate: deleteUser, isPending: isDeletePending } = useDeleteUserMutation();
-
+	const onAddClicked = useCallback(() => {
+		setIsAddModalOpen(true);
+	}, [setIsAddModalOpen]);
 	const onUsedAdded = useCallback(() => {
 		void refetch();
 		setIsAddModalOpen(false);
 	}, [refetch, setIsAddModalOpen]);
 
-	// const onRecordUpdate = (data: Record<string, unknown>[]) => {
-	// 	updateTableRecords(
-	// 		{
-	// 			databaseName: schemaName,
-	// 			tableName,
-	// 			records: data,
-	// 		},
-	// 		{
-	// 			onSuccess: () => {
-	// 				void refetchDescribeTableQueryOptions();
-	// 				void refetchSearchByValueOptions();
-	// 				setIsEditModalOpen(false);
-	// 				toast.success('Record updated successfully');
-	// 			},
-	// 		},
-	// 	);
-	// };
-	// const onDeleteRecord = (data: (string | number)[]) => {
-	// 	deleteTableRecords(
-	// 		{
-	// 			databaseName: schemaName,
-	// 			tableName,
-	// 			hash_values: data,
-	// 		},
-	// 		{
-	// 			onSuccess: () => {
-	// 				void refetchDescribeTableQueryOptions();
-	// 				void refetchSearchByValueOptions();
-	// 				setIsEditModalOpen(false);
-	// 				toast.success('Record deleted successfully');
-	// 			},
-	// 		},
-	// 	);
-	// };
-	// const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-	// 	setSelectedHashAttribute(rowData.original[hash_attribute]);
-	// 	setIsEditModalOpen(!isEditModalOpen);
-	// };
-	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
-		setSortTableDataParams({
-			attribute: accessorKey,
-			descending: !isAscending,
-		});
-	};
+	const onRowClick = useCallback((rowData: Row<LocalUser>) => {
+		onSelectUser(rowData.original.username);
+	}, [onSelectUser]);
+	const closeEditModal = useCallback(() => {
+		onSelectUser(undefined);
+	}, [onSelectUser]);
+
+	const onUserUpdated = useCallback(() => {
+		void refetch();
+		onSelectUser(undefined);
+	}, [onSelectUser, refetch]);
+	const onUserDeleted = useCallback(() => {
+		void refetch();
+		onSelectUser(undefined);
+	}, [onSelectUser, refetch]);
+
 	const onRefreshClick = useCallback(async () => {
 		const toastId = toast.loading('Refreshing...');
 		const startedAt = Date.now();
@@ -105,10 +82,6 @@ export function ConfigUsersIndex() {
 		toast.success('Refreshed!');
 	}, [refetch]);
 
-	const onAddClicked = useCallback(() => {
-		setIsAddModalOpen(true);
-	}, [setIsAddModalOpen]);
-
 	return (
 		<Suspense
 			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
@@ -116,8 +89,7 @@ export function ConfigUsersIndex() {
 				data={localUsers}
 				isFetching={isFetching || isRefetching}
 				columns={dataTableColumns}
-				// onRowClick={onRowClick}
-				onColumnClick={onColumnClick}
+				onRowClick={onRowClick}
 				sortingState={sortingState}
 			>
 				{/*<UploadCSVModal />*/}
@@ -126,8 +98,8 @@ export function ConfigUsersIndex() {
 						accessKey="r"
 						disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
 					className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
-				<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span
-					className="hidden lg:inline-block">Search</span></Button>
+				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span*/}
+				{/*	className="hidden lg:inline-block">Search</span></Button>*/}
 				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
 						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
 			</BrowseDataTable>
@@ -137,15 +109,14 @@ export function ConfigUsersIndex() {
 				onChangesSaved={onUsedAdded}
 				setIsModalOpen={setIsAddModalOpen}
 			/>
-			{/*<EditTableRowModal*/}
-			{/*	setIsModalOpen={setIsEditModalOpen}*/}
-			{/*	isModalOpen={isEditModalOpen}*/}
-			{/*	data={searchByHashData?.data}*/}
-			{/*	onSaveChanges={onRecordUpdate}*/}
-			{/*	onDeleteRecord={onDeleteRecord}*/}
-			{/*	isUpdateTableRecordsPending={isUpdateTableRecordsPending}*/}
-			{/*	isDeleteTableRecordsPending={isDeleteTableRecordsPending}*/}
-			{/*/>*/}
+			{isEditModalOpen && <EditUserModal
+				instanceId={instanceId}
+				closeModal={closeEditModal}
+				data={selectedUser}
+				isModalOpen={isEditModalOpen}
+				onUserDeleted={onUserDeleted}
+				onUserUpdated={onUserUpdated}
+			/>}
 		</Suspense>
 	);
 }
