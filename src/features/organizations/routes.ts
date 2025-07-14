@@ -15,4 +15,4 @@ const orgsIndexRoute = createRoute({
 	component: OrganizationsIndex,
 });
 
-export const orgsRouteTree = [orgsIndexRoute];
+export const orgsRoutes = [orgsIndexRoute];

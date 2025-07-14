@@ -7,4 +7,4 @@ const profileRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/profile/index'), 'ProfileIndex'),
 });
 
-export const profileRouteTree = [profileRoute];
+export const profileRoutes = [profileRoute];

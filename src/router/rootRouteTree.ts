@@ -1,17 +1,17 @@
 import { isLocalStudio } from '@/config/constants';
 import { rootRoute } from '@/router/rootRoute';
-import { authRouteTree, localAuthRouteTree } from '@/features/auth/routes';
+import { authRouteTree, localAuthRoutes } from '@/features/auth/routes';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createInstanceRouteTree } from '@/features/instance/routes';
-import { profileRouteTree } from '@/features/profile/routes';
-import { orgsLayoutRoute, orgsRouteTree } from '@/features/organizations/routes';
-import { orgLayoutRoute, orgRouteTree } from '@/features/organization/routes';
-import { clustersLayoutRoute, clustersRouteTree } from '@/features/clusters/routes';
-import { clusterLayoutRoute, clusterRouteTree } from '@/features/cluster/routes';
+import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
+import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
+import { clustersLayoutRoute, clustersRoutes } from '@/features/clusters/routes';
+import { clusterLayoutRoute, clusterRoutes } from '@/features/cluster/routes';
+import { profileRoutes } from '@/features/profile/routes';
 
 export const rootRouteTree = isLocalStudio
 	? rootRoute.addChildren([
-		...localAuthRouteTree,
+		...localAuthRoutes,
 		dashboardLayout.addChildren([
 			createInstanceRouteTree('local'),
 		]),
@@ -19,16 +19,16 @@ export const rootRouteTree = isLocalStudio
 	: rootRoute.addChildren([
 		authRouteTree,
 		dashboardLayout.addChildren([
-			...profileRouteTree,
+			...profileRoutes,
 			orgsLayoutRoute.addChildren([
-				...orgsRouteTree,
+				...orgsRoutes,
 				orgLayoutRoute.addChildren([
-					...orgRouteTree,
+					...orgRoutes,
 					clustersLayoutRoute.addChildren([
-						...clustersRouteTree,
+						...clustersRoutes,
 						createInstanceRouteTree('cluster'),
 						clusterLayoutRoute.addChildren([
-							...clusterRouteTree,
+							...clusterRoutes,
 							createInstanceRouteTree('instance'),
 						]),
 					]),

@@ -19,4 +19,4 @@ const orgIndexRoute = createRoute({
 	component: OrganizationIndex,
 });
 
-export const orgRouteTree = [orgIndexRoute];
+export const orgRoutes = [orgIndexRoute];
