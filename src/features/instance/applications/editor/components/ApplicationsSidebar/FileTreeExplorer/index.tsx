@@ -16,7 +16,7 @@ interface DirectorySortComparatorEntry {
 }
 
 function directorySortComparator(a: DirectorySortComparatorEntry, b: DirectorySortComparatorEntry): number {
-	// TODO: refactor.
+	// NOTE: refactor.
 
 	// directories first, then flat files sorted
 	// ascending, alphanumerically
@@ -34,7 +34,7 @@ function ProjectIcon({
 	isOpen: boolean;
 }) {
 	return (
-		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+		// NOTE: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
 		<button
 			type="button"
 			onClick={toggleClosed}
@@ -55,7 +55,7 @@ function FolderIcon({
 	isOpen: boolean;
 }) {
 	return (
-		// TODO: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
+		// NOTE: A11y on this is not good at all..... Need to refactor the file tree to make the file tree more accessible for ALL users.
 		<button
 			type="button"
 			onClick={toggleClosed}
