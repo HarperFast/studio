@@ -5,7 +5,7 @@ import { DeleteFolderFileModal } from '@/features/instance/applications/modals/D
 import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
 import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -13,7 +13,6 @@ import { useState } from 'react';
 const route = getRouteApi('');
 
 export function FileMenuActionButtons() {
-	const queryClient = useQueryClient();
 	const { instanceId } = route.useParams();
 	const { refetch: refetchComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
