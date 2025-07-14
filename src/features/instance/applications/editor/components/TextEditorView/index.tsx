@@ -11,6 +11,7 @@ function parseFileExtension(filename: string) {
 
 const extensionToLanguageMap = {
 	js: 'javascript',
+	cjs: 'javascript',
 	jsx: 'javascript',
 	yaml: 'yaml',
 	ts: 'typescript',
