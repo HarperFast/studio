@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useInterval } from '@/hooks/useInterval';
+import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
 export function useAgo(msOrDate: number | Date | undefined | null): string {
 	const startMs = useMemo(() => !msOrDate ? null : msOrDate instanceof Date ? msOrDate.getTime() : msOrDate, [msOrDate]);
@@ -11,7 +12,7 @@ export function useAgo(msOrDate: number | Date | undefined | null): string {
 		} else if (startMs) {
 			const elapsed = Date.now() - startMs;
 			const secondsElapsed = Math.round(elapsed / 1000);
-			const newlyFormattedDate = translateSecondsToAgo(secondsElapsed);
+			const newlyFormattedDate = translateSecondsToAgo(secondsElapsed, startMs);
 			if (formattedDate !== newlyFormattedDate) {
 				setFormattedDate(newlyFormattedDate);
 			}
@@ -21,20 +22,3 @@ export function useAgo(msOrDate: number | Date | undefined | null): string {
 	return formattedDate;
 }
 
-export function translateSecondsToAgo(secondsElapsed: number): string {
-	if (secondsElapsed < 45) {
-		return 'a few seconds ago';
-	}
-	if (secondsElapsed < 120) {
-		return 'a minute ago';
-	}
-	const minutesElapsed = Math.floor(secondsElapsed / 60);
-	if (minutesElapsed < 60) {
-		return `${minutesElapsed} minutes ago`;
-	}
-	if (minutesElapsed < 120) {
-		return 'an hour ago';
-	}
-	const hoursElapsed = Math.floor(secondsElapsed / 3600);
-	return `${hoursElapsed} hours ago`;
-}
