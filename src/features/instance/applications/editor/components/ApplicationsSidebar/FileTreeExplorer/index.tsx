@@ -70,7 +70,7 @@ function FolderIcon({
 	);
 }
 
-function FiletypeIcon({ extension }: { extension: string | null }) {
+function FiletypeIcon({ extension }: { readonly extension: string | null }) {
 	switch (extension) {
 		case 'js':
 			return <i className={'file-icon filetype-js fab fa-js text-yellow'} />;
@@ -111,7 +111,7 @@ function PackageIcon() {
 	return <i className={'package-icon fas fa-cube'} />;
 }
 
-function Package({ name }: { name: string }) {
+function Package({ name }: { readonly name: string }) {
 	return (
 		<button type="button">
 			<PackageIcon />
@@ -121,7 +121,13 @@ function Package({ name }: { name: string }) {
 	);
 }
 
-function File({ directoryEntry, Icon }: { directoryEntry: DirectoryEntry; Icon?: React.ComponentType<unknown> }) {
+function File({
+	directoryEntry,
+	Icon,
+}: {
+	readonly directoryEntry: DirectoryEntry;
+	Icon?: React.ComponentType<unknown>;
+}) {
 	const { handleFileSelect, selectedFolderFile } = useEditorView();
 	const isFileSelected = selectedFolderFile.filePath === directoryEntry.path;
 	return (
@@ -144,7 +150,7 @@ function File({ directoryEntry, Icon }: { directoryEntry: DirectoryEntry; Icon?:
 	);
 }
 
-function Folder({ directoryEntry }: { directoryEntry: DirectoryEntry }) {
+function Folder({ directoryEntry }: { readonly directoryEntry: DirectoryEntry }) {
 	const [open, setOpen] = useState(true);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
@@ -194,7 +200,7 @@ function Folder({ directoryEntry }: { directoryEntry: DirectoryEntry }) {
 }
 
 // A recursive directory tree representation
-export function FileTreeExplorer({ files }: { files: GetComponentsResponse }) {
+export function FileTreeExplorer({ files }: { readonly files: GetComponentsResponse }) {
 	return (
 		<div>
 			<div>
