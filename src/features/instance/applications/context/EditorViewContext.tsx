@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { createContext, PropsWithChildren, useEffect, useState } from 'react';
+import { createContext, PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { getComponentFileQuery } from '../../operations/queries/getComponentFile';
 import { DirectoryEntry } from '../../operations/queries/getComponents';
 import { SetComponentFileRequest, useUpdateComponentFile } from '../../operations/mutations/updateComponentFile';
@@ -30,6 +30,8 @@ export const EditorViewContext = createContext<EditorViewContextValue | null>(nu
 const route = getRouteApi('');
 const { instanceId } = route.useParams();
 
+const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
+
 export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	const [selectedFolderFile, setSelectedFile] = useState<HandleFileSelectParams>({
 		filePath: '',
@@ -59,54 +61,44 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				content: getComponentFileQueryData?.message,
 			}));
 		}
-	}, [getComponentFileQueryData]);
+	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
 
-	const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
-
-	const handleFileSelect = async (selectedFileInfo: HandleFileSelectParams) => {
-		await setSelectedFile({
-			...selectedFileInfo,
-		});
-		if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries == undefined) {
-			await refetchComponentFile();
-		}
-	};
-
-	const updateEditorContent = (content: string) => {
-		setSelectedFile((prev) => ({
-			...prev,
-			content: content,
-		}));
-	};
-
-	const onSaveFile = (data: SetComponentFileRequest) => {
-		saveComponentFile(data, {
-			onSuccess: () => {
-				toast.success('Success', {
-					description: `${data.file.split('/').pop()} saved successfully.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
+	const value = useMemo<EditorViewContextValue>(() => {
+		return {
+			selectedFolderFile: selectedFolderFile,
+			handleFileSelect: async (selectedFileInfo: HandleFileSelectParams) => {
+				await setSelectedFile({
+					...selectedFileInfo,
+				});
+				if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries == undefined) {
+					await refetchComponentFile();
+				}
+			},
+			updateEditorContent: (content: string) => {
+				setSelectedFile((prev) => ({
+					...prev,
+					content: content,
+				}));
+			},
+			onSaveFile: (data: SetComponentFileRequest) => {
+				saveComponentFile(data, {
+					onSuccess: () => {
+						toast.success('Success', {
+							description: `${data.file.split('/').pop()} saved successfully.`,
+							action: {
+								label: 'Dismiss',
+								onClick: () => toast.dismiss(),
+							},
+						});
+					},
+					onError: (error) => {
+						console.error('Error saving file:', error);
 					},
 				});
 			},
-			onError: (error) => {
-				console.error('Error saving file:', error);
-			},
-		});
-	};
-	return (
-		<EditorViewContext.Provider
-			value={{
-				selectedFolderFile: selectedFolderFile,
-				handleFileSelect,
-				updateEditorContent,
-				onSaveFile,
-				isSavingFile,
-				isFolder,
-			}}
-		>
-			{children}
-		</EditorViewContext.Provider>
-	);
+			isSavingFile,
+			isFolder,
+		};
+	}, [isSavingFile, refetchComponentFile, saveComponentFile, selectedFolderFile]);
+	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 };
