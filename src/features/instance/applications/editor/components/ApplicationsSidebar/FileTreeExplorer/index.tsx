@@ -40,7 +40,6 @@ function ProjectIcon({
 			className={`project-icon fas fa-file-code text-green`}
 			tabIndex={0}
 			aria-expanded={isOpen}
-			aria-controls="folder"
 			aria-label={isOpen ? 'close project' : 'open project'}
 			role="button"
 		/>
@@ -62,7 +61,6 @@ function FolderIcon({
 			className={`folder-icon fas text-purple ${isOpen ? 'fa-folder-open' : 'fa-folder'}`}
 			tabIndex={0}
 			aria-expanded={isOpen}
-			aria-controls="folder"
 			aria-label={isOpen ? 'close folder' : 'open folder'}
 			role="button"
 		/>
