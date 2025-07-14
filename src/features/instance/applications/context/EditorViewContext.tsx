@@ -60,7 +60,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				content: getComponentFileQueryData?.message,
 			}));
 		}
-	}, [getComponentFileQueryData]);
+	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
 
 	const handleFileSelect = useCallback(
 		async (selectedFileInfo: HandleFileSelectParams) => {
