@@ -132,9 +132,10 @@ export function ConfigUsersIndex() {
 						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
 			</BrowseDataTable>
 			<AddUserModal
-				setIsModalOpen={setIsAddModalOpen}
+				instanceId={instanceId}
 				isModalOpen={isAddModalOpen}
 				onChangesSaved={onUsedAdded}
+				setIsModalOpen={setIsAddModalOpen}
 			/>
 			{/*<EditTableRowModal*/}
 			{/*	setIsModalOpen={setIsEditModalOpen}*/}

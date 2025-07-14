@@ -6,7 +6,7 @@ export function getListRolesQueryOptions(instanceId?: string) {
 	return queryOptions({
 		queryKey: [instanceId, 'list_roles'] as const,
 		queryFn: getListRoles,
-		refetchInterval: 5 * 1000,
+		refetchInterval: 10 * 1000,
 	});
 }
 
