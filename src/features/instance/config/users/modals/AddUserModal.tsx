@@ -41,9 +41,7 @@ export function AddUserModal({
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}
-		<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => {
-			event.preventDefault();
-		}}>
+		<DialogContent aria-describedby={undefined}>
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
 					<DialogHeader>
