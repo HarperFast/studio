@@ -27,30 +27,32 @@ export interface User extends SchemaUser {
 export interface LocalUser {
 	active: boolean;
 	username: string;
-	role: LocalUserRole;
+	role: LocalRole;
 	__updatedtime__: number;
 	__createdtime__: number;
 }
 
-export interface LocalUserRole {
-	permission: LocalUserRolePermission;
+export interface LocalRole {
+	permission: LocalRolePermission;
 	role: string;
 	id: string;
 	__updatedtime__: number;
 	__createdtime__: number;
 }
 
-export interface LocalUserRolePermission {
-	super_user: boolean;
+export interface LocalRolePermission {
+	super_user?: boolean;
+	cluster_user?: boolean;
+	structure_user?: boolean;
 
-	[record: string]: LocalUserRolePermissionRecord;
+	[record: string]: LocalRolePermissionRecord;
 }
 
-export interface LocalUserRolePermissionRecord {
-	tables: Record<string, LocalUserRolePermissionTable>;
+export interface LocalRolePermissionRecord {
+	tables: Record<string, LocalRolePermissionTable>;
 }
 
-export interface LocalUserRolePermissionTable {
+export interface LocalRolePermissionTable {
 	read: boolean;
 	insert: boolean;
 	update: boolean;
