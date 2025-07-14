@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
 import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
-import { EditTableRowModal } from '@/features/instance/modals/EditTableRowModal';
+import { EditTableRowModal } from '@/features/instance/browse/modals/EditTableRowModal';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
 import { PaginationState, Row } from '@tanstack/react-table';
@@ -13,7 +13,7 @@ import { useUpdateTableRecords } from '@/features/instance/operations/mutations/
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { AddTableRowModal } from '@/features/instance/modals/AddTableRowModal';
+import { AddTableRowModal } from '@/features/instance/browse/modals/AddTableRowModal';
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 
 const route = getRouteApi('');

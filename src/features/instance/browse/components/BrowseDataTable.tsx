@@ -106,7 +106,7 @@ export function BrowseDataTable<TData, TValue>({
 							  onClick={() => onRowClick?.(row)}
 							  className="hover:bg-muted/10 data-[state=selected]:bg-muted">
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
-																		 className="py-2 px-3 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
+																		 className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>

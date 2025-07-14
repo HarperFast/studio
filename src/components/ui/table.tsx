@@ -46,7 +46,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
 		<th
 			data-slot="table-head"
 			className={cn(
-				'h-10 px-2 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
+				'h-10 text-left align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
 				className,
 			)}
 			{...props}
@@ -65,7 +65,7 @@ export function TableHeadSortable<TData extends RowData>({ header, onColumnClick
 		onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 	}, [header, onColumnClick]);
 	if (header.column.columnDef.enableSorting) {
-		return <TableHead {...props}>
+		return <TableHead {...props} className="px-0">
 			<Button type="button" variant="ghost" className="rounded-none" onClick={onClickSort}>
 				{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 				{header.column.getIsSorted() === 'asc'
@@ -76,7 +76,7 @@ export function TableHeadSortable<TData extends RowData>({ header, onColumnClick
 			</Button>
 		</TableHead>;
 	} else {
-		return <TableHead {...props}>
+		return <TableHead {...props} className="px-2">
 			{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 		</TableHead>;
 	}
