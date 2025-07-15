@@ -70,8 +70,8 @@ class AuthStore {
 		if (!id || !key) {
 			return;
 		}
-		this.users[key] = user;
-		this.loading[key] = false;
+		this.users[id] = user;
+		this.loading[id] = false;
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
