@@ -15,9 +15,10 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useInstanceResetPasswordMutation } from '@/features/auth/hooks/useInstanceResetPasswordMutation';
 
+const forcedUsername = 'HDB_ADMIN';
 const ClusterSetPasswordSchema = z
 	.object({
-		username: z.string(),
+		username: z.string().regex(new RegExp(forcedUsername), { message: `Initial username must be ${forcedUsername}, did your password manager change it?` }),
 		password: z
 			.string({
 				message: 'Please enter your password',
@@ -48,7 +49,7 @@ export function ClusterSetPassword() {
 	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
 		resolver: zodResolver(ClusterSetPasswordSchema),
 		defaultValues: {
-			username: 'HDB_ADMIN',
+			username: forcedUsername,
 			password: '',
 			confirmPassword: '',
 		},
@@ -67,7 +68,7 @@ export function ClusterSetPassword() {
 			newPassword: formData.password,
 			operationsUrl,
 			tempPassword,
-			username: formData.username,
+			username: forcedUsername,
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
@@ -113,6 +114,7 @@ export function ClusterSetPassword() {
 										<FormControl>
 											<Input
 												disabled={true}
+												readOnly={true}
 												autoComplete="username"
 												type="text"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
