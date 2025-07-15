@@ -72,7 +72,6 @@ export function LocalSignIn() {
 											autoComplete="username"
 											type="text"
 											placeholder="harpersys"
-											className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 											{...field}
 										/>
 									</FormControl>
@@ -90,7 +89,6 @@ export function LocalSignIn() {
 										<Input
 											type="password"
 											placeholder="password"
-											className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 											{...field}
 										/>
 									</FormControl>
