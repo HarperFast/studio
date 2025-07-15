@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { RemoveInstanceModal } from '../../modals/RemoveInstanceModal';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
-import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
+import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
 import { useHumanFileSize } from '@/hooks/useHumanFileSize';
 import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 

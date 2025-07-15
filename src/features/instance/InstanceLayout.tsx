@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
+import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
 import { getRouteApi, Outlet } from '@tanstack/react-router';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 
