@@ -2,7 +2,7 @@ import { createRoute } from '@tanstack/react-router';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { clusterLayoutRoute } from '@/features/cluster/routes';
-import { getInstanceInfoQueryOptions } from '@/features/instance/queries/getInstanceInfoQuery';
+import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
 
 export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance') {
 	if (mode === 'local') {

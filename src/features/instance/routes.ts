@@ -1,3 +1,4 @@
+import { createStatusRouteTree } from '@/features/instance/status/routes';
 import { createRoute } from '@tanstack/react-router';
 import { Browse } from '@/features/instance/browse';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
@@ -19,6 +20,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 		instanceIndexRoute,
 		createLogRouteTree(instanceLayoutRoute),
 		...createApplicationsRoutes(instanceLayoutRoute),
+		createStatusRouteTree(instanceLayoutRoute),
 		createConfigRouteTree(instanceLayoutRoute),
 		createBrowseRouteTree(instanceLayoutRoute),
 	];
