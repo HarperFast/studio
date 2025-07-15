@@ -1,5 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
 import { Input } from '@/components/ui/input';
 import {
 	Select,

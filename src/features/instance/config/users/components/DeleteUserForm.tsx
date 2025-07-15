@@ -1,6 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { DialogFooter } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form } from '@/components/ui/form/Form';
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { DeleteUserFormSchema, useDeleteUserMutation } from '@/features/instance/operations/mutations/deleteUser';
 import { LocalUser } from '@/lib/api.patch';
