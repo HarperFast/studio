@@ -1,9 +1,11 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { ClusterCard } from '@/features/organization/components/ClusterCard';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { sortByName } from '@/lib/arrays/sort/byName';
+import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { groupBy } from '@/lib/group-by';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -27,18 +29,16 @@ export function ClustersList() {
 		name: '',
 	});
 
-	const clusterGroups = useMemo(() => {
-		if (isSuccess && orgInfo?.clusters) {
-			const { RUNNING, PROVISIONING, CLONE_READY, UPDATED, ...others } = groupBy(orgInfo.clusters, 'status');
-			const successBuckets = [...(RUNNING || []), ...(PROVISIONING || []), ...(CLONE_READY || []), ...(UPDATED || [])].sort(sortByName);
-			const otherBuckets = [...Object.values(others).flat()].sort(sortByName);
-			return [
-				{ name: 'Running', clusters: successBuckets },
-				{ name: 'Inactive', clusters: otherBuckets },
-			].filter(group => group.clusters.length);
-		}
-		return null;
-	}, [isSuccess, orgInfo]);
+	const clustersData = useMemo(
+		() => {
+			const groups = groupBy(orgInfo?.clusters?.sort(byClusterStatusThenName) || [], 'status');
+			return {
+				keys: Object.keys(groups),
+				groups,
+			}
+		},
+		[orgInfo],
+	);
 
 	const handleDeleteCluster = useCallback((clusterInfo: { id: string; name: string }) => {
 		if (clusterInfo) {
@@ -96,12 +96,14 @@ export function ClustersList() {
 				) : null}
 			</nav>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-				{clusterGroups?.length ?
-					clusterGroups?.map(clusterGroup =>
-						<div key={clusterGroup.name}>
-							<h2 className="mb-2">{clusterGroup.name}</h2>
+				{clustersData.keys.length
+					? clustersData.keys.map(clusterStatus =>
+						<div key={clusterStatus}>
+							<h2 className="mb-2">
+								<Badge variant={renderBadgeStatusVariant(clusterStatus)}>{renderBadgeStatusText(clusterStatus)}</Badge>
+							</h2>
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
-								{clusterGroup.clusters.map((cluster) => (
+								{clustersData.groups[clusterStatus].map((cluster) => (
 									<div key={cluster.id}
 										 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
 										<ClusterCard

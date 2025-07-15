@@ -19,8 +19,8 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { authStore } from '@/lib/authStore';
 import { ClusterCardAction } from '@/features/organization/components/ClusterCardAction';
 
-const activeClusterStatuses = ['CLONE_READY', 'RUNNING', 'UPDATED'];
-const deletableClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
+const activeClusterStatuses = ['RUNNING'];
+const deletedClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
 
 export function ClusterCard({
 	cluster,
@@ -34,7 +34,7 @@ export function ClusterCard({
 
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
 	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
-	const canDelete = useMemo(() => cluster.status && !deletableClusterStatuses.includes(cluster.status), [cluster]);
+	const canDelete = useMemo(() => cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster]);
 
 	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
 	const onSignOutClick = useCallback(async () => {
@@ -48,7 +48,7 @@ export function ClusterCard({
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">CLUSTER ID: {cluster.id}</span>
-					<DropdownMenu>
+					{(isReadyForInteraction || canDelete) && <DropdownMenu>
 						<DropdownMenuTrigger>
 							<Ellipsis aria-label="Cluster options" />
 						</DropdownMenuTrigger>
@@ -57,7 +57,7 @@ export function ClusterCard({
 							<DropdownMenuSeparator />
 							{isReadyForInteraction && <DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>}
 							{isReadyForInteraction && !isSelfManaged && !auth.isLoading && auth.user && <DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>}
-							<DropdownMenuItem>Edit</DropdownMenuItem>
+							{isReadyForInteraction && <DropdownMenuItem>Edit</DropdownMenuItem>}
 							{canDelete &&
 								<DropdownMenuItem
 									className="bg-red focus:bg-red/70 focus:text-white"
@@ -66,7 +66,7 @@ export function ClusterCard({
 								</DropdownMenuItem>
 							}
 						</DropdownMenuContent>
-					</DropdownMenu>
+					</DropdownMenu>}
 				</CardDescription>
 				<CardTitle>
 					<h2>{cluster.name}</h2>

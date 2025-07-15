@@ -70,5 +70,5 @@ export interface Plan extends SchemaPlan {
 
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
-	status?: string | 'PROVISIONING' | 'RUNNING' | 'UPDATING_HDB_NODES' | 'UPDATING' | 'ERROR' | 'TERMINATING' | 'REMOVED' | 'STOPPED' | 'CLONE_READY' | 'CLONE_PENDING' | 'UPDATED' | 'TERMINATED';
+	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
 }
