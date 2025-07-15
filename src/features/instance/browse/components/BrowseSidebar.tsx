@@ -1,21 +1,22 @@
-import { useState } from 'react';
-import { getRouteApi, useRouter } from '@tanstack/react-router';
-import { useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { CreateNewTableModal } from '@/features/instance/browse/modals/CreateNewTableModal';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scrollArea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Check, Minus, Plus, Trash } from 'lucide-react';
-import { useCreateDatabaseSubmitMutation } from '@/features/instance/operations/mutations/createDatabase';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
-import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scrollArea';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CreateNewTableModal } from '@/features/instance/browse/modals/CreateNewTableModal';
+import { useCreateDatabaseSubmitMutation } from '@/features/instance/operations/mutations/createDatabase';
 import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
-import { DeleteTableData, useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
+import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { getRouteApi, useRouter } from '@tanstack/react-router';
+import { ArrowRight, Check, Minus, Plus, Trash } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 type BrowseSidebarProps = {
 	databases: string[];
@@ -40,6 +41,10 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { instanceId, schemaName, tableName } = route.useParams();
+	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState("");
+	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState("");
+	const [deletionTarget, setDeletionTarget] = useState<{ databaseName?: string; tableName?: string; }>({});
+	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
 	const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
 
@@ -51,8 +56,8 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 	});
 
 	const { mutate: createNewDatabase } = useCreateDatabaseSubmitMutation();
-	const { mutate: deleteDatabase } = useDeleteDatabaseMutation();
-	const { mutate: deleteTable } = useDeleteTableMutation();
+	const { mutate: deleteDatabase, isPending: isDeletingDatabase } = useDeleteDatabaseMutation();
+	const { mutate: deleteTable, isPending: isDeletingTable } = useDeleteTableMutation();
 
 	const submitNewDatabase = (formData: z.infer<typeof NewDatabaseSchema>) => {
 		createNewDatabase(formData, {
@@ -67,34 +72,41 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 		});
 	};
 
-	const deleteSelectedDatabase = (databaseName: string) => {
-		deleteDatabase(databaseName, {
-			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
-				await router.invalidate();
-				toast.success(`Database ${databaseName} deleted successfully`);
-				onSelectDatabase(undefined);
-			},
-		});
-	};
-
-	const deleteSelectedTable = (data: DeleteTableData) => {
-		deleteTable(data, {
-			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
-				await router.invalidate();
-				toast.success(`Table ${data.tableName} deleted successfully`);
-				if (data.tableName === tableName) {
-					onSelectTable(undefined);
-				}
-			},
-		});
-	};
-
-	const handleDeleteTable = (tableName: string) => {
-		if (!tableName) return;
-		deleteSelectedTable({ databaseName: schemaName, tableName });
-	};
+	const onDeletionConfirmed = useCallback(() => {
+		const targetDatabaseName = deletionTarget.databaseName;
+		const targetTableName = deletionTarget.tableName;
+		if (targetDatabaseName) {
+			if (targetTableName) {
+				deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName }, {
+					onSuccess: async () => {
+						setIsDeleteModalOpen(false);
+						await queryClient.invalidateQueries({
+							queryKey: [instanceId, 'describe_all'],
+							refetchType: 'all',
+						});
+						await router.invalidate();
+						toast.success(`Table ${targetTableName} deleted successfully`);
+						if (targetTableName === tableName) {
+							onSelectTable(undefined);
+						}
+					},
+				});
+			} else {
+				deleteDatabase(targetDatabaseName, {
+					onSuccess: async () => {
+						setIsDeleteModalOpen(false);
+						await queryClient.invalidateQueries({
+							queryKey: [instanceId, 'describe_all'],
+							refetchType: 'all',
+						});
+						await router.invalidate();
+						toast.success(`Database ${targetDatabaseName} deleted successfully`);
+						onSelectDatabase(undefined);
+					},
+				});
+			}
+		}
+	}, [deleteDatabase, deleteTable, deletionTarget, instanceId, onSelectDatabase, onSelectTable, queryClient, router, tableName]);
 
 	return (
 		<div>
@@ -135,8 +147,12 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 						variant="destructiveOutline"
 						disabled={!schemaName}
 						onClick={() => {
-							if (!schemaName) return;
-							deleteSelectedDatabase(schemaName);
+							if (schemaName) {
+								setTypeOfThingBeingDeleted("database");
+								setNameOfThingBeingDeleted(schemaName);
+								setDeletionTarget({ databaseName: schemaName });
+								setIsDeleteModalOpen(true);
+							}
 						}}
 					>
 						<Trash />
@@ -191,9 +207,14 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 							{(tables ?? []).map((table) => (
 								<li key={table} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
 									<Button
-										variant="defaultOutline"
+										variant="destructiveOutline"
 										onClick={() => {
-											handleDeleteTable(table);
+											if (table) {
+												setTypeOfThingBeingDeleted("table");
+												setNameOfThingBeingDeleted(table);
+												setDeletionTarget({ databaseName: schemaName, tableName: table });
+												setIsDeleteModalOpen(true);
+											}
 										}}
 									>
 										<Trash className="inline-block " />
@@ -217,6 +238,14 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 			{schemaName?.length && (
 				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
 			)}
+			<ConfirmDeletionModal
+				typeOfThingBeingDeleted={typeOfThingBeingDeleted}
+				nameOfThingBeingDeleted={nameOfThingBeingDeleted}
+				isModalOpen={isDeleteModalOpen}
+				setIsModalOpen={() => setIsDeleteModalOpen(false)}
+				deletionConfirmed={onDeletionConfirmed}
+				deletionPending={isDeletingDatabase || isDeletingTable}
+			/>
 		</div>
 	);
 }
