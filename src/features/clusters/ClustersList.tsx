@@ -1,17 +1,17 @@
-import { getRouteApi } from '@tanstack/react-router';
-import { ClusterCard } from '@/features/organization/components/ClusterCard';
-import { Plus } from 'lucide-react';
+import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
-import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { useCallback, useMemo, useState } from 'react';
-import { DeleteClusterConfirmationModal } from './modals/DeleteClusterConfirmationModal';
-import { useDeleteClusterMutation } from './mutations/deleteCluster';
-import { toast } from 'sonner';
-import { queryKeys } from '@/react-query/constants';
-import { groupBy } from '@/lib/group-by';
+import { ClusterCard } from '@/features/organization/components/ClusterCard';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { sortByName } from '@/lib/arrays/sort/byName';
+import { groupBy } from '@/lib/group-by';
+import { queryKeys } from '@/react-query/constants';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { useDeleteClusterMutation } from './mutations/deleteCluster';
 
 const route = getRouteApi('');
 
@@ -139,12 +139,13 @@ export function ClustersList() {
 				isModalOpen={isNewClusterModalOpen}
 				setIsModalOpen={() => setIsNewClusterModalOpen(false)}
 			/>
-			<DeleteClusterConfirmationModal
-				clusterInfo={deleteClusterInfo}
+			<ConfirmDeletionModal
+				typeOfThingBeingDeleted="cluster"
+				nameOfThingBeingDeleted={deleteClusterInfo.name}
 				isModalOpen={isDeleteClusterModalOpen}
-				isDeletingClusterPending={isDeletingClusterPending}
-				handleDeleteCluster={() => handleDeleteCluster(deleteClusterInfo)}
 				setIsModalOpen={() => setIsDeleteClusterModalOpen(false)}
+				deletionConfirmed={() => handleDeleteCluster(deleteClusterInfo)}
+				deletionPending={isDeletingClusterPending}
 			/>
 		</>
 	);
