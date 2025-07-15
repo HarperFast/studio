@@ -1,14 +1,12 @@
 'use client';
+import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
+import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
+import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
+import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
 import { useCallback, useState } from 'react';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { BookMarkedIcon, BuildingIcon, LogInIcon, LogOutIcon, Menu, MoonIcon, UserIcon, X } from 'lucide-react';
 
-import {
-	NavigationMenu,
-	NavigationMenuItem,
-	NavigationMenuLink,
-	NavigationMenuList,
-} from '@/components/ui/navigationMenu';
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
 import { toast } from 'sonner';
 import { notYetImplemented } from '@/lib/notYetImplemented';

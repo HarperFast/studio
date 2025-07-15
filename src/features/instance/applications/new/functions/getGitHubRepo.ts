@@ -11,7 +11,7 @@ async function getGitHubRepo(url: URL) {
 			const data = await response.json();
 
 			return response.ok ? data.name : null;
-		} catch (e) {
+		} catch {
 			return null;
 		}
 	}
@@ -82,7 +82,7 @@ function parsePackageType(pkg: PackageInput | null): PackageMeta | null {
 		meta.type = 'url';
 	} else if (pkg.url.match('semver:')) {
 		// it's a github repo
-		const [user, repo, semverTag] = pkg.url.split(/[\/#]/);
+		const [user, repo, semverTag] = pkg.url.split(/[/#]/);
 		meta.type = 'github';
 		meta.user = user;
 		meta.repo = repo;

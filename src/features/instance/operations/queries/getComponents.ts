@@ -14,6 +14,13 @@ type DirectoryEntry = {
 	readOnly?: boolean;
 };
 
+type HandleFileSelectParams = {
+	filePath: string;
+	projectName: string;
+	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
+	entries?: DirectoryEntry[]; // Optional entries for directory entries
+};
+
 type GetComponentsResponse = {
 	entries: DirectoryEntry[];
 	name: string;
@@ -75,4 +82,4 @@ function getComponentsQueryOptions(instanceId: string) {
 }
 
 export { getComponentsQueryOptions };
-export type { GetComponentsResponse, DirectoryEntry };
+export type { GetComponentsResponse, DirectoryEntry, HandleFileSelectParams };

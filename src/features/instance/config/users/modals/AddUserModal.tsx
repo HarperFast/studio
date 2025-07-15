@@ -1,12 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form/Form';
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Save } from 'lucide-react';
 import { Suspense, useCallback } from 'react';
 import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useSuspenseQuery } from '@tanstack/react-query';

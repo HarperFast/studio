@@ -1,5 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form } from '@/components/ui/form/Form';
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight, Loader } from 'lucide-react';

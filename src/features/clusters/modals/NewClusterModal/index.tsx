@@ -1,25 +1,23 @@
 import { Button } from '@/components/ui/button';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form/Form';
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
+import { Input } from '@/components/ui/input';
+import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
+import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
+import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { SchemaCluster } from '@/lib/api.gen';
+import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, PlusIcon } from 'lucide-react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/react-query/constants';
-import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
-import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
-import { Input } from '@/components/ui/input';
-import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
-import { SchemaCluster } from '@/lib/api.gen';
+import { z } from 'zod';
 
 export const NewClusterSchema = z.object({
 	name: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
@@ -93,7 +91,6 @@ export function NewClusterModal({
 			<DialogContent className="sm:max-w-[825px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Cluster</DialogTitle>
-					<DialogDescription>Create a new cluster here.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
