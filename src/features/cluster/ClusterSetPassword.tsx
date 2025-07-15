@@ -119,7 +119,6 @@ export function ClusterSetPassword() {
 											<Input
 												autoComplete="username"
 												type="text"
-												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
 										</FormControl>
