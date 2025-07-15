@@ -18,7 +18,7 @@ const route = getRouteApi('');
 
 export function ConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { instanceId, username } = route.useParams();
+	const { instanceId, clusterId, username } = route.useParams();
 	const {
 		data: localUsers,
 		refetch,
@@ -111,6 +111,7 @@ export function ConfigUsersIndex() {
 			/>
 			{isEditModalOpen && <EditUserModal
 				instanceId={instanceId}
+				clusterId={clusterId}
 				closeModal={closeEditModal}
 				data={selectedUser}
 				isModalOpen={isEditModalOpen}
