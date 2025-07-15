@@ -1,19 +1,19 @@
-import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
-import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
 import { authStore } from '@/lib/authStore';
-import { toast } from 'sonner';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useCallback, useEffect, useMemo } from 'react';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
+import { useCallback, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const ClusterSignInSchema = z.object({
 	username: z
@@ -50,14 +50,6 @@ export function ClusterSignIn() {
 			password: '',
 		},
 	});
-	useEffect(() => {
-		const currentValues = form.getValues();
-		const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
-		if (!currentValues.username && !currentValues.password && cluster?.resetPassword && tempPassword) {
-			form.setValue('username', 'HDB_ADMIN');
-			form.setValue('password', tempPassword);
-		}
-	}, [form, cluster]);
 
 	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
 

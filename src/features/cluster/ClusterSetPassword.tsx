@@ -1,3 +1,4 @@
+import { defaultClusterUsername } from '@/config/constants';
 import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +18,10 @@ import { useInstanceResetPasswordMutation } from '@/features/auth/hooks/useInsta
 
 const ClusterSetPasswordSchema = z
 	.object({
-		username: z.string(),
+		username: z.string({
+			message: 'Please enter a username.',
+			// TODO: usernames must have only letters, numbers, hyphens, and underscores
+		}).min(1, { message: 'Please enter a username.' }),
 		password: z
 			.string({
 				message: 'Please enter your password',
@@ -48,7 +52,7 @@ export function ClusterSetPassword() {
 	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
 		resolver: zodResolver(ClusterSetPasswordSchema),
 		defaultValues: {
-			username: 'HDB_ADMIN',
+			username: '',
 			password: '',
 			confirmPassword: '',
 		},
@@ -67,7 +71,8 @@ export function ClusterSetPassword() {
 			newPassword: formData.password,
 			operationsUrl,
 			tempPassword,
-			username: formData.username,
+			initialUsername: defaultClusterUsername,
+			desiredUsername: formData.username,
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
@@ -112,10 +117,8 @@ export function ClusterSetPassword() {
 										<FormLabel>Username</FormLabel>
 										<FormControl>
 											<Input
-												disabled={true}
 												autoComplete="username"
 												type="text"
-												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
 										</FormControl>
