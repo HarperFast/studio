@@ -21,6 +21,6 @@ export function useAuth(entity?: Instance | Cluster | string | null): Authentica
 	return connection;
 }
 
-export function useInstanceAuth(entity: Instance | string | null): AuthenticatedInstanceConnection {
+export function useInstanceAuth(entity: Instance | Cluster | string | null): AuthenticatedInstanceConnection {
 	return useAuth(entity) as AuthenticatedInstanceConnection;
 }

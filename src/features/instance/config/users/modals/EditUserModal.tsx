@@ -6,12 +6,14 @@ import { LocalUser } from '@/lib/api.patch';
 
 export function EditUserModal({
 	closeModal,
+	clusterId,
 	instanceId,
 	data,
 	isModalOpen,
 	onUserDeleted,
 	onUserUpdated,
 }: {
+	clusterId: string;
 	instanceId: string;
 	isModalOpen: boolean;
 	closeModal: () => void;
@@ -19,7 +21,7 @@ export function EditUserModal({
 	onUserDeleted: () => void;
 	onUserUpdated: () => void;
 }) {
-	const auth = useInstanceAuth(instanceId);
+	const auth = useInstanceAuth(instanceId || clusterId);
 	const isSelf = auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
