@@ -140,7 +140,6 @@ export function ClusterSetPassword() {
 										<FormControl>
 											<Input
 												type="password"
-												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
 										</FormControl>
@@ -157,7 +156,6 @@ export function ClusterSetPassword() {
 										<FormControl>
 											<Input
 												type="password"
-												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 												{...field}
 											/>
 										</FormControl>
