@@ -1,3 +1,4 @@
+import { defaultClusterUsername } from '@/config/constants';
 import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,10 +16,12 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useInstanceResetPasswordMutation } from '@/features/auth/hooks/useInstanceResetPasswordMutation';
 
-const forcedUsername = 'HDB_ADMIN';
 const ClusterSetPasswordSchema = z
 	.object({
-		username: z.string().regex(new RegExp(forcedUsername), { message: `Initial username must be ${forcedUsername}, did your password manager change it?` }),
+		username: z.string({
+			message: 'Please enter a username.',
+			// TODO: usernames must have only letters, numbers, hyphens, and underscores
+		}).min(1, { message: 'Please enter a username.' }),
 		password: z
 			.string({
 				message: 'Please enter your password',
@@ -49,7 +52,7 @@ export function ClusterSetPassword() {
 	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
 		resolver: zodResolver(ClusterSetPasswordSchema),
 		defaultValues: {
-			username: forcedUsername,
+			username: '',
 			password: '',
 			confirmPassword: '',
 		},
@@ -68,7 +71,8 @@ export function ClusterSetPassword() {
 			newPassword: formData.password,
 			operationsUrl,
 			tempPassword,
-			username: forcedUsername,
+			initialUsername: defaultClusterUsername,
+			desiredUsername: formData.username,
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
@@ -113,8 +117,6 @@ export function ClusterSetPassword() {
 										<FormLabel>Username</FormLabel>
 										<FormControl>
 											<Input
-												disabled={true}
-												readOnly={true}
 												autoComplete="username"
 												type="text"
 												className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"

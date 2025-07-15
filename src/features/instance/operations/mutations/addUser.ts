@@ -7,6 +7,7 @@ export type AddUserFormData = {
 	password: string;
 	role: string;
 	username: string;
+	operationsUrl?: string;
 };
 
 export const AddUserFormSchema = z.object({
@@ -34,16 +35,17 @@ export const AddUserFormSchema = z.object({
 		path: ['confirmPassword'], // This specifies where the error message should be attached
 	});
 
-const onAddUserSubmit = async (formData: AddUserFormData) => {
+export async function onAddUserSubmit(formData: AddUserFormData) {
+	const { operationsUrl, ...userData } = formData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_user',
-		...formData,
-	});
+		...userData,
+	}, { baseURL: operationsUrl });
 	return data;
-};
+}
 
-export const useAddUserMutation = () => {
+export function useAddUserMutation() {
 	return useMutation({
 		mutationFn: (formData: AddUserFormData) => onAddUserSubmit(formData),
 	});
-};
+}

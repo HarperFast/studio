@@ -1,3 +1,6 @@
+import { defaultClusterUsername } from '@/config/constants';
+import { onAddUserSubmit } from '@/features/instance/operations/mutations/addUser';
+import { onDeleteUser } from '@/features/instance/operations/mutations/deleteUser';
 import { useMutation } from '@tanstack/react-query';
 import { LoginInfoResponse, onInstanceLoginSubmit } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { onAlterUser } from '@/features/instance/operations/mutations/alterUser';
@@ -6,7 +9,8 @@ import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUp
 
 export interface InstanceResetPasswordParams {
 	clusterId: string;
-	username: string;
+	initialUsername: string;
+	desiredUsername: string;
 	newPassword: string;
 	operationsUrl: string;
 	tempPassword: string | undefined;
@@ -14,7 +18,8 @@ export interface InstanceResetPasswordParams {
 
 export async function onInstanceResetPassword({
 	clusterId,
-	username,
+	initialUsername,
+	desiredUsername,
 	newPassword,
 	operationsUrl,
 	tempPassword,
@@ -26,16 +31,35 @@ export async function onInstanceResetPassword({
 	try {
 		// Sign in with the temporary password,
 		const loginResponse = await onInstanceLoginSubmit({
-			username,
+			username: initialUsername,
 			password: tempPassword,
 			operationsUrl,
 		});
-		// then change to the new password,
-		await onAlterUser({
-			username,
-			password: newPassword,
-			operationsUrl,
-		});
+		// then create a new user
+		if (desiredUsername === defaultClusterUsername) {
+			await onAlterUser({
+				username: desiredUsername,
+				password: newPassword,
+				operationsUrl,
+			});
+		} else {
+			await onAddUserSubmit({
+				username: desiredUsername,
+				password: newPassword,
+				role: 'super_user',
+				active: true,
+				operationsUrl,
+			});
+			await onDeleteUser({
+				username: defaultClusterUsername,
+				operationsUrl,
+			});
+			await onInstanceLoginSubmit({
+				username: desiredUsername,
+				password: newPassword,
+				operationsUrl,
+			});
+		}
 		// and finally, tell the central manager that we changed their password.
 		await resetPasswordUpdater(clusterId);
 		return loginResponse;
