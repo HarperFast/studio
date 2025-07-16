@@ -89,7 +89,7 @@ export function AddRoleModal({
 									Cancel
 								</Button>
 								<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
-									<Save /> Add User
+									<Save /> Add Role
 								</Button>
 							</div>
 						</DialogFooter>
