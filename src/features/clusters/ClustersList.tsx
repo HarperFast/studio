@@ -88,9 +88,10 @@ export function ClustersList() {
 						<Button
 							variant="positive"
 							className="w-full rounded-full md:w-44"
+							accessKey="n"
 							onClick={() => setIsNewClusterModalOpen(true)}
 						>
-							<Plus /> New Cluster
+							<Plus /> <span><u>N</u>ew Cluster</span>
 						</Button>
 					</div>
 				) : null}
