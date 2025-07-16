@@ -6,16 +6,12 @@ import { useCallback, useState } from 'react';
 
 export function EditRoleModal({
 	closeModal,
-	// instanceId,
-	// clusterId,
 	isPending,
 	data,
 	isModalOpen,
 	onRoleDeleted,
 	onRoleUpdated,
 }: {
-	// instanceId: string;
-	// clusterId: string;
 	isModalOpen: boolean;
 	isPending: boolean;
 	closeModal: () => void;
@@ -23,7 +19,6 @@ export function EditRoleModal({
 	onRoleDeleted: () => void;
 	onRoleUpdated: (updatedPermissions: string) => void;
 }) {
-	// Make sure user cannot delete their own role.
 	const { role, permission } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(permission, null, 2));
 	const [isValidJSON, setIsValidJSON] = useState(true);
@@ -40,6 +35,10 @@ export function EditRoleModal({
 			onRoleUpdated(updatedPermissions);
 		}
 	}, [updatedPermissions, onRoleUpdated, isValidJSON]);
+
+	const onRoleDeleteClick = useCallback(() => {
+		onRoleDeleted();
+	}, [onRoleDeleted]);
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
@@ -60,7 +59,12 @@ export function EditRoleModal({
 				/>
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						<Button variant="destructiveOutline" className="rounded-full" onClick={onRoleDeleted} disabled={isPending}>
+						<Button
+							variant="destructiveOutline"
+							className="rounded-full"
+							onClick={onRoleDeleteClick}
+							disabled={isPending}
+						>
 							Delete Role
 						</Button>
 						<Button

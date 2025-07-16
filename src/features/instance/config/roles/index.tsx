@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { sleep } from '@/lib/sleep';
 import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
 import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
+import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/deleteRole';
 
 const route = getRouteApi('');
 
@@ -28,6 +29,7 @@ export function ConfigRolesIndex() {
 	} = useSuspenseQuery(getListRolesQueryOptions(instanceId));
 
 	const { mutate: alterRole, isPending: isAlteringRolePending } = useAlterRole();
+	const { mutate: dropRole } = useDeleteRoleMutation();
 
 	const selectedRole = useMemo(() => localRoles?.find((role) => role.id === roleId), [localRoles, roleId]);
 
@@ -87,9 +89,24 @@ export function ConfigRolesIndex() {
 	);
 
 	const onRoleDeleted = useCallback(() => {
+		if (selectedRole) {
+			dropRole(
+				{
+					id: selectedRole.id,
+				},
+				{
+					onSuccess: () => {
+						toast.success('Role deleted successfully!');
+					},
+					onError: (error: Error) => {
+						toast.error(`Failed to delete role: ${error.message}`);
+					},
+				}
+			);
+		}
 		void refetch();
 		onSelectRole(undefined);
-	}, [onSelectRole, refetch]);
+	}, [onSelectRole, refetch, dropRole, selectedRole]);
 
 	const onRefreshClick = useCallback(async () => {
 		const toastId = toast.loading('Refreshing...');
