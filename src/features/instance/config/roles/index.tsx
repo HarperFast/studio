@@ -13,6 +13,7 @@ import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { sleep } from '@/lib/sleep';
 import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
+import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
 
 const route = getRouteApi('');
 
@@ -134,6 +135,12 @@ export function ConfigRolesIndex() {
 					</span>
 				</Button>
 			</BrowseDataTable>
+			<AddRoleModal
+				instanceId={instanceId}
+				isModalOpen={isAddModalOpen}
+				onChangesSaved={onRoleAdded}
+				setIsModalOpen={setIsAddModalOpen}
+			/>
 			{isEditModalOpen && (
 				<EditRoleModal
 					instanceId={instanceId}
