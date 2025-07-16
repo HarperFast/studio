@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { sleep } from '@/lib/sleep';
+import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
 
 const route = getRouteApi('');
 
@@ -25,7 +26,8 @@ export function ConfigRolesIndex() {
 		isRefetching,
 	} = useSuspenseQuery(getListRolesQueryOptions(instanceId));
 
-	// const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	const { mutate: alterRole, isPending: isAlteringRolePending } = useAlterRole();
+
 	const selectedRole = useMemo(() => localRoles?.find((role) => role.id === roleId), [localRoles, roleId]);
 
 	const onSelectRole = useCallback(
@@ -72,10 +74,33 @@ export function ConfigRolesIndex() {
 		onSelectRole(undefined);
 	}, [onSelectRole]);
 
-	const onRoleUpdated = useCallback(() => {
-		void refetch();
-		onSelectRole(undefined);
-	}, [onSelectRole, refetch]);
+	const onRoleUpdated = useCallback(
+		(updatedPermissions: string) => {
+			if (updatedPermissions && selectedRole) {
+				// Assuming the updatedPermissions is a JSON string, parse it and update the role.
+				const parsedPermissions = JSON.parse(updatedPermissions);
+				alterRole(
+					{
+						id: selectedRole.id,
+						permissions: parsedPermissions,
+					},
+					{
+						onSuccess: () => {
+							toast.success('Role updated successfully!');
+						},
+						onError: (error) => {
+							toast.error(`Failed to update role: ${error.message}`);
+						},
+					}
+				);
+				// Call the API to update the role with parsedPermissions.
+				// This part is not implemented here, but you would typically call an API service.
+			}
+			void refetch();
+			onSelectRole(undefined);
+		},
+		[onSelectRole, refetch, alterRole, selectedRole]
+	);
 
 	const onRoleDeleted = useCallback(() => {
 		void refetch();
@@ -117,6 +142,7 @@ export function ConfigRolesIndex() {
 					closeModal={closeEditModal}
 					data={selectedRole}
 					onRoleDeleted={onRoleDeleted}
+					isPending={isAlteringRolePending}
 					onRoleUpdated={onRoleUpdated}
 				/>
 			)}
