@@ -19,7 +19,7 @@ const route = getRouteApi('');
 
 export function ConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { instanceId, clusterId, roleId } = route.useParams();
+	const { instanceId, roleId } = route.useParams();
 	const {
 		data: localRoles,
 		refetch,
@@ -42,20 +42,6 @@ export function ConfigRolesIndex() {
 	const isEditModalOpen = !!roleId && !!selectedRole;
 
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [sortTableDataParams] = useState({
-		attribute: 'username',
-		descending: false,
-	});
-
-	const sortingState = useMemo(
-		() => [
-			{
-				desc: sortTableDataParams.descending,
-				id: sortTableDataParams.attribute,
-			},
-		],
-		[sortTableDataParams]
-	);
 
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
@@ -78,12 +64,11 @@ export function ConfigRolesIndex() {
 	const onRoleUpdated = useCallback(
 		(updatedPermissions: string) => {
 			if (updatedPermissions && selectedRole) {
-				// Assuming the updatedPermissions is a JSON string, parse it and update the role.
 				const parsedPermissions = JSON.parse(updatedPermissions);
 				alterRole(
 					{
 						id: selectedRole.id,
-						permissions: parsedPermissions,
+						permission: parsedPermissions,
 					},
 					{
 						onSuccess: () => {
@@ -94,8 +79,6 @@ export function ConfigRolesIndex() {
 						},
 					}
 				);
-				// Call the API to update the role with parsedPermissions.
-				// This part is not implemented here, but you would typically call an API service.
 			}
 			void refetch();
 			onSelectRole(undefined);
@@ -135,16 +118,9 @@ export function ConfigRolesIndex() {
 					</span>
 				</Button>
 			</BrowseDataTable>
-			<AddRoleModal
-				// instanceId={instanceId}
-				isModalOpen={isAddModalOpen}
-				onChangesSaved={onRoleAdded}
-				setIsModalOpen={setIsAddModalOpen}
-			/>
+			<AddRoleModal isModalOpen={isAddModalOpen} onChangesSaved={onRoleAdded} setIsModalOpen={setIsAddModalOpen} />
 			{isEditModalOpen && (
 				<EditRoleModal
-					// instanceId={instanceId}
-					// clusterId={clusterId}
 					isModalOpen={isEditModalOpen}
 					closeModal={closeEditModal}
 					data={selectedRole}

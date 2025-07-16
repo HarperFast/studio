@@ -3,29 +3,25 @@ import { instanceClient } from '@/config/instanceClient';
 
 export interface AlterRoleRequestBody {
 	id: string;
-	permissions: string;
+	permission: string;
 	operationsUrl?: string;
 }
 
 interface AlterRoleResponse {
 	id: string;
-	permissions: object;
+	permission: object;
 	role: string;
 	__createdtime__: number;
 	__updatedtime__: number;
 }
 
-export async function onAlterRole({
-	id,
-	permissions,
-	operationsUrl,
-}: AlterRoleRequestBody): Promise<AlterRoleResponse> {
+export async function onAlterRole({ id, permission, operationsUrl }: AlterRoleRequestBody): Promise<AlterRoleResponse> {
 	const { data } = await instanceClient.post(
 		'/',
 		{
 			operation: 'alter_role',
 			id,
-			permissions,
+			permission,
 		},
 		{ baseURL: operationsUrl }
 	);

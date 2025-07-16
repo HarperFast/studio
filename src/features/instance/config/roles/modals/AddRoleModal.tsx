@@ -1,11 +1,17 @@
+import { useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Save } from 'lucide-react';
-import { useCallback } from 'react';
-import { useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
-import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+	AddRoleFormData,
+	AddRoleFormSchema,
+	useAddRoleMutation,
+} from '@/features/instance/operations/mutations/addRole';
 
 export function AddRoleModal({
 	// instanceId,
@@ -18,41 +24,35 @@ export function AddRoleModal({
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
-	// const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceId));
 	const form = useForm({
-		// resolver: zodResolver(AddUserFormSchema),
+		resolver: zodResolver(AddRoleFormSchema),
 		defaultValues: {
 			role: '',
-			superUser: false,
+			super_user: false,
 		},
 	});
-	const { mutate: addUser, isPending: isAddPending } = useAddUserMutation();
+	const { mutate: addRole, isPending: isAddPending } = useAddRoleMutation();
 
 	const onSubmitClick = useCallback(
-		async (formData) => {
+		async (formData: AddRoleFormData) => {
 			if (formData) {
-				// addRole(
-				// 	{
-				// 		active: true,
-				// 		password: formData.password,
-				// 		role: formData.role,
-				// 		username: formData.username,
-				// 	},
-				// 	{
-				// 		onSuccess: () => {
-				// 			const lastRole = formData.role;
-				// 			form.reset();
-				// 			// Persist the selected role if they open the form again.
-				// 			form.setValue('role', lastRole);
-				// 			onChangesSaved();
-				// 			toast.success('User added successfully!');
-				// 			setIsModalOpen(false);
-				// 		},
-				// 	}
-				// );
+				addRole(
+					{
+						role: formData.role,
+						super_user: formData.super_user,
+					},
+					{
+						onSuccess: () => {
+							form.reset();
+							onChangesSaved();
+							toast.success('Role added successfully!');
+							setIsModalOpen(false);
+						},
+					}
+				);
 			}
 		},
-		[addUser, form, onChangesSaved, setIsModalOpen]
+		[addRole, form, onChangesSaved, setIsModalOpen]
 	);
 
 	return (
@@ -72,6 +72,24 @@ export function AddRoleModal({
 									<FormLabel className="pb-1">Role</FormLabel>
 									<FormControl>
 										<Input type="text" {...field} />
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="super_user"
+							render={({ field }) => (
+								<FormItem className="">
+									<FormLabel className="">Super User</FormLabel>
+									<FormControl>
+										<Input
+											type="checkbox"
+											className="w-6 ml-2"
+											checked={field.value}
+											onChange={(e) => field.onChange(e.target.checked)}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
