@@ -1,5 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
@@ -10,31 +17,19 @@ import { Input } from '@/components/ui/input';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaCluster } from '@/lib/api.gen';
+import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
+import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, PlusIcon } from 'lucide-react';
+import { useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
-
-export const NewClusterSchema = z.object({
-	name: z.string().min(1, 'Must be at least 1 character long.').max(255, 'Must be at most 255 characters long.'),
-	abbreviatedName: z
-		.string()
-		.min(1, 'Must be at least 1 character long.')
-		.max(20, 'Must be at most 20 characters long.')
-		.regex(/^[a-zA-Z0-9-]+$/, 'Can only contain letters, numbers and dashes'),
-	regionPlans: z.array(
-		z.object({
-			regionId: z.string().nonempty('Region is required.'),
-			planId: z.string().nonempty('Plan Type is required.'),
-			count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
-			price: z.string(),
-		})
-	),
-});
 
 export function NewClusterModal({
 	orgId,
@@ -45,6 +40,11 @@ export function NewClusterModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
+	const { data: planTypes } = useQuery(getPlanTypesOptions());
+	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
+	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
+
 	const queryClient = useQueryClient();
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
@@ -54,14 +54,24 @@ export function NewClusterModal({
 			regionPlans: [], // Initialize regions as an empty array
 		},
 	});
+	const name = form.watch('name');
+	const abbreviatedName = form.watch('abbreviatedName');
+	const calculated = useMemo(() => {
+		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
+			toKebabCase(name),
+			NewClusterSchema.shape.abbreviatedName.maxLength!,
+		) || 'your-host-name';
+		return {
+			suggestedAbbreviatedName,
+			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,
+		};
+	}, [name, abbreviatedName, orgInfo]);
+
 	const fieldArray = useFieldArray({
 		control: form.control,
 		name: 'regionPlans', // This is the name of the field array
 	});
 
-	const { data: planTypes } = useQuery(getPlanTypesOptions());
-	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
-	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
 	const selectedRegions = form.watch('regionPlans');
 
@@ -78,6 +88,9 @@ export function NewClusterModal({
 			organizationId: orgId,
 			...formData,
 		};
+		if (!updatedFormData.abbreviatedName) {
+			updatedFormData.abbreviatedName = calculated.suggestedAbbreviatedName;
+		}
 		submitNewClusterData(updatedFormData, {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
@@ -86,22 +99,25 @@ export function NewClusterModal({
 		});
 	};
 
+	// TODO: Make this slightly more generic so we can use it for editing, as well.
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogContent className="sm:max-w-[825px]">
 				<DialogHeader>
-					<DialogTitle>Create a New Cluster</DialogTitle>
+					<DialogTitle>Cluster Configuration</DialogTitle>
+					<DialogDescription>Configure your Harper system and define deployment plans.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
+					<DialogTitle>System</DialogTitle>
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
 						<FormField
 							control={form.control}
 							name="name"
 							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Cluster Name</FormLabel>
+								<FormItem className="md:col-span-6">
+									<FormLabel className="pb-1">Harper System Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="User Cluster" maxLength={255} {...field} className="" />
+										<Input type="text" maxLength={NewClusterSchema.shape.name.maxLength!} autoCapitalize="words" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -112,14 +128,25 @@ export function NewClusterModal({
 							name="abbreviatedName"
 							render={({ field }) => (
 								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Abbreviated Name</FormLabel>
+									<FormLabel className="pb-1">Host Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="user-cluster" maxLength={20} {...field} className="" />
+										<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculated.suggestedAbbreviatedName} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+						<FormItem className="md:col-span-3">
+							<FormLabel className="pb-1">Full Host name</FormLabel>
+							<FormControl>
+								<span>{calculated.fullHostName}</span>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+
+						{/*TODO: Harper Deployment selection*/}
+
+						{/*TODO: Performance and Usage selection*/}
 
 						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent min-h-32 max-h-70">
 							{fieldArray.fields.length > 0 ? (
