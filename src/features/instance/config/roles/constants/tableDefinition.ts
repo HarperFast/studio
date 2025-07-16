@@ -22,20 +22,20 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 				props.row.original.__createdtime__
 			),
 	}),
-	{
+	columnHelper.display({
 		header: 'Updated',
-		accessorKey: '__updatedtime__',
+		id: '__updatedtime__',
 		enableSorting: false,
 		cell: (props) =>
 			translateSecondsToAgo(
 				(Date.now() - props.row.original.__updatedtime__) / 1000,
 				props.row.original.__updatedtime__
 			),
-	},
-	{
+	}),
+	columnHelper.display({
 		header: 'Super  User',
-		accessorKey: 'super_user',
+		id: 'super_user',
 		enableSorting: false,
 		cell: (props) => (props.row.original.permission.super_user ? 'Yes' : 'No'),
-	},
+	}),
 ];
