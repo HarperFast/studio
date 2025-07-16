@@ -81,9 +81,9 @@ export function ConfigRolesIndex() {
 						},
 					}
 				);
+				void refetch();
+				onSelectRole(undefined);
 			}
-			void refetch();
-			onSelectRole(undefined);
 		},
 		[onSelectRole, refetch, alterRole, selectedRole]
 	);
@@ -103,9 +103,9 @@ export function ConfigRolesIndex() {
 					},
 				}
 			);
+			void refetch();
+			onSelectRole(undefined);
 		}
-		void refetch();
-		onSelectRole(undefined);
 	}, [onSelectRole, refetch, dropRole, selectedRole]);
 
 	const onRefreshClick = useCallback(async () => {
