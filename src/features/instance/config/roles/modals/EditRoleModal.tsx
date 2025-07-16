@@ -6,16 +6,16 @@ import { useCallback, useState } from 'react';
 
 export function EditRoleModal({
 	closeModal,
-	instanceId,
-	clusterId,
+	// instanceId,
+	// clusterId,
 	isPending,
 	data,
 	isModalOpen,
 	onRoleDeleted,
 	onRoleUpdated,
 }: {
-	instanceId: string;
-	clusterId: string;
+	// instanceId: string;
+	// clusterId: string;
 	isModalOpen: boolean;
 	isPending: boolean;
 	closeModal: () => void;

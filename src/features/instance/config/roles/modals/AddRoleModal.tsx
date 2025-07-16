@@ -4,18 +4,16 @@ import { Save } from 'lucide-react';
 import { useCallback } from 'react';
 import { useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 
 export function AddRoleModal({
-	instanceId,
+	// instanceId,
 	isModalOpen,
 	onChangesSaved,
 	setIsModalOpen,
 }: {
-	instanceId: string;
+	// instanceId: string;
 	isModalOpen: boolean;
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;

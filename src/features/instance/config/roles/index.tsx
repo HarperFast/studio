@@ -136,15 +136,15 @@ export function ConfigRolesIndex() {
 				</Button>
 			</BrowseDataTable>
 			<AddRoleModal
-				instanceId={instanceId}
+				// instanceId={instanceId}
 				isModalOpen={isAddModalOpen}
 				onChangesSaved={onRoleAdded}
 				setIsModalOpen={setIsAddModalOpen}
 			/>
 			{isEditModalOpen && (
 				<EditRoleModal
-					instanceId={instanceId}
-					clusterId={clusterId}
+					// instanceId={instanceId}
+					// clusterId={clusterId}
 					isModalOpen={isEditModalOpen}
 					closeModal={closeEditModal}
 					data={selectedRole}
