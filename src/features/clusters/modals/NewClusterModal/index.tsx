@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { tempPlansMock } from '@/features/clusters/modals/NewClusterModal/tempPlans';
 import { tempRegionsMock } from '@/features/clusters/modals/NewClusterModal/tempRegions';
@@ -142,7 +143,6 @@ export function NewClusterModal({
 		});
 	}, [calculatedNames.suggestedAbbreviatedName, orgId, queryClient, setIsModalOpen, submitNewClusterData]);
 
-	// TODO: Show "Usage Limits" collapsible form thingy.
 	// TODO: "allowedRegionIds" validation.
 	// TODO: Region uniqueness validation.
 	// TODO: Selecting "Free" should have form validation so they won't change to other values without seeing an error.
@@ -157,133 +157,139 @@ export function NewClusterModal({
 				</DialogHeader>
 				<Form {...form}>
 					<DialogTitle>System</DialogTitle>
-					<form onSubmit={form.handleSubmit(submitForm)} className="grid grid-cols-1 gap-6 text-white md:grid-cols-6">
-						<FormField
-							control={form.control}
-							name="name"
-							render={({ field }) => (
-								<FormItem className="md:col-span-6">
-									<FormLabel className="pb-1">Harper System Name</FormLabel>
-									<FormControl>
-										<Input type="text" maxLength={NewClusterSchema.shape.name.maxLength!} autoCapitalize="words" {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="abbreviatedName"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Host Name</FormLabel>
-									<FormControl>
-										<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculatedNames.suggestedAbbreviatedName} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormItem className="md:col-span-3">
-							<FormLabel className="pb-1">Full Host Name</FormLabel>
-							<FormControl>
-								<span>{calculatedNames.fullHostName}</span>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-
-						<FormField
-							control={form.control}
-							name="deploymentDescription"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Harper Deployment</FormLabel>
-
-									<Suspense fallback={<TextLoadingSkeleton />}>
-										<FormControl>
-											<Select {...field} onValueChange={(deploymentDescription) => field.onChange(deploymentDescription)}>
-												<SelectTrigger className="w-full">
-													<SelectValue placeholder="Choose Tier" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectGroup>
-														{availableDeploymentTypes.map((deploymentDescription) => (
-															<SelectItem
-																key={deploymentDescription}
-																value={deploymentDescription}
-															>{deploymentDescription}</SelectItem>
-														))}
-													</SelectGroup>
-												</SelectContent>
-											</Select>
-										</FormControl>
-									</Suspense>
-
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={form.control}
-							name="performanceDescription"
-							render={({ field }) => (
-								<FormItem className="md:col-span-3">
-									<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
-
-									<Suspense fallback={<TextLoadingSkeleton />}>
-										<FormControl>
-											<Select {...field} onValueChange={(performanceDescription) => field.onChange(performanceDescription)}
-												disabled={!availablePerformanceDescriptions?.length}>
-												<SelectTrigger className="w-full">
-													<SelectValue placeholder="Choose Tier" />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectGroup>
-														{availablePerformanceDescriptions.map((performanceDescription) => (
-															<SelectItem
-																key={performanceDescription}
-																value={performanceDescription}
-															>{performanceDescription}</SelectItem>
-														))}
-													</SelectGroup>
-												</SelectContent>
-											</Select>
-										</FormControl>
-									</Suspense>
-
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						{fieldArray.fields.map((field, index) => (
-							<RegionFormInputs
+					<form onSubmit={form.handleSubmit(submitForm)}>
+						<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
+							<FormField
 								control={form.control}
-								fieldArray={fieldArray}
-								form={form}
-								index={index}
-								key={field.id}
-								regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-								selectedPlan={selectedPlan}
+								name="name"
+								render={({ field }) => (
+									<FormItem className="md:col-span-6">
+										<FormLabel className="pb-1">Harper System Name</FormLabel>
+										<FormControl>
+											<Input type="text" maxLength={NewClusterSchema.shape.name.maxLength!} autoCapitalize="words" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
 							/>
-						))}
+							<FormField
+								control={form.control}
+								name="abbreviatedName"
+								render={({ field }) => (
+									<FormItem className="md:col-span-3">
+										<FormLabel className="pb-1">Host Name</FormLabel>
+										<FormControl>
+											<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculatedNames.suggestedAbbreviatedName} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormItem className="md:col-span-3">
+								<FormLabel className="pb-1">Full Host Name</FormLabel>
+								<FormControl>
+									<span>{calculatedNames.fullHostName}</span>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
 
-						<div className="md:col-span-6">
-							<Button
-								type="button"
-								variant="positiveOutline"
-								className="rounded-full"
-								onClick={onAddARegionClick}
-							>
-								<PlusIcon />
-								Add Additional Region Usage
-							</Button>
+							<FormField
+								control={form.control}
+								name="deploymentDescription"
+								render={({ field }) => (
+									<FormItem className="md:col-span-3">
+										<FormLabel className="pb-1">Harper Deployment</FormLabel>
+
+										<Suspense fallback={<TextLoadingSkeleton />}>
+											<FormControl>
+												<Select {...field} onValueChange={(deploymentDescription) => field.onChange(deploymentDescription)}>
+													<SelectTrigger className="w-full">
+														<SelectValue placeholder="Choose Tier" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectGroup>
+															{availableDeploymentTypes.map((deploymentDescription) => (
+																<SelectItem
+																	key={deploymentDescription}
+																	value={deploymentDescription}
+																>{deploymentDescription}</SelectItem>
+															))}
+														</SelectGroup>
+													</SelectContent>
+												</Select>
+											</FormControl>
+										</Suspense>
+
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="performanceDescription"
+								render={({ field }) => (
+									<FormItem className="md:col-span-3">
+										<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
+
+										<Suspense fallback={<TextLoadingSkeleton />}>
+											<FormControl>
+												<Select {...field} onValueChange={(performanceDescription) => field.onChange(performanceDescription)}
+													disabled={!availablePerformanceDescriptions?.length}>
+													<SelectTrigger className="w-full">
+														<SelectValue placeholder="Choose Tier" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectGroup>
+															{availablePerformanceDescriptions.map((performanceDescription) => (
+																<SelectItem
+																	key={performanceDescription}
+																	value={performanceDescription}
+																>{performanceDescription}</SelectItem>
+															))}
+														</SelectGroup>
+													</SelectContent>
+												</Select>
+											</FormControl>
+										</Suspense>
+
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
+							{selectedPlan?.resourcesPerInstance
+								&& <ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />}
+
+							{fieldArray.fields.map((field, index) => (
+								<RegionFormInputs
+									control={form.control}
+									fieldArray={fieldArray}
+									form={form}
+									index={index}
+									key={field.id}
+									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+									selectedPlan={selectedPlan}
+								/>
+							))}
+
+							<div className="md:col-span-6">
+								<Button
+									type="button"
+									variant="positiveOutline"
+									className="rounded-full"
+									onClick={onAddARegionClick}
+								>
+									<PlusIcon />
+									Add Additional Region Usage
+								</Button>
+							</div>
+
 						</div>
 						{/*<div className="md:col-span-6">*/}
 						{/*	<p>Total Price: {totalPrice}</p>*/}
 						{/*</div>*/}
-						<DialogFooter className="md:col-span-6">
+						<DialogFooter className="mt-3">
 							<Button type="submit" variant="submit" className="rounded-full">
 								Create New Cluster <ArrowRight />
 							</Button>

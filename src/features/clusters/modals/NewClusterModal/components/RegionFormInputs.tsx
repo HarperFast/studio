@@ -35,13 +35,13 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
-	selectedPlan,
+	// selectedPlan,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion), [regionNameToLatencyToRegion]);
 	const selectedRegionName = form.watch(`regionPlans.${index}.regionName`);
 	const selectedLatencyDescription = form.watch(`regionPlans.${index}.latencyDescription`);
-	const selectedRegion = regionNameToLatencyToRegion?.[selectedRegionName]?.[selectedLatencyDescription];
+	// const selectedRegion = regionNameToLatencyToRegion?.[selectedRegionName]?.[selectedLatencyDescription];
 	const availableLatencyDescriptions = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}), [regionNameToLatencyToRegion, selectedRegionName]);
 
@@ -54,7 +54,6 @@ export function RegionFormInputs({
 			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
 		}
 	}, [availableLatencyDescriptions, form, index, selectedLatencyDescription, selectedRegionName]);
-	console.log(selectedPlan, selectedRegion);
 
 	// TODO: plan.price * (region.instanceCount / 2)
 
