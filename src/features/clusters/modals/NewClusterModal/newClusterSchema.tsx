@@ -8,12 +8,14 @@ export const NewClusterSchema = z.object({
 		.string()
 		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]*$/, 'Can only contain letters, numbers and dashes'),
+
+	deploymentDescription: z.string().min(1, 'Please select a deployment tier.'),
+	performanceDescription: z.string().min(1, 'Please select a performance tier.'),
+
 	regionPlans: z.array(
 		z.object({
-			regionId: z.string().nonempty('Region is required.'),
-			planId: z.string().nonempty('Plan Type is required.'),
-			count: z.number().min(0, 'Count must be non-negative.').min(1, 'Count must be at least 1.'),
-			price: z.string(),
+			regionName: z.string().nonempty('Please select a region.'),
+			latencyDescription: z.string().nonempty('Please select a latency tier.'),
 		}),
 	),
 });

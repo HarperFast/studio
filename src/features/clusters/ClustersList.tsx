@@ -6,7 +6,7 @@ import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { ClusterCard } from '@/features/organization/components/ClusterCard';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
-import { groupBy } from '@/lib/group-by';
+import { groupBy } from '@/lib/groupBy';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';

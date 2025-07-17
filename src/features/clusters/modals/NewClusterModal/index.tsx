@@ -1,3 +1,4 @@
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -14,20 +15,22 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
-import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { tempPlansMock } from '@/features/clusters/modals/NewClusterModal/tempPlans';
+import { tempRegionsMock } from '@/features/clusters/modals/NewClusterModal/tempRegions';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaCluster } from '@/lib/api.gen';
+import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, PlusIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { Suspense, useCallback, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -40,23 +43,37 @@ export function NewClusterModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	const queryClient = useQueryClient();
 	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
-	const { data: planTypes } = useQuery(getPlanTypesOptions());
-	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
+	const planTypes = tempPlansMock;
+	// TODO: Once we're done mocking: const { data: planTypes } = useQuery(getPlanTypesOptions());
+	const regionLocations = tempRegionsMock;
+	// TODO: Once we're done mocking: const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
 
-	const queryClient = useQueryClient();
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
 		defaultValues: {
 			name: '',
 			abbreviatedName: '',
-			regionPlans: [], // Initialize regions as an empty array
+			deploymentDescription: 'Free',
+			regionPlans: [
+				{ regionName: 'US', latencyDescription: '' },
+			],
 		},
 	});
+	const fieldArray = useFieldArray({
+		control: form.control,
+		name: 'regionPlans',
+	});
+
 	const name = form.watch('name');
 	const abbreviatedName = form.watch('abbreviatedName');
-	const calculated = useMemo(() => {
+	const selectedDeployment = form.watch('deploymentDescription');
+	const selectedPerformance = form.watch('performanceDescription');
+	const selectedRegions = form.watch('regionPlans');
+
+	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
 			toKebabCase(name),
 			NewClusterSchema.shape.abbreviatedName.maxLength!,
@@ -66,30 +83,56 @@ export function NewClusterModal({
 			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,
 		};
 	}, [name, abbreviatedName, orgInfo]);
+	const deploymentToPerformanceToPlan = useMemo(() =>
+		groupThenKeyBy(planTypes, 'deploymentDescription', 'performanceDescription'), [planTypes]);
+	const availableDeploymentTypes = useMemo(() =>
+		Object.keys(deploymentToPerformanceToPlan), [deploymentToPerformanceToPlan]);
+	const availablePerformanceDescriptions = useMemo(() =>
+		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
+	const selectedPlan = useMemo(() =>
+		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
+	const regionNameToLatencyToRegion = useMemo(() =>
+		groupThenKeyBy(regionLocations, 'region', 'latencyDescription'), [regionLocations]);
 
-	const fieldArray = useFieldArray({
-		control: form.control,
-		name: 'regionPlans', // This is the name of the field array
-	});
+	useEffect(function selectFirstAvailablePerformanceDescription() {
+		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
+			form.setValue('performanceDescription', availablePerformanceDescriptions[0]);
+		}
+	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
+	useEffect(function enforcePlanAllowedRegionIds() {
+		const allowedRegionIds = selectedPlan?.allowedRegionIds;
+		if (allowedRegionIds?.length && selectedRegions?.length === 1) {
+			const firstRegion = selectedRegions[0];
+			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
+			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
+				const regionToSelect = regionLocations.find(r => allowedRegionIds.includes(r.id));
+				if (regionToSelect) {
+					form.setValue('regionPlans.0.regionName', regionToSelect.region);
+					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);
+				}
+			}
+		}
+	}, [selectedPlan, selectedRegions, form, regionNameToLatencyToRegion, regionLocations]);
 
-
-	const selectedRegions = form.watch('regionPlans');
 
 	// NOTE: Don't like how this is done, but works. Would like to find a better way to calculate the total price of selected regions.
-	const totalPriceNumber =
-		selectedRegions?.reduce((acc, region) => {
-			const price = region.price ? Number(region.price) : 0;
-			return acc + price;
-		}, 0) ?? 0;
-	const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
+	// const totalPriceNumber =
+	// 	selectedRegions?.reduce((acc, region) => {
+	// 		const price = region.price ? Number(region.price) : 0;
+	// 		return acc + price;
+	// 	}, 0) ?? 0;
+	// const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
 
-	const submitForm = async (formData: z.infer<typeof NewClusterSchema>) => {
+	const onAddARegionClick = useCallback(() => {
+		fieldArray.append({ regionName: 'US', latencyDescription: '' });
+	}, [fieldArray]);
+	const submitForm = useCallback(async (formData: z.infer<typeof NewClusterSchema>) => {
 		const updatedFormData: Omit<SchemaCluster, 'id'> = {
 			organizationId: orgId,
 			...formData,
 		};
 		if (!updatedFormData.abbreviatedName) {
-			updatedFormData.abbreviatedName = calculated.suggestedAbbreviatedName;
+			updatedFormData.abbreviatedName = calculatedNames.suggestedAbbreviatedName;
 		}
 		submitNewClusterData(updatedFormData, {
 			onSuccess: () => {
@@ -97,7 +140,12 @@ export function NewClusterModal({
 				setIsModalOpen(false);
 			},
 		});
-	};
+	}, [calculatedNames.suggestedAbbreviatedName, orgId, queryClient, setIsModalOpen, submitNewClusterData]);
+
+	// TODO: Show "Usage Limits" collapsible form thingy.
+	// TODO: "allowedRegionIds" validation.
+	// TODO: Region uniqueness validation.
+	// TODO: Selecting "Free" should have form validation so they won't change to other values without seeing an error.
 
 	// TODO: Make this slightly more generic so we can use it for editing, as well.
 	return (
@@ -130,60 +178,111 @@ export function NewClusterModal({
 								<FormItem className="md:col-span-3">
 									<FormLabel className="pb-1">Host Name</FormLabel>
 									<FormControl>
-										<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculated.suggestedAbbreviatedName} />
+										<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculatedNames.suggestedAbbreviatedName} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
 						<FormItem className="md:col-span-3">
-							<FormLabel className="pb-1">Full Host name</FormLabel>
+							<FormLabel className="pb-1">Full Host Name</FormLabel>
 							<FormControl>
-								<span>{calculated.fullHostName}</span>
+								<span>{calculatedNames.fullHostName}</span>
 							</FormControl>
 							<FormMessage />
 						</FormItem>
 
-						{/*TODO: Harper Deployment selection*/}
+						<FormField
+							control={form.control}
+							name="deploymentDescription"
+							render={({ field }) => (
+								<FormItem className="md:col-span-3">
+									<FormLabel className="pb-1">Harper Deployment</FormLabel>
 
-						{/*TODO: Performance and Usage selection*/}
+									<Suspense fallback={<TextLoadingSkeleton />}>
+										<FormControl>
+											<Select {...field} onValueChange={(deploymentDescription) => field.onChange(deploymentDescription)}>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Choose Tier" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{availableDeploymentTypes.map((deploymentDescription) => (
+															<SelectItem
+																key={deploymentDescription}
+																value={deploymentDescription}
+															>{deploymentDescription}</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</FormControl>
+									</Suspense>
 
-						<div className="p-4 overflow-y-auto rounded-md md:col-span-6 bg-accent min-h-32 max-h-70">
-							{fieldArray.fields.length > 0 ? (
-								fieldArray.fields.map((field, index) => (
-									<RegionFormInputs
-										key={field.id} // Use the unique id provided by fieldArray
-										// @ts-expect-error come back to this later
-										control={form.control}
-										index={index}
-										regionLocations={regionLocations || []}
-										planTypes={planTypes || []}
-										selectedRegions={selectedRegions || []}
-										remove={() => {
-											fieldArray.remove(index);
-										}}
-									/>
-								))
-							) : (
-								<p>No regions added yet.</p>
+									<FormMessage />
+								</FormItem>
 							)}
-						</div>
+						/>
+
+						<FormField
+							control={form.control}
+							name="performanceDescription"
+							render={({ field }) => (
+								<FormItem className="md:col-span-3">
+									<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
+
+									<Suspense fallback={<TextLoadingSkeleton />}>
+										<FormControl>
+											<Select {...field} onValueChange={(performanceDescription) => field.onChange(performanceDescription)}
+												disabled={!availablePerformanceDescriptions?.length}>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Choose Tier" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{availablePerformanceDescriptions.map((performanceDescription) => (
+															<SelectItem
+																key={performanceDescription}
+																value={performanceDescription}
+															>{performanceDescription}</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</FormControl>
+									</Suspense>
+
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						{fieldArray.fields.map((field, index) => (
+							<RegionFormInputs
+								control={form.control}
+								fieldArray={fieldArray}
+								form={form}
+								index={index}
+								key={field.id}
+								regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+								selectedPlan={selectedPlan}
+							/>
+						))}
+
 						<div className="md:col-span-6">
 							<Button
 								type="button"
-								variant="positive"
+								variant="positiveOutline"
 								className="rounded-full"
-								onClick={() => {
-									fieldArray.append({ regionId: '', planId: '', count: 0, price: '' });
-								}}
+								onClick={onAddARegionClick}
 							>
 								<PlusIcon />
-								Add a Region
+								Add Additional Region Usage
 							</Button>
 						</div>
-						<div className="md:col-span-6">
-							<p>Total Price: {totalPrice}</p>
-						</div>
+						{/*<div className="md:col-span-6">*/}
+						{/*	<p>Total Price: {totalPrice}</p>*/}
+						{/*</div>*/}
 						<DialogFooter className="md:col-span-6">
 							<Button type="submit" variant="submit" className="rounded-full">
 								Create New Cluster <ArrowRight />

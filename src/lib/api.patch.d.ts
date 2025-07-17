@@ -65,7 +65,11 @@ export interface Instance extends SchemaHdbInstance {
 }
 
 export interface Plan extends SchemaPlan {
-	price?: string; // TODO: Is this computed?
+	priceUsd?: number; // TODO: Inc
+	deploymentType: string; // TODO: Inc
+	deploymentDescription: string; // TODO: Inc
+	performanceDescription?: string; // TODO: Inc
+	allowedRegionIds?: string[]; // TODO: Inc
 }
 
 export interface Cluster extends SchemaCluster {

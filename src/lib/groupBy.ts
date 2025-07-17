@@ -3,6 +3,9 @@ export function groupBy<T extends object>(items: T[], property: keyof T): Record
 
 	for (const item of items) {
 		const key = item[property] as string;
+		if (key === undefined) {
+			continue;
+		}
 
 		if (Array.isArray(key)) {
 			for (const k of key) {
@@ -19,5 +22,5 @@ export function groupBy<T extends object>(items: T[], property: keyof T): Record
 		}
 	}
 
-	return retVal;
+	return retVal as Record<string, T[]>;
 }

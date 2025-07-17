@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupBy } from './group-by';
+import { groupBy } from './groupBy';
 
 describe('groupBy', () => {
 	it('should group items by a string property', () => {
