@@ -12,9 +12,7 @@ import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { sleep } from '@/lib/sleep';
-import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
 import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
-import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/deleteRole';
 
 const route = getRouteApi('');
 
@@ -27,9 +25,6 @@ export function ConfigRolesIndex() {
 		isFetching,
 		isRefetching,
 	} = useSuspenseQuery(getListRolesQueryOptions(instanceId));
-
-	const { mutate: alterRole, isPending: isAlteringRolePending } = useAlterRole();
-	const { mutate: dropRole } = useDeleteRoleMutation();
 
 	const selectedRole = useMemo(() => localRoles?.find((role) => role.id === roleId), [localRoles, roleId]);
 
@@ -62,51 +57,6 @@ export function ConfigRolesIndex() {
 	const closeEditModal = useCallback(() => {
 		onSelectRole(undefined);
 	}, [onSelectRole]);
-
-	const onRoleUpdated = useCallback(
-		(updatedPermissions: string) => {
-			if (updatedPermissions && selectedRole) {
-				const parsedPermissions = JSON.parse(updatedPermissions);
-				alterRole(
-					{
-						id: selectedRole.id,
-						permission: parsedPermissions,
-					},
-					{
-						onSuccess: () => {
-							toast.success('Role updated successfully!');
-						},
-						onError: (error) => {
-							toast.error(`Failed to update role: ${error.message}`);
-						},
-					}
-				);
-				void refetch();
-				onSelectRole(undefined);
-			}
-		},
-		[onSelectRole, refetch, alterRole, selectedRole]
-	);
-
-	const onRoleDeleted = useCallback(() => {
-		if (selectedRole) {
-			dropRole(
-				{
-					id: selectedRole.id,
-				},
-				{
-					onSuccess: () => {
-						toast.success('Role deleted successfully!');
-					},
-					onError: (error: Error) => {
-						toast.error(`Failed to delete role: ${error.message}`);
-					},
-				}
-			);
-			void refetch();
-			onSelectRole(undefined);
-		}
-	}, [onSelectRole, refetch, dropRole, selectedRole]);
 
 	const onRefreshClick = useCallback(async () => {
 		const toastId = toast.loading('Refreshing...');
@@ -141,9 +91,8 @@ export function ConfigRolesIndex() {
 					isModalOpen={isEditModalOpen}
 					closeModal={closeEditModal}
 					data={selectedRole}
-					onRoleDeleted={onRoleDeleted}
-					isPending={isAlteringRolePending}
-					onRoleUpdated={onRoleUpdated}
+					onSelectRole={onSelectRole}
+					onChangesSaved={() => refetch()}
 				/>
 			)}
 		</Suspense>
