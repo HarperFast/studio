@@ -1,27 +1,31 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
+import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/deleteRole';
 import { LocalRole } from '@/lib/api.patch';
 import { Editor } from '@monaco-editor/react';
 import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 
 export function EditRoleModal({
-	closeModal,
-	isPending,
 	data,
 	isModalOpen,
-	onRoleDeleted,
-	onRoleUpdated,
+	closeModal,
+	onSelectRole,
+	onChangesSaved,
 }: {
-	isModalOpen: boolean;
-	isPending: boolean;
-	closeModal: () => void;
 	data: LocalRole;
-	onRoleDeleted: () => void;
-	onRoleUpdated: (updatedPermissions: string) => void;
+	isModalOpen: boolean;
+	closeModal: () => void;
+	onSelectRole: (role?: string) => void;
+	onChangesSaved: () => void;
 }) {
 	const { role, permission } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(permission, null, 2));
 	const [isValidJSON, setIsValidJSON] = useState(true);
+
+	const { mutate: alterRole, isPending } = useAlterRole();
+	const { mutate: dropRole } = useDeleteRoleMutation();
 
 	const onValidate = useCallback(
 		(markers: unknown[]) => {
@@ -29,6 +33,49 @@ export function EditRoleModal({
 		},
 		[setIsValidJSON]
 	);
+
+	const onRoleUpdated = useCallback(
+		(updatedPermissions: string) => {
+			if (updatedPermissions) {
+				const parsedPermissions = JSON.parse(updatedPermissions);
+				alterRole(
+					{
+						id: data.id,
+						permission: parsedPermissions,
+					},
+					{
+						onSuccess: () => {
+							toast.success('Role updated successfully!');
+							onSelectRole(undefined);
+							onChangesSaved();
+						},
+						onError: (error: Error) => {
+							toast.error(`Failed to update role: ${error.message}`);
+						},
+					}
+				);
+			}
+		},
+		[alterRole, data.id, onChangesSaved, onSelectRole]
+	);
+
+	const onRoleDeleted = useCallback(() => {
+		dropRole(
+			{
+				id: data.id,
+			},
+			{
+				onSuccess: () => {
+					toast.success('Role deleted successfully!');
+					onSelectRole(undefined);
+					onChangesSaved();
+				},
+				onError: (error: Error) => {
+					toast.error(`Failed to delete role: ${error.message}`);
+				},
+			}
+		);
+	}, [onSelectRole, dropRole, data.id, onChangesSaved]);
 
 	const onSubmitClick = useCallback(() => {
 		if (updatedPermissions && isValidJSON) {
