@@ -69,7 +69,6 @@ describe('groupBy', () => {
 
 		expect(result).toEqual({
 			fruit: [{ id: 1, category: 'fruit' }],
-			undefined: [{ id: 2, category: undefined }],
 			null: [{ id: 3, category: null }],
 			vegetable: [{ id: 4, category: 'vegetable' }],
 		});

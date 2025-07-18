@@ -3,10 +3,10 @@ import { humanNumber } from './humanNumber';
 
 describe('humanNumber', () => {
 	it('should return rounded number for values less than 1000', () => {
-		expect(humanNumber(0)).toBe(0);
-		expect(humanNumber(500)).toBe(500);
-		expect(humanNumber(999)).toBe(999);
-		expect(humanNumber(999.9)).toBe(1000); // Tests rounding behavior
+		expect(humanNumber(0)).toBe('0');
+		expect(humanNumber(500)).toBe('500');
+		expect(humanNumber(999)).toBe('999');
+		expect(humanNumber(999.9)).toBe('1000'); // Tests rounding behavior
 	});
 
 	it('should convert to K for values between 1000 and 999,999', () => {
@@ -48,7 +48,7 @@ describe('humanNumber', () => {
 	});
 
 	it('should handle negative numbers correctly', () => {
-		expect(humanNumber(-500)).toBe(-500);
+		expect(humanNumber(-500)).toBe('-500');
 		expect(humanNumber(-1000)).toBe('-1 K');
 		expect(humanNumber(-1000000)).toBe('-1 M');
 		expect(humanNumber(-1000000000)).toBe('-1 B');
