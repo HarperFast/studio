@@ -24,7 +24,7 @@ import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDi
 import { tempPlansMock } from '@/features/clusters/modals/NewClusterModal/tempPlans';
 import { tempRegionsMock } from '@/features/clusters/modals/NewClusterModal/tempRegions';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { SchemaCluster } from '@/lib/api.gen';
+import { ClusterDefinitionRegionPlan } from '@/lib/api.patch';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -46,6 +46,8 @@ export function NewClusterModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	// TODO: "allowedRegionIds" validation.
+	// TODO: Region uniqueness validation.
 	const queryClient = useQueryClient();
 	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
 	const planTypes = tempPlansMock;
@@ -57,7 +59,7 @@ export function NewClusterModal({
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
 		defaultValues: {
-			name: '',
+			systemName: '',
 			abbreviatedName: '',
 			deploymentDescription: 'Free',
 			regionPlans: [
@@ -70,7 +72,7 @@ export function NewClusterModal({
 		name: 'regionPlans',
 	});
 
-	const name = form.watch('name');
+	const systemName = form.watch('systemName');
 	const abbreviatedName = form.watch('abbreviatedName');
 	const selectedDeployment = form.watch('deploymentDescription');
 	const selectedPerformance = form.watch('performanceDescription');
@@ -78,14 +80,14 @@ export function NewClusterModal({
 
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
-			toKebabCase(name),
+			toKebabCase(systemName),
 			NewClusterSchema.shape.abbreviatedName.maxLength!,
 		) || 'your-host-name';
 		return {
 			suggestedAbbreviatedName,
 			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,
 		};
-	}, [name, abbreviatedName, orgInfo]);
+	}, [systemName, abbreviatedName, orgInfo]);
 	const deploymentToPerformanceToPlan = useMemo(() =>
 		groupThenKeyBy(planTypes, 'deploymentDescription', 'performanceDescription'), [planTypes]);
 	const availableDeploymentTypes = useMemo(() =>
@@ -130,25 +132,28 @@ export function NewClusterModal({
 	const onAddARegionClick = useCallback(() => {
 		fieldArray.append({ regionName: 'US', latencyDescription: '' });
 	}, [fieldArray]);
+	const onClusterCreatedCallback = useCallback(() => {
+		queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+		setIsModalOpen(false);
+	}, [queryClient, setIsModalOpen]);
 	const submitForm = useCallback(async (formData: z.infer<typeof NewClusterSchema>) => {
-		const updatedFormData: Omit<SchemaCluster, 'id'> = {
-			organizationId: orgId,
-			...formData,
-		};
-		if (!updatedFormData.abbreviatedName) {
-			updatedFormData.abbreviatedName = calculatedNames.suggestedAbbreviatedName;
+		const plans: ClusterDefinitionRegionPlan[] = [];
+		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
+		for (const regionPlan of formData.regionPlans) {
+			const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
+			plans.push({
+				planId: plan.id,
+				regionId: region.id,
+			});
 		}
-		submitNewClusterData(updatedFormData, {
-			onSuccess: () => {
-				queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-				setIsModalOpen(false);
-			},
-		});
-	}, [calculatedNames.suggestedAbbreviatedName, orgId, queryClient, setIsModalOpen, submitNewClusterData]);
-
-	// TODO: "allowedRegionIds" validation.
-	// TODO: Region uniqueness validation.
-	// TODO: Selecting "Free" should have form validation so they won't change to other values without seeing an error.
+		submitNewClusterData({
+			organizationId: orgId,
+			name: formData.systemName,
+			abbreviatedName: formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName,
+			autoRenew: true,
+			regionPlans: plans,
+		}, { onSuccess: onClusterCreatedCallback });
+	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, onClusterCreatedCallback, orgId, regionNameToLatencyToRegion, submitNewClusterData]);
 
 	// TODO: Make this slightly more generic so we can use it for editing, as well.
 	return (
@@ -169,12 +174,12 @@ export function NewClusterModal({
 						<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
 							<FormField
 								control={form.control}
-								name="name"
+								name="systemName"
 								render={({ field }) => (
 									<FormItem className="md:col-span-6">
 										<FormLabel className="pb-1">Harper System Name</FormLabel>
 										<FormControl>
-											<Input type="text" maxLength={NewClusterSchema.shape.name.maxLength!} autoCapitalize="words" {...field} />
+											<Input type="text" maxLength={NewClusterSchema.shape.systemName.maxLength!} autoCapitalize="words" {...field} />
 										</FormControl>
 										<FormMessage />
 									</FormItem>

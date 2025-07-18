@@ -3,7 +3,7 @@ import {
 	SchemaHdbInstance,
 	SchemaOrganization,
 	SchemaOrganizationRole,
-	SchemaPlan,
+	SchemaPlan, SchemaRegionPlan,
 	SchemaUser,
 } from '@/lib/api.gen';
 
@@ -76,3 +76,10 @@ export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
 }
+
+export interface ClusterDefinition extends Omit<SchemaCluster, 'id' | 'plans'> {
+	autoRenew: boolean;
+	regionPlans: ClusterDefinitionRegionPlan[];
+}
+
+export type ClusterDefinitionRegionPlan = Omit<SchemaRegionPlan, 'autoRenew'>;

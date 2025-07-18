@@ -46,9 +46,8 @@ export function ResourcesPerInstance({ resourcesPerInstance }: {
 		},
 	].filter(excludeFalsy), [resourcesPerInstance]);
 
-
 	return <FormItem className="md:col-span-6">
-		<FormLabel className="pb-1 inline-flex">
+		<FormLabel className="inline-flex">
 			<Button
 				type="button"
 				variant="link"

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const NewClusterSchema = z.object({
-	name: z.string()
+	systemName: z.string()
 		.min(1, 'Must be at least 1 character long.')
 		.max(255, 'Must be at most 255 characters long.'),
 	abbreviatedName: z
