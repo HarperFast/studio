@@ -135,7 +135,8 @@ export function NewClusterModal({
 	const onClusterCreatedCallback = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
 		setIsModalOpen(false);
-	}, [queryClient, setIsModalOpen]);
+		form.reset();
+	}, [form, queryClient, setIsModalOpen]);
 	const submitForm = useCallback(async (formData: z.infer<typeof NewClusterSchema>) => {
 		const plans: ClusterDefinitionRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
