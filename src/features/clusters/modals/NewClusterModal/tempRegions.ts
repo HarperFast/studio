@@ -58,7 +58,7 @@ export const tempRegionsMock: SchemaRegion[] = [
 		'instanceCount': 8,
 	},
 	{
-		'id': 'us-ne-1',
+		'id': 'us-ne',
 		'region': 'US-NE',
 		'latencyDescription': 'Low distribution, 100ms latency',
 		'instanceCount': 2,
@@ -70,7 +70,7 @@ export const tempRegionsMock: SchemaRegion[] = [
 		'instanceCount': 4,
 	},
 	{
-		'id': 'us-nw-1',
+		'id': 'us-nw',
 		'region': 'US-NW',
 		'latencyDescription': 'Low distribution, 100ms latency',
 		'instanceCount': 2,
@@ -130,7 +130,7 @@ export const tempRegionsMock: SchemaRegion[] = [
 		'instanceCount': 8,
 	},
 	{
-		'id': 'europe-1',
+		'id': 'europe',
 		'region': 'Europe',
 		'latencyDescription': 'Low distribution, 200ms latency',
 		'instanceCount': 2,
