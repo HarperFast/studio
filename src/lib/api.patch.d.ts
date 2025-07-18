@@ -3,7 +3,7 @@ import {
 	SchemaHdbInstance,
 	SchemaOrganization,
 	SchemaOrganizationRole,
-	SchemaPlan,
+	SchemaPlan, SchemaRegionPlan,
 	SchemaUser,
 } from '@/lib/api.gen';
 
@@ -65,10 +65,21 @@ export interface Instance extends SchemaHdbInstance {
 }
 
 export interface Plan extends SchemaPlan {
-	price?: string; // TODO: Is this computed?
+	priceUsd?: number; // TODO: Inc
+	deploymentType: string; // TODO: Inc
+	deploymentDescription: string; // TODO: Inc
+	performanceDescription?: string; // TODO: Inc
+	allowedRegionIds?: string[]; // TODO: Inc
 }
 
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
 }
+
+export interface ClusterDefinition extends Omit<SchemaCluster, 'id' | 'plans'> {
+	autoRenew: boolean;
+	regionPlans: ClusterDefinitionRegionPlan[];
+}
+
+export type ClusterDefinitionRegionPlan = Omit<SchemaRegionPlan, 'autoRenew'>;

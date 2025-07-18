@@ -6,7 +6,7 @@ import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { ClusterCard } from '@/features/organization/components/ClusterCard';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
-import { groupBy } from '@/lib/group-by';
+import { groupBy } from '@/lib/groupBy';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -88,9 +88,10 @@ export function ClustersList() {
 						<Button
 							variant="positive"
 							className="w-full rounded-full md:w-44"
+							accessKey="n"
 							onClick={() => setIsNewClusterModalOpen(true)}
 						>
-							<Plus /> New Cluster
+							<Plus /> <span><u>N</u>ew Cluster</span>
 						</Button>
 					</div>
 				) : null}

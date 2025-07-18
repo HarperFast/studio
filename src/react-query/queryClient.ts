@@ -3,21 +3,30 @@ import { toast } from 'sonner';
 import { AxiosError } from 'axios';
 
 export function errorHandler(rawErr: unknown) {
+	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
-	const axiosErr = rawErr as AxiosError<{ error?: string; message?: string; }>;
+	console.error(rawErr);
+	const axiosWrappedErr = rawErr as AxiosError<string | { error?: string; message?: string; }>;
 	const otherErr = rawErr as { message?: string; };
 	if (typeof rawErr === 'string') {
 		errorMsg = rawErr;
-	} else if (axiosErr?.response?.data) {
-		if (axiosErr.response.data.error) {
-			errorMsg = axiosErr.response.data.error;
-		} else if (axiosErr.response.data.message) {
-			errorMsg = axiosErr.response.data.message;
+	} else if (axiosWrappedErr?.response?.data) {
+		if (typeof axiosWrappedErr.response.data === 'string') {
+			errorMsg = axiosWrappedErr.response.data;
+		} else if (axiosWrappedErr.response.data.error) {
+			errorMsg = axiosWrappedErr.response.data.error;
+		} else if (axiosWrappedErr.response.data.message) {
+			errorMsg = axiosWrappedErr.response.data.message;
 		}
 	} else if (otherErr?.message) {
 		errorMsg = otherErr.message;
 	}
-	toast.error(`Error`, {
+	if (errorMsg.includes(':')) {
+		const split = errorMsg.split(':');
+		errorTitle = split.shift()!;
+		errorMsg = split.join(':');
+	}
+	toast.error(errorTitle, {
 		description: errorMsg,
 		action: {
 			label: 'Dismiss',

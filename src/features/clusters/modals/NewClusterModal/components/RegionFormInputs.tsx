@@ -1,10 +1,8 @@
 import { Button } from '@/components/ui/button';
-
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
-import { Input } from '@/components/ui/input';
 import {
 	Select,
 	SelectContent,
@@ -14,79 +12,56 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { Control } from 'react-hook-form';
-import { useCallback } from 'react';
-import { Plan } from '@/lib/api.patch';
+import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { SchemaRegion } from '@/lib/api.gen';
+import { Plan } from '@/lib/api.patch';
+import { TrashIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo } from 'react';
+import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
+import { z } from 'zod';
 
 type RegionFormInputsProps = {
-	control: Control<{
-		regionPlans: {
-			regionId: string;
-			planId: string;
-			count?: number;
-			price: string;
-		}[];
-	}>;
-	index: number;
-	remove: () => void;
-	regionLocations: SchemaRegion[];
-	selectedRegions: { regionId: string; count: number; planId: string; price: string }[];
-	planTypes?: Plan[];
+	control: Control<z.infer<typeof NewClusterSchema>>,
+	fieldArray: UseFieldArrayReturn<z.infer<typeof NewClusterSchema>, 'regionPlans'>,
+	form: UseFormReturn<z.infer<typeof NewClusterSchema>>,
+	index: number,
+	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>,
+	selectedPlan: Plan | undefined,
 };
 
 export function RegionFormInputs({
 	control,
+	fieldArray,
+	form,
 	index,
-	remove,
-	regionLocations,
-	selectedRegions,
-	planTypes,
+	regionNameToLatencyToRegion,
+	// selectedPlan,
 }: RegionFormInputsProps) {
-	const getPlanObj = useCallback(
-		(planId: string | undefined) => {
-			return planTypes?.find((plan) => plan.id === planId);
-		},
-		[planTypes]
-	);
+	const availableRegionNames = useMemo(() =>
+		Object.keys(regionNameToLatencyToRegion), [regionNameToLatencyToRegion]);
+	const selectedRegionName = form.watch(`regionPlans.${index}.regionName`);
+	const selectedLatencyDescription = form.watch(`regionPlans.${index}.latencyDescription`);
+	const availableLatencyDescriptions = useMemo(() =>
+		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}), [regionNameToLatencyToRegion, selectedRegionName]);
 
-	const getPlanPrice = useCallback(
-		(planId: string | undefined) => {
-			const priceAsStr = getPlanObj(planId)?.price?.replace(/\$/g, '') ?? '0';
-			return parseInt(priceAsStr);
-		},
-		[getPlanObj]
-	);
+	useEffect(function ensureValidLatencyDescriptionIsSelected() {
+		if (selectedRegionName && availableLatencyDescriptions?.length && !availableLatencyDescriptions?.includes(selectedLatencyDescription)) {
+			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
+			const newValue = availableLatencyDescriptions.find(description => !oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue) || availableLatencyDescriptions[0];
+			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
+		}
+	}, [availableLatencyDescriptions, form, index, selectedLatencyDescription, selectedRegionName]);
 
-	const selectedRegionValues = new Set(selectedRegions?.filter((_, idx) => idx !== index).map((x) => x.regionId) ?? []);
-	const currentPlanTypeObj = getPlanObj(selectedRegions?.[index]?.planId);
-	const currentSelectedRegion = selectedRegions?.[index];
-	const currentSelectedRegionCount = currentSelectedRegion?.count ?? 0;
-	const planPrice = getPlanPrice(selectedRegions?.[index]?.planId);
+	const onRemoveClicked = useCallback(() => fieldArray?.remove(index), [fieldArray, index]);
 
-	const currentPrice = planPrice * currentSelectedRegionCount;
-
-	const updateSelectionPrice = useCallback(
-		({ planId, count }: { planId?: string; count?: number }) => {
-			if (currentSelectedRegion) {
-				const newPlanPrice = planId ? getPlanPrice(planId) : planPrice;
-				const newCount = count ?? currentSelectedRegion.count;
-				currentSelectedRegion.price = (newPlanPrice * newCount).toFixed(2);
-			}
-		},
-		[getPlanPrice, planPrice, currentSelectedRegion]
-	);
-
-	const { cpuCores, memoryMb, readIopsLimit, writeIopsLimit, storageGb, threads } =
-		currentPlanTypeObj?.resourcesPerInstance ?? {};
 	return (
-		<div className="grid grid-cols-3 gap-2 mb-4 md:grid-cols-12 md:items-start">
+		<div className="md:col-span-6 col-span-3 p-4 rounded-md bg-accent gap-6 flex flex-wrap">
 			<FormField
 				control={control}
-				name={`regionPlans.${index}.regionId`}
+				name={`regionPlans.${index}.regionName`}
 				render={({ field: regionField }) => (
-					<FormItem className="col-span-3 md:col-span-3">
-						<FormLabel>Region {index + 1}</FormLabel>
+					<FormItem className="flex-1">
+						<FormLabel>Region {fieldArray.fields.length > 1 ? index + 1 : ''}</FormLabel>
 						<FormControl>
 							<Select onValueChange={regionField.onChange} {...regionField}>
 								<SelectTrigger className="w-full">
@@ -95,121 +70,53 @@ export function RegionFormInputs({
 								<SelectContent>
 									<SelectGroup>
 										<SelectLabel>Region</SelectLabel>
-										{regionLocations?.map((regionLocation) => (
-											<SelectItem
-												key={regionLocation.id}
-												value={regionLocation.id}
-												disabled={selectedRegionValues.has(regionLocation.id)}
-											>
-												{regionLocation.region}
-												{/* <small>{regionLocation.latencyDescription}</small> */}
-											</SelectItem>
+										{availableRegionNames.map((regionName) => (
+											<SelectItem key={regionName} value={regionName}>{regionName}</SelectItem>
 										))}
 									</SelectGroup>
 								</SelectContent>
 							</Select>
 						</FormControl>
-						<small className="text-xs text-muted-foreground">
-							{regionLocations?.find((r) => r.id === regionField.value)?.latencyDescription || ''}
-						</small>
 					</FormItem>
 				)}
 			/>
+
 			<FormField
 				control={control}
-				name={`regionPlans.${index}.planId`}
-				render={({ field: planTypeSelectionField }) => (
-					<FormItem className="col-span-3 md:col-span-4">
-						<FormLabel>Plan Type</FormLabel>
+				name={`regionPlans.${index}.latencyDescription`}
+				render={({ field: regionField }) => (
+					<FormItem className="flex-1">
+						<FormLabel>Latency &amp; Distribution</FormLabel>
 						<FormControl>
-							<Select
-								onValueChange={(planId) => {
-									planTypeSelectionField.onChange(planId);
-									updateSelectionPrice({ planId });
-								}}
-								{...planTypeSelectionField}
-							>
-								<SelectTrigger className="w-full truncate" title={currentPlanTypeObj?.name}>
-									<SelectValue placeholder="Choose a Plan" />
+							<Select onValueChange={regionField.onChange} {...regionField} disabled={!availableLatencyDescriptions?.length}>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Choose Latency Tier" />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectGroup>
-										<SelectLabel>Plan</SelectLabel>
-										{planTypes?.map((planType) => (
-											<SelectItem key={planType.id} value={planType.id}>
-												{planType.name}
-											</SelectItem>
+										<SelectLabel>Latency & Distribution</SelectLabel>
+										{availableLatencyDescriptions.map((latencyDescription) => (
+											<SelectItem key={latencyDescription} value={latencyDescription}>{latencyDescription}</SelectItem>
 										))}
 									</SelectGroup>
 								</SelectContent>
 							</Select>
 						</FormControl>
-						<small className="text-xs text-muted-foreground">
-							{currentPlanTypeObj?.resourcesPerInstance ? (
-								<>
-									{cpuCores} CPU Cores /{threads} Threads /{memoryMb} MB Memory /{storageGb} GB Storage /{readIopsLimit}{' '}
-									Read IOPS /{writeIopsLimit} Write IOPS
-								</>
-							) : null}
-						</small>
 					</FormItem>
 				)}
 			/>
-			<FormField
-				control={control}
-				name={`regionPlans.${index}.count`}
-				render={({ field: countField }) => (
-					<FormItem className="col-span-1 md:col-span-1">
-						<FormLabel>Count</FormLabel>
-						<FormControl>
-							<Input
-								type="number"
-								placeholder="Count"
-								{...countField}
-								className="max-w-64"
-								min={0}
-								onChange={(e) => {
-									const count = e.target.valueAsNumber;
-									updateSelectionPrice({ count });
-									countField.onChange(count);
-								}}
-							/>
-						</FormControl>
-					</FormItem>
-				)}
-			/>
-			<div className="col-span-1 md:col-span-2">
-				<FormField
-					control={control}
-					name={`regionPlans.${index}.price`}
-					render={({ field: priceField }) => (
-						<FormItem className="col-span-1 md:col-span-1">
-							<FormLabel>Price</FormLabel>
-							<FormControl>
-								<Input
-									type="number"
-									placeholder="$0.00"
-									{...priceField}
-									value={currentPrice.toFixed(2)}
-									className="max-w-64"
-									min={0}
-									readOnly
-								/>
-							</FormControl>
-						</FormItem>
-					)}
-				/>
-			</div>
-			<Button
-				type="button"
-				variant="destructive"
-				className="w-full col-span-3 mt-5 rounded-full md:col-span-2"
-				onClick={() => {
-					remove();
-				}}
-			>
-				Remove
-			</Button>
+
+			{fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && (
+				<div className="flex-none self-end mb-0.5">
+					<Button
+						type="button"
+						variant="destructiveOutline"
+						size="sm"
+						onClick={onRemoveClicked}>
+						<TrashIcon /> <span className="sr-only">Remove</span>
+					</Button>
+				</div>
+			)}
 		</div>
 	);
 }

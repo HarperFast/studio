@@ -1,12 +1,11 @@
-const units = ['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+const units = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
 
-export function humanFileSize(input: number, multiplierFromBytes: number = 1) {
-	const thresh = 1024;
-	const bytes = input * multiplierFromBytes;
-	let value = bytes;
+export function humanNumber(input: number): string {
+	const thresh = 1000;
+	let value = input;
 
 	if (Math.abs(value) < thresh) {
-		return value + ' B';
+		return String(Math.round(value));
 	}
 
 	let u = -1;
