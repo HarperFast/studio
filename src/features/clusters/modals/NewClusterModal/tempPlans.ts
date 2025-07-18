@@ -55,7 +55,7 @@ export const tempPlansMock: Plan[] = [
 			},
 			'deploymentType': 'standard',
 			'deploymentDescription': 'Standard',
-			'priceUsd': 1,
+			'priceUsd': 2,
 			'performanceDescription': 'High (100K read/min)',
 		},
 		{
@@ -73,7 +73,7 @@ export const tempPlansMock: Plan[] = [
 			},
 			'deploymentType': 'standard',
 			'deploymentDescription': 'Standard',
-			'priceUsd': 1,
+			'priceUsd': 3,
 			'performanceDescription': 'Very High (500K read/min)',
 		},
 		{
@@ -82,7 +82,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'cluster-dedicated',
 			'deploymentDescription': 'Dedicated for Cluster',
-			'priceUsd': 1,
+			'priceUsd': 4,
 			'performanceDescription': 'High (100K read/min)',
 		},
 		{
@@ -91,7 +91,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'cluster-dedicated',
 			'deploymentDescription': 'Dedicated for Cluster',
-			'priceUsd': 1,
+			'priceUsd': 5,
 			'performanceDescription': 'Very High (500K read/min)',
 		},
 		{
@@ -100,7 +100,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'cluster-dedicated',
 			'deploymentDescription': 'Dedicated for Cluster',
-			'priceUsd': 1,
+			'priceUsd': 6,
 			'performanceDescription': 'Ultra (1MM read/min)',
 		},
 		{
@@ -109,7 +109,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'org-dedicated',
 			'deploymentDescription': 'Dedicated for Organization',
-			'priceUsd': 1,
+			'priceUsd': 7,
 			'performanceDescription': 'High (100K read/min)',
 		},
 		{
@@ -118,7 +118,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'org-dedicated',
 			'deploymentDescription': 'Dedicated for Organization',
-			'priceUsd': 1,
+			'priceUsd': 8,
 			'performanceDescription': 'Very High (500K read/min)',
 		},
 		{
@@ -127,7 +127,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'org-dedicated',
 			'deploymentDescription': 'Dedicated for Organization',
-			'priceUsd': 1,
+			'priceUsd': 9,
 			'performanceDescription': 'Ultra (1MM read/min)',
 		},
 		{
@@ -136,7 +136,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'self-manage',
 			'deploymentDescription': 'Manage Your Own Installation/Configuration',
-			'priceUsd': 1,
+			'priceUsd': 10,
 			'performanceDescription': 'High (2 billion reads per block)',
 		},
 		{
@@ -145,7 +145,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'self-manage',
 			'deploymentDescription': 'Manage Your Own Installation/Configuration',
-			'priceUsd': 1,
+			'priceUsd': 11,
 			'performanceDescription': 'Very high (30 billion reads per block)',
 		},
 		{
@@ -156,7 +156,7 @@ export const tempPlansMock: Plan[] = [
 			'status': 'ACTIVE',
 			'deploymentType': 'self-manage',
 			'deploymentDescription': 'Manage Your Own Installation/Configuration',
-			'priceUsd': 1,
+			'priceUsd': 12,
 			'performanceDescription': 'Ultra (60 billion reads per block)',
 		},
 	]

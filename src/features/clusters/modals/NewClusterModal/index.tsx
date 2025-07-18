@@ -20,6 +20,7 @@ import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreate
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
+import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
 import { tempPlansMock } from '@/features/clusters/modals/NewClusterModal/tempPlans';
 import { tempRegionsMock } from '@/features/clusters/modals/NewClusterModal/tempRegions';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -27,6 +28,7 @@ import { SchemaCluster } from '@/lib/api.gen';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
+import { toUSD } from '@/lib/toUSD';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -95,12 +97,12 @@ export function NewClusterModal({
 	const regionNameToLatencyToRegion = useMemo(() =>
 		groupThenKeyBy(regionLocations, 'region', 'latencyDescription'), [regionLocations]);
 
-	useEffect(function selectFirstAvailablePerformanceDescription() {
+	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
 			form.setValue('performanceDescription', availablePerformanceDescriptions[0]);
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
-	useEffect(function enforcePlanAllowedRegionIds() {
+	useEffect(function autoSelectPlanAllowedRegionId() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		if (allowedRegionIds?.length && selectedRegions?.length === 1) {
 			const firstRegion = selectedRegions[0];
@@ -115,14 +117,15 @@ export function NewClusterModal({
 		}
 	}, [selectedPlan, selectedRegions, form, regionNameToLatencyToRegion, regionLocations]);
 
-
-	// NOTE: Don't like how this is done, but works. Would like to find a better way to calculate the total price of selected regions.
-	// const totalPriceNumber =
-	// 	selectedRegions?.reduce((acc, region) => {
-	// 		const price = region.price ? Number(region.price) : 0;
-	// 		return acc + price;
-	// 	}, 0) ?? 0;
-	// const totalPrice = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPriceNumber);
+	const totalPrice = toUSD(
+		!selectedPlan?.priceUsd
+			? 0
+			: selectedRegions.reduce((total, region) => {
+				const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
+				return total + (!regionPlan
+					? 0
+					: selectedPlan.priceUsd! * regionPlan.instanceCount / 2);
+			}, 0));
 
 	const onAddARegionClick = useCallback(() => {
 		fieldArray.append({ regionName: 'US', latencyDescription: '' });
@@ -154,6 +157,11 @@ export function NewClusterModal({
 				<DialogHeader>
 					<DialogTitle>Cluster Configuration</DialogTitle>
 					<DialogDescription>Configure your Harper system and define deployment plans.</DialogDescription>
+
+					<div className="absolute top-6 right-12 text-right">
+						<dt className="font-light">Total Price</dt>
+						<dd className="font-bold"><PriceDisplay price={totalPrice} /></dd>
+					</div>
 				</DialogHeader>
 				<Form {...form}>
 					<DialogTitle>System</DialogTitle>
@@ -258,8 +266,9 @@ export function NewClusterModal({
 								)}
 							/>
 
-							{selectedPlan?.resourcesPerInstance
-								&& <ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />}
+							{selectedPlan?.resourcesPerInstance && (
+								<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
+							)}
 
 							{fieldArray.fields.map((field, index) => (
 								<RegionFormInputs
@@ -273,7 +282,7 @@ export function NewClusterModal({
 								/>
 							))}
 
-							<div className="md:col-span-6">
+							<div className="md:col-span-6 col-span-3">
 								<Button
 									type="button"
 									variant="positiveOutline"
@@ -284,11 +293,7 @@ export function NewClusterModal({
 									Add Additional Region Usage
 								</Button>
 							</div>
-
 						</div>
-						{/*<div className="md:col-span-6">*/}
-						{/*	<p>Total Price: {totalPrice}</p>*/}
-						{/*</div>*/}
 						<DialogFooter className="mt-3">
 							<Button type="submit" variant="submit" className="rounded-full">
 								Create New Cluster <ArrowRight />
