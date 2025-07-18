@@ -28,7 +28,6 @@ import { ClusterDefinitionRegionPlan } from '@/lib/api.patch';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
-import { toUSD } from '@/lib/toUSD';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -119,15 +118,14 @@ export function NewClusterModal({
 		}
 	}, [selectedPlan, selectedRegions, form, regionNameToLatencyToRegion, regionLocations]);
 
-	const totalPrice = toUSD(
-		!selectedPlan?.priceUsd
-			? 0
-			: selectedRegions.reduce((total, region) => {
-				const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
-				return total + (!regionPlan
-					? 0
-					: selectedPlan.priceUsd! * regionPlan.instanceCount / 2);
-			}, 0));
+	const totalPrice = !selectedPlan?.priceUsd
+		? 0
+		: selectedRegions.reduce((total, region) => {
+			const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
+			return total + (!regionPlan
+				? 0
+				: selectedPlan.priceUsd! * regionPlan.instanceCount / 2);
+		}, 0);
 
 	const onAddARegionClick = useCallback(() => {
 		fieldArray.append({ regionName: 'US', latencyDescription: '' });
