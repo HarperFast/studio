@@ -1,8 +1,5 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Ellipsis } from 'lucide-react';
-import { useNavigate } from '@tanstack/react-router';
-import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -11,13 +8,16 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { Cluster } from '@/lib/api.patch';
-import { useCallback, useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
-import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
-import { authStore } from '@/lib/authStore';
 import { ClusterCardAction } from '@/features/organization/components/ClusterCardAction';
+import { useAuth } from '@/hooks/useAuth';
+import { Cluster } from '@/lib/api.patch';
+import { authStore } from '@/lib/authStore';
+import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { useNavigate } from '@tanstack/react-router';
+import { Ellipsis } from 'lucide-react';
+import { useCallback, useMemo } from 'react';
 
 const activeClusterStatuses = ['RUNNING'];
 const deletedClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
@@ -27,7 +27,7 @@ export function ClusterCard({
 	onDeleteClusterModal,
 }: {
 	cluster: Cluster;
-	onDeleteClusterModal: () => void;
+	onDeleteClusterModal: (cluster: Cluster) => void;
 }) {
 	const auth = useAuth(cluster);
 	const navigate = useNavigate();
@@ -42,39 +42,44 @@ export function ClusterCard({
 		await onInstanceLogoutSubmit({ operationsUrl });
 		authStore.setUserForEntity(cluster, null);
 	}, [cluster]);
+	const onDeleteClick = useCallback(() => {
+		onDeleteClusterModal(cluster);
+	}, [cluster, onDeleteClusterModal]);
 
 	return (
 		<Card className="relative">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">CLUSTER ID: {cluster.id}</span>
-					{(isReadyForInteraction || canDelete) && <DropdownMenu>
+					{(isReadyForInteraction || canDelete) && (<DropdownMenu>
 						<DropdownMenuTrigger>
-							<Ellipsis aria-label="Cluster options" />
+							<Ellipsis aria-label="Options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
-							<DropdownMenuLabel className="text-gray-600 text-xs">Cluster options</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
-							{isReadyForInteraction && <DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>}
-							{isReadyForInteraction && !isSelfManaged && !auth.isLoading && auth.user && <DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>}
-							{isReadyForInteraction && <DropdownMenuItem>Edit</DropdownMenuItem>}
-							{canDelete &&
+							{isReadyForInteraction && (
+								<DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>)}
+							{isReadyForInteraction && !isSelfManaged && !auth.isLoading && auth.user && (
+								<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>)}
+							{/*{isReadyForInteraction && (<DropdownMenuItem>Edit</DropdownMenuItem>)}*/}
+							{canDelete && (
 								<DropdownMenuItem
 									className="bg-red focus:bg-red/70 focus:text-white"
-									onClick={onDeleteClusterModal}>
+									onClick={onDeleteClick}>
 									Delete
-								</DropdownMenuItem>
-							}
+								</DropdownMenuItem>)}
 						</DropdownMenuContent>
-					</DropdownMenu>}
+					</DropdownMenu>)}
 				</CardDescription>
 				<CardTitle>
 					<h2>{cluster.name}</h2>
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="flex justify-between">
-				{cluster.status && <Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>}
-				{isReadyForInteraction && <ClusterCardAction cluster={cluster} />}
+				{cluster.status && (
+					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>)}
+				{isReadyForInteraction && (<ClusterCardAction cluster={cluster} />)}
 			</CardContent>
 		</Card>
 	);

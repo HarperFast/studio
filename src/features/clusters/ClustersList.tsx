@@ -5,6 +5,7 @@ import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { ClusterCard } from '@/features/organization/components/ClusterCard';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { Cluster } from '@/lib/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { groupBy } from '@/lib/groupBy';
 import { queryKeys } from '@/react-query/constants';
@@ -22,6 +23,7 @@ export function ClustersList() {
 	const { organizationId } = route.useParams();
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
+
 	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
 	const [isDeleteClusterModalOpen, setIsDeleteClusterModalOpen] = useState(false);
 	const [deleteClusterInfo, setDeleteClusterInfo] = useState({
@@ -70,6 +72,14 @@ export function ClustersList() {
 		}
 	}, [deleteCluster, queryClient, setIsDeleteClusterModalOpen]);
 
+	const onDeleteClusterModal = useCallback((cluster: Cluster) => {
+		setDeleteClusterInfo({
+			id: cluster.id,
+			name: cluster.name,
+		});
+		setIsDeleteClusterModalOpen(true);
+	}, []);
+
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
@@ -109,13 +119,7 @@ export function ClustersList() {
 										 className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
 										<ClusterCard
 											cluster={cluster}
-											onDeleteClusterModal={() => {
-												setDeleteClusterInfo({
-													id: cluster.id,
-													name: cluster.name,
-												});
-												setIsDeleteClusterModalOpen(true);
-											}}
+											onDeleteClusterModal={onDeleteClusterModal}
 										/>
 									</div>
 								))}
