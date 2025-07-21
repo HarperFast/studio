@@ -1,6 +1,9 @@
 name: Deploy Fabric Stage
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - harper/fabric
 jobs:
   deployToStage:
     runs-on: ubuntu-latest
