@@ -13,7 +13,7 @@ import {
  * not updated the client side yet to reflect the reality of the API.
  */
 
-interface OrganizationRole extends SchemaOrganizationRole {
+export interface OrganizationRole extends SchemaOrganizationRole {
 	roleName: 'admin' | 'member';
 	organizationName: string; // TODO: Not descried by the API. Is it computed?
 }
