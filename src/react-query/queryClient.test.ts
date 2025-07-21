@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { errorHandler } from './queryClient';
-import { toast } from 'sonner';
 import { AxiosError } from 'axios';
+import { toast } from 'sonner';
+import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
+import { errorHandler } from './queryClient';
 
 // Mock the toast module
 vi.mock('sonner', () => ({
@@ -14,13 +14,21 @@ vi.mock('sonner', () => ({
 }));
 
 describe('errorHandler', () => {
+  let consoleMock: MockInstance<Console['error']>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    consoleMock.mockReset();
   });
 
   it('should display default error message when no specific error info is available', () => {
     // Call errorHandler with a generic error
     errorHandler(new Error());
+    expect(consoleMock).toHaveBeenCalled();
 
     // Verify toast.error was called with the default message
     expect(toast.error).toHaveBeenCalledWith('Error', {
