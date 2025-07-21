@@ -6,6 +6,8 @@ import { Save, Trash } from 'lucide-react';
 import { useState } from 'react';
 
 export function EditTableRowModal({
+	canEditRecords,
+	canDeleteRecords,
 	setIsModalOpen,
 	isModalOpen,
 	data,
@@ -14,6 +16,8 @@ export function EditTableRowModal({
 	isUpdateTableRecordsPending,
 	isDeleteTableRecordsPending,
 }: {
+	canEditRecords: boolean;
+	canDeleteRecords: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	data: { id: string | number }[];
@@ -30,18 +34,19 @@ export function EditTableRowModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent
 				aria-describedby={undefined}
-				onEscapeKeyDown={(event) => {
+				onEscapeKeyDown={canEditRecords ? (event) => {
 					event.preventDefault();
-				}}
+				} : undefined}
 			>
 				<DialogHeader>
-					<DialogTitle>Edit Row</DialogTitle>
+					<DialogTitle>{canEditRecords ? 'Edit' : 'View'} Row</DialogTitle>
 				</DialogHeader>
 				{data ? (
 					<Editor
 						className="w-full h-96"
 						language="json"
 						theme="vs-dark"
+						options={canEditRecords ? undefined : { readOnly: true }}
 						value={JSON.stringify(data, null, 4)}
 						onValidate={(markers) => {
 							setIsValidJSON(markers.length === 0);
@@ -55,7 +60,7 @@ export function EditTableRowModal({
 				)}
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						<Button
+						{canDeleteRecords && (<Button
 							variant="destructive"
 							className="rounded-full"
 							onClick={() => {
@@ -64,8 +69,8 @@ export function EditTableRowModal({
 							disabled={isDeleteTableRecordsPending}
 						>
 							<Trash /> Delete Row
-						</Button>
-						<Button
+						</Button>)}
+						{canEditRecords && (<Button
 							variant="submit"
 							className="rounded-full"
 							onClick={() => {
@@ -76,7 +81,7 @@ export function EditTableRowModal({
 							disabled={!isValidJSON || isUpdateTableRecordsPending}
 						>
 							<Save /> Save Changes
-						</Button>
+						</Button>)}
 					</div>
 				</DialogFooter>
 			</DialogContent>

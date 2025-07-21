@@ -45,10 +45,10 @@ export interface LocalRolePermission {
 	cluster_user?: boolean;
 	structure_user?: boolean;
 
-	[record: string]: LocalRolePermissionRecord;
+	[record: string]: LocalRoleSchemaRecord;
 }
 
-export interface LocalRolePermissionRecord {
+export interface LocalRoleSchemaRecord {
 	tables: Record<string, LocalRolePermissionTable>;
 }
 
@@ -57,8 +57,19 @@ export interface LocalRolePermissionTable {
 	insert: boolean;
 	update: boolean;
 	delete: boolean;
-	attribute_permissions: unknown[];
+	attribute_permissions: LocalRoleAttributePermissionTable[];
 }
+
+export type LocalRolePermissionAction = keyof Omit<LocalRolePermissionTable, 'attribute_permissions'>;
+
+export interface LocalRoleAttributePermissionTable {
+	attribute_name: string;
+	read: boolean;
+	insert: boolean;
+	update: boolean;
+}
+
+export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
 
 export interface Instance extends SchemaHdbInstance {
 	status?: BadgeStatus;

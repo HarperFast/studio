@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
 import {
 	AuthenticatedConnection,
 	AuthenticatedInstanceConnection,
 	authStore,
+	InstanceConnectionKey,
 	OverallAppSignIn,
 } from '@/lib/authStore';
-import { Cluster, Instance } from '@/lib/api.patch';
+import { useEffect, useState } from 'react';
 
 export function useAuth(): AuthenticatedConnection;
-export function useAuth(entity: Instance | Cluster | string | null): AuthenticatedConnection;
-export function useAuth(entity?: Instance | Cluster | string | null): AuthenticatedConnection {
+export function useAuth(entity: InstanceConnectionKey): AuthenticatedConnection;
+export function useAuth(entity?: InstanceConnectionKey): AuthenticatedConnection {
 	const [connection, setConnection] = useState<AuthenticatedConnection>({ user: null, isLoading: true });
 	const noArgs = arguments.length === 0;
 	useEffect(() => {
@@ -21,6 +21,6 @@ export function useAuth(entity?: Instance | Cluster | string | null): Authentica
 	return connection;
 }
 
-export function useInstanceAuth(entity: Instance | Cluster | string | null): AuthenticatedInstanceConnection {
+export function useInstanceAuth(entity: InstanceConnectionKey): AuthenticatedInstanceConnection {
 	return useAuth(entity) as AuthenticatedInstanceConnection;
 }

@@ -21,6 +21,8 @@ export interface AuthenticatedConnection {
 	user: User | LocalUser | null;
 }
 
+export type InstanceConnectionKey = Instance | Cluster | string | null;
+
 export interface AuthenticatedInstanceConnection {
 	isLoading: boolean;
 	user: LocalUser | null;

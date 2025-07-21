@@ -1,25 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
+import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
+import { AddTableRowModal } from '@/features/instance/browse/modals/AddTableRowModal';
+import { EditTableRowModal } from '@/features/instance/browse/modals/EditTableRowModal';
+import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
+import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
+import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
+import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
+import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
+import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
+import { useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
-import { toast } from 'sonner';
-import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
-import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
-import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
-import { EditTableRowModal } from '@/features/instance/browse/modals/EditTableRowModal';
-import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
-import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
 import { PaginationState, Row } from '@tanstack/react-table';
-import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
-import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import { Button } from '@/components/ui/button';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
-import { AddTableRowModal } from '@/features/instance/browse/modals/AddTableRowModal';
-import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 const route = getRouteApi('');
 
 export function BrowseDataTableView() {
-	const { instanceId, schemaName, tableName } = route.useParams();
+	const { clusterId, instanceId, schemaName, tableName } = route.useParams();
+	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'insert');
+	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'update');
+	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'delete');
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
 		getDescribeTableQueryOptions({
@@ -158,21 +162,23 @@ export function BrowseDataTableView() {
 				sortingState={sortingState}
 				setPagination={setPagination}
 			>
-				{/*<UploadCSVModal />*/}
+				{/*canAddRecords && (<UploadCSVModal />)*/}
 				<Button variant="defaultOutline" onClick={onRefreshClick}
-						disabled={tableDataFetching}><RefreshCwIcon /></Button>
+					disabled={tableDataFetching}><RefreshCwIcon /></Button>
 				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>*/}
-				<Button variant="positiveOutline" onClick={onAddClicked}
-						disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>
+				{canAddRecords && (<Button variant="positiveOutline" onClick={onAddClicked}
+					disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>)}
 			</BrowseDataTable>
-			<AddTableRowModal
+			{canAddRecords && (<AddTableRowModal
 				schema={describeTableData}
 				setIsModalOpen={setIsAddModalOpen}
 				isModalOpen={isAddModalOpen}
 				onSaveChanges={onRecordAdd}
 				isAddTableRecordsPending={isAddTableRecordsPending}
-			/>
+			/>)}
 			<EditTableRowModal
+				canEditRecords={canEditRecords}
+				canDeleteRecords={canDeleteRecords}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				data={searchByIdData?.data}
