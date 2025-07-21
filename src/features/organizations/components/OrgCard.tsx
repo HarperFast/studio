@@ -30,9 +30,9 @@ export function OrgCard({
 		<Card className="relative">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					<span className="truncate">ORG ID: {organizationId}</span>
+					<span className="truncate">{organizationId}</span>
 					<DropdownMenu>
-						<DropdownMenuTrigger>
+						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white cursor-pointer">
 							<Ellipsis aria-label="Options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
