@@ -14,7 +14,7 @@ import { CreateNewTableModal } from '@/features/instance/browse/modals/CreateNew
 import { useCreateDatabaseSubmitMutation } from '@/features/instance/operations/mutations/createDatabase';
 import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
 import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { getRouteApi, useRouter } from '@tanstack/react-router';
@@ -47,7 +47,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { clusterId, instanceId, schemaName, tableName } = route.useParams();
-	const canManageInstance = useInstanceManagePermission(instanceId || clusterId);
+	const canManageBrowseInstance = useInstanceBrowseManagePermission(instanceId || clusterId);
 	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState("");
 	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState("");
 	const [deletionTarget, setDeletionTarget] = useState<{ databaseName?: string; tableName?: string; }>({});
@@ -140,7 +140,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 							</SelectGroup>
 						</SelectContent>
 					</Select>
-					{canManageInstance && (<>
+					{canManageBrowseInstance && (<>
 						<Button
 							className="inline-block"
 							aria-label="Add a new database"
@@ -202,7 +202,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 						{(tables ?? []).length === 0 && schemaName?.length ? (
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
-								{canManageInstance && (<div className="mx-auto max-w-48">
+								{canManageBrowseInstance && (<div className="mx-auto max-w-48">
 									<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
 								</div>)}
 							</div>
@@ -215,7 +215,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 						<ul>
 							{(tables ?? []).map((table) => (
 								<li key={table} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
-									{canManageInstance && (<Button
+									{canManageBrowseInstance && (<Button
 										variant="destructiveOutline"
 										onClick={() => {
 											if (table) {
@@ -244,7 +244,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 					</TabsContent>
 				</ScrollArea>
 			</Tabs>
-			{schemaName?.length && canManageInstance && (
+			{schemaName?.length && canManageBrowseInstance && (
 				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
 			)}
 			<ConfirmDeletionModal

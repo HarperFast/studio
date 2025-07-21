@@ -10,6 +10,17 @@ export function useInstanceManagePermission(entity: InstanceConnectionKey): bool
 		// (We're probably still loading the user.)
 		return false;
 	}
+	return permission.super_user === true;
+}
+
+export function useInstanceBrowseManagePermission(entity: InstanceConnectionKey): boolean {
+	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;
+	const permission = user?.role?.permission;
+	if (!permission) {
+		// If we don't yet have record of their permission, deny access.
+		// (We're probably still loading the user.)
+		return false;
+	}
 	return permission.super_user === true || permission.structure_user === true;
 }
 
