@@ -52,7 +52,7 @@ export function NewOrganizationModal() {
 		},
 	});
 
-	const { mutate: submitNewOrganizationData } = useCreateNewOrganizationMutation();
+	const { mutate: submitNewOrganizationData, isPending } = useCreateNewOrganizationMutation();
 	const queryClient = useQueryClient();
 
 	const submitForm = async (formData: Omit<SchemaOrganization, "id">) => {
@@ -105,7 +105,7 @@ export function NewOrganizationModal() {
 							)}
 						/>
 						<DialogFooter>
-							<Button type="submit" variant="submit" className="rounded-full">
+							<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
 								Create New Organization <ArrowRight />
 							</Button>
 						</DialogFooter>
