@@ -9,7 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -66,7 +66,7 @@ export function ClusterSignIn() {
 		submitInstanceLogin({ ...formData, operationsUrl }, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getUserInfo({ operationsUrl });
+				const user = await getInstanceUserInfo({ operationsUrl });
 				authStore.setUserForEntity(cluster || null, user);
 				// TODO: What should we invalidate for the cluster?
 				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });

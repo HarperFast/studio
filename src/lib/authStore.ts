@@ -1,6 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
-import { getCloudUser } from '@/features/auth/queries/getCurrentUser';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
 import { sleep } from '@/lib/sleep';
@@ -151,12 +151,12 @@ class AuthStore {
 		try {
 			if (id === OverallAppSignIn) {
 				if (isLocalStudio) {
-					user = await getUserInfo();
+					user = await getInstanceUserInfo();
 				} else {
-					user = await getCloudUser();
+					user = await getCurrentUser();
 				}
 			} else if (id) {
-				user = await getUserInfo({ operationsUrl: key });
+				user = await getInstanceUserInfo({ operationsUrl: key });
 			}
 		} catch (error) {
 			// TODO: Only catch the errors we expect here (401? 403? w/e)
