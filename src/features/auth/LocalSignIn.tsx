@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient } from '@tanstack/react-query';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { toast } from 'sonner';
 
@@ -51,7 +51,7 @@ export function LocalSignIn() {
 		submitInstanceLogin(formData, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getUserInfo();
+				const user = await getInstanceUserInfo();
 				authStore.setUserForEntity(OverallAppSignIn, user);
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();

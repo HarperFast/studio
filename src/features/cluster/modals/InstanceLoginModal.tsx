@@ -23,7 +23,7 @@ import { useForm } from 'react-hook-form';
 import { useCallback, useState } from 'react';
 import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { authStore } from '@/lib/authStore';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { Instance } from '@/lib/api.patch';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 
@@ -57,7 +57,7 @@ export function InstanceLogInModal({ instance }: { readonly instance: Instance; 
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getUserInfo({ operationsUrl });
+				const user = await getInstanceUserInfo({ operationsUrl });
 				authStore.setUserForEntity(instance, user);
 				setIsModalOpen(false);
 				form.reset();

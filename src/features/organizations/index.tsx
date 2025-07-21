@@ -1,15 +1,12 @@
+import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
-import { isLocalUser } from '@/lib/types/isLocalUser';
-import { useAuth } from '@/hooks/useAuth';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 export function OrganizationsIndex() {
-	const { user } = useAuth();
+	const { data: user } = useSuspenseQuery(getCurrentUserQueryOptions());
 
-	if (isLocalUser(user)) {
-		throw new Error('Local users cannot access organizations.');
-	}
 	const sortedRoles = useMemo(() => user?.roles.slice().sort((a, b) => a.organizationName > b.organizationName ? 1 : -1) || [], [user]);
 	return (
 		<>

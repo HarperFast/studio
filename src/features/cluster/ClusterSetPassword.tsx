@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
-import { getUserInfo } from '@/features/instance/operations/queries/getUserInfo';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore } from '@/lib/authStore';
 import { toast } from 'sonner';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -81,7 +81,7 @@ export function ClusterSetPassword() {
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getUserInfo({ operationsUrl });
+				const user = await getInstanceUserInfo({ operationsUrl });
 				authStore.setUserForEntity(cluster || null, user);
 				// TODO: What should we invalidate for the cluster?
 				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
