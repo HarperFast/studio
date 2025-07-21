@@ -7,3 +7,11 @@ export async function getCurrentUser(): Promise<User> {
 	const { data } = await apiClient.get('/User/current' as '/User/{id}');
 	return data as User;
 }
+
+export function getCurrentUserQueryOptions() {
+	return queryOptions({
+		queryKey: [queryKeys.user],
+		queryFn: getCurrentUser,
+		retry: false,
+	});
+}
