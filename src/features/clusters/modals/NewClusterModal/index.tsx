@@ -53,7 +53,7 @@ export function NewClusterModal({
 	// TODO: Once we're done mocking: const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const regionLocations = tempRegionsMock;
 	// TODO: Once we're done mocking: const { data: regionLocations } = useQuery(getRegionLocationsOptions());
-	const { mutate: submitNewClusterData } = useCreateNewClusterMutation();
+	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
 
 	const form = useForm({
 		resolver: zodResolver(NewClusterSchema),
@@ -299,7 +299,7 @@ export function NewClusterModal({
 							</div>
 						</div>
 						<DialogFooter className="mt-3">
-							<Button type="submit" variant="submit" className="rounded-full">
+							<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
 								Create New Cluster <ArrowRight />
 							</Button>
 						</DialogFooter>
