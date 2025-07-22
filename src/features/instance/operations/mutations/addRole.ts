@@ -5,6 +5,7 @@ import { z } from 'zod';
 export type AddRoleFormData = {
 	role: string;
 	super_user?: boolean;
+	structure_user?: boolean;
 	operationsUrl?: string;
 };
 
@@ -21,10 +22,11 @@ export const AddRoleFormSchema = z.object({
 			message: 'Role must be less than 30 characters.',
 		}),
 	super_user: z.boolean(),
+	structure_user: z.boolean(),
 });
 
 export async function onAddRoleSubmit(formData: AddRoleFormData) {
-	const { operationsUrl, role, super_user } = formData;
+	const { operationsUrl, role, super_user, structure_user } = formData;
 	const { data } = await instanceClient.post(
 		'/',
 		{
@@ -32,6 +34,7 @@ export async function onAddRoleSubmit(formData: AddRoleFormData) {
 			role,
 			permission: {
 				super_user,
+				structure_user,
 			},
 		},
 		{ baseURL: operationsUrl }
