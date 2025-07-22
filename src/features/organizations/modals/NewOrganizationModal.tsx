@@ -15,32 +15,17 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { ArrowRight, Plus } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/react-query/constants';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
-import { SchemaOrganization } from '@/lib/api.gen';
-
-const NewOrganizationSchema = z.object({
-	name: z
-		.string({
-			message: 'Please enter a cluster name.',
-		})
-		.max(30, {
-			message: 'Cluster name must be less than 30 characters.',
-		}),
-	subdomain: z
-		.string({
-			message: 'Please enter a cluster prefix.',
-		})
-		.max(14, {
-			message: 'Subdomain must be less than 14 characters.',
-		}),
-});
+import { NewOrganizationSchema } from '@/features/organizations/modals/newOrganizationSchema';
+import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
+import { toKebabCase } from '@/lib/string/to-kebab-case';
+import { queryKeys } from '@/react-query/constants';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowRight, Plus } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import z from 'zod';
 
 export function NewOrganizationModal() {
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,18 +36,33 @@ export function NewOrganizationModal() {
 			subdomain: '',
 		},
 	});
+	const name = form.watch('name');
+	const subdomain = form.watch('subdomain');
+	const calculatedNames = useMemo(() => {
+		const suggestedSubdomain = collapseKebabsToMaxLength(
+			toKebabCase(name),
+			NewOrganizationSchema.shape.subdomain.maxLength!,
+		) || 'your-subdomain';
+		return {
+			suggestedSubdomain,
+			fullHostName: `future-cluster-names.${subdomain || suggestedSubdomain}.harperfabric.com`,
+		};
+	}, [name, subdomain]);
 
 	const { mutate: submitNewOrganizationData, isPending } = useCreateNewOrganizationMutation();
 	const queryClient = useQueryClient();
 
-	const submitForm = async (formData: Omit<SchemaOrganization, "id">) => {
-		submitNewOrganizationData(formData, {
+	const submitForm = useCallback(async (formData: z.infer<typeof NewOrganizationSchema>) => {
+		submitNewOrganizationData({
+			name: formData.name,
+			subdomain: formData.subdomain || calculatedNames.suggestedSubdomain,
+		}, {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'active' });
 				setIsModalOpen(false);
 			},
 		});
-	};
+	}, [calculatedNames.suggestedSubdomain, queryClient, submitNewOrganizationData]);
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -71,39 +71,61 @@ export function NewOrganizationModal() {
 					<Plus /> <span><u>N</u>ew Organization</span>
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-[425px]">
+			<DialogContent className="sm:max-w-[525px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Organization</DialogTitle>
 					<DialogDescription>Create a new organization here.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)} className="grid gap-6 text-white">
+
 						<FormField
 							control={form.control}
 							name="name"
 							render={({ field }) => (
-								<FormItem className="">
-									<FormLabel className="pb-1">Organization Name</FormLabel>
+								<FormItem>
+									<FormLabel className="pb-1">Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="Harper Systems" {...field} />
+										<Input
+											type="text"
+											maxLength={NewOrganizationSchema.shape.name.maxLength!}
+											autoCapitalize="words"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+
 						<FormField
 							control={form.control}
 							name="subdomain"
 							render={({ field }) => (
-								<FormItem className="">
-									<FormLabel className="pb-1">Organization Subdomain</FormLabel>
+								<FormItem>
+									<FormLabel className="pb-1">Subdomain</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="harper-dev" {...field} />
+										<Input
+											type="text"
+											maxLength={NewOrganizationSchema.shape.subdomain.maxLength!}
+											autoCapitalize="none"
+											placeholder={calculatedNames.suggestedSubdomain}
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+
+						<FormItem>
+							<FormLabel className="pb-1">Full Host Name</FormLabel>
+							<FormControl>
+								<span>{calculatedNames.fullHostName}</span>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+
 						<DialogFooter>
 							<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
 								Create New Organization <ArrowRight />

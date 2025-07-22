@@ -178,7 +178,11 @@ export function NewClusterModal({
 									<FormItem className="md:col-span-6">
 										<FormLabel className="pb-1">Harper System Name</FormLabel>
 										<FormControl>
-											<Input type="text" maxLength={NewClusterSchema.shape.systemName.maxLength!} autoCapitalize="words" {...field} />
+											<Input
+												type="text"
+												maxLength={NewClusterSchema.shape.systemName.maxLength!}
+												autoCapitalize="words"
+												{...field} />
 										</FormControl>
 										<FormMessage />
 									</FormItem>
@@ -191,7 +195,13 @@ export function NewClusterModal({
 									<FormItem className="md:col-span-3">
 										<FormLabel className="pb-1">Host Name</FormLabel>
 										<FormControl>
-											<Input type="text" maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!} {...field} autoCapitalize="none" placeholder={calculatedNames.suggestedAbbreviatedName} />
+											<Input
+												type="text"
+												maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
+												autoCapitalize="none"
+												placeholder={calculatedNames.suggestedAbbreviatedName}
+												{...field}
+											/>
 										</FormControl>
 										<FormMessage />
 									</FormItem>
