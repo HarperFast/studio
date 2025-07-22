@@ -43,10 +43,11 @@ export function ConfigRolesIndex() {
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
-	const onRoleAdded = useCallback(() => {
+	const onRoleAdded = useCallback((roleName: string) => {
 		void refetch();
 		setIsAddModalOpen(false);
-	}, [refetch, setIsAddModalOpen]);
+		onSelectRole(roleName);
+	}, [onSelectRole, refetch]);
 
 	const onRowClick = useCallback(
 		(rowData: Row<LocalRole>) => {

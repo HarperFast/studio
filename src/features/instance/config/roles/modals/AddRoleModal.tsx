@@ -31,7 +31,7 @@ export function AddRoleModal({
 	setIsModalOpen,
 }: {
 	isModalOpen: boolean;
-	onChangesSaved: () => void;
+	onChangesSaved: (roleName: string) => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const form = useForm({
@@ -56,7 +56,7 @@ export function AddRoleModal({
 					{
 						onSuccess: () => {
 							form.reset();
-							onChangesSaved();
+							onChangesSaved(formData.role);
 							toast.success('Role added successfully!');
 							setIsModalOpen(false);
 						},
