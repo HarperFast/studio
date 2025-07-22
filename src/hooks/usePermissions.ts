@@ -1,5 +1,10 @@
 import { useAuth } from '@/hooks/useAuth';
-import { LocalRoleAttributePermissionAction, LocalRolePermissionAction } from '@/lib/api.patch';
+import {
+	LocalLegacyRolePermissionTable,
+	LocalRoleAttributePermissionAction,
+	LocalRolePermissionAction,
+	LocalRolePermissionTable,
+} from '@/lib/api.patch';
 import { AuthenticatedInstanceConnection, InstanceConnectionKey } from '@/lib/authStore';
 
 export function useInstanceManagePermission(entity: InstanceConnectionKey): boolean {
@@ -54,6 +59,7 @@ export function useInstanceSchemaTableAttributePermission(entity: InstanceConnec
 	if (specificPermission?.tables?.[tableName][action] === true) {
 		return true;
 	}
-	const attributePermission = specificPermission?.tables?.[tableName]?.attribute_permissions?.find(a => a.attribute_name === attributeName);
+	const table = specificPermission?.tables?.[tableName];
+	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions || (table as LocalLegacyRolePermissionTable).attribute_restrictions).find(a => a.attribute_name === attributeName);
 	return attributePermission?.[action] === true;
 }
