@@ -18,7 +18,7 @@ const route = getRouteApi('');
 
 export function ConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { instanceId, roleId } = route.useParams();
+	const { clusterId, instanceId, roleId } = route.useParams();
 	const {
 		data: localRoles,
 		refetch,
@@ -89,6 +89,8 @@ export function ConfigRolesIndex() {
 			<AddRoleModal isModalOpen={isAddModalOpen} onChangesSaved={onRoleAdded} setIsModalOpen={setIsAddModalOpen} />
 			{isEditModalOpen && (
 				<EditRoleModal
+					instanceId={instanceId}
+					clusterId={clusterId}
 					isModalOpen={isEditModalOpen}
 					closeModal={closeEditModal}
 					data={selectedRole}
