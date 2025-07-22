@@ -36,4 +36,10 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		enableSorting: false,
 		cell: (props) => (props.row.original.permission.super_user ? 'Yes' : 'No'),
 	}),
+	columnHelper.display({
+		header: 'Structure  User',
+		id: 'structure_user',
+		enableSorting: false,
+		cell: (props) => (props.row.original.permission.structure_user ? 'Yes' : 'No'),
+	}),
 ];
