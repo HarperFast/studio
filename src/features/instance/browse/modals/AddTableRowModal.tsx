@@ -1,21 +1,21 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { InstanceAttribute, InstanceTable } from '@/lib/api.patch';
 import Editor from '@monaco-editor/react';
 import { Save } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { DescribeTableDataResponse } from '@/features/instance/operations/queries/getDescribeTable';
 
 export function AddTableRowModal({
 	isAddTableRecordsPending,
 	isModalOpen,
 	onSaveChanges,
-	schema,
+	instanceTable,
 	setIsModalOpen,
 }: {
 	isAddTableRecordsPending: boolean;
 	isModalOpen: boolean;
 	onSaveChanges: (data: Record<string, unknown>[] | Record<string, unknown>) => void;
-	schema: DescribeTableDataResponse;
+	instanceTable: InstanceTable;
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const [isValidJSON, setIsValidJSON] = useState(true);
@@ -30,14 +30,14 @@ export function AddTableRowModal({
 	}, [setIsValidJSON]);
 	const sampleJSON = useMemo(() => {
 		const sample: Record<string, unknown> = {};
-		for (const attribute of schema.attributes) {
+		for (const attribute of instanceTable.attributes) {
 			if (attribute.is_primary_key) {
 				continue;
 			}
 			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
 		}
 		return JSON.stringify(sample, null, 4);
-	}, [schema]);
+	}, [instanceTable]);
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}
@@ -47,9 +47,9 @@ export function AddTableRowModal({
 			<DialogHeader>
 				<DialogTitle>Add New</DialogTitle>
 			</DialogHeader>
-			{schema?.hash_attribute &&
+			{instanceTable?.hash_attribute &&
 							<div className="text-sm text-gray-500">
-								The hash_attribute for this table is <strong>&ldquo;{schema.hash_attribute}&rdquo;</strong>, and will
+								The hash_attribute for this table is <strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will
 								auto-generate. You may manually add it if you want to specify its value.</div>}
 			<Editor className="w-full h-96" language="json" theme="vs-dark"
 					value={sampleJSON}
@@ -72,11 +72,12 @@ export function AddTableRowModal({
 	</Dialog>;
 }
 
-function defaultByAttributeType(type: string | undefined) {
+function defaultByAttributeType(type: InstanceAttribute['type']) {
 	switch (type) {
 		case 'Date':
 			return new Date().toISOString();
 		case 'Id':
+		case 'ID':
 		case 'String':
 			return '';
 		case 'Boolean':

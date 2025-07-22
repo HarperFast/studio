@@ -1,10 +1,10 @@
-import { DescribeTableDataResponse } from '@/features/instance/operations/queries/getDescribeTable';
+import { InstanceTable } from '@/lib/api.patch';
 import { ColumnDef } from '@tanstack/react-table';
 
-function formatBrowseDataTableHeader(describeTableData: DescribeTableDataResponse): {
+function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>; hash_attribute: string;
 } {
-	const { hash_attribute, attributes } = describeTableData;
+	const { hash_attribute, attributes } = instanceTable;
 	const primaryKeyColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];

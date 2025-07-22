@@ -94,3 +94,34 @@ export interface ClusterDefinition extends Omit<SchemaCluster, 'id' | 'plans'> {
 }
 
 export type ClusterDefinitionRegionPlan = Omit<SchemaRegionPlan, 'autoRenew'>;
+
+export interface InstanceSchemaMap {
+	[schemaName: string]: InstanceSchema;
+}
+
+export interface InstanceSchema {
+	[tableName: string]: InstanceTable;
+}
+
+export interface InstanceTable {
+	schema: string;
+	name: string;
+	hash_attribute: string;
+	audit: boolean;
+	schema_defined: boolean;
+	db_size: number;
+	sources: unknown[];
+	record_count: number;
+	table_size: number;
+	db_audit_size: number;
+	last_updated_record?: number;
+	attributes: InstanceAttribute[];
+}
+
+export interface InstanceAttribute {
+	attribute: string;
+	type?: 'ID' | 'String' | 'Int' | 'Long' | 'Float' | 'BigInt' | 'Boolean' | 'Any' | 'Date' | 'Bytes' | 'Blob' | string;
+	is_primary_key?: boolean;
+	indexed?: boolean | unknown;
+	nullable?: boolean;
+}
