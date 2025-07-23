@@ -774,6 +774,7 @@ export interface paths {
                     cloudFirewallId?: string;
                     cloudInstanceId?: string;
                     cloudInstanceType?: string;
+                    dynamicallyAssignable?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -843,6 +844,7 @@ export interface paths {
                     cloudFirewallId?: string;
                     cloudInstanceId?: string;
                     cloudInstanceType?: string;
+                    dynamicallyAssignable?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -882,6 +884,7 @@ export interface paths {
                     cloudFirewallId?: string;
                     cloudInstanceId?: string;
                     cloudInstanceType?: string;
+                    dynamicallyAssignable?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -1091,7 +1094,7 @@ export interface paths {
                     location?: string;
                     locationName?: string;
                     lon?: number;
-                    regionIds?: string[];
+                    regions?: string[];
                 };
                 header?: never;
                 path?: never;
@@ -1150,7 +1153,7 @@ export interface paths {
                     location?: string;
                     locationName?: string;
                     lon?: number;
-                    regionIds?: string[];
+                    regions?: string[];
                 };
                 header?: never;
                 path?: never;
@@ -1179,7 +1182,7 @@ export interface paths {
                     location?: string;
                     locationName?: string;
                     lon?: number;
-                    regionIds?: string[];
+                    regions?: string[];
                 };
                 header?: never;
                 path?: never;
@@ -2146,9 +2149,17 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    allowedRegionIds?: string[];
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
                     id?: string;
                     locationsPerPlan?: number;
                     name?: string;
+                    performanceDescription?: string;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
@@ -2203,9 +2214,17 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
+                    allowedRegionIds?: string[];
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
                     id?: string;
                     locationsPerPlan?: number;
                     name?: string;
+                    performanceDescription?: string;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
@@ -2230,9 +2249,17 @@ export interface paths {
         options: {
             parameters: {
                 query?: {
+                    allowedRegionIds?: string[];
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
                     id?: string;
                     locationsPerPlan?: number;
                     name?: string;
+                    performanceDescription?: string;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
@@ -2425,7 +2452,6 @@ export interface paths {
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
-                    locations?: components["schemas"]["Location"][];
                     region?: string;
                 };
                 header?: never;
@@ -2480,7 +2506,6 @@ export interface paths {
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
-                    locations?: components["schemas"]["Location"][];
                     region?: string;
                 };
                 header?: never;
@@ -2505,7 +2530,6 @@ export interface paths {
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
-                    locations?: components["schemas"]["Location"][];
                     region?: string;
                 };
                 header?: never;
@@ -2905,7 +2929,12 @@ export interface paths {
         /** @description search for records by the specified property name and value pairs */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    id?: string;
+                    organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    permission?: components["schemas"]["RolePermission"];
+                    role?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2954,7 +2983,12 @@ export interface paths {
         /** @description delete all the records that match the provided query */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    id?: string;
+                    organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    permission?: components["schemas"]["RolePermission"];
+                    role?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2973,7 +3007,12 @@ export interface paths {
         /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
         options: {
             parameters: {
-                query?: never;
+                query?: {
+                    id?: string;
+                    organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    permission?: components["schemas"]["RolePermission"];
+                    role?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -3075,6 +3114,73 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Role"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Role/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsRoleIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsRoleIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3561,6 +3667,12 @@ export interface components {
         Acme: {
             [key: string]: unknown;
         };
+        CloudInstanceType: {
+            instanceType?: string;
+            provider?: string;
+        } & {
+            [key: string]: unknown;
+        };
         Cluster: {
             abbreviatedName: string;
             enableGtm?: boolean;
@@ -3631,6 +3743,7 @@ export interface components {
             cloudFirewallId?: string;
             cloudInstanceId?: string;
             cloudInstanceType?: string;
+            dynamicallyAssignable?: boolean;
             fqdn?: string;
             id: string;
             instances?: components["schemas"]["HDBInstance"][];
@@ -3674,7 +3787,7 @@ export interface components {
             locationName: string;
             /** Format: Float */
             lon?: number;
-            regionIds: string[];
+            regions: string[];
         };
         Login: {
             [key: string]: unknown;
@@ -3713,15 +3826,60 @@ export interface components {
             [key: string]: unknown;
         };
         Plan: {
+            allowedRegionIds?: string[];
+            cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+            defaultCloudInstanceProvider?: string;
+            deploymentDescription: string;
+            deploymentType: string;
             /** Format: ID */
             id: string;
             /** Format: Int */
             locationsPerPlan?: number;
             name: string;
+            performanceDescription?: string;
+            planLimits?: components["schemas"]["PlanLimits"];
+            /** Format: Float */
+            priceUsd: number;
             resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
             status?: string;
             stripePriceId?: string;
             stripeProductId?: string;
+        };
+        PlanLimits: {
+            /** Format: Int */
+            applicationComputeHours?: number;
+            /** Format: Int */
+            expirationMonths: number;
+            /** Format: Long */
+            readsPerMinuteBytes?: number;
+            /** Format: Int */
+            readsPerMinuteCount?: number;
+            /** Format: Int */
+            realTimeMessageDeliveriesPerMinute?: number;
+            /** Format: Long */
+            realTimeMessageDeliveryBytesPerMinute?: number;
+            /** Format: Long */
+            storageBytes?: number;
+            /** Format: Long */
+            tlsHandshakes?: number;
+            /** Format: Long */
+            totalReadCount: number;
+            /** Format: Long */
+            totalReadsBytes: number;
+            /** Format: Long */
+            totalRealTimeMessageDeliveries: number;
+            /** Format: Long */
+            totalRealTimeMessageDeliveryBytes: number;
+            /** Format: Long */
+            totalWriteCount: number;
+            /** Format: Long */
+            totalWritesBytes: number;
+            /** Format: Long */
+            writesPerMinuteBytes?: number;
+            /** Format: Int */
+            writesPerMinuteCount?: number;
+        } & {
+            [key: string]: unknown;
         };
         PurchasedBlock: {
             billingCycle?: string;
@@ -3732,6 +3890,8 @@ export interface components {
             /** Format: ID */
             planId: string;
             regionId: string;
+        } & {
+            [key: string]: unknown;
         };
         Region: {
             /** Format: ID */
@@ -3739,7 +3899,6 @@ export interface components {
             /** Format: Int */
             instanceCount: number;
             latencyDescription: string;
-            locations: components["schemas"]["Location"][];
             region: string;
         };
         RegionPlan: {
@@ -3772,9 +3931,61 @@ export interface components {
             threads?: number;
             /** Format: Int */
             writeIopsLimit?: number;
+        } & {
+            [key: string]: unknown;
         };
         Role: {
+            /** Format: ID */
+            id: string;
+            organization: components["schemas"]["RoleOrganizationPermissions"];
+            permission: components["schemas"]["RolePermission"];
+            role: string;
+        };
+        RoleOrganizationClusterOverallPermissions: {
+            create: boolean;
+            delete: boolean;
+            resources: components["schemas"]["RoleOrganizationClusterSpecificPermissions"][];
+            update: boolean;
+            view: boolean;
+        } & {
             [key: string]: unknown;
+        };
+        RoleOrganizationClusterSpecificInstancePermissions: {
+            create: boolean;
+            delete: boolean;
+            update: boolean;
+            view: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        RoleOrganizationClusterSpecificPermissions: {
+            delete: boolean;
+            /** Format: ID */
+            id: string;
+            instances: components["schemas"]["RoleOrganizationClusterSpecificInstancePermissions"];
+            update: boolean;
+            view: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        RoleOrganizationPermissions: {
+            clusters: components["schemas"]["RoleOrganizationClusterOverallPermissions"];
+            delete: boolean;
+            /** Format: ID */
+            id: string;
+            roles: components["schemas"]["RoleOrganizationRolesPermissions"];
+            update: boolean;
+        };
+        RoleOrganizationRolesPermissions: {
+            create: boolean;
+            delete: boolean;
+            update: boolean;
+            view: boolean;
+        } & {
+            [key: string]: unknown;
+        };
+        RolePermission: {
+            super_user?: boolean;
         };
         User: {
             email: string;
@@ -3804,6 +4015,7 @@ export interface components {
     pathItems: never;
 }
 export type SchemaAcme = components['schemas']['Acme'];
+export type SchemaCloudInstanceType = components['schemas']['CloudInstanceType'];
 export type SchemaCluster = components['schemas']['Cluster'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];
@@ -3816,6 +4028,7 @@ export type SchemaOrganization = components['schemas']['Organization'];
 export type SchemaOrganizationRole = components['schemas']['OrganizationRole'];
 export type SchemaPayment = components['schemas']['Payment'];
 export type SchemaPlan = components['schemas']['Plan'];
+export type SchemaPlanLimits = components['schemas']['PlanLimits'];
 export type SchemaPurchasedBlock = components['schemas']['PurchasedBlock'];
 export type SchemaRegion = components['schemas']['Region'];
 export type SchemaRegionPlan = components['schemas']['RegionPlan'];
@@ -3824,6 +4037,12 @@ export type SchemaResetPassword = components['schemas']['ResetPassword'];
 export type SchemaResetPasswordUpdater = components['schemas']['ResetPasswordUpdater'];
 export type SchemaResourcesPerInstance = components['schemas']['ResourcesPerInstance'];
 export type SchemaRole = components['schemas']['Role'];
+export type SchemaRoleOrganizationClusterOverallPermissions = components['schemas']['RoleOrganizationClusterOverallPermissions'];
+export type SchemaRoleOrganizationClusterSpecificInstancePermissions = components['schemas']['RoleOrganizationClusterSpecificInstancePermissions'];
+export type SchemaRoleOrganizationClusterSpecificPermissions = components['schemas']['RoleOrganizationClusterSpecificPermissions'];
+export type SchemaRoleOrganizationPermissions = components['schemas']['RoleOrganizationPermissions'];
+export type SchemaRoleOrganizationRolesPermissions = components['schemas']['RoleOrganizationRolesPermissions'];
+export type SchemaRolePermission = components['schemas']['RolePermission'];
 export type SchemaUser = components['schemas']['User'];
 export type SchemaUserInvite = components['schemas']['UserInvite'];
 export type SchemaVerifyEmail = components['schemas']['VerifyEmail'];
@@ -3939,7 +4158,8 @@ export enum PathsHostIdPropertyGetParametersPathProperty {
     usedCPUCores = "usedCPUCores",
     organizationIds = "organizationIds",
     updated = "updated",
-    instances = "instances"
+    instances = "instances",
+    dynamicallyAssignable = "dynamicallyAssignable"
 }
 export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -3960,11 +4180,12 @@ export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     usedCPUCores = "usedCPUCores",
     organizationIds = "organizationIds",
     updated = "updated",
-    instances = "instances"
+    instances = "instances",
+    dynamicallyAssignable = "dynamicallyAssignable"
 }
 export enum PathsLocationIdPropertyGetParametersPathProperty {
     id = "id",
-    regionIds = "regionIds",
+    regions = "regions",
     location = "location",
     locationName = "locationName",
     cloudProvider = "cloudProvider",
@@ -3975,7 +4196,7 @@ export enum PathsLocationIdPropertyGetParametersPathProperty {
 }
 export enum PathsLocationIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
-    regionIds = "regionIds",
+    regions = "regions",
     location = "location",
     locationName = "locationName",
     cloudProvider = "cloudProvider",
@@ -4031,7 +4252,15 @@ export enum PathsPlanIdPropertyGetParametersPathProperty {
     stripeProductId = "stripeProductId",
     stripePriceId = "stripePriceId",
     locationsPerPlan = "locationsPerPlan",
-    resourcesPerInstance = "resourcesPerInstance"
+    resourcesPerInstance = "resourcesPerInstance",
+    priceUsd = "priceUsd",
+    planLimits = "planLimits",
+    deploymentType = "deploymentType",
+    deploymentDescription = "deploymentDescription",
+    performanceDescription = "performanceDescription",
+    allowedRegionIds = "allowedRegionIds",
+    defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
+    cloudInstanceTypes = "cloudInstanceTypes"
 }
 export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -4040,21 +4269,39 @@ export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
     stripeProductId = "stripeProductId",
     stripePriceId = "stripePriceId",
     locationsPerPlan = "locationsPerPlan",
-    resourcesPerInstance = "resourcesPerInstance"
+    resourcesPerInstance = "resourcesPerInstance",
+    priceUsd = "priceUsd",
+    planLimits = "planLimits",
+    deploymentType = "deploymentType",
+    deploymentDescription = "deploymentDescription",
+    performanceDescription = "performanceDescription",
+    allowedRegionIds = "allowedRegionIds",
+    defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
+    cloudInstanceTypes = "cloudInstanceTypes"
 }
 export enum PathsRegionIdPropertyGetParametersPathProperty {
     id = "id",
     region = "region",
     instanceCount = "instanceCount",
-    latencyDescription = "latencyDescription",
-    locations = "locations"
+    latencyDescription = "latencyDescription"
 }
 export enum PathsRegionIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     region = "region",
     instanceCount = "instanceCount",
-    latencyDescription = "latencyDescription",
-    locations = "locations"
+    latencyDescription = "latencyDescription"
+}
+export enum PathsRoleIdPropertyGetParametersPathProperty {
+    id = "id",
+    role = "role",
+    permission = "permission",
+    organization = "organization"
+}
+export enum PathsRoleIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    role = "role",
+    permission = "permission",
+    organization = "organization"
 }
 export enum PathsUserIdPropertyGetParametersPathProperty {
     id = "id",
