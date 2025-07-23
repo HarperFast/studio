@@ -3,6 +3,7 @@ import { orgsLayoutRoute } from '@/features/organizations/routes';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
 import { OrganizationIndex } from '@/features/organization/index';
+import { OrgConfigRolesIndex } from '@/features/organization/config/roles';
 
 export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
@@ -18,5 +19,15 @@ const orgIndexRoute = createRoute({
 	path: '/',
 	component: OrganizationIndex,
 });
+const orgRolesRoute = createRoute({
+	getParentRoute: () => orgLayoutRoute,
+	path: '/roles',
+	component: OrgConfigRolesIndex,
+});
+const orgRoleRoute = createRoute({
+	getParentRoute: () => orgLayoutRoute,
+	path: '/roles/$orgRoleId',
+	component: OrgConfigRolesIndex,
+});
 
-export const orgRoutes = [orgIndexRoute];
+export const orgRoutes = [orgIndexRoute, orgRolesRoute, orgRoleRoute];
