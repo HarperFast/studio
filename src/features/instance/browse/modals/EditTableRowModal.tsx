@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export function EditTableRowModal({
 	canEditRecords,
@@ -20,7 +20,7 @@ export function EditTableRowModal({
 	canDeleteRecords: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
-	data: { id: string | number }[];
+	data: { id: string | number; __createdtime__?: number; __updatedtime__?: number; }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
 	onDeleteRecord: (data: (string | number)[]) => void;
 	isUpdateTableRecordsPending: boolean;
@@ -28,6 +28,11 @@ export function EditTableRowModal({
 }) {
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
+	const value = useMemo(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime  }) => rowWithoutTime);
+		return JSON.stringify(dataWithoutTimes, null, 4);
+	}, [data]);
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -47,7 +52,7 @@ export function EditTableRowModal({
 						language="json"
 						theme="vs-dark"
 						options={canEditRecords ? undefined : { readOnly: true }}
-						value={JSON.stringify(data, null, 4)}
+						value={value}
 						onValidate={(markers) => {
 							setIsValidJSON(markers.length === 0);
 						}}
@@ -73,6 +78,7 @@ export function EditTableRowModal({
 						{canEditRecords && (<Button
 							variant="submit"
 							className="rounded-full"
+							accessKey="s"
 							onClick={() => {
 								if (updatedTableRecordData && isValidJSON) {
 									onSaveChanges(JSON.parse(updatedTableRecordData));
@@ -80,7 +86,7 @@ export function EditTableRowModal({
 							}}
 							disabled={!isValidJSON || isUpdateTableRecordsPending}
 						>
-							<Save /> Save Changes
+							<Save /> <span><u>S</u>ave Changes</span>
 						</Button>)}
 					</div>
 				</DialogFooter>
