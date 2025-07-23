@@ -11,6 +11,13 @@ import { Editor } from '@monaco-editor/react';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import {
+	AddOrganizationRoleSchema,
+	useAddOrganizationRole,
+} from '@/features/organization/config/mutations/addOrganizationRole';
+import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
+import { getRouteApi } from '@tanstack/react-router';
 
 const defaultPermissions = {
 	roles: {
@@ -28,6 +35,8 @@ const defaultPermissions = {
 	},
 };
 
+const route = getRouteApi('');
+
 export function AddOrganizationRoleModal({
 	isModalOpen,
 	onChangesSaved,
@@ -37,12 +46,14 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	const { organizationId } = route.useParams();
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
 
-	// const form = useForm<z.infer<typeof AddOrgRoleSchema>>({
-	const form = useForm({
-		// resolver: zodResolver(AddOrgRoleSchema),
+	const { mutate: addOrganizationRole, isPending } = useAddOrganizationRole();
+
+	const form = useForm<z.infer<typeof AddOrganizationRoleSchema>>({
+		resolver: zodResolver(AddOrganizationRoleSchema),
 		defaultValues: {
 			roleName: '',
 			updateOrganization: false,
@@ -58,14 +69,28 @@ export function AddOrganizationRoleModal({
 	);
 
 	const onSubmitRoleEdits = useCallback(
-		async (formData) => {
-			// async (formData: AddOrgRoleFormData) => {
+		async (formData: z.infer<typeof AddOrganizationRoleSchema>) => {
+			const updatedFormData = {
+				organizationId: organizationId,
+				name: formData.roleName,
+				update: formData.updateOrganization,
+				delete: formData.deleteOrganization,
+				...JSON.parse(updatedPermissions),
+			};
 			if (formData && isValidJSON) {
-				//add org role
-				console.log('submitRoleEdits called', JSON.parse(updatedPermissions));
+				addOrganizationRole(updatedFormData, {
+					onSuccess: () => {
+						form.reset();
+						onChangesSaved();
+						toast.success('Organization role added successfully!');
+					},
+					onError: (error: Error) => {
+						toast.error(`Failed to add organization role: ${error.message}`);
+					},
+				});
 			}
 		},
-		[isValidJSON, updatedPermissions]
+		[isValidJSON, updatedPermissions, addOrganizationRole, form, onChangesSaved, organizationId]
 	);
 
 	return (
@@ -143,16 +168,13 @@ export function AddOrganizationRoleModal({
 								<Button
 									variant="destructiveOutline"
 									className="rounded-full"
-									// onClick={onRoleDeleteClick}
-									// disabled={isPending}
+									type="button"
+									onClick={() => setIsModalOpen(false)}
+									disabled={isPending}
 								>
-									Delete Role
+									Cancel
 								</Button>
-								<Button
-									variant="submit"
-									className="rounded-full"
-									// disabled={isPending || !isValidJSON}
-								>
+								<Button variant="submit" className="rounded-full" disabled={isPending || !isValidJSON}>
 									Save Changes
 								</Button>
 							</div>
