@@ -2,12 +2,28 @@ import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
 
+interface RolesPermissions {
+	create: boolean;
+	view: boolean;
+	update: boolean;
+	delete: boolean;
+}
+
+interface ClustersPermissions {
+	create: boolean;
+	view: boolean;
+	update: boolean;
+	delete: boolean;
+	resources: string[];
+}
+
 export interface AddOrgRoleFormData {
 	roleName: string;
 	organizationId: string;
 	updateOrganization: boolean;
-	deleteOrganization?: boolean; // In API yet?
-	permissions: object; // Adjust type as needed
+	deleteOrganization?: boolean;
+	roles: RolesPermissions;
+	clusters: ClustersPermissions;
 }
 
 export const AddOrganizationRoleSchema = z.object({
