@@ -1,6 +1,7 @@
 export const queryKeys = {
 	user: 'user',
 	organization: 'organization',
+	roles: 'roles',
 	cluster: 'cluster',
 	instance: 'instance',
 	operations: {

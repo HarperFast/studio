@@ -3,7 +3,8 @@ import {
 	SchemaHdbInstance,
 	SchemaOrganization,
 	SchemaOrganizationRole,
-	SchemaPlan, SchemaRegionPlan,
+	SchemaPlan,
+	SchemaRegionPlan,
 	SchemaUser,
 } from '@/lib/api.gen';
 
@@ -14,8 +15,7 @@ import {
  */
 
 export interface OrganizationRole extends SchemaOrganizationRole {
-	roleName: 'admin' | 'member';
-	organizationName: string; // TODO: Not descried by the API. Is it computed?
+	organizationName?: string; // TODO: Not descried by the API. Is it computed?
 }
 
 export { SchemaOrganization as Organization };
