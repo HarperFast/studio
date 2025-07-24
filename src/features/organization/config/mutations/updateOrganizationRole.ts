@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
-import { OrganizationRole } from '@/lib/api.patch';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
+import { GetOrganizationRoleInfoResponse } from '../../queries/getOrganizationRoleInfo';
 
 export const UpdateOrganizationRoleSchema = z.object({
 	roleName: z
@@ -22,15 +22,19 @@ export async function onUpdateOrganizationRole({
 	updatedRoleInfo,
 }: {
 	roleId: string;
-	updatedRoleInfo: Partial<OrganizationRole>;
-}): Promise<OrganizationRole> {
+	updatedRoleInfo: GetOrganizationRoleInfoResponse;
+}) {
 	const { data } = await apiClient.put(`/Role/${roleId}` as '/Role/{id}', updatedRoleInfo);
-	return data;
+	return data as GetOrganizationRoleInfoResponse;
 }
 
 export function useUpdateOrganizationRole() {
-	return useMutation<OrganizationRole, Error, { roleId: string; updatedRoleInfo: OrganizationRole }>({
-		mutationFn: ({ roleId, updatedRoleInfo }: { roleId: string; updatedRoleInfo: OrganizationRole }) =>
+	return useMutation<
+		GetOrganizationRoleInfoResponse,
+		Error,
+		{ roleId: string; updatedRoleInfo: GetOrganizationRoleInfoResponse }
+	>({
+		mutationFn: ({ roleId, updatedRoleInfo }: { roleId: string; updatedRoleInfo: GetOrganizationRoleInfoResponse }) =>
 			onUpdateOrganizationRole({ roleId, updatedRoleInfo }),
 	});
 }

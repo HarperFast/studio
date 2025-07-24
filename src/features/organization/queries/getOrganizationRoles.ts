@@ -13,6 +13,6 @@ export function getOrganizationRolesQueryOptions(organizationId: string) {
 		queryKey: [queryKeys.organization, queryKeys.roles, organizationId],
 		queryFn: () => getOrganizationRoles(organizationId),
 		retry: false,
-		refetchInterval: 10 * 1000,
+		refetchInterval: 10 * 1000, // 10 seconds
 	});
 }

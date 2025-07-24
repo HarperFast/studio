@@ -16,6 +16,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { UpdateOrganizationRoleSchema, useUpdateOrganizationRole } from '../../mutations/updateOrganizationRole';
 import { zodResolver } from '@hookform/resolvers/zod';
+import z from 'zod';
 
 export function EditOrganizationRoleModal({
 	data,
@@ -32,17 +33,21 @@ export function EditOrganizationRoleModal({
 	const { mutate: updateOrganizationRole } = useUpdateOrganizationRole();
 
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const [updatedPermissions, setUpdatedPermissions] = useState<string>({
-		roles: { ...roleInfo.organization.roles },
-		clusters: { ...roleInfo.organization.clusters },
-	});
-
-	// console.log('roleInfo', roleInfo);
+	const [updatedPermissions, setUpdatedPermissions] = useState<string>(
+		JSON.stringify(
+			{
+				roles: { ...roleInfo.organization.roles },
+				clusters: { ...roleInfo.organization.clusters },
+			},
+			null,
+			2
+		)
+	);
 
 	const form = useForm<z.infer<typeof UpdateOrganizationRoleSchema>>({
 		resolver: zodResolver(UpdateOrganizationRoleSchema),
 		defaultValues: {
-			roleName: roleInfo.role,
+			roleName: roleInfo.role as string,
 			updateOrganization: roleInfo?.organization.update || false,
 			deleteOrganization: roleInfo?.organization.delete || false,
 		},
@@ -56,15 +61,16 @@ export function EditOrganizationRoleModal({
 	);
 
 	const onSubmitRoleEdits = useCallback(
-		async (formData: any) => {
+		async (formData: z.infer<typeof UpdateOrganizationRoleSchema>) => {
 			const updatedRoleObject = { ...roleInfo };
+			updatedRoleObject.organizationId = data.organizationId;
+			updatedRoleObject.name = formData.roleName;
+			updatedRoleObject.role = formData.roleName;
 			updatedRoleObject.organization.roles = JSON.parse(updatedPermissions).roles;
 			updatedRoleObject.organization.clusters = JSON.parse(updatedPermissions).clusters;
-			updatedRoleObject.role = formData.roleName;
 			updatedRoleObject.organization.update = formData.updateOrganization;
 			updatedRoleObject.organization.delete = formData.deleteOrganization;
 
-			console.log('updatedRoleObject', updatedRoleObject);
 			if (updatedPermissions && isValidJSON) {
 				updateOrganizationRole(
 					{
@@ -89,7 +95,7 @@ export function EditOrganizationRoleModal({
 				);
 			}
 		},
-		[updatedPermissions, isValidJSON, closeModal, data.id, roleInfo, updateOrganizationRole]
+		[updatedPermissions, isValidJSON, closeModal, data.id, data.organizationId, roleInfo, updateOrganizationRole]
 	);
 
 	return (
@@ -159,7 +165,7 @@ export function EditOrganizationRoleModal({
 										setUpdatedPermissions(value);
 									}
 								}}
-								defaultValue={JSON.stringify(updatedPermissions, null, 2)}
+								defaultValue={updatedPermissions}
 							/>
 						</div>
 						<DialogFooter className="col-span-2">

@@ -1,7 +1,40 @@
 import { queryOptions } from '@tanstack/react-query';
 import { apiClient } from '@/config/apiClient';
-import { OrganizationRole } from '@/lib/api.patch';
+import { SchemaRole } from '@/lib/api.gen';
 import { queryKeys } from '@/react-query/constants';
+
+export interface GetOrganizationRoleInfoResponse extends SchemaRole {
+	name: string;
+	role: string;
+	id: string;
+	organizationId: string;
+	organization: {
+		id: string;
+		name?: string;
+		organizationId?: string;
+		update: boolean;
+		delete: boolean;
+		roles: {
+			create: boolean;
+			view: boolean;
+			update: boolean;
+			delete: boolean;
+		};
+		clusters: {
+			create: boolean;
+			view: boolean;
+			update: boolean;
+			delete: boolean;
+			resources: string[];
+		};
+	};
+	permission: {
+		super_user: boolean;
+		structure_user: string[];
+	};
+	__updatedtime__: number;
+	__createdtime__: number;
+}
 
 export function getOrganizationRoleInfoQueryOptions({
 	organizationId,
@@ -17,7 +50,7 @@ export function getOrganizationRoleInfoQueryOptions({
 	});
 }
 
-export async function getOrganizationRoleInfo(roleId?: string): Promise<OrganizationRole> {
+export async function getOrganizationRoleInfo(roleId?: string) {
 	const { data } = await apiClient.get(`/Role/${roleId}` as '/Role/{id}');
-	return data as unknown as OrganizationRole; // Note: Not Ideal, check with Dawson on API response type
+	return data as GetOrganizationRoleInfoResponse;
 }
