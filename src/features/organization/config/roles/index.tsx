@@ -44,6 +44,11 @@ export function OrgConfigRolesIndex() {
 		[orgRoleId, navigate]
 	);
 
+	const onRoleDeleted = useCallback(() => {
+		void refetch();
+		setIsAddModalOpen(false);
+	}, [refetch, setIsAddModalOpen]);
+
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
@@ -98,6 +103,7 @@ export function OrgConfigRolesIndex() {
 				/>
 				{isEditOrgRoleModalOpen && (
 					<EditOrganizationRoleModal
+						roleDeleted={onRoleDeleted}
 						data={selectedOrgRole}
 						isModalOpen={isEditOrgRoleModalOpen}
 						closeModal={closeEditModal}
