@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import {
 	AddOrganizationRoleSchema,
 	useAddOrganizationRole,
-} from '@/features/organization/config/mutations/addOrganizationRole';
+} from '@/features/organization/mutations/addOrganizationRole';
 import { zodResolver } from '@hookform/resolvers/zod';
 import z from 'zod';
 import { getRouteApi } from '@tanstack/react-router';

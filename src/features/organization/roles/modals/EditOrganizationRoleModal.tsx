@@ -17,8 +17,8 @@ import { toast } from 'sonner';
 import {
 	UpdateOrganizationRoleSchema,
 	useUpdateOrganizationRole,
-} from '@/features/organization/config/mutations/updateOrganizationRole';
-import { useDeleteOrganizationRole } from '@/features/organization/config/mutations/deleteOrganizationRole';
+} from '@/features/organization/mutations/updateOrganizationRole';
+import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
 import { zodResolver } from '@hookform/resolvers/zod';
 import z from 'zod';
 

@@ -3,7 +3,7 @@ import { orgsLayoutRoute } from '@/features/organizations/routes';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
 import { OrganizationIndex } from '@/features/organization/index';
-import { OrgConfigRolesIndex } from '@/features/organization/config/roles';
+import { OrgConfigRolesIndex } from '@/features/organization/roles';
 
 export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,

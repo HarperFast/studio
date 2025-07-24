@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
-import { GetOrganizationRoleInfoResponse } from '../../queries/getOrganizationRoleInfo';
+import { GetOrganizationRoleInfoResponse } from '../queries/getOrganizationRoleInfo';
 
 export const UpdateOrganizationRoleSchema = z.object({
 	roleName: z

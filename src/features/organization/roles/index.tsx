@@ -4,7 +4,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { Row } from '@tanstack/react-table';
 import { Loading } from '@/components/Loading';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
-import { BrowseDataTable } from '@/features/organization/config/roles/components/BrowseDataTable';
+import { BrowseDataTable } from '@/features/organization/roles/components/BrowseDataTable';
 import { dataTableColumns } from './constants/tableDefinition';
 import { EditOrganizationRoleModal } from './modals/EditOrganizationRoleModal';
 import { OrganizationRole } from '@/lib/api.patch';
