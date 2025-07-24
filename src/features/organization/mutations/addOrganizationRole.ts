@@ -1,30 +1,7 @@
 import { apiClient } from '@/config/apiClient';
+import { SchemaRole } from '@/lib/api.gen';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
-
-interface RolesPermissions {
-	create: boolean;
-	view: boolean;
-	update: boolean;
-	delete: boolean;
-}
-
-interface ClustersPermissions {
-	create: boolean;
-	view: boolean;
-	update: boolean;
-	delete: boolean;
-	resources: string[];
-}
-
-export interface AddOrgRoleFormData {
-	roleName: string;
-	organizationId: string;
-	updateOrganization: boolean;
-	deleteOrganization?: boolean;
-	roles: RolesPermissions;
-	clusters: ClustersPermissions;
-}
 
 export const AddOrganizationRoleSchema = z.object({
 	roleName: z
@@ -40,13 +17,13 @@ export const AddOrganizationRoleSchema = z.object({
 	deleteOrganization: z.boolean(),
 });
 
-export async function onAddOrganizationRoleSubmit(formData: AddOrgRoleFormData) {
+export async function onAddOrganizationRoleSubmit(formData: SchemaRole) {
 	const { data } = await apiClient.post('/Role' as '/Role/', formData);
 	return data;
 }
 
 export function useAddOrganizationRole() {
 	return useMutation({
-		mutationFn: (formData: AddOrgRoleFormData) => onAddOrganizationRoleSubmit(formData),
+		mutationFn: (formData: SchemaRole) => onAddOrganizationRoleSubmit(formData),
 	});
 }

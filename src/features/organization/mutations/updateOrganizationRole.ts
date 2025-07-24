@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
-import { GetOrganizationRoleInfoResponse } from '../queries/getOrganizationRoleInfo';
+import { SchemaRole } from '@/lib/api.gen';
 
 export const UpdateOrganizationRoleSchema = z.object({
 	roleName: z
@@ -22,19 +22,15 @@ export async function onUpdateOrganizationRole({
 	updatedRoleInfo,
 }: {
 	roleId: string;
-	updatedRoleInfo: GetOrganizationRoleInfoResponse;
+	updatedRoleInfo: SchemaRole;
 }) {
 	const { data } = await apiClient.put(`/Role/${roleId}` as '/Role/{id}', updatedRoleInfo);
-	return data as GetOrganizationRoleInfoResponse;
+	return data as SchemaRole;
 }
 
 export function useUpdateOrganizationRole() {
-	return useMutation<
-		GetOrganizationRoleInfoResponse,
-		Error,
-		{ roleId: string; updatedRoleInfo: GetOrganizationRoleInfoResponse }
-	>({
-		mutationFn: ({ roleId, updatedRoleInfo }: { roleId: string; updatedRoleInfo: GetOrganizationRoleInfoResponse }) =>
+	return useMutation<SchemaRole, Error, { roleId: string; updatedRoleInfo: SchemaRole }>({
+		mutationFn: ({ roleId, updatedRoleInfo }: { roleId: string; updatedRoleInfo: SchemaRole }) =>
 			onUpdateOrganizationRole({ roleId, updatedRoleInfo }),
 	});
 }
