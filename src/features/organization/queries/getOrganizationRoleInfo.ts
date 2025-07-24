@@ -5,35 +5,7 @@ import { queryKeys } from '@/react-query/constants';
 
 export interface GetOrganizationRoleInfoResponse extends SchemaRole {
 	name: string;
-	role: string;
-	id: string;
 	organizationId: string;
-	organization: {
-		id: string;
-		name?: string;
-		organizationId?: string;
-		update: boolean;
-		delete: boolean;
-		roles: {
-			create: boolean;
-			view: boolean;
-			update: boolean;
-			delete: boolean;
-		};
-		clusters: {
-			create: boolean;
-			view: boolean;
-			update: boolean;
-			delete: boolean;
-			resources: string[];
-		};
-	};
-	permission: {
-		super_user: boolean;
-		structure_user: string[];
-	};
-	__updatedtime__: number;
-	__createdtime__: number;
 }
 
 export function getOrganizationRoleInfoQueryOptions({
