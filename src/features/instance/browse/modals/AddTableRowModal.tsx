@@ -31,7 +31,7 @@ export function AddTableRowModal({
 	const sampleJSON = useMemo(() => {
 		const sample: Record<string, unknown> = {};
 		for (const attribute of instanceTable.attributes) {
-			if (attribute.is_primary_key) {
+			if (attribute.is_primary_key || attribute.attribute === '__createdtime__' || attribute.attribute === '__updatedtime__') {
 				continue;
 			}
 			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
@@ -45,26 +45,30 @@ export function AddTableRowModal({
 			event.preventDefault();
 		}}>
 			<DialogHeader>
-				<DialogTitle>Add New</DialogTitle>
+				<DialogTitle>Add New {schema.name}</DialogTitle>
 			</DialogHeader>
 			{instanceTable?.hash_attribute &&
 							<div className="text-sm text-gray-500">
 								The hash_attribute for this table is <strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will
 								auto-generate. You may manually add it if you want to specify its value.</div>}
 			<Editor className="w-full h-96" language="json" theme="vs-dark"
-					value={sampleJSON}
-					onValidate={onValidate}
-					onChange={(updatedValue) => {
-						setAddTableRecordData(updatedValue);
-					}} />
+				value={sampleJSON}
+				onValidate={onValidate}
+				onChange={(updatedValue) => {
+					setAddTableRecordData(updatedValue);
+				}} />
 			<div className="text-sm text-gray-500">
 				<strong>You may paste in an array</strong> if you want to add more than one record at a time.
 			</div>
 			<DialogFooter>
 				<div className="flex justify-between w-full">
-					<Button variant="submit" className="rounded-full" onClick={onSubmitClick}
-							disabled={!isValidJSON || isAddTableRecordsPending}>
-						<Save /> Save Changes
+					<Button
+						variant="submit"
+						className="rounded-full"
+						onClick={onSubmitClick}
+						accessKey="s"
+						disabled={!isValidJSON || isAddTableRecordsPending}>
+						<Save /> <span><u>S</u>ave Changes</span>
 					</Button>
 				</div>
 			</DialogFooter>
