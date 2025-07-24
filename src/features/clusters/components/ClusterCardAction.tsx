@@ -1,13 +1,19 @@
+import { useAuth } from '@/hooks/useAuth';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { Cluster } from '@/lib/api.patch';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { useMemo } from 'react';
-import { Cluster } from '@/lib/api.patch';
-import { useAuth } from '@/hooks/useAuth';
 
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	const auth = useAuth(cluster);
+	const { view } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const isPendingResetPassword = useMemo(() => cluster.resetPassword, [cluster]);
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
+
+	if (!view) {
+		return undefined;
+	}
 
 	if (isSelfManaged) {
 		return <Link to={cluster.id} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
@@ -17,6 +23,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		</Link>;
 	}
 
+	// TODO: Only allow when... org owner.
 	if (isPendingResetPassword) {
 		return <Link to={`${cluster.id}/set-password`} className="text-sm" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
