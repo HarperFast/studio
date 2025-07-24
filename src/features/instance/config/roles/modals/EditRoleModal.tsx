@@ -1,28 +1,50 @@
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { calculateDefaultPermissions } from '@/features/instance/config/roles/defaultCalculator';
 import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
 import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/deleteRole';
+import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
+import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { LocalRole } from '@/lib/api.patch';
+import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
+import { safeParse } from '@/lib/string/safeParse';
 import { Editor } from '@monaco-editor/react';
-import { useCallback, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 export function EditRoleModal({
 	data,
+	instanceId,
+	clusterId,
 	isModalOpen,
 	closeModal,
 	onSelectRole,
 	onChangesSaved,
 }: {
 	data: LocalRole;
+	instanceId: string;
+	clusterId: string;
 	isModalOpen: boolean;
 	closeModal: () => void;
 	onSelectRole: (role?: string) => void;
 	onChangesSaved: () => void;
 }) {
-	const { role, permission } = data;
-	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(permission, null, 2));
+	const { role, permission: initialPermissions } = data;
+	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(JSON.stringify(initialPermissions, null, 2));
 	const [isValidJSON, setIsValidJSON] = useState(true);
+	const { data: instanceSchema } = useQuery(getDescribeAllQueryOptions(instanceId));
+	const { data: registrationInfo } = useQuery(
+		getRegistrationInfoQueryOptions(instanceId),
+	);
+	const auth = useInstanceAuth(instanceId || clusterId);
+	const isSelf = auth.user?.role?.role === data.role;
+
+	const [showAttributes, onShowAttributesChanged] = useCheckboxCallback(updatedPermissions?.includes('attribute_name'));
 
 	const { mutate: alterRole, isPending } = useAlterRole();
 	const { mutate: dropRole } = useDeleteRoleMutation();
@@ -31,8 +53,23 @@ export function EditRoleModal({
 		(markers: unknown[]) => {
 			setIsValidJSON(markers.length === 0);
 		},
-		[setIsValidJSON]
+		[setIsValidJSON],
 	);
+
+	const defaultValue = useMemo(() => {
+		return JSON.stringify(instanceSchema && registrationInfo && calculateDefaultPermissions({
+			instanceSchema,
+			currentRolePermissions: updatedPermissions && safeParse(updatedPermissions) || initialPermissions,
+			version: registrationInfo.version,
+			showAttributes: showAttributes,
+		}), null, 2);
+		// We exclude updatedPermissions on purpose from the deps.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [initialPermissions, instanceSchema, registrationInfo, showAttributes]);
+
+	useEffect(() => {
+		setUpdatedPermissions(defaultValue);
+	}, [defaultValue])
 
 	const onRoleUpdated = useCallback(
 		(updatedPermissions: string) => {
@@ -49,14 +86,11 @@ export function EditRoleModal({
 							onSelectRole(undefined);
 							onChangesSaved();
 						},
-						onError: (error: Error) => {
-							toast.error(`Failed to update role: ${error.message}`);
-						},
-					}
+					},
 				);
 			}
 		},
-		[alterRole, data.id, onChangesSaved, onSelectRole]
+		[alterRole, data.id, onChangesSaved, onSelectRole],
 	);
 
 	const onRoleDeleted = useCallback(() => {
@@ -70,10 +104,7 @@ export function EditRoleModal({
 					onSelectRole(undefined);
 					onChangesSaved();
 				},
-				onError: (error: Error) => {
-					toast.error(`Failed to delete role: ${error.message}`);
-				},
-			}
+			},
 		);
 	}, [onSelectRole, dropRole, data.id, onChangesSaved]);
 
@@ -89,23 +120,26 @@ export function EditRoleModal({
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent>
-				<DialogTitle>Edit Role "{role}"</DialogTitle>
-				<DialogDescription>Edit the role's permissions in JSON format or remove the role entirely.</DialogDescription>
-				<Editor
+			<DialogContent className="sm:max-w-[750px]">
+				<DialogTitle>{isSelf ? 'View' : 'Edit'} Role "{role}"</DialogTitle>
+				<DialogDescription>
+					{isSelf
+						? 'You can view your own role, but you cannot edit it. Please assign yourself a different' +
+						' role to edit this role.'
+						: 'Edit the role\'s permissions in JSON format or remove the role entirely.'}
+				</DialogDescription>
+				{defaultValue ? <Editor
 					theme="vs-dark"
 					height="400px"
 					defaultLanguage="json"
+					value={updatedPermissions}
+					options={isSelf ? { readOnly: true } : undefined}
 					onValidate={onValidate}
-					onChange={(value) => {
-						if (value) {
-							setUpdatedPermissions(value);
-						}
-					}}
-					defaultValue={JSON.stringify(permission, null, 2)}
-				/>
+					onChange={setUpdatedPermissions}
+					defaultValue={defaultValue}
+				/> : <TextLoadingSkeleton />}
 				<DialogFooter>
-					<div className="flex justify-between w-full">
+					{!isSelf && (<div className="flex justify-between w-full">
 						<Button
 							variant="destructiveOutline"
 							className="rounded-full"
@@ -114,6 +148,19 @@ export function EditRoleModal({
 						>
 							Delete Role
 						</Button>
+
+						<div className="grow" />
+
+						<Label className="flex">
+							<Input
+								type="checkbox"
+								className="w-6"
+								checked={showAttributes}
+								onChange={onShowAttributesChanged}
+							/>
+							<span className="pl-4 pr-8 flex-1 py-2.5">Pick Attributes</span>
+						</Label>
+
 						<Button
 							variant="submit"
 							className="rounded-full"
@@ -122,7 +169,7 @@ export function EditRoleModal({
 						>
 							Save Changes
 						</Button>
-					</div>
+					</div>)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

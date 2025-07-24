@@ -18,7 +18,7 @@ const route = getRouteApi('');
 
 export function ConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { instanceId, roleId } = route.useParams();
+	const { clusterId, instanceId, roleId } = route.useParams();
 	const {
 		data: localRoles,
 		refetch,
@@ -43,10 +43,11 @@ export function ConfigRolesIndex() {
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
-	const onRoleAdded = useCallback(() => {
+	const onRoleAdded = useCallback((roleName: string) => {
 		void refetch();
 		setIsAddModalOpen(false);
-	}, [refetch, setIsAddModalOpen]);
+		onSelectRole(roleName);
+	}, [onSelectRole, refetch]);
 
 	const onRowClick = useCallback(
 		(rowData: Row<LocalRole>) => {
@@ -88,6 +89,8 @@ export function ConfigRolesIndex() {
 			<AddRoleModal isModalOpen={isAddModalOpen} onChangesSaved={onRoleAdded} setIsModalOpen={setIsAddModalOpen} />
 			{isEditModalOpen && (
 				<EditRoleModal
+					instanceId={instanceId}
+					clusterId={clusterId}
 					isModalOpen={isEditModalOpen}
 					closeModal={closeEditModal}
 					data={selectedRole}

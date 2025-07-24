@@ -18,7 +18,6 @@ function getRegistrationInfoQueryOptions(instanceId: string) {
 			});
 			return data as RegistrationInfoResponse;
 		},
-		enabled: Boolean(instanceId),
 	});
 }
 

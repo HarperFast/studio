@@ -45,11 +45,11 @@ export interface LocalRolePermission {
 	cluster_user?: boolean;
 	structure_user?: boolean;
 
-	[record: string]: LocalRoleSchemaRecord;
+	[schemaName: string]: LocalRoleSchemaRecord;
 }
 
 export interface LocalRoleSchemaRecord {
-	tables: Record<string, LocalRolePermissionTable>;
+	tables: Record<string, LocalRolePermissionTable | LocalLegacyRolePermissionTable>;
 }
 
 export interface LocalRolePermissionTable {
@@ -67,6 +67,22 @@ export interface LocalRoleAttributePermissionTable {
 	read: boolean;
 	insert: boolean;
 	update: boolean;
+}
+
+export interface LocalLegacyRolePermissionTable {
+	read: boolean;
+	insert: boolean;
+	update: boolean;
+	delete: boolean;
+	attribute_restrictions: LocalLegacyRoleAttributePermissionTable[];
+}
+
+export interface LocalLegacyRoleAttributePermissionTable {
+	attribute_name: string;
+	read: boolean;
+	insert: boolean;
+	update: boolean;
+	delete: boolean;
 }
 
 export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePermissionTable, 'attribute_name'>;
