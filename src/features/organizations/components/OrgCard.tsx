@@ -1,7 +1,5 @@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, Ellipsis } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -10,29 +8,41 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { OrganizationRole } from '@/lib/api.patch';
+import { Link } from '@tanstack/react-router';
+import { ArrowRight, Ellipsis } from 'lucide-react';
+import { useCallback } from 'react';
+
 export function OrgCard({
-	organizationId,
-	organizationName,
-	roleName,
+	organizationRole,
+	onDeleteOrgModal,
 }: {
-	organizationId: string;
-	organizationName: string;
-	roleName: string;
+	organizationRole: OrganizationRole;
+	onDeleteOrgModal: (OrganizationRole: OrganizationRole) => void;
 }) {
+	const { organizationId, organizationName, roleName } = organizationRole;
+
+	const onDeleteClick = useCallback(() => {
+		onDeleteOrgModal(organizationRole);
+	}, [onDeleteOrgModal, organizationRole]);
+
 	return (
 		<Card className="relative">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					<span>ORG ID: {organizationId}</span>
+					<span className="truncate">{organizationId}</span>
 					<DropdownMenu>
-						<DropdownMenuTrigger>
-							<Ellipsis aria-label="Organization options" />
+						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white cursor-pointer">
+							<Ellipsis aria-label="Options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
-							<DropdownMenuLabel>Org options</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem>Edit</DropdownMenuItem>
-							<DropdownMenuItem>Delete</DropdownMenuItem>
+							{/*<DropdownMenuItem>Edit</DropdownMenuItem>*/}
+							<DropdownMenuItem
+								className="bg-red focus:bg-red/70 focus:text-white"
+								onClick={onDeleteClick}>
+								Delete</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</CardDescription>
