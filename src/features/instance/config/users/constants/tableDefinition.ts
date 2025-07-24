@@ -2,8 +2,6 @@ import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { LocalUser } from '@/lib/api.patch';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
-export const hashAttribute = 'username';
-
 const columnHelper = createColumnHelper<LocalUser>();
 
 export const dataTableColumns: Array<ColumnDef<LocalUser>> = [

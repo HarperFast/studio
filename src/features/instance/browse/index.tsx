@@ -1,18 +1,15 @@
+import { InstanceSchemaMap } from '@/lib/api.patch';
 import { Suspense, useCallback, useMemo } from 'react';
 import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
-import { buildInstanceDataStructure } from '@/features/instance/browse/functions/buildInstanceDataStructure';
 import { Loading } from '@/components/Loading';
 import { BrowseSidebar } from '@/features/instance/browse/components/BrowseSidebar';
-import { DescribeAllResponse } from '@/features/instance/operations/queries/getDescribeAll';
 
 const route = getRouteApi('');
 
 export function Browse() {
 	const navigate = useNavigate();
 	const { schemaName, tableName } = route.useParams();
-	const describeAllQueryData = route.useLoaderData() as DescribeAllResponse;
-
-	const structure = useMemo(() => buildInstanceDataStructure(describeAllQueryData), [describeAllQueryData]);
+	const structure = route.useLoaderData() as InstanceSchemaMap;
 
 	const { databaseList, tables } = useMemo(() => {
 		const databaseList = Object.keys(structure || {}).sort();

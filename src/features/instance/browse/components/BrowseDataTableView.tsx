@@ -170,7 +170,7 @@ export function BrowseDataTableView() {
 					disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>)}
 			</BrowseDataTable>
 			{canAddRecords && (<AddTableRowModal
-				schema={describeTableData}
+				instanceTable={describeTableData}
 				setIsModalOpen={setIsAddModalOpen}
 				isModalOpen={isAddModalOpen}
 				onSaveChanges={onRecordAdd}
