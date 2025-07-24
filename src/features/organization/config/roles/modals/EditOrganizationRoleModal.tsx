@@ -7,11 +7,15 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
 import { OrganizationRole } from '@/lib/api.patch';
 import { Editor } from '@monaco-editor/react';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { UpdateOrganizationRoleSchema, useUpdateOrganizationRole } from '../../mutations/updateOrganizationRole';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 export function EditOrganizationRoleModal({
 	data,
@@ -22,18 +26,25 @@ export function EditOrganizationRoleModal({
 	isModalOpen: boolean;
 	closeModal: () => void;
 }) {
-	const { roleName } = data;
+	const { data: roleInfo } = useSuspenseQuery(
+		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId })
+	);
+	const { mutate: updateOrganizationRole } = useUpdateOrganizationRole();
 
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const [updatedPermissions, setUpdatedPermissions] = useState<string>();
+	const [updatedPermissions, setUpdatedPermissions] = useState<string>({
+		roles: { ...roleInfo.organization.roles },
+		clusters: { ...roleInfo.organization.clusters },
+	});
 
-	// const form = useForm<z.infer<typeof EditOrgRoleSchema>>({
-	const form = useForm({
-		// resolver: zodResolver(EditOrgRoleSchema),
+	// console.log('roleInfo', roleInfo);
+
+	const form = useForm<z.infer<typeof UpdateOrganizationRoleSchema>>({
+		resolver: zodResolver(UpdateOrganizationRoleSchema),
 		defaultValues: {
-			roleName: roleName,
-			updateOrganization: false,
-			deleteOrganization: false,
+			roleName: roleInfo.role,
+			updateOrganization: roleInfo?.organization.update || false,
+			deleteOrganization: roleInfo?.organization.delete || false,
 		},
 	});
 
@@ -44,27 +55,47 @@ export function EditOrganizationRoleModal({
 		[setIsValidJSON]
 	);
 
-	const onSubmitRoleEdits = () => {
-		if (updatedPermissions && isValidJSON) {
-			try {
-				// updateRole
-				// closeModal();
-			} catch (error: unknown) {
-				toast.error('Error', {
-					description: `Failed to update role: ${error instanceof Error ? error.message : String(error)}.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
+	const onSubmitRoleEdits = useCallback(
+		async (formData: any) => {
+			const updatedRoleObject = { ...roleInfo };
+			updatedRoleObject.organization.roles = JSON.parse(updatedPermissions).roles;
+			updatedRoleObject.organization.clusters = JSON.parse(updatedPermissions).clusters;
+			updatedRoleObject.role = formData.roleName;
+			updatedRoleObject.organization.update = formData.updateOrganization;
+			updatedRoleObject.organization.delete = formData.deleteOrganization;
+
+			console.log('updatedRoleObject', updatedRoleObject);
+			if (updatedPermissions && isValidJSON) {
+				updateOrganizationRole(
+					{
+						roleId: data.id,
+						updatedRoleInfo: updatedRoleObject,
 					},
-				});
+					{
+						onSuccess: () => {
+							toast.success('Role updated successfully!');
+							closeModal();
+						},
+						onError: (error: Error) => {
+							toast.error('Error', {
+								description: `Failed to update role: ${error instanceof Error ? error.message : String(error)}.`,
+								action: {
+									label: 'Dismiss',
+									onClick: () => toast.dismiss(),
+								},
+							});
+						},
+					}
+				);
 			}
-		}
-	};
+		},
+		[updatedPermissions, isValidJSON, closeModal, data.id, roleInfo, updateOrganizationRole]
+	);
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent>
-				<DialogTitle>Edit Organization Role "{roleName}"</DialogTitle>
+				<DialogTitle>Edit Organization Role "{roleInfo.role}"</DialogTitle>
 				<DialogDescription>Edit the role's permissions in JSON format or remove the role entirely.</DialogDescription>
 				<Form {...form}>
 					<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
@@ -75,7 +106,7 @@ export function EditOrganizationRoleModal({
 								<FormItem className="col-span-2">
 									<FormLabel className="pb-1">Role Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="Jane" className="" {...field} />
+										<Input type="text" placeholder="Developer" className="" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -128,7 +159,7 @@ export function EditOrganizationRoleModal({
 										setUpdatedPermissions(value);
 									}
 								}}
-								defaultValue={JSON.stringify({}, null, 2)}
+								defaultValue={JSON.stringify(updatedPermissions, null, 2)}
 							/>
 						</div>
 						<DialogFooter className="col-span-2">
@@ -141,11 +172,7 @@ export function EditOrganizationRoleModal({
 								>
 									Delete Role
 								</Button>
-								<Button
-									variant="submit"
-									className="rounded-full"
-									// disabled={isPending || !isValidJSON}
-								>
+								<Button variant="submit" className="rounded-full" disabled={!isValidJSON}>
 									Save Changes
 								</Button>
 							</div>
