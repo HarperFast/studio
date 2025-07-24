@@ -1,9 +1,10 @@
-import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
+import { LocalRolePermission } from '@/lib/api.patch';
+import { useMutation } from '@tanstack/react-query';
 
 export interface AlterRoleRequestBody {
 	id: string;
-	permission: string;
+	permission: LocalRolePermission;
 	operationsUrl?: string;
 }
 

@@ -9,7 +9,7 @@ import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { LocalRole } from '@/lib/api.patch';
+import { LocalRole, LocalRolePermission } from '@/lib/api.patch';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
 import { safeParse } from '@/lib/string/safeParse';
 import { Editor } from '@monaco-editor/react';
@@ -69,12 +69,23 @@ export function EditRoleModal({
 
 	useEffect(() => {
 		setUpdatedPermissions(defaultValue);
-	}, [defaultValue])
+	}, [defaultValue]);
 
 	const onRoleUpdated = useCallback(
 		(updatedPermissions: string) => {
 			if (updatedPermissions) {
-				const parsedPermissions = JSON.parse(updatedPermissions);
+				const parsedPermissions = JSON.parse(updatedPermissions) as LocalRolePermission;
+				if (parsedPermissions.super_user || parsedPermissions.structure_user || parsedPermissions.cluster_user) {
+					for (const parsedPermissionsKey in parsedPermissions) {
+						if (parsedPermissionsKey !== 'super_user' && parsedPermissionsKey !== 'structure_user' && parsedPermissionsKey !== 'cluster_user') {
+							// If you're a super, structure or cluster user, you don't need more specific permissions.
+							delete parsedPermissions[parsedPermissionsKey];
+						} else if (parsedPermissions[parsedPermissionsKey] === false) {
+							// If you've set one of the top-level properties, clear out any others set to false.
+							delete parsedPermissions[parsedPermissionsKey];
+						}
+					}
+				}
 				alterRole(
 					{
 						id: data.id,

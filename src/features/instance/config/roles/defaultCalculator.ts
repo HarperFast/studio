@@ -20,6 +20,9 @@ export function calculateDefaultPermissions({
 	const permissionStructure: LocalRolePermission = {
 		...currentRolePermissions,
 	};
+	if (currentRolePermissions.super_user || currentRolePermissions.structure_user || currentRolePermissions.cluster_user) {
+		return currentRolePermissions;
+	}
 	const [major, minor, patch] = version.split('.').map(number => parseInt(number, 10));
 	const legacy = version !== '2.0.000' && major <= 2 && minor <= 1 && patch <= 2;
 
