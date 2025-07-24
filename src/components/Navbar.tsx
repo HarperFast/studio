@@ -29,6 +29,7 @@ const route = getRouteApi('');
 const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
+	const { organizationId } = route.useParams();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	return (
 		<div className="md:hidden" id="mobile-menu">
@@ -53,10 +54,29 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 				} md:hidden space-y-1 pb-3 bg-black-dark absolute left-0 top-full w-full rounded-b-md`}
 			>
 				{!isLocalStudio && (
-					<Link to="/orgs" className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md">
-						<BuildingIcon className="mr-4" />
-						Organizations
-					</Link>
+					<>
+						<Link
+							to="/orgs"
+							className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md"
+							activeProps={activeLinkProps}
+						>
+							<BuildingIcon className="mr-4" />
+							Organizations
+						</Link>
+						{organizationId ? (
+							<div className="bg-black rounded-2xl">
+								<Link
+									to={`/orgs/${organizationId}/roles`}
+									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
+									activeProps={activeLinkProps}
+								>
+									<Handshake className="inline-block" /> <span className="ms-3">Roles</span>
+								</Link>
+							</div>
+						) : (
+							''
+						)}
+					</>
 				)}
 				{!isLocalStudio && (
 					<Link
@@ -93,8 +113,6 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 }
 
 function DesktopNav({ signOut }: { signOut: () => void }) {
-	// const [isOrgSelected, setIsOrgSelected] = useState(false);
-
 	const { organizationId } = route.useParams();
 
 	return (
