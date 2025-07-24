@@ -64,7 +64,7 @@ export function EditOrganizationRoleModal({
 	const { data: roleInfo } = useSuspenseQuery(
 		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId })
 	);
-	const { mutate: updateOrganizationRole } = useUpdateOrganizationRole();
+	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
 
 	const [isConfirmingRoleDeletion, setIsConfirmingRoleDeletion] = useState(false);
@@ -243,10 +243,11 @@ export function EditOrganizationRoleModal({
 											variant="destructiveOutline"
 											className="rounded-full"
 											onClick={() => setIsConfirmingRoleDeletion(true)}
+											disabled={isRoleUpdatePending}
 										>
 											Delete Role
 										</Button>
-										<Button variant="submit" className="rounded-full" disabled={!isValidJSON}>
+										<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
 											Save Changes
 										</Button>
 									</div>
