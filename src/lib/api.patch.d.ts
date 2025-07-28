@@ -2,9 +2,6 @@ import {
 	SchemaCluster,
 	SchemaHdbInstance,
 	SchemaOrganization,
-	SchemaOrganizationRole,
-	SchemaPlan,
-	SchemaRegionPlan,
 	SchemaRole,
 	SchemaUser,
 } from '@/lib/api.gen';
