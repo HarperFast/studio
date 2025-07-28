@@ -8,7 +8,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { OrganizationRole } from '@/lib/api.patch';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Ellipsis } from 'lucide-react';
 import { useCallback } from 'react';
@@ -17,8 +16,8 @@ export function OrgCard({
 	organizationRole,
 	onDeleteOrgModal,
 }: {
-	organizationRole: OrganizationRole;
-	onDeleteOrgModal: (OrganizationRole: OrganizationRole) => void;
+	organizationRole: { organizationId: string; organizationName?: string; roleName: string; };
+	onDeleteOrgModal: (OrganizationRole: { organizationId: string; organizationName?: string; }) => void;
 }) {
 	const { organizationId, organizationName, roleName } = organizationRole;
 

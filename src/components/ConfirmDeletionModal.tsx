@@ -18,7 +18,7 @@ export function ConfirmDeletionModal({
 	deletionPending,
 }: {
 	typeOfThingBeingDeleted: string;
-	nameOfThingBeingDeleted: string;
+	nameOfThingBeingDeleted?: string;
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 	deletionConfirmed: () => void;

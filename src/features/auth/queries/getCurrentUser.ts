@@ -5,7 +5,8 @@ import { queryOptions } from '@tanstack/react-query';
 
 export async function getCurrentUser(): Promise<User> {
 	const { data } = await apiClient.get('/User/current' as '/User/{id}');
-	return data as User;
+	// TODO: The roles the API returns is a map instead of an array, so we have to map through unknown.
+	return data as unknown as User;
 }
 
 export function getCurrentUserQueryOptions() {

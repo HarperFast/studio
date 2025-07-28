@@ -16,13 +16,13 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
 import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
-import { tempPlansMock } from '@/features/clusters/modals/NewClusterModal/tempPlans';
-import { tempRegionsMock } from '@/features/clusters/modals/NewClusterModal/tempRegions';
+import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { ClusterDefinitionRegionPlan } from '@/lib/api.patch';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -49,10 +49,8 @@ export function NewClusterModal({
 	// TODO: Region uniqueness validation.
 	const queryClient = useQueryClient();
 	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
-	const planTypes = tempPlansMock;
-	// TODO: Once we're done mocking: const { data: planTypes } = useQuery(getPlanTypesOptions());
-	const regionLocations = tempRegionsMock;
-	// TODO: Once we're done mocking: const { data: regionLocations } = useQuery(getRegionLocationsOptions());
+	const { data: planTypes } = useQuery(getPlanTypesOptions());
+	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
 
 	const form = useForm({
@@ -88,15 +86,19 @@ export function NewClusterModal({
 		};
 	}, [systemName, abbreviatedName, orgInfo]);
 	const deploymentToPerformanceToPlan = useMemo(() =>
-		groupThenKeyBy(planTypes, 'deploymentDescription', 'performanceDescription'), [planTypes]);
+		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
 	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan), [deploymentToPerformanceToPlan]);
+		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
+			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
+			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
+			return aPrice - bPrice;
+		}), [deploymentToPerformanceToPlan]);
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const selectedPlan = useMemo(() =>
 		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
 	const regionNameToLatencyToRegion = useMemo(() =>
-		groupThenKeyBy(regionLocations, 'region', 'latencyDescription'), [regionLocations]);
+		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
@@ -109,7 +111,7 @@ export function NewClusterModal({
 			const firstRegion = selectedRegions[0];
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
 			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
-				const regionToSelect = regionLocations.find(r => allowedRegionIds.includes(r.id));
+				const regionToSelect = regionLocations?.find(r => allowedRegionIds.includes(r.id));
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionName', regionToSelect.region);
 					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);

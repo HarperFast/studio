@@ -4,6 +4,7 @@ import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUs
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
+import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
 import { OrganizationRole } from '@/lib/api.patch';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { queryKeys } from '@/react-query/constants';
@@ -17,18 +18,40 @@ export function OrganizationsIndex() {
 	const { mutate: deleteOrg, isPending: isDeletingOrgPending } = useDeleteOrganizationMutation();
 
 	const [isDeleteOrgModalOpen, setIsDeleteOrgModalOpen] = useState(false);
-	const [deleteOrgInfo, setDeleteOrgInfo] = useState({
-		id: '',
-		name: '',
-	});
+	const [deleteOrgInfo, setDeleteOrgInfo] = useState<null | {
+		organizationId: string;
+		organizationName?: string;
+	}>(null);
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 
 	const organizationRoles = useMemo(
-		() =>
-			user?.roles
-				.slice()
-				.filter(curryFilterByFuzzySearch<OrganizationRole>(['organizationId', 'organizationName'], filterByNameValue))
-				.sort((a, b) => a.organizationName > b.organizationName ? 1 : -1) || [],
+		() => {
+			let roles = user?.roles;
+			// TODO: This can go away once the API changes are deployed and we don't get an array anymore.
+			if (Array.isArray(roles)) {
+				const oldRoles = roles as OrganizationRole[];
+				roles = {};
+				for (const oldRole of oldRoles) {
+					roles[oldRole.organizationId] = {
+						id: oldRole.id,
+						organizationName: oldRole.organizationName,
+						organization: {} as SchemaRoleOrganizationPermissions,
+						permission: {},
+						role: oldRole.roleName,
+					};
+				}
+			}
+			// TODO: /\ /\ /\ end of "plz make it go away" section /\ /\ /\
+			const organizations = Object.values(roles);
+			const organizationIds = Object.keys(roles).map((organizationId, index) => ({
+				organizationId,
+				organizationName: organizations[index].organizationName,
+				roleName: organizations[index].role,
+			}));
+			return organizationIds
+				.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue))
+				.sort((a, b) => (a.organizationName || '') > (b.organizationName || '') ? 1 : -1) || [];
+		},
 		[filterByNameValue, user?.roles],
 	);
 
@@ -36,9 +59,9 @@ export function OrganizationsIndex() {
 		setFilterByNameValue(e.currentTarget.value?.toLowerCase() || '');
 	}, []);
 
-	const handleDeleteOrg = useCallback((orgInfo: { id: string; name: string }) => {
-		if (orgInfo) {
-			deleteOrg(orgInfo.id, {
+	const handleDeleteOrg = useCallback((org: { organizationId: string; organizationName?: string; }) => {
+		if (org?.organizationId) {
+			deleteOrg(org.organizationId, {
 				onSuccess: () => {
 					toast.success('Success', {
 						description: `Organization successfully deleted.`,
@@ -54,7 +77,7 @@ export function OrganizationsIndex() {
 				},
 				onError: () => {
 					toast.error('Error', {
-						description: `Failed to delete organization: ${orgInfo.name}.`,
+						description: `Failed to delete organization: ${org.organizationName}.`,
 						duration: 5000,
 						action: {
 							label: 'Dismiss',
@@ -67,11 +90,8 @@ export function OrganizationsIndex() {
 		}
 	}, [deleteOrg, queryClient, setIsDeleteOrgModalOpen]);
 
-	const onDeleteOrgModal = useCallback((orgRole: OrganizationRole) => {
-		setDeleteOrgInfo({
-			id: orgRole.organizationId,
-			name: orgRole.organizationName,
-		});
+	const onDeleteOrgModal = useCallback((orgRole: { organizationId: string; organizationName?: string; }) => {
+		setDeleteOrgInfo(orgRole);
 		setIsDeleteOrgModalOpen(true);
 	}, []);
 
@@ -104,14 +124,14 @@ export function OrganizationsIndex() {
 					))}
 				</div>
 			</section>
-			<ConfirmDeletionModal
+			{deleteOrgInfo && (<ConfirmDeletionModal
 				typeOfThingBeingDeleted="organization"
-				nameOfThingBeingDeleted={deleteOrgInfo.name}
+				nameOfThingBeingDeleted={deleteOrgInfo.organizationName}
 				isModalOpen={isDeleteOrgModalOpen}
 				setIsModalOpen={() => setIsDeleteOrgModalOpen(false)}
 				deletionConfirmed={() => handleDeleteOrg(deleteOrgInfo)}
 				deletionPending={isDeletingOrgPending}
-			/>
+			/>)}
 		</>
 	);
 }
