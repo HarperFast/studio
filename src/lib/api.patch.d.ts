@@ -13,11 +13,7 @@ import {
  */
 
 export interface User extends Omit<SchemaUser, 'roles'> {
-	roles: Record<SchemaOrganization['id'], UserOrgRole>;
-}
-
-export interface UserOrgRole extends SchemaRole {
-	organizationName?: string;
+	roles: Record<SchemaOrganization['id'], SchemaRole>;
 }
 
 export interface LocalUser {

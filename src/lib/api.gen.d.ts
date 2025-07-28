@@ -2935,6 +2935,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -2989,6 +2990,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -3013,6 +3015,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -3929,6 +3932,7 @@ export interface components {
             /** Format: ID */
             id: string;
             organization: components["schemas"]["RoleOrganizationPermissions"];
+            organizationName?: string;
             permission: components["schemas"]["RolePermission"];
             role: string;
         };
@@ -4283,13 +4287,15 @@ export enum PathsRoleIdPropertyGetParametersPathProperty {
     id = "id",
     role = "role",
     permission = "permission",
-    organization = "organization"
+    organization = "organization",
+    organizationName = "organizationName"
 }
 export enum PathsRoleIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     role = "role",
     permission = "permission",
-    organization = "organization"
+    organization = "organization",
+    organizationName = "organizationName"
 }
 export enum PathsUserIdPropertyGetParametersPathProperty {
     id = "id",
