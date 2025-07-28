@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
+import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { OrganizationRole } from '@/lib/api.patch';
 import { Editor } from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
@@ -64,6 +65,7 @@ export function EditOrganizationRoleModal({
 	const { data: roleInfo } = useSuspenseQuery(
 		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId })
 	);
+	const { update, remove } = useOrganizationRolePermissions(data.organizationId);
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
 
@@ -121,6 +123,9 @@ export function EditOrganizationRoleModal({
 
 	const onSubmitRoleEdits = useCallback(
 		async (formData: z.infer<typeof UpdateOrganizationRoleSchema>) => {
+			if (!update) {
+				return;
+			}
 			const updatedRoleObject = { ...roleInfo };
 			updatedRoleObject.organizationId = data.organizationId;
 			updatedRoleObject.name = formData.roleName;
@@ -154,7 +159,7 @@ export function EditOrganizationRoleModal({
 				);
 			}
 		},
-		[updatedPermissions, isValidJSON, closeModal, data.id, data.organizationId, roleInfo, updateOrganizationRole]
+		[update, roleInfo, data.organizationId, data.id, updatedPermissions, isValidJSON, updateOrganizationRole, closeModal]
 	);
 
 	return (
@@ -169,9 +174,6 @@ export function EditOrganizationRoleModal({
 				) : (
 					<>
 						<DialogTitle>Edit Organization Role "{roleInfo.role}"</DialogTitle>
-						<DialogDescription>
-							Edit the role's permissions in JSON format or remove the role entirely.
-						</DialogDescription>
 						<Form {...form}>
 							<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
 								<FormField
@@ -237,21 +239,21 @@ export function EditOrganizationRoleModal({
 										defaultValue={updatedPermissions}
 									/>
 								</div>
-								<DialogFooter className="col-span-2">
+								{(remove || update) && (<DialogFooter className="col-span-2">
 									<div className="flex justify-between w-full">
-										<Button
+										{remove && (<Button
 											variant="destructiveOutline"
 											className="rounded-full"
 											onClick={() => setIsConfirmingRoleDeletion(true)}
 											disabled={isRoleUpdatePending}
 										>
 											Delete Role
-										</Button>
-										<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
+										</Button>)}
+										{update && (<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
 											Save Changes
-										</Button>
+										</Button>)}
 									</div>
-								</DialogFooter>
+								</DialogFooter>)}
 							</form>
 						</Form>
 					</>
