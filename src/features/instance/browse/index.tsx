@@ -1,12 +1,13 @@
 import { InstanceSchemaMap } from '@/lib/api.patch';
 import { Suspense, useCallback, useMemo } from 'react';
-import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, Outlet, useNavigate, useRouter } from '@tanstack/react-router';
 import { Loading } from '@/components/Loading';
 import { BrowseSidebar } from '@/features/instance/browse/components/BrowseSidebar';
 
 const route = getRouteApi('');
 
 export function Browse() {
+	const router = useRouter();
 	const navigate = useNavigate();
 	const { schemaName, tableName } = route.useParams();
 	const structure = route.useLoaderData() as InstanceSchemaMap;
@@ -23,8 +24,12 @@ export function Browse() {
 	const onSelectDatabase = useCallback((newSchemaName: string | undefined) => {
 		const tables = newSchemaName ? Object.keys(structure[newSchemaName] || []).sort() : [];
 		const parts = [schemaName ? '..' : '', tableName ? '..' : '', newSchemaName, tables[0]].filter(Boolean);
-		void navigate({ to: parts.join('/') });
-	}, [navigate, structure, schemaName, tableName]);
+		if (!schemaName) {
+			router.invalidate();
+		} else {
+			void navigate({ to: parts.join('/') });
+		}
+	}, [structure, schemaName, tableName, router, navigate]);
 
 	const onSelectTable = useCallback((newTableName: string | undefined) => {
 		const parts = [tableName ? '..' : '', newTableName].filter(Boolean);
