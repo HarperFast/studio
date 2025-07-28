@@ -7,21 +7,21 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
+import {
+	UpdateOrganizationRoleSchema,
+	useUpdateOrganizationRole,
+} from '@/features/organization/mutations/updateOrganizationRole';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
-import { useAuth, useInstanceAuth } from '@/hooks/useAuth';
+import { useCloudAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaOrganizationRole } from '@/lib/api.gen';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import {
-	UpdateOrganizationRoleSchema,
-	useUpdateOrganizationRole,
-} from '@/features/organization/mutations/updateOrganizationRole';
-import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
-import { zodResolver } from '@hookform/resolvers/zod';
 import z from 'zod';
 
 const ConfirmDeletionContent = ({
@@ -66,8 +66,8 @@ export function EditOrganizationRoleModal({
 	const { data: roleInfo } = useSuspenseQuery(
 		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId }),
 	);
-	const auth = useAuth();
-	const isSelf = auth.user?.role?.role === data.role;
+	const auth = useCloudAuth();
+	const isSelf = auth.user && auth.user?.roles?.[data.organizationId]?.role === data.roleName;
 	const { update, remove } = useOrganizationRolePermissions(data.organizationId);
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
