@@ -13,8 +13,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
-import { SchemaRegion } from '@/lib/api.gen';
-import { Plan } from '@/lib/api.patch';
+import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
@@ -26,7 +25,7 @@ type RegionFormInputsProps = {
 	form: UseFormReturn<z.infer<typeof NewClusterSchema>>,
 	index: number,
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>,
-	selectedPlan: Plan | undefined,
+	selectedPlan: SchemaPlan | undefined,
 };
 
 export function RegionFormInputs({

@@ -24,7 +24,7 @@ import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/new
 import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { ClusterDefinitionRegionPlan } from '@/lib/api.patch';
+import { SchemaRegionPlan } from '@/lib/api.gen';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -138,13 +138,14 @@ export function NewClusterModal({
 		form.reset();
 	}, [form, queryClient, setIsModalOpen]);
 	const submitForm = useCallback(async (formData: z.infer<typeof NewClusterSchema>) => {
-		const plans: ClusterDefinitionRegionPlan[] = [];
+		const plans: SchemaRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
 		for (const regionPlan of formData.regionPlans) {
 			const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
 			plans.push({
 				planId: plan.id,
 				regionId: region.id,
+				autoRenew: true,
 			});
 		}
 		submitNewClusterData({

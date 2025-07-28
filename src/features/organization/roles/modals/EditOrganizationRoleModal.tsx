@@ -9,7 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { OrganizationRole } from '@/lib/api.patch';
+import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { Editor } from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
@@ -57,7 +57,7 @@ export function EditOrganizationRoleModal({
 	closeModal,
 	roleDeleted,
 }: {
-	data: OrganizationRole;
+	data: SchemaOrganizationRole;
 	isModalOpen: boolean;
 	closeModal: () => void;
 	roleDeleted: () => void;

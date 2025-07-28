@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { BrowseDataTable } from '@/features/organization/roles/components/BrowseDataTable';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { OrganizationRole } from '@/lib/api.patch';
+import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { sleep } from '@/lib/sleep';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
@@ -60,7 +60,7 @@ export function OrgConfigRolesIndex() {
 	}, [refetch, setIsAddModalOpen]);
 
 	const onRowClick = useCallback(
-		(rowData: Row<OrganizationRole>) => {
+		(rowData: Row<SchemaOrganizationRole>) => {
 			onSelectOrgRole(rowData.original.id);
 		},
 		[onSelectOrgRole]
