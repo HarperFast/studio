@@ -5,6 +5,7 @@ import {
 	SchemaOrganizationRole,
 	SchemaPlan,
 	SchemaRegionPlan,
+	SchemaRole,
 	SchemaUser,
 } from '@/lib/api.gen';
 
@@ -20,8 +21,12 @@ export interface OrganizationRole extends SchemaOrganizationRole {
 
 export { SchemaOrganization as Organization };
 
-export interface User extends SchemaUser {
-	roles: OrganizationRole[];
+export interface User extends Omit<SchemaUser, 'roles'> {
+	roles: Record<SchemaOrganization['id'], UserOrgRole>;
+}
+
+export interface UserOrgRole extends SchemaRole {
+	organizationName?: string;
 }
 
 export interface LocalUser {

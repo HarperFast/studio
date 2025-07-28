@@ -7,7 +7,7 @@ export type SignInCredentials = {
 	password: string;
 };
 
-export async function onLoginSubmit({ email, password }: SignInCredentials): Promise<User> {
+export async function onLoginSubmit({ email, password }: SignInCredentials) {
 	// TODO: The OpenAPI request body for this endpoint isn't defined.
 	const { data } = await apiClient.post('/Login/', {
 		email,
@@ -15,7 +15,7 @@ export async function onLoginSubmit({ email, password }: SignInCredentials): Pro
 	});
 	if (data) {
 		// TODO: The OpenAPI response for this endpoint isn't defined.
-		return data as never as User;
+		return data as unknown as User;
 	} else {
 		throw new Error('Something went wrong');
 	}
