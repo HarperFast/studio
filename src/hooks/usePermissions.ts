@@ -10,10 +10,10 @@ import { AuthenticatedInstanceConnection, InstanceConnectionKey } from '@/lib/au
 export function useOrganizationPermissions(orgId: string): { update: boolean; remove: boolean; } {
 	const { user } = useCloudAuth();
 	const role = user?.roles?.[orgId];
-	if (!role) {
+	if (!role?.permission && !role?.organization) {
 		return { update: false, remove: false };
 	}
-	if (role.permission.super_user) {
+	if (role.permission?.super_user) {
 		return { update: true, remove: true };
 	}
 	return { update: role.organization.update, remove: role.organization.delete };
@@ -27,10 +27,10 @@ export function useOrganizationRolePermissions(orgId: string): {
 } {
 	const { user } = useCloudAuth();
 	const role = user?.roles?.[orgId];
-	if (!role) {
+	if (!role?.permission && !role?.organization?.roles) {
 		return { create: false, remove: false, update: false, view: false };
 	}
-	if (role.permission.super_user) {
+	if (role.permission?.super_user) {
 		return { create: true, remove: true, update: true, view: true };
 	}
 	const roles = role.organization.roles;
@@ -45,10 +45,10 @@ export function useOrganizationClusterPermissions(orgId: string, clusterId?: str
 } {
 	const { user } = useCloudAuth();
 	const role = user?.roles?.[orgId];
-	if (!role) {
+	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
-	if (role.permission.super_user) {
+	if (role.permission?.super_user) {
 		return { create: true, remove: true, update: true, view: true };
 	}
 	const specificRoles = !!clusterId && role.organization.clusters.resources?.find(r => r.id === clusterId);
@@ -69,10 +69,10 @@ export function useOrganizationClusterInstancePermissions(orgId: string, cluster
 } {
 	const { user } = useCloudAuth();
 	const role = user?.roles?.[orgId];
-	if (!role) {
+	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
-	if (role.permission.super_user) {
+	if (role.permission?.super_user) {
 		return { create: true, remove: true, update: true, view: true };
 	}
 	const specificRoles = role.organization.clusters
