@@ -28,7 +28,7 @@ export function OrganizationsIndex() {
 			user?.roles
 				.slice()
 				.filter(curryFilterByFuzzySearch<OrganizationRole>(['organizationId', 'organizationName'], filterByNameValue))
-				.sort((a, b) => a.organizationName > b.organizationName ? 1 : -1) || [],
+				.sort((a, b) => (a.organizationName || '') > (b.organizationName || '') ? 1 : -1) || [],
 		[filterByNameValue, user?.roles],
 	);
 
@@ -70,7 +70,7 @@ export function OrganizationsIndex() {
 	const onDeleteOrgModal = useCallback((orgRole: OrganizationRole) => {
 		setDeleteOrgInfo({
 			id: orgRole.organizationId,
-			name: orgRole.organizationName,
+			name: (orgRole.organizationName || ''),
 		});
 		setIsDeleteOrgModalOpen(true);
 	}, []);

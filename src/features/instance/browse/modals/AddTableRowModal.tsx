@@ -45,7 +45,7 @@ export function AddTableRowModal({
 			event.preventDefault();
 		}}>
 			<DialogHeader>
-				<DialogTitle>Add New {schema.name}</DialogTitle>
+				<DialogTitle>Add New {instanceTable.name}</DialogTitle>
 			</DialogHeader>
 			{instanceTable?.hash_attribute &&
 							<div className="text-sm text-gray-500">
