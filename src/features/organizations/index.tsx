@@ -4,8 +4,6 @@ import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUs
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { NewOrganizationModal } from '@/features/organizations/modals/NewOrganizationModal';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
-import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
-import { OrganizationRole } from '@/lib/api.patch';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -26,22 +24,7 @@ export function OrganizationsIndex() {
 
 	const organizationRoles = useMemo(
 		() => {
-			let roles = user?.roles;
-			// TODO: This can go away once the API changes are deployed and we don't get an array anymore.
-			if (Array.isArray(roles)) {
-				const oldRoles = roles as OrganizationRole[];
-				roles = {};
-				for (const oldRole of oldRoles) {
-					roles[oldRole.organizationId] = {
-						id: oldRole.id,
-						organizationName: oldRole.organizationName,
-						organization: {} as SchemaRoleOrganizationPermissions,
-						permission: {},
-						role: oldRole.roleName,
-					};
-				}
-			}
-			// TODO: /\ /\ /\ end of "plz make it go away" section /\ /\ /\
+			const roles = user?.roles || {};
 			const organizations = Object.values(roles);
 			const organizationIds = Object.keys(roles).map((organizationId, index) => ({
 				organizationId,
