@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	const auth = useAuth(cluster);
-	const { view } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const isPendingResetPassword = useMemo(() => cluster.resetPassword, [cluster]);
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
 
@@ -23,13 +23,17 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		</Link>;
 	}
 
-	// TODO: Only allow when... org owner.
 	if (isPendingResetPassword) {
-		return <Link to={`${cluster.id}/set-password`} className="text-sm" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
-			<span className="py-2 hover:border-b-2">
-				Set Password <ArrowRight className="inline-block" />
-			</span>
-		</Link>;
+		if (update) {
+			return <Link to={`${cluster.id}/set-password`} className="text-sm" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
+				<span className="py-2 hover:border-b-2">
+					Set Password <ArrowRight className="inline-block" />
+				</span>
+			</Link>;
+		}
+		return <span className="py-2">
+			Pending Owner Setup
+		</span>;
 	}
 
 	if (auth.isLoading) {
