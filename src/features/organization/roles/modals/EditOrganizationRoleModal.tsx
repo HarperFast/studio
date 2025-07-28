@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
+import { useAuth, useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { Editor } from '@monaco-editor/react';
@@ -63,8 +64,10 @@ export function EditOrganizationRoleModal({
 	roleDeleted: () => void;
 }) {
 	const { data: roleInfo } = useSuspenseQuery(
-		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId })
+		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId }),
 	);
+	const auth = useAuth();
+	const isSelf = auth.user?.role?.role === data.role;
 	const { update, remove } = useOrganizationRolePermissions(data.organizationId);
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
@@ -89,7 +92,7 @@ export function EditOrganizationRoleModal({
 						},
 					});
 				},
-			}
+			},
 		);
 	}, [data.id, deleteOrganizationRole, roleDeleted, closeModal]);
 
@@ -101,8 +104,8 @@ export function EditOrganizationRoleModal({
 				clusters: { ...roleInfo.organization.clusters },
 			},
 			null,
-			2
-		)
+			2,
+		),
 	);
 
 	const form = useForm<z.infer<typeof UpdateOrganizationRoleSchema>>({
@@ -118,7 +121,7 @@ export function EditOrganizationRoleModal({
 		(markers: unknown[]) => {
 			setIsValidJSON(markers.length === 0);
 		},
-		[setIsValidJSON]
+		[setIsValidJSON],
 	);
 
 	const onSubmitRoleEdits = useCallback(
@@ -155,11 +158,11 @@ export function EditOrganizationRoleModal({
 								},
 							});
 						},
-					}
+					},
 				);
 			}
 		},
-		[update, roleInfo, data.organizationId, data.id, updatedPermissions, isValidJSON, updateOrganizationRole, closeModal]
+		[update, roleInfo, data.organizationId, data.id, updatedPermissions, isValidJSON, updateOrganizationRole, closeModal],
 	);
 
 	return (
@@ -173,7 +176,8 @@ export function EditOrganizationRoleModal({
 					/>
 				) : (
 					<>
-						<DialogTitle>Edit Organization Role "{roleInfo.role}"</DialogTitle>
+						<DialogTitle>{isSelf || !update ? 'View' : 'Edit'} Organization Role
+							"{roleInfo.role}"</DialogTitle>
 						<Form {...form}>
 							<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
 								<FormField
@@ -183,7 +187,7 @@ export function EditOrganizationRoleModal({
 										<FormItem className="col-span-2">
 											<FormLabel className="pb-1">Role Name</FormLabel>
 											<FormControl>
-												<Input type="text" placeholder="Developer" className="" {...field} />
+												<Input type="text" placeholder="Developer" className="" {...field} disabled={isSelf || !update} readOnly={isSelf || !update} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -199,6 +203,7 @@ export function EditOrganizationRoleModal({
 												<Input
 													type="checkbox"
 													className="w-6 ml-2"
+													disabled={isSelf || !update} readOnly={isSelf || !update}
 													checked={field.value}
 													onChange={(e) => field.onChange(e.target.checked)}
 												/>
@@ -217,6 +222,7 @@ export function EditOrganizationRoleModal({
 												<Input
 													type="checkbox"
 													className="w-6 ml-2"
+													disabled={isSelf || !update} readOnly={isSelf || !update}
 													checked={field.value}
 													onChange={(e) => field.onChange(e.target.checked)}
 												/>
@@ -236,6 +242,7 @@ export function EditOrganizationRoleModal({
 												setUpdatedPermissions(value);
 											}
 										}}
+										options={isSelf || !update ? { readOnly: true } : undefined}
 										defaultValue={updatedPermissions}
 									/>
 								</div>
@@ -249,9 +256,10 @@ export function EditOrganizationRoleModal({
 										>
 											Delete Role
 										</Button>)}
-										{update && (<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
-											Save Changes
-										</Button>)}
+										{update && (
+											<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
+												Save Changes
+											</Button>)}
 									</div>
 								</DialogFooter>)}
 							</form>
