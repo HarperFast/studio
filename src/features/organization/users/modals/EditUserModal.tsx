@@ -1,0 +1,52 @@
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
+import { OrgUserRoleCheckbox } from '@/features/organization/users/components/OrgUserRoleCheckbox';
+import { useCloudAuth } from '@/hooks/useAuth';
+import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { SchemaUser } from '@/lib/api.gen';
+import { keyBy } from '@/lib/keyBy';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
+import { useMemo, useState } from 'react';
+
+const route = getRouteApi('');
+
+export function EditUserModal({
+	closeModal,
+	data,
+	isModalOpen,
+	onUserUpdated,
+}: {
+	closeModal: () => void;
+	data: SchemaUser;
+	isModalOpen: boolean;
+	onUserUpdated: () => void;
+}) {
+	const { organizationId } = route.useParams();
+	const auth = useCloudAuth();
+	const { update } = useOrganizationRolePermissions(organizationId);
+	const isSelf = auth.user?.email === data.email;
+	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
+	const selectedRoles = useMemo(() => data.roles ? keyBy(data.roles, 'roleName') : {}, [data]);
+	const [changesMade, setChangesMade] = useState<boolean>(false);
+
+	// TODO: Cancel invite
+	return (
+		<Dialog onOpenChange={changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
+			<DialogContent className="sm:max-w-[750px]">
+				<DialogHeader>
+					<DialogTitle>{isSelf ? 'View Your Roles' : update ? 'Edit User Roles' : 'View User Roles'}</DialogTitle>
+				</DialogHeader>
+
+				{!isSelf && update && (<DialogDescription>
+					To remove this user from the organization, uncheck all of the boxes below.
+				</DialogDescription>)}
+
+				{orgRoles.map((orgRole) => (
+					<OrgUserRoleCheckbox key={orgRole.id} readOnly={isSelf || !update} data={data} orgRole={orgRole} selectedRoles={selectedRoles} setChangesMade={setChangesMade} />
+				))}
+			</DialogContent>
+		</Dialog>
+	);
+}
+
