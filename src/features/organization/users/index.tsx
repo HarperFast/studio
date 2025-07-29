@@ -74,7 +74,7 @@ export function OrgConfigUsersIndex() {
 	}, [refetch, setIsAddModalOpen]);
 
 	const onRowClick = useCallback((rowData: Row<SchemaUser>) => {
-		onSelectUser(rowData.original.email);
+		onSelectUser(rowData.original.id);
 	}, [onSelectUser]);
 	const closeEditModal = useCallback(() => {
 		onSelectUser(undefined);
@@ -97,37 +97,35 @@ export function OrgConfigUsersIndex() {
 	}, [refetch]);
 
 	return (
-		<Suspense
-			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-			<BrowseDataTable<SchemaUser, unknown>
-				data={cloudUsers}
-				isFetching={isFetching || isRefetching}
-				columns={dataTableColumns}
-				onRowClick={onRowClick}
-				sortingState={sortingState}
-			>
-				{/*<UploadCSVModal />*/}
-				{/*disabled={tableDataFetching}*/}
-				<Button variant="defaultOutline" onClick={onRefreshClick}
-					accessKey="r"
-					disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
-					className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
-				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span*/}
-				{/*	className="hidden lg:inline-block">Search</span></Button>*/}
-				{update && (<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
-					disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>)}
-			</BrowseDataTable>
-			{update && (<AddUserModal
-				isModalOpen={isAddModalOpen}
-				onChangesSaved={onUsedAdded}
-				setIsModalOpen={setIsAddModalOpen}
-			/>)}
-			{isEditModalOpen && (<EditUserModal
-				closeModal={closeEditModal}
-				data={selectedUser}
-				isModalOpen={isEditModalOpen}
-				onUserUpdated={onUserUpdated}
-			/>)}
-		</Suspense>
+		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<Suspense
+				fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
+				<BrowseDataTable<SchemaUser, unknown>
+					data={cloudUsers}
+					isFetching={isFetching || isRefetching}
+					columns={dataTableColumns}
+					onRowClick={onRowClick}
+					sortingState={sortingState}
+				>
+					<Button variant="defaultOutline" onClick={onRefreshClick}
+						accessKey="r"
+						disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
+						className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
+					{update && (<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
+						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>)}
+				</BrowseDataTable>
+				{update && (<AddUserModal
+					isModalOpen={isAddModalOpen}
+					onChangesSaved={onUsedAdded}
+					setIsModalOpen={setIsAddModalOpen}
+				/>)}
+				{isEditModalOpen && (<EditUserModal
+					closeModal={closeEditModal}
+					data={selectedUser}
+					isModalOpen={isEditModalOpen}
+					onUserUpdated={onUserUpdated}
+				/>)}
+			</Suspense>
+		</div>
 	);
 }

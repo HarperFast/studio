@@ -1,22 +1,20 @@
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
-import { getRouteApi } from '@tanstack/react-router';
-import { Save } from 'lucide-react';
-import { Suspense, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import {
 	Select,
 	SelectContent,
@@ -26,6 +24,21 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import {
+	AddOrganizationRoleSchema,
+	useAddUserToOrganizationRole,
+} from '@/features/organization/mutations/addUserToOrganizationRole';
+import { useInviteUserToOrganizationRole } from '@/features/organization/mutations/inviteUserToOrganizationRole';
+import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
+import { AxiosError } from 'axios';
+import { MailWarningIcon, Save } from 'lucide-react';
+import { Suspense, useCallback, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const route = getRouteApi('');
 
@@ -39,67 +52,62 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const { organizationId } = route.useParams();
-	const {
-		data: orgRoles,
-		refetch,
-		isFetching,
-		isRefetching,
-	} = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
+	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
+	const [shouldInvite, setShouldInvite] = useState(false);
 
-	const form = useForm<z.infer<typeof AddUserFormSchema>>({
-		resolver: zodResolver(AddUserFormSchema),
+	const form = useForm<z.infer<typeof AddOrganizationRoleSchema>>({
+		resolver: zodResolver(AddOrganizationRoleSchema),
 		defaultValues: {
-			username: '',
-			role: '',
-			password: '',
-			confirmPassword: '',
+			email: '',
+			roleId: '',
 		},
 	});
-	const { mutate: addUser, isPending: isAddPending } = useAddUserMutation();
+	const { mutate: addUser, isPending: isAddPending } = useAddUserToOrganizationRole();
+	const { mutate: inviteUser, isPending: isInvitePending } = useInviteUserToOrganizationRole();
 
-	const onSubmitClick = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
+	const onSubmitClick = useCallback(async (formData: z.infer<typeof AddOrganizationRoleSchema>) => {
 		if (formData) {
-			addUser(
-				{
-					active: true,
-					password: formData.password,
-					role: formData.role,
-					username: formData.username,
-				},
+			(shouldInvite ? inviteUser : addUser)(
+				formData,
 				{
 					onSuccess: () => {
-						const lastRole = formData.role;
+						const lastRole = formData.roleId;
 						form.reset();
 						// Persist the selected role if they open the form again.
-						form.setValue('role', lastRole);
+						form.setValue('roleId', lastRole);
 						onChangesSaved();
-						toast.success('User added successfully!');
+						toast.success('User invited successfully!');
 						setIsModalOpen(false);
+						setShouldInvite(false);
+					},
+					onError: (error) => {
+						if ((error as AxiosError)?.status === 404) {
+							setShouldInvite(true);
+						}
 					},
 				},
 			);
 		}
-	}, [addUser, form, onChangesSaved, setIsModalOpen]);
+	}, [addUser, form, inviteUser, onChangesSaved, setIsModalOpen, shouldInvite]);
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-		{/* NOTE - Is this okay to do for the aria describedby? */}
 		<DialogContent aria-describedby={undefined}>
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
 					<DialogHeader>
-						<DialogTitle>Add New User</DialogTitle>
+						<DialogTitle>{shouldInvite ? 'Invite User' : 'Add User'}</DialogTitle>
 					</DialogHeader>
 					<FormField
 						control={form.control}
-						name="username"
+						name="email"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel className="pb-1">Username</FormLabel>
+								<FormLabel className="pb-1">Email</FormLabel>
 								<FormControl>
 									<Input
-										type="text"
+										type="email"
 										enterKeyHint="next"
-										autoComplete="username"
+										autoComplete="email"
 										{...field}
 									/>
 								</FormControl>
@@ -109,46 +117,10 @@ export function AddUserModal({
 					/>
 					<FormField
 						control={form.control}
-						name="password"
+						name="roleId"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel className="pb-1">Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										enterKeyHint="next"
-										autoComplete="new-password"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="confirmPassword"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Confirm Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										enterKeyHint="next"
-										autoComplete="new-password"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="role"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Role</FormLabel>
+								<FormLabel className="pb-1">Roles</FormLabel>
 
 								<Suspense fallback={<TextLoadingSkeleton />}>
 									<FormControl>
@@ -158,12 +130,13 @@ export function AddUserModal({
 											</SelectTrigger>
 											<SelectContent>
 												<SelectGroup>
+													{/*TODO: Multi select*/}
 													<SelectLabel>Role</SelectLabel>
-													{roles?.map((role) => (
+													{orgRoles?.map((role) => (
 														<SelectItem
 															key={role.id}
 															value={role.id}
-														>{role.role}</SelectItem>
+														>{role.roleName}</SelectItem>
 													))}
 												</SelectGroup>
 											</SelectContent>
@@ -175,10 +148,17 @@ export function AddUserModal({
 						)}
 					/>
 
+					{shouldInvite && (<DialogDescription className="p-3 my-5 text-white rounded-md bg-amber-600 flex">
+						<MailWarningIcon className="inline-block size-12 pr-2" />
+						<span>
+							This person doesn’t have a Fabric account. Do you want to invite them?
+						</span>
+					</DialogDescription>)}
+
 					<DialogFooter>
 						<div className="flex justify-between w-full">
-							<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
-								<Save /> Add User
+							<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending || isInvitePending}>
+								<Save /> {shouldInvite ? 'Invite User' : 'Add User'}
 							</Button>
 						</div>
 					</DialogFooter>

@@ -2,7 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
 
-export const AddOrganizationRoleSchema = z.object({
+export const InviteOrganizationRoleSchema = z.object({
 	email: z
 		.string({
 			message: 'Please enter a valid email address',
@@ -12,13 +12,13 @@ export const AddOrganizationRoleSchema = z.object({
 	roleId: z.string().min(1, { message: 'Please select a role' }),
 });
 
-export async function onAddUserToOrganizationRoleSubmit(formData: z.infer<typeof AddOrganizationRoleSchema>) {
-	const { data } = await apiClient.post('/OrganizationRole/', formData);
+export async function onInviteUserToOrganizationRoleSubmit(formData: z.infer<typeof InviteOrganizationRoleSchema>) {
+	const { data } = await apiClient.post('/UserInvite/', formData);
 	return data;
 }
 
-export function useAddUserToOrganizationRole() {
+export function useInviteUserToOrganizationRole() {
 	return useMutation({
-		mutationFn: (formData: z.infer<typeof AddOrganizationRoleSchema>) => onAddUserToOrganizationRoleSubmit(formData),
+		mutationFn: (formData: z.infer<typeof InviteOrganizationRoleSchema>) => onInviteUserToOrganizationRoleSubmit(formData),
 	});
 }

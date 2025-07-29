@@ -5,6 +5,11 @@ const columnHelper = createColumnHelper<SchemaUser>();
 
 export const dataTableColumns: Array<ColumnDef<SchemaUser>> = [
 	{
+		header: 'User Id',
+		accessorKey: 'id',
+		enableSorting: false,
+	},
+	{
 		header: 'Email',
 		accessorKey: 'email',
 		enableSorting: false,
@@ -23,7 +28,7 @@ export const dataTableColumns: Array<ColumnDef<SchemaUser>> = [
 		header: 'Roles',
 		enableSorting: false,
 		id: 'roles',
-		cell: (props) => props.row.original.roles?.map(r => r.roleName)?.join(' / '),
+		cell: (props) => props.row.original.roles?.map(r => r.roleName)?.sort()?.join(', '),
 	}),
 	{
 		header: 'Status',
