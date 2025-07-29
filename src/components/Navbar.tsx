@@ -3,8 +3,13 @@ import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
+
+import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
+import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { useCallback, useState } from 'react';
+import { notYetImplemented } from '@/lib/notYetImplemented';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
 	BookMarkedIcon,
@@ -15,15 +20,11 @@ import {
 	Menu,
 	MoonIcon,
 	UserIcon,
+	UsersIcon,
 	X,
 } from 'lucide-react';
-
-import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { notYetImplemented } from '@/lib/notYetImplemented';
-import { isLocalStudio } from '@/config/constants';
-import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
-import { useAuth } from '@/hooks/useAuth';
 
 const route = getRouteApi('');
 
@@ -72,7 +73,14 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
-									<Handshake className="inline-block" /> Roles
+									<Handshake className="mr-4" /> Roles
+								</Link>
+								<Link
+									to={`/orgs/${organizationId}/users`}
+									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
+									activeProps={activeLinkProps}
+								>
+									<UsersIcon className="mr-4" /> Users
 								</Link>
 							</div>
 						) : (
@@ -138,7 +146,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 									</NavigationMenuLink>
 								</NavigationMenuItem>
 								{organizationId && view ? (
-									<div className="bg-black rounded-2xl">
+									<div className="bg-black rounded-2xl flex">
 										<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
@@ -147,6 +155,17 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													activeProps={activeLinkProps}
 												>
 													<Handshake className="inline-block" /> Roles
+												</Link>
+											</NavigationMenuLink>
+										</NavigationMenuItem>
+										<NavigationMenuItem>
+											<NavigationMenuLink asChild>
+												<Link
+													to={`/orgs/${organizationId}/users`}
+													className="flex-row items-center"
+													activeProps={activeLinkProps}
+												>
+													<UsersIcon className="inline-block" /> Users
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>
@@ -187,7 +206,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 						<NavigationMenuItem>
 							<NavigationMenuLink asChild>
 								<Link to={undefined} onClick={signOut} className="flex-row items-center">
-									<LogOutIcon /> Sign Out
+									<LogOutIcon /> <span className="hidden lg:inline-block">Sign Out</span>
 								</Link>
 							</NavigationMenuLink>
 						</NavigationMenuItem>
