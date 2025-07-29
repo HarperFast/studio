@@ -1,4 +1,5 @@
 import {
+	AuthenticatedCloudConnection,
 	AuthenticatedConnection,
 	AuthenticatedInstanceConnection,
 	authStore,
@@ -19,6 +20,10 @@ export function useAuth(entity?: InstanceConnectionKey): AuthenticatedConnection
 		});
 	}, [entity, noArgs]);
 	return connection;
+}
+
+export function useCloudAuth(): AuthenticatedCloudConnection {
+	return useAuth() as AuthenticatedCloudConnection;
 }
 
 export function useInstanceAuth(entity: InstanceConnectionKey): AuthenticatedInstanceConnection {

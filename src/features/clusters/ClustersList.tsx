@@ -3,9 +3,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
-import { ClusterCard } from '@/features/organization/components/ClusterCard';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { groupBy } from '@/lib/groupBy';
@@ -23,6 +24,7 @@ const route = getRouteApi('');
 export function ClustersList() {
 	const queryClient = useQueryClient();
 	const { organizationId } = route.useParams();
+	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
 
@@ -111,14 +113,14 @@ export function ClustersList() {
 							{/*</Button>*/}
 						</div>
 
-						<Button
+						{create && (<Button
 							variant="positive"
 							className="w-full rounded-full md:w-44"
 							accessKey="n"
 							onClick={() => setIsNewClusterModalOpen(true)}
 						>
 							<Plus /> <span><u>N</u>ew Cluster</span>
-						</Button>
+						</Button>)}
 					</div>
 				) : null}
 			</nav>

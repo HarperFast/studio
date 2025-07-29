@@ -1778,6 +1778,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organizationId?: string;
+                    organizationName?: string;
                     roleName?: string;
                     userIds?: string[];
                     users?: components["schemas"]["User"][];
@@ -1833,6 +1834,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organizationId?: string;
+                    organizationName?: string;
                     roleName?: string;
                     userIds?: string[];
                     users?: components["schemas"]["User"][];
@@ -1858,6 +1860,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organizationId?: string;
+                    organizationName?: string;
                     roleName?: string;
                     userIds?: string[];
                     users?: components["schemas"]["User"][];
@@ -2932,6 +2935,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -2986,6 +2990,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -3010,6 +3015,7 @@ export interface paths {
                 query?: {
                     id?: string;
                     organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
                     permission?: components["schemas"]["RolePermission"];
                     role?: string;
                 };
@@ -3116,34 +3122,7 @@ export interface paths {
         };
         options?: never;
         head?: never;
-        /** @description patch the record with the URL path that maps to the record's primary key */
-        patch: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description primary key of record */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["Role"];
-                };
-            };
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Role"];
-                    };
-                };
-            };
-        };
+        patch?: never;
         trace?: never;
     };
     "/Role/{id}.{property}": {
@@ -3670,8 +3649,6 @@ export interface components {
         CloudInstanceType: {
             instanceType?: string;
             provider?: string;
-        } & {
-            [key: string]: unknown;
         };
         Cluster: {
             abbreviatedName: string;
@@ -3691,6 +3668,18 @@ export interface components {
             terminatedAt?: string;
             /** Format: ID */
             terminatedByUserId?: string;
+        };
+        ClusterUpsert: {
+            abbreviatedName: string;
+            autoRenew: boolean;
+            name: string;
+            /** Format: ID */
+            organizationId: string;
+            regionPlans: components["schemas"]["RegionPlan"][];
+        };
+        Configuration: {
+            description?: string;
+            name: string;
         };
         ForgotPassword: {
             [key: string]: unknown;
@@ -3769,6 +3758,16 @@ export interface components {
             /** Format: Int */
             usedStorageGb?: number;
         };
+        HostManagerCertificate: {
+            /** Format: Date */
+            expires: string;
+            hostId: string;
+            /** Format: Date */
+            issuedAt: string;
+            /** Format: ID */
+            serialNumber: string;
+            status?: string;
+        };
         LinodeMetadata: {
             /** Format: Int */
             datacenterId: number;
@@ -3818,6 +3817,7 @@ export interface components {
             id: string;
             /** Format: ID */
             organizationId: string;
+            organizationName?: string;
             roleName: string;
             userIds: string[];
             users?: components["schemas"]["User"][];
@@ -3878,8 +3878,6 @@ export interface components {
             writesPerMinuteBytes?: number;
             /** Format: Int */
             writesPerMinuteCount?: number;
-        } & {
-            [key: string]: unknown;
         };
         PurchasedBlock: {
             billingCycle?: string;
@@ -3890,8 +3888,6 @@ export interface components {
             /** Format: ID */
             planId: string;
             regionId: string;
-        } & {
-            [key: string]: unknown;
         };
         Region: {
             /** Format: ID */
@@ -3931,13 +3927,12 @@ export interface components {
             threads?: number;
             /** Format: Int */
             writeIopsLimit?: number;
-        } & {
-            [key: string]: unknown;
         };
         Role: {
             /** Format: ID */
             id: string;
             organization: components["schemas"]["RoleOrganizationPermissions"];
+            organizationName?: string;
             permission: components["schemas"]["RolePermission"];
             role: string;
         };
@@ -3947,16 +3942,12 @@ export interface components {
             resources: components["schemas"]["RoleOrganizationClusterSpecificPermissions"][];
             update: boolean;
             view: boolean;
-        } & {
-            [key: string]: unknown;
         };
         RoleOrganizationClusterSpecificInstancePermissions: {
             create: boolean;
             delete: boolean;
             update: boolean;
             view: boolean;
-        } & {
-            [key: string]: unknown;
         };
         RoleOrganizationClusterSpecificPermissions: {
             delete: boolean;
@@ -3965,8 +3956,6 @@ export interface components {
             instances: components["schemas"]["RoleOrganizationClusterSpecificInstancePermissions"];
             update: boolean;
             view: boolean;
-        } & {
-            [key: string]: unknown;
         };
         RoleOrganizationPermissions: {
             clusters: components["schemas"]["RoleOrganizationClusterOverallPermissions"];
@@ -3981,8 +3970,6 @@ export interface components {
             delete: boolean;
             update: boolean;
             view: boolean;
-        } & {
-            [key: string]: unknown;
         };
         RolePermission: {
             super_user?: boolean;
@@ -4017,9 +4004,12 @@ export interface components {
 export type SchemaAcme = components['schemas']['Acme'];
 export type SchemaCloudInstanceType = components['schemas']['CloudInstanceType'];
 export type SchemaCluster = components['schemas']['Cluster'];
+export type SchemaClusterUpsert = components['schemas']['ClusterUpsert'];
+export type SchemaConfiguration = components['schemas']['Configuration'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];
 export type SchemaHost = components['schemas']['Host'];
+export type SchemaHostManagerCertificate = components['schemas']['HostManagerCertificate'];
 export type SchemaLinodeMetadata = components['schemas']['LinodeMetadata'];
 export type SchemaLocation = components['schemas']['Location'];
 export type SchemaLogin = components['schemas']['Login'];
@@ -4235,6 +4225,7 @@ export enum PathsOrganizationRoleIdPropertyGetParametersPathProperty {
     id = "id",
     roleName = "roleName",
     organizationId = "organizationId",
+    organizationName = "organizationName",
     userIds = "userIds",
     users = "users"
 }
@@ -4242,6 +4233,7 @@ export enum PathsOrganizationRoleIdPropertyGetResponses200ContentApplicationJson
     id = "id",
     roleName = "roleName",
     organizationId = "organizationId",
+    organizationName = "organizationName",
     userIds = "userIds",
     users = "users"
 }
@@ -4295,13 +4287,15 @@ export enum PathsRoleIdPropertyGetParametersPathProperty {
     id = "id",
     role = "role",
     permission = "permission",
-    organization = "organization"
+    organization = "organization",
+    organizationName = "organizationName"
 }
 export enum PathsRoleIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     role = "role",
     permission = "permission",
-    organization = "organization"
+    organization = "organization",
+    organizationName = "organizationName"
 }
 export enum PathsUserIdPropertyGetParametersPathProperty {
     id = "id",

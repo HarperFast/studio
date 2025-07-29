@@ -1,11 +1,11 @@
+import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
-import { OrganizationRole } from '@/lib/api.patch';
 
 export const hashAttribute = 'username';
 
-const columnHelper = createColumnHelper<OrganizationRole>();
+const columnHelper = createColumnHelper<SchemaOrganizationRole>();
 
-export const dataTableColumns: Array<ColumnDef<OrganizationRole>> = [
+export const dataTableColumns: Array<ColumnDef<SchemaOrganizationRole>> = [
 	{
 		header: 'Role Name',
 		accessorKey: 'roleName',

@@ -28,6 +28,11 @@ export interface AuthenticatedInstanceConnection {
 	user: LocalUser | null;
 }
 
+export interface AuthenticatedCloudConnection {
+	isLoading: boolean;
+	user: User | null;
+}
+
 export const OverallAppSignIn = 'OverallAppSignIn' as const;
 type OverallAppSignInType = typeof OverallAppSignIn;
 

@@ -8,6 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Ellipsis } from 'lucide-react';
 import { useCallback } from 'react';
@@ -20,6 +21,7 @@ export function OrgCard({
 	onDeleteOrgModal: (OrganizationRole: { organizationId: string; organizationName?: string; }) => void;
 }) {
 	const { organizationId, organizationName, roleName } = organizationRole;
+	const { remove } = useOrganizationPermissions(organizationId);
 
 	const onDeleteClick = useCallback(() => {
 		onDeleteOrgModal(organizationRole);
@@ -30,7 +32,7 @@ export function OrgCard({
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{organizationId}</span>
-					<DropdownMenu>
+					{remove && (<DropdownMenu>
 						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white cursor-pointer">
 							<Ellipsis aria-label="Options" />
 						</DropdownMenuTrigger>
@@ -38,12 +40,12 @@ export function OrgCard({
 							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							{/*<DropdownMenuItem>Edit</DropdownMenuItem>*/}
-							<DropdownMenuItem
+							{remove && (<DropdownMenuItem
 								className="bg-red focus:bg-red/70 focus:text-white"
 								onClick={onDeleteClick}>
-								Delete</DropdownMenuItem>
+								Delete</DropdownMenuItem>)}
 						</DropdownMenuContent>
-					</DropdownMenu>
+					</DropdownMenu>)}
 				</CardDescription>
 				<CardTitle>
 					<h2>{organizationName}</h2>

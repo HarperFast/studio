@@ -3,6 +3,7 @@ import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
+import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useCallback, useState } from 'react';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
@@ -30,6 +31,7 @@ const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
 	const { organizationId } = route.useParams();
+	const { view } = useOrganizationRolePermissions(organizationId);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	return (
 		<div className="md:hidden" id="mobile-menu">
@@ -63,14 +65,14 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 							<BuildingIcon className="mr-4" />
 							Organizations
 						</Link>
-						{organizationId ? (
+						{organizationId && view ? (
 							<div className="bg-black rounded-2xl">
 								<Link
 									to={`/orgs/${organizationId}/roles`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
-									<Handshake className="inline-block" /> <span className="ms-3">Roles</span>
+									<Handshake className="inline-block" /> Roles
 								</Link>
 							</div>
 						) : (
@@ -114,6 +116,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 
 function DesktopNav({ signOut }: { signOut: () => void }) {
 	const { organizationId } = route.useParams();
+	const { view } = useOrganizationRolePermissions(organizationId);
 
 	return (
 		<div className="hidden md:block">
@@ -134,7 +137,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										</Link>
 									</NavigationMenuLink>
 								</NavigationMenuItem>
-								{organizationId ? (
+								{organizationId && view ? (
 									<div className="bg-black rounded-2xl">
 										<NavigationMenuItem>
 											<NavigationMenuLink asChild>
@@ -143,7 +146,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
-													<Handshake className="inline-block" /> <span className="ms-3">Roles</span>
+													<Handshake className="inline-block" /> Roles
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>

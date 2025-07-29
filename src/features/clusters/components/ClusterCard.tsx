@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
-import { ClusterCardAction } from '@/features/organization/components/ClusterCardAction';
+import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
@@ -29,12 +30,13 @@ export function ClusterCard({
 	cluster: Cluster;
 	onDeleteClusterModal: (cluster: Cluster) => void;
 }) {
+	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useAuth(cluster);
 	const navigate = useNavigate();
 
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
 	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
-	const canDelete = useMemo(() => cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster]);
+	const canDelete = useMemo(() => remove && cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status, remove]);
 
 	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
 	const onSignOutClick = useCallback(async () => {
@@ -51,24 +53,25 @@ export function ClusterCard({
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{cluster.id}</span>
-					{(isReadyForInteraction || canDelete) && (<DropdownMenu>
-						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white cursor-pointer">
-							<Ellipsis aria-label="Options" />
+					{(isReadyForInteraction && (view || update) || canDelete) && (<DropdownMenu>
+						<DropdownMenuTrigger>
+							<Ellipsis aria-label="Cluster options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
 							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
-							{isReadyForInteraction && (
+							{isReadyForInteraction && view && (
 								<DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>)}
-							{isReadyForInteraction && !isSelfManaged && !auth.isLoading && auth.user && (
+							{isReadyForInteraction && view && !isSelfManaged && !auth.isLoading && auth.user && (
 								<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>)}
-							{/*{isReadyForInteraction && (<DropdownMenuItem>Edit</DropdownMenuItem>)}*/}
+							{/*{isReadyForInteraction && update && (<DropdownMenuItem>Edit</DropdownMenuItem>)}*/}
 							{canDelete && (
 								<DropdownMenuItem
 									className="bg-red focus:bg-red/70 focus:text-white"
 									onClick={onDeleteClick}>
 									Delete
-								</DropdownMenuItem>)}
+								</DropdownMenuItem>
+							)}
 						</DropdownMenuContent>
 					</DropdownMenu>)}
 				</CardDescription>
@@ -79,7 +82,7 @@ export function ClusterCard({
 			<CardContent className="flex justify-between">
 				{cluster.status && (
 					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>)}
-				{isReadyForInteraction && (<ClusterCardAction cluster={cluster} />)}
+				{isReadyForInteraction && view && (<ClusterCardAction cluster={cluster} />)}
 			</CardContent>
 		</Card>
 	);

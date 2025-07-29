@@ -1,9 +1,9 @@
 import { apiClient } from '@/config/apiClient';
+import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
-import { OrganizationRole } from '@/lib/api.patch';
 
-async function getOrganizationRoles(organizationId: string): Promise<OrganizationRole[]> {
+async function getOrganizationRoles(organizationId: string): Promise<SchemaOrganizationRole[]> {
 	const { data } = await apiClient.get(`/OrganizationRole/${organizationId}` as '/OrganizationRole/'); // TODO: The API is not describing itself accurately.
 	return data;
 }

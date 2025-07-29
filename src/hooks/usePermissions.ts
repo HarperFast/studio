@@ -1,4 +1,4 @@
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, useCloudAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
 	LocalRoleAttributePermissionAction,
@@ -6,6 +6,85 @@ import {
 	LocalRolePermissionTable,
 } from '@/lib/api.patch';
 import { AuthenticatedInstanceConnection, InstanceConnectionKey } from '@/lib/authStore';
+
+export function useOrganizationPermissions(orgId: string): { update: boolean; remove: boolean; } {
+	const { user } = useCloudAuth();
+	const role = user?.roles?.[orgId];
+	if (!role?.permission && !role?.organization) {
+		return { update: false, remove: false };
+	}
+	if (role.permission?.super_user) {
+		return { update: true, remove: true };
+	}
+	return { update: role.organization.update, remove: role.organization.delete };
+}
+
+export function useOrganizationRolePermissions(orgId: string): {
+	create: boolean;
+	remove: boolean;
+	update: boolean;
+	view: boolean;
+} {
+	const { user } = useCloudAuth();
+	const role = user?.roles?.[orgId];
+	if (!role?.permission && !role?.organization?.roles) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (role.permission?.super_user) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+	const roles = role.organization.roles;
+	return { create: roles.create, remove: roles.delete, update: roles.update, view: roles.view };
+}
+
+export function useOrganizationClusterPermissions(orgId: string, clusterId?: string): {
+	create: boolean;
+	remove: boolean;
+	update: boolean;
+	view: boolean;
+} {
+	const { user } = useCloudAuth();
+	const role = user?.roles?.[orgId];
+	if (!role?.permission && !role?.organization?.clusters) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (role.permission?.super_user) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+	const specificRoles = !!clusterId && role.organization.clusters.resources?.find(r => r.id === clusterId);
+	const roles = role.organization.clusters;
+	return {
+		create: roles.create,
+		remove: specificRoles ? specificRoles.delete : roles.delete,
+		update: specificRoles ? specificRoles.update : roles.update,
+		view: specificRoles ? specificRoles.view : roles.view,
+	};
+}
+
+export function useOrganizationClusterInstancePermissions(orgId: string, clusterId: string): {
+	create: boolean;
+	remove: boolean;
+	update: boolean;
+	view: boolean;
+} {
+	const { user } = useCloudAuth();
+	const role = user?.roles?.[orgId];
+	if (!role?.permission && !role?.organization?.clusters) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (role.permission?.super_user) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+	const specificRoles = role.organization.clusters
+		.resources?.find(r => r.id === clusterId)
+		?.instances;
+	return { // TODO: Should these default to true or false when not specified?
+		create: specificRoles ? specificRoles.create : true,
+		remove: specificRoles ? specificRoles.delete : true,
+		update: specificRoles ? specificRoles.update : true,
+		view: specificRoles ? specificRoles.view : true,
+	};
+}
 
 export function useInstanceManagePermission(entity: InstanceConnectionKey): boolean {
 	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;

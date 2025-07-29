@@ -1,9 +1,9 @@
 import { apiClient } from '@/config/apiClient';
+import { SchemaOrganization } from '@/lib/api.gen';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
-import { Organization } from '@/lib/api.patch';
 
-async function getOrganization(orgId: string): Promise<Organization | null> {
+async function getOrganization(orgId: string): Promise<SchemaOrganization | null> {
 	const { data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
 	return data;
 }

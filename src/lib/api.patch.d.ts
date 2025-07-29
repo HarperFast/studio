@@ -2,9 +2,6 @@ import {
 	SchemaCluster,
 	SchemaHdbInstance,
 	SchemaOrganization,
-	SchemaOrganizationRole,
-	SchemaPlan,
-	SchemaRegionPlan,
 	SchemaRole,
 	SchemaUser,
 } from '@/lib/api.gen';
@@ -15,18 +12,8 @@ import {
  * not updated the client side yet to reflect the reality of the API.
  */
 
-export interface OrganizationRole extends SchemaOrganizationRole {
-	organizationName?: string; // TODO: Not descried by the API. Is it computed?
-}
-
-export { SchemaOrganization as Organization };
-
 export interface User extends Omit<SchemaUser, 'roles'> {
-	roles: Record<SchemaOrganization['id'], UserOrgRole>;
-}
-
-export interface UserOrgRole extends SchemaRole {
-	organizationName?: string;
+	roles: Record<SchemaOrganization['id'], SchemaRole>;
 }
 
 export interface LocalUser {
@@ -96,25 +83,10 @@ export interface Instance extends SchemaHdbInstance {
 	status?: BadgeStatus;
 }
 
-export interface Plan extends SchemaPlan {
-	priceUsd?: number; // TODO: Inc
-	deploymentType: string; // TODO: Inc
-	deploymentDescription: string; // TODO: Inc
-	performanceDescription?: string; // TODO: Inc
-	allowedRegionIds?: string[]; // TODO: Inc
-}
-
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
 }
-
-export interface ClusterDefinition extends Omit<SchemaCluster, 'id' | 'plans'> {
-	autoRenew: boolean;
-	regionPlans: ClusterDefinitionRegionPlan[];
-}
-
-export type ClusterDefinitionRegionPlan = Omit<SchemaRegionPlan, 'autoRenew'>;
 
 export interface InstanceSchemaMap {
 	[schemaName: string]: InstanceSchema;

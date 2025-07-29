@@ -7,6 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
 import { Editor } from '@monaco-editor/react';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -19,7 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import z from 'zod';
 import { getRouteApi } from '@tanstack/react-router';
 
-const defaultPermissions = {
+const defaultPermissions: Pick<SchemaRoleOrganizationPermissions, 'roles' | 'clusters'> = {
 	roles: {
 		create: true,
 		view: true,

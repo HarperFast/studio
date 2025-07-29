@@ -7,19 +7,21 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
+import {
+	UpdateOrganizationRoleSchema,
+	useUpdateOrganizationRole,
+} from '@/features/organization/mutations/updateOrganizationRole';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
-import { OrganizationRole } from '@/lib/api.patch';
+import { useCloudAuth } from '@/hooks/useAuth';
+import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { SchemaOrganizationRole } from '@/lib/api.gen';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import {
-	UpdateOrganizationRoleSchema,
-	useUpdateOrganizationRole,
-} from '@/features/organization/mutations/updateOrganizationRole';
-import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
-import { zodResolver } from '@hookform/resolvers/zod';
 import z from 'zod';
 
 const ConfirmDeletionContent = ({
@@ -56,14 +58,17 @@ export function EditOrganizationRoleModal({
 	closeModal,
 	roleDeleted,
 }: {
-	data: OrganizationRole;
+	data: SchemaOrganizationRole;
 	isModalOpen: boolean;
 	closeModal: () => void;
 	roleDeleted: () => void;
 }) {
 	const { data: roleInfo } = useSuspenseQuery(
-		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId })
+		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId }),
 	);
+	const auth = useCloudAuth();
+	const isSelf = auth.user && auth.user?.roles?.[data.organizationId]?.role === data.roleName;
+	const { update, remove } = useOrganizationRolePermissions(data.organizationId);
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
 
@@ -87,7 +92,7 @@ export function EditOrganizationRoleModal({
 						},
 					});
 				},
-			}
+			},
 		);
 	}, [data.id, deleteOrganizationRole, roleDeleted, closeModal]);
 
@@ -99,8 +104,8 @@ export function EditOrganizationRoleModal({
 				clusters: { ...roleInfo.organization.clusters },
 			},
 			null,
-			2
-		)
+			2,
+		),
 	);
 
 	const form = useForm<z.infer<typeof UpdateOrganizationRoleSchema>>({
@@ -116,11 +121,14 @@ export function EditOrganizationRoleModal({
 		(markers: unknown[]) => {
 			setIsValidJSON(markers.length === 0);
 		},
-		[setIsValidJSON]
+		[setIsValidJSON],
 	);
 
 	const onSubmitRoleEdits = useCallback(
 		async (formData: z.infer<typeof UpdateOrganizationRoleSchema>) => {
+			if (!update) {
+				return;
+			}
 			const updatedRoleObject = { ...roleInfo };
 			updatedRoleObject.organizationId = data.organizationId;
 			updatedRoleObject.name = formData.roleName;
@@ -150,11 +158,11 @@ export function EditOrganizationRoleModal({
 								},
 							});
 						},
-					}
+					},
 				);
 			}
 		},
-		[updatedPermissions, isValidJSON, closeModal, data.id, data.organizationId, roleInfo, updateOrganizationRole]
+		[update, roleInfo, data.organizationId, data.id, updatedPermissions, isValidJSON, updateOrganizationRole, closeModal],
 	);
 
 	return (
@@ -168,10 +176,8 @@ export function EditOrganizationRoleModal({
 					/>
 				) : (
 					<>
-						<DialogTitle>Edit Organization Role "{roleInfo.role}"</DialogTitle>
-						<DialogDescription>
-							Edit the role's permissions in JSON format or remove the role entirely.
-						</DialogDescription>
+						<DialogTitle>{isSelf || !update ? 'View' : 'Edit'} Organization Role
+							"{roleInfo.role}"</DialogTitle>
 						<Form {...form}>
 							<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
 								<FormField
@@ -181,7 +187,7 @@ export function EditOrganizationRoleModal({
 										<FormItem className="col-span-2">
 											<FormLabel className="pb-1">Role Name</FormLabel>
 											<FormControl>
-												<Input type="text" placeholder="Developer" className="" {...field} />
+												<Input type="text" placeholder="Developer" className="" {...field} disabled={isSelf || !update} readOnly={isSelf || !update} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -197,6 +203,7 @@ export function EditOrganizationRoleModal({
 												<Input
 													type="checkbox"
 													className="w-6 ml-2"
+													disabled={isSelf || !update} readOnly={isSelf || !update}
 													checked={field.value}
 													onChange={(e) => field.onChange(e.target.checked)}
 												/>
@@ -215,6 +222,7 @@ export function EditOrganizationRoleModal({
 												<Input
 													type="checkbox"
 													className="w-6 ml-2"
+													disabled={isSelf || !update} readOnly={isSelf || !update}
 													checked={field.value}
 													onChange={(e) => field.onChange(e.target.checked)}
 												/>
@@ -234,24 +242,26 @@ export function EditOrganizationRoleModal({
 												setUpdatedPermissions(value);
 											}
 										}}
+										options={isSelf || !update ? { readOnly: true } : undefined}
 										defaultValue={updatedPermissions}
 									/>
 								</div>
-								<DialogFooter className="col-span-2">
+								{(remove || update) && (<DialogFooter className="col-span-2">
 									<div className="flex justify-between w-full">
-										<Button
+										{remove && (<Button
 											variant="destructiveOutline"
 											className="rounded-full"
 											onClick={() => setIsConfirmingRoleDeletion(true)}
 											disabled={isRoleUpdatePending}
 										>
 											Delete Role
-										</Button>
-										<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
-											Save Changes
-										</Button>
+										</Button>)}
+										{update && (
+											<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
+												Save Changes
+											</Button>)}
 									</div>
-								</DialogFooter>
+								</DialogFooter>)}
 							</form>
 						</Form>
 					</>
