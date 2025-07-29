@@ -18,7 +18,7 @@ export const AddOrganizationRoleSchema = z.object({
 });
 
 export async function onAddOrganizationRoleSubmit(formData: SchemaRole) {
-	const { data } = await apiClient.post('/Role' as '/Role/', formData);
+	const { data } = await apiClient.post('/Role/', formData);
 	return data;
 }
 
