@@ -17,6 +17,9 @@ export function Dashboard() {
 			</header>
 			<main>
 				<Outlet />
+				<span className="absolute bottom-4 right-4 text-sm text-white-500">
+					Harper Studio v{import.meta.env.VITE_STUDIO_VERSION}
+				</span>
 			</main>
 		</>
 	);
