@@ -9,7 +9,6 @@ import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogo
 import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { notYetImplemented } from '@/lib/notYetImplemented';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
 	BookMarkedIcon,
@@ -18,7 +17,6 @@ import {
 	LogInIcon,
 	LogOutIcon,
 	Menu,
-	MoonIcon,
 	UserIcon,
 	UsersIcon,
 	X,
