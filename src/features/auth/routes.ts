@@ -51,13 +51,13 @@ const forgotPasswordRoute = createRoute({
 
 const verifyEmailRoute = createRoute({
 	getParentRoute: () => authLayout,
-	path: 'verifyemail',
+	path: 'verify-email',
 	component: VerifyEmail,
 });
 
 const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
-	path: 'resetpassword',
+	path: 'reset-password',
 	component: ResetPassword,
 });
 

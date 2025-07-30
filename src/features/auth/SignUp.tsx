@@ -1,17 +1,17 @@
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useSignUpMutation } from '@/features/auth/hooks/useSignUp';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 const SignInSchema = z.object({
 	firstname: z
@@ -42,12 +42,13 @@ const SignInSchema = z.object({
 
 export function SignUp() {
 	const navigate = useNavigate();
+	const { email } = useSearch({ strict: false });
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			firstname: '',
 			lastname: '',
-			email: '',
+			email: email || '',
 			password: '',
 		},
 	});
@@ -120,6 +121,8 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="email"
+										readOnly={!!email}
+										disabled={!!email}
 										placeholder="jane.doe@harpersystems.dev"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
