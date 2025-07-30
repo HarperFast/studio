@@ -96,13 +96,6 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 					<BookMarkedIcon className="mr-4" /> Resources
 				</Link>
 				<Link
-					to="#"
-					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
-					onClick={notYetImplemented}
-				>
-					<MoonIcon className="mr-4" /> Theme
-				</Link>
-				<Link
 					to={undefined}
 					onClick={signOut}
 					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
@@ -179,13 +172,6 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 						</NavigationMenuItem>
 						<NavigationMenuItem>
 							<NavigationMenuLink asChild>
-								<Link to={undefined} onClick={notYetImplemented} className="flex-row items-center">
-									<MoonIcon /> <span className="hidden lg:inline-block">Theme</span>
-								</Link>
-							</NavigationMenuLink>
-						</NavigationMenuItem>
-						<NavigationMenuItem>
-							<NavigationMenuLink asChild>
 								<Link to={undefined} onClick={signOut} className="flex-row items-center">
 									<LogOutIcon /> Sign Out
 								</Link>
@@ -217,13 +203,6 @@ function AnonymousNav() {
 								className="flex-row items-center"
 							>
 								<BookMarkedIcon /> <span className="hidden md:inline-block">Resources</span>
-							</Link>
-						</NavigationMenuLink>
-					</NavigationMenuItem>
-					<NavigationMenuItem>
-						<NavigationMenuLink asChild>
-							<Link to={undefined} onClick={toggleTheme} className="flex-row items-center">
-								<MoonIcon /> <span className="hidden md:inline-block">Theme</span>
 							</Link>
 						</NavigationMenuLink>
 					</NavigationMenuItem>
@@ -280,9 +259,4 @@ export function Navbar() {
 			<DesktopNav signOut={handleSignOut} />
 		</>
 	);
-}
-
-function toggleTheme() {
-	document.documentElement.classList.toggle('dark');
-	localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
 }
