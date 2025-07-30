@@ -72,7 +72,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
-									<Handshake className="inline-block" /> Roles
+									<Handshake className="inline-block mr-4" /> Roles
 								</Link>
 							</div>
 						) : (
