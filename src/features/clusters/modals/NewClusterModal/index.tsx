@@ -27,6 +27,7 @@ import { getOrganizationQueryOptions } from '@/features/organization/queries/get
 import { SchemaRegionPlan } from '@/lib/api.gen';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
+import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -45,20 +46,64 @@ export function NewClusterModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
-	// TODO: "allowedRegionIds" validation.
-	// TODO: Region uniqueness validation.
 	const queryClient = useQueryClient();
 	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
 	const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
 
+	const deploymentToPerformanceToPlan = useMemo(() =>
+		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
+	const availableDeploymentTypes = useMemo(() =>
+		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
+			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
+			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
+			return aPrice - bPrice;
+		}), [deploymentToPerformanceToPlan]);
+	const regionNameToLatencyToRegion = useMemo(() =>
+		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
+
+	const refineZod = useCallback((data: z.infer<typeof NewClusterSchema>, ctx: z.RefinementCtx) => {
+		const names = new Set();
+		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
+		for (let i = 0; i < data.regionPlans.length; i++) {
+			const regionPlan = data.regionPlans[i];
+			const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
+			if (!names.has(regionPlan.regionName)) {
+				names.add(regionPlan.regionName);
+			} else {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: [`regionPlans.${i}.regionName`],
+					message: 'You can only select a region once!',
+				});
+			}
+			if (selectedPlan?.allowedRegionIds?.length && region?.id && !selectedPlan.allowedRegionIds.includes(region.id)) {
+				const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
+				if (!prefixMatches) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: [`regionPlans.${i}.regionName`],
+						message: `This region is not available with the ${data.deploymentDescription} tier!`,
+					});
+				} else {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: [`regionPlans.${i}.latencyDescription`],
+						message: `This latency is not available with the ${data.deploymentDescription} tier!`,
+					});
+				}
+			}
+		}
+	}, [deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
+
 	const form = useForm({
-		resolver: zodResolver(NewClusterSchema),
+		resolver: zodResolver(NewClusterSchema.superRefine(refineZod)),
 		defaultValues: {
 			systemName: '',
 			abbreviatedName: '',
 			deploymentDescription: 'Free',
+			performanceDescription: '',
 			regionPlans: [
 				{ regionName: 'US', latencyDescription: '' },
 			],
@@ -85,20 +130,10 @@ export function NewClusterModal({
 			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,
 		};
 	}, [systemName, abbreviatedName, orgInfo]);
-	const deploymentToPerformanceToPlan = useMemo(() =>
-		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
-	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
-			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
-			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
-			return aPrice - bPrice;
-		}), [deploymentToPerformanceToPlan]);
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const selectedPlan = useMemo(() =>
 		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
-	const regionNameToLatencyToRegion = useMemo(() =>
-		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
@@ -178,7 +213,7 @@ export function NewClusterModal({
 								control={form.control}
 								name="systemName"
 								render={({ field }) => (
-									<FormItem className="md:col-span-6">
+									<FormItem className="col-span-3 md:col-span-6">
 										<FormLabel className="pb-1">Harper System Name</FormLabel>
 										<FormControl>
 											<Input
@@ -195,7 +230,7 @@ export function NewClusterModal({
 								control={form.control}
 								name="abbreviatedName"
 								render={({ field }) => (
-									<FormItem className="md:col-span-3">
+									<FormItem className="col-span-3">
 										<FormLabel className="pb-1">Host Name</FormLabel>
 										<FormControl>
 											<Input
@@ -210,7 +245,7 @@ export function NewClusterModal({
 									</FormItem>
 								)}
 							/>
-							<FormItem className="md:col-span-3">
+							<FormItem className="col-span-3 ">
 								<FormLabel className="pb-1">Full Host Name</FormLabel>
 								<FormControl>
 									<span>{calculatedNames.fullHostName}</span>
@@ -222,7 +257,7 @@ export function NewClusterModal({
 								control={form.control}
 								name="deploymentDescription"
 								render={({ field }) => (
-									<FormItem className="md:col-span-3">
+									<FormItem className="col-span-3">
 										<FormLabel className="pb-1">Harper Deployment</FormLabel>
 
 										<Suspense fallback={<TextLoadingSkeleton />}>
@@ -254,7 +289,7 @@ export function NewClusterModal({
 								control={form.control}
 								name="performanceDescription"
 								render={({ field }) => (
-									<FormItem className="md:col-span-3">
+									<FormItem className="col-span-3">
 										<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
 
 										<Suspense fallback={<TextLoadingSkeleton />}>
