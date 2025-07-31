@@ -6,7 +6,7 @@ import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuLis
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
 
-import { useSignOutMutation } from '@/features/auth/hooks/useSignOut';
+import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
@@ -245,10 +245,10 @@ function Logo() {
 	);
 }
 
-const useSignOut = isLocalStudio ? useInstanceLogoutMutation : useSignOutMutation;
+const useLogout = isLocalStudio ? useInstanceLogoutMutation : useLogoutMutation;
 
 export function Navbar() {
-	const { mutate: signOut } = useSignOut();
+	const { mutate: signOut } = useLogout();
 	const navigate = useNavigate();
 	const { user } = useAuth();
 	const router = useRouter();
