@@ -1,19 +1,21 @@
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/react-query/constants';
+import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
+import { reoClient } from '@/integrations/reo/reo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
+import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
+import { queryKeys } from '@/react-query/constants';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 const SignInSchema = z.object({
 	email: z
@@ -50,6 +52,15 @@ export function SignIn() {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
 				authStore.setUserForEntity(OverallAppSignIn, data);
+
+				const company = parseCompanyFromEmail(data.email);
+				if (company) {
+					reoClient.identify({
+						username: data.email,
+						type: 'email',
+						company,
+					});
+				}
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/orgs' });
