@@ -3,7 +3,7 @@ import { clustersLayoutRoute } from '@/features/clusters/routes';
 import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterIndex } from '@/features/cluster/index';
-import { ClusterSignIn } from '@/features/cluster/ClusterSignIn';
+import { ClusterInstanceSignIn } from '@/features/cluster/ClusterInstanceSignIn';
 import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
 
 export const clusterLayoutRoute = createRoute({
@@ -28,7 +28,20 @@ const clusterIndexRoute = createRoute({
 const clusterSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'sign-in',
-	component: ClusterSignIn,
+	component: ClusterInstanceSignIn,
+	// beforeLoad: ({ context, location }) => {
+	// TODO: Check if signed into this cluster.
+	// if (context.authentication.user) {
+	// 	const search: Record<string, string> = location?.search;
+	// 	throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
+	// }
+	// },
+});
+
+const instanceSignInRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'instance/$instanceId/sign-in',
+	component: ClusterInstanceSignIn,
 	// beforeLoad: ({ context, location }) => {
 	// TODO: Check if signed into this cluster.
 	// if (context.authentication.user) {
@@ -47,5 +60,6 @@ const clusterSetPasswordRoute = createRoute({
 export const clusterRoutes = [
 	clusterIndexRoute,
 	clusterSignInRoute,
+	instanceSignInRoute,
 	clusterSetPasswordRoute,
 ];

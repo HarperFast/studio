@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input';
 import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
+import { Instance } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
@@ -20,10 +22,10 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const ClusterSignInSchema = z.object({
+const SignInSchema = z.object({
 	username: z
 		.string({
-			message: 'Please enter the cluster username.',
+			message: 'Please enter your username.',
 		})
 		.max(75, { message: 'Username must be less than 75 characters' }),
 	password: z
@@ -36,20 +38,33 @@ const ClusterSignInSchema = z.object({
 
 const route = getRouteApi('');
 
-export function ClusterSignIn() {
-	const { clusterId } = route.useParams();
+export function ClusterInstanceSignIn() {
+	const { clusterId, instanceId } = route.useParams();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
+	const instance: Instance = useMemo(
+		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
+		[cluster, instanceId]);
+	const noun = instanceId ? 'Instance' : 'Cluster';
 
 	const navigate = useNavigate();
-	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
+	const operationsUrl = useMemo(() => {
+		if (cluster) {
+			if (instance) {
+				return getOperationsUrlForInstance(instance);
+			} else {
+				return getOperationsUrlForCluster(cluster);
+			}
+		}
+		return null;
+	}, [cluster, instance]);
 	// const { redirect } = useSearch({ strict: false });
 	// const router = useRouter();
 	// const queryClient = useQueryClient();
 
-	const form = useForm<z.infer<typeof ClusterSignInSchema>>({
-		resolver: zodResolver(ClusterSignInSchema),
+	const form = useForm<z.infer<typeof SignInSchema>>({
+		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			username: '',
 			password: '',
@@ -58,16 +73,16 @@ export function ClusterSignIn() {
 
 	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
 
-	const submitForm = useCallback(async (formData: z.infer<typeof ClusterSignInSchema>) => {
+	const submitForm = useCallback(async (formData: z.infer<typeof SignInSchema>) => {
 		if (!operationsUrl) {
-			toast.error('Cluster is not yet fully loaded, please wait a moment before trying to sign in.');
+			toast.error(`${noun} is not yet fully loaded, please wait a moment before trying to sign in.`);
 			return;
 		}
 		submitInstanceLogin({ ...formData, operationsUrl }, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo({ operationsUrl });
-				authStore.setUserForEntity(cluster || null, user);
+				authStore.setUserForEntity(instance || cluster || null, user);
 				// TODO: What should we invalidate for the cluster?
 				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				//  router.invalidate();
@@ -76,13 +91,12 @@ export function ClusterSignIn() {
 				await navigate({ to: '../browse' });
 			},
 		});
-	}, [cluster, navigate, operationsUrl, submitInstanceLogin]);
+	}, [cluster, instance, navigate, noun, operationsUrl, submitInstanceLogin]);
 
 	if (cluster?.resetPassword) {
 		return <Navigate to="../set-password" />;
 	}
 
-	// TODO: There's a lot we can DRY up between the sign in form variants.
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
@@ -97,7 +111,7 @@ export function ClusterSignIn() {
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">
-						Sign in to Harper Cluster</h2>
+						Sign in to Harper {noun}</h2>
 					<Form {...form}>
 						<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
 							<FormField

@@ -1,8 +1,7 @@
-import { useAuth } from '@/hooks/useAuth';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { InstanceLogInModal } from '@/features/cluster/modals/InstanceLoginModal';
-import { Link } from '@tanstack/react-router';
+import { useAuth } from '@/hooks/useAuth';
 import { Instance } from '@/lib/api.patch';
+import { Link } from '@tanstack/react-router';
 
 export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useAuth(instance);
@@ -13,9 +12,15 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 		return <TextLoadingSkeleton />;
 	}
 	if (!instanceUser) {
-		return <InstanceLogInModal
-			instance={instance}
-		/>;
+		return <Link
+			to={`instance/${instance.id}/sign-in`}
+			className="text-sm"
+			aria-label={`Sign in to ${instance.name} instance`}
+			title={`Sign in to ${instance.name} instance`}
+			preload={false}
+		>
+			<span className="py-2 hover:border-b-2">Sign In</span>
+		</Link>;
 	}
 	return <Link
 		to={`instance/${instance.id}/browse`}
