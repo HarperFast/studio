@@ -1,4 +1,5 @@
 import { isLocalStudio } from '@/config/constants';
+import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
@@ -101,6 +102,21 @@ class AuthStore {
 			return entity;
 		}
 		return undefined;
+	}
+
+	public async signOutFromPotentiallyAuthenticatedInstances() {
+		for (const entityId in this.potentiallyAuthenticated) {
+			if (entityId === OverallAppSignIn) {
+				continue;
+			}
+			const operationsUrl = this.potentiallyAuthenticated[entityId];
+			try {
+				await onInstanceLogoutSubmit({ operationsUrl });
+			} catch (err: unknown) {
+				console.error(`Failed to log out from ${entityId}, carrying on`, err);
+			}
+			this.flagKeyAsSignedOut(entityId);
+		}
 	}
 
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {

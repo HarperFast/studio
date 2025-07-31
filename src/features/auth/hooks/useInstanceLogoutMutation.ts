@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
-import { signOutOnSuccess } from '@/features/auth/handlers/signOutOnSuccess';
+import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
 
 type LogoutVariables = {
 	operationsUrl?: string;
@@ -24,6 +24,6 @@ export async function onInstanceLogoutSubmit(variables: LogoutVariables | void):
 export function useInstanceLogoutMutation() {
 	return useMutation<LogoutInfoResponse, Error, LogoutVariables | void>({
 		mutationFn: (variables) => onInstanceLogoutSubmit(variables),
-		onSuccess: signOutOnSuccess,
+		onSuccess: logoutOnSuccess,
 	});
 }
