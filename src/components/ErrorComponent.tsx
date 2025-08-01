@@ -2,11 +2,11 @@ import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useOverallAuth } from '@/hooks/useAuth';
 import { isLocalStudio } from '@/config/constants';
 
 export function ErrorComponent({ error }: { error: Error }) {
-	const { user, isLoading: isUserLoading } = useAuth();
+	const { user, isLoading: isUserLoading } = useOverallAuth();
 
 	return (
 		<Card className="text-red p-5 border border-red rounded-md m-12 mt-36">

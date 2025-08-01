@@ -1,4 +1,4 @@
-import { useAuth } from '@/hooks/useAuth';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { Link } from '@tanstack/react-router';
@@ -6,7 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
-	const auth = useAuth(cluster);
+	const auth = useInstanceAuth(cluster.id);
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const isPendingResetPassword = useMemo(() => cluster.resetPassword, [cluster]);
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);

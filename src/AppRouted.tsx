@@ -1,13 +1,13 @@
-import { useAuth } from '@/hooks/useAuth';
-import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { rootRouteTree } from '@/router/rootRouteTree';
-import { NotFoundComponent } from '@/components/NotFoundComponent';
 import { ErrorComponent } from '@/components/ErrorComponent';
+import { NotFoundComponent } from '@/components/NotFoundComponent';
+import { useRootAuthenticationContext } from '@/hooks/useAuth';
 import { queryClient } from '@/react-query/queryClient';
+import { rootRouteTree } from '@/router/rootRouteTree';
+import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 
 export function AppRouted() {
-	const authentication = useAuth();
+	const authentication = useRootAuthenticationContext();
 	const hashHistory = createHashHistory();
 	const router = createRouter({
 		routeTree: rootRouteTree,

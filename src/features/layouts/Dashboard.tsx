@@ -1,10 +1,10 @@
 import { Outlet } from '@tanstack/react-router';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
-import { useAuth } from '@/hooks/useAuth';
+import { useOverallAuth } from '@/hooks/useAuth';
 
 export function Dashboard() {
-	const { isLoading: isUserLoading } = useAuth();
+	const { isLoading: isUserLoading } = useOverallAuth();
 
 	if (isUserLoading) {
 		return <Loading className="fixed z-50 translate-1/2" />;

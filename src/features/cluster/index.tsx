@@ -21,8 +21,6 @@ export function ClusterIndex() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
-	// TODO: We can use this to track auth on the top level cluster.
-	// const { user: clusterUser, isLoading: clusterAuthIsLoading } = useAuth(cluster || null);
 
 	const columns: ColumnDef<Instance>[] = useMemo(
 		() => [

@@ -37,55 +37,88 @@ export interface AuthenticatedCloudConnection {
 export const OverallAppSignIn = 'OverallAppSignIn' as const;
 type OverallAppSignInType = typeof OverallAppSignIn;
 
-type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
+export type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
 type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
 class AuthStore {
-	private readonly users: Record<EntityIds, User | LocalUser | null> = {};
-	private readonly loading: Record<EntityIds, boolean> = {};
-	private readonly listeners: Record<EntityIds, Array<(connection: AuthenticatedConnection) => void>> = {};
+	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
+	private readonly specificListeners: Record<EntityIds, Array<(connection: AuthenticatedConnection, id: EntityIds) => void>> = {};
 
 	private readonly localStorageKey = 'Studio:PotentiallyAuthenticated';
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
+	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
+	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}');
+	}
+
+	public getAllConnections(): Record<EntityIds, AuthenticatedConnection> {
+		if (!this.potentiallyAuthenticated.OverallAppSignIn) {
+			this.allConnections[OverallAppSignIn] = {
+				user: null,
+				isLoading: false,
+			};
+		}
+		return this.allConnections;
+	}
+
+	public getConnectionById(id: EntityIds): AuthenticatedConnection {
+		if (!this.allConnections[id]) {
+			this.allConnections[id] = {
+				user: null,
+				isLoading: !!this.potentiallyAuthenticated[id],
+			};
+		}
+		return this.allConnections[id];
+	}
+
+	public listenToAllEntities(listener: (connection: AuthenticatedConnection, id: EntityIds) => void): AuthStoreListenerCleanup | undefined {
+		if (!this.broadListeners.includes(listener)) {
+			this.broadListeners.push(listener);
+		}
+		for (const id in this.potentiallyAuthenticated) {
+			void this.ensureUserIsLoaded(id);
+		}
+		return () => {
+			const index = this.broadListeners.indexOf(listener);
+			if (index >= 0) {
+				this.broadListeners.splice(index, 1);
+			}
+		};
 	}
 
 	public listenToEntity(id: EntityIds | null | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
 		if (!id) {
 			return undefined;
 		}
-		if (!this.listeners[id]) {
-			this.listeners[id] = [];
-			void this.loadUserById(id).then(() => this.updateListeners(id));
+		if (!this.specificListeners[id]) {
+			this.specificListeners[id] = [];
 		}
-		if (!this.listeners[id].includes(listener)) {
-			this.listeners[id].push(listener);
+		if (!this.specificListeners[id].includes(listener)) {
+			this.specificListeners[id].push(listener);
 		}
-		this.updateListener(id, listener);
+		void this.ensureUserIsLoaded(id);
 		return () => {
-			const index = this.listeners[id].indexOf(listener);
+			const index = this.specificListeners[id].indexOf(listener);
 			if (index >= 0) {
-				this.listeners[id].splice(index, 1);
+				this.specificListeners[id].splice(index, 1);
 			}
 		};
 	}
 
-	public setUserForEntity(entity: EntityTypes, user: User | LocalUser | null): void {
+	public setUserForEntity(entity: EntityTypes, user: AuthenticatedConnection['user']): void {
 		const id = this.calculateIdFromEntity(entity);
 		const key = this.calculateKeyFromEntity(entity);
 		if (!id || !key) {
 			return;
 		}
-		this.users[id] = user;
-		this.loading[id] = false;
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
 			this.flagKeyAsSignedOut(id);
 		}
-		void this.updateListeners(id);
+		this.updateConnectionIfChanged(id, false, user);
 	}
 
 	public calculateIdFromEntity(entity: EntityTypes | EntityIds | undefined): EntityIds | undefined {
@@ -106,6 +139,9 @@ class AuthStore {
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
 		for (const entityId in this.potentiallyAuthenticated) {
+			this.allConnections[entityId].user = null;
+			this.allConnections[entityId].isLoading = false;
+			this.flagKeyAsSignedOut(entityId);
 			if (entityId === OverallAppSignIn) {
 				continue;
 			}
@@ -115,7 +151,6 @@ class AuthStore {
 			} catch (err: unknown) {
 				console.error(`Failed to log out from ${entityId}, carrying on`, err);
 			}
-			this.flagKeyAsSignedOut(entityId);
 		}
 	}
 
@@ -130,6 +165,23 @@ class AuthStore {
 			return getOperationsUrlForCluster(entity) || undefined;
 		}
 		return undefined;
+	}
+
+	private updateConnectionIfChanged(id: EntityIds, isLoading: boolean, user: AuthenticatedConnection['user']) {
+		this.checkedAuthentication[id] = true;
+		const connection = this.getConnectionById(id);
+		let changes = false;
+		if (connection.isLoading !== isLoading) {
+			connection.isLoading = isLoading;
+			changes = true;
+		}
+		if (connection.user !== user) {
+			connection.user = user;
+			changes = true;
+		}
+		if (changes) {
+			void this.updateListeners(id);
+		}
 	}
 
 	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
@@ -148,29 +200,33 @@ class AuthStore {
 
 	private async updateListeners(id: EntityIds): Promise<void> {
 		await sleep(1);
-		if (this.listeners[id]) {
-			for (const listener of this.listeners[id]) {
+		if (this.broadListeners) {
+			for (const listener of this.broadListeners) {
+				this.updateListener(id, listener);
+			}
+		}
+		if (this.specificListeners[id]) {
+			for (const listener of this.specificListeners[id]) {
 				this.updateListener(id, listener);
 			}
 		}
 	}
 
-	private updateListener(id: EntityIds, listener: (connection: AuthenticatedConnection) => void) {
-		listener({
-			isLoading: this.loading[id] || false,
-			user: this.users[id] || null,
-		});
+	private updateListener(id: EntityIds, listener: (connection: AuthenticatedConnection, id: EntityIds) => void) {
+		listener(this.getConnectionById(id), id);
 	}
 
-	private async loadUserById(id: EntityIds): Promise<void> {
+	private async ensureUserIsLoaded(id: EntityIds): Promise<void> {
 		if (!this.potentiallyAuthenticated[id]) {
-			this.loading[id] = false;
-			this.users[id] = null;
+			this.updateConnectionIfChanged(id, false, null);
+			return;
+		}
+		if (this.checkedAuthentication[id]) {
 			return;
 		}
 		const key = this.potentiallyAuthenticated[id];
-		this.loading[id] = true;
-		let user: User | LocalUser | null = null;
+		this.updateConnectionIfChanged(id, true, null);
+		let user: AuthenticatedConnection['user'] = null;
 		try {
 			if (id === OverallAppSignIn) {
 				if (isLocalStudio) {
@@ -191,8 +247,7 @@ class AuthStore {
 		} else {
 			this.flagKeyAsSignedOut(id);
 		}
-		this.users[id] = user;
-		this.loading[id] = false;
+		this.updateConnectionIfChanged(id, false, user);
 	}
 }
 

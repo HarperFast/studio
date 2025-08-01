@@ -1,13 +1,13 @@
-import { createRootRouteWithContext } from '@tanstack/react-router';
-import { QueryClient } from '@tanstack/react-query';
 import { StudioCloud } from '@/components/StudioCloud';
-import { isLocalStudio } from '@/config/constants';
 import { StudioLocal } from '@/components/StudioLocal';
-import { AuthenticatedConnection } from '@/lib/authStore';
+import { isLocalStudio } from '@/config/constants';
+import { AuthenticatedConnection, EntityIds } from '@/lib/authStore';
+import { QueryClient } from '@tanstack/react-query';
+import { createRootRouteWithContext } from '@tanstack/react-router';
 
 export const rootRoute = createRootRouteWithContext<{
 	queryClient: QueryClient;
-	authentication: AuthenticatedConnection;
+	authentication: Record<EntityIds, AuthenticatedConnection>;
 }>()({
 	component: isLocalStudio ? StudioLocal : StudioCloud,
 });

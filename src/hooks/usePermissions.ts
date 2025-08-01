@@ -1,11 +1,11 @@
-import { useAuth, useCloudAuth } from '@/hooks/useAuth';
+import { useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
 	LocalRoleAttributePermissionAction,
 	LocalRolePermissionAction,
 	LocalRolePermissionTable,
 } from '@/lib/api.patch';
-import { AuthenticatedInstanceConnection, InstanceConnectionKey } from '@/lib/authStore';
+import { EntityIds } from '@/lib/authStore';
 
 export function useOrganizationPermissions(orgId: string): { update: boolean; remove: boolean; } {
 	const { user } = useCloudAuth();
@@ -86,8 +86,8 @@ export function useOrganizationClusterInstancePermissions(orgId: string, cluster
 	};
 }
 
-export function useInstanceManagePermission(entity: InstanceConnectionKey): boolean {
-	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;
+export function useInstanceManagePermission(entityId: EntityIds): boolean {
+	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -97,8 +97,8 @@ export function useInstanceManagePermission(entity: InstanceConnectionKey): bool
 	return permission.super_user === true;
 }
 
-export function useInstanceBrowseManagePermission(entity: InstanceConnectionKey): boolean {
-	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;
+export function useInstanceBrowseManagePermission(entityId: EntityIds): boolean {
+	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -108,8 +108,8 @@ export function useInstanceBrowseManagePermission(entity: InstanceConnectionKey)
 	return permission.super_user === true || permission.structure_user === true;
 }
 
-export function useInstanceSchemaTablePermission(entity: InstanceConnectionKey, schemaName: string, tableName: string, action: LocalRolePermissionAction): boolean {
-	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;
+export function useInstanceSchemaTablePermission(entityId: EntityIds, schemaName: string, tableName: string, action: LocalRolePermissionAction): boolean {
+	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -123,8 +123,8 @@ export function useInstanceSchemaTablePermission(entity: InstanceConnectionKey, 
 	return specificPermission?.tables?.[tableName][action] === true;
 }
 
-export function useInstanceSchemaTableAttributePermission(entity: InstanceConnectionKey, schemaName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
-	const { user } = useAuth(entity) as AuthenticatedInstanceConnection;
+export function useInstanceSchemaTableAttributePermission(entityId: EntityIds, schemaName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
+	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.

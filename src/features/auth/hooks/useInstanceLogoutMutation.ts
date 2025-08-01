@@ -1,3 +1,4 @@
+import { authStore } from '@/lib/authStore';
 import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
@@ -11,6 +12,7 @@ type LogoutInfoResponse = {
 };
 
 export async function onInstanceLogoutSubmit(variables: LogoutVariables | void): Promise<LogoutInfoResponse> {
+	await authStore.signOutFromPotentiallyAuthenticatedInstances();
 	const { data } = await instanceClient.post('/', {
 		operation: 'logout',
 	}, { baseURL: variables?.operationsUrl });
