@@ -37,6 +37,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 			<div className="flex items-center justify-between">
 				<Link to={isLocalStudio ? '/browse' : '/orgs'}>
 					<Logo />
+					<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
 				<button
 					type="button"
@@ -123,6 +124,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 				<div className="inline-block">
 					<Link to={isLocalStudio ? '/browse' : '/orgs'}>
 						<Logo />
+						<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
 					</Link>
 				</div>
 				<NavigationMenu>
@@ -207,6 +209,7 @@ function AnonymousNav() {
 			<div className="inline-block">
 				<Link to="/">
 					<Logo />
+					<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
 			</div>
 			<NavigationMenu>
@@ -239,7 +242,7 @@ function AnonymousNav() {
 function Logo() {
 	return (
 		<>
-			<img src="/logo_harper_db_studio.png" alt="logo" className="w-64 hidden md:block" />
+			<img src="/logo_harper_db_studio.png" alt="logo" className="w-64 hidden md:inline-block" />
 			<img src="/HDBDogOnly.svg" width="50px" height="44px" alt="Harper" className="inline-block md:hidden" />
 		</>
 	);
