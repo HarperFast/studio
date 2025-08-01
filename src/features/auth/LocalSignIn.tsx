@@ -53,7 +53,7 @@ export function LocalSignIn() {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo();
 				authStore.setUserForEntity(OverallAppSignIn, user);
-				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
+				void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
 			},

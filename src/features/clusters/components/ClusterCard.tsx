@@ -11,7 +11,7 @@ import {
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
-import { useAuth } from '@/hooks/useAuth';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
@@ -31,7 +31,7 @@ export function ClusterCard({
 	onDeleteClusterModal: (cluster: Cluster) => void;
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
-	const auth = useAuth(cluster);
+	const auth = useInstanceAuth(cluster.id);
 	const navigate = useNavigate();
 
 	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);

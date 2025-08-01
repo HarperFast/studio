@@ -7,7 +7,7 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
 
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
-import { useAuth } from '@/hooks/useAuth';
+import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
@@ -250,7 +250,7 @@ const useLogout = isLocalStudio ? useInstanceLogoutMutation : useLogoutMutation;
 export function Navbar() {
 	const { mutate: signOut } = useLogout();
 	const navigate = useNavigate();
-	const { user } = useAuth();
+	const { user } = useOverallAuth();
 	const router = useRouter();
 	const handleSignOut = useCallback(() => {
 		signOut(undefined, {

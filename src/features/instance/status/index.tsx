@@ -9,7 +9,6 @@ const route = getRouteApi('');
 export function StatusIndex() {
 	const { instanceId } = route.useParams();
 	const { data } = useSuspenseQuery(getSystemInformationQueryOptions(instanceId));
-	console.log(data);
 
 	return (<div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 		<Suspense fallback={<TextLoadingSkeleton />}>

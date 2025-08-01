@@ -1,3 +1,4 @@
+import { OverallAppSignIn } from '@/lib/authStore';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { SignIn } from '@/features/auth/SignIn';
@@ -19,7 +20,7 @@ const signInRoute = createRoute({
 	path: '/',
 	component: SignIn,
 	beforeLoad: ({ context, location }) => {
-		if (context.authentication.user) {
+		if (context.authentication[OverallAppSignIn]?.user) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/orgs' });
 		}
@@ -31,7 +32,7 @@ const localSignInRoute = createRoute({
 	path: '/',
 	component: LocalSignIn,
 	beforeLoad: ({ context, location }) => {
-		if (context.authentication.user) {
+		if (context.authentication[OverallAppSignIn]?.user) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
 		}

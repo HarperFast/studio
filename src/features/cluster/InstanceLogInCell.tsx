@@ -1,10 +1,10 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { useAuth } from '@/hooks/useAuth';
+import { useInstanceAuth } from '@/hooks/useAuth';
 import { Instance } from '@/lib/api.patch';
 import { Link } from '@tanstack/react-router';
 
 export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
-	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useAuth(instance);
+	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
 	if (!['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
 		return <p>N/A</p>;
 	}

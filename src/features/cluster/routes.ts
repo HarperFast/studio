@@ -1,10 +1,10 @@
-import { createRoute } from '@tanstack/react-router';
-import { clustersLayoutRoute } from '@/features/clusters/routes';
-import { ClusterLayout } from '@/features/cluster/ClusterLayout';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { ClusterIndex } from '@/features/cluster/index';
 import { ClusterInstanceSignIn } from '@/features/cluster/ClusterInstanceSignIn';
+import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
+import { ClusterIndex } from '@/features/cluster/index';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { clustersLayoutRoute } from '@/features/clusters/routes';
+import { createRoute, redirect } from '@tanstack/react-router';
 
 export const clusterLayoutRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,
@@ -19,36 +19,34 @@ const clusterIndexRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/',
 	component: ClusterIndex,
-	// TODO: We're going to want to resolve auth by instanceId and clusterId too for faster checks...
-	// loader: ({ context, params }) => {
-	// 	return context.ClusterAuthContext.checkAuth(params.clusterId);
-	// },
 });
 
 const clusterSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'sign-in',
 	component: ClusterInstanceSignIn,
-	// beforeLoad: ({ context, location }) => {
-	// TODO: Check if signed into this cluster.
-	// if (context.authentication.user) {
-	// 	const search: Record<string, string> = location?.search;
-	// 	throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
-	// }
-	// },
+	beforeLoad: ({ context, location, params }) => {
+		if (context.authentication[params.clusterId]?.user) {
+			const search: Record<string, string> = location?.search;
+			throw redirect({ to: search?.redirect?.startsWith('/')
+					? search.redirect
+					: '../browse' });
+		}
+	},
 });
 
 const instanceSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instance/$instanceId/sign-in',
 	component: ClusterInstanceSignIn,
-	// beforeLoad: ({ context, location }) => {
-	// TODO: Check if signed into this cluster.
-	// if (context.authentication.user) {
-	// 	const search: Record<string, string> = location?.search;
-	// 	throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
-	// }
-	// },
+	beforeLoad: ({ context, location, params }) => {
+		if (context.authentication[params.instanceId || params.clusterId]?.user) {
+			const search: Record<string, string> = location?.search;
+			throw redirect({ to: search?.redirect?.startsWith('/')
+					? search.redirect
+					: '../browse' });
+		}
+	},
 });
 
 const clusterSetPasswordRoute = createRoute({

@@ -16,7 +16,7 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -59,9 +59,8 @@ export function ClusterInstanceSignIn() {
 		}
 		return null;
 	}, [cluster, instance]);
-	// const { redirect } = useSearch({ strict: false });
-	// const router = useRouter();
-	// const queryClient = useQueryClient();
+	const { redirect } = useSearch({ strict: false });
+	const router = useRouter();
 
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
@@ -83,15 +82,11 @@ export function ClusterInstanceSignIn() {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo({ operationsUrl });
 				authStore.setUserForEntity(instance || cluster || null, user);
-				// TODO: What should we invalidate for the cluster?
-				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
-				//  router.invalidate();
-				// TODO: Support redirecting within the cluster
-				//  await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
-				await navigate({ to: '../browse' });
+				router.invalidate();
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
 			},
 		});
-	}, [cluster, instance, navigate, noun, operationsUrl, submitInstanceLogin]);
+	}, [cluster, instance, navigate, noun, operationsUrl, redirect, router, submitInstanceLogin]);
 
 	if (cluster?.resetPassword) {
 		return <Navigate to="../set-password" />;

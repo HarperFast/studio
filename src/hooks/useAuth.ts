@@ -3,29 +3,33 @@ import {
 	AuthenticatedConnection,
 	AuthenticatedInstanceConnection,
 	authStore,
-	InstanceConnectionKey,
+	EntityIds,
 	OverallAppSignIn,
 } from '@/lib/authStore';
 import { useEffect, useState } from 'react';
 
-export function useAuth(): AuthenticatedConnection;
-export function useAuth(entity: InstanceConnectionKey): AuthenticatedConnection;
-export function useAuth(entity?: InstanceConnectionKey): AuthenticatedConnection {
-	const [connection, setConnection] = useState<AuthenticatedConnection>({ user: null, isLoading: true });
-	const noArgs = arguments.length === 0;
-	useEffect(() => {
-		const id = authStore.calculateIdFromEntity(noArgs ? OverallAppSignIn : entity);
-		return authStore.listenToEntity(id, connection => {
-			setConnection(connection);
-		});
-	}, [entity, noArgs]);
+export function useRootAuthenticationContext(): Record<EntityIds, AuthenticatedConnection> {
+	const [connections, setConnections] = useState(authStore.getAllConnections());
+	useEffect(() => authStore.listenToAllEntities((connection, id) => {
+		setConnections({ ...connections, [id]: connection });
+	}), [connections]);
+	return connections;
+}
+
+export function useOverallAuth(): AuthenticatedConnection {
+	const id = authStore.calculateIdFromEntity(OverallAppSignIn);
+	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(OverallAppSignIn));
+	useEffect(() => authStore.listenToEntity(id, setConnection), [id]);
 	return connection;
 }
 
 export function useCloudAuth(): AuthenticatedCloudConnection {
-	return useAuth() as AuthenticatedCloudConnection;
+	return useOverallAuth() as AuthenticatedCloudConnection;
 }
 
-export function useInstanceAuth(entity: InstanceConnectionKey): AuthenticatedInstanceConnection {
-	return useAuth(entity) as AuthenticatedInstanceConnection;
+export function useInstanceAuth(entityId: EntityIds): AuthenticatedInstanceConnection {
+	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(entityId));
+	useEffect(() =>
+		authStore.listenToEntity(entityId, setConnection), [entityId]);
+	return connection as AuthenticatedInstanceConnection;
 }
