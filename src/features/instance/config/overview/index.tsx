@@ -10,10 +10,8 @@ import { RemoveInstanceModal } from '@/features/instance/modals/RemoveInstanceMo
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
 import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
-import { useHumanFileSize } from '@/hooks/useHumanFileSize';
 import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
 import { isLocalStudio } from '@/config/constants';
-import { InstanceRAM } from '@/features/instance/config/overview/components/InstanceRAM';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
@@ -79,8 +77,6 @@ export function ConfigOverviewIndex() {
 		});
 	};
 
-	const ramAllocation = useHumanFileSize(registrationInfo?.ram_allocation, 1024 * 1024);
-
 	const submitInstanceRemoval = () => {
 		if (!instanceId) {
 			return;
@@ -117,9 +113,6 @@ export function ConfigOverviewIndex() {
 					<dl className="grid grid-cols-1 sm:grid-cols-3">
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 							<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
-						</div>
-						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
-							<InstanceRAM loadingRegistration={loadingRegistration} ramAllocation={ramAllocation} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
 							<Button
@@ -165,9 +158,6 @@ export function ConfigOverviewIndex() {
 
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 							<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
-						</div>
-						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
-							<InstanceRAM loadingRegistration={loadingRegistration} ramAllocation={ramAllocation} />
 						</div>
 					</dl>
 				</CloudStudioOverview>
