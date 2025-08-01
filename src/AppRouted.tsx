@@ -24,8 +24,10 @@ export function AppRouted() {
 			authentication,
 		},
 	});
-	return <>
-		<RouterProvider router={router} context={{ authentication }} />
-		<TanStackRouterDevtools router={router} />
-	</>;
+	return (
+		<>
+			<RouterProvider router={router} context={{ authentication }} />
+			{import.meta.env.DEV && <TanStackRouterDevtools router={router} />}
+		</>
+	);
 }
