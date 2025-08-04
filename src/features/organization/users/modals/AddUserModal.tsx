@@ -65,11 +65,10 @@ export function AddUserModal({
 	const { mutate: addUser, isPending: isAddPending } = useAddUserToOrganizationRole();
 	const { mutate: inviteUser, isPending: isInvitePending } = useInviteUserToOrganizationRole();
 
-	const onSubmitClick = useCallback(async (formData: z.infer<typeof AddOrganizationRoleSchema>) => {
-		if (formData) {
-			(shouldInvite ? inviteUser : addUser)(
-				formData,
-				{
+	const onSubmitClick = useCallback(
+		async (formData: z.infer<typeof AddOrganizationRoleSchema>) => {
+			if (formData) {
+				(shouldInvite ? inviteUser : addUser)(formData, {
 					onSuccess: () => {
 						const lastRole = formData.roleId;
 						form.reset();
@@ -85,85 +84,94 @@ export function AddUserModal({
 							setShouldInvite(true);
 						}
 					},
-				},
-			);
-		}
-	}, [addUser, form, inviteUser, onChangesSaved, setIsModalOpen, shouldInvite]);
+				});
+			}
+		},
+		[addUser, form, inviteUser, onChangesSaved, setIsModalOpen, shouldInvite]
+	);
 
-	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-		<DialogContent aria-describedby={undefined}>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
-					<DialogHeader>
-						<DialogTitle>{shouldInvite ? 'Invite User' : 'Add User'}</DialogTitle>
-					</DialogHeader>
-					<FormField
-						control={form.control}
-						name="email"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Email</FormLabel>
-								<FormControl>
-									<Input
-										type="email"
-										enterKeyHint="next"
-										autoComplete="email"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="roleId"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Roles</FormLabel>
-
-								<Suspense fallback={<TextLoadingSkeleton />}>
+	return (
+		<Dialog
+			onOpenChange={() => {
+				setIsModalOpen(false);
+				setShouldInvite(false);
+				form.reset();
+			}}
+			open={isModalOpen}
+		>
+			<DialogContent aria-describedby={undefined}>
+				<Form {...form}>
+					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+						<DialogHeader>
+							<DialogTitle>{shouldInvite ? 'Invite User' : 'Add User'}</DialogTitle>
+						</DialogHeader>
+						<FormField
+							control={form.control}
+							name="email"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Email</FormLabel>
 									<FormControl>
-										<Select {...field} onValueChange={(role) => field.onChange(role)}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Choose Role" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													{/*TODO: Multi select*/}
-													<SelectLabel>Role</SelectLabel>
-													{orgRoles?.map((role) => (
-														<SelectItem
-															key={role.id}
-															value={role.id}
-														>{role.roleName}</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
+										<Input type="email" enterKeyHint="next" autoComplete="email" {...field} />
 									</FormControl>
-								</Suspense>
-								<FormMessage />
-							</FormItem>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="roleId"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Roles</FormLabel>
+
+									<Suspense fallback={<TextLoadingSkeleton />}>
+										<FormControl>
+											<Select {...field} onValueChange={(role) => field.onChange(role)}>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Choose Role" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														{/*TODO: Multi select*/}
+														<SelectLabel>Role</SelectLabel>
+														{orgRoles?.map((role) => (
+															<SelectItem key={role.id} value={role.id}>
+																{role.roleName}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</FormControl>
+									</Suspense>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						{shouldInvite && (
+							<DialogDescription className="p-3 my-5 text-white rounded-md bg-amber-600 flex">
+								<MailWarningIcon className="inline-block size-12 pr-2" />
+								<span>This person doesn’t have a Fabric account. Do you want to invite them?</span>
+							</DialogDescription>
 						)}
-					/>
 
-					{shouldInvite && (<DialogDescription className="p-3 my-5 text-white rounded-md bg-amber-600 flex">
-						<MailWarningIcon className="inline-block size-12 pr-2" />
-						<span>
-							This person doesn’t have a Fabric account. Do you want to invite them?
-						</span>
-					</DialogDescription>)}
-
-					<DialogFooter>
-						<div className="flex justify-between w-full">
-							<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending || isInvitePending}>
-								<Save /> {shouldInvite ? 'Invite User' : 'Add User'}
-							</Button>
-						</div>
-					</DialogFooter>
-				</form>
-			</Form>
-		</DialogContent>
-	</Dialog>;
+						<DialogFooter>
+							<div className="flex justify-between w-full">
+								<Button
+									type="submit"
+									variant="submit"
+									className="rounded-full"
+									disabled={isAddPending || isInvitePending}
+								>
+									<Save /> {shouldInvite ? 'Invite User' : 'Add User'}
+								</Button>
+							</div>
+						</DialogFooter>
+					</form>
+				</Form>
+			</DialogContent>
+		</Dialog>
+	);
 }
