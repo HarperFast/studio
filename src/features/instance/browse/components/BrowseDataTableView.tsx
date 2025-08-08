@@ -42,10 +42,11 @@ export function BrowseDataTableView() {
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useState({
+	let sortTableDataParams = {
 		attribute: hash_attribute,
 		descending: false,
-	});
+	};
+
 	const sortingState = useMemo(
 		() => [
 			{
@@ -53,7 +54,7 @@ export function BrowseDataTableView() {
 				id: sortTableDataParams.attribute,
 			},
 		],
-		[sortTableDataParams]
+		[sortTableDataParams.attribute, sortTableDataParams.descending]
 	);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
@@ -142,10 +143,10 @@ export function BrowseDataTableView() {
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
-		setSortTableDataParams({
+		sortTableDataParams = {
 			attribute: accessorKey,
 			descending: !isAscending,
-		});
+		};
 	};
 	const onRefreshClick = useCallback(() => {
 		void refetchSearchByValueOptions?.();

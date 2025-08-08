@@ -9,7 +9,7 @@ type SearchConditions = {
 };
 
 type SearchByValueRequest = {
-	operation: 'search_by_value',
+	operation: 'search_by_value';
 	conditions?: [SearchConditions];
 	schema: string;
 	table: string;
