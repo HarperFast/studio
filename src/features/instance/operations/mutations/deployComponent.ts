@@ -14,6 +14,7 @@ const onDeployComponentSubmit = async (formData: DeployComponentFormData) => {
 			operation: 'deploy_component',
 			package: applicationUrl,
 			project: newApplicationName,
+			replicated: true,
 		},
 		{ timeout: 60000 }
 	);

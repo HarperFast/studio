@@ -5,6 +5,7 @@ const onDeleteDatabase = async (databaseName: string) => {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_database',
 		schema: databaseName,
+		replicated: true,
 	});
 	return data;
 };

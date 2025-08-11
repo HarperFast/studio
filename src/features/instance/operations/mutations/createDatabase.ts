@@ -10,6 +10,7 @@ const onCreateDatabaseSubmit = async (formData: CreateDatabaseFormData) => {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_database',
 		database: newDatabaseName,
+		replicated: true,
 	});
 	return data;
 };

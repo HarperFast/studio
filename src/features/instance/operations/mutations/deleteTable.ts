@@ -11,6 +11,7 @@ const onDeleteTable = async (tableData: DeleteTableData) => {
 		operation: 'drop_table',
 		schema: tableData.databaseName,
 		table: tableData.tableName,
+		replicated: true,
 	});
 	return data;
 };

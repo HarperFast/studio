@@ -14,6 +14,7 @@ const onCreateTableSubmit = async (formData: CreateDatabaseFormData) => {
 		database: databaseName,
 		table: tableName,
 		primary_key: primaryKey,
+		replicated: true,
 	});
 	return data;
 };
