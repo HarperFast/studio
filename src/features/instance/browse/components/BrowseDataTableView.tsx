@@ -9,6 +9,7 @@ import { useUpdateTableRecords } from '@/features/instance/operations/mutations/
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
+import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -20,7 +21,9 @@ import { toast } from 'sonner';
 const route = getRouteApi('');
 
 export function BrowseDataTableView() {
-	const { clusterId, instanceId, schemaName, tableName } = route.useParams();
+	const allParams = route.useParams();
+	const { clusterId, instanceId, schemaName, tableName } = allParams;
+
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'update');
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'delete');
@@ -30,22 +33,22 @@ export function BrowseDataTableView() {
 			instanceOrClusterId: instanceId ?? clusterId,
 			schemaName,
 			tableName,
-		})
+		}),
 	);
-
-	const [selectedIds, setSelectedIds] = useState<null | unknown[]>(null);
+	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	const { data: searchByIdData } = useQuery(
-		getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds)
+		getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds),
 	);
 
-	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
+	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useState({
-		attribute: hash_attribute,
+	const [sortTableDataParams, setSortTableDataParams] = useEffectedState({
+		attribute: hashAttribute,
 		descending: false,
-	});
+	}, allParams);
+
 	const sortingState = useMemo(
 		() => [
 			{
@@ -53,7 +56,7 @@ export function BrowseDataTableView() {
 				id: sortTableDataParams.attribute,
 			},
 		],
-		[sortTableDataParams]
+		[sortTableDataParams],
 	);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
@@ -72,10 +75,10 @@ export function BrowseDataTableView() {
 			instanceId,
 			schemaName,
 			tableName,
-			hash_attribute,
+			searchAttribute: hashAttribute,
 			sortTableDataParams,
 			pagination,
-		})
+		}),
 	);
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
@@ -100,7 +103,7 @@ export function BrowseDataTableView() {
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
-			}
+			},
 		);
 	};
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
@@ -117,15 +120,15 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			}
+			},
 		);
 	};
-	const onDeleteRecord = (data: (string | number)[]) => {
+	const onDeleteRecord = (hashes: unknown[]) => {
 		deleteTableRecords(
 			{
 				databaseName: schemaName,
 				tableName,
-				hash_values: data,
+				hash_values: hashes,
 			},
 			{
 				onSuccess: () => {
@@ -134,11 +137,11 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			}
+			},
 		);
 	};
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-		setSelectedIds([rowData.original[hash_attribute]]);
+		setSelectedIds([rowData.original[hashAttribute]]);
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
@@ -198,6 +201,7 @@ export function BrowseDataTableView() {
 				canDeleteRecords={canDeleteRecords}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
+				hashAttribute={hashAttribute}
 				data={searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}

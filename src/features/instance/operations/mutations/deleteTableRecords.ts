@@ -4,7 +4,7 @@ import { instanceClient } from '@/config/instanceClient';
 type DeleteTableRecordsData = {
 	databaseName: string;
 	tableName: string;
-	hash_values: (number | string)[];
+	hash_values: unknown[];
 };
 
 const onDeleteTableRecords = async (recordsData: DeleteTableRecordsData) => {
