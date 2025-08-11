@@ -9,6 +9,7 @@ import { useUpdateTableRecords } from '@/features/instance/operations/mutations/
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
+import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -20,7 +21,9 @@ import { toast } from 'sonner';
 const route = getRouteApi('');
 
 export function BrowseDataTableView() {
-	const { clusterId, instanceId, schemaName, tableName } = route.useParams();
+	const allParams = route.useParams();
+	const { clusterId, instanceId, schemaName, tableName } = allParams;
+
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'update');
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'delete');
@@ -33,7 +36,7 @@ export function BrowseDataTableView() {
 		})
 	);
 
-	const [selectedIds, setSelectedIds] = useState<null | unknown[]>(null);
+	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	const { data: searchByIdData } = useQuery(
@@ -42,10 +45,11 @@ export function BrowseDataTableView() {
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useState({
-		attribute: hash_attribute,
+	const [sortTableDataParams, setSortTableDataParams] = useEffectedState({
+		attribute: hashAttribute,
 		descending: false,
-	});
+	}, allParams);
+
 	const sortingState = useMemo(
 		() => [
 			{
