@@ -98,14 +98,16 @@ export function NewClusterModal({
 	}, [deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
 
 	const form = useForm({
+		mode: 'onBlur',
 		resolver: zodResolver(NewClusterSchema.superRefine(refineZod)),
 		defaultValues: {
 			systemName: '',
 			abbreviatedName: '',
+			// TODO: How do we look these up at the start with the live values from the API?
 			deploymentDescription: 'Free',
-			performanceDescription: '',
+			performanceDescription: 'Basic (1K read/min)',
 			regionPlans: [
-				{ regionName: 'US', latencyDescription: '' },
+				{ regionName: 'Global', latencyDescription: 'Low distribution, 250ms latency' },
 			],
 		},
 	});
@@ -118,7 +120,7 @@ export function NewClusterModal({
 	const abbreviatedName = form.watch('abbreviatedName');
 	const selectedDeployment = form.watch('deploymentDescription');
 	const selectedPerformance = form.watch('performanceDescription');
-	const selectedRegions = form.watch('regionPlans');
+	const selectedRegionPlans = form.watch('regionPlans');
 
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
@@ -138,26 +140,28 @@ export function NewClusterModal({
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
 			form.setValue('performanceDescription', availablePerformanceDescriptions[0]);
+			form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 	useEffect(function autoSelectPlanAllowedRegionId() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
-		if (allowedRegionIds?.length && selectedRegions?.length === 1) {
-			const firstRegion = selectedRegions[0];
+		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
+			const firstRegion = selectedRegionPlans[0];
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
 			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
 				const regionToSelect = regionLocations?.find(r => allowedRegionIds.includes(r.id));
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionName', regionToSelect.region);
 					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);
+					form.trigger();
 				}
 			}
 		}
-	}, [selectedPlan, selectedRegions, form, regionNameToLatencyToRegion, regionLocations]);
+	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
-		: selectedRegions.reduce((total, region) => {
+		: selectedRegionPlans.reduce((total, region) => {
 			const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
 			return total + (!regionPlan
 				? 0
@@ -165,8 +169,13 @@ export function NewClusterModal({
 		}, 0);
 
 	const onAddARegionClick = useCallback(() => {
-		fieldArray.append({ regionName: 'US', latencyDescription: '' });
-	}, [fieldArray]);
+		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
+		const firstRegionLocation = regionLocations?.find(r => !selectedRegionNames.includes(r.region));
+		if (firstRegionLocation) {
+			fieldArray.append({ regionName: firstRegionLocation.region, latencyDescription: firstRegionLocation.latencyDescription });
+			form.trigger();
+		}
+	}, [fieldArray, form, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans]);
 	const onClusterCreatedCallback = useCallback(() => {
 		queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
 		setIsModalOpen(false);
@@ -262,7 +271,10 @@ export function NewClusterModal({
 
 										<Suspense fallback={<TextLoadingSkeleton />}>
 											<FormControl>
-												<Select {...field} onValueChange={(deploymentDescription) => field.onChange(deploymentDescription)}>
+												<Select {...field} onValueChange={(deploymentDescription) => {
+													field.onChange(deploymentDescription);
+													form.trigger();
+												}}>
 													<SelectTrigger className="w-full">
 														<SelectValue placeholder="Choose Tier" />
 													</SelectTrigger>
@@ -294,7 +306,10 @@ export function NewClusterModal({
 
 										<Suspense fallback={<TextLoadingSkeleton />}>
 											<FormControl>
-												<Select {...field} onValueChange={(performanceDescription) => field.onChange(performanceDescription)}
+												<Select {...field} onValueChange={(performanceDescription) => {
+													field.onChange(performanceDescription);
+													form.trigger();
+												}}
 													disabled={!availablePerformanceDescriptions?.length}>
 													<SelectTrigger className="w-full">
 														<SelectValue placeholder="Choose Tier" />

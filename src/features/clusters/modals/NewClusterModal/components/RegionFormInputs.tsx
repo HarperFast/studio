@@ -35,7 +35,6 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
-	// selectedPlan,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion), [regionNameToLatencyToRegion]);
@@ -44,18 +43,22 @@ export function RegionFormInputs({
 	const availableLatencyDescriptions = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}), [regionNameToLatencyToRegion, selectedRegionName]);
 
-	useEffect(function ensureValidLatencyDescriptionIsSelected() {
+	useEffect(function autoPickLatencyDescription() {
 		if (selectedRegionName && availableLatencyDescriptions?.length && !availableLatencyDescriptions?.includes(selectedLatencyDescription)) {
 			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
 			const newValue = availableLatencyDescriptions.find(description => !oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue) || availableLatencyDescriptions[0];
 			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
+			form.trigger();
 		}
 	}, [availableLatencyDescriptions, form, index, selectedLatencyDescription, selectedRegionName]);
 
-	const onRemoveClicked = useCallback(() => fieldArray?.remove(index), [fieldArray, index]);
+	const onRemoveClicked = useCallback(() => {
+		fieldArray?.remove(index);
+		form.trigger();
+	}, [fieldArray, form, index]);
 
 	return (
-		<div className="md:col-span-6 col-span-3 p-4 rounded-md bg-accent gap-6 flex flex-wrap">
+		<div className="md:col-span-6 col-span-3 p-4 rounded-md bg-accent gap-6 flex flex-wrap items-start">
 			<FormField
 				control={control}
 				name={`regionPlans.${index}.regionName`}
@@ -63,7 +66,7 @@ export function RegionFormInputs({
 					<FormItem className="flex-1">
 						<FormLabel>Region {fieldArray.fields.length > 1 ? index + 1 : ''}</FormLabel>
 						<FormControl>
-							<Select onValueChange={regionField.onChange} {...regionField}>
+							<Select onValueChange={value => { regionField.onChange(value); form.trigger(); } } {...regionField}>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Region" />
 								</SelectTrigger>
@@ -89,7 +92,7 @@ export function RegionFormInputs({
 					<FormItem className="flex-1">
 						<FormLabel>Latency &amp; Distribution</FormLabel>
 						<FormControl>
-							<Select onValueChange={regionField.onChange} {...regionField} disabled={!availableLatencyDescriptions?.length}>
+							<Select onValueChange={value => { regionField.onChange(value); form.trigger(); } } {...regionField} disabled={!availableLatencyDescriptions?.length}>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Latency Tier" />
 								</SelectTrigger>
@@ -109,7 +112,7 @@ export function RegionFormInputs({
 			/>
 
 			{fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && (
-				<div className="flex-none self-end mb-0.5">
+				<div className="flex-none mt-6">
 					<Button
 						type="button"
 						variant="destructiveOutline"
