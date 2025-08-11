@@ -4,8 +4,6 @@ import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuIte
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
 import { isLocalStudio } from '@/config/constants';
-import { useInstanceLogoutMutation } from '@/features/auth/hooks/useInstanceLogoutMutation';
-
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
@@ -248,10 +246,8 @@ function Logo() {
 	);
 }
 
-const useLogout = isLocalStudio ? useInstanceLogoutMutation : useLogoutMutation;
-
 export function Navbar() {
-	const { mutate: signOut } = useLogout();
+	const { mutate: signOut } = useLogoutMutation();
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
 	const router = useRouter();
