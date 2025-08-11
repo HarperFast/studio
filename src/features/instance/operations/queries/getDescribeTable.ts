@@ -4,16 +4,16 @@ import { InstanceTable } from '@/lib/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getDescribeTableQueryOptions({
-	instanceId,
+	instanceOrClusterId,
 	schemaName,
 	tableName,
 }: {
-	instanceId: string;
+	instanceOrClusterId: string;
 	schemaName: string;
 	tableName: string;
 }) {
 	return queryOptions({
-		queryKey: [instanceId, schemaName, tableName, 'describe_table'] as const,
+		queryKey: [instanceOrClusterId, schemaName, tableName, 'describe_table'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<InstanceTable>('/', {
 				operation: 'describe_table',
@@ -23,7 +23,7 @@ export function getDescribeTableQueryOptions({
 			return data;
 		},
 		staleTime: 5000,
-		enabled: !!instanceId && !!schemaName && !!tableName,
+		enabled: !!instanceOrClusterId && !!schemaName && !!tableName,
 		retry: false,
 	});
 }

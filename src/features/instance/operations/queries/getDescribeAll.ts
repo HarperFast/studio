@@ -3,9 +3,9 @@ import { InstanceSchemaMap } from '@/lib/api.patch';
 
 import { queryOptions } from '@tanstack/react-query';
 
-export function getDescribeAllQueryOptions(instanceId?: string) {
+export function getDescribeAllQueryOptions(instanceOrClusterId?: string) {
 	return queryOptions({
-		queryKey: [instanceId, 'describe_all'] as const,
+		queryKey: [instanceOrClusterId, 'describe_all'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<InstanceSchemaMap>('/', {
 				operation: 'describe_all',

@@ -27,16 +27,18 @@ export function BrowseDataTableView() {
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
 		getDescribeTableQueryOptions({
-			instanceId,
+			instanceOrClusterId: instanceId ?? clusterId,
 			schemaName,
 			tableName,
-		}),
+		})
 	);
 
 	const [selectedIds, setSelectedIds] = useState<null | unknown[]>(null);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-	const { data: searchByIdData } = useQuery(getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds));
+	const { data: searchByIdData } = useQuery(
+		getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds)
+	);
 
 	const { dataTableColumns, hash_attribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -44,10 +46,15 @@ export function BrowseDataTableView() {
 		attribute: hash_attribute,
 		descending: false,
 	});
-	const sortingState = useMemo(() => ([{
-		desc: sortTableDataParams.descending,
-		id: sortTableDataParams.attribute,
-	}]), [sortTableDataParams]);
+	const sortingState = useMemo(
+		() => [
+			{
+				desc: sortTableDataParams.descending,
+				id: sortTableDataParams.attribute,
+			},
+		],
+		[sortTableDataParams]
+	);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pagination, setPagination] = useState<PaginationState>({
@@ -56,7 +63,11 @@ export function BrowseDataTableView() {
 	});
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pagination.pageSize));
 
-	const { data: tableData, refetch: refetchSearchByValueOptions, isFetching: tableDataFetching } = useQuery(
+	const {
+		data: tableData,
+		refetch: refetchSearchByValueOptions,
+		isFetching: tableDataFetching,
+	} = useQuery(
 		getSearchByValueOptions({
 			instanceId,
 			schemaName,
@@ -64,7 +75,7 @@ export function BrowseDataTableView() {
 			hash_attribute,
 			sortTableDataParams,
 			pagination,
-		}),
+		})
 	);
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
@@ -73,11 +84,7 @@ export function BrowseDataTableView() {
 	useEffect(() => {
 		setTotalRecords(describeTableData.record_count);
 		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
-	}, [
-		describeTableData,
-		pagination.pageSize,
-		pagination.pageIndex,
-	]);
+	}, [describeTableData, pagination.pageSize, pagination.pageIndex]);
 
 	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
@@ -93,7 +100,7 @@ export function BrowseDataTableView() {
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
-			},
+			}
 		);
 	};
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
@@ -110,7 +117,7 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			},
+			}
 		);
 	};
 	const onDeleteRecord = (data: (string | number)[]) => {
@@ -127,7 +134,7 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			},
+			}
 		);
 	};
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
@@ -163,19 +170,29 @@ export function BrowseDataTableView() {
 				setPagination={setPagination}
 			>
 				{/*canAddRecords && (<UploadCSVModal />)*/}
-				<Button variant="defaultOutline" onClick={onRefreshClick}
-					disabled={tableDataFetching}><RefreshCwIcon /></Button>
+				<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
+					<RefreshCwIcon />
+				</Button>
 				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /></Button>*/}
-				{canAddRecords && (<Button variant="positiveOutline" onClick={onAddClicked}
-					disabled={isAddModalOpen || isAddTableRecordsPending}><PlusIcon /></Button>)}
+				{canAddRecords && (
+					<Button
+						variant="positiveOutline"
+						onClick={onAddClicked}
+						disabled={isAddModalOpen || isAddTableRecordsPending}
+					>
+						<PlusIcon />
+					</Button>
+				)}
 			</BrowseDataTable>
-			{canAddRecords && (<AddTableRowModal
-				instanceTable={describeTableData}
-				setIsModalOpen={setIsAddModalOpen}
-				isModalOpen={isAddModalOpen}
-				onSaveChanges={onRecordAdd}
-				isAddTableRecordsPending={isAddTableRecordsPending}
-			/>)}
+			{canAddRecords && (
+				<AddTableRowModal
+					instanceTable={describeTableData}
+					setIsModalOpen={setIsAddModalOpen}
+					isModalOpen={isAddModalOpen}
+					onSaveChanges={onRecordAdd}
+					isAddTableRecordsPending={isAddTableRecordsPending}
+				/>
+			)}
 			<EditTableRowModal
 				canEditRecords={canEditRecords}
 				canDeleteRecords={canDeleteRecords}
