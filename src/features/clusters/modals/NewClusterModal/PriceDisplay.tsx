@@ -2,7 +2,7 @@ export function PriceDisplay({ price }: { readonly price?: number }) {
 	const numberFormat = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 	const parts = numberFormat.formatToParts(price || 0);
 	return <span className="text-4xl">
-		{parts.map((part) => <PricePart key={part.type} type={part.type} value={part.value} />)}
+		{parts.map((part, index) => <PricePart key={index} type={part.type} value={part.value} />)}
 	</span>;
 }
 
