@@ -2,9 +2,10 @@ import { InstanceTable } from '@/lib/api.patch';
 import { ColumnDef } from '@tanstack/react-table';
 
 function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
-	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>; hash_attribute: string;
+	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
+	hashAttribute: string;
 } {
-	const { hash_attribute, attributes } = instanceTable;
+	const { hash_attribute: hashAttribute, attributes } = instanceTable;
 	const primaryKeyColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];
@@ -29,7 +30,7 @@ function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 	}
 	return {
 		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...timeColumns],
-		hash_attribute,
+		hashAttribute,
 	};
 }
 

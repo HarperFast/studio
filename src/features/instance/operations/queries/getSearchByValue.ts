@@ -28,14 +28,14 @@ function getSearchByValueOptions({
 	instanceId,
 	schemaName,
 	tableName,
-	hash_attribute,
+	searchAttribute,
 	sortTableDataParams,
 	pagination,
 }: {
 	instanceId: string;
 	schemaName: string;
 	tableName: string;
-	hash_attribute: string;
+	searchAttribute: string;
 	sortTableDataParams: {
 		attribute: string;
 		descending: boolean;
@@ -48,7 +48,7 @@ function getSearchByValueOptions({
 	return queryOptions({
 		queryKey: [
 			'search_by_value',
-			hash_attribute,
+			searchAttribute,
 			instanceId,
 			pagination.pageIndex || 0,
 			pagination.pageSize || 0,
@@ -64,7 +64,7 @@ function getSearchByValueOptions({
 				get_attributes: ['*'],
 				schema: schemaName,
 				table: tableName,
-				search_attribute: hash_attribute,
+				search_attribute: searchAttribute,
 				search_value: '*',
 				sort: sortTableDataParams.attribute.length ? sortTableDataParams : undefined,
 				limit: pagination.pageSize,

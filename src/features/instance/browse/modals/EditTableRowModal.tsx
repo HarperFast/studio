@@ -10,6 +10,7 @@ export function EditTableRowModal({
 	canDeleteRecords,
 	setIsModalOpen,
 	isModalOpen,
+	hashAttribute,
 	data,
 	onSaveChanges,
 	onDeleteRecord,
@@ -20,9 +21,10 @@ export function EditTableRowModal({
 	canDeleteRecords: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
-	data: { id: string | number; __createdtime__?: number; __updatedtime__?: number; }[];
+	hashAttribute: string;
+	data: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown; }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
-	onDeleteRecord: (data: (string | number)[]) => void;
+	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
 }) {
@@ -69,7 +71,10 @@ export function EditTableRowModal({
 							variant="destructive"
 							className="rounded-full"
 							onClick={() => {
-								onDeleteRecord([data[0]?.id]);
+								const hash = data[0]?.[hashAttribute];
+								if (hash) {
+									onDeleteRecord([hash]);
+								}
 							}}
 							disabled={isDeleteTableRecordsPending}
 						>
