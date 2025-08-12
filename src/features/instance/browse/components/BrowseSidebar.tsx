@@ -15,21 +15,15 @@ import { useCreateDatabaseSubmitMutation } from '@/features/instance/operations/
 import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
 import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { InstanceDatabaseMap } from '@/lib/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { getRouteApi, useRouter } from '@tanstack/react-router';
+import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router';
 import { ArrowRight, Check, Minus, Plus, Trash } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-
-type BrowseSidebarProps = {
-	databaseNames: string[];
-	onSelectDatabase: (databaseName: string | undefined) => void;
-	tableNames?: string[];
-	onSelectTable: (tableName: string | undefined) => void;
-};
 
 const route = getRouteApi('');
 
@@ -43,17 +37,36 @@ const NewDatabaseSchema = z.object({
 		.regex(/^[a-zA-Z0-9_]+$/, { message: 'Database name can only contain letters, numbers, and underscores' }),
 });
 
-export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onSelectTable }: BrowseSidebarProps) {
+export function BrowseSidebar() {
 	const router = useRouter();
+	const {
+		clusterId,
+		instanceId,
+		databaseName: selectedDatabaseName,
+		tableName: selectedTableName,
+	} = route.useParams();
+	const instanceDatabaseMap = route.useLoaderData() as InstanceDatabaseMap;
+	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { clusterId, instanceId, databaseName: selectedDatabaseName, tableName: selectedTableName } = route.useParams();
-	const canManageBrowseInstance = useInstanceBrowseManagePermission(instanceId || clusterId);
-	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState("");
-	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState("");
+	const canManageBrowseInstance = useInstanceBrowseManagePermission(instanceId ?? clusterId);
+	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState('');
+	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState('');
 	const [deletionTarget, setDeletionTarget] = useState<{ databaseName?: string; tableName?: string; }>({});
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-
 	const [isCreatingDatabase, setIsCreatingDatabase] = useState(false);
+
+	const { mutate: createNewDatabase } = useCreateDatabaseSubmitMutation();
+	const { mutate: deleteDatabase, isPending: isDeletingDatabase } = useDeleteDatabaseMutation();
+	const { mutate: deleteTable, isPending: isDeletingTable } = useDeleteTableMutation();
+
+	const { databaseNames, tableNames } = useMemo(() => {
+		const databaseNames = Object.keys(instanceDatabaseMap || {}).sort();
+		const tableNames = selectedDatabaseName ? Object.keys(instanceDatabaseMap[selectedDatabaseName] || []).sort() : [];
+		return {
+			databaseNames,
+			tableNames,
+		};
+	}, [instanceDatabaseMap, selectedDatabaseName]);
 
 	const form = useForm({
 		resolver: zodResolver(NewDatabaseSchema),
@@ -62,14 +75,28 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 		},
 	});
 
-	const { mutate: createNewDatabase } = useCreateDatabaseSubmitMutation();
-	const { mutate: deleteDatabase, isPending: isDeletingDatabase } = useDeleteDatabaseMutation();
-	const { mutate: deleteTable, isPending: isDeletingTable } = useDeleteTableMutation();
+	const onSelectDatabase = useCallback((newDatabaseName: string | undefined) => {
+		const tableNames = newDatabaseName ? Object.keys(instanceDatabaseMap[newDatabaseName] || []).sort() : [];
+		const parts = [selectedDatabaseName ? '..' : '', selectedTableName ? '..' : '', newDatabaseName, tableNames[0]].filter(Boolean);
+		if (!selectedDatabaseName) {
+			router.invalidate();
+		} else {
+			void navigate({ to: parts.join('/') });
+		}
+	}, [instanceDatabaseMap, selectedDatabaseName, selectedTableName, router, navigate]);
 
-	const submitNewDatabase = (formData: z.infer<typeof NewDatabaseSchema>) => {
+	const onSelectTable = useCallback((newTableName: string | undefined) => {
+		const parts = [selectedTableName ? '..' : '', newTableName].filter(Boolean);
+		void navigate({ to: parts.join('/') });
+	}, [selectedTableName, navigate]);
+
+	const submitNewDatabase = useCallback((formData: z.infer<typeof NewDatabaseSchema>) => {
 		createNewDatabase(formData, {
 			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
+				await queryClient.invalidateQueries({
+					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					refetchType: 'all',
+				});
 				await router.invalidate();
 				setIsCreatingDatabase(false);
 				form.reset();
@@ -77,43 +104,51 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 				onSelectDatabase(formData.databaseName);
 			},
 		});
-	};
+	}, [clusterId, createNewDatabase, form, instanceId, onSelectDatabase, queryClient, router]);
+
+	const onDeleteTable = useCallback((targetDatabaseName: string, targetTableName: string) => {
+		deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName }, {
+			onSuccess: async () => {
+				setIsDeleteModalOpen(false);
+				await queryClient.invalidateQueries({
+					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					refetchType: 'all',
+				});
+				await router.invalidate();
+				toast.success(`Table ${targetTableName} deleted successfully`);
+				if (targetTableName === selectedTableName) {
+					onSelectTable(undefined);
+				}
+			},
+		});
+	}, [clusterId, deleteTable, instanceId, onSelectTable, queryClient, router, selectedTableName]);
+
+	const onDeleteDatabase = useCallback((targetDatabaseName: string) => {
+		deleteDatabase(targetDatabaseName, {
+			onSuccess: async () => {
+				setIsDeleteModalOpen(false);
+				await queryClient.invalidateQueries({
+					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					refetchType: 'all',
+				});
+				await router.invalidate();
+				toast.success(`Database ${targetDatabaseName} deleted successfully`);
+				onSelectDatabase(undefined);
+			},
+		});
+	}, [clusterId, deleteDatabase, instanceId, onSelectDatabase, queryClient, router]);
 
 	const onDeletionConfirmed = useCallback(() => {
 		const targetDatabaseName = deletionTarget.databaseName;
 		const targetTableName = deletionTarget.tableName;
 		if (targetDatabaseName) {
 			if (targetTableName) {
-				deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName }, {
-					onSuccess: async () => {
-						setIsDeleteModalOpen(false);
-						await queryClient.invalidateQueries({
-							queryKey: [instanceId, 'describe_all'],
-							refetchType: 'all',
-						});
-						await router.invalidate();
-						toast.success(`Table ${targetTableName} deleted successfully`);
-						if (targetTableName === selectedTableName) {
-							onSelectTable(undefined);
-						}
-					},
-				});
+				onDeleteTable(targetDatabaseName, targetTableName);
 			} else {
-				deleteDatabase(targetDatabaseName, {
-					onSuccess: async () => {
-						setIsDeleteModalOpen(false);
-						await queryClient.invalidateQueries({
-							queryKey: [instanceId, 'describe_all'],
-							refetchType: 'all',
-						});
-						await router.invalidate();
-						toast.success(`Database ${targetDatabaseName} deleted successfully`);
-						onSelectDatabase(undefined);
-					},
-				});
+				onDeleteDatabase(targetDatabaseName);
 			}
 		}
-	}, [deleteDatabase, deleteTable, deletionTarget, instanceId, onSelectDatabase, onSelectTable, queryClient, router, selectedTableName]);
+	}, [deletionTarget.databaseName, deletionTarget.tableName, onDeleteDatabase, onDeleteTable]);
 
 	return (
 		<div>
@@ -203,7 +238,7 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
 								{canManageBrowseInstance && (<div className="mx-auto max-w-48">
-									<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} onSelectTable={onSelectTable} />
+									<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} clusterId={clusterId} onSelectTable={onSelectTable} />
 								</div>)}
 							</div>
 						) : (tableNames ?? []).length === 0 && !selectedDatabaseName?.length ? (
@@ -219,7 +254,7 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 										variant="destructiveOutline"
 										onClick={() => {
 											if (tableName) {
-												setTypeOfThingBeingDeleted("table");
+												setTypeOfThingBeingDeleted('table');
 												setNameOfThingBeingDeleted(tableName);
 												setDeletionTarget({ databaseName: selectedDatabaseName, tableName });
 												setIsDeleteModalOpen(true);
@@ -245,7 +280,7 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 				</ScrollArea>
 			</Tabs>
 			{selectedDatabaseName?.length && canManageBrowseInstance && (
-				<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} onSelectTable={onSelectTable} />
+				<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} clusterId={clusterId} onSelectTable={onSelectTable} />
 			)}
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={typeOfThingBeingDeleted}

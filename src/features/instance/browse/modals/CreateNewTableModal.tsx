@@ -50,8 +50,9 @@ const CreateTableSchema = z.object({
 		}),
 });
 
-export function CreateNewTableModal({ databaseName, instanceId, onSelectTable }: {
+export function CreateNewTableModal({ databaseName, instanceId, clusterId, onSelectTable }: {
 	readonly databaseName: string;
+	readonly clusterId: string;
 	readonly instanceId: string;
 	readonly onSelectTable: (tableName: string | undefined) => void;
 }) {
@@ -75,7 +76,7 @@ export function CreateNewTableModal({ databaseName, instanceId, onSelectTable }:
 		};
 		submitNewTableData(updatedFormData, {
 			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId, 'describe_all'], refetchType: 'all' });
+				await queryClient.invalidateQueries({ queryKey: [instanceId ?? clusterId, 'describe_all'], refetchType: 'all' });
 				toast.success(`Table ${formData.tableName} created successfully`);
 				setIsModalOpen(false);
 				form.reset();

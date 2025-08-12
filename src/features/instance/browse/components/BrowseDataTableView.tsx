@@ -24,9 +24,9 @@ export function BrowseDataTableView() {
 	const allParams = route.useParams();
 	const { clusterId, instanceId, databaseName, tableName } = allParams;
 
-	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'insert');
-	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'update');
-	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'delete');
+	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
+	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
+	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
 		getDescribeTableQueryOptions({

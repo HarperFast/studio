@@ -15,7 +15,7 @@ const route = getRouteApi('');
 
 function DesktopInstanceNavBar() {
 	const { clusterId, instanceId } = route.useParams();
-	const canManage = useInstanceManagePermission(instanceId || clusterId);
+	const canManage = useInstanceManagePermission(instanceId ?? clusterId);
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<h1 className="text-xl font-bold">Instance:</h1>
@@ -46,7 +46,7 @@ function DesktopInstanceNavBar() {
 
 function MobileInstanceNavBar() {
 	const { clusterId, instanceId } = route.useParams();
-	const canManage = useInstanceManagePermission(instanceId || clusterId);
+	const canManage = useInstanceManagePermission(instanceId ?? clusterId);
 	return (
 		<div className="flex md:hidden items-center justify-between p-2 text-white">
 			<h1 className="text-xl font-bold">Instance</h1>
