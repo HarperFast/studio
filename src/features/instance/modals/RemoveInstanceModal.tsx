@@ -60,7 +60,7 @@ export function RemoveInstanceModal({
 
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						<Button variant="submit" className="rounded-full" onClick={() => setIsModalOpen(false)}>
+						<Button type="button" className="rounded-full" onClick={() => setIsModalOpen(false)}>
 							<Ban /> Cancel
 						</Button>
 						<Button
