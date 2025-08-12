@@ -37,7 +37,7 @@ export interface LocalRolePermission {
 	cluster_user?: boolean;
 	structure_user?: boolean;
 
-	[schemaName: string]: LocalRoleSchemaRecord;
+	[databaseName: string]: LocalRoleSchemaRecord;
 }
 
 export interface LocalRoleSchemaRecord {
@@ -88,11 +88,11 @@ export interface Cluster extends SchemaCluster {
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
 }
 
-export interface InstanceSchemaMap {
-	[schemaName: string]: InstanceSchema;
+export interface InstanceDatabaseMap {
+	[databaseName: string]: InstanceDatabaseTableMap;
 }
 
-export interface InstanceSchema {
+export interface InstanceDatabaseTableMap {
 	[tableName: string]: InstanceTable;
 }
 

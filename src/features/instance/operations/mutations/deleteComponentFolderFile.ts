@@ -12,6 +12,7 @@ const onDeleteComponentFolderFile = async (componentFileData: DeleteComponentFil
 		operation: 'drop_component',
 		file,
 		project,
+		replicated: true,
 	});
 	return data;
 };

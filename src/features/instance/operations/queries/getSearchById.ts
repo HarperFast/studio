@@ -4,12 +4,12 @@ import { queryOptions } from '@tanstack/react-query';
 function getSearchByIdOptions(
 	isEditModalOpen: boolean,
 	instanceId: string,
-	schemaName: string,
+	databaseName: string,
 	tableName: string,
 	ids: unknown[] | null,
 ) {
 	return queryOptions({
-		queryKey: ['search_by_id', instanceId, schemaName, tableName, ids] as const,
+		queryKey: ['search_by_id', instanceId, databaseName, tableName, ids] as const,
 		queryFn: () =>
 			instanceClient.post('/', {
 				get_attributes: ['*'],
@@ -17,7 +17,7 @@ function getSearchByIdOptions(
 				noCacheStore: true,
 				onlyIfCached: true,
 				operation: 'search_by_id',
-				schema: schemaName,
+				database: databaseName,
 				table: tableName,
 			}),
 		enabled: isEditModalOpen && !!ids?.length,

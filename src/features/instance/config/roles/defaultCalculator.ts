@@ -1,5 +1,5 @@
 import {
-	InstanceSchemaMap,
+	InstanceDatabaseMap,
 	LocalLegacyRolePermissionTable,
 	LocalRolePermission,
 	LocalRolePermissionTable,
@@ -7,12 +7,12 @@ import {
 import { keyBy } from '@/lib/keyBy';
 
 export function calculateDefaultPermissions({
-	instanceSchema,
+	instanceDatabaseMap,
 	currentRolePermissions,
 	version,
 	showAttributes,
 }: {
-	instanceSchema: InstanceSchemaMap,
+	instanceDatabaseMap: InstanceDatabaseMap,
 	currentRolePermissions: LocalRolePermission;
 	version: string;
 	showAttributes: boolean;
@@ -26,21 +26,21 @@ export function calculateDefaultPermissions({
 	const [major, minor, patch] = version.split('.').map(number => parseInt(number, 10));
 	const legacy = version !== '2.0.000' && major <= 2 && minor <= 1 && patch <= 2;
 
-	for (const schema in instanceSchema) {
-		permissionStructure[schema] = {
+	for (const databaseName in instanceDatabaseMap) {
+		permissionStructure[databaseName] = {
 			tables: {},
 		};
-		for (const table in instanceSchema[schema]) {
-			const thisTable = instanceSchema[schema][table];
+		for (const tableName in instanceDatabaseMap[databaseName]) {
+			const thisTable = instanceDatabaseMap[databaseName][tableName];
 			const attributes = thisTable.attributes.map((a) => a.attribute).sort();
 			if (legacy) {
 				const extantTablePermissions =
-					currentRolePermissions && currentRolePermissions[schema] && currentRolePermissions[schema].tables[table];
-				permissionStructure[schema].tables[table] = buildLegacy(extantTablePermissions as LocalLegacyRolePermissionTable, attributes, showAttributes);
+					currentRolePermissions && currentRolePermissions[databaseName] && currentRolePermissions[databaseName].tables[tableName];
+				permissionStructure[databaseName].tables[tableName] = buildLegacy(extantTablePermissions as LocalLegacyRolePermissionTable, attributes, showAttributes);
 			} else {
 				const extantTablePermissions =
-					currentRolePermissions && currentRolePermissions[schema] && currentRolePermissions[schema].tables[table];
-				permissionStructure[schema].tables[table] = buildCurrent(extantTablePermissions as LocalRolePermissionTable, attributes, showAttributes);
+					currentRolePermissions && currentRolePermissions[databaseName] && currentRolePermissions[databaseName].tables[tableName];
+				permissionStructure[databaseName].tables[tableName] = buildCurrent(extantTablePermissions as LocalRolePermissionTable, attributes, showAttributes);
 			}
 		}
 	}

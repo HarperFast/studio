@@ -7,27 +7,27 @@ export async function loadInstanceBrowseData(
 	params: {
 		clusterId?: string;
 		instanceId?: string;
-		schemaName?: string;
+		databaseName?: string;
 		tableName?: string;
 	}
 ) {
 	const data = await queryClient.ensureQueryData(getDescribeAllQueryOptions(params.instanceId ?? params.clusterId));
-	let newSchemaName: string | undefined;
+	let newDatabaseName: string | undefined;
 	let newTableName: string | undefined;
 	if (data) {
-		if (!params.schemaName) {
-			newSchemaName = Object.keys(data).sort()[0];
+		if (!params.databaseName) {
+			newDatabaseName = Object.keys(data).sort()[0];
 		}
-		const schemaName = params.schemaName ?? newSchemaName;
-		if (!params.tableName && schemaName && data[schemaName]) {
-			newTableName = Object.keys(data[schemaName]).sort()[0];
+		const databaseName = params.databaseName ?? newDatabaseName;
+		if (!params.tableName && databaseName && data[databaseName]) {
+			newTableName = Object.keys(data[databaseName]).sort()[0];
 		}
 	}
-	if (newSchemaName || newTableName) {
+	if (newDatabaseName || newTableName) {
 		const to = [
-			params.schemaName ? '..' : '',
+			params.databaseName ? '..' : '',
 			params.tableName ? '..' : '',
-			newSchemaName ?? params.schemaName,
+			newDatabaseName ?? params.databaseName,
 			newTableName,
 		]
 			.filter(Boolean)

@@ -11,7 +11,7 @@ const onInsertTableRecords = async (recordsData: InsertTableRecordsData) => {
 	const { databaseName, tableName, records } = recordsData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'insert',
-		schema: databaseName,
+		database: databaseName,
 		table: tableName,
 		records: records,
 	});

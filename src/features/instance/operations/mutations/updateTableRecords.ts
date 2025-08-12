@@ -11,7 +11,7 @@ const onUpdateTableRecords = async (recordsData: UpdateTableRecordsData) => {
 	const { databaseName, tableName, records } = recordsData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'update',
-		schema: databaseName,
+		database: databaseName,
 		table: tableName,
 		records: records,
 	});

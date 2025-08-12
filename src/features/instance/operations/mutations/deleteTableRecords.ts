@@ -11,7 +11,7 @@ const onDeleteTableRecords = async (recordsData: DeleteTableRecordsData) => {
 	const { databaseName, tableName, hash_values } = recordsData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'delete',
-		schema: databaseName,
+		database: databaseName,
 		table: tableName,
 		hash_values: hash_values,
 	});

@@ -22,16 +22,16 @@ const route = getRouteApi('');
 
 export function BrowseDataTableView() {
 	const allParams = route.useParams();
-	const { clusterId, instanceId, schemaName, tableName } = allParams;
+	const { clusterId, instanceId, databaseName, tableName } = allParams;
 
-	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'insert');
-	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'update');
-	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, schemaName, tableName, 'delete');
+	const canAddRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'insert');
+	const canEditRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'update');
+	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId || clusterId, databaseName, tableName, 'delete');
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
 		getDescribeTableQueryOptions({
 			instanceOrClusterId: instanceId ?? clusterId,
-			schemaName,
+			databaseName,
 			tableName,
 		}),
 	);
@@ -39,7 +39,7 @@ export function BrowseDataTableView() {
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	const { data: searchByIdData } = useQuery(
-		getSearchByIdOptions(isEditModalOpen, instanceId, schemaName, tableName, selectedIds),
+		getSearchByIdOptions(isEditModalOpen, instanceId, databaseName, tableName, selectedIds),
 	);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
@@ -73,7 +73,7 @@ export function BrowseDataTableView() {
 	} = useQuery(
 		getSearchByValueOptions({
 			instanceId,
-			schemaName,
+			databaseName,
 			tableName,
 			searchAttribute: hashAttribute,
 			sortTableDataParams,
@@ -92,7 +92,7 @@ export function BrowseDataTableView() {
 	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
 			{
-				databaseName: schemaName,
+				databaseName,
 				tableName,
 				records: Array.isArray(data) ? data : [data],
 			},
@@ -109,7 +109,7 @@ export function BrowseDataTableView() {
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
-				databaseName: schemaName,
+				databaseName,
 				tableName,
 				records: data,
 			},
@@ -126,7 +126,7 @@ export function BrowseDataTableView() {
 	const onDeleteRecord = (hashes: unknown[]) => {
 		deleteTableRecords(
 			{
-				databaseName: schemaName,
+				databaseName,
 				tableName,
 				hash_values: hashes,
 			},

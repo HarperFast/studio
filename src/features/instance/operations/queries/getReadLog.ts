@@ -35,6 +35,7 @@ function getReadLogQueryOptions({
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
 				start: 0,
+				replicated: true,
 				...logFilters,
 			});
 			return data as ReadLogItem[];

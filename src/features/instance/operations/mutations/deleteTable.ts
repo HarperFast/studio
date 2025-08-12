@@ -6,11 +6,12 @@ type DeleteTableData = {
 	tableName: string;
 };
 
-const onDeleteTable = async (tableData: DeleteTableData) => {
+const onDeleteTable = async ({ databaseName, tableName }: DeleteTableData) => {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_table',
-		schema: tableData.databaseName,
-		table: tableData.tableName,
+		database: databaseName,
+		table: tableName,
+		replicated: true,
 	});
 	return data;
 };

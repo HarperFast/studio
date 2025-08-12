@@ -10,6 +10,7 @@ const onCreateComponentSubmit = async (formData: CreateComponentFormData) => {
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_component',
 		project: newApplicationName,
+		replicated: true,
 	});
 	return data;
 };
