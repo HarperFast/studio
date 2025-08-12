@@ -8,6 +8,7 @@
 		"dev:local": "vite --mode localstudio",
 		"build": "tsc -b && vite build",
 		"build:staging": "tsc -b && vite build --mode staging",
+		"build:production": "tsc -b && vite build --mode production",
 		"update-sdk": "npx -y dotenv-cli -e .env.local -- npm run update-sdk:fetch && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o ./src/lib/api.gen.d.ts",
 		"update-sdk:fetch": "mkdir -p dist && curl --location \"$VITE_CENTRAL_MANAGER_API_URL/openapi\" -u \"$HDB_ADMIN_USERNAME_FOR_OPENAPI:$HDB_ADMIN_PASSWORD_FOR_OPENAPI\" -o ./dist/central-manager.json",
 		"lint": "eslint .",
@@ -16,6 +17,8 @@
 		"test:watch": "vitest"
 	},
 	"dependencies": {
+		"@datadog/browser-rum": "^6.18.0",
+		"@datadog/browser-rum-react": "^6.18.0",
 		"@hookform/resolvers": "^4.1.2",
 		"@monaco-editor/react": "^4.7.0",
 		"@radix-ui/react-alert-dialog": "^1.1.6",

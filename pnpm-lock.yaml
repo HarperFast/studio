@@ -8,6 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@datadog/browser-rum':
+        specifier: ^6.18.0
+        version: 6.18.0
+      '@datadog/browser-rum-react':
+        specifier: ^6.18.0
+        version: 6.18.0(@datadog/browser-rum@6.18.0)(react@19.0.0)
       '@hookform/resolvers':
         specifier: ^4.1.2
         version: 4.1.2(react-hook-form@7.54.2(react@19.0.0))
@@ -238,6 +244,40 @@ packages:
   '@babel/types@7.26.9':
     resolution: {integrity: sha512-Y3IR1cRnOxOCDvMmNiym7XpXQ93iGDDPHx+Zj+NM+rg0fBaShfQLkg+hKPaZCEvg5N/LeCo4+Rj/i3FuJsIQaw==}
     engines: {node: '>=6.9.0'}
+
+  '@datadog/browser-core@6.18.0':
+    resolution: {integrity: sha512-ftQLISY5e1BYpffcF2WjYW+4/mZvb9lU1PbF36kXGD8VkcX9zfZG5NB2kxG/OCDOSgTeyMMzuUX4VA5yOfDTrQ==}
+
+  '@datadog/browser-rum-core@6.18.0':
+    resolution: {integrity: sha512-V6yRuXwDLJzPneAelEdgZ15+u6DmjnRYNB6aU0OwoYpl+BlJyfLu6Unwh8J3rJQWBE2pMaF4xikLwbdOIYr9UA==}
+
+  '@datadog/browser-rum-react@6.18.0':
+    resolution: {integrity: sha512-OvcigD5GXC7FjdU+or9lhBF9cm1epWqovQLTAFRybtGo9Ten9ZFvJbPDqjQmb8X3mMIAQIYMQO8rrpSbQ4L/iQ==}
+    peerDependencies:
+      '@datadog/browser-rum': '*'
+      '@datadog/browser-rum-slim': '*'
+      react: 18 || 19
+      react-router: '7'
+      react-router-dom: 6 || 7
+    peerDependenciesMeta:
+      '@datadog/browser-rum':
+        optional: true
+      '@datadog/browser-rum-slim':
+        optional: true
+      react:
+        optional: true
+      react-router:
+        optional: true
+      react-router-dom:
+        optional: true
+
+  '@datadog/browser-rum@6.18.0':
+    resolution: {integrity: sha512-nTgo43w5uR0Mi1Ocy9kbg1hAgNs0y4QQfBO77TlRzDe14hw0hGSBMxrh0XvJfBTdbPQWzHp1HrVor9KvIlU60Q==}
+    peerDependencies:
+      '@datadog/browser-logs': 6.18.0
+    peerDependenciesMeta:
+      '@datadog/browser-logs':
+        optional: true
 
   '@esbuild/aix-ppc64@0.25.0':
     resolution: {integrity: sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ==}
@@ -2489,6 +2529,25 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.25.9
       '@babel/helper-validator-identifier': 7.25.9
+
+  '@datadog/browser-core@6.18.0': {}
+
+  '@datadog/browser-rum-core@6.18.0':
+    dependencies:
+      '@datadog/browser-core': 6.18.0
+
+  '@datadog/browser-rum-react@6.18.0(@datadog/browser-rum@6.18.0)(react@19.0.0)':
+    dependencies:
+      '@datadog/browser-core': 6.18.0
+      '@datadog/browser-rum-core': 6.18.0
+    optionalDependencies:
+      '@datadog/browser-rum': 6.18.0
+      react: 19.0.0
+
+  '@datadog/browser-rum@6.18.0':
+    dependencies:
+      '@datadog/browser-core': 6.18.0
+      '@datadog/browser-rum-core': 6.18.0
 
   '@esbuild/aix-ppc64@0.25.0':
     optional: true
