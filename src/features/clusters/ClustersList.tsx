@@ -46,7 +46,7 @@ export function ClustersList() {
 				?.slice()
 				.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 				.sort(byClusterStatusThenName) || [],
-			'status'
+			'status',
 		);
 		return {
 			keys: Object.keys(groups),
@@ -84,7 +84,7 @@ export function ClustersList() {
 				});
 			}
 		},
-		[deleteCluster, queryClient, setIsDeleteClusterModalOpen]
+		[deleteCluster, queryClient, setIsDeleteClusterModalOpen],
 	);
 
 	const onDeleteClusterModal = useCallback((cluster: Cluster) => {
@@ -148,15 +148,25 @@ export function ClustersList() {
 					))
 				) : (
 					<div className="flex-col space-y-5 items-center justify-center text-center">
-						<h2 className="text-2xl text-center text-white">No clusters found. Create a new cluster.</h2>
+						<h2 className="text-2xl text-center text-white">
+							No clusters found.
+							{create && ' Create a new cluster.'}
+						</h2>
 
-						<Button
-							variant="positive"
-							className="w-full rounded-full md:w-44"
-							onClick={() => setIsNewClusterModalOpen(true)}
-						>
-							<Plus /> New Cluster
-						</Button>
+
+						{create && (
+							<Button
+								variant="positive"
+								className="w-full rounded-full md:w-44"
+								accessKey="n"
+								onClick={() => setIsNewClusterModalOpen(true)}
+							>
+								<Plus />{' '}
+								<span>
+									<u>N</u>ew Cluster
+								</span>
+							</Button>
+						)}
 					</div>
 				)}
 			</section>
