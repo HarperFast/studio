@@ -12,6 +12,7 @@ async function onUpdateRestartInstance() {
 	const operationsUrl = instanceClient.defaults.baseURL;
 	const { data } = await instanceClient.post('/', {
 		operation: 'restart',
+		restart: 'rolling',
 	});
 	await sleep(3000);
 	await axiosRetry(() => getInstanceUserInfo({ timeout: 10000, operationsUrl }), 5, 3000);

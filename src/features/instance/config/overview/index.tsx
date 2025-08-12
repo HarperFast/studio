@@ -27,38 +27,39 @@ const CloudStudioOverview = ({ children }: { children: ReactNode }) => {
 
 export function ConfigOverviewIndex() {
 	const { clusterId, instanceId } = useParams({ strict: false });
+	const targetId = instanceId ?? clusterId;
+	const targetNoun = instanceId ? 'Instance' : 'Cluster';
+
 	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
 	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
-		getInstanceInfoQueryOptions(clusterId, instanceId)
+		getInstanceInfoQueryOptions(clusterId, instanceId),
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
-		getRegistrationInfoQueryOptions(instanceId)
+		getRegistrationInfoQueryOptions(instanceId),
 	);
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
-		getConfigurationQueryOptions(instanceId)
+		getConfigurationQueryOptions(instanceId),
 	);
 
+
 	const restartingInstance = () => {
-		if (!instanceId) {
-			return;
-		}
 		const toastId = toast.loading('Restarting', {
-			description: 'Restarting instance. This may take up to 60 seconds.',
+			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
 			duration: 60000, // Keep the toast open until dismissed
 			action: {
 				label: 'Dismiss',
 				onClick: () => toast.dismiss(),
 			},
 		});
-		restartInstance(instanceId, {
+		restartInstance(targetId, {
 			onSuccess: () => {
 				toast.dismiss(toastId);
 				toast.success('Success', {
-					description: `Instance restarted!`,
+					description: `${targetNoun} restarted!`,
 					action: {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
@@ -67,7 +68,7 @@ export function ConfigOverviewIndex() {
 			},
 			onError: () => {
 				toast.error('Error', {
-					description: `Failed to restart instance.`,
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
 					action: {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
@@ -121,7 +122,7 @@ export function ConfigOverviewIndex() {
 								onClick={restartingInstance}
 								disabled={isRestartInstancePending}
 							>
-								Restart Instance
+								Restart {targetNoun}
 							</Button>
 						</div>
 					</dl>
@@ -136,20 +137,20 @@ export function ConfigOverviewIndex() {
 							<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							<Button
+							{instanceId && (<Button
 								variant="destructiveOutline"
 								className="rounded-full cursor-pointer"
 								onClick={() => setIsRemoveInstanceModalOpen && setIsRemoveInstanceModalOpen(true)}
 							>
 								Remove Instance
-							</Button>
+							</Button>)}
 							<Button
 								variant="positiveOutline"
 								className="ml-4 rounded-full cursor-pointer"
 								onClick={restartingInstance}
 								disabled={isRestartInstancePending}
 							>
-								Restart Instance
+								Restart {targetNoun}
 							</Button>
 						</div>
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
