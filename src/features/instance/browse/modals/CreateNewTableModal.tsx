@@ -71,7 +71,7 @@ export function CreateNewTableModal({ databaseName, instanceId, onSelectTable }:
 	const submitForm = async (formData: z.infer<typeof CreateTableSchema>) => {
 		const updatedFormData = {
 			...formData,
-			databaseName: databaseName,
+			databaseName,
 		};
 		submitNewTableData(updatedFormData, {
 			onSuccess: async () => {

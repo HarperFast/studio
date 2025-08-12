@@ -13,12 +13,12 @@ export function createBrowseRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	});
 	const browseDatabaseRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
-		path: '$schemaName',
+		path: '$databaseName',
 		loader: ({ context, params }) => loadInstanceBrowseData(context.queryClient, params),
 	});
 	const browseTableRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
-		path: '$schemaName/$tableName',
+		path: '$databaseName/$tableName',
 		component: BrowseDataTableView,
 		loader: ({ context, params }) => loadInstanceBrowseData(context.queryClient, params),
 	});

@@ -108,7 +108,7 @@ export function useInstanceBrowseManagePermission(entityId: EntityIds): boolean 
 	return permission.super_user === true || permission.structure_user === true;
 }
 
-export function useInstanceSchemaTablePermission(entityId: EntityIds, schemaName: string, tableName: string, action: LocalRolePermissionAction): boolean {
+export function useInstanceSchemaTablePermission(entityId: EntityIds, databaseName: string, tableName: string, action: LocalRolePermissionAction): boolean {
 	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -119,11 +119,11 @@ export function useInstanceSchemaTablePermission(entityId: EntityIds, schemaName
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	const specificPermission = permission[schemaName];
+	const specificPermission = permission[databaseName];
 	return specificPermission?.tables?.[tableName][action] === true;
 }
 
-export function useInstanceSchemaTableAttributePermission(entityId: EntityIds, schemaName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
+export function useInstanceSchemaTableAttributePermission(entityId: EntityIds, databaseName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
 	const { user } = useInstanceAuth(entityId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -134,7 +134,7 @@ export function useInstanceSchemaTableAttributePermission(entityId: EntityIds, s
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	const specificPermission = permission[schemaName];
+	const specificPermission = permission[databaseName];
 	if (specificPermission?.tables?.[tableName][action] === true) {
 		return true;
 	}

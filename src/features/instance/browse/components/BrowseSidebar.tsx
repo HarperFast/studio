@@ -25,10 +25,10 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 type BrowseSidebarProps = {
-	databases: string[];
-	onSelectDatabase: (schemaName: string | undefined) => void;
+	databaseNames: string[];
+	onSelectDatabase: (databaseName: string | undefined) => void;
+	tableNames?: string[];
 	onSelectTable: (tableName: string | undefined) => void;
-	tables?: string[];
 };
 
 const route = getRouteApi('');
@@ -43,10 +43,10 @@ const NewDatabaseSchema = z.object({
 		.regex(/^[a-zA-Z0-9_]+$/, { message: 'Database name can only contain letters, numbers, and underscores' }),
 });
 
-export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTable }: BrowseSidebarProps) {
+export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onSelectTable }: BrowseSidebarProps) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
-	const { clusterId, instanceId, schemaName, tableName } = route.useParams();
+	const { clusterId, instanceId, databaseName: selectedDatabaseName, tableName: selectedTableName } = route.useParams();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission(instanceId || clusterId);
 	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState("");
 	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState("");
@@ -93,7 +93,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 						});
 						await router.invalidate();
 						toast.success(`Table ${targetTableName} deleted successfully`);
-						if (targetTableName === tableName) {
+						if (targetTableName === selectedTableName) {
 							onSelectTable(undefined);
 						}
 					},
@@ -113,7 +113,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 				});
 			}
 		}
-	}, [deleteDatabase, deleteTable, deletionTarget, instanceId, onSelectDatabase, onSelectTable, queryClient, router, tableName]);
+	}, [deleteDatabase, deleteTable, deletionTarget, instanceId, onSelectDatabase, onSelectTable, queryClient, router, selectedTableName]);
 
 	return (
 		<div>
@@ -122,7 +122,7 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 				<div className="flex space-x-2">
 					<Select
 						name="databaseSelect"
-						value={schemaName || ''}
+						value={selectedDatabaseName || ''}
 						onValueChange={(selectedDatabaseName) => {
 							onSelectDatabase(selectedDatabaseName);
 						}}
@@ -132,9 +132,9 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 						</SelectTrigger>
 						<SelectContent>
 							<SelectGroup>
-								{databases?.map((schema) => (
-									<SelectItem key={schema} value={schema}>
-										{schema}
+								{databaseNames?.map((databaseName) => (
+									<SelectItem key={databaseName} value={databaseName}>
+										{databaseName}
 									</SelectItem>
 								))}
 							</SelectGroup>
@@ -153,12 +153,12 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 							className="inline-block"
 							aria-label="Delete selected database"
 							variant="destructiveOutline"
-							disabled={!schemaName}
+							disabled={!selectedDatabaseName}
 							onClick={() => {
-								if (schemaName) {
+								if (selectedDatabaseName) {
 									setTypeOfThingBeingDeleted('database');
-									setNameOfThingBeingDeleted(schemaName);
-									setDeletionTarget({ databaseName: schemaName });
+									setNameOfThingBeingDeleted(selectedDatabaseName);
+									setDeletionTarget({ databaseName: selectedDatabaseName });
 									setIsDeleteModalOpen(true);
 								}
 							}}
@@ -199,29 +199,29 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 				</TabsList>
 				<ScrollArea className="border rounded-md h-80 border-grey-700">
 					<TabsContent value="tables" className="h-full">
-						{(tables ?? []).length === 0 && schemaName?.length ? (
+						{(tableNames ?? []).length === 0 && selectedDatabaseName?.length ? (
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
 								{canManageBrowseInstance && (<div className="mx-auto max-w-48">
-									<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
+									<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} onSelectTable={onSelectTable} />
 								</div>)}
 							</div>
-						) : (tables ?? []).length === 0 && !schemaName?.length ? (
+						) : (tableNames ?? []).length === 0 && !selectedDatabaseName?.length ? (
 							// If no database is selected, show a message
 							<p className="pt-2 text-sm text-center">Please select a database.</p>
 						) : (
 							''
 						)}
 						<ul>
-							{(tables ?? []).map((table) => (
-								<li key={table} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
+							{(tableNames ?? []).map((tableName) => (
+								<li key={tableName} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
 									{canManageBrowseInstance && (<Button
 										variant="destructiveOutline"
 										onClick={() => {
-											if (table) {
+											if (tableName) {
 												setTypeOfThingBeingDeleted("table");
-												setNameOfThingBeingDeleted(table);
-												setDeletionTarget({ databaseName: schemaName, tableName: table });
+												setNameOfThingBeingDeleted(tableName);
+												setDeletionTarget({ databaseName: selectedDatabaseName, tableName });
 												setIsDeleteModalOpen(true);
 											}
 										}}
@@ -229,13 +229,13 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 										<Trash className="inline-block " />
 									</Button>)}
 									<Button
-										onClick={() => onSelectTable(table)}
+										onClick={() => onSelectTable(tableName)}
 										size="lg"
 										className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent"
 									>
-										{table}
+										{tableName}
 										<span>
-											{tableName === table && <ArrowRight />}
+											{tableName === tableName && <ArrowRight />}
 										</span>
 									</Button>
 								</li>
@@ -244,8 +244,8 @@ export function BrowseSidebar({ databases, onSelectDatabase, tables, onSelectTab
 					</TabsContent>
 				</ScrollArea>
 			</Tabs>
-			{schemaName?.length && canManageBrowseInstance && (
-				<CreateNewTableModal databaseName={schemaName} instanceId={instanceId} onSelectTable={onSelectTable} />
+			{selectedDatabaseName?.length && canManageBrowseInstance && (
+				<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} onSelectTable={onSelectTable} />
 			)}
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={typeOfThingBeingDeleted}

@@ -11,7 +11,7 @@ type SearchConditions = {
 type SearchByValueRequest = {
 	operation: 'search_by_value',
 	conditions?: [SearchConditions];
-	schema: string;
+	database: string;
 	table: string;
 	search_attribute: string;
 	search_value: string;
@@ -26,14 +26,14 @@ type SearchByValueRequest = {
 
 function getSearchByValueOptions({
 	instanceId,
-	schemaName,
+	databaseName,
 	tableName,
 	searchAttribute,
 	sortTableDataParams,
 	pagination,
 }: {
 	instanceId: string;
-	schemaName: string;
+	databaseName: string;
 	tableName: string;
 	searchAttribute: string;
 	sortTableDataParams: {
@@ -52,7 +52,7 @@ function getSearchByValueOptions({
 			instanceId,
 			pagination.pageIndex || 0,
 			pagination.pageSize || 0,
-			schemaName,
+			databaseName,
 			sortTableDataParams.attribute || 'default',
 			sortTableDataParams.descending || false,
 			tableName,
@@ -62,7 +62,7 @@ function getSearchByValueOptions({
 			instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_value',
 				get_attributes: ['*'],
-				schema: schemaName,
+				database: databaseName,
 				table: tableName,
 				search_attribute: searchAttribute,
 				search_value: '*',

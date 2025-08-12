@@ -37,7 +37,7 @@ export function EditRoleModal({
 	const { role, permission: initialPermissions } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(JSON.stringify(initialPermissions, null, 2));
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const { data: instanceSchema } = useQuery(getDescribeAllQueryOptions(instanceId));
+	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceId));
 	const { data: registrationInfo } = useQuery(
 		getRegistrationInfoQueryOptions(instanceId),
 	);
@@ -57,15 +57,15 @@ export function EditRoleModal({
 	);
 
 	const defaultValue = useMemo(() => {
-		return JSON.stringify(instanceSchema && registrationInfo && calculateDefaultPermissions({
-			instanceSchema,
+		return JSON.stringify(instanceDatabaseMap && registrationInfo && calculateDefaultPermissions({
+			instanceDatabaseMap,
 			currentRolePermissions: updatedPermissions && safeParse(updatedPermissions) || initialPermissions,
 			version: registrationInfo.version,
 			showAttributes: showAttributes,
 		}), null, 2);
 		// We exclude updatedPermissions on purpose from the deps.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [initialPermissions, instanceSchema, registrationInfo, showAttributes]);
+	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes]);
 
 	useEffect(() => {
 		setUpdatedPermissions(defaultValue);

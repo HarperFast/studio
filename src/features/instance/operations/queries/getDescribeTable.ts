@@ -5,25 +5,25 @@ import { queryOptions } from '@tanstack/react-query';
 
 export function getDescribeTableQueryOptions({
 	instanceOrClusterId,
-	schemaName,
+	databaseName,
 	tableName,
 }: {
 	instanceOrClusterId: string;
-	schemaName: string;
+	databaseName: string;
 	tableName: string;
 }) {
 	return queryOptions({
-		queryKey: [instanceOrClusterId, schemaName, tableName, 'describe_table'] as const,
+		queryKey: [instanceOrClusterId, databaseName, tableName, 'describe_table'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<InstanceTable>('/', {
 				operation: 'describe_table',
-				schema: schemaName,
+				database: databaseName,
 				table: tableName,
 			});
 			return data;
 		},
 		staleTime: 5000,
-		enabled: !!instanceOrClusterId && !!schemaName && !!tableName,
+		enabled: !!instanceOrClusterId && !!databaseName && !!tableName,
 		retry: false,
 	});
 }
