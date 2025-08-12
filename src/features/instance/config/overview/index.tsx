@@ -1,21 +1,19 @@
-import { ReactNode, useState } from 'react';
-import { useParams } from '@tanstack/react-router';
-import { toast } from 'sonner';
-import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
-import Editor from '@monaco-editor/react';
-import { Button } from '@/components/ui/button';
-import { RemoveInstanceModal } from '@/features/instance/modals/RemoveInstanceModal';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { useDeleteInstance } from '@/features/cluster/hooks/useDeleteInstance';
-import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
-import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
-import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
-import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
+import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
+import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
+import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
+import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
+import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
+import Editor from '@monaco-editor/react';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
+import { ReactNode } from 'react';
+import { toast } from 'sonner';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -30,8 +28,6 @@ export function ConfigOverviewIndex() {
 	const targetId = instanceId ?? clusterId;
 	const targetNoun = instanceId ? 'Instance' : 'Cluster';
 
-	const { mutate: deleteInstance, isPending: isDeleteInstancePending } = useDeleteInstance();
-	const [isRemoveInstanceModalOpen, setIsRemoveInstanceModalOpen] = useState(false);
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
 		getInstanceInfoQueryOptions(clusterId, instanceId),
@@ -78,35 +74,6 @@ export function ConfigOverviewIndex() {
 		});
 	};
 
-	const submitInstanceRemoval = () => {
-		if (!instanceId) {
-			return;
-		}
-		deleteInstance(instanceId, {
-			onSuccess: () => {
-				toast.success('Success', {
-					description: `Instance successfully removed.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-				setTimeout(() => {
-					// Redirect to the cluster(instances) page or perform any other action
-				}, 3000);
-			},
-			onError: () => {
-				toast.error('Error', {
-					description: `Failed to remove instance.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-		});
-	};
-
 	return (
 		<div className="h-full flex flex-col">
 			{isLocalStudio ? (
@@ -137,13 +104,6 @@ export function ConfigOverviewIndex() {
 							<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							{instanceId && (<Button
-								variant="destructiveOutline"
-								className="rounded-full cursor-pointer"
-								onClick={() => setIsRemoveInstanceModalOpen && setIsRemoveInstanceModalOpen(true)}
-							>
-								Remove Instance
-							</Button>)}
 							<Button
 								variant="positiveOutline"
 								className="ml-4 rounded-full cursor-pointer"
@@ -182,12 +142,6 @@ export function ConfigOverviewIndex() {
 					</>
 				)}
 			</div>
-			<RemoveInstanceModal
-				isModalOpen={isRemoveInstanceModalOpen}
-				setIsModalOpen={setIsRemoveInstanceModalOpen}
-				submitInstanceRemoval={submitInstanceRemoval}
-				isPending={isDeleteInstancePending}
-			/>
 		</div>
 	);
 }
