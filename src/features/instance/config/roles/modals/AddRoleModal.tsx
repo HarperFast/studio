@@ -67,6 +67,11 @@ export function AddRoleModal({
 		[addRole, form, onChangesSaved, setIsModalOpen],
 	);
 
+	const onClickCancel = useCallback(() => {
+		form.reset();
+		setIsModalOpen(false);
+	}, [form, setIsModalOpen]);
+
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
@@ -131,8 +136,9 @@ export function AddRoleModal({
 							<div className="flex justify-between w-full">
 								<Button
 									variant="destructiveOutline"
+									type="button"
 									className="rounded-full"
-									onClick={() => setIsModalOpen(false)}
+									onClick={onClickCancel}
 									disabled={isAddPending}
 								>
 									Cancel

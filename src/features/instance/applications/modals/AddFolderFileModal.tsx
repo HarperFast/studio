@@ -86,7 +86,7 @@ export function AddFolderFileModal({
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button variant="destructiveOutline" className="rounded-full" onClick={() => setIsModalOpen(false)}>
+								<Button type="button" variant="destructiveOutline" className="rounded-full" onClick={() => setIsModalOpen(false)}>
 									<Ban /> Cancel
 								</Button>
 								<Button

@@ -37,7 +37,7 @@ const ConfirmDeletionContent = ({
 		<DialogTitle>Confirm Role Deletion</DialogTitle>
 		<DialogDescription>Are you sure you want to delete this role? This action cannot be undone.</DialogDescription>
 		<DialogFooter>
-			<Button variant="defaultOutline" className="rounded-full" onClick={() => setIsConfirmingRoleDeletion(false)}>
+			<Button type="button" variant="defaultOutline" className="rounded-full" onClick={() => setIsConfirmingRoleDeletion(false)}>
 				Cancel
 			</Button>
 			<Button
@@ -249,6 +249,7 @@ export function EditOrganizationRoleModal({
 								{(remove || update) && (<DialogFooter className="col-span-2">
 									<div className="flex justify-between w-full">
 										{remove && (<Button
+											type="button"
 											variant="destructiveOutline"
 											className="rounded-full"
 											onClick={() => setIsConfirmingRoleDeletion(true)}

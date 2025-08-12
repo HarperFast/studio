@@ -152,6 +152,7 @@ export function EditRoleModal({
 				<DialogFooter>
 					{!isSelf && (<div className="flex justify-between w-full">
 						<Button
+							type="button"
 							variant="destructiveOutline"
 							className="rounded-full"
 							onClick={onRoleDeleteClick}

@@ -23,7 +23,7 @@ export function BrowseSettingsModal() {
 
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						<Button variant="destructive" className="rounded-full">
+						<Button type="button" variant="destructive" className="rounded-full">
 							<Trash /> Delete Row
 						</Button>
 						<Button variant="submit" className="rounded-full">
