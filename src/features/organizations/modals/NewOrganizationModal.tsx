@@ -17,6 +17,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
 import { NewOrganizationSchema } from '@/features/organizations/modals/newOrganizationSchema';
+import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
@@ -59,6 +60,7 @@ export function NewOrganizationModal() {
 		}, {
 			onSuccess: () => {
 				queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'active' });
+				authStore.reloadUser(OverallAppSignIn);
 				setIsModalOpen(false);
 			},
 		});
