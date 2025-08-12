@@ -1,3 +1,4 @@
+import { isLocalStudio } from '@/config/constants';
 import {
 	AuthenticatedCloudConnection,
 	AuthenticatedConnection,
@@ -28,6 +29,9 @@ export function useCloudAuth(): AuthenticatedCloudConnection {
 }
 
 export function useInstanceAuth(entityId: EntityIds): AuthenticatedInstanceConnection {
+	if (isLocalStudio) {
+		entityId = OverallAppSignIn;
+	}
 	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(entityId));
 	useEffect(() =>
 		authStore.listenToEntity(entityId, setConnection), [entityId]);
