@@ -21,7 +21,7 @@ export function EditUserModal({
 	onUserDeleted: () => void;
 	onUserUpdated: () => void;
 }) {
-	const auth = useInstanceAuth(instanceId || clusterId);
+	const auth = useInstanceAuth(instanceId ?? clusterId);
 	const isSelf = auth.user?.username === data.username;
 	const canDelete = !isSelf;
 

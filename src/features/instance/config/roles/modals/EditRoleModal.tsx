@@ -37,11 +37,11 @@ export function EditRoleModal({
 	const { role, permission: initialPermissions } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(JSON.stringify(initialPermissions, null, 2));
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceId));
+	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceId ?? clusterId));
 	const { data: registrationInfo } = useQuery(
 		getRegistrationInfoQueryOptions(instanceId),
 	);
-	const auth = useInstanceAuth(instanceId || clusterId);
+	const auth = useInstanceAuth(instanceId ?? clusterId);
 	const isSelf = auth.user?.role?.role === data.role;
 
 	const [showAttributes, onShowAttributesChanged] = useCheckboxCallback(updatedPermissions?.includes('attribute_name'));
