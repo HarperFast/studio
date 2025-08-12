@@ -5,16 +5,19 @@ import { useRemoveUserFromOrganizationRole } from '@/features/organization/mutat
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
 import { SchemaOrganizationRole, SchemaUser } from '@/lib/api.gen';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 export function OrgUserRoleCheckbox({
 	data,
 	readOnly,
+	canRemove,
 	orgRole,
 	selectedRoles,
 	setChangesMade,
 }: {
 	data: SchemaUser;
 	readOnly: boolean;
+	canRemove: boolean;
 	orgRole: SchemaOrganizationRole,
 	selectedRoles: Record<string, SchemaOrganizationRole>,
 	setChangesMade: (value: boolean) => void,
@@ -33,6 +36,7 @@ export function OrgUserRoleCheckbox({
 						onSuccess: () => {
 							setWasChecked(isChecked);
 							setChangesMade(true);
+							toast.success(`Role added successfully`);
 						},
 					},
 				);
@@ -43,6 +47,7 @@ export function OrgUserRoleCheckbox({
 						onSuccess: () => {
 							setWasChecked(isChecked);
 							setChangesMade(true);
+							toast.success(`Role removed successfully`);
 						},
 					},
 				);
@@ -54,7 +59,7 @@ export function OrgUserRoleCheckbox({
 		<Input
 			type="checkbox"
 			className="w-6"
-			disabled={readOnly || isAddPending || isRemovePending}
+			disabled={readOnly || isAddPending || isRemovePending || (!canRemove && isChecked)}
 			checked={isChecked}
 			onChange={onCheckedChanged}
 		/>
