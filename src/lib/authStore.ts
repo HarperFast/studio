@@ -217,11 +217,15 @@ class AuthStore {
 	}
 
 	private async ensureUserIsLoaded(id: EntityIds): Promise<void> {
-		if (!this.potentiallyAuthenticated[id]) {
-			this.updateConnectionIfChanged(id, false, null);
+		if (this.checkedAuthentication[id]) {
 			return;
 		}
-		if (this.checkedAuthentication[id]) {
+		return this.reloadUser(id);
+	}
+
+	public async reloadUser(id: EntityIds): Promise<void> {
+		if (!this.potentiallyAuthenticated[id]) {
+			this.updateConnectionIfChanged(id, false, null);
 			return;
 		}
 		const key = this.potentiallyAuthenticated[id];
