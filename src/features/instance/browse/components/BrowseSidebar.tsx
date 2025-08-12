@@ -34,7 +34,7 @@ type BrowseSidebarProps = {
 const route = getRouteApi('');
 
 const NewDatabaseSchema = z.object({
-	newDatabaseName: z
+	databaseName: z
 		.string({
 			message: 'Please enter a valid database name.',
 		})
@@ -58,7 +58,7 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 	const form = useForm({
 		resolver: zodResolver(NewDatabaseSchema),
 		defaultValues: {
-			newDatabaseName: '',
+			databaseName: '',
 		},
 	});
 
@@ -73,8 +73,8 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 				await router.invalidate();
 				setIsCreatingDatabase(false);
 				form.reset();
-				toast.success(`Database ${formData.newDatabaseName} created successfully`);
-				onSelectDatabase(formData.newDatabaseName);
+				toast.success(`Database ${formData.databaseName} created successfully`);
+				onSelectDatabase(formData.databaseName);
 			},
 		});
 	};
@@ -172,10 +172,10 @@ export function BrowseSidebar({ databaseNames, onSelectDatabase, tableNames, onS
 						<form className="items-center pl-4 mt-2 space-x-2" onSubmit={form.handleSubmit(submitNewDatabase)}>
 							<FormField
 								control={form.control}
-								name="newDatabaseName"
+								name="databaseName"
 								render={({ field }) => (
 									<FormItem className="my-4">
-										<FormLabel htmlFor="newDatabaseName">New Database</FormLabel>
+										<FormLabel htmlFor="databaseName">New Database</FormLabel>
 										<FormControl>
 											<Input type="text" placeholder="Enter new database name" {...field} />
 										</FormControl>
