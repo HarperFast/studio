@@ -43,7 +43,7 @@ export function ImportProjectForm() {
 	const submitForm = async (formData: DeployComponentFormData) => {
 		deployNewApplication(formData, {
 			onSuccess: () => {
-				toast.success(`Application ${formData} created successfully`);
+				toast.success(`Application ${formData.newApplicationName} created successfully`);
 				navigate({ to: `../editor` });
 			},
 			onError: (error) => {
