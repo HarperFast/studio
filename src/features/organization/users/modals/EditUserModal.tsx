@@ -24,7 +24,7 @@ export function EditUserModal({
 }) {
 	const { organizationId } = route.useParams();
 	const auth = useCloudAuth();
-	const { update } = useOrganizationRolePermissions(organizationId);
+	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;
 	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
 	const selectedRoles = useMemo(() => data.roles ? keyBy(data.roles, 'roleName') : {}, [data]);
@@ -43,7 +43,15 @@ export function EditUserModal({
 				</DialogDescription>)}
 
 				{orgRoles.map((orgRole) => (
-					<OrgUserRoleCheckbox key={orgRole.id} readOnly={isSelf || !update} data={data} orgRole={orgRole} selectedRoles={selectedRoles} setChangesMade={setChangesMade} />
+					<OrgUserRoleCheckbox
+						key={orgRole.id}
+						readOnly={isSelf || !update}
+						canRemove={remove}
+						data={data}
+						orgRole={orgRole}
+						selectedRoles={selectedRoles}
+						setChangesMade={setChangesMade}
+					/>
 				))}
 			</DialogContent>
 		</Dialog>
