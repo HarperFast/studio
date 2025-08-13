@@ -39,7 +39,7 @@ export function FileMenuActionButtons() {
 	};
 
 	const handleDeleteFolderOrFile = async () => {
-		await deleteFolderFile(
+		deleteFolderFile(
 			{
 				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
 				project: selectedFolderFile.projectName,
