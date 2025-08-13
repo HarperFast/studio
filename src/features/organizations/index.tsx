@@ -58,17 +58,7 @@ export function OrganizationsIndex() {
 						queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
 						setIsDeleteOrgModalOpen(false);
 					},
-					onError: () => {
-						toast.error('Error', {
-							description: `Failed to delete organization: ${org.organizationName}.`,
-							duration: 5000,
-							action: {
-								label: 'Dismiss',
-								onClick: () => toast.dismiss(),
-							},
-						});
-						setIsDeleteOrgModalOpen(false);
-					},
+					onError: () => setIsDeleteOrgModalOpen(false),
 				});
 			}
 		},
