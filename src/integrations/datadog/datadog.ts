@@ -1,7 +1,8 @@
 import { isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { isLocalUser } from '@/lib/types/isLocalUser';
-import { Context, datadogRum } from '@datadog/browser-rum';
+import { datadogRum } from '@datadog/browser-rum';
 import { reactPlugin } from '@datadog/browser-rum-react';
 import { useLocation } from '@tanstack/react-router';
 import { useEffect } from 'react';
@@ -37,25 +38,33 @@ export function useDatadog() {
 	}, []);
 }
 
-export function trackView(name: string, context: Context) {
-	if (enabled) {
-		datadogRum.startView({
-			service: 'studio',
-			version: import.meta.env.VITE_STUDIO_VERSION,
-			name,
-			context,
-		});
-	}
-}
-
 export function useOnRouteLoadTracker() {
 	const location = useLocation();
 	const { user } = useOverallAuth();
 
 	useEffect(() => {
-		const userId = user && !isLocalUser(user) && user.id || null;
-		trackView(location.pathname, { userId });
-		// we ignore the user in the deps intentionally
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		if (!enabled) {
+			return;
+		}
+		datadogRum.startView({
+			service: 'studio',
+			version: import.meta.env.VITE_STUDIO_VERSION,
+			name: location.pathname,
+		});
 	}, [location.pathname]);
+
+	useEffect(() => {
+		if (!enabled) {
+			return;
+		}
+		if (user && !isLocalUser(user)) {
+			datadogRum.setUser({
+				id: user.id,
+				name: [user.firstname, user.lastname].filter(excludeFalsy).join(' ') || undefined,
+				email: user.email,
+			});
+		} else {
+			datadogRum.clearUser();
+		}
+	}, [user]);
 }
