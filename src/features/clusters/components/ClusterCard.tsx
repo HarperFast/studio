@@ -58,8 +58,17 @@ export function ClusterCard({
 							<Ellipsis aria-label="Cluster options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
-							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
+							<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
+							{cluster.plans?.map(plan => (
+								<DropdownMenuLabel key={plan.planId}>
+									{plan.planId} / {plan.regionId}<br />
+									Auto Renewal {plan.autoRenew
+									? <Badge variant="success">ON</Badge>
+									: <Badge variant="warning">OFF</Badge>}
+								</DropdownMenuLabel>
+							))}
 							<DropdownMenuSeparator />
+							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							{isReadyForInteraction && view && (
 								<DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>)}
 							{isReadyForInteraction && view && !isSelfManaged && !auth.isLoading && auth.user && (

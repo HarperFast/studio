@@ -1,10 +1,10 @@
+import { humanFileSize } from '@/lib/humanFileSize';
 import { getRouteApi } from '@tanstack/react-router';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
 import { useMemo } from 'react';
 import { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
-import { EditInstanceModal } from './modals/EditInstanceModal';
 import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
 import { useQuery } from '@tanstack/react-query';
@@ -53,28 +53,26 @@ export function ClusterIndex() {
 				header: 'Version',
 			},
 			{
-				accessorKey: 'storage',
+				accessorKey: 'storageGb',
 				header: 'Storage',
-			},
-			{
-				accessorKey: 'cpu',
-				header: 'CPU',
-			},
-			{
-				accessorKey: 'memory',
-				header: 'Memory',
-			},
-			{
-				id: 'actions',
-				header: () => '',
 				cell: (cell) => {
-					if (!['CLONE_READY', 'RUNNING', 'UPDATED'].includes(cell.row.original.status)) {
-						return null;
-					}
-					return <EditInstanceModal
-						instanceId={cell.row.original.id}
-						instanceName={cell.row.original.name}
-					/>;
+					const value = cell.getValue() as number;
+					return humanFileSize(value, Math.pow(1024, 3));
+				},
+			},
+			{
+				accessorKey: 'cpuCores',
+				header: 'Cores/Threads',
+				cell: (cell) => {
+					return <>{cell.row.original.cpuCores} / {cell.row.original.threads}</>;
+				},
+			},
+			{
+				accessorKey: 'memoryMb',
+				header: 'Memory',
+				cell: (cell) => {
+					const value = cell.getValue() as number;
+					return humanFileSize(value, Math.pow(1024, 2));
 				},
 			},
 		],
