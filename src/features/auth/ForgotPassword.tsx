@@ -34,7 +34,7 @@ export function ForgotPassword() {
 	const { mutate: submitForgotPasswordData, isPending } = useForgotPasswordMutation();
 
 	const submitForm = async (formData: z.infer<typeof ForgotPasswordSchema>) => {
-		await submitForgotPasswordData(formData, {
+		submitForgotPasswordData(formData, {
 			onSuccess: (message) => {
 				toast.success('Success', {
 					description: `${message}`,
