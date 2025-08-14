@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { instanceClient } from '@/config/instanceClient';
 
 type DeleteComponentFileRequest = {
-	file: string;
+	file: string | undefined;
 	project: string;
 };
 
@@ -10,7 +10,7 @@ const onDeleteComponentFolderFile = async (componentFileData: DeleteComponentFil
 	const { file, project } = componentFileData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_component',
-		file,
+		file: file || undefined,
 		project,
 		replicated: true,
 	});
