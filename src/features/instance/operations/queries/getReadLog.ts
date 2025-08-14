@@ -25,13 +25,12 @@ function getReadLogQueryOptions({
 	instanceId: string;
 	logFilters: z.infer<typeof LogFiltersSchema>;
 }) {
+	if (logFilters.level === 'undefined') {
+		logFilters.level = undefined;
+	}
 	return queryOptions({
-		queryKey: [instanceId, 'read_log'] as const,
+		queryKey: [instanceId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order] as const,
 		queryFn: async () => {
-			if (logFilters.level === 'undefined') {
-				logFilters.level = undefined;
-			}
-
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
 				start: 0,

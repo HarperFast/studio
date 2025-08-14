@@ -35,7 +35,7 @@ function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest,
 				...data,
 			};
 		},
-		enabled: false, // Disable by default
+		enabled: !!getComponentFileRequest.file,
 		retry: false,
 	});
 }

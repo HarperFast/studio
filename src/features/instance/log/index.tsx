@@ -1,28 +1,28 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { ColumnDef } from '@tanstack/react-table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
+import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import {
 	getReadLogQueryOptions,
 	LogFiltersSchema,
 	ReadLogItem,
 } from '@/features/instance/operations/queries/getReadLog';
-import { getRouteApi } from '@tanstack/react-router';
-import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
-import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
-import { useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useForm } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
+import { ColumnDef } from '@tanstack/react-table';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 type RowData = {
 	original: ReadLogItem;
@@ -88,7 +88,7 @@ const isValidDateRange = (startDate?: Date, endDate?: Date) => {
 const route = getRouteApi('');
 
 export function Logs() {
-	const { instanceId } = route.useParams();
+	const { instanceId, clusterId } = route.useParams();
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersSchema>>({
 		limit: 1000,
 		order: 'desc',
@@ -99,8 +99,7 @@ export function Logs() {
 	const {
 		data: instanceLogs,
 		isLoading,
-		refetch: refetchInstanceLogs,
-	} = useSuspenseQuery(getReadLogQueryOptions({ instanceId, logFilters }));
+	} = useQuery(getReadLogQueryOptions({ instanceId: instanceId ?? clusterId, logFilters }));
 
 	const form = useForm<z.infer<typeof LogFiltersSchema>>({
 		resolver: zodResolver(LogFiltersSchema),
@@ -127,20 +126,18 @@ export function Logs() {
 			});
 			return;
 		}
-		await setLogFilters(data);
-		refetchInstanceLogs();
+		setLogFilters(data);
 	};
 
 	const resetFilters = async () => {
 		form.reset();
-		await setLogFilters({
+		setLogFilters({
 			limit: 1000,
 			level: undefined,
 			from: undefined,
 			until: undefined,
 			order: 'desc',
 		});
-		refetchInstanceLogs();
 	};
 
 	return (
@@ -299,7 +296,7 @@ export function Logs() {
 					<div>Loading...</div>
 				) : (
 					<div className="h-32">
-						<LogsDataTable columns={columns} data={instanceLogs} onRowClick={onRowClick} />
+						<LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />
 					</div>
 				)}
 			</section>

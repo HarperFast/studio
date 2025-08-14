@@ -20,10 +20,15 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		content: '',
 	});
 
-	const { data: getComponentFileQueryData, refetch: refetchComponentFile } = useQuery(
+	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQuery(
 			{
-				file: selectedFolderFile.filePath.split('/').slice(2).join('/'), // removes the first two segments (/components/<projectName>)
+				file: selectedFolderFile.entries == undefined
+					// removes the first two segments
+					// (/components/<projectName>)
+					? selectedFolderFile.filePath.split('/').slice(2).join('/')
+					// don't try to load the contents of folders
+					: '',
 				project: selectedFolderFile.projectName,
 			},
 			instanceId,
@@ -46,14 +51,11 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 
 	const handleFileSelect = useCallback(
 		async (selectedFileInfo: HandleFileSelectParams) => {
-			await setSelectedFolderFile({
+			setSelectedFolderFile({
 				...selectedFileInfo,
 			});
-			if (!isFolder(selectedFileInfo.entries) && selectedFileInfo.entries == undefined) {
-				await refetchComponentFile();
-			}
 		},
-		[refetchComponentFile],
+		[],
 	);
 
 	const updateEditorContent = useCallback((content: string) => {
