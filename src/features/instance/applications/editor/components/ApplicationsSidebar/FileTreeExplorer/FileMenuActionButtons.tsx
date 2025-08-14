@@ -23,29 +23,40 @@ export function FileMenuActionButtons() {
 	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
 
 	const handleAddFolderOrFile = async (name: string) => {
-		await addFolderFile({
-			file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}/${name}`,
-			project: selectedFolderFile.projectName,
-			payload: isAddingFolder ? undefined : '',
-		});
-		refetchComponents();
-		setIsAddFolderOrFileClicked(false);
+		addFolderFile(
+			{
+				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}/${name}`,
+				project: selectedFolderFile.projectName,
+				payload: isAddingFolder ? undefined : '',
+			},
+			{
+				onSuccess: () => {
+					refetchComponents();
+					setIsAddFolderOrFileClicked(false);
+				},
+			}
+		);
 	};
 
 	const handleDeleteFolderOrFile = async () => {
-		await deleteFolderFile({
-			file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
-			project: selectedFolderFile.projectName,
-		});
-		// Clear the selected file after deletion
-		handleFileSelect({
-			filePath: '',
-			projectName: '',
-			entries: [],
-			content: '',
-		});
-		refetchComponents();
-		setIsDeleteFolderOrFileClicked(false);
+		deleteFolderFile(
+			{
+				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
+				project: selectedFolderFile.projectName,
+			},
+			{
+				onSuccess: () => {
+					handleFileSelect({
+						filePath: '',
+						projectName: '',
+						entries: [],
+						content: '',
+					});
+					refetchComponents();
+					setIsDeleteFolderOrFileClicked(false);
+				},
+			}
+		);
 	};
 
 	return (

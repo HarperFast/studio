@@ -13,7 +13,7 @@ export function NewApplications() {
 			<Card className="w-full h-full max-w-xl">
 				<CardHeader>
 					<Link
-						to={`applications`}
+						to=".."
 						className="text-sm"
 						aria-label={`Go back to applications main menu`}
 						title={`Go back to applications main menu`}
@@ -53,5 +53,3 @@ export function NewApplications() {
 		</div>
 	);
 }
-
-
