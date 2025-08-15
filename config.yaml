@@ -1,5 +1,4 @@
-static: # This allows static files to be directly accessible
-  root: web/
+static:
   files: web/**
-  # login
-  #path: /
+  index: true
+  extensions: ["html"]
