@@ -62,7 +62,7 @@ export function FileMenuActionButtons() {
 	return (
 		<div className="p-2 border-b border-gray-700">
 			<div>
-				{isFolder(selectedFolderFile.entries) ? (
+				{selectedFolderFile.filePath && isFolder(selectedFolderFile.entries) ? (
 					<>
 						<Button
 							onClick={() => {
@@ -95,17 +95,21 @@ export function FileMenuActionButtons() {
 				) : (
 					''
 				)}
-				<Button
-					onClick={() => setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked)}
-					disabled={false}
-					variant="destructiveOutline"
-					size="sm"
-					className="rounded-full"
-				>
-					<Minus className="w-4 h-4" />
-					<span className="ms-1"> Delete</span>
-				</Button>
+				{selectedFolderFile.filePath ? (
+					<Button
+						onClick={() => setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked)}
+						disabled={false}
+						variant="destructiveOutline"
+						size="sm"
+						className="rounded-full"
+					>
+						<Minus className="w-4 h-4" />
+						<span className="ms-1"> Delete</span>
+					</Button>
+				) : null}
 			</div>
+
+			{!selectedFolderFile.filePath ? <span className="text-gray-500">Please Select a folder or file</span> : null}
 
 			<AddFolderFileModal
 				isModalOpen={isAddFolderOrFileClicked}
