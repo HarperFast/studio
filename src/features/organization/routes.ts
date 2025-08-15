@@ -1,4 +1,4 @@
-import { Billing } from '@/features/organization/Billing';
+import { createBillingRouteTree } from '@/features/organization/billing/routes';
 import { OrganizationIndex } from '@/features/organization/index';
 import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -20,12 +20,6 @@ const orgIndexRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
 	path: '/',
 	component: OrganizationIndex,
-});
-
-const orgBillingRoute = createRoute({
-	getParentRoute: () => orgLayoutRoute,
-	path: '/billing',
-	component: Billing,
 });
 
 const orgRolesRoute = createRoute({
@@ -52,7 +46,7 @@ const orgUserRoute = createRoute({
 
 export const orgRoutes = [
 	orgIndexRoute,
-	orgBillingRoute,
+	createBillingRouteTree(orgLayoutRoute),
 	orgRolesRoute,
 	orgRoleRoute,
 	orgUsersRoute,
