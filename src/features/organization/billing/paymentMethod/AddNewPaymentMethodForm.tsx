@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 
 import { useStripeOptions } from '@/integrations/stripe/useStripeOptions';
-import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
+import { AddressElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Save } from 'lucide-react';
 import { FormEvent, useCallback, useState } from 'react';
 import { toast } from 'sonner';
@@ -41,6 +41,7 @@ export function AddNewPaymentMethodForm({ hasExistingBilling }: { readonly hasEx
 	return (
 		<form onSubmit={onSubmitAddPaymentMethod} className="max-w-lg">
 			<PaymentElement />
+			<AddressElement options={{mode: 'billing'}} />
 
 			<div className="mt-4 flex gap-8 items-center">
 				<Button disabled={!stripe || !elements || loading} variant="submit" className="rounded-full">

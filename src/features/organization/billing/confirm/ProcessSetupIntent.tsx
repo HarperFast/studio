@@ -18,6 +18,7 @@ export function ProcessSetupIntent() {
 		const prefix = '#/';
 		const withoutStripesParams = location.href.split(prefix).pop() as string;
 		const withoutConfirm = withoutStripesParams.split('/').slice(0, -1).join('/');
+		// TODO: Toasts aren't showing up because of the location replace...
 		location.replace('/' + prefix + withoutConfirm, );
 	}, []);
 
@@ -26,7 +27,6 @@ export function ProcessSetupIntent() {
 			return;
 		}
 
-		// TODO: Toasts aren't showing up.
 		stripe.retrieveSetupIntent(clientSecret).then(({ setupIntent }) => {
 			switch (setupIntent?.status) {
 
