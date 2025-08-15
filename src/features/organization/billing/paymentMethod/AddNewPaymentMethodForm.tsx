@@ -1,15 +1,14 @@
 import { Button } from '@/components/ui/button';
+
+import { useStripeOptions } from '@/integrations/stripe/useStripeOptions';
 import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { Save } from 'lucide-react';
 import { FormEvent, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
-export function AddNewPaymentMethodForm({ clientSecret, hasExistingBilling }: {
-	readonly clientSecret: string;
-	readonly hasExistingBilling: boolean;
-}) {
-
+export function AddNewPaymentMethodForm({ hasExistingBilling }: { readonly hasExistingBilling: boolean; }) {
 	const stripe = useStripe();
+	const stripeOptions = useStripeOptions();
 	const elements = useElements();
 	const [loading, setLoading] = useState(false);
 
@@ -22,7 +21,7 @@ export function AddNewPaymentMethodForm({ clientSecret, hasExistingBilling }: {
 
 		await elements.submit();
 		const result = await stripe.confirmSetup({
-			clientSecret,
+			clientSecret: stripeOptions.clientSecret!,
 			elements,
 			confirmParams: {
 				return_url: window.location.href + '/confirm',
@@ -37,7 +36,7 @@ export function AddNewPaymentMethodForm({ clientSecret, hasExistingBilling }: {
 			// They will be redirected to `return_url` by Stripe. For some payment methods, they will be redirected
 			// to an intermediate site first to authorize the payment, then redirected to the `return_url`.
 		}
-	}, [clientSecret, elements, stripe]);
+	}, [stripeOptions, elements, stripe]);
 
 	return (
 		<form onSubmit={onSubmitAddPaymentMethod} className="max-w-lg">

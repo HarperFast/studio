@@ -30,17 +30,19 @@ export function PaymentMethodsDisplay() {
 	}
 
 	if (paymentMethod && !replacingPaymentMethod) {
-		return (
-			<div className="mt-2 mb-6">
-				{paymentMethod.brand ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
+		return (<>
+			<div className="mt-2">
+				{paymentMethod.brand?.toUpperCase() ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
 				{(paymentMethod.expMonth && paymentMethod.expYear) ? (
 					<> (exp {formatMonthAndYear(paymentMethod.expMonth, paymentMethod.expYear)})</>
 				) : null}
-				{paymentMethod.status ? <> — {paymentMethod.status}</> : null}
-
-				<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>Replace</Button>
+				{paymentMethod.status ? <> — {paymentMethod.status?.toUpperCase()}</> : null}
 			</div>
-		);
+			<div className="mt-2 mb-6">
+				<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
+					Replace Payment Method</Button>
+			</div>
+		</>);
 	}
 
 	return <AddNewPaymentMethod />;

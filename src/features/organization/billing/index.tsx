@@ -5,10 +5,6 @@ const sharedClasses = 'flex items-center p-2 rounded-lg group';
 const inactiveProps = { className: 'text-white hover:bg-gray-700' };
 const activeProps = { className: 'text-black bg-white pointer-events-none cursor-default' };
 
-// TODO: Let them choose to change it by clicking a button or something, which will show this component.
-// TODO: Wire up submitting the payment method to the backend.
-// TODO: Then bring this in to the cluster flow? Might want to _always_ do it to confirm payment changes.
-
 export function OrgBillingIndex() {
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
