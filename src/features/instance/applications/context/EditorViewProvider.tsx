@@ -23,16 +23,17 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQuery(
 			{
-				file: selectedFolderFile.entries == undefined
-					// removes the first two segments
-					// (/components/<projectName>)
-					? selectedFolderFile.filePath.split('/').slice(2).join('/')
-					// don't try to load the contents of folders
-					: '',
+				file:
+					selectedFolderFile.entries == undefined
+						? // removes the first two segments
+						  // (/components/<projectName>)
+						  selectedFolderFile.filePath.split('/').slice(2).join('/')
+						: // don't try to load the contents of folders
+						  '',
 				project: selectedFolderFile.projectName,
 			},
-			instanceId,
-		),
+			instanceId
+		)
 	);
 
 	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
@@ -49,14 +50,11 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		}
 	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
 
-	const handleFileSelect = useCallback(
-		async (selectedFileInfo: HandleFileSelectParams) => {
-			setSelectedFolderFile({
-				...selectedFileInfo,
-			});
-		},
-		[],
-	);
+	const handleFileSelect = useCallback(async (selectedFileInfo: HandleFileSelectParams) => {
+		setSelectedFolderFile({
+			...selectedFileInfo,
+		});
+	}, []);
 
 	const updateEditorContent = useCallback((content: string) => {
 		setSelectedFolderFile((prev) => ({
@@ -70,7 +68,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 			saveComponentFile(data, {
 				onSuccess: () => {
 					toast.success('Success', {
-						description: `${data.file.split('/').pop()} saved successfully.`,
+						description: `${data.file.split('/').pop()} saved successfully. A restart is required to see changes.`,
 						action: {
 							label: 'Dismiss',
 							onClick: () => toast.dismiss(),
@@ -82,7 +80,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				},
 			});
 		},
-		[saveComponentFile],
+		[saveComponentFile]
 	);
 
 	const value = useMemo<EditorViewContextValue>(() => {
