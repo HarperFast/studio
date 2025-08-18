@@ -15,10 +15,11 @@ import {
 	useDeployComponentMutation,
 } from '@/features/instance/operations/mutations/deployComponent';
 import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { FormEvent } from 'react';
 import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
 import { isValidTarballUrl } from './functions/isValidTarballUrl';
+import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 
 const ImportProjectSchema = z.object({
 	newApplicationName: z
@@ -30,6 +31,10 @@ const ImportProjectSchema = z.object({
 });
 
 export function ImportProjectForm() {
+	const { clusterId, instanceId } = useParams({ strict: false });
+	const targetId = instanceId ?? clusterId;
+	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
+	const targetNoun = instanceId ? 'Instance' : 'Cluster';
 	const navigate = useNavigate();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
 		resolver: zodResolver(ImportProjectSchema),
@@ -39,12 +44,45 @@ export function ImportProjectForm() {
 		},
 	});
 
+	const restartingInstance = () => {
+		const toastId = toast.loading('Restarting', {
+			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
+			duration: 60000, // Keep the toast open until dismissed
+			action: {
+				label: 'Dismiss',
+				onClick: () => toast.dismiss(),
+			},
+		});
+		restartInstance(targetId, {
+			onSuccess: () => {
+				toast.dismiss(toastId);
+				toast.success('Success', {
+					description: `${targetNoun} restarted!`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+				navigate({ to: `../editor` });
+			},
+			onError: () => {
+				toast.error('Error', {
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+		});
+	};
+
 	const { mutate: deployNewApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 	const submitForm = async (formData: DeployComponentFormData) => {
 		deployNewApplication(formData, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
-				navigate({ to: `../editor` });
+				restartingInstance();
 			},
 			onError: (error) => {
 				toast.error(`Error creating Application: ${error.message}`);
@@ -111,7 +149,7 @@ export function ImportProjectForm() {
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isDeployComponentPending}
+						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartInstancePending}
 					>
 						{!isDeployComponentPending ? (
 							<>

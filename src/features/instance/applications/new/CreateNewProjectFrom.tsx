@@ -15,7 +15,8 @@ import {
 	useCreateComponentMutation,
 } from '@/features/instance/operations/mutations/createComponent';
 import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import { useUpdateRestartInstance } from '../../operations/mutations/updateRestartInstance';
 
 const NewProjectSchema = z.object({
 	newApplicationName: z
@@ -26,19 +27,56 @@ const NewProjectSchema = z.object({
 });
 
 export function CreateNewProjectFrom() {
+	const { clusterId, instanceId } = useParams({ strict: false });
+	const targetId = instanceId ?? clusterId;
+	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const navigate = useNavigate();
+	const targetNoun = instanceId ? 'Instance' : 'Cluster';
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
 			newApplicationName: '',
 		},
 	});
+
+	const restartingInstance = () => {
+		const toastId = toast.loading('Restarting', {
+			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
+			duration: 60000, // Keep the toast open until dismissed
+			action: {
+				label: 'Dismiss',
+				onClick: () => toast.dismiss(),
+			},
+		});
+		restartInstance(targetId, {
+			onSuccess: () => {
+				toast.dismiss(toastId);
+				toast.success('Success', {
+					description: `${targetNoun} restarted!`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+				void navigate({ to: `../editor` });
+			},
+			onError: () => {
+				toast.error('Error', {
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+		});
+	};
 	const { mutate: createNewProject } = useCreateComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
 		createNewProject(formData, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
-				void navigate({ to: `../editor` });
+				restartingInstance();
 			},
 			onError: (error) => {
 				toast.error(`Error creating project: ${error.message}`);
@@ -62,7 +100,12 @@ export function CreateNewProjectFrom() {
 							</FormItem>
 						)}
 					/>
-					<Button className="w-full mt-4" variant="submit" type="submit" disabled={!form.formState.isDirty}>
+					<Button
+						className="w-full mt-4"
+						variant="submit"
+						type="submit"
+						disabled={!form.formState.isDirty || isRestartInstancePending}
+					>
 						Create <ArrowRight />
 					</Button>
 				</form>
