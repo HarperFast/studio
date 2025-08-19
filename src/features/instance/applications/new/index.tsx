@@ -1,13 +1,54 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
-import { CreateNewProjectFrom } from './CreateNewProjectFrom';
+import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
 import { useState } from 'react';
-import { ImportProjectForm } from './ImportProjectForm';
-import { Link } from '@tanstack/react-router';
+import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { toast } from 'sonner';
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
+
+	const { clusterId, instanceId } = useParams({ strict: false });
+	const targetId = instanceId ?? clusterId;
+	const { mutate: restartInstance, isPending: isRestartInstanceOrClusterPending } = useUpdateRestartInstance();
+	const navigate = useNavigate();
+	const targetNoun = instanceId ? 'Instance' : 'Cluster';
+
+	const restartingInstanceOrCluster = () => {
+		const toastId = toast.loading('Restarting', {
+			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
+			duration: 60000, // Keep the toast open until dismissed
+			action: {
+				label: 'Dismiss',
+				onClick: () => toast.dismiss(),
+			},
+		});
+		restartInstance(targetId, {
+			onSuccess: () => {
+				toast.dismiss(toastId);
+				toast.success('Success', {
+					description: `${targetNoun} restarted!`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+				void navigate({ to: `../editor` });
+			},
+			onError: () => {
+				toast.error('Error', {
+					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
+					action: {
+						label: 'Dismiss',
+						onClick: () => toast.dismiss(),
+					},
+				});
+			},
+		});
+	};
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
 			<Card className="w-full h-full max-w-xl">
@@ -41,9 +82,15 @@ export function NewApplications() {
 					</div>
 					<div className="mt-6">
 						{appType === 'create' ? (
-							<CreateNewProjectFrom />
+							<CreateNewProjectForm
+								restartingInstanceOrCluster={restartingInstanceOrCluster}
+								isRestartInstanceOrClusterPending={isRestartInstanceOrClusterPending}
+							/>
 						) : appType === 'import' ? (
-							<ImportProjectForm />
+							<ImportProjectForm
+								restartingInstanceOrCluster={restartingInstanceOrCluster}
+								isRestartInstanceOrClusterPending={isRestartInstanceOrClusterPending}
+							/>
 						) : (
 							<p className="text-center">Please select an option to continue.</p>
 						)}
