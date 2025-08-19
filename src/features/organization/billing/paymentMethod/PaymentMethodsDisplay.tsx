@@ -12,7 +12,7 @@ const route = getRouteApi('');
 export function PaymentMethodsDisplay() {
 	const { organizationId } = route.useParams();
 	const { update } = useOrganizationPermissions(organizationId);
-	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
+	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const paymentMethod = billing?.paymentMethod;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
@@ -20,11 +20,17 @@ export function PaymentMethodsDisplay() {
 		() => setReplacingPaymentMethod(!replacingPaymentMethod),
 		[replacingPaymentMethod],
 	);
+	const onPaymentAdded = useCallback((added: boolean) => {
+		setReplacingPaymentMethod(false);
+		if (added) {
+			void refetch();
+		}
+	}, [refetch]);
 
 	if (!update) {
 		return (
-			<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-				You don't have access to this page, sorry!
+			<div>
+				You don't have access to add payment methods to this organization. Please contact your administrator.
 			</div>
 		);
 	}
@@ -45,5 +51,5 @@ export function PaymentMethodsDisplay() {
 		</>);
 	}
 
-	return <AddNewPaymentMethod />;
+	return <AddNewPaymentMethod onPaymentAdded={onPaymentAdded} />;
 }

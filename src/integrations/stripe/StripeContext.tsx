@@ -2,7 +2,7 @@ import { Loading } from '@/components/Loading';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { stripePromise } from '@/integrations/stripe/stripePromise';
 import { useGetStripeClientSecret } from '@/integrations/stripe/useGetStripeClientSecret';
-import { StripeContext as StripeContext1 } from '@/integrations/stripe/useStripeOptions';
+import { StripeContext } from '@/integrations/stripe/useStripeOptions';
 import { Elements } from '@stripe/react-stripe-js';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -39,10 +39,10 @@ export function StripeWrapper({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<StripeContext1 value={options}>
+		<StripeContext value={options}>
 			<Elements stripe={stripePromise()} options={options}>
 				{children}
 			</Elements>
-		</StripeContext1>
+		</StripeContext>
 	);
 }

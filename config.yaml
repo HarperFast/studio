@@ -2,3 +2,6 @@ static:
   files: web/**
   index: true
   extensions: ["html"]
+  notFound:
+    - file: index.html
+    - code: 200
