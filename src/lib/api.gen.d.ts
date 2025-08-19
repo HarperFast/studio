@@ -1093,6 +1093,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/Invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    amountDue?: number;
+                    amountPaid?: number;
+                    clusterId?: string;
+                    clusterName?: string;
+                    created?: number;
+                    currency?: string;
+                    id?: string;
+                    lines?: components["schemas"]["InvoiceLine"][];
+                    number?: string;
+                    periodEnd?: number;
+                    periodStart?: number;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    amountDue?: number;
+                    amountPaid?: number;
+                    clusterId?: string;
+                    clusterName?: string;
+                    created?: number;
+                    currency?: string;
+                    id?: string;
+                    lines?: components["schemas"]["InvoiceLine"][];
+                    number?: string;
+                    periodEnd?: number;
+                    periodStart?: number;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Invoice/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invoice"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Invoice/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsInvoiceIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsInvoiceIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/Location/": {
         parameters: {
             query?: never;
@@ -1510,7 +1669,6 @@ export interface paths {
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
-                    isUnpaid?: boolean;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     status?: string;
@@ -1573,7 +1731,6 @@ export interface paths {
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
-                    isUnpaid?: boolean;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     status?: string;
@@ -1606,7 +1763,6 @@ export interface paths {
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
-                    isUnpaid?: boolean;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     status?: string;
@@ -3371,6 +3527,279 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/SystemStatus/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    endAt?: string;
+                    id?: string;
+                    message?: string;
+                    startAt?: string;
+                    type?: string;
+                    url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemStatus"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemStatus"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    endAt?: string;
+                    id?: string;
+                    message?: string;
+                    startAt?: string;
+                    type?: string;
+                    url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    endAt?: string;
+                    id?: string;
+                    message?: string;
+                    startAt?: string;
+                    type?: string;
+                    url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/SystemStatus/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemStatus"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemStatus"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemStatus"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/SystemStatus/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsSystemStatusIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsSystemStatusIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/User/": {
         parameters: {
             query?: never;
@@ -3855,10 +4284,17 @@ export interface components {
         Acme: {
             [key: string]: unknown;
         };
+        Alert: {
+            actionRequired: string;
+            dismissible: boolean;
+            message: string;
+            type: string;
+        };
         Billing: {
+            alerts?: components["schemas"]["Alert"][];
             billingAddress?: components["schemas"]["BillingAddress"];
-            lastInvoice?: components["schemas"]["Invoice"];
             paymentMethod?: components["schemas"]["PaymentMethod"];
+            status?: string;
         };
         BillingAddress: {
             city?: string;
@@ -4002,13 +4438,40 @@ export interface components {
         };
         Invoice: {
             /** Format: Float */
-            amount: number;
+            amountDue: number;
+            /** Format: Float */
+            amountPaid: number;
             /** Format: ID */
             clusterId: string;
+            clusterName: string;
+            /** Format: Int */
+            created: number;
+            currency: string;
+            /** Format: ID */
             id: string;
-            /** Format: Date */
-            issued: string;
-            status: string;
+            lines: components["schemas"]["InvoiceLine"][];
+            number?: string;
+            /** Format: Int */
+            periodEnd: number;
+            /** Format: Int */
+            periodStart: number;
+            status?: string;
+        };
+        InvoiceLine: {
+            /** Format: Float */
+            amount: number;
+            description?: string;
+            /** Format: ID */
+            id: string;
+            period: components["schemas"]["InvoicePeriod"];
+            /** Format: Int */
+            quantity?: number;
+        };
+        InvoicePeriod: {
+            /** Format: Int */
+            end: number;
+            /** Format: Int */
+            start: number;
         };
         LinodeMetadata: {
             /** Format: Int */
@@ -4043,7 +4506,6 @@ export interface components {
             createdByUserId?: string;
             /** Format: ID */
             id: string;
-            isUnpaid?: boolean;
             name: string;
             roles?: components["schemas"]["OrganizationRole"][];
             status?: string;
@@ -4257,6 +4719,17 @@ export interface components {
         SyncStripe: {
             [key: string]: unknown;
         };
+        SystemStatus: {
+            /** Format: Date */
+            endAt?: string;
+            /** Format: ID */
+            id: string;
+            message: string;
+            /** Format: Date */
+            startAt?: string;
+            type: string;
+            url?: string;
+        };
         User: {
             /** Format: Date */
             acceptedTermsAndConditionsDate?: string;
@@ -4287,6 +4760,7 @@ export interface components {
     pathItems: never;
 }
 export type SchemaAcme = components['schemas']['Acme'];
+export type SchemaAlert = components['schemas']['Alert'];
 export type SchemaBilling = components['schemas']['Billing'];
 export type SchemaBillingAddress = components['schemas']['BillingAddress'];
 export type SchemaCloudInstanceType = components['schemas']['CloudInstanceType'];
@@ -4298,6 +4772,8 @@ export type SchemaHdbInstance = components['schemas']['HDBInstance'];
 export type SchemaHost = components['schemas']['Host'];
 export type SchemaHostManagerCertificate = components['schemas']['HostManagerCertificate'];
 export type SchemaInvoice = components['schemas']['Invoice'];
+export type SchemaInvoiceLine = components['schemas']['InvoiceLine'];
+export type SchemaInvoicePeriod = components['schemas']['InvoicePeriod'];
 export type SchemaLinodeMetadata = components['schemas']['LinodeMetadata'];
 export type SchemaLocation = components['schemas']['Location'];
 export type SchemaLogin = components['schemas']['Login'];
@@ -4325,6 +4801,7 @@ export type SchemaRolePermission = components['schemas']['RolePermission'];
 export type SchemaStateStore = components['schemas']['StateStore'];
 export type SchemaStripeAccount = components['schemas']['StripeAccount'];
 export type SchemaSyncStripe = components['schemas']['SyncStripe'];
+export type SchemaSystemStatus = components['schemas']['SystemStatus'];
 export type SchemaUser = components['schemas']['User'];
 export type SchemaUserInvite = components['schemas']['UserInvite'];
 export type SchemaVerifyEmail = components['schemas']['VerifyEmail'];
@@ -4477,6 +4954,34 @@ export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId"
 }
+export enum PathsInvoiceIdPropertyGetParametersPathProperty {
+    id = "id",
+    clusterId = "clusterId",
+    clusterName = "clusterName",
+    lines = "lines",
+    amountPaid = "amountPaid",
+    amountDue = "amountDue",
+    currency = "currency",
+    number = "number",
+    created = "created",
+    periodStart = "periodStart",
+    periodEnd = "periodEnd",
+    status = "status"
+}
+export enum PathsInvoiceIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    clusterId = "clusterId",
+    clusterName = "clusterName",
+    lines = "lines",
+    amountPaid = "amountPaid",
+    amountDue = "amountDue",
+    currency = "currency",
+    number = "number",
+    created = "created",
+    periodStart = "periodStart",
+    periodEnd = "periodEnd",
+    status = "status"
+}
 export enum PathsLocationIdPropertyGetParametersPathProperty {
     id = "id",
     regions = "regions",
@@ -4503,7 +5008,6 @@ export enum PathsOrganizationIdPropertyGetParametersPathProperty {
     id = "id",
     name = "name",
     createdByUserId = "createdByUserId",
-    isUnpaid = "isUnpaid",
     subdomain = "subdomain",
     status = "status",
     roles = "roles",
@@ -4518,7 +5022,6 @@ export enum PathsOrganizationIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     name = "name",
     createdByUserId = "createdByUserId",
-    isUnpaid = "isUnpaid",
     subdomain = "subdomain",
     status = "status",
     roles = "roles",
@@ -4602,6 +5105,22 @@ export enum PathsRoleIdPropertyGetResponses200ContentApplicationJson {
     permission = "permission",
     organization = "organization",
     organizationName = "organizationName"
+}
+export enum PathsSystemStatusIdPropertyGetParametersPathProperty {
+    id = "id",
+    type = "type",
+    message = "message",
+    url = "url",
+    startAt = "startAt",
+    endAt = "endAt"
+}
+export enum PathsSystemStatusIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    type = "type",
+    message = "message",
+    url = "url",
+    startAt = "startAt",
+    endAt = "endAt"
 }
 export enum PathsUserIdPropertyGetParametersPathProperty {
     id = "id",

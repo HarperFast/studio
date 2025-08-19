@@ -5,7 +5,7 @@ export const InstanceNodeName = ({
 	instanceInfo,
 }: {
 	loadingInstanceInfo?: boolean;
-	instanceInfo?: { name: string } | undefined;
+	instanceInfo?: { name?: string } | undefined;
 }) => {
 	return (
 		<>
