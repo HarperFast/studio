@@ -1,5 +1,5 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon, WalletCardsIcon } from 'lucide-react';
+import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon } from 'lucide-react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
 const inactiveProps = { className: 'text-white hover:bg-gray-700' };
@@ -8,7 +8,7 @@ const activeProps = { className: 'text-black bg-white pointer-events-none cursor
 export function OrgBillingIndex() {
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-			<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
+			<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
 				<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
 					<DesktopConfigNavBar />
 					<MobileConfigNavBar />
@@ -37,12 +37,7 @@ function DesktopConfigNavBar() {
 				</li>
 				<li>
 					<Link to={`invoices`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-						<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices</span>
-					</Link>
-				</li>
-				<li>
-					<Link to={`payments`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-						<WalletCardsIcon className="inline-block" /> <span className="ms-3">Payments</span>
+						<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
 					</Link>
 				</li>
 			</ul>
@@ -60,12 +55,7 @@ function MobileConfigNavBar() {
 			</li>
 			<li>
 				<Link to={`invoices`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-					<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices</span>
-				</Link>
-			</li>
-			<li>
-				<Link to={`payments`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-					<WalletCardsIcon className="inline-block" /> <span className="ms-3">Payments</span>
+					<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
 				</Link>
 			</li>
 		</ul>

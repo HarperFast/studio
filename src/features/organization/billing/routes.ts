@@ -4,7 +4,6 @@ import { ConfirmSetupIntent } from './confirm/ConfirmSetupIntent';
 import { OrgBillingIndex } from './index';
 import { Invoices } from './invoices/Invoices';
 import { PaymentMethodsDisplay } from './paymentMethod/PaymentMethodsDisplay';
-import { Payments } from './payments/Payments';
 
 export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 	const rootRoute = createRoute({
@@ -22,11 +21,6 @@ export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 		path: 'invoices',
 		component: Invoices,
 	});
-	const paymentsRoute = createRoute({
-		getParentRoute: () => rootRoute,
-		path: 'payments',
-		component: Payments,
-	});
 	const confirmRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: 'confirm',
@@ -36,7 +30,6 @@ export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 	return rootRoute.addChildren([
 		paymentMethodsRoute,
 		invoicesRoute,
-		paymentsRoute,
 		confirmRoute,
 	]);
 }
