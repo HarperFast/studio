@@ -1,18 +1,17 @@
 import { Loading } from '@/components/Loading';
+import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
-import { BrowseDataTable } from '@/features/instance/config/users/components/BrowseDataTable';
 import { dataTableColumns } from '@/features/instance/config/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/instance/config/users/modals/AddUserModal';
 import { EditUserModal } from '@/features/instance/config/users/modals/EditUserModal';
 import { getListUsersQueryOptions } from '@/features/instance/operations/queries/getListUsers';
+import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalUser } from '@/lib/api.patch';
-import { sleep } from '@/lib/sleep';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 const route = getRouteApi('');
 
@@ -71,21 +70,12 @@ export function ConfigUsersIndex() {
 		onSelectUser(undefined);
 	}, [onSelectUser, refetch]);
 
-	const onRefreshClick = useCallback(async () => {
-		const toastId = toast.loading('Refreshing...');
-		const startedAt = Date.now();
-		await refetch();
-		if (Date.now() - startedAt < 500) {
-			await sleep(500);
-		}
-		toast.dismiss(toastId);
-		toast.success('Refreshed!');
-	}, [refetch]);
+	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
 		<Suspense
 			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-			<BrowseDataTable<LocalUser, unknown>
+			<SimpleBrowseDataTable<LocalUser, unknown>
 				data={localUsers}
 				isFetching={isFetching || isRefetching}
 				columns={dataTableColumns}
@@ -102,7 +92,7 @@ export function ConfigUsersIndex() {
 				{/*	className="hidden lg:inline-block">Search</span></Button>*/}
 				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
 						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
-			</BrowseDataTable>
+			</SimpleBrowseDataTable>
 			<AddUserModal
 				instanceId={instanceId}
 				isModalOpen={isAddModalOpen}
