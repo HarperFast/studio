@@ -6,6 +6,7 @@ import { Save } from 'lucide-react';
 import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
 import { toast } from 'sonner';
 import { useParams } from '@tanstack/react-router';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
@@ -100,14 +101,22 @@ export function TextEditorView() {
 						<Save />
 						<span className="ms-1">Save</span>
 					</Button>
-					<Button
-						variant="defaultOutline"
-						className="ml-4 rounded-full cursor-pointer"
-						onClick={restartingInstance}
-						disabled={isRestartInstancePending}
-					>
-						Restart {targetNoun}
-					</Button>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant="defaultOutline"
+								className="ml-4 rounded-full cursor-pointer"
+								onClick={restartingInstance}
+								disabled={isRestartInstancePending}
+							>
+								Restart {targetNoun}
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>
+							Restarts all service threads to apply changes. No downtime expected. Performance may be briefly slower
+							during restart.
+						</TooltipContent>
+					</Tooltip>
 				</div>
 			</div>
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
