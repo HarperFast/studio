@@ -107,7 +107,7 @@ export function NewClusterModal({
 			deploymentDescription: 'Free',
 			performanceDescription: 'Basic (1K read/min)',
 			regionPlans: [
-				{ regionName: 'Global', latencyDescription: '310ms latency, small distribution' },
+				{ regionName: 'Global', latencyDescription: '310ms, small distribution' },
 			],
 		},
 	});
