@@ -24,8 +24,9 @@ export function ClusterBilling({
 	const { organizationId } = useParams({ strict: false });
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
+	const allowBypass = import.meta.env.DEV && !import.meta.env.VITE_PUBLIC_STRIPE_KEY;
 	const isEnterprise = organization?.type === 'ENTERPRISE';
-	const hasValidPaymentMethod = isEnterprise || billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
+	const hasValidPaymentMethod = allowBypass || isEnterprise || billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
 
 	const footer = (<>
@@ -55,6 +56,17 @@ export function ClusterBilling({
 					accomplish your objectives with this new
 					cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
 						us</a>, we are here to help.
+				</li>
+			</ul>
+
+			{footer}
+		</>);
+	}
+
+	if (allowBypass) {
+		return (<>
+			<ul className="list-disc ml-6">
+				<li>Stripe is not configured, and will be bypassed during cluster creation.
 				</li>
 			</ul>
 
