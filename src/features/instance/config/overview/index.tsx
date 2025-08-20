@@ -1,5 +1,6 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
@@ -30,17 +31,16 @@ export function ConfigOverviewIndex() {
 
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
-		getInstanceInfoQueryOptions(clusterId, instanceId),
+		getInstanceInfoQueryOptions(clusterId, instanceId)
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
-		getRegistrationInfoQueryOptions(instanceId),
+		getRegistrationInfoQueryOptions(instanceId)
 	);
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
-		getConfigurationQueryOptions(instanceId),
+		getConfigurationQueryOptions(instanceId)
 	);
-
 
 	const restartingInstance = () => {
 		const toastId = toast.loading('Restarting', {
@@ -83,14 +83,19 @@ export function ConfigOverviewIndex() {
 							<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							<Button
-								variant="positiveOutline"
-								className="ml-4 rounded-full cursor-pointer"
-								onClick={restartingInstance}
-								disabled={isRestartInstancePending}
-							>
-								Restart {targetNoun}
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="positiveOutline"
+										className="ml-4 rounded-full cursor-pointer"
+										onClick={restartingInstance}
+										disabled={isRestartInstancePending}
+									>
+										Restart {targetNoun}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>This fully restarts the Harper service and causes downtime.</TooltipContent>
+							</Tooltip>
 						</div>
 					</dl>
 				</LocalStudioOverview>
@@ -104,14 +109,19 @@ export function ConfigOverviewIndex() {
 							<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							<Button
-								variant="positiveOutline"
-								className="ml-4 rounded-full cursor-pointer"
-								onClick={restartingInstance}
-								disabled={isRestartInstancePending}
-							>
-								Restart {targetNoun}
-							</Button>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="positiveOutline"
+										className="ml-4 rounded-full cursor-pointer"
+										onClick={restartingInstance}
+										disabled={isRestartInstancePending}
+									>
+										Restart {targetNoun}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>This fully restarts the Harper service and causes downtime.</TooltipContent>
+							</Tooltip>
 						</div>
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 							<InstanceNodeName loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />

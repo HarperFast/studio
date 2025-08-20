@@ -1,3 +1,8 @@
+import { FormEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { toast } from 'sonner';
+import { ArrowRight, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -7,18 +12,12 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight, Loader } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import {
 	DeployComponentFormData,
 	useDeployComponentMutation,
 } from '@/features/instance/operations/mutations/deployComponent';
-import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router';
-import { FormEvent } from 'react';
 import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
-import { isValidTarballUrl } from './functions/isValidTarballUrl';
+import { isValidTarballUrl } from '@/features/instance/applications/new/functions/isValidTarballUrl';
 
 const ImportProjectSchema = z.object({
 	newApplicationName: z
@@ -29,8 +28,13 @@ const ImportProjectSchema = z.object({
 	applicationUrl: z.string(),
 });
 
-export function ImportProjectForm() {
-	const navigate = useNavigate();
+export function ImportProjectForm({
+	restartingInstanceOrCluster,
+	isRestartInstanceOrClusterPending,
+}: {
+	restartingInstanceOrCluster: () => void;
+	isRestartInstanceOrClusterPending: boolean;
+}) {
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
@@ -44,7 +48,7 @@ export function ImportProjectForm() {
 		deployNewApplication(formData, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
-				navigate({ to: `../editor` });
+				restartingInstanceOrCluster();
 			},
 			onError: (error) => {
 				toast.error(`Error creating Application: ${error.message}`);
@@ -111,7 +115,7 @@ export function ImportProjectForm() {
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isDeployComponentPending}
+						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartInstanceOrClusterPending}
 					>
 						{!isDeployComponentPending ? (
 							<>

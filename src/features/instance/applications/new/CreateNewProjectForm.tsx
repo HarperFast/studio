@@ -1,3 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowRight } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -6,16 +10,11 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import {
 	CreateComponentFormData,
 	useCreateComponentMutation,
 } from '@/features/instance/operations/mutations/createComponent';
 import { toast } from 'sonner';
-import { useNavigate } from '@tanstack/react-router';
 
 const NewProjectSchema = z.object({
 	newApplicationName: z
@@ -25,20 +24,26 @@ const NewProjectSchema = z.object({
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
 });
 
-export function CreateNewProjectFrom() {
-	const navigate = useNavigate();
+export function CreateNewProjectForm({
+	restartingInstanceOrCluster,
+	isRestartInstanceOrClusterPending,
+}: {
+	restartingInstanceOrCluster: () => void;
+	isRestartInstanceOrClusterPending: boolean;
+}) {
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
 			newApplicationName: '',
 		},
 	});
+
 	const { mutate: createNewProject } = useCreateComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
 		createNewProject(formData, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
-				void navigate({ to: `../editor` });
+				restartingInstanceOrCluster();
 			},
 			onError: (error) => {
 				toast.error(`Error creating project: ${error.message}`);
@@ -62,7 +67,12 @@ export function CreateNewProjectFrom() {
 							</FormItem>
 						)}
 					/>
-					<Button className="w-full mt-4" variant="submit" type="submit" disabled={!form.formState.isDirty}>
+					<Button
+						className="w-full mt-4"
+						variant="submit"
+						type="submit"
+						disabled={!form.formState.isDirty || isRestartInstanceOrClusterPending}
+					>
 						Create <ArrowRight />
 					</Button>
 				</form>
