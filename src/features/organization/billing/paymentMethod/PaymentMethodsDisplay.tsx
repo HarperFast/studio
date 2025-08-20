@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { formatMonthAndYear } from '@/lib/formatMonthAndYear';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -19,7 +18,6 @@ export function PaymentMethodsDisplay({
 	onReplacingPaymentMethod,
 }: PaymentMethodsDisplayProps) {
 	const { organizationId } = route.useParams();
-	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const paymentMethod = billing?.paymentMethod;
@@ -38,11 +36,14 @@ export function PaymentMethodsDisplay({
 		}
 	}, [refetch]);
 
-	if (!update) {
+	if (organization?.type === 'ENTERPRISE') {
 		return (
-			<div>
-				You don't have access to add payment methods to this organization. Please contact your administrator.
-			</div>
+			<span>
+				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this
+				page. Want to explore your solution with Harper
+				more? <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
+				us</a>, we would love to talk!
+			</span>
 		);
 	}
 

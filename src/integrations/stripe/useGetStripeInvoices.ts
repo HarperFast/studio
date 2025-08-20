@@ -9,10 +9,10 @@ export async function getStripeInvoices(organizationId: string): Promise<SchemaI
 	return data as unknown as SchemaInvoice[];
 }
 
-export function getStripeInvoicesQueryOptions(organizationId: string, refetch?: boolean) {
+export function getStripeInvoicesQueryOptions(organizationId: string | undefined | false, refetch?: boolean) {
 	return queryOptions({
 		queryKey: [queryKeys.organization, organizationId, 'invoices'],
-		queryFn: () => getStripeInvoices(organizationId!),
+		queryFn: () => getStripeInvoices(organizationId as string),
 		retry: false,
 		enabled: !!organizationId,
 		refetchInterval: refetch ? 10000 : undefined,

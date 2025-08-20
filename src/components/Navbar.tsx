@@ -30,7 +30,8 @@ const activeLinkProps = { className: 'text-white' };
 function MobileNav({ signOut }: { signOut: () => void }) {
 	const { organizationId } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
-	const { view: canViewOrganizationRoles } = useOrganizationRolePermissions(organizationId);
+	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
+	const showBilling = canUpdateOrganization;
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	return (
 		<div className="md:hidden" id="mobile-menu">
@@ -65,23 +66,23 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 							<BuildingIcon className="mr-4" />
 							Organizations
 						</Link>
-						{organizationId && (canViewOrganizationRoles || canUpdateOrganization) ? (
+						{(showOrgUsersAndRoles || showBilling) ? (
 							<div className="bg-black rounded-2xl">
-								{canViewOrganizationRoles && (<Link
+								{showOrgUsersAndRoles && (<Link
 									to={`/orgs/${organizationId}/roles`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
 									<HandshakeIcon className="mr-4" /> Roles
 								</Link>)}
-								{canViewOrganizationRoles && (<Link
+								{showOrgUsersAndRoles && (<Link
 									to={`/orgs/${organizationId}/users`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
 									<UsersIcon className="mr-4" /> Users
 								</Link>)}
-								{canUpdateOrganization && (<Link
+								{showBilling && (<Link
 									to={`/orgs/${organizationId}/billing`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
@@ -124,7 +125,8 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 function DesktopNav({ signOut }: { signOut: () => void }) {
 	const { organizationId } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
-	const { view: canViewOrganizationRoles } = useOrganizationRolePermissions(organizationId);
+	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
+	const showBilling = canUpdateOrganization;
 
 	return (
 		<div className="hidden md:block">
@@ -146,9 +148,9 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										</Link>
 									</NavigationMenuLink>
 								</NavigationMenuItem>
-								{organizationId && (canViewOrganizationRoles || canUpdateOrganization) ? (
+								{(showOrgUsersAndRoles || showBilling) ? (
 									<div className="bg-black rounded-2xl flex">
-										{canViewOrganizationRoles && (<NavigationMenuItem>
+										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
 													to={`/orgs/${organizationId}/roles`}
@@ -159,7 +161,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>)}
-										{canViewOrganizationRoles && (<NavigationMenuItem>
+										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
 													to={`/orgs/${organizationId}/users`}
@@ -170,7 +172,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>)}
-										{canUpdateOrganization && (<NavigationMenuItem>
+										{showBilling && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
 													to={`/orgs/${organizationId}/billing`}

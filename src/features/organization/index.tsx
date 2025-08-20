@@ -12,5 +12,3 @@ export function OrganizationIndex() {
 		return <Outlet />;
 	}
 }
-
-

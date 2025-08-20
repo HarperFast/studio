@@ -23,8 +23,43 @@ export function ClusterBilling({
 	const { organizationId } = useParams({ strict: false });
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
-	const hasValidPaymentMethod = billing?.paymentMethod?.status === 'pass';
+	const isEnterprise = organization?.type === 'ENTERPRISE';
+	const hasValidPaymentMethod = isEnterprise || billing?.paymentMethod?.status === 'pass';
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
+
+	const footer = (<>
+		<DialogFooter className="mt-3">
+			<Button type="button" variant="defaultOutline" className="rounded-full" disabled={isPending} onClick={onGoBackToDetails}>
+				<ArrowLeftIcon /> Back to Details
+			</Button>
+			<Button
+				disabled={isPending || !hasValidPaymentMethod || replacingPaymentMethod}
+				type="submit"
+				variant="submit"
+				className="rounded-full"
+				onClick={onSubmit}
+			>
+				Create New Cluster <ArrowRightIcon />
+			</Button>
+		</DialogFooter>
+	</>);
+
+	if (isEnterprise) {
+		return (<>
+			<ul className="list-disc ml-6">
+				<li>Your organization&rsquo;s enterprise agreement with Harper will adjust the price you see on this
+					page.
+				</li>
+				<li>Your account representative can work with you to sort out more precise details, and to help
+					accomplish your objectives with this new
+					cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
+						us</a>, we are here to help.
+				</li>
+			</ul>
+
+			{footer}
+		</>);
+	}
 
 	return (<>
 		<ul className="list-disc ml-6">
@@ -42,19 +77,6 @@ export function ClusterBilling({
 			<PaymentMethodsDisplay onSaveStateForBillingRedirect={onSaveStateForBillingRedirect} onReplacingPaymentMethod={setReplacingPaymentMethod} />
 		</div>
 
-		<DialogFooter className="mt-3">
-			<Button type="button" variant="defaultOutline" className="rounded-full" disabled={isPending} onClick={onGoBackToDetails}>
-				<ArrowLeftIcon /> Back to Details
-			</Button>
-			<Button
-				disabled={isPending || !hasValidPaymentMethod || replacingPaymentMethod}
-				type="submit"
-				variant="submit"
-				className="rounded-full"
-				onClick={onSubmit}
-			>
-				Create New Cluster <ArrowRightIcon />
-			</Button>
-		</DialogFooter>
+		{footer}
 	</>);
 }
