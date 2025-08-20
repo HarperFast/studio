@@ -8,6 +8,7 @@ import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/new
 import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
 import { SchemaRegionPlan } from '@/lib/api.gen';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { sleep } from '@/lib/sleep';
@@ -21,26 +22,38 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+interface NewClusterModalProps {
+	orgId: string;
+	isModalOpen: boolean;
+	setIsModalOpen: (isOpen: boolean) => void;
+}
+
 export function NewClusterModal({
 	orgId,
 	isModalOpen,
 	setIsModalOpen,
-}: {
-	orgId: string;
-	isModalOpen: boolean;
-	setIsModalOpen: (isOpen: boolean) => void;
-}) {
+}: NewClusterModalProps) {
 	const queryClient = useQueryClient();
 	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
 	const { data: planTypes } = useQuery(getPlanTypesOptions());
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
 	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
+	const [firstLoad, setFirstLoad] = useState(true);
+	const [savedClusterState, setSavedClusterState] = useLocalStorage<z.infer<typeof NewClusterSchema> | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(false);
 	const deploymentToPerformanceToPlan = useMemo(() =>
 		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
 	const regionNameToLatencyToRegion = useMemo(() =>
 		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
+
+	useEffect(function restoreClusterModalStateAfterPaymentRedirect() {
+		if (firstLoad && savedClusterState && !isModalOpen) {
+			setIsModalOpen(true);
+			setConfirmingPaymentDetails(true);
+		}
+		setFirstLoad(false);
+	}, [firstLoad, isModalOpen, savedClusterState, setIsModalOpen]);
 
 	const refineZod = useCallback((data: z.infer<typeof NewClusterSchema>, ctx: z.RefinementCtx) => {
 		const names = new Set();
@@ -79,7 +92,7 @@ export function NewClusterModal({
 	const form = useForm({
 		mode: 'onBlur',
 		resolver: zodResolver(NewClusterSchema.superRefine(refineZod)),
-		defaultValues: {
+		defaultValues: savedClusterState ?? {
 			systemName: '',
 			abbreviatedName: '',
 			// TODO: How do we look these up at the start with the live values from the API?
@@ -141,7 +154,9 @@ export function NewClusterModal({
 		setConfirmingPaymentDetails(false);
 		form.reset();
 	}, [form, queryClient, setIsModalOpen]);
-	const submitClusterDetailsForm = useCallback(async (formData: z.infer<typeof NewClusterSchema>) => {
+
+	const submitCreateCluster = useCallback(async () => {
+		const formData = form.getValues();
 		const plans: SchemaRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
 		for (const regionPlan of formData.regionPlans) {
@@ -152,10 +167,7 @@ export function NewClusterModal({
 				autoRenew: true,
 			});
 		}
-		if (totalPrice > 0) {
-			setConfirmingPaymentDetails(true);
-			return;
-		}
+		setSavedClusterState(null);
 		submitNewClusterData({
 			organizationId: orgId,
 			name: formData.systemName,
@@ -163,7 +175,19 @@ export function NewClusterModal({
 			autoRenew: true,
 			regionPlans: plans,
 		}, { onSuccess: onClusterCreatedCallback });
-	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, onClusterCreatedCallback, orgId, regionNameToLatencyToRegion, submitNewClusterData, totalPrice]);
+	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, orgId, regionNameToLatencyToRegion, setSavedClusterState, submitNewClusterData]);
+
+	const submitClusterDetailsForm = useCallback(() => {
+		if (totalPrice > 0) {
+			setConfirmingPaymentDetails(true);
+			return;
+		}
+		return submitCreateCluster();
+	}, [submitCreateCluster, totalPrice]);
+
+	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
+		setSavedClusterState(redirecting ? form.getValues() : null);
+	}, [form, setSavedClusterState]);
 
 	const onOpenChange = useCallback(async () => {
 		setIsModalOpen(false);
@@ -171,6 +195,10 @@ export function NewClusterModal({
 		// Give it a breath to avoid a re-render.
 		setConfirmingPaymentDetails(false);
 	}, [setIsModalOpen]);
+
+	const onGoBackToDetails = useCallback(() => {
+		setConfirmingPaymentDetails(false);
+	}, []);
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={onOpenChange}>
@@ -209,7 +237,12 @@ export function NewClusterModal({
 							<DialogTitle>Cluster Billing</DialogTitle>
 							<DialogDescription>Please confirm the following billing details:</DialogDescription>
 
-							<ClusterBilling isPending={isPending} />
+							<ClusterBilling
+								isPending={isPending}
+								onGoBackToDetails={onGoBackToDetails}
+								onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+								onSubmit={submitCreateCluster}
+							/>
 						</>)
 					}
 				</Form>

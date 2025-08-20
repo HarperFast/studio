@@ -1,4 +1,5 @@
 import { Loading } from '@/components/Loading';
+import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
 import { useProcessStripePaymentMethod } from '@/integrations/stripe/useProcessStripePaymentMethod';
 import { useStripe } from '@stripe/react-stripe-js';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
@@ -9,12 +10,14 @@ export function ProcessSetupIntent() {
 	const { organizationId } = useParams({ strict: false });
 	const navigate = useNavigate();
 	const { setup_intent_client_secret: clientSecret } = useSearch({ strict: false });
+	const [savedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const stripe = useStripe();
 	const processStripePaymentMethod = useProcessStripePaymentMethod(organizationId);
 	const navigateBack = useCallback(() => {
-		void navigate({ search: undefined, to: '../' });
-	}, [navigate]);
+		const to = savedClusterState ? '../../clusters' : '../';
+		void navigate({ search: undefined, to });
+	}, [navigate, savedClusterState]);
 
 	useEffect(() => {
 		if (!stripe || !clientSecret || !processStripePaymentMethod || !organizationId || !navigateBack) {

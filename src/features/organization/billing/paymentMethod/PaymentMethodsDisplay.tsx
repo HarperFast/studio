@@ -9,7 +9,11 @@ import { useCallback, useState } from 'react';
 
 const route = getRouteApi('');
 
-export function PaymentMethodsDisplay() {
+interface PaymentMethodsDisplayProps {
+	onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+}
+
+export function PaymentMethodsDisplay({ onSaveStateForBillingRedirect }: PaymentMethodsDisplayProps) {
 	const { organizationId } = route.useParams();
 	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
@@ -51,5 +55,8 @@ export function PaymentMethodsDisplay() {
 		</>);
 	}
 
-	return <AddNewPaymentMethod onPaymentAdded={onPaymentAdded} />;
+	return <AddNewPaymentMethod
+		onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+		onPaymentAdded={onPaymentAdded}
+	/>;
 }

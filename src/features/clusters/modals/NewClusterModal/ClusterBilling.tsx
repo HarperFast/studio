@@ -4,13 +4,21 @@ import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMe
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { ArrowRight } from 'lucide-react';
+import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 
 interface ClusterBillingProps {
-	isPending: boolean;
+	readonly isPending: boolean;
+	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	readonly onSubmit?: () => void;
+	readonly onGoBackToDetails: () => void;
 }
 
-export function ClusterBilling({ isPending }: ClusterBillingProps) {
+export function ClusterBilling({
+	isPending,
+	onSaveStateForBillingRedirect,
+	onSubmit,
+	onGoBackToDetails,
+}: ClusterBillingProps) {
 	const { organizationId } = useParams({ strict: false });
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
@@ -29,15 +37,18 @@ export function ClusterBilling({ isPending }: ClusterBillingProps) {
 		<DialogDescription>Payment method:</DialogDescription>
 
 		<div className="overflow-auto max-h-[calc(100vh-theme(spacing.96))]">
-			<PaymentMethodsDisplay />
+			<PaymentMethodsDisplay onSaveStateForBillingRedirect={onSaveStateForBillingRedirect} />
 		</div>
 
 		{hasValidPaymentMethod && (<>
 			<DialogDescription>Ready to create your new cluster?</DialogDescription>
 
 			<DialogFooter className="mt-3">
-				<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
-					Create New Cluster <ArrowRight />
+				<Button type="button" variant="defaultOutline" className="rounded-full" disabled={isPending} onClick={onGoBackToDetails}>
+					<ArrowLeftIcon /> Back to Details
+				</Button>
+				<Button type="submit" variant="submit" className="rounded-full" disabled={isPending} onClick={onSubmit}>
+					Create New Cluster <ArrowRightIcon />
 				</Button>
 			</DialogFooter>
 		</>)}

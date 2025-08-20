@@ -173,13 +173,13 @@ export function ClustersList() {
 			<NewClusterModal
 				orgId={organizationId}
 				isModalOpen={isNewClusterModalOpen}
-				setIsModalOpen={() => setIsNewClusterModalOpen(false)}
+				setIsModalOpen={(isOpen: boolean) => setIsNewClusterModalOpen(isOpen)}
 			/>
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted="cluster"
 				nameOfThingBeingDeleted={deleteClusterInfo.name}
 				isModalOpen={isDeleteClusterModalOpen}
-				setIsModalOpen={() => setIsDeleteClusterModalOpen(false)}
+				setIsModalOpen={(isOpen: boolean) => setIsDeleteClusterModalOpen(isOpen)}
 				deletionConfirmed={() => handleDeleteCluster(deleteClusterInfo)}
 				deletionPending={isDeletingClusterPending}
 			/>

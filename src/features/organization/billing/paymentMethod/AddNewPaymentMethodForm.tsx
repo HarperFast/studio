@@ -8,10 +8,17 @@ import { Save } from 'lucide-react';
 import { FormEvent, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
-export function AddNewPaymentMethodForm({ hasExistingBilling, onPaymentAdded }: {
+interface AddNewPaymentMethodFormProps {
 	readonly hasExistingBilling: boolean;
 	readonly onPaymentAdded: (added: boolean) => void;
-}) {
+	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+}
+
+export function AddNewPaymentMethodForm({
+	hasExistingBilling,
+	onPaymentAdded,
+	onSaveStateForBillingRedirect,
+}: AddNewPaymentMethodFormProps) {
 	const { organizationId } = useParams({ strict: false });
 	const stripe = useStripe();
 	const stripeOptions = useStripeOptions();
@@ -31,12 +38,13 @@ export function AddNewPaymentMethodForm({ hasExistingBilling, onPaymentAdded }: 
 		setLoading(true);
 
 		await elements.submit();
+		onSaveStateForBillingRedirect(true);
 		const result = await stripe.confirmSetup({
 			clientSecret: stripeOptions.clientSecret!,
 			elements,
 			redirect: 'if_required',
 			confirmParams: {
-				return_url: window.location.href + '/confirm',
+				return_url: `${window.location.origin}/orgs/${organizationId}/billing/confirm`,
 			},
 		});
 
@@ -44,13 +52,15 @@ export function AddNewPaymentMethodForm({ hasExistingBilling, onPaymentAdded }: 
 			console.error(result.error.message);
 			toast.error(result.error.message);
 			setLoading(false);
+			onSaveStateForBillingRedirect(false);
 		} else if (result.setupIntent.payment_method) {
 			processStripePaymentMethod(result.setupIntent.payment_method, onPaymentAdded);
+			onSaveStateForBillingRedirect(false);
 		} else {
 			// For some payment methods, they will be redirected to an intermediate site first to authorize the
 			// payment, then redirected to the `return_url`.
 		}
-	}, [stripe, elements, stripeOptions.clientSecret, processStripePaymentMethod, onPaymentAdded]);
+	}, [elements, onPaymentAdded, onSaveStateForBillingRedirect, organizationId, processStripePaymentMethod, stripe, stripeOptions.clientSecret]);
 
 	return (
 		<form onSubmit={onSubmitAddPaymentMethod} className="max-w-xl">
