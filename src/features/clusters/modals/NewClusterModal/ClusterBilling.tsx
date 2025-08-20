@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
@@ -24,7 +25,7 @@ export function ClusterBilling({
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const isEnterprise = organization?.type === 'ENTERPRISE';
-	const hasValidPaymentMethod = isEnterprise || billing?.paymentMethod?.status === 'pass';
+	const hasValidPaymentMethod = isEnterprise || billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
 
 	const footer = (<>

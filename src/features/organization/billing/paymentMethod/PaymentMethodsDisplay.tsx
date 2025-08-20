@@ -1,6 +1,11 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import {
+	translateStripePaymentMethodStatusToText,
+	translateStripePaymentMethodStatusToVariant,
+} from '@/integrations/stripe/translateStripePaymentMethodStatus';
 import { formatMonthAndYear } from '@/lib/formatMonthAndYear';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
@@ -54,7 +59,7 @@ export function PaymentMethodsDisplay({
 				{(paymentMethod.expMonth && paymentMethod.expYear) ? (
 					<> (exp {formatMonthAndYear(paymentMethod.expMonth, paymentMethod.expYear)})</>
 				) : null}
-				{paymentMethod.status ? <> — {paymentMethod.status?.toUpperCase()}</> : null}
+				{paymentMethod.status ? <> — <Badge variant={translateStripePaymentMethodStatusToVariant(paymentMethod.status)}>{translateStripePaymentMethodStatusToText(paymentMethod.status)}</Badge></> : null}
 			</div>
 			<div className="mt-2 mb-6">
 				<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
