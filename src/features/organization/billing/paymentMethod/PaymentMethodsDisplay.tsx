@@ -36,10 +36,11 @@ export function PaymentMethodsDisplay({
 	);
 	const onPaymentAdded = useCallback((added: boolean) => {
 		setReplacingPaymentMethod(false);
+		onReplacingPaymentMethod(false);
 		if (added) {
 			void refetch();
 		}
-	}, [refetch]);
+	}, [onReplacingPaymentMethod, refetch]);
 
 	if (organization?.type === 'ENTERPRISE') {
 		return (

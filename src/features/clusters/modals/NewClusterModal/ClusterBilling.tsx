@@ -49,8 +49,8 @@ export function ClusterBilling({
 	if (isEnterprise) {
 		return (<>
 			<ul className="list-disc ml-6">
-				<li>Your organization&rsquo;s enterprise agreement with Harper will adjust the price you see on this
-					page.
+				<li>Your organization&rsquo;s enterprise agreement with Harper can adjust the retail price you see on
+					this page.
 				</li>
 				<li>Your account representative can work with you to sort out more precise details, and to help
 					accomplish your objectives with this new

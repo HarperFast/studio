@@ -12,7 +12,7 @@ export function OrgBillingIndex() {
 
 	if (!update) {
 		return (
-			<div>
+			<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				You don't have access to manage payments for this organization. Please contact your administrator.
 			</div>
 		);

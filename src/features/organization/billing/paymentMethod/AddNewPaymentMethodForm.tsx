@@ -38,7 +38,7 @@ export function AddNewPaymentMethodForm({
 		setLoading(true);
 
 		await elements.submit();
-		onSaveStateForBillingRedirect(true);
+		onSaveStateForBillingRedirect?.(true);
 		const result = await stripe.confirmSetup({
 			clientSecret: stripeOptions.clientSecret!,
 			elements,
@@ -52,10 +52,10 @@ export function AddNewPaymentMethodForm({
 			console.error(result.error.message);
 			toast.error(result.error.message);
 			setLoading(false);
-			onSaveStateForBillingRedirect(false);
+			onSaveStateForBillingRedirect?.(false);
 		} else if (result.setupIntent.payment_method) {
 			processStripePaymentMethod(result.setupIntent.payment_method, onPaymentAdded);
-			onSaveStateForBillingRedirect(false);
+			onSaveStateForBillingRedirect?.(false);
 		} else {
 			// For some payment methods, they will be redirected to an intermediate site first to authorize the
 			// payment, then redirected to the `return_url`.
