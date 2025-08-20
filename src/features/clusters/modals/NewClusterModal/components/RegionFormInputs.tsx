@@ -38,6 +38,7 @@ export function RegionFormInputs({
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion), [regionNameToLatencyToRegion]);
+	const isDedicated = form.watch('deploymentDescription')?.startsWith('Dedicated');
 	const selectedRegionName = form.watch(`regionPlans.${index}.regionName`);
 	const selectedLatencyDescription = form.watch(`regionPlans.${index}.latencyDescription`);
 	const availableLatencyDescriptions = useMemo(() =>
@@ -72,7 +73,6 @@ export function RegionFormInputs({
 								</SelectTrigger>
 								<SelectContent>
 									<SelectGroup>
-										<SelectLabel>Region</SelectLabel>
 										{availableRegionNames.map((regionName) => (
 											<SelectItem key={regionName} value={regionName}>{regionName}</SelectItem>
 										))}
@@ -90,7 +90,7 @@ export function RegionFormInputs({
 				name={`regionPlans.${index}.latencyDescription`}
 				render={({ field: regionField }) => (
 					<FormItem className="flex-1">
-						<FormLabel>Latency &amp; Distribution</FormLabel>
+						<FormLabel>Estimated {isDedicated ? 'P95' : 'P90'} Latency, Distribution</FormLabel>
 						<FormControl>
 							<Select onValueChange={value => { regionField.onChange(value); form.trigger(); } } {...regionField} disabled={!availableLatencyDescriptions?.length}>
 								<SelectTrigger className="w-full">
@@ -98,7 +98,6 @@ export function RegionFormInputs({
 								</SelectTrigger>
 								<SelectContent>
 									<SelectGroup>
-										<SelectLabel>Latency & Distribution</SelectLabel>
 										{availableLatencyDescriptions.map((latencyDescription) => (
 											<SelectItem key={latencyDescription} value={latencyDescription}>{latencyDescription}</SelectItem>
 										))}
