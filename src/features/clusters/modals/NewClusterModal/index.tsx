@@ -126,7 +126,7 @@ export function NewClusterModal({
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
 			toKebabCase(systemName),
 			NewClusterSchema.shape.abbreviatedName.maxLength!,
-		) || 'your-host-name';
+		);
 		return {
 			suggestedAbbreviatedName,
 			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,

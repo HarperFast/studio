@@ -43,7 +43,7 @@ export function NewOrganizationModal() {
 		const suggestedSubdomain = collapseKebabsToMaxLength(
 			toKebabCase(name),
 			NewOrganizationSchema.shape.subdomain.maxLength!,
-		) || 'your-subdomain';
+		);
 		return {
 			suggestedSubdomain,
 			fullHostName: `future-cluster-names.${subdomain || suggestedSubdomain}.harperfabric.com`,
