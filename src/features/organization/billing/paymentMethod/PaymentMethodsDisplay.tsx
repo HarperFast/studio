@@ -11,9 +11,13 @@ const route = getRouteApi('');
 
 interface PaymentMethodsDisplayProps {
 	onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	onReplacingPaymentMethod: (value: boolean) => void;
 }
 
-export function PaymentMethodsDisplay({ onSaveStateForBillingRedirect }: PaymentMethodsDisplayProps) {
+export function PaymentMethodsDisplay({
+	onSaveStateForBillingRedirect,
+	onReplacingPaymentMethod,
+}: PaymentMethodsDisplayProps) {
 	const { organizationId } = route.useParams();
 	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
@@ -21,8 +25,11 @@ export function PaymentMethodsDisplay({ onSaveStateForBillingRedirect }: Payment
 	const paymentMethod = billing?.paymentMethod;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
 	const onReplacePaymentMethodClicked = useCallback(
-		() => setReplacingPaymentMethod(!replacingPaymentMethod),
-		[replacingPaymentMethod],
+		() => {
+			setReplacingPaymentMethod(!replacingPaymentMethod);
+			onReplacingPaymentMethod(!replacingPaymentMethod);
+		},
+		[onReplacingPaymentMethod, replacingPaymentMethod],
 	);
 	const onPaymentAdded = useCallback((added: boolean) => {
 		setReplacingPaymentMethod(false);

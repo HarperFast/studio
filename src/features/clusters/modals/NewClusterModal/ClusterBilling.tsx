@@ -5,6 +5,7 @@ import { getOrganizationQueryOptions } from '@/features/organization/queries/get
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
+import { useState } from 'react';
 
 interface ClusterBillingProps {
 	readonly isPending: boolean;
@@ -23,6 +24,7 @@ export function ClusterBilling({
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const hasValidPaymentMethod = billing?.paymentMethod?.status === 'pass';
+	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
 
 	return (<>
 		<ul className="list-disc ml-6">
@@ -37,20 +39,22 @@ export function ClusterBilling({
 		<DialogDescription>Payment method:</DialogDescription>
 
 		<div className="overflow-auto max-h-[calc(100vh-theme(spacing.96))]">
-			<PaymentMethodsDisplay onSaveStateForBillingRedirect={onSaveStateForBillingRedirect} />
+			<PaymentMethodsDisplay onSaveStateForBillingRedirect={onSaveStateForBillingRedirect} onReplacingPaymentMethod={setReplacingPaymentMethod} />
 		</div>
 
-		{hasValidPaymentMethod && (<>
-			<DialogDescription>Ready to create your new cluster?</DialogDescription>
-
-			<DialogFooter className="mt-3">
-				<Button type="button" variant="defaultOutline" className="rounded-full" disabled={isPending} onClick={onGoBackToDetails}>
-					<ArrowLeftIcon /> Back to Details
-				</Button>
-				<Button type="submit" variant="submit" className="rounded-full" disabled={isPending} onClick={onSubmit}>
-					Create New Cluster <ArrowRightIcon />
-				</Button>
-			</DialogFooter>
-		</>)}
+		<DialogFooter className="mt-3">
+			<Button type="button" variant="defaultOutline" className="rounded-full" disabled={isPending} onClick={onGoBackToDetails}>
+				<ArrowLeftIcon /> Back to Details
+			</Button>
+			<Button
+				disabled={isPending || !hasValidPaymentMethod || replacingPaymentMethod}
+				type="submit"
+				variant="submit"
+				className="rounded-full"
+				onClick={onSubmit}
+			>
+				Create New Cluster <ArrowRightIcon />
+			</Button>
+		</DialogFooter>
 	</>);
 }
