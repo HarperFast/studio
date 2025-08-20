@@ -56,7 +56,7 @@ export function NewOrganizationModal() {
 	const submitForm = useCallback(async (formData: z.infer<typeof NewOrganizationSchema>) => {
 		submitNewOrganizationData({
 			name: formData.name,
-			type: 'SELF_SERVICE',
+			// type: 'SELF_SERVICE',
 			subdomain: formData.subdomain || calculatedNames.suggestedSubdomain,
 		}, {
 			onSuccess: () => {
