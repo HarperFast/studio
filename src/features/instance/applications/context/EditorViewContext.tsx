@@ -9,8 +9,7 @@ export type EditorViewContextValue = {
 	canDeleteFolder?: boolean;
 	isFolder: (entry: DirectoryEntry[] | undefined) => boolean;
 	handleFileSelect: (params: HandleFileSelectParams) => void;
-	updateEditorContent?: (content: string) => void;
-	onSaveFile: (data: SetComponentFileRequest) => void;
+	onSaveFile: (data: SetComponentFileRequest, filePath: string) => void;
 	isSavingFile: boolean;
 };
 

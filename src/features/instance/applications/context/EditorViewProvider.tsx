@@ -58,17 +58,16 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		});
 	}, []);
 
-	const updateEditorContent = useCallback((content: string) => {
-		setSelectedFolderFile((prev) => ({
-			...prev,
-			content: content,
-		}));
-	}, []);
-
 	const onSaveFile = useCallback(
-		(data: SetComponentFileRequest) => {
+		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
 				onSuccess: () => {
+					if (selectedFolderFile?.filePath === filePath) {
+						setSelectedFolderFile({
+							...selectedFolderFile,
+							content: data.payload,
+						});
+					}
 					toast.success('Success', {
 						description: `${data.file.split('/').pop()} saved successfully. A restart is required to see changes.`,
 						action: {
@@ -82,18 +81,17 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[saveComponentFile],
+		[saveComponentFile, selectedFolderFile],
 	);
 
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
 			selectedFolderFile: selectedFolderFile,
 			handleFileSelect,
-			updateEditorContent,
 			onSaveFile,
 			isSavingFile,
 			isFolder,
 		};
-	}, [selectedFolderFile, handleFileSelect, updateEditorContent, onSaveFile, isSavingFile]);
+	}, [selectedFolderFile, handleFileSelect, onSaveFile, isSavingFile]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 }

@@ -2,6 +2,7 @@ import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { useEffectedState } from '@/hooks/useEffectedState';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
 import { Save } from 'lucide-react';
@@ -31,7 +32,7 @@ const extensionToLanguageMap = {
 export function TextEditorView() {
 	const { selectedFolderFile, onSaveFile, isSavingFile, isFolder } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
-	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFolderFile.content || '');
+	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | null>(selectedFolderFile.content || null, [selectedFolderFile.filePath]);
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientParams();
@@ -53,16 +54,19 @@ export function TextEditorView() {
 						variant="positiveOutline"
 						className="w-32 rounded-full"
 						onClick={() => {
-							onSaveFile({
-								...instanceParams,
-								file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
-								payload: updateFileContent,
-								project: selectedFolderFile.projectName,
-							});
+							if (updateFileContent !== null) {
+								onSaveFile({
+									...instanceParams,
+									file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
+									payload: updateFileContent,
+									project: selectedFolderFile.projectName,
+								}, selectedFolderFile.filePath);
+							}
 						}}
 						disabled={
 							!selectedFolderFile.filePath ||
-							(selectedFolderFile.filePath && updateFileContent == selectedFolderFile.content) ||
+							updateFileContent === null ||
+							updateFileContent === selectedFolderFile.content ||
 							isSavingFile
 						}
 					>
