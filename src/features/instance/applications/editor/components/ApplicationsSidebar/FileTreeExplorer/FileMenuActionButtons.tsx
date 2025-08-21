@@ -42,6 +42,7 @@ export function FileMenuActionButtons() {
 			{
 				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
 				project: selectedFolderFile.projectName,
+				replicated: instanceParams.entityType === 'cluster',
 				...instanceParams,
 			},
 			{

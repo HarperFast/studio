@@ -74,6 +74,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 			...formData,
 			...instanceParams,
 			databaseName,
+			replicated: instanceParams.entityType === 'cluster',
 		};
 		submitNewTableData(updatedFormData, {
 			onSuccess: async () => {

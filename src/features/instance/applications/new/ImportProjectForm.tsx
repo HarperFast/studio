@@ -27,6 +27,7 @@ const ImportProjectSchema = z.object({
 		.max(75, { message: 'Project name must be less than 75 characters' })
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
 	applicationUrl: z.string(),
+	replicated: z.boolean(),
 });
 
 export function ImportProjectForm({
@@ -42,6 +43,7 @@ export function ImportProjectForm({
 		defaultValues: {
 			newApplicationName: '',
 			applicationUrl: '',
+			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 

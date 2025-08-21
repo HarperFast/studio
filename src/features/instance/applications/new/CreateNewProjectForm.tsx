@@ -23,6 +23,7 @@ const NewProjectSchema = z.object({
 		.min(1, { message: 'Project name is required' })
 		.max(75, { message: 'Project name must be less than 75 characters' })
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
+	replicated: z.boolean(),
 });
 
 export function CreateNewProjectForm({
@@ -37,6 +38,7 @@ export function CreateNewProjectForm({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
 			newApplicationName: '',
+			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 

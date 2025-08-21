@@ -98,7 +98,11 @@ export function Logs() {
 	const {
 		data: instanceLogs,
 		isLoading,
-	} = useQuery(getReadLogQueryOptions({ ...instanceParams, logFilters }));
+	} = useQuery(getReadLogQueryOptions({
+		logFilters,
+		...instanceParams,
+		replicated: instanceParams.entityType === 'cluster',
+	}));
 
 	const form = useForm<z.infer<typeof LogFiltersSchema>>({
 		resolver: zodResolver(LogFiltersSchema),

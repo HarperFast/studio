@@ -3,13 +3,14 @@ import { useMutation } from '@tanstack/react-query';
 
 interface CreateDatabaseFormData extends InstanceClientConfig {
 	databaseName: string;
+	replicated: boolean;
 }
 
-async function onCreateDatabaseSubmit({ databaseName, instanceClient }: CreateDatabaseFormData) {
+async function onCreateDatabaseSubmit({ databaseName, replicated, instanceClient }: CreateDatabaseFormData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_database',
 		database: databaseName,
-		replicated: true,
+		replicated,
 	});
 	return data;
 }
