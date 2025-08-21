@@ -1,23 +1,23 @@
-import { humanFileSize } from '@/lib/humanFileSize';
-import { getRouteApi } from '@tanstack/react-router';
-import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/DataTable';
-import { useMemo } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
-import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
-import { useQuery } from '@tanstack/react-query';
+import { EmptyCluster } from '@/features/cluster/EmptyCluster';
+import { InstanceLogInCell } from '@/features/cluster/InstanceLogInCell';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Instance } from '@/lib/api.patch';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { InstanceLogInCell } from '@/features/cluster/InstanceLogInCell';
-import { EmptyCluster } from '@/features/cluster/EmptyCluster';
+import { humanFileSize } from '@/lib/humanFileSize';
+import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
+import { useQuery } from '@tanstack/react-query';
+import { getRouteApi } from '@tanstack/react-router';
+import { ColumnDef } from '@tanstack/react-table';
+import { useMemo } from 'react';
 
 const route = getRouteApi('');
 
 export function ClusterIndex() {
-	const { clusterId } = route.useParams();
+	const { clusterId }: { clusterId: string; } = route.useParams();
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);

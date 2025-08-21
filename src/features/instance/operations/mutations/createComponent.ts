@@ -1,25 +1,21 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type CreateComponentFormData = {
+export interface CreateComponentFormData {
 	newApplicationName: string;
-};
+}
 
-const onCreateComponentSubmit = async (formData: CreateComponentFormData) => {
-	const { newApplicationName } = formData;
+async function onCreateComponentSubmit({ newApplicationName, instanceClient }: CreateComponentFormData & InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_component',
 		project: newApplicationName,
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useCreateComponentMutation = () => {
+export function useCreateComponentMutation() {
 	return useMutation({
-		mutationFn: (formData: CreateComponentFormData) => onCreateComponentSubmit(formData),
+		mutationFn: onCreateComponentSubmit,
 	});
-};
-
-export { useCreateComponentMutation };
-export type { CreateComponentFormData };
+}

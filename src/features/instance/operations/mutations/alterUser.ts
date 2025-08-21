@@ -1,13 +1,12 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 import { z } from 'zod';
 
-export interface AlterUserRequestBody {
+export interface AlterUserRequestBody extends InstanceClientConfig {
 	username?: string;
 	password?: string;
 	role?: string;
 	active?: boolean;
-	operationsUrl?: string;
 }
 
 export const AlterUserFormSchema = z.object({
@@ -51,7 +50,7 @@ export async function onAlterUser({
 	password,
 	role,
 	active,
-	operationsUrl,
+	instanceClient,
 }: AlterUserRequestBody): Promise<AlterUserResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'alter_user',
@@ -59,12 +58,12 @@ export async function onAlterUser({
 		password,
 		role,
 		active,
-	}, { baseURL: operationsUrl });
+	});
 	return data as AlterUserResponse;
 }
 
 export function useAlterUser() {
 	return useMutation({
-		mutationFn: (recordsData: AlterUserRequestBody) => onAlterUser(recordsData),
+		mutationFn: onAlterUser,
 	});
 }

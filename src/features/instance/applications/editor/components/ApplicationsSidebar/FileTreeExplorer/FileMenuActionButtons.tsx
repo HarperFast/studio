@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
 import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
@@ -6,15 +7,12 @@ import { useDeleteComponentFolderFile } from '@/features/instance/operations/mut
 import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
-const route = getRouteApi('');
-
 export function FileMenuActionButtons() {
-	const { instanceId } = route.useParams();
-	const { refetch: refetchComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
+	const instanceParams = useInstanceClientIdParams();
+	const { refetch: refetchComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
 	const [isAddingFolder, setIsAddingFolder] = useState(false);
 	const [isDeleteFolderOrFileClicked, setIsDeleteFolderOrFileClicked] = useState(false);
@@ -28,13 +26,14 @@ export function FileMenuActionButtons() {
 				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}/${name}`,
 				project: selectedFolderFile.projectName,
 				payload: isAddingFolder ? undefined : '',
+				...instanceParams,
 			},
 			{
 				onSuccess: () => {
 					refetchComponents();
 					setIsAddFolderOrFileClicked(false);
 				},
-			}
+			},
 		);
 	};
 
@@ -43,6 +42,7 @@ export function FileMenuActionButtons() {
 			{
 				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
 				project: selectedFolderFile.projectName,
+				...instanceParams,
 			},
 			{
 				onSuccess: () => {
@@ -55,7 +55,7 @@ export function FileMenuActionButtons() {
 					refetchComponents();
 					setIsDeleteFolderOrFileClicked(false);
 				},
-			}
+			},
 		);
 	};
 
@@ -109,7 +109,8 @@ export function FileMenuActionButtons() {
 				) : null}
 			</div>
 
-			{!selectedFolderFile.filePath ? <span className="text-gray-500">Please Select a folder or file</span> : null}
+			{!selectedFolderFile.filePath ?
+				<span className="text-gray-500">Please Select a folder or file</span> : null}
 
 			<AddFolderFileModal
 				isModalOpen={isAddFolderOrFileClicked}

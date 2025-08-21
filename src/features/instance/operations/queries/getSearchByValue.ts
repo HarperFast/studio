@@ -1,14 +1,27 @@
-import { instanceClient } from '@/config/instanceClient';
-
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-type SearchConditions = {
+interface GetSearchByValueParams extends InstanceClientIdConfig {
+	databaseName: string;
+	tableName: string;
+	searchAttribute: string;
+	sortTableDataParams: {
+		attribute: string;
+		descending: boolean;
+	};
+	pagination: {
+		pageIndex: number;
+		pageSize: number;
+	};
+}
+
+interface SearchConditions {
 	search_attribute: string;
 	search_type: string;
 	search_value: string;
-};
+}
 
-type SearchByValueRequest = {
+interface SearchByValueRequest {
 	operation: 'search_by_value',
 	conditions?: [SearchConditions];
 	database: string;
@@ -22,34 +35,22 @@ type SearchByValueRequest = {
 		attribute: string;
 		descending: boolean;
 	};
-};
+}
 
-function getSearchByValueOptions({
-	instanceId,
+export function getSearchByValueOptions({
+	entityId,
+	instanceClient,
 	databaseName,
 	tableName,
 	searchAttribute,
 	sortTableDataParams,
 	pagination,
-}: {
-	instanceId: string;
-	databaseName: string;
-	tableName: string;
-	searchAttribute: string;
-	sortTableDataParams: {
-		attribute: string;
-		descending: boolean;
-	};
-	pagination: {
-		pageIndex: number;
-		pageSize: number;
-	};
-}) {
+}: GetSearchByValueParams) {
 	return queryOptions({
 		queryKey: [
+			entityId,
 			'search_by_value',
 			searchAttribute,
-			instanceId,
 			pagination.pageIndex || 0,
 			pagination.pageSize || 0,
 			databaseName,
@@ -57,7 +58,8 @@ function getSearchByValueOptions({
 			sortTableDataParams.descending || false,
 			tableName,
 		] as const,
-		staleTime: 5000,
+		staleTime: 5_000,
+		// refetchInterval: 10_000,
 		queryFn: () =>
 			instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_value',
@@ -72,5 +74,3 @@ function getSearchByValueOptions({
 			} satisfies SearchByValueRequest),
 	});
 }
-
-export { getSearchByValueOptions };

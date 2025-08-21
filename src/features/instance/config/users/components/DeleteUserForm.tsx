@@ -7,6 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { DeleteUserFormSchema, useDeleteUserMutation } from '@/features/instance/operations/mutations/deleteUser';
 import { LocalUser } from '@/lib/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,10 +33,13 @@ export function DeleteUserForm({
 		},
 	});
 
+
+	const instanceParams = useInstanceClientParams();
 	const onDeleteClicked = useCallback(() => {
 		deleteUser(
 			{
 				username: data.username,
+				...instanceParams,
 			},
 			{
 
@@ -45,7 +49,7 @@ export function DeleteUserForm({
 					onUserDeleted();
 				},
 			});
-	}, [data.username, deleteForm, deleteUser, onUserDeleted]);
+	}, [data.username, deleteForm, deleteUser, instanceParams, onUserDeleted]);
 
 	return <Form {...deleteForm}>
 		<form onSubmit={deleteForm.handleSubmit(onDeleteClicked)} className="grid gap-4 my-4">

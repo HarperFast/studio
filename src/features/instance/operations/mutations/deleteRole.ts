@@ -1,29 +1,24 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-export type DeleteRoleData = {
+interface DeleteRoleData extends InstanceClientConfig {
 	id: string;
-	operationsUrl?: string;
-};
+}
 
-export type DeleteRoleResponse = {
+interface DeleteRoleResponse {
 	message: string;
-};
+}
 
-export async function onDeleteRole({ id, operationsUrl }: DeleteRoleData) {
-	const { data } = await instanceClient.post<DeleteRoleResponse>(
-		'/',
-		{
-			operation: 'drop_role',
-			id,
-		},
-		{ baseURL: operationsUrl }
-	);
+async function onDeleteRole({ id, instanceClient }: DeleteRoleData) {
+	const { data } = await instanceClient.post<DeleteRoleResponse>('/', {
+		operation: 'drop_role',
+		id,
+	});
 	return data;
 }
 
 export function useDeleteRoleMutation() {
 	return useMutation({
-		mutationFn: (data: DeleteRoleData) => onDeleteRole(data),
+		mutationFn: onDeleteRole,
 	});
 }

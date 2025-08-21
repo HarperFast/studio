@@ -19,7 +19,7 @@ const route = getRouteApi('');
 
 export function OrgConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgUserId } = route.useParams();
+	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string; } = route.useParams();
 	const { update } = useOrganizationRolePermissions(organizationId);
 	const {
 		data: organizationRoles,

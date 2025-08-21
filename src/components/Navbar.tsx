@@ -28,7 +28,7 @@ const route = getRouteApi('');
 const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const showBilling = canUpdateOrganization;
@@ -123,7 +123,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 }
 
 function DesktopNav({ signOut }: { signOut: () => void }) {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const showBilling = canUpdateOrganization;

@@ -1,12 +1,11 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { LocalUser } from '@/lib/api.patch';
 import type { AxiosRequestConfig } from 'axios';
 
-export async function getInstanceUserInfo(params?: { operationsUrl?: string } & AxiosRequestConfig) {
-	const { operationsUrl, ...config } = params ?? {};
+export async function getInstanceUserInfo({ instanceClient, ...config }: InstanceClientConfig & AxiosRequestConfig) {
 	const { data } = await instanceClient.post('/', {
 		...config,
 		operation: 'user_info',
-	}, { baseURL: operationsUrl });
+	});
 	return data as LocalUser;
 }

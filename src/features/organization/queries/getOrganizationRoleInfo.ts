@@ -16,7 +16,7 @@ export function getOrganizationRoleInfoQueryOptions({
 	roleId: string;
 }) {
 	return queryOptions({
-		queryKey: [queryKeys.organization, queryKeys.roles, organizationId, roleId] as const,
+		queryKey: [queryKeys.organization, organizationId, queryKeys.roles, roleId] as const,
 		queryFn: () => getOrganizationRoleInfo(roleId),
 		refetchInterval: 10 * 1000,
 	});

@@ -51,7 +51,7 @@ export function AddUserModal({
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
 	const [shouldInvite, setShouldInvite] = useState(false);
 
@@ -87,7 +87,7 @@ export function AddUserModal({
 				});
 			}
 		},
-		[addUser, form, inviteUser, onChangesSaved, setIsModalOpen, shouldInvite]
+		[addUser, form, inviteUser, onChangesSaved, setIsModalOpen, shouldInvite],
 	);
 
 	return (

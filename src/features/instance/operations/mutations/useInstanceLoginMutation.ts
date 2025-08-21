@@ -1,26 +1,25 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-export type InstanceLoginCredentials = {
+interface InstanceLoginCredentials extends InstanceClientConfig {
 	username: string;
 	password: string;
-	operationsUrl?: string;
-};
+}
 
-export type LoginInfoResponse = {
+export interface LoginInfoResponse {
 	message: string;
-};
+}
 
 export async function onInstanceLoginSubmit({
 	username,
 	password,
-	operationsUrl,
+	instanceClient,
 }: InstanceLoginCredentials): Promise<LoginInfoResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
 		password,
-	}, { baseURL: operationsUrl });
+	});
 	if (data) {
 		return data;
 	} else {
@@ -30,6 +29,6 @@ export async function onInstanceLoginSubmit({
 
 export function useInstanceLoginMutation() {
 	return useMutation<LoginInfoResponse, Error, InstanceLoginCredentials>({
-		mutationFn: (instanceData) => onInstanceLoginSubmit(instanceData),
+		mutationFn: onInstanceLoginSubmit,
 	});
 }

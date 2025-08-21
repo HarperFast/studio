@@ -13,8 +13,8 @@ export function EditUserModal({
 	onUserDeleted,
 	onUserUpdated,
 }: {
-	clusterId: string;
-	instanceId: string;
+	clusterId?: string;
+	instanceId?: string;
 	isModalOpen: boolean;
 	closeModal: () => void;
 	data: LocalUser;
@@ -28,7 +28,7 @@ export function EditUserModal({
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent className="sm:max-w-[750px]">
-				<AlterUserForm data={data} onUserUpdated={onUserUpdated} instanceId={instanceId} />
+				<AlterUserForm data={data} onUserUpdated={onUserUpdated} />
 				{canDelete && <DeleteUserForm data={data} onUserDeleted={onUserDeleted} />}
 			</DialogContent>
 		</Dialog>

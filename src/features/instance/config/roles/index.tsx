@@ -1,6 +1,7 @@
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { dataTableColumns } from '@/features/instance/config/roles/constants/tableDefinition';
 import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
 import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
@@ -17,13 +18,18 @@ const route = getRouteApi('');
 
 export function ConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { clusterId, instanceId, roleId } = route.useParams();
+	const { clusterId, instanceId, roleId }: {
+		instanceId?: string;
+		clusterId?: string;
+		roleId?: string;
+	} = route.useParams();
+	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: localRoles,
 		refetch,
 		isFetching,
 		isRefetching,
-	} = useSuspenseQuery(getListRolesQueryOptions(instanceId));
+	} = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
 
 	const selectedRole = useMemo(() => localRoles?.find((role) => role.id === roleId), [localRoles, roleId]);
 

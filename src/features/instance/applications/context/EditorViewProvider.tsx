@@ -1,39 +1,41 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { EditorViewContext, EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
 import {
 	SetComponentFileRequest,
 	useUpdateComponentFile,
 } from '@/features/instance/operations/mutations/updateComponentFile';
-import { getComponentFileQuery } from '@/features/instance/operations/queries/getComponentFile';
+import { getComponentFileQueryOptions } from '@/features/instance/operations/queries/getComponentFile';
 import { DirectoryEntry, HandleFileSelectParams } from '@/features/instance/operations/queries/getComponents';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-const route = getRouteApi('');
-const isFolder = (entries?: DirectoryEntry[]) => Boolean(entries);
-export const EditorViewProvider = ({ children }: PropsWithChildren) => {
-	const { instanceId } = route.useParams();
+function isFolder(entries?: DirectoryEntry[]) {
+	return Boolean(entries);
+}
+
+export function EditorViewProvider({ children }: PropsWithChildren) {
 	const [selectedFolderFile, setSelectedFolderFile] = useState<HandleFileSelectParams>({
 		filePath: '',
 		projectName: '',
 		content: '',
 	});
+	const instanceParams = useInstanceClientIdParams();
 
 	const { data: getComponentFileQueryData } = useQuery(
-		getComponentFileQuery(
+		getComponentFileQueryOptions(
 			{
 				file:
 					selectedFolderFile.entries == undefined
 						? // removes the first two segments
 						  // (/components/<projectName>)
-						  selectedFolderFile.filePath.split('/').slice(2).join('/')
+						selectedFolderFile.filePath.split('/').slice(2).join('/')
 						: // don't try to load the contents of folders
-						  '',
+						'',
 				project: selectedFolderFile.projectName,
+				...instanceParams,
 			},
-			instanceId
-		)
+		),
 	);
 
 	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
@@ -80,7 +82,7 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 				},
 			});
 		},
-		[saveComponentFile]
+		[saveComponentFile],
 	);
 
 	const value = useMemo<EditorViewContextValue>(() => {
@@ -94,4 +96,4 @@ export const EditorViewProvider = ({ children }: PropsWithChildren) => {
 		};
 	}, [selectedFolderFile, handleFileSelect, updateEditorContent, onSaveFile, isSavingFile]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
-};
+}

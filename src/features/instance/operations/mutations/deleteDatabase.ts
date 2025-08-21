@@ -1,19 +1,21 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-const onDeleteDatabase = async (databaseName: string) => {
+interface DeleteDatabaseParams extends InstanceClientConfig {
+	databaseName: string;
+}
+
+async function onDeleteDatabase({ databaseName, instanceClient }: DeleteDatabaseParams) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_database',
 		database: databaseName,
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useDeleteDatabaseMutation = () => {
+export function useDeleteDatabaseMutation() {
 	return useMutation({
-		mutationFn: (databaseName: string) => onDeleteDatabase(databaseName),
+		mutationFn: onDeleteDatabase,
 	});
-};
-
-export { useDeleteDatabaseMutation };
+}

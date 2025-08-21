@@ -7,6 +7,7 @@ import {
 	EntityIds,
 	OverallAppSignIn,
 } from '@/lib/authStore';
+import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 export function useRootAuthenticationContext(): Record<EntityIds, AuthenticatedConnection> {
@@ -28,11 +29,12 @@ export function useCloudAuth(): AuthenticatedCloudConnection {
 	return useOverallAuth() as AuthenticatedCloudConnection;
 }
 
-export function useInstanceAuth(entityId: EntityIds): AuthenticatedInstanceConnection {
+export function useInstanceAuth(entityId?: EntityIds): AuthenticatedInstanceConnection {
 	if (isLocalStudio) {
 		entityId = OverallAppSignIn;
 	}
-	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(entityId));
+	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
+	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(entityId ?? instanceId ?? clusterId));
 	useEffect(() =>
 		authStore.listenToEntity(entityId, setConnection), [entityId]);
 	return connection as AuthenticatedInstanceConnection;

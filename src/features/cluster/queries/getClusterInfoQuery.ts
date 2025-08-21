@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
+import { Cluster } from '@/lib/api.patch';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
-import { Cluster } from '@/lib/api.patch';
 
 export async function getClusterInfo(clusterId: string) {
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');

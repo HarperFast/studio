@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
 import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/browse/modals/AddTableRowModal';
@@ -21,7 +22,14 @@ import { toast } from 'sonner';
 const route = getRouteApi('');
 
 export function BrowseDataTableView() {
-	const allParams = route.useParams();
+	const allParams: {
+		clusterId?: string;
+		instanceId?: string;
+		databaseName: string;
+		tableName: string;
+	} = route.useParams();
+
+	const instanceParams = useInstanceClientIdParams();
 	const { clusterId, instanceId, databaseName, tableName } = allParams;
 
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
@@ -30,7 +38,7 @@ export function BrowseDataTableView() {
 
 	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
 		getDescribeTableQueryOptions({
-			instanceOrClusterId: instanceId ?? clusterId,
+			...instanceParams,
 			databaseName,
 			tableName,
 		}),
@@ -39,7 +47,13 @@ export function BrowseDataTableView() {
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	const { data: searchByIdData } = useQuery(
-		getSearchByIdOptions(isEditModalOpen, instanceId, databaseName, tableName, selectedIds),
+		getSearchByIdOptions({
+			...instanceParams,
+			isEditModalOpen: isEditModalOpen,
+			databaseName: databaseName,
+			tableName: tableName,
+			ids: selectedIds,
+		}),
 	);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
@@ -72,7 +86,7 @@ export function BrowseDataTableView() {
 		isFetching: tableDataFetching,
 	} = useQuery(
 		getSearchByValueOptions({
-			instanceId,
+			...instanceParams,
 			databaseName,
 			tableName,
 			searchAttribute: hashAttribute,
@@ -92,6 +106,7 @@ export function BrowseDataTableView() {
 	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
 			{
+				...instanceParams,
 				databaseName,
 				tableName,
 				records: Array.isArray(data) ? data : [data],
@@ -109,6 +124,7 @@ export function BrowseDataTableView() {
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
+				...instanceParams,
 				databaseName,
 				tableName,
 				records: data,
@@ -126,9 +142,10 @@ export function BrowseDataTableView() {
 	const onDeleteRecord = (hashes: unknown[]) => {
 		deleteTableRecords(
 			{
+				...instanceParams,
 				databaseName,
 				tableName,
-				hash_values: hashes,
+				hashValues: hashes,
 			},
 			{
 				onSuccess: () => {

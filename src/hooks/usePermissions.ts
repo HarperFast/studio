@@ -6,10 +6,12 @@ import {
 	LocalRolePermissionTable,
 } from '@/lib/api.patch';
 import { EntityIds } from '@/lib/authStore';
+import { useParams } from '@tanstack/react-router';
 
-export function useOrganizationPermissions(orgId: string): { update: boolean; remove: boolean; } {
+export function useOrganizationPermissions(orgId?: string): { update: boolean; remove: boolean; } {
 	const { user } = useCloudAuth();
-	const role = user?.roles?.[orgId];
+	const { organizationId: orgIdFromRoute }: { organizationId: string; } = useParams({ strict: false });
+	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization) {
 		return { update: false, remove: false };
 	}
@@ -19,14 +21,15 @@ export function useOrganizationPermissions(orgId: string): { update: boolean; re
 	return { update: role.organization.update, remove: role.organization.delete };
 }
 
-export function useOrganizationRolePermissions(orgId: string): {
+export function useOrganizationRolePermissions(orgId?: string): {
 	create: boolean;
 	remove: boolean;
 	update: boolean;
 	view: boolean;
 } {
 	const { user } = useCloudAuth();
-	const role = user?.roles?.[orgId];
+	const { organizationId: orgIdFromRoute }: { organizationId: string; } = useParams({ strict: false });
+	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization?.roles) {
 		return { create: false, remove: false, update: false, view: false };
 	}
@@ -37,21 +40,26 @@ export function useOrganizationRolePermissions(orgId: string): {
 	return { create: roles.create, remove: roles.delete, update: roles.update, view: roles.view };
 }
 
-export function useOrganizationClusterPermissions(orgId: string, clusterId?: string): {
+export function useOrganizationClusterPermissions(orgId?: string, clusterId?: string): {
 	create: boolean;
 	remove: boolean;
 	update: boolean;
 	view: boolean;
 } {
 	const { user } = useCloudAuth();
-	const role = user?.roles?.[orgId];
+	const { organizationId: orgIdFromRoute, clusterId: clusterIdFromRoute }: {
+		organizationId: string;
+		clusterId: string;
+	} = useParams({ strict: false });
+	const findClusterId = clusterId ?? clusterIdFromRoute;
+	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
 	if (role.permission?.super_user) {
 		return { create: true, remove: true, update: true, view: true };
 	}
-	const specificRoles = !!clusterId && role.organization.clusters.resources?.find(r => r.id === clusterId);
+	const specificRoles = role.organization.clusters.resources?.find(r => r.id === findClusterId);
 	const roles = role.organization.clusters;
 	return {
 		create: roles.create,
@@ -61,14 +69,19 @@ export function useOrganizationClusterPermissions(orgId: string, clusterId?: str
 	};
 }
 
-export function useOrganizationClusterInstancePermissions(orgId: string, clusterId: string): {
+export function useOrganizationClusterInstancePermissions(orgId?: string, clusterId?: string): {
 	create: boolean;
 	remove: boolean;
 	update: boolean;
 	view: boolean;
 } {
 	const { user } = useCloudAuth();
-	const role = user?.roles?.[orgId];
+	const { organizationId: orgIdFromRoute, clusterId: clusterIdFromRoute }: {
+		organizationId: string;
+		clusterId: string;
+	} = useParams({ strict: false });
+	const findClusterId = clusterId ?? clusterIdFromRoute;
+	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
@@ -76,7 +89,7 @@ export function useOrganizationClusterInstancePermissions(orgId: string, cluster
 		return { create: true, remove: true, update: true, view: true };
 	}
 	const specificRoles = role.organization.clusters
-		.resources?.find(r => r.id === clusterId)
+		.resources?.find(r => r.id === findClusterId)
 		?.instances;
 	return { // TODO: Should these default to true or false when not specified?
 		create: specificRoles ? specificRoles.create : true,
@@ -86,8 +99,9 @@ export function useOrganizationClusterInstancePermissions(orgId: string, cluster
 	};
 }
 
-export function useInstanceManagePermission(entityId: EntityIds): boolean {
-	const { user } = useInstanceAuth(entityId);
+export function useInstanceManagePermission(entityId?: EntityIds): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -97,8 +111,9 @@ export function useInstanceManagePermission(entityId: EntityIds): boolean {
 	return permission.super_user === true;
 }
 
-export function useInstanceBrowseManagePermission(entityId: EntityIds): boolean {
-	const { user } = useInstanceAuth(entityId);
+export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -108,8 +123,9 @@ export function useInstanceBrowseManagePermission(entityId: EntityIds): boolean 
 	return permission.super_user === true || permission.structure_user === true;
 }
 
-export function useInstanceSchemaTablePermission(entityId: EntityIds, databaseName: string, tableName: string, action: LocalRolePermissionAction): boolean {
-	const { user } = useInstanceAuth(entityId);
+export function useInstanceSchemaTablePermission(entityId: EntityIds | undefined, databaseName: string, tableName: string, action: LocalRolePermissionAction): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -123,8 +139,9 @@ export function useInstanceSchemaTablePermission(entityId: EntityIds, databaseNa
 	return specificPermission?.tables?.[tableName][action] === true;
 }
 
-export function useInstanceSchemaTableAttributePermission(entityId: EntityIds, databaseName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
-	const { user } = useInstanceAuth(entityId);
+export function useInstanceSchemaTableAttributePermission(entityId: EntityIds | undefined, databaseName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.

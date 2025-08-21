@@ -1,13 +1,13 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
-import { getRouteApi, Outlet } from '@tanstack/react-router';
+import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { getRouteApi, Outlet } from '@tanstack/react-router';
 
 const route = getRouteApi('');
 
 export function InstanceLayout() {
-	const { clusterId, instanceId } = route.useParams();
-	const { isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(clusterId, instanceId));
+	const params: { instanceId?: string; clusterId?: string; } = route.useParams();
+	const { isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(params));
 
 	if (!isSuccess) {
 		throw new Error('Instance info not found');

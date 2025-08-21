@@ -22,7 +22,7 @@ export function EditUserModal({
 	isModalOpen: boolean;
 	onUserUpdated: () => void;
 }) {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const auth = useCloudAuth();
 	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;

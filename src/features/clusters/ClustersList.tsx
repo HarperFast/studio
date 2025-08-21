@@ -23,7 +23,7 @@ const route = getRouteApi('');
 
 export function ClustersList() {
 	const queryClient = useQueryClient();
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();

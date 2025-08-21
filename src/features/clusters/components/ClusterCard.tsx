@@ -9,8 +9,9 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
-import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
+import { useInstanceClient } from '@/config/useInstanceClient';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
+import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
@@ -38,12 +39,14 @@ export function ClusterCard({
 	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
 	const canDelete = useMemo(() => remove && cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status, remove]);
 
+	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
+	const instanceClient = useInstanceClient(operationsUrl);
+
 	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
 	const onSignOutClick = useCallback(async () => {
-		const operationsUrl = getOperationsUrlForCluster(cluster)!;
-		await onInstanceLogoutSubmit({ operationsUrl });
+		await onInstanceLogoutSubmit({ instanceClient });
 		authStore.setUserForEntity(cluster, null);
-	}, [cluster]);
+	}, [cluster, instanceClient]);
 	const onDeleteClick = useCallback(() => {
 		onDeleteClusterModal(cluster);
 	}, [cluster, onDeleteClusterModal]);
