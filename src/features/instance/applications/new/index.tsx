@@ -66,7 +66,6 @@ export function NewApplications() {
 							/>
 						) : appType === 'import' ? (
 							<ImportProjectForm
-								triggerRestart={onRestartClick}
 								isRestartPending={isRestartPending}
 							/>
 						) : (
