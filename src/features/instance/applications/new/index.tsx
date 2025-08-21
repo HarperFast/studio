@@ -4,7 +4,7 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
 import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
-import { useRestartClick } from '@/hooks/useRestartClick';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -20,7 +20,12 @@ export function NewApplications() {
 	const onRestartedSuccessfully = useCallback(() => {
 		void navigate({ to: `../editor` });
 	}, [navigate]);
-	const { onRestartClick, isRestartPending } = useRestartClick({ targetNoun, instanceClient, onRestartedSuccessfully });
+	const { onRestartClick, isRestartPending } = useRestartInstanceClick({
+		operation: 'restart_service',
+		targetNoun,
+		instanceClient,
+		onRestartedSuccessfully,
+	});
 
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">

@@ -3,23 +3,23 @@ import { useRestartInstance } from '@/features/instance/operations/mutations/res
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
-interface RestartClickParams extends InstanceClientConfig {
+interface RestartInstanceClickParams extends InstanceClientConfig {
 	targetNoun: 'Instance' | 'Cluster';
 	operation: 'restart_service' | 'restart';
 	onRestartedSuccessfully?: () => void;
 }
 
-interface RestartClickResponse {
+interface RestartInstanceClickResponse {
 	onRestartClick: () => void;
 	isRestartPending: boolean;
 }
 
-export function useRestartClick({
+export function useRestartInstanceClick({
 	targetNoun,
 	operation,
 	instanceClient,
 	onRestartedSuccessfully,
-}: RestartClickParams): RestartClickResponse {
+}: RestartInstanceClickParams): RestartInstanceClickResponse {
 	const { mutate: restartInstance, isPending: isRestartPending } = useRestartInstance();
 	const onRestartClick = useCallback(() => {
 		const toastId = toast.loading('Restarting', {

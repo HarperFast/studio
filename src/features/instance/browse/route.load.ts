@@ -17,7 +17,7 @@ export async function loadInstanceBrowseData(
 	const entityId = params.instanceId ?? params.clusterId ?? OverallAppSignIn;
 	const data = await queryClient.ensureQueryData(getDescribeAllQueryOptions({
 		entityId,
-		instanceClient: getInstanceClient(entityId),
+		instanceClient: getInstanceClient({ id: entityId }),
 	}));
 	let newDatabaseName: string | undefined;
 	let newTableName: string | undefined;

@@ -13,7 +13,7 @@ interface UpdateRestartInstanceResponse {
 	message: string;
 }
 
-async function onRestartInstance({ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig) {
+export async function restartInstance({ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
 		operation,
 		service: operation === 'restart_service' ? 'http' : undefined,
@@ -26,6 +26,6 @@ async function onRestartInstance({ operation, replicated, instanceClient }: Rest
 
 export function useRestartInstance() {
 	return useMutation({
-		mutationFn: onRestartInstance,
+		mutationFn: restartInstance,
 	});
 }

@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { useRestartClick } from '@/hooks/useRestartClick';
+import { useRestartClusterClick } from '@/hooks/useRestartClusterClick';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 
 interface RestartButtonParams extends InstanceClientConfig {
 	targetNoun: 'Instance' | 'Cluster';
@@ -13,14 +14,18 @@ export function RestartButton({
 	instanceClient,
 	operation,
 }: RestartButtonParams) {
-	const { onRestartClick, isRestartPending } = useRestartClick({ targetNoun, operation, instanceClient });
+	const {
+		onRestartClick: onRestartClusterClick,
+		isRestartPending: isRestartClusterPending,
+	} = useRestartClusterClick();
+	const { onRestartClick, isRestartPending } = useRestartInstanceClick({ targetNoun, operation, instanceClient });
 	return (<Tooltip>
 		<TooltipTrigger asChild>
 			<Button
 				variant="positiveOutline"
 				className="ml-4 rounded-full cursor-pointer"
-				onClick={onRestartClick}
-				disabled={isRestartPending}
+				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
+				disabled={isRestartPending || isRestartClusterPending}
 			>
 				Restart {targetNoun}
 			</Button>

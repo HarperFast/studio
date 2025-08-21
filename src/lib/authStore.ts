@@ -145,7 +145,7 @@ class AuthStore {
 				continue;
 			}
 			try {
-				const instanceClient = getInstanceClient(entityId);
+				const instanceClient = getInstanceClient({ id: entityId });
 				await onInstanceLogoutSubmit({ instanceClient });
 			} catch (err: unknown) {
 				console.error(`Failed to log out from ${entityId}, carrying on`, err);
@@ -248,7 +248,7 @@ class AuthStore {
 					user = await getCurrentUser();
 				}
 			} else if (id) {
-				user = await getInstanceUserInfo({ instanceClient: getInstanceClient(id) });
+				user = await getInstanceUserInfo({ instanceClient: getInstanceClient({ id }) });
 			}
 		} catch (error) {
 			// TODO: Only catch the errors we expect here (401? 403? w/e)
