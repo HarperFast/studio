@@ -11,7 +11,10 @@ import {
 } from '@/features/clusters/modals/NewClusterModal/lib/pickDefaultDeploymentPerformanceAndRegionPlans';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
-import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
+import {
+	getRegionLocationsOptions,
+	GetRegionLocationsParams,
+} from '@/features/clusters/queries/getRegionLocationsQuery';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
 import { SchemaRegionPlan } from '@/lib/api.gen';
@@ -28,20 +31,21 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 interface NewClusterModalProps {
-	orgId: string;
+	organizationId: string;
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }
 
 export function NewClusterModal({
-	orgId,
+	organizationId,
 	isModalOpen,
 	setIsModalOpen,
 }: NewClusterModalProps) {
 	const queryClient = useQueryClient();
-	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(orgId));
+	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(organizationId));
 	const { data: planTypes } = useQuery(getPlanTypesOptions());
-	const { data: regionLocations } = useQuery(getRegionLocationsOptions());
+	const [limitRegionParameters, setLimitRegionParameters] = useState<GetRegionLocationsParams>({ availableHosts: true });
+	const { data: regionLocations } = useQuery(getRegionLocationsOptions(limitRegionParameters));
 	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
 	const [firstLoad, setFirstLoad] = useState(true);
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<z.infer<typeof NewClusterSchema> | null>(LocalStorageKeys.SavedClusterState, null);
@@ -132,6 +136,13 @@ export function NewClusterModal({
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
 
+	useEffect(() => {
+		setLimitRegionParameters({
+			availableHosts: selectedDeployment !== 'Dedicated for Cluster' ? true : undefined,
+			organizationId: selectedDeployment === 'Dedicated for Organization' ? organizationId : undefined,
+		});
+	}, [organizationId, selectedDeployment]);
+
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
 		const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
@@ -180,7 +191,7 @@ export function NewClusterModal({
 	const selectedPlan = useMemo(() =>
 		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
 
-	useEffect(function autoSelectPlanAllowedRegionId() {
+	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
 			const firstRegion = selectedRegionPlans[0];
@@ -196,6 +207,18 @@ export function NewClusterModal({
 			}
 		}
 	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations]);
+
+	useEffect(function syncRegionSelectionsWithPossibleRegions() {
+		const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
+			for (let i = 0; i < selectedRegionPlans.length; i++) {
+				const regionPlan = selectedRegionPlans[i];
+				if (!regionNameToLatencyToRegion[regionPlan.regionName]) {
+					form.setValue(`regionPlans.${i}.regionName`, '');
+				}
+			}
+		}
+	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
@@ -243,14 +266,14 @@ export function NewClusterModal({
 		}
 		setSavedClusterState(null);
 		submitNewClusterData({
-			organizationId: orgId,
+			organizationId,
 			name: formData.systemName,
 			abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
 			fqdn: isSelfManaged && formData.fqdn || undefined,
 			autoRenew: true,
 			regionPlans: plans,
 		}, { onSuccess: onClusterCreatedCallback });
-	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, orgId, regionNameToLatencyToRegion, setSavedClusterState, submitNewClusterData]);
+	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitNewClusterData]);
 
 	const submitClusterDetailsForm = useCallback(() => {
 		if (totalPrice > 0) {

@@ -29,11 +29,11 @@ export function ClusterRegions({
 
 	const onAddARegionClick = useCallback(() => {
 		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
-		const firstRegionLocation = regionLocations?.find(r => !selectedRegionNames.includes(r.region));
-		if (firstRegionLocation) {
+		const firstNewRegionLocation = regionLocations?.find(r => !selectedRegionNames.includes(r.region));
+		if (firstNewRegionLocation) {
 			regionPlansFieldArray.append({
-				regionName: firstRegionLocation.region,
-				latencyDescription: firstRegionLocation.latencyDescription,
+				regionName: firstNewRegionLocation.region,
+				latencyDescription: firstNewRegionLocation.latencyDescription,
 			});
 			void form.trigger();
 		}

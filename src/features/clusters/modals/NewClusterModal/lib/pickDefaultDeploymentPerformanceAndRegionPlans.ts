@@ -12,7 +12,8 @@ export function pickDefaultDeploymentPerformanceAndRegionPlans(
 		const values = form.getValues();
 		if (!values.deploymentDescription || !values.performanceDescription || !values.regionPlans.length) {
 			const freeColocatedPlan = planTypes
-				.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated');
+				// TODO: We can remove the "free" conditional once "colocated" is rolled out completely.
+				.find(planType => !planType.priceUsd && (planType.deploymentType === 'colocated' || planType.deploymentType === 'free'));
 			const allowedRegionIds = freeColocatedPlan?.allowedRegionIds;
 			if (freeColocatedPlan && allowedRegionIds?.length) {
 				const allowedFreeRegions = regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id));
