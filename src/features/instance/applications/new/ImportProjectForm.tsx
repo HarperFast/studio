@@ -31,11 +31,11 @@ const ImportProjectSchema = z.object({
 });
 
 export function ImportProjectForm({
-	restartingInstanceOrCluster,
-	isRestartInstanceOrClusterPending,
+	triggerRestart,
+	isRestartPending,
 }: {
-	restartingInstanceOrCluster: () => void;
-	isRestartInstanceOrClusterPending: boolean;
+	triggerRestart: () => void;
+	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
@@ -52,7 +52,7 @@ export function ImportProjectForm({
 		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
-				restartingInstanceOrCluster();
+				triggerRestart();
 			},
 			onError: (error) => {
 				toast.error(`Error creating Application: ${error.message}`);
@@ -119,7 +119,7 @@ export function ImportProjectForm({
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartInstanceOrClusterPending}
+						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartPending}
 					>
 						{!isDeployComponentPending ? (
 							<>

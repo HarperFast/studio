@@ -20,6 +20,7 @@ async function onDeployComponentSubmit({
 			package: applicationUrl,
 			project: newApplicationName,
 			replicated,
+			restart: 'rolling',
 		},
 		{ timeout: 60000 },
 	);

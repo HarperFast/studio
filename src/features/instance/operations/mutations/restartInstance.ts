@@ -4,22 +4,25 @@ import { axiosRetry } from '@/lib/axiosRetry';
 import { sleep } from '@/lib/sleep';
 import { useMutation } from '@tanstack/react-query';
 
+interface RestartInstanceParams {
+	operation: 'restart_service' | 'restart';
+}
+
 interface UpdateRestartInstanceResponse {
 	message: string;
 }
 
-async function onUpdateRestartInstance({ instanceClient }: InstanceClientConfig) {
+async function onRestartInstance({ operation, instanceClient }: RestartInstanceParams & InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
-		operation: 'restart',
-		restart: 'rolling',
+		operation,
 	});
 	await sleep(3_000);
 	await axiosRetry(() => getInstanceUserInfo({ instanceClient, timeout: 10_000 }), 5, 3_000);
 	return data as UpdateRestartInstanceResponse;
 }
 
-export function useUpdateRestartInstance() {
+export function useRestartInstance() {
 	return useMutation({
-		mutationFn: onUpdateRestartInstance,
+		mutationFn: onRestartInstance,
 	});
 }

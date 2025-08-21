@@ -1,13 +1,11 @@
+import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
-import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
 import { Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import { useEditorView } from '../../../hooks/useEditorView';
 
 function parseFileExtension(filename: string) {
@@ -36,42 +34,9 @@ export function TextEditorView() {
 	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFolderFile.content || '');
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
-	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const instanceParams = useInstanceClientParams();
 
 	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
-
-	const restartingInstance = () => {
-		const toastId = toast.loading('Restarting', {
-			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
-			duration: 60000, // Keep the toast open until dismissed
-			action: {
-				label: 'Dismiss',
-				onClick: () => toast.dismiss(),
-			},
-		});
-		restartInstance(instanceParams, {
-			onSuccess: () => {
-				toast.dismiss(toastId);
-				toast.success('Success', {
-					description: `${targetNoun} restarted!`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-			onError: () => {
-				toast.error('Error', {
-					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-		});
-	};
 
 	useEffect(() => {
 		const extension = parseFileExtension(selectedFolderFile.filePath) as keyof typeof extensionToLanguageMap;
@@ -104,23 +69,7 @@ export function TextEditorView() {
 						<Save />
 						<span className="ms-1">Save</span>
 					</Button>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Button
-								variant="defaultOutline"
-								className="ml-4 rounded-full cursor-pointer"
-								onClick={restartingInstance}
-								disabled={isRestartInstancePending}
-							>
-								Restart {targetNoun}
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent>
-							Restarts all service threads to apply changes. No downtime expected. Performance may be
-							briefly slower
-							during restart.
-						</TooltipContent>
-					</Tooltip>
+					<RestartButton targetNoun={targetNoun} instanceClient={instanceParams.instanceClient} operation="restart_service" />
 				</div>
 			</div>
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (

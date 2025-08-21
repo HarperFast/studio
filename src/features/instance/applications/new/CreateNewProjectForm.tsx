@@ -27,11 +27,11 @@ const NewProjectSchema = z.object({
 });
 
 export function CreateNewProjectForm({
-	restartingInstanceOrCluster,
-	isRestartInstanceOrClusterPending,
+	triggerRestart,
+	isRestartPending,
 }: {
-	restartingInstanceOrCluster: () => void;
-	isRestartInstanceOrClusterPending: boolean;
+	triggerRestart: () => void;
+	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
@@ -47,7 +47,7 @@ export function CreateNewProjectForm({
 		createNewProject({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
-				restartingInstanceOrCluster();
+				triggerRestart();
 			},
 			onError: (error) => {
 				toast.error(`Error creating project: ${error.message}`);
@@ -75,7 +75,7 @@ export function CreateNewProjectForm({
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isRestartInstanceOrClusterPending}
+						disabled={!form.formState.isDirty || isRestartPending}
 					>
 						Create <ArrowRight />
 					</Button>
