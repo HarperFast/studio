@@ -1,13 +1,12 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type DeleteComponentFileRequest = {
-	file: string | undefined;
+interface DeleteComponentFileRequest extends InstanceClientConfig {
 	project: string;
-};
+	file: string | undefined;
+}
 
-const onDeleteComponentFolderFile = async (componentFileData: DeleteComponentFileRequest) => {
-	const { file, project } = componentFileData;
+async function onDeleteComponentFolderFile({ file, project, instanceClient }: DeleteComponentFileRequest) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_component',
 		file: file || undefined,
@@ -15,13 +14,10 @@ const onDeleteComponentFolderFile = async (componentFileData: DeleteComponentFil
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useDeleteComponentFolderFile = () => {
+export function useDeleteComponentFolderFile() {
 	return useMutation({
-		mutationFn: (componentFileData: DeleteComponentFileRequest) => onDeleteComponentFolderFile(componentFileData),
+		mutationFn: onDeleteComponentFolderFile,
 	});
-};
-
-export { useDeleteComponentFolderFile };
-export type { DeleteComponentFileRequest };
+}

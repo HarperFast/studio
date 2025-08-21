@@ -1,7 +1,3 @@
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowRight } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -10,11 +6,16 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
 import {
 	CreateComponentFormData,
 	useCreateComponentMutation,
 } from '@/features/instance/operations/mutations/createComponent';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowRight } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 const NewProjectSchema = z.object({
 	newApplicationName: z
@@ -31,6 +32,7 @@ export function CreateNewProjectForm({
 	restartingInstanceOrCluster: () => void;
 	isRestartInstanceOrClusterPending: boolean;
 }) {
+	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
@@ -40,7 +42,7 @@ export function CreateNewProjectForm({
 
 	const { mutate: createNewProject } = useCreateComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
-		createNewProject(formData, {
+		createNewProject({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
 				restartingInstanceOrCluster();

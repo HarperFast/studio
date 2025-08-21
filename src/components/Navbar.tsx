@@ -6,15 +6,16 @@ import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuLis
 import { isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
-import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
 	BookMarkedIcon,
 	BuildingIcon,
-	Handshake,
+	HandshakeIcon,
 	LogInIcon,
 	LogOutIcon,
 	Menu,
+	ReceiptIcon,
 	UserIcon,
 	UsersIcon,
 	X,
@@ -27,8 +28,10 @@ const route = getRouteApi('');
 const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
-	const { organizationId } = route.useParams();
-	const { view } = useOrganizationRolePermissions(organizationId);
+	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
+	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
+	const showBilling = canUpdateOrganization;
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	return (
 		<div className="md:hidden" id="mobile-menu">
@@ -63,22 +66,29 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 							<BuildingIcon className="mr-4" />
 							Organizations
 						</Link>
-						{organizationId && view ? (
+						{(showOrgUsersAndRoles || showBilling) ? (
 							<div className="bg-black rounded-2xl">
-								<Link
+								{showOrgUsersAndRoles && (<Link
 									to={`/orgs/${organizationId}/roles`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
-									<Handshake className="mr-4" /> Roles
-								</Link>
-								<Link
+									<HandshakeIcon className="mr-4" /> Roles
+								</Link>)}
+								{showOrgUsersAndRoles && (<Link
 									to={`/orgs/${organizationId}/users`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
 									<UsersIcon className="mr-4" /> Users
-								</Link>
+								</Link>)}
+								{showBilling && (<Link
+									to={`/orgs/${organizationId}/billing`}
+									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
+									activeProps={activeLinkProps}
+								>
+									<ReceiptIcon className="mr-4" /> Billing
+								</Link>)}
 							</div>
 						) : (
 							''
@@ -113,8 +123,10 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 }
 
 function DesktopNav({ signOut }: { signOut: () => void }) {
-	const { organizationId } = route.useParams();
-	const { view } = useOrganizationRolePermissions(organizationId);
+	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
+	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
+	const showBilling = canUpdateOrganization;
 
 	return (
 		<div className="hidden md:block">
@@ -136,20 +148,20 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										</Link>
 									</NavigationMenuLink>
 								</NavigationMenuItem>
-								{organizationId && view ? (
+								{(showOrgUsersAndRoles || showBilling) ? (
 									<div className="bg-black rounded-2xl flex">
-										<NavigationMenuItem>
+										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
 													to={`/orgs/${organizationId}/roles`}
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
-													<Handshake className="inline-block" /> Roles
+													<HandshakeIcon className="inline-block" /> Roles
 												</Link>
 											</NavigationMenuLink>
-										</NavigationMenuItem>
-										<NavigationMenuItem>
+										</NavigationMenuItem>)}
+										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
 													to={`/orgs/${organizationId}/users`}
@@ -159,7 +171,18 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													<UsersIcon className="inline-block" /> Users
 												</Link>
 											</NavigationMenuLink>
-										</NavigationMenuItem>
+										</NavigationMenuItem>)}
+										{showBilling && (<NavigationMenuItem>
+											<NavigationMenuLink asChild>
+												<Link
+													to={`/orgs/${organizationId}/billing`}
+													className="flex-row items-center"
+													activeProps={activeLinkProps}
+												>
+													<ReceiptIcon className="inline-block" /> Billing
+												</Link>
+											</NavigationMenuLink>
+										</NavigationMenuItem>)}
 									</div>
 								) : (
 									''

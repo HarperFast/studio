@@ -1,17 +1,16 @@
-import { instanceClient } from '@/config/instanceClient';
-
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-type RegistrationInfoResponse = {
+export interface RegistrationInfoResponse {
 	license_expiration_date: string;
 	ram_allocation: number;
 	registered: boolean;
 	version: string;
-};
+}
 
-function getRegistrationInfoQueryOptions(instanceId: string) {
+export function getRegistrationInfoQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [instanceId, 'registration_info'] as const,
+		queryKey: [entityId, 'registration_info'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post('/', {
 				operation: 'registration_info',
@@ -20,6 +19,3 @@ function getRegistrationInfoQueryOptions(instanceId: string) {
 		},
 	});
 }
-
-export { getRegistrationInfoQueryOptions };
-export type { RegistrationInfoResponse };

@@ -1,14 +1,13 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type SetComponentFileRequest = {
+export interface SetComponentFileRequest extends InstanceClientConfig {
 	file: string;
 	payload?: string;
 	project: string;
-};
+}
 
-const onUpdateComponentFile = async (componentFileData: SetComponentFileRequest) => {
-	const { file, payload, project } = componentFileData;
+async function onUpdateComponentFile({ file, payload, project, instanceClient }: SetComponentFileRequest) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'set_component_file',
 		file,
@@ -16,13 +15,10 @@ const onUpdateComponentFile = async (componentFileData: SetComponentFileRequest)
 		project,
 	});
 	return data;
-};
+}
 
-const useUpdateComponentFile = () => {
+export function useUpdateComponentFile() {
 	return useMutation({
-		mutationFn: (componentFileData: SetComponentFileRequest) => onUpdateComponentFile(componentFileData),
+		mutationFn: onUpdateComponentFile,
 	});
-};
-
-export { useUpdateComponentFile };
-export type { SetComponentFileRequest };
+}

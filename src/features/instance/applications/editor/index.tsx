@@ -1,14 +1,13 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { EditorViewProvider } from '@/features/instance/applications/context/EditorViewProvider';
 import { ApplicationsSidebar } from '@/features/instance/applications/editor/components/ApplicationsSidebar';
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
-import { getRouteApi } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { TextEditorView } from './components/TextEditorView';
-const route = getRouteApi('');
 
 export function EditApplications() {
-	const { instanceId } = route.useParams();
-	const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceId));
+	const instanceParams = useInstanceClientIdParams();
+	const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 
 	return (
 		<EditorViewProvider>

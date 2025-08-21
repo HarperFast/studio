@@ -1,19 +1,20 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { InstanceTable } from '@/lib/api.patch';
-
 import { queryOptions } from '@tanstack/react-query';
 
-export function getDescribeTableQueryOptions({
-	instanceOrClusterId,
-	databaseName,
-	tableName,
-}: {
-	instanceOrClusterId: string;
+interface GetDescribeTableParams extends InstanceClientIdConfig {
 	databaseName: string;
 	tableName: string;
-}) {
+}
+
+export function getDescribeTableQueryOptions({
+	databaseName,
+	tableName,
+	entityId,
+	instanceClient,
+}: GetDescribeTableParams) {
 	return queryOptions({
-		queryKey: [instanceOrClusterId, databaseName, tableName, 'describe_table'] as const,
+		queryKey: [entityId, 'describe_table', databaseName, tableName] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<InstanceTable>('/', {
 				operation: 'describe_table',
@@ -23,7 +24,7 @@ export function getDescribeTableQueryOptions({
 			return data;
 		},
 		staleTime: 5000,
-		enabled: !!instanceOrClusterId && !!databaseName && !!tableName,
+		enabled: !!databaseName && !!tableName,
 		retry: false,
 	});
 }

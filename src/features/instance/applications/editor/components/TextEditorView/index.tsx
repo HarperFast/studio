@@ -1,12 +1,14 @@
-import { Editor } from '@monaco-editor/react';
-import { useEditorView } from '../../../hooks/useEditorView';
 import { Button } from '@/components/ui/button';
-import { useEffect, useState } from 'react';
-import { Save } from 'lucide-react';
-import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
-import { toast } from 'sonner';
-import { useParams } from '@tanstack/react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { Editor } from '@monaco-editor/react';
+import { useParams } from '@tanstack/react-router';
+import { Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { useEditorView } from '../../../hooks/useEditorView';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
@@ -32,10 +34,10 @@ export function TextEditorView() {
 	const { selectedFolderFile, onSaveFile, isSavingFile, isFolder } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
 	const [updateFileContent, setUpdateFileContent] = useState<string>(selectedFolderFile.content || '');
-	const { clusterId, instanceId } = useParams({ strict: false });
-	const targetId = instanceId ?? clusterId;
-	const targetNoun = instanceId ? 'Instance' : 'Cluster';
+	const { instanceId }: { instanceId: string } = useParams({ strict: false });
+	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
+	const instanceParams = useInstanceClientParams();
 
 	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
 
@@ -48,7 +50,7 @@ export function TextEditorView() {
 				onClick: () => toast.dismiss(),
 			},
 		});
-		restartInstance(targetId, {
+		restartInstance(instanceParams, {
 			onSuccess: () => {
 				toast.dismiss(toastId);
 				toast.success('Success', {
@@ -87,6 +89,7 @@ export function TextEditorView() {
 						className="w-32 rounded-full"
 						onClick={() => {
 							onSaveFile({
+								...instanceParams,
 								file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
 								payload: updateFileContent,
 								project: selectedFolderFile.projectName,
@@ -113,7 +116,8 @@ export function TextEditorView() {
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent>
-							Restarts all service threads to apply changes. No downtime expected. Performance may be briefly slower
+							Restarts all service threads to apply changes. No downtime expected. Performance may be
+							briefly slower
 							during restart.
 						</TooltipContent>
 					</Tooltip>

@@ -2,7 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import { SchemaOrganization } from '@/lib/api.gen';
 
-export async function onNewOrganizationSubmit(newOrg: Omit<SchemaOrganization, "id">): Promise<SchemaOrganization> {
+export async function onNewOrganizationSubmit(newOrg: Omit<SchemaOrganization, 'id' | 'type'>): Promise<SchemaOrganization> {
 	const { data } = await apiClient.post('/Organization/', {
 		...newOrg,
 	});
@@ -10,7 +10,7 @@ export async function onNewOrganizationSubmit(newOrg: Omit<SchemaOrganization, "
 }
 
 export function useCreateNewOrganizationMutation() {
-	return useMutation<SchemaOrganization, Error, Omit<SchemaOrganization, "id">>({
+	return useMutation<SchemaOrganization, Error, Omit<SchemaOrganization, 'id' | 'type'>>({
 		mutationFn: (clusterInfo) => onNewOrganizationSubmit(clusterInfo),
 	});
 }

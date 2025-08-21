@@ -1,21 +1,23 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
-import { useState } from 'react';
 import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
 
-	const { clusterId, instanceId } = useParams({ strict: false });
-	const targetId = instanceId ?? clusterId;
+	const { instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
+	const instanceParams = useInstanceClientParams();
 	const { mutate: restartInstance, isPending: isRestartInstanceOrClusterPending } = useUpdateRestartInstance();
 	const navigate = useNavigate();
-	const targetNoun = instanceId ? 'Instance' : 'Cluster';
+	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 
 	const restartingInstanceOrCluster = () => {
 		const toastId = toast.loading('Restarting', {
@@ -26,7 +28,7 @@ export function NewApplications() {
 				onClick: () => toast.dismiss(),
 			},
 		});
-		restartInstance(targetId, {
+		restartInstance(instanceParams, {
 			onSuccess: () => {
 				toast.dismiss(toastId);
 				toast.success('Success', {

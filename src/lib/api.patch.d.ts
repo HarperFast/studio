@@ -16,6 +16,10 @@ export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole>;
 }
 
+export interface Organization extends SchemaOrganization {
+	type: 'ENTERPRISE' | 'SELF_SERVICE' | string | undefined;
+}
+
 export interface LocalUser {
 	active: boolean;
 	username: string;

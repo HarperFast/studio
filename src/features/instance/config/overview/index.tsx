@@ -2,13 +2,14 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
 import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
-import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import Editor from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
@@ -25,21 +26,21 @@ const CloudStudioOverview = ({ children }: { children: ReactNode }) => {
 };
 
 export function ConfigOverviewIndex() {
-	const { clusterId, instanceId } = useParams({ strict: false });
-	const targetId = instanceId ?? clusterId;
-	const targetNoun = instanceId ? 'Instance' : 'Cluster';
+	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
+	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
+	const instanceParams = useInstanceClientIdParams();
 
 	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
-		getInstanceInfoQueryOptions(clusterId, instanceId)
+		getInstanceInfoQueryOptions({ clusterId, instanceId }),
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
 	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
-		getRegistrationInfoQueryOptions(instanceId)
+		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
-		getConfigurationQueryOptions(instanceId)
+		getConfigurationQueryOptions(instanceParams),
 	);
 
 	const restartingInstance = () => {
@@ -51,7 +52,7 @@ export function ConfigOverviewIndex() {
 				onClick: () => toast.dismiss(),
 			},
 		});
-		restartInstance(targetId, {
+		restartInstance(instanceParams, {
 			onSuccess: () => {
 				toast.dismiss(toastId);
 				toast.success('Success', {
@@ -94,7 +95,8 @@ export function ConfigOverviewIndex() {
 										Restart {targetNoun}
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent>This fully restarts the Harper service and causes downtime.</TooltipContent>
+								<TooltipContent>This fully restarts the Harper service and causes
+									downtime.</TooltipContent>
 							</Tooltip>
 						</div>
 					</dl>
@@ -120,7 +122,8 @@ export function ConfigOverviewIndex() {
 										Restart {targetNoun}
 									</Button>
 								</TooltipTrigger>
-								<TooltipContent>This fully restarts the Harper service and causes downtime.</TooltipContent>
+								<TooltipContent>This fully restarts the Harper service and causes
+									downtime.</TooltipContent>
 							</Tooltip>
 						</div>
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">

@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 const route = getRouteApi('');
 
 export function Browse() {
-	const { databaseName, tableName } = route.useParams();
+	const { databaseName, tableName }: { databaseName?: string; tableName?: string; } = route.useParams();
 
 	return (
 		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
@@ -26,7 +26,7 @@ export function Browse() {
 					<Suspense
 						fallback={
 							<Loading className="flex flex-col items-center justify-center h-full"
-									 text="Loading Data Table" />
+								text="Loading Data Table" />
 						}
 					>
 						<Outlet />

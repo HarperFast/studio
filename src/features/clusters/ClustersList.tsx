@@ -23,7 +23,7 @@ const route = getRouteApi('');
 
 export function ClustersList() {
 	const queryClient = useQueryClient();
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
@@ -173,13 +173,13 @@ export function ClustersList() {
 			<NewClusterModal
 				orgId={organizationId}
 				isModalOpen={isNewClusterModalOpen}
-				setIsModalOpen={() => setIsNewClusterModalOpen(false)}
+				setIsModalOpen={(isOpen: boolean) => setIsNewClusterModalOpen(isOpen)}
 			/>
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted="cluster"
 				nameOfThingBeingDeleted={deleteClusterInfo.name}
 				isModalOpen={isDeleteClusterModalOpen}
-				setIsModalOpen={() => setIsDeleteClusterModalOpen(false)}
+				setIsModalOpen={(isOpen: boolean) => setIsDeleteClusterModalOpen(isOpen)}
 				deletionConfirmed={() => handleDeleteCluster(deleteClusterInfo)}
 				deletionPending={isDeletingClusterPending}
 			/>

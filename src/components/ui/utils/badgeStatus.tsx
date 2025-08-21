@@ -15,7 +15,7 @@ export type BadgeStatusVariant =
 	| 'ERROR'
 	| 'REMOVED';
 
-type BadgeStatusVariantValues = 'warning' | 'success' | 'secondary' | 'destructive';
+export type BadgeStatusVariantValues = 'warning' | 'success' | 'secondary' | 'destructive' | 'outline' | 'default';
 
 const renderBadgeStatusVariant = (value: BadgeStatusVariant): BadgeStatusVariantValues => {
 	switch (value) {

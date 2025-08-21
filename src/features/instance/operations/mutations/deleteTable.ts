@@ -1,12 +1,12 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type DeleteTableData = {
+interface DeleteTableData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
-};
+}
 
-const onDeleteTable = async ({ databaseName, tableName }: DeleteTableData) => {
+async function onDeleteTable({ databaseName, tableName, instanceClient }: DeleteTableData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_table',
 		database: databaseName,
@@ -14,13 +14,10 @@ const onDeleteTable = async ({ databaseName, tableName }: DeleteTableData) => {
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useDeleteTableMutation = () => {
+export function useDeleteTableMutation() {
 	return useMutation({
-		mutationFn: (data: DeleteTableData) => onDeleteTable(data),
+		mutationFn: onDeleteTable,
 	});
-};
-
-export { useDeleteTableMutation };
-export type { DeleteTableData };
+}

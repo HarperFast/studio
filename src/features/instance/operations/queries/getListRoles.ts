@@ -1,25 +1,18 @@
-import { instanceClient } from '@/config/instanceClient';
-import { QueryClient, queryOptions } from '@tanstack/react-query';
+import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { LocalRole } from '@/lib/api.patch';
+import { queryOptions } from '@tanstack/react-query';
 
-export function getListRolesQueryOptions(instanceId?: string) {
+export function getListRolesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [instanceId, 'list_roles'] as const,
-		queryFn: getListRoles,
-		refetchInterval: 10 * 1000,
+		queryKey: [entityId, 'list_roles'] as const,
+		queryFn: () => getListRoles({ instanceClient }),
+		refetchInterval: 10_000,
 	});
 }
 
-export async function getListRoles() {
+async function getListRoles({ instanceClient }: InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'list_roles',
 	});
 	return data as LocalRole[];
-}
-
-export async function routeLoadRoles(queryClient: QueryClient, params: {
-	instanceId?: string;
-	userId?: string;
-}) {
-	return queryClient.ensureQueryData(getListRolesQueryOptions(params.instanceId));
 }

@@ -10,7 +10,7 @@ async function getOrganizationRoles(organizationId: string): Promise<SchemaOrgan
 
 export function getOrganizationRolesQueryOptions(organizationId: string) {
 	return queryOptions({
-		queryKey: [queryKeys.organization, queryKeys.roles, organizationId],
+		queryKey: [queryKeys.organization, organizationId, queryKeys.roles],
 		queryFn: () => getOrganizationRoles(organizationId),
 		retry: false,
 		refetchInterval: 10 * 1000, // 10 seconds

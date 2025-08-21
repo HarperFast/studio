@@ -1,14 +1,3 @@
-import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
-import { FormField } from '@/components/ui/form/FormField';
-import { FormItem } from '@/components/ui/form/FormItem';
-import { FormLabel } from '@/components/ui/form/FormLabel';
-import { FormMessage } from '@/components/ui/form/FormMessage';
-import { useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
-import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -18,12 +7,24 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/components/ui/dialog';
+import { Form } from '@/components/ui/form/Form';
+import { FormControl } from '@/components/ui/form/FormControl';
+import { FormField } from '@/components/ui/form/FormField';
+import { FormItem } from '@/components/ui/form/FormItem';
+import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	AddRoleFormData,
 	AddRoleFormSchema,
 	useAddRoleMutation,
 } from '@/features/instance/operations/mutations/addRole';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Save } from 'lucide-react';
+import { useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
 export function AddRoleModal({
 	isModalOpen,
@@ -42,6 +43,7 @@ export function AddRoleModal({
 			structure_user: false,
 		},
 	});
+	const instanceParams = useInstanceClientIdParams();
 	const { mutate: addRole, isPending: isAddPending } = useAddRoleMutation();
 
 	const onSubmitClick = useCallback(
@@ -52,6 +54,7 @@ export function AddRoleModal({
 						role: formData.role,
 						super_user: formData.super_user,
 						structure_user: formData.structure_user,
+						...instanceParams,
 					},
 					{
 						onSuccess: () => {
@@ -64,7 +67,7 @@ export function AddRoleModal({
 				);
 			}
 		},
-		[addRole, form, onChangesSaved, setIsModalOpen],
+		[addRole, form, instanceParams, onChangesSaved, setIsModalOpen],
 	);
 
 	const onClickCancel = useCallback(() => {

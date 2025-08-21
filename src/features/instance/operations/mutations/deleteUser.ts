@@ -1,13 +1,12 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 import { z } from 'zod';
 
-export type DeleteUserData = {
+interface DeleteUserData extends InstanceClientConfig {
 	username: string;
-	operationsUrl?: string;
-};
+}
 
-export type DeleteUserResponse = {
+interface DeleteUserResponse {
 	message: string;
 }
 
@@ -26,16 +25,16 @@ export const DeleteUserFormSchema = z.object({
 		path: ['confirmUsernameForDeletion'], // This specifies where the error message should be attached
 	});
 
-export async function onDeleteUser({ username, operationsUrl }: DeleteUserData) {
+export async function onDeleteUser({ username, instanceClient }: DeleteUserData) {
 	const { data } = await instanceClient.post<DeleteUserResponse>('/', {
 		operation: 'drop_user',
 		username,
-	}, { baseURL: operationsUrl });
+	});
 	return data;
 }
 
 export function useDeleteUserMutation() {
 	return useMutation({
-		mutationFn: (data: DeleteUserData) => onDeleteUser(data),
+		mutationFn: onDeleteUser,
 	});
 }

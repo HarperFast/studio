@@ -1,13 +1,12 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 import { z } from 'zod';
 
-export type AddRoleFormData = {
+export interface AddRoleFormData {
 	role: string;
 	super_user?: boolean;
 	structure_user?: boolean;
-	operationsUrl?: string;
-};
+}
 
 export const AddRoleFormSchema = z.object({
 	role: z
@@ -25,8 +24,8 @@ export const AddRoleFormSchema = z.object({
 	structure_user: z.boolean(),
 });
 
-export async function onAddRoleSubmit(formData: AddRoleFormData) {
-	const { operationsUrl, role, super_user, structure_user } = formData;
+export async function onAddRoleSubmit(formData: AddRoleFormData & InstanceClientConfig) {
+	const { role, super_user, structure_user, instanceClient } = formData;
 	const { data } = await instanceClient.post(
 		'/',
 		{
@@ -37,13 +36,12 @@ export async function onAddRoleSubmit(formData: AddRoleFormData) {
 				structure_user,
 			},
 		},
-		{ baseURL: operationsUrl }
 	);
 	return data;
 }
 
 export function useAddRoleMutation() {
 	return useMutation({
-		mutationFn: (formData: AddRoleFormData) => onAddRoleSubmit(formData),
+		mutationFn: onAddRoleSubmit,
 	});
 }

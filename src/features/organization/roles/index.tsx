@@ -1,16 +1,15 @@
 import { Loading } from '@/components/Loading';
+import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
-import { BrowseDataTable } from '@/features/organization/roles/components/BrowseDataTable';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationRole } from '@/lib/api.gen';
-import { sleep } from '@/lib/sleep';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { dataTableColumns } from './constants/tableDefinition';
 import { AddOrganizationRoleModal } from './modals/AddOrganizationRoleModal';
 import { EditOrganizationRoleModal } from './modals/EditOrganizationRoleModal';
@@ -19,7 +18,7 @@ const route = getRouteApi('');
 
 export function OrgConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgRoleId } = route.useParams();
+	const { organizationId, orgRoleId }: { organizationId: string; orgRoleId?: string; } = route.useParams();
 	const { create } = useOrganizationRolePermissions(organizationId);
 
 	const {
@@ -31,7 +30,7 @@ export function OrgConfigRolesIndex() {
 
 	const selectedOrgRole = useMemo(
 		() => orgRoles && orgRoles?.find((role) => role.id === orgRoleId),
-		[orgRoles, orgRoleId]
+		[orgRoles, orgRoleId],
 	);
 
 	const isEditOrgRoleModalOpen = !!orgRoleId && !!selectedOrgRole;
@@ -43,7 +42,7 @@ export function OrgConfigRolesIndex() {
 			const parts = [orgRoleId ? '..' : '', newOrgRole].filter(Boolean);
 			void navigate({ to: parts.join('/') });
 		},
-		[orgRoleId, navigate]
+		[orgRoleId, navigate],
 	);
 
 	const onRoleDeleted = useCallback(() => {
@@ -63,28 +62,19 @@ export function OrgConfigRolesIndex() {
 		(rowData: Row<SchemaOrganizationRole>) => {
 			onSelectOrgRole(rowData.original.id);
 		},
-		[onSelectOrgRole]
+		[onSelectOrgRole],
 	);
 
 	const closeEditModal = useCallback(() => {
 		onSelectOrgRole(undefined);
 	}, [onSelectOrgRole]);
 
-	const onRefreshClick = useCallback(async () => {
-		const toastId = toast.loading('Refreshing...');
-		const startedAt = Date.now();
-		await refetch();
-		if (Date.now() - startedAt < 500) {
-			await sleep(500);
-		}
-		toast.dismiss(toastId);
-		toast.success('Refreshed!');
-	}, [refetch]);
+	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 			<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-				<BrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
+				<SimpleBrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
 					<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
 						<RefreshCwIcon />
 						<span className="hidden lg:inline-block">
@@ -97,7 +87,7 @@ export function OrgConfigRolesIndex() {
 							<u>A</u>dd
 						</span>
 					</Button>)}
-				</BrowseDataTable>
+				</SimpleBrowseDataTable>
 				{create && (<AddOrganizationRoleModal
 					isModalOpen={isAddModalOpen}
 					onChangesSaved={onRoleAdded}

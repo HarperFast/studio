@@ -1,24 +1,21 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type CreateDatabaseFormData = {
+interface CreateDatabaseFormData extends InstanceClientConfig {
 	databaseName: string;
-};
+}
 
-const onCreateDatabaseSubmit = async (formData: CreateDatabaseFormData) => {
-	const { databaseName } = formData;
+async function onCreateDatabaseSubmit({ databaseName, instanceClient }: CreateDatabaseFormData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_database',
 		database: databaseName,
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useCreateDatabaseSubmitMutation = () => {
+export function useCreateDatabaseSubmitMutation() {
 	return useMutation({
-		mutationFn: (formData: CreateDatabaseFormData) => onCreateDatabaseSubmit(formData),
+		mutationFn: onCreateDatabaseSubmit,
 	});
-};
-
-export { useCreateDatabaseSubmitMutation };
+}

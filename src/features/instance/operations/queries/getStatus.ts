@@ -1,4 +1,4 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
 interface CoreStatus {
@@ -21,17 +21,16 @@ interface PrimaryStatus extends CoreStatus {
 	id: 'primary',
 }
 
-export type StatusResponse = Array<AvailabilityStatus | MaintenanceStatus | PrimaryStatus>;
+type StatusResponse = Array<AvailabilityStatus | MaintenanceStatus | PrimaryStatus>;
 
-export function getStatusQueryOptions(instanceId: string) {
+export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [instanceId, 'get_status'] as const,
+		queryKey: [entityId, 'get_status'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<StatusResponse>('/', {
 				operation: 'get_status',
 			});
 			return data;
 		},
-		enabled: Boolean(instanceId),
 	});
 }

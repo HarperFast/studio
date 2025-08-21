@@ -1,14 +1,13 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 import { z } from 'zod';
 
-export type AddUserFormData = {
+interface AddUserFormData extends InstanceClientConfig {
 	active: boolean;
 	password: string;
 	role: string;
 	username: string;
-	operationsUrl?: string;
-};
+}
 
 export const AddUserFormSchema = z.object({
 	username: z.string({
@@ -36,16 +35,16 @@ export const AddUserFormSchema = z.object({
 	});
 
 export async function onAddUserSubmit(formData: AddUserFormData) {
-	const { operationsUrl, ...userData } = formData;
+	const { instanceClient, ...userData } = formData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_user',
 		...userData,
-	}, { baseURL: operationsUrl });
+	});
 	return data;
 }
 
 export function useAddUserMutation() {
 	return useMutation({
-		mutationFn: (formData: AddUserFormData) => onAddUserSubmit(formData),
+		mutationFn: onAddUserSubmit,
 	});
 }

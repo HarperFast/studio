@@ -3,15 +3,13 @@ import { NotFoundComponent } from '@/components/NotFoundComponent';
 import { useRootAuthenticationContext } from '@/hooks/useAuth';
 import { queryClient } from '@/react-query/queryClient';
 import { rootRouteTree } from '@/router/rootRouteTree';
-import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
+import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/router-devtools';
 
 export function AppRouted() {
 	const authentication = useRootAuthenticationContext();
-	const hashHistory = createHashHistory();
 	const router = createRouter({
 		routeTree: rootRouteTree,
-		history: hashHistory,
 		defaultNotFoundComponent: NotFoundComponent,
 		defaultErrorComponent: ErrorComponent,
 		defaultPreload: 'intent',

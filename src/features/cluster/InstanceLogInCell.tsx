@@ -1,20 +1,22 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
-import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
+import { useInstanceClient } from '@/config/useInstanceClient';
+import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { Instance } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { Link } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
+	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
+	const instanceClient = useInstanceClient(operationsUrl);
 	const onSignOutClick = useCallback(async () => {
-		const operationsUrl = getOperationsUrlForInstance(instance)!;
-		await onInstanceLogoutSubmit({ operationsUrl });
+		await onInstanceLogoutSubmit({ instanceClient });
 		authStore.setUserForEntity(instance, null);
-	}, [instance]);
+	}, [instance, instanceClient]);
 
 	if (!['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
 		return <p>N/A</p>;
@@ -28,7 +30,6 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 			className="text-sm"
 			aria-label={`Sign in to ${instance.name} instance`}
 			title={`Sign in to ${instance.name} instance`}
-			preload={false}
 		>
 			<Button variant="positiveOutline">Sign In</Button>
 		</Link>;
@@ -39,9 +40,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 			className="text-sm"
 			aria-label={`Go to ${instance.name} instance`}
 			title={`Go to ${instance.name} instance`}
-			preload={false}
 		>
-			{/*TODO: We can't preload this route until we sort out how to improve the baseURL*/}
 			<Button variant="positiveOutline">View</Button>
 		</Link>
 		<Button

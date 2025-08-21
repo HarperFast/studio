@@ -26,12 +26,12 @@ interface BrowseDataTableProps<TData, TValue> {
 	paginationState?: {
 		pageIndex: number; pageSize: number;
 	};
-	sortingState: SortingState;
+	sortingState?: SortingState;
 	setPagination?: Dispatch<SetStateAction<PaginationState>>;
 	children?: React.ReactNode;
 }
 
-export function BrowseDataTable<TData, TValue>({
+export function SimpleBrowseDataTable<TData, TValue>({
 	columns,
 	data,
 	isFetching,
@@ -59,17 +59,17 @@ export function BrowseDataTable<TData, TValue>({
 		<Table containerClassName="rounded-md bg-black-dark">
 			<TableHeader>
 				{table.getHeaderGroups().map((headerGroup) => (<TableRow key={headerGroup.id} className="border-none">
-					{headerGroup.headers.map((header) => <TableHeadSortable key={header.id} header={header}
-																			onColumnClick={onColumnClick} />)}
+					{headerGroup.headers.map((header) => (
+						<TableHeadSortable key={header.id} header={header} onColumnClick={onColumnClick} />))}
 				</TableRow>))}
 			</TableHeader>
 			<TableBody className="bg-black border border-grey-700">
 				{table.getRowModel().rows?.length ? (table.getRowModel().rows.map((row) => (
 					<TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}
-							  onClick={() => onRowClick?.(row)}
-							  className="hover:bg-muted/10 data-[state=selected]:bg-muted">
+						onClick={() => onRowClick?.(row)}
+						className="hover:bg-muted/10 data-[state=selected]:bg-muted">
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
-																		 className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
+							className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>

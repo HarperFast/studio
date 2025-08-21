@@ -1,14 +1,13 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type CreateDatabaseFormData = {
+interface CreateTableFormData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
 	primaryKey: string;
-};
+}
 
-const onCreateTableSubmit = async (formData: CreateDatabaseFormData) => {
-	const { databaseName, tableName, primaryKey } = formData;
+async function onCreateTableSubmit({ databaseName, tableName, primaryKey, instanceClient }: CreateTableFormData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_table',
 		database: databaseName,
@@ -17,13 +16,10 @@ const onCreateTableSubmit = async (formData: CreateDatabaseFormData) => {
 		replicated: true,
 	});
 	return data;
-};
+}
 
-const useCreateTableMutation = () => {
+export function useCreateTableMutation() {
 	return useMutation({
-		mutationFn: (formData: CreateDatabaseFormData) => onCreateTableSubmit(formData),
+		mutationFn: onCreateTableSubmit,
 	});
-};
-
-export { useCreateTableMutation };
-export type { CreateDatabaseFormData };
+}

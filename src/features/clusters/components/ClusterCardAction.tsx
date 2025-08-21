@@ -40,7 +40,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		return undefined;
 	}
 	if (auth.user) {
-		return <Link to={`${cluster.id}/browse`} preload={false} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+		return <Link to={`${cluster.id}/browse`} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				View <ArrowRight className="inline-block" />
 			</span>

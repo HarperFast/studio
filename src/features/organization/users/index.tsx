@@ -1,26 +1,25 @@
 import { Loading } from '@/components/Loading';
+import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
-import { BrowseDataTable } from '@/features/organization/users/components/BrowseDataTable';
 import { dataTableColumns } from '@/features/organization/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/organization/users/modals/AddUserModal';
 import { EditUserModal } from '@/features/organization/users/modals/EditUserModal';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaUser } from '@/lib/api.gen';
 import { sortByEmail } from '@/lib/arrays/sort/byEmail';
-import { sleep } from '@/lib/sleep';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 const route = getRouteApi('');
 
 export function OrgConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgUserId } = route.useParams();
+	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string; } = route.useParams();
 	const { update } = useOrganizationRolePermissions(organizationId);
 	const {
 		data: organizationRoles,
@@ -85,22 +84,13 @@ export function OrgConfigUsersIndex() {
 		onSelectUser(undefined);
 	}, [onSelectUser, refetch]);
 
-	const onRefreshClick = useCallback(async () => {
-		const toastId = toast.loading('Refreshing...');
-		const startedAt = Date.now();
-		await refetch();
-		if (Date.now() - startedAt < 500) {
-			await sleep(500);
-		}
-		toast.dismiss(toastId);
-		toast.success('Refreshed!');
-	}, [refetch]);
+	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 			<Suspense
 				fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-				<BrowseDataTable<SchemaUser, unknown>
+				<SimpleBrowseDataTable<SchemaUser, unknown>
 					data={cloudUsers}
 					isFetching={isFetching || isRefetching}
 					columns={dataTableColumns}
@@ -113,7 +103,7 @@ export function OrgConfigUsersIndex() {
 						className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
 					{update && (<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
 						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>)}
-				</BrowseDataTable>
+				</SimpleBrowseDataTable>
 				{update && (<AddUserModal
 					isModalOpen={isAddModalOpen}
 					onChangesSaved={onUsedAdded}

@@ -1,14 +1,14 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type UpdateTableRecordsData = {
+interface UpdateTableRecordsParams extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
 	records: object[];
-};
+}
 
-const onUpdateTableRecords = async (recordsData: UpdateTableRecordsData) => {
-	const { databaseName, tableName, records } = recordsData;
+async function onUpdateTableRecords(recordsData: UpdateTableRecordsParams) {
+	const { databaseName, tableName, records, instanceClient } = recordsData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'update',
 		database: databaseName,
@@ -16,13 +16,10 @@ const onUpdateTableRecords = async (recordsData: UpdateTableRecordsData) => {
 		records: records,
 	});
 	return data;
-};
+}
 
-const useUpdateTableRecords = () => {
+export function useUpdateTableRecords() {
 	return useMutation({
-		mutationFn: (recordsData: UpdateTableRecordsData) => onUpdateTableRecords(recordsData),
+		mutationFn: onUpdateTableRecords,
 	});
-};
-
-export { useUpdateTableRecords };
-export type { UpdateTableRecordsData };
+}

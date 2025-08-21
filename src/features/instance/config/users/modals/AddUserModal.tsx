@@ -1,3 +1,4 @@
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
@@ -6,17 +7,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Save } from 'lucide-react';
-import { Suspense, useCallback } from 'react';
-import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import {
 	Select,
 	SelectContent,
@@ -26,19 +17,28 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
+import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { Save } from 'lucide-react';
+import { Suspense, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 export function AddUserModal({
-	instanceId,
 	isModalOpen,
 	onChangesSaved,
 	setIsModalOpen,
 }: {
-	instanceId: string;
 	isModalOpen: boolean;
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
-	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceId));
+	const instanceParams = useInstanceClientIdParams();
+	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
 	const form = useForm<z.infer<typeof AddUserFormSchema>>({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
@@ -58,6 +58,7 @@ export function AddUserModal({
 					password: formData.password,
 					role: formData.role,
 					username: formData.username,
+					...instanceParams,
 				},
 				{
 					onSuccess: () => {
@@ -72,7 +73,7 @@ export function AddUserModal({
 				},
 			);
 		}
-	}, [addUser, form, onChangesSaved, setIsModalOpen]);
+	}, [addUser, form, instanceParams, onChangesSaved, setIsModalOpen]);
 
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}

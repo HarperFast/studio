@@ -1,3 +1,4 @@
+import { createBillingRouteTree } from '@/features/organization/billing/routes';
 import { OrganizationIndex } from '@/features/organization/index';
 import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -45,6 +46,7 @@ const orgUserRoute = createRoute({
 
 export const orgRoutes = [
 	orgIndexRoute,
+	createBillingRouteTree(orgLayoutRoute),
 	orgRolesRoute,
 	orgRoleRoute,
 	orgUsersRoute,

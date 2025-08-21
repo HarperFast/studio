@@ -1,20 +1,18 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getStatusQueryOptions } from '@/features/instance/operations/queries/getStatus';
 import { getSystemInformationQueryOptions } from '@/features/instance/operations/queries/getSystemInformation';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { Suspense } from 'react';
-
-const route = getRouteApi('');
 
 export function StatusIndex() {
 	return isLocalStudio ? (<LocalStatus />) : (<CloudStatus />);
 }
 
 function LocalStatus() {
-	const { instanceId } = route.useParams();
-	const { data } = useSuspenseQuery(getSystemInformationQueryOptions(instanceId));
+	const instanceParams = useInstanceClientIdParams();
+	const { data } = useSuspenseQuery(getSystemInformationQueryOptions(instanceParams));
 
 	return (<div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 		<Suspense fallback={<TextLoadingSkeleton />}>
@@ -24,8 +22,8 @@ function LocalStatus() {
 }
 
 function CloudStatus() {
-	const { instanceId } = route.useParams();
-	const { data } = useSuspenseQuery(getStatusQueryOptions(instanceId));
+	const instanceParams = useInstanceClientIdParams();
+	const { data } = useSuspenseQuery(getStatusQueryOptions(instanceParams));
 
 	return (<div className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 		<Suspense fallback={<TextLoadingSkeleton />}>

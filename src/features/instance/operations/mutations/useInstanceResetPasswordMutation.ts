@@ -1,28 +1,31 @@
 import { defaultClusterUsername } from '@/config/constants';
-import { onAddUserSubmit } from '@/features/instance/operations/mutations/addUser';
-import { onDeleteUser } from '@/features/instance/operations/mutations/deleteUser';
-import { useMutation } from '@tanstack/react-query';
-import { LoginInfoResponse, onInstanceLoginSubmit } from '@/features/auth/hooks/useInstanceLoginMutation';
-import { onAlterUser } from '@/features/instance/operations/mutations/alterUser';
-import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
+import { onAddUserSubmit } from '@/features/instance/operations/mutations/addUser';
+import { onAlterUser } from '@/features/instance/operations/mutations/alterUser';
+import { onDeleteUser } from '@/features/instance/operations/mutations/deleteUser';
+import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
+import {
+	LoginInfoResponse,
+	onInstanceLoginSubmit,
+} from '@/features/instance/operations/mutations/useInstanceLoginMutation';
+import { useMutation } from '@tanstack/react-query';
 
-export interface InstanceResetPasswordParams {
+interface InstanceResetPasswordParams extends InstanceClientConfig {
 	clusterId: string;
 	initialUsername: string;
 	desiredUsername: string;
 	newPassword: string;
-	operationsUrl: string;
 	tempPassword: string | undefined;
 }
 
-export async function onInstanceResetPassword({
+async function onInstanceResetPassword({
 	clusterId,
 	initialUsername,
 	desiredUsername,
 	newPassword,
-	operationsUrl,
 	tempPassword,
+	instanceClient,
 }: InstanceResetPasswordParams): Promise<LoginInfoResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
@@ -33,14 +36,14 @@ export async function onInstanceResetPassword({
 		const loginResponse = await onInstanceLoginSubmit({
 			username: initialUsername,
 			password: tempPassword,
-			operationsUrl,
+			instanceClient,
 		});
 		// then create a new user
 		if (desiredUsername === defaultClusterUsername) {
 			await onAlterUser({
 				username: desiredUsername,
 				password: newPassword,
-				operationsUrl,
+				instanceClient,
 			});
 		} else {
 			await onAddUserSubmit({
@@ -48,16 +51,16 @@ export async function onInstanceResetPassword({
 				password: newPassword,
 				role: 'super_user',
 				active: true,
-				operationsUrl,
+				instanceClient,
 			});
 			await onDeleteUser({
 				username: defaultClusterUsername,
-				operationsUrl,
+				instanceClient,
 			});
 			await onInstanceLoginSubmit({
 				username: desiredUsername,
 				password: newPassword,
-				operationsUrl,
+				instanceClient,
 			});
 		}
 		// and finally, tell the central manager that we changed their password.
@@ -66,7 +69,7 @@ export async function onInstanceResetPassword({
 	} catch (err) {
 		// If something went wrong, logout as well.
 		await onInstanceLogoutSubmit({
-			operationsUrl,
+			instanceClient,
 		});
 		throw err;
 	}
@@ -74,6 +77,6 @@ export async function onInstanceResetPassword({
 
 export function useInstanceResetPasswordMutation() {
 	return useMutation<LoginInfoResponse, Error, InstanceResetPasswordParams>({
-		mutationFn: (instanceData) => onInstanceResetPassword(instanceData),
+		mutationFn: onInstanceResetPassword,
 	});
 }

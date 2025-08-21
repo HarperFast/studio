@@ -17,6 +17,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	AlterUserFormSchema,
 	AlterUserRequestBody,
@@ -33,15 +34,15 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 export function AlterUserForm({
-	instanceId,
 	data,
 	onUserUpdated,
 }: {
-	instanceId: string;
 	data: LocalUser;
 	onUserUpdated: () => void;
 }) {
-	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceId));
+
+	const instanceParams = useInstanceClientIdParams();
+	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
 	const alterForm = useForm<z.infer<typeof AlterUserFormSchema>>({
 		resolver: zodResolver(AlterUserFormSchema),
@@ -57,6 +58,7 @@ export function AlterUserForm({
 		const alterBody: AlterUserRequestBody = {
 			username: data.username,
 			role: formData.role,
+			...instanceParams,
 		};
 		if (formData.newPassword) {
 			alterBody.password = formData.newPassword;
@@ -70,7 +72,7 @@ export function AlterUserForm({
 					onUserUpdated();
 				},
 			});
-	}, [alterForm, alterUser, data.username, onUserUpdated]);
+	}, [alterForm, alterUser, data.username, instanceParams, onUserUpdated]);
 
 	return <Form {...alterForm}>
 		<form onSubmit={alterForm.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
@@ -181,5 +183,5 @@ export function AlterUserForm({
 			</DialogFooter>
 
 		</form>
-	</Form>
+	</Form>;
 }
