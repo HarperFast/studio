@@ -1,7 +1,6 @@
 import { Loading } from '@/components/Loading';
 import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
 import { useProcessStripePaymentMethod } from '@/integrations/stripe/useProcessStripePaymentMethod';
-import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { currentUrlIncludingHash } from '@/lib/urls/currentUrlIncludingHash';
 import { useStripe } from '@stripe/react-stripe-js';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
