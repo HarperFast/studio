@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import {
@@ -18,7 +19,6 @@ import {
 } from '@/features/instance/operations/queries/getReadLog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -85,10 +85,7 @@ const isValidDateRange = (startDate?: Date, endDate?: Date) => {
 	return start <= end;
 };
 
-const route = getRouteApi('');
-
 export function Logs() {
-	const { instanceId, clusterId } = route.useParams();
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersSchema>>({
 		limit: 1000,
 		order: 'desc',
@@ -96,10 +93,12 @@ export function Logs() {
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
+
+	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: instanceLogs,
 		isLoading,
-	} = useQuery(getReadLogQueryOptions({ instanceId: instanceId ?? clusterId, logFilters }));
+	} = useQuery(getReadLogQueryOptions({ ...instanceParams, logFilters }));
 
 	const form = useForm<z.infer<typeof LogFiltersSchema>>({
 		resolver: zodResolver(LogFiltersSchema),

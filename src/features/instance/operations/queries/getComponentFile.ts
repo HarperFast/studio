@@ -1,44 +1,42 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryKeys } from '@/react-query/constants';
-
 import { queryOptions } from '@tanstack/react-query';
 
-type GetComponentFileRequest = {
-	file: string;
+interface GetComponentFileRequest extends InstanceClientIdConfig {
+	file: string | undefined;
 	project: string;
-};
+}
 
-type GetComponentFileResponse = {
+interface GetComponentFileResponse {
 	file: string;
 	project: string;
 	birthtime: string;
 	message: string;
 	mtime: string;
 	size: number;
-};
+}
 
-function getComponentFileQuery(getComponentFileRequest: GetComponentFileRequest, instanceId: string) {
+export function getComponentFileQueryOptions({ entityId, instanceClient, file, project }: GetComponentFileRequest) {
 	return queryOptions({
 		queryKey: [
-			instanceId,
+			entityId,
 			queryKeys.operations.get_component_file,
-			getComponentFileRequest.file,
-			getComponentFileRequest.project,
+			file,
+			project,
 		] as const,
-		queryFn: async () => {
-			const { data }: { data: GetComponentFileResponse } = await instanceClient.post('/', {
+		queryFn: async (): Promise<GetComponentFileResponse> => {
+			const { data } = await instanceClient.post('/', {
 				operation: 'get_component_file',
-				...getComponentFileRequest,
+				file,
+				project,
 			});
 			return {
-				...getComponentFileRequest,
+				file,
+				project,
 				...data,
 			};
 		},
-		enabled: !!getComponentFileRequest.file,
+		enabled: !!file,
 		retry: false,
 	});
 }
-
-export { getComponentFileQuery };
-export type { GetComponentFileResponse };

@@ -1,35 +1,37 @@
-import { instanceClient } from '@/config/instanceClient';
-
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 
-type ReadLogItem = {
+export interface ReadLogItem {
 	level: 'notify' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'stderr' | 'stdout';
 	timestamp: string;
 	thread: string;
 	tags: string[];
 	message: string;
-};
+}
 
-const LogFiltersSchema = z.object({
+export const LogFiltersSchema = z.object({
 	limit: z.coerce.number().optional(),
 	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
 	from: z.date().or(z.undefined()).optional(),
 	until: z.date().or(z.undefined()).optional(),
 	order: z.enum(['asc', 'desc']).optional(),
 });
-function getReadLogQueryOptions({
-	instanceId,
-	logFilters,
-}: {
-	instanceId: string;
+
+interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersSchema>;
-}) {
+}
+
+export function getReadLogQueryOptions({
+	entityId,
+	instanceClient,
+	logFilters,
+}: GetReadLogParams & InstanceClientIdConfig) {
 	if (logFilters.level === 'undefined') {
 		logFilters.level = undefined;
 	}
 	return queryOptions({
-		queryKey: [instanceId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order] as const,
+		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
@@ -39,10 +41,6 @@ function getReadLogQueryOptions({
 			});
 			return data as ReadLogItem[];
 		},
-		enabled: !!instanceId,
 		retry: false,
 	});
 }
-
-export { getReadLogQueryOptions, LogFiltersSchema };
-export type { ReadLogItem };

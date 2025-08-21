@@ -1,6 +1,7 @@
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { dataTableColumns } from '@/features/instance/config/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/instance/config/users/modals/AddUserModal';
 import { EditUserModal } from '@/features/instance/config/users/modals/EditUserModal';
@@ -17,13 +18,18 @@ const route = getRouteApi('');
 
 export function ConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { instanceId, clusterId, username } = route.useParams();
+	const { instanceId, clusterId, username }: {
+		instanceId?: string;
+		clusterId?: string;
+		username?: string;
+	} = route.useParams();
+	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: localUsers,
 		refetch,
 		isFetching,
 		isRefetching,
-	} = useSuspenseQuery(getListUsersQueryOptions(instanceId));
+	} = useSuspenseQuery(getListUsersQueryOptions(instanceParams));
 	const selectedUser = useMemo(
 		() => localUsers?.find(user => user.username === username),
 		[localUsers, username],
@@ -94,12 +100,11 @@ export function ConfigUsersIndex() {
 						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
 			</SimpleBrowseDataTable>
 			<AddUserModal
-				instanceId={instanceId}
 				isModalOpen={isAddModalOpen}
 				onChangesSaved={onUsedAdded}
 				setIsModalOpen={setIsAddModalOpen}
 			/>
-			{isEditModalOpen && <EditUserModal
+			{isEditModalOpen && (<EditUserModal
 				instanceId={instanceId}
 				clusterId={clusterId}
 				closeModal={closeEditModal}
@@ -107,7 +112,7 @@ export function ConfigUsersIndex() {
 				isModalOpen={isEditModalOpen}
 				onUserDeleted={onUserDeleted}
 				onUserUpdated={onUserUpdated}
-			/>}
+			/>)}
 		</Suspense>
 	);
 }

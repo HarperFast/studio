@@ -1,13 +1,16 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type DeployComponentFormData = {
+export interface DeployComponentFormData {
 	newApplicationName: string;
 	applicationUrl: string;
-};
+}
 
-const onDeployComponentSubmit = async (formData: DeployComponentFormData) => {
-	const { newApplicationName, applicationUrl } = formData;
+async function onDeployComponentSubmit({
+	newApplicationName,
+	applicationUrl,
+	instanceClient,
+}: DeployComponentFormData & InstanceClientConfig) {
 	const { data } = await instanceClient.post(
 		'/',
 		{
@@ -16,16 +19,13 @@ const onDeployComponentSubmit = async (formData: DeployComponentFormData) => {
 			project: newApplicationName,
 			replicated: true,
 		},
-		{ timeout: 60000 }
+		{ timeout: 60000 },
 	);
 	return data;
-};
+}
 
-const useDeployComponentMutation = () => {
+export function useDeployComponentMutation() {
 	return useMutation({
-		mutationFn: (formData: DeployComponentFormData) => onDeployComponentSubmit(formData),
+		mutationFn: onDeployComponentSubmit,
 	});
-};
-
-export { useDeployComponentMutation };
-export type { DeployComponentFormData };
+}

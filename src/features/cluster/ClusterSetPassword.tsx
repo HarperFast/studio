@@ -1,25 +1,28 @@
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { defaultClusterUsername } from '@/config/constants';
-import { getRouteApi, Navigate, useNavigate } from '@tanstack/react-router';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useQuery } from '@tanstack/react-query';
+import { defaultClusterUsername } from '@/config/constants';
+import { useInstanceClient } from '@/config/useInstanceClient';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import {
+	useInstanceResetPasswordMutation,
+} from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore } from '@/lib/authStore';
-import { toast } from 'sonner';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useCallback, useMemo } from 'react';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
-import { useInstanceResetPasswordMutation } from '@/features/auth/hooks/useInstanceResetPasswordMutation';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQuery } from '@tanstack/react-query';
+import { getRouteApi, Navigate, useNavigate, useSearch } from '@tanstack/react-router';
+import { useCallback, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const ClusterSetPasswordSchema = z
 	.object({
@@ -43,16 +46,16 @@ const ClusterSetPasswordSchema = z
 const route = getRouteApi('');
 
 export function ClusterSetPassword() {
-	const { clusterId } = route.useParams();
+	const { clusterId }: { clusterId: string; } = route.useParams();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
 
 	const navigate = useNavigate();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
-	// const { redirect } = useSearch({ strict: false });
-	// const router = useRouter();
-	// const queryClient = useQueryClient();
+	const instanceClient = useInstanceClient(operationsUrl);
+
+	const { redirect } = useSearch({ strict: false });
 
 	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
 		resolver: zodResolver(ClusterSetPasswordSchema),
@@ -72,26 +75,21 @@ export function ClusterSetPassword() {
 			return;
 		}
 		submitInstanceResetPassword({
+			instanceClient,
 			clusterId,
 			newPassword: formData.password,
-			operationsUrl,
 			tempPassword,
 			initialUsername: defaultClusterUsername,
 			desiredUsername: formData.username,
 		}, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getInstanceUserInfo({ operationsUrl });
+				const user = await getInstanceUserInfo({ instanceClient });
 				authStore.setUserForEntity(cluster || null, user);
-				// TODO: What should we invalidate for the cluster?
-				//  await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
-				//  router.invalidate();
-				// TODO: Support redirecting within the cluster
-				//  await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
-				await navigate({ to: '../browse' });
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
 			},
 		});
-	}, [cluster, clusterId, navigate, operationsUrl, submitInstanceResetPassword, tempPassword]);
+	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, submitInstanceResetPassword, tempPassword]);
 
 	if (cluster && !cluster.resetPassword) {
 		return <Navigate to="../sign-in" />;

@@ -1,8 +1,7 @@
-import { instanceClient } from '@/config/instanceClient';
-
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-type DirectoryEntry = {
+export interface DirectoryEntry {
 	entries?: DirectoryEntry[];
 	name: string;
 	mtime?: string;
@@ -12,19 +11,20 @@ type DirectoryEntry = {
 	path?: string;
 	project?: string;
 	readOnly?: boolean;
-};
+}
 
-type HandleFileSelectParams = {
+export interface HandleFileSelectParams {
 	filePath: string;
 	projectName: string;
 	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
 	entries?: DirectoryEntry[]; // Optional entries for directory entries
-};
+}
 
-type GetComponentsResponse = {
+export interface GetComponentsResponse {
 	entries: DirectoryEntry[];
 	name: string;
-};
+}
+
 type GetComponentsResponseWithMetaData = GetComponentsResponse & {
 	error?: string;
 	key?: string;
@@ -33,11 +33,24 @@ type GetComponentsResponseWithMetaData = GetComponentsResponse & {
 	readOnly?: boolean;
 };
 
+export function getComponentsQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
+	return queryOptions({
+		queryKey: [entityId, 'get_components'] as const,
+		queryFn: async () => {
+			const { data }: { data: GetComponentsResponse } = await instanceClient.post('/', {
+				operation: 'get_components',
+			});
+			return addMetadata(data, data.name, data.name, false) as GetComponentsResponseWithMetaData;
+		},
+		retry: false,
+	});
+}
+
 function addMetadata(
 	fileTree: GetComponentsResponseWithMetaData | DirectoryEntry,
 	path: string,
 	rootDir: string,
-	readOnly = false
+	readOnly = false,
 ): GetComponentsResponseWithMetaData | DirectoryEntry | undefined {
 	if (!fileTree || !fileTree.entries) {
 		return;
@@ -66,20 +79,3 @@ function addMetadata(
 	}
 	return fileTree;
 }
-
-function getComponentsQueryOptions(instanceId: string) {
-	return queryOptions({
-		queryKey: [instanceId, 'get_components'] as const,
-		queryFn: async () => {
-			const { data }: { data: GetComponentsResponse } = await instanceClient.post('/', {
-				operation: 'get_components',
-			});
-			const dataWithMetadata = addMetadata(data, data.name, data.name, false) as GetComponentsResponseWithMetaData;
-			return dataWithMetadata;
-		},
-		retry: false,
-	});
-}
-
-export { getComponentsQueryOptions };
-export type { GetComponentsResponse, DirectoryEntry, HandleFileSelectParams };

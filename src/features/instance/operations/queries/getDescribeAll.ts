@@ -1,11 +1,10 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { InstanceDatabaseMap } from '@/lib/api.patch';
-
 import { queryOptions } from '@tanstack/react-query';
 
-export function getDescribeAllQueryOptions(instanceOrClusterId?: string) {
+export function getDescribeAllQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [instanceOrClusterId, 'describe_all'] as const,
+		queryKey: [entityId, 'describe_all'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<InstanceDatabaseMap>('/', {
 				operation: 'describe_all',

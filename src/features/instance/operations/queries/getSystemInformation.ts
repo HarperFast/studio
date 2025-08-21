@@ -1,7 +1,7 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-export type SystemInformationResponse = {
+interface SystemInformationResponse {
 	system: {
 		platform: 'darwin' | 'linux' | string;
 		distro: 'macOS' | 'Debian GNU/Linux' | string;
@@ -92,11 +92,11 @@ export type SystemInformationResponse = {
 		stats: Array<Record<string, unknown>>;
 		connections: Array<Record<string, unknown>>;
 	};
-};
+}
 
-export function getSystemInformationQueryOptions(instanceId: string) {
+export function getSystemInformationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [instanceId, 'system_information'] as const,
+		queryKey: [entityId, 'system_information'] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<SystemInformationResponse>('/', {
 				operation: 'system_information',
@@ -104,6 +104,5 @@ export function getSystemInformationQueryOptions(instanceId: string) {
 			});
 			return data;
 		},
-		enabled: Boolean(instanceId),
 	});
 }

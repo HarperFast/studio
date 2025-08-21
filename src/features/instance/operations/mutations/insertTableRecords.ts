@@ -1,14 +1,13 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type InsertTableRecordsData = {
+interface InsertTableRecordsData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
 	records: object[];
-};
+}
 
-const onInsertTableRecords = async (recordsData: InsertTableRecordsData) => {
-	const { databaseName, tableName, records } = recordsData;
+async function onInsertTableRecords({ databaseName, tableName, records, instanceClient }: InsertTableRecordsData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'insert',
 		database: databaseName,
@@ -16,13 +15,10 @@ const onInsertTableRecords = async (recordsData: InsertTableRecordsData) => {
 		records: records,
 	});
 	return data;
-};
+}
 
-const useInsertTableRecords = () => {
+export function useInsertTableRecords() {
 	return useMutation({
-		mutationFn: (recordsData: InsertTableRecordsData) => onInsertTableRecords(recordsData),
+		mutationFn: onInsertTableRecords,
 	});
-};
-
-export { useInsertTableRecords };
-export type { InsertTableRecordsData };
+}

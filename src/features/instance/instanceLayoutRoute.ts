@@ -1,6 +1,6 @@
 import { clusterLayoutRoute } from '@/features/cluster/routes';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
-import { getInstanceInfoQueryOptions } from '@/features/instance/operations/queries/getInstanceInfoQuery';
+import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 
@@ -23,9 +23,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 					const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/sign-in`;
 					throw redirect({ to, search: { redirect: location.pathname } });
 				}
-				// "beforeLoad" must resolve before "loader"s are invoked in parallel, which is perfect, because we need
-				// it to set our instanceClient baseURL!
-				return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params.clusterId));
+				return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
 			},
 		});
 	}
@@ -39,9 +37,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 				const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/instance/${params.instanceId}/sign-in`;
 				throw redirect({ to, search: { redirect: location.pathname } });
 			}
-			// "beforeLoad" must resolve before "loader"s are invoked in parallel, which is perfect, because we need
-			// it to set our instanceClient baseURL!
-			return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params.clusterId, params.instanceId));
+			return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
 		},
 	});
 }

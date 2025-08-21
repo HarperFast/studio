@@ -1,11 +1,10 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { LocalRolePermission } from '@/lib/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
-export interface AlterRoleRequestBody {
+interface AlterRoleRequestBody extends InstanceClientConfig {
 	id: string;
 	permission: LocalRolePermission;
-	operationsUrl?: string;
 }
 
 interface AlterRoleResponse {
@@ -16,7 +15,11 @@ interface AlterRoleResponse {
 	__updatedtime__: number;
 }
 
-export async function onAlterRole({ id, permission, operationsUrl }: AlterRoleRequestBody): Promise<AlterRoleResponse> {
+async function onAlterRole({
+	id,
+	permission,
+	instanceClient,
+}: AlterRoleRequestBody): Promise<AlterRoleResponse> {
 	const { data } = await instanceClient.post(
 		'/',
 		{
@@ -24,13 +27,12 @@ export async function onAlterRole({ id, permission, operationsUrl }: AlterRoleRe
 			id,
 			permission,
 		},
-		{ baseURL: operationsUrl }
 	);
 	return data as AlterRoleResponse;
 }
 
 export function useAlterRole() {
 	return useMutation({
-		mutationFn: (recordsData: AlterRoleRequestBody) => onAlterRole(recordsData),
+		mutationFn: onAlterRole,
 	});
 }

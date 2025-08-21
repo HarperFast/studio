@@ -1,6 +1,4 @@
-import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { getRouteApi, Link } from '@tanstack/react-router';
-import { ChartBarBig, GaugeIcon, List, Menu, NotepadText, Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -9,13 +7,12 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { Button } from '@/components/ui/button';
-
-const route = getRouteApi('');
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { Link } from '@tanstack/react-router';
+import { ChartBarBig, GaugeIcon, List, Menu, NotepadText, Package } from 'lucide-react';
 
 function DesktopInstanceNavBar() {
-	const { clusterId, instanceId } = route.useParams();
-	const canManage = useInstanceManagePermission(instanceId ?? clusterId);
+	const canManage = useInstanceManagePermission();
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<h1 className="text-xl font-bold">Instance:</h1>
@@ -45,8 +42,7 @@ function DesktopInstanceNavBar() {
 }
 
 function MobileInstanceNavBar() {
-	const { clusterId, instanceId } = route.useParams();
-	const canManage = useInstanceManagePermission(instanceId ?? clusterId);
+	const canManage = useInstanceManagePermission();
 	return (
 		<div className="flex md:hidden items-center justify-between p-2 text-white">
 			<h1 className="text-xl font-bold">Instance</h1>

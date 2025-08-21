@@ -15,6 +15,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Table } from 'lucide-react';
@@ -50,13 +51,12 @@ const CreateTableSchema = z.object({
 		}),
 });
 
-export function CreateNewTableModal({ databaseName, instanceId, clusterId, onSelectTable }: {
+export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	readonly databaseName: string;
-	readonly clusterId: string;
-	readonly instanceId: string;
 	readonly onSelectTable: (tableName: string | undefined) => void;
 }) {
 	const queryClient = useQueryClient();
+	const instanceParams = useInstanceClientIdParams();
 	const router = useRouter();
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
@@ -72,11 +72,12 @@ export function CreateNewTableModal({ databaseName, instanceId, clusterId, onSel
 	const submitForm = async (formData: z.infer<typeof CreateTableSchema>) => {
 		const updatedFormData = {
 			...formData,
+			...instanceParams,
 			databaseName,
 		};
 		submitNewTableData(updatedFormData, {
 			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceId ?? clusterId, 'describe_all'], refetchType: 'all' });
+				await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'describe_all'], refetchType: 'all' });
 				toast.success(`Table ${formData.tableName} created successfully`);
 				setIsModalOpen(false);
 				form.reset();

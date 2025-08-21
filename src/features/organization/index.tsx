@@ -3,7 +3,7 @@ import { getRouteApi, Navigate, Outlet, useMatchRoute } from '@tanstack/react-ro
 const route = getRouteApi('');
 
 export function OrganizationIndex() {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const matchRoute = useMatchRoute();
 	const match = matchRoute({ to: '/orgs/$organizationId' });
 	if (match) {

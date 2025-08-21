@@ -9,18 +9,18 @@ export function createBrowseRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		getParentRoute: () => instanceLayoutRoute,
 		path: '/browse',
 		component: Browse,
-		loader: ({ context, params }) => loadInstanceBrowseData(context.queryClient, params),
+		loader: ({ context, params, preload }) => loadInstanceBrowseData(context.queryClient, params, preload),
 	});
 	const browseDatabaseRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
 		path: '$databaseName',
-		loader: ({ context, params }) => loadInstanceBrowseData(context.queryClient, params),
+		loader: ({ context, params, preload }) => loadInstanceBrowseData(context.queryClient, params, preload),
 	});
 	const browseTableRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
 		path: '$databaseName/$tableName',
 		component: BrowseDataTableView,
-		loader: ({ context, params }) => loadInstanceBrowseData(context.queryClient, params),
+		loader: ({ context, params, preload }) => loadInstanceBrowseData(context.queryClient, params, preload),
 	});
 
 	return instanceBrowseRoute.addChildren([

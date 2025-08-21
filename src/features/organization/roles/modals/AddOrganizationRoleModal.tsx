@@ -7,18 +7,18 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
-import { Editor } from '@monaco-editor/react';
-import { useCallback, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import {
 	AddOrganizationRoleSchema,
 	useAddOrganizationRole,
 } from '@/features/organization/mutations/addOrganizationRole';
+import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
 import { zodResolver } from '@hookform/resolvers/zod';
-import z from 'zod';
+import { Editor } from '@monaco-editor/react';
 import { getRouteApi } from '@tanstack/react-router';
+import { useCallback, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import z from 'zod';
 
 const defaultPermissions: Pick<SchemaRoleOrganizationPermissions, 'roles' | 'clusters'> = {
 	roles: {
@@ -47,7 +47,7 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
-	const { organizationId } = route.useParams();
+	const { organizationId }: { organizationId: string; } = route.useParams();
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
 
@@ -66,7 +66,7 @@ export function AddOrganizationRoleModal({
 		(markers: unknown[]) => {
 			setIsValidJSON(markers.length === 0);
 		},
-		[setIsValidJSON]
+		[setIsValidJSON],
 	);
 
 	const onSubmitRoleEdits = useCallback(
@@ -91,7 +91,7 @@ export function AddOrganizationRoleModal({
 				});
 			}
 		},
-		[isValidJSON, updatedPermissions, addOrganizationRole, form, onChangesSaved, organizationId]
+		[isValidJSON, updatedPermissions, addOrganizationRole, form, onChangesSaved, organizationId],
 	);
 
 	return (

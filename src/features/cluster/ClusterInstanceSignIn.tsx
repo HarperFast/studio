@@ -7,10 +7,11 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { Instance } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -39,14 +40,14 @@ const SignInSchema = z.object({
 const route = getRouteApi('');
 
 export function ClusterInstanceSignIn() {
-	const { clusterId, instanceId } = route.useParams();
+	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = route.useParams();
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
-	const instance: Instance = useMemo(
+	const instance = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
 		[cluster, instanceId]);
-	const noun = instanceId ? 'Instance' : 'Cluster';
+	const noun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 
 	const navigate = useNavigate();
 	const operationsUrl = useMemo(() => {
@@ -59,6 +60,7 @@ export function ClusterInstanceSignIn() {
 		}
 		return null;
 	}, [cluster, instance]);
+	const instanceClient = useInstanceClient(operationsUrl);
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
 
@@ -77,16 +79,16 @@ export function ClusterInstanceSignIn() {
 			toast.error(`${noun} is not yet fully loaded, please wait a moment before trying to sign in.`);
 			return;
 		}
-		submitInstanceLogin({ ...formData, operationsUrl }, {
+		submitInstanceLogin({ ...formData, instanceClient }, {
 			onSuccess: async (response) => {
 				toast.success(response.message);
-				const user = await getInstanceUserInfo({ operationsUrl });
+				const user = await getInstanceUserInfo({ instanceClient });
 				authStore.setUserForEntity(instance || cluster || null, user);
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
 			},
 		});
-	}, [cluster, instance, navigate, noun, operationsUrl, redirect, router, submitInstanceLogin]);
+	}, [cluster, instance, instanceClient, navigate, noun, operationsUrl, redirect, router, submitInstanceLogin]);
 
 	if (cluster?.resetPassword) {
 		return <Navigate to="../set-password" />;

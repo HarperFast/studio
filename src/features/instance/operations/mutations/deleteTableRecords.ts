@@ -1,28 +1,24 @@
+import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { instanceClient } from '@/config/instanceClient';
 
-type DeleteTableRecordsData = {
+interface DeleteTableRecordsData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
-	hash_values: unknown[];
-};
+	hashValues: unknown[];
+}
 
-const onDeleteTableRecords = async (recordsData: DeleteTableRecordsData) => {
-	const { databaseName, tableName, hash_values } = recordsData;
+async function onDeleteTableRecords({ databaseName, tableName, hashValues, instanceClient }: DeleteTableRecordsData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'delete',
 		database: databaseName,
 		table: tableName,
-		hash_values: hash_values,
+		hash_values: hashValues,
 	});
 	return data;
-};
+}
 
-const useDeleteTableRecords = () => {
+export function useDeleteTableRecords() {
 	return useMutation({
-		mutationFn: (recordsData: DeleteTableRecordsData) => onDeleteTableRecords(recordsData),
+		mutationFn: onDeleteTableRecords,
 	});
-};
-
-export { useDeleteTableRecords };
-export type { DeleteTableRecordsData };
+}

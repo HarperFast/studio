@@ -1,15 +1,18 @@
-import { instanceClient } from '@/config/instanceClient';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-function getSearchByIdOptions(
-	isEditModalOpen: boolean,
-	instanceId: string,
-	databaseName: string,
-	tableName: string,
-	ids: unknown[] | null,
+interface SearchByIdParams extends InstanceClientIdConfig {
+	isEditModalOpen: boolean;
+	databaseName: string;
+	tableName: string;
+	ids: unknown[] | null;
+}
+
+export function getSearchByIdOptions(
+	{ isEditModalOpen, entityId, instanceClient, databaseName, tableName, ids }: SearchByIdParams,
 ) {
 	return queryOptions({
-		queryKey: ['search_by_id', instanceId, databaseName, tableName, ids] as const,
+		queryKey: [entityId, 'search_by_id', databaseName, tableName, ids] as const,
 		queryFn: () =>
 			instanceClient.post('/', {
 				get_attributes: ['*'],
@@ -24,5 +27,3 @@ function getSearchByIdOptions(
 		retry: false,
 	});
 }
-
-export { getSearchByIdOptions };

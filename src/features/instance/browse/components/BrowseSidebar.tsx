@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { CreateNewTableModal } from '@/features/instance/browse/modals/CreateNewTableModal';
 import { useCreateDatabaseSubmitMutation } from '@/features/instance/operations/mutations/createDatabase';
 import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
@@ -39,16 +40,15 @@ const NewDatabaseSchema = z.object({
 
 export function BrowseSidebar() {
 	const router = useRouter();
-	const {
-		clusterId,
-		instanceId,
-		databaseName: selectedDatabaseName,
-		tableName: selectedTableName,
+	const { databaseName: selectedDatabaseName, tableName: selectedTableName }: {
+		databaseName?: string;
+		tableName?: string;
 	} = route.useParams();
 	const instanceDatabaseMap = route.useLoaderData() as InstanceDatabaseMap;
+	const instanceParams = useInstanceClientIdParams();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const canManageBrowseInstance = useInstanceBrowseManagePermission(instanceId ?? clusterId);
+	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [typeOfThingBeingDeleted, setTypeOfThingBeingDeleted] = useState('');
 	const [nameOfThingBeingDeleted, setNameOfThingBeingDeleted] = useState('');
 	const [deletionTarget, setDeletionTarget] = useState<{ databaseName?: string; tableName?: string; }>({});
@@ -91,10 +91,10 @@ export function BrowseSidebar() {
 	}, [selectedTableName, navigate]);
 
 	const submitNewDatabase = useCallback((formData: z.infer<typeof NewDatabaseSchema>) => {
-		createNewDatabase(formData, {
+		createNewDatabase({ ...formData, ...instanceParams }, {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({
-					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					queryKey: [instanceParams.entityId, 'describe_all'],
 					refetchType: 'all',
 				});
 				await router.invalidate();
@@ -104,14 +104,14 @@ export function BrowseSidebar() {
 				onSelectDatabase(formData.databaseName);
 			},
 		});
-	}, [clusterId, createNewDatabase, form, instanceId, onSelectDatabase, queryClient, router]);
+	}, [createNewDatabase, form, instanceParams, onSelectDatabase, queryClient, router]);
 
 	const onDeleteTable = useCallback((targetDatabaseName: string, targetTableName: string) => {
-		deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName }, {
+		deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName, ...instanceParams }, {
 			onSuccess: async () => {
 				setIsDeleteModalOpen(false);
 				await queryClient.invalidateQueries({
-					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					queryKey: [instanceParams.entityId, 'describe_all'],
 					refetchType: 'all',
 				});
 				await router.invalidate();
@@ -121,14 +121,14 @@ export function BrowseSidebar() {
 				}
 			},
 		});
-	}, [clusterId, deleteTable, instanceId, onSelectTable, queryClient, router, selectedTableName]);
+	}, [deleteTable, instanceParams, onSelectTable, queryClient, router, selectedTableName]);
 
 	const onDeleteDatabase = useCallback((targetDatabaseName: string) => {
-		deleteDatabase(targetDatabaseName, {
+		deleteDatabase({ databaseName: targetDatabaseName, ...instanceParams }, {
 			onSuccess: async () => {
 				setIsDeleteModalOpen(false);
 				await queryClient.invalidateQueries({
-					queryKey: [instanceId ?? clusterId, 'describe_all'],
+					queryKey: [instanceParams.entityId, 'describe_all'],
 					refetchType: 'all',
 				});
 				await router.invalidate();
@@ -136,7 +136,7 @@ export function BrowseSidebar() {
 				onSelectDatabase(undefined);
 			},
 		});
-	}, [clusterId, deleteDatabase, instanceId, onSelectDatabase, queryClient, router]);
+	}, [deleteDatabase, instanceParams, onSelectDatabase, queryClient, router]);
 
 	const onDeletionConfirmed = useCallback(() => {
 		const targetDatabaseName = deletionTarget.databaseName;
@@ -238,7 +238,7 @@ export function BrowseSidebar() {
 							<div className="w-full h-full text-center">
 								<p className="py-6">No tables found in this database.</p>
 								{canManageBrowseInstance && (<div className="mx-auto max-w-48">
-									<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} clusterId={clusterId} onSelectTable={onSelectTable} />
+									<CreateNewTableModal databaseName={selectedDatabaseName} onSelectTable={onSelectTable} />
 								</div>)}
 							</div>
 						) : (tableNames ?? []).length === 0 && !selectedDatabaseName?.length ? (
@@ -280,7 +280,7 @@ export function BrowseSidebar() {
 				</ScrollArea>
 			</Tabs>
 			{selectedDatabaseName?.length && canManageBrowseInstance && (
-				<CreateNewTableModal databaseName={selectedDatabaseName} instanceId={instanceId} clusterId={clusterId} onSelectTable={onSelectTable} />
+				<CreateNewTableModal databaseName={selectedDatabaseName} onSelectTable={onSelectTable} />
 			)}
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted={typeOfThingBeingDeleted}

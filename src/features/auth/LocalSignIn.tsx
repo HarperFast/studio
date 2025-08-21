@@ -1,21 +1,22 @@
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useInstanceLoginMutation } from '@/features/auth/hooks/useInstanceLoginMutation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { queryKeys } from '@/react-query/constants';
-import { useQueryClient } from '@tanstack/react-query';
+import { useInstanceClient } from '@/config/useInstanceClient';
+import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
+import { queryKeys } from '@/react-query/constants';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 const LocalSignInSchema = z.object({
 	username: z
@@ -36,6 +37,7 @@ export function LocalSignIn() {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
+	const instanceClient = useInstanceClient();
 
 	const form = useForm<z.infer<typeof LocalSignInSchema>>({
 		resolver: zodResolver(LocalSignInSchema),
@@ -48,16 +50,22 @@ export function LocalSignIn() {
 	const { mutate: submitInstanceLogin } = useInstanceLoginMutation();
 
 	const submitForm = async (formData: z.infer<typeof LocalSignInSchema>) => {
-		submitInstanceLogin(formData, {
-			onSuccess: async (response) => {
-				toast.success(response.message);
-				const user = await getInstanceUserInfo();
-				authStore.setUserForEntity(OverallAppSignIn, user);
-				void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
-				router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
+		submitInstanceLogin(
+			{
+				...formData,
+				instanceClient,
 			},
-		});
+			{
+				onSuccess: async (response) => {
+					toast.success(response.message);
+					const user = await getInstanceUserInfo({ instanceClient });
+					authStore.setUserForEntity(OverallAppSignIn, user);
+					void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
+					router.invalidate();
+					await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
+				},
+			},
+		);
 	};
 
 	return (

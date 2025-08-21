@@ -1,8 +1,3 @@
-import { FormEvent } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { toast } from 'sonner';
-import { ArrowRight, Loader } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -11,13 +6,19 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
+import { isValidTarballUrl } from '@/features/instance/applications/new/functions/isValidTarballUrl';
 import {
 	DeployComponentFormData,
 	useDeployComponentMutation,
 } from '@/features/instance/operations/mutations/deployComponent';
-import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
-import { isValidTarballUrl } from '@/features/instance/applications/new/functions/isValidTarballUrl';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowRight, Loader } from 'lucide-react';
+import { FormEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const ImportProjectSchema = z.object({
 	newApplicationName: z
@@ -35,6 +36,7 @@ export function ImportProjectForm({
 	restartingInstanceOrCluster: () => void;
 	isRestartInstanceOrClusterPending: boolean;
 }) {
+	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
@@ -45,7 +47,7 @@ export function ImportProjectForm({
 
 	const { mutate: deployNewApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 	const submitForm = async (formData: DeployComponentFormData) => {
-		deployNewApplication(formData, {
+		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
 				restartingInstanceOrCluster();

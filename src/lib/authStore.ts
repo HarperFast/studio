@@ -1,6 +1,7 @@
-import { isLocalStudio } from '@/config/constants';
-import { onInstanceLogoutSubmit } from '@/features/auth/hooks/useInstanceLogoutMutation';
+import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
+import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
@@ -21,8 +22,6 @@ export interface AuthenticatedConnection {
 	isLoading: boolean;
 	user: User | LocalUser | null;
 }
-
-export type InstanceConnectionKey = Instance | Cluster | string | null;
 
 export interface AuthenticatedInstanceConnection {
 	isLoading: boolean;
@@ -145,9 +144,9 @@ class AuthStore {
 			if (entityId === OverallAppSignIn) {
 				continue;
 			}
-			const operationsUrl = this.potentiallyAuthenticated[entityId];
 			try {
-				await onInstanceLogoutSubmit({ operationsUrl });
+				const instanceClient = getInstanceClient(entityId);
+				await onInstanceLogoutSubmit({ instanceClient });
 			} catch (err: unknown) {
 				console.error(`Failed to log out from ${entityId}, carrying on`, err);
 			}
@@ -223,6 +222,16 @@ class AuthStore {
 		return this.reloadUser(id);
 	}
 
+	public getOperationsUrl(id: EntityIds): string | undefined {
+		if (isLocalStudio) {
+			return localStudioDevUrl;
+		}
+		if (id === OverallAppSignIn) {
+			return this.potentiallyAuthenticated[OverallAppSignIn];
+		}
+		return this.potentiallyAuthenticated[id];
+	}
+
 	public async reloadUser(id: EntityIds): Promise<void> {
 		if (!this.potentiallyAuthenticated[id]) {
 			this.updateConnectionIfChanged(id, false, null);
@@ -234,12 +243,12 @@ class AuthStore {
 		try {
 			if (id === OverallAppSignIn) {
 				if (isLocalStudio) {
-					user = await getInstanceUserInfo();
+					user = await getInstanceUserInfo({ instanceClient: getInstanceClient() });
 				} else {
 					user = await getCurrentUser();
 				}
 			} else if (id) {
-				user = await getInstanceUserInfo({ operationsUrl: key });
+				user = await getInstanceUserInfo({ instanceClient: getInstanceClient(id) });
 			}
 		} catch (error) {
 			// TODO: Only catch the errors we expect here (401? 403? w/e)

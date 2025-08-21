@@ -1,5 +1,7 @@
-import { QueryClient } from '@tanstack/react-query';
+import { getInstanceClient } from '@/config/getInstanceClient';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
+import { OverallAppSignIn } from '@/lib/authStore';
+import { QueryClient } from '@tanstack/react-query';
 import { redirect } from '@tanstack/react-router';
 
 export async function loadInstanceBrowseData(
@@ -9,9 +11,14 @@ export async function loadInstanceBrowseData(
 		instanceId?: string;
 		databaseName?: string;
 		tableName?: string;
-	}
+	},
+	preload: boolean,
 ) {
-	const data = await queryClient.ensureQueryData(getDescribeAllQueryOptions(params.instanceId ?? params.clusterId));
+	const entityId = params.instanceId ?? params.clusterId ?? OverallAppSignIn;
+	const data = await queryClient.ensureQueryData(getDescribeAllQueryOptions({
+		entityId,
+		instanceClient: getInstanceClient(entityId),
+	}));
 	let newDatabaseName: string | undefined;
 	let newTableName: string | undefined;
 	if (data) {
@@ -32,7 +39,9 @@ export async function loadInstanceBrowseData(
 		]
 			.filter(Boolean)
 			.join('/');
-		throw redirect({ to });
+		if (!preload) {
+			throw redirect({ to });
+		}
 	}
 	return data;
 }

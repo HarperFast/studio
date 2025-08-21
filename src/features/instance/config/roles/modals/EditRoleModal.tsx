@@ -3,14 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { calculateDefaultPermissions } from '@/features/instance/config/roles/defaultCalculator';
 import { useAlterRole } from '@/features/instance/operations/mutations/alterRole';
 import { useDeleteRoleMutation } from '@/features/instance/operations/mutations/deleteRole';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { LocalRole, LocalRolePermission } from '@/lib/api.patch';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
+import { LocalRole, LocalRolePermission } from '@/lib/api.patch';
 import { safeParse } from '@/lib/string/safeParse';
 import { Editor } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
@@ -27,8 +28,8 @@ export function EditRoleModal({
 	onChangesSaved,
 }: {
 	data: LocalRole;
-	instanceId: string;
-	clusterId: string;
+	instanceId?: string;
+	clusterId?: string;
 	isModalOpen: boolean;
 	closeModal: () => void;
 	onSelectRole: (role?: string) => void;
@@ -36,10 +37,12 @@ export function EditRoleModal({
 }) {
 	const { role, permission: initialPermissions } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(JSON.stringify(initialPermissions, null, 2));
+
+	const instanceParams = useInstanceClientIdParams();
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceId ?? clusterId));
+	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceParams));
 	const { data: registrationInfo } = useQuery(
-		getRegistrationInfoQueryOptions(instanceId),
+		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const auth = useInstanceAuth(instanceId ?? clusterId);
 	const isSelf = auth.user?.role?.role === data.role;
@@ -90,6 +93,7 @@ export function EditRoleModal({
 					{
 						id: data.id,
 						permission: parsedPermissions,
+						...instanceParams,
 					},
 					{
 						onSuccess: () => {
@@ -101,13 +105,14 @@ export function EditRoleModal({
 				);
 			}
 		},
-		[alterRole, data.id, onChangesSaved, onSelectRole],
+		[alterRole, data.id, instanceParams, onChangesSaved, onSelectRole],
 	);
 
 	const onRoleDeleted = useCallback(() => {
 		dropRole(
 			{
 				id: data.id,
+				...instanceParams,
 			},
 			{
 				onSuccess: () => {
@@ -117,7 +122,7 @@ export function EditRoleModal({
 				},
 			},
 		);
-	}, [onSelectRole, dropRole, data.id, onChangesSaved]);
+	}, [data.id, dropRole, instanceParams, onChangesSaved, onSelectRole]);
 
 	const onSubmitClick = useCallback(() => {
 		if (updatedPermissions && isValidJSON) {
