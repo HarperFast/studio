@@ -30,7 +30,11 @@ export function useRestartClick({
 				onClick: () => toast.dismiss(),
 			},
 		});
-		restartInstance({ operation, instanceClient }, {
+		restartInstance({
+			operation,
+			replicated: operation === 'restart_service' && targetNoun === 'Cluster',
+			instanceClient,
+		}, {
 			onSuccess: () => {
 				toast.dismiss(toastId);
 				toast.success('Success', {
@@ -43,6 +47,7 @@ export function useRestartClick({
 				onRestartedSuccessfully?.();
 			},
 			onError: () => {
+				toast.dismiss(toastId);
 				toast.error('Error', {
 					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
 					action: {
