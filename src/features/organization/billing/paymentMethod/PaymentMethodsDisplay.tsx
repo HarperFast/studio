@@ -30,13 +30,13 @@ export function PaymentMethodsDisplay({
 	const onReplacePaymentMethodClicked = useCallback(
 		() => {
 			setReplacingPaymentMethod(!replacingPaymentMethod);
-			onReplacingPaymentMethod(!replacingPaymentMethod);
+			onReplacingPaymentMethod?.(!replacingPaymentMethod);
 		},
 		[onReplacingPaymentMethod, replacingPaymentMethod],
 	);
 	const onPaymentAdded = useCallback((added: boolean) => {
 		setReplacingPaymentMethod(false);
-		onReplacingPaymentMethod(false);
+		onReplacingPaymentMethod?.(false);
 		if (added) {
 			void refetch();
 		}

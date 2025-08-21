@@ -1,6 +1,7 @@
 import { clusterLayoutRoute } from '@/features/cluster/routes';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
+import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 
@@ -21,7 +22,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 				const auth = context.authentication[params.clusterId];
 				if (!auth || (!auth.isLoading && !auth.user)) {
 					const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/sign-in`;
-					throw redirect({ to, search: { redirect: location.pathname } });
+					throw redirect({ to, search: { redirect: currentUrlAfterHash() } });
 				}
 				return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
 			},
@@ -35,7 +36,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 			const auth = context.authentication[params.instanceId];
 			if (!auth || (!auth.isLoading && !auth.user)) {
 				const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/instance/${params.instanceId}/sign-in`;
-				throw redirect({ to, search: { redirect: location.pathname } });
+				throw redirect({ to, search: { redirect: currentUrlAfterHash() } });
 			}
 			return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
 		},

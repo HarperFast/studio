@@ -2,6 +2,7 @@ import { isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { isLocalUser } from '@/lib/types/isLocalUser';
+import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { datadogRum } from '@datadog/browser-rum';
 import { reactPlugin } from '@datadog/browser-rum-react';
 import { useLocation } from '@tanstack/react-router';
@@ -49,9 +50,9 @@ export function useOnRouteLoadTracker() {
 		datadogRum.startView({
 			service: 'studio',
 			version: import.meta.env.VITE_STUDIO_VERSION,
-			name: location.pathname,
+			name: currentUrlAfterHash(),
 		});
-	}, [location.pathname]);
+	}, [location.href]);
 
 	useEffect(() => {
 		if (!enabled) {
