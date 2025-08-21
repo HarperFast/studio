@@ -31,11 +31,9 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 				label: 'Cancel',
 				onClick: () => {
 					canceled = true;
-					toast.dismiss();
 				},
 			},
 		};
-
 
 		const toastId = toast.loading('Restarting', {
 			...toastConfig,
