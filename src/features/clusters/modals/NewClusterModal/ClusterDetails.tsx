@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClusterRegions } from '@/features/clusters/modals/NewClusterModal/ClusterRegions';
+import { ClusterInstances } from '@/features/clusters/modals/NewClusterModal/components/ClusterInstances';
 import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
@@ -58,7 +59,7 @@ export function ClusterDetails({
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
-	// const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+	const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
 
 	return (<>
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
@@ -79,32 +80,6 @@ export function ClusterDetails({
 					</FormItem>
 				)}
 			/>
-			<FormField
-				control={form.control}
-				name="abbreviatedName"
-				render={({ field }) => (
-					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Host Name</FormLabel>
-						<FormControl>
-							<Input
-								type="text"
-								maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
-								autoCapitalize="none"
-								placeholder={calculatedNames.suggestedAbbreviatedName}
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-			<FormItem className="col-span-3 ">
-				<FormLabel className="pb-1">Full Host Name</FormLabel>
-				<FormControl>
-					<span>{calculatedNames.fullHostName}</span>
-				</FormControl>
-				<FormMessage />
-			</FormItem>
 
 			<FormField
 				control={form.control}
@@ -177,16 +152,74 @@ export function ClusterDetails({
 				)}
 			/>
 
+			{isSelfManaged
+				? (<>
+					<FormField
+						control={form.control}
+						name="fqdn"
+						render={({ field }) => (
+							<FormItem className="md:col-span-6 col-span-3">
+								<FormLabel className="pb-1">Optional Cluster Load Balancer Host Name</FormLabel>
+								<FormControl>
+									<Input
+										type="text"
+										autoCapitalize="none"
+										autoComplete="off"
+										autoCorrect="off"
+										placeholder="example.your-company.com"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</>)
+				: (<>
+					<FormField
+						control={form.control}
+						name="abbreviatedName"
+						render={({ field }) => (
+							<FormItem className="col-span-3">
+								<FormLabel className="pb-1">Host Name</FormLabel>
+								<FormControl>
+									<Input
+										type="text"
+										maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
+										autoCapitalize="none"
+										autoComplete="off"
+										autoCorrect="off"
+										placeholder={calculatedNames.suggestedAbbreviatedName}
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormItem className="col-span-3 ">
+						<FormLabel className="pb-1">Full Host Name</FormLabel>
+						<FormControl>
+							<span>{calculatedNames.fullHostName}</span>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				</>)
+			}
+
 			{selectedPlan?.resourcesPerInstance && (
 				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
 			)}
 
-			<ClusterRegions
-				form={form}
-				regionLocations={regionLocations}
-				regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-				selectedPlan={selectedPlan}
-			/>
+			{isSelfManaged
+				? (<ClusterInstances form={form} />)
+				: (<ClusterRegions
+					form={form}
+					regionLocations={regionLocations}
+					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+					selectedPlan={selectedPlan}
+				/>)
+			}
 		</div>
 		<DialogFooter className="mt-3">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
