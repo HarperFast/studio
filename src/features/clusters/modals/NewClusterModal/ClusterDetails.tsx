@@ -207,10 +207,6 @@ export function ClusterDetails({
 				</>)
 			}
 
-			{selectedPlan?.resourcesPerInstance && (
-				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
-			)}
-
 			{isSelfManaged
 				? (<ClusterInstances form={form} />)
 				: (<ClusterRegions
@@ -220,6 +216,10 @@ export function ClusterDetails({
 					selectedPlan={selectedPlan}
 				/>)
 			}
+
+			{selectedPlan?.resourcesPerInstance && (
+				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
+			)}
 		</div>
 		<DialogFooter className="mt-3">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
