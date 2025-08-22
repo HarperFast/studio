@@ -76,13 +76,13 @@ export function NewClusterModal({
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
 						path: [`regionPlans.${i}.regionName`],
-						message: `This region is not available with the ${data.deploymentDescription} tier!`,
+						message: `This region is not available with the selected performance tier!`,
 					});
 				} else {
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
 						path: [`regionPlans.${i}.latencyDescription`],
-						message: `This latency is not available with the ${data.deploymentDescription} tier!`,
+						message: `This latency is not available with the selected performance tier!`,
 					});
 				}
 			}
@@ -95,14 +95,36 @@ export function NewClusterModal({
 		defaultValues: savedClusterState ?? {
 			systemName: '',
 			abbreviatedName: '',
-			// TODO: How do we look these up at the start with the live values from the API?
-			deploymentDescription: 'Free',
-			performanceDescription: 'Basic (1K read/min)',
-			regionPlans: [
-				{ regionName: 'Global', latencyDescription: '310ms, small distribution' },
-			],
+			// The rest of the fields will be defaulted in the "pickDefaultDeploymentPerformanceAndRegionPlans"
+			// useEffect below.
 		},
 	});
+
+	useEffect(function pickDefaultDeploymentPerformanceAndRegionPlans() {
+		if (form.getValues().deploymentDescription) {
+			// We already have a deployment description picked! Neat.
+			return;
+		}
+		if (planTypes && regionLocations) {
+			const freeColocatedPlan = planTypes
+				.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated');
+			const allowedRegionIds = freeColocatedPlan?.allowedRegionIds;
+			if (freeColocatedPlan && allowedRegionIds?.length) {
+				const allowedFreeRegions = regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id));
+				const allowedGlobalFreeRegion = allowedFreeRegions.find(regionLocation => regionLocation.region === 'Global');
+				if (allowedGlobalFreeRegion) {
+					form.setValue('deploymentDescription', freeColocatedPlan.deploymentDescription);
+					form.setValue('performanceDescription', freeColocatedPlan.performanceDescription);
+					form.setValue('regionPlans', [
+						{
+							regionName: allowedGlobalFreeRegion.region,
+							latencyDescription: allowedGlobalFreeRegion.latencyDescription,
+						},
+					]);
+				}
+			}
+		}
+	}, [form, planTypes, regionLocations]);
 
 	const systemName = form.watch('systemName');
 	const abbreviatedName = form.watch('abbreviatedName');
@@ -129,7 +151,8 @@ export function NewClusterModal({
 			const firstRegion = selectedRegionPlans[0];
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
 			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
-				const regionToSelect = regionLocations?.find(r => allowedRegionIds.includes(r.id));
+				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
+				const regionToSelect = possibleRegions?.find(r => r.region === 'Global') || possibleRegions?.[0];
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionName', regionToSelect.region);
 					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);
@@ -228,7 +251,6 @@ export function NewClusterModal({
 									selectedPlan={selectedPlan}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
-									selectedRegionPlans={selectedRegionPlans}
 									totalPrice={totalPrice}
 								/>
 							</form>
