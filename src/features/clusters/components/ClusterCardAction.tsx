@@ -9,13 +9,11 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	const auth = useInstanceAuth(cluster.id);
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const isPendingResetPassword = useMemo(() => cluster.resetPassword, [cluster]);
-	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
-
 	if (!view) {
 		return undefined;
 	}
 
-	if (isSelfManaged) {
+	if (!cluster.fqdn) {
 		return <Link to={cluster.id} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				Instances <ArrowRight className="inline-block" />

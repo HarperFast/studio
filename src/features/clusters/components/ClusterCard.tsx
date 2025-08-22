@@ -35,7 +35,6 @@ export function ClusterCard({
 	const auth = useInstanceAuth(cluster.id);
 	const navigate = useNavigate();
 
-	const isSelfManaged = useMemo(() => !cluster.plans?.length || !!cluster.plans.find((p) => p.plan === 'self-managed'), [cluster]);
 	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
 	const canDelete = useMemo(() => remove && cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status, remove]);
 
@@ -46,6 +45,12 @@ export function ClusterCard({
 	const onSignOutClick = useCallback(async () => {
 		await onInstanceLogoutSubmit({ instanceClient });
 		authStore.setUserForEntity(cluster, null);
+		if (cluster.instances?.length) {
+			// Flag all cluster instances as signed out as well.
+			for (const instance of cluster.instances) {
+				authStore.setUserForEntity(instance, null);
+			}
+		}
 	}, [cluster, instanceClient]);
 	const onDeleteClick = useCallback(() => {
 		onDeleteClusterModal(cluster);
@@ -74,7 +79,7 @@ export function ClusterCard({
 							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							{isReadyForInteraction && view && (
 								<DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>)}
-							{isReadyForInteraction && view && !isSelfManaged && !auth.isLoading && auth.user && (
+							{isReadyForInteraction && view && !!operationsUrl && !auth.isLoading && auth.user && (
 								<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>)}
 							{/*{isReadyForInteraction && update && (<DropdownMenuItem>Edit</DropdownMenuItem>)}*/}
 							{canDelete && (
