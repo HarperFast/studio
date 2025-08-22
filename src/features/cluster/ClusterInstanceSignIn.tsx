@@ -83,13 +83,13 @@ export function ClusterInstanceSignIn() {
 			onSuccess: async (response) => {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo({ instanceClient });
-				authStore.setUserForEntity(instance || cluster || null, user);
 				// If we sign in to the cluster, we've authenticated against all of its instances too.
 				if (cluster?.instances?.length && !instance) {
 					for (const clusterInstance of cluster.instances) {
 						authStore.setUserForEntity(clusterInstance, user);
 					}
 				}
+				authStore.setUserForEntity(instance || cluster || null, user);
 				router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
 			},
