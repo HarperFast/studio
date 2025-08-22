@@ -18,7 +18,7 @@ import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Navigate, useNavigate, useSearch } from '@tanstack/react-router';
+import { getRouteApi, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -56,6 +56,7 @@ export function ClusterSetPassword() {
 	const instanceClient = useInstanceClient(operationsUrl);
 
 	const { redirect } = useSearch({ strict: false });
+	const router = useRouter();
 
 	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
 		resolver: zodResolver(ClusterSetPasswordSchema),
@@ -86,10 +87,11 @@ export function ClusterSetPassword() {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo({ instanceClient });
 				authStore.setUserForEntity(cluster || null, user);
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '/browse' });
+				router.invalidate();
+				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
 			},
 		});
-	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, submitInstanceResetPassword, tempPassword]);
+	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, router, submitInstanceResetPassword, tempPassword]);
 
 	if (cluster && !cluster.resetPassword) {
 		return <Navigate to="../sign-in" />;

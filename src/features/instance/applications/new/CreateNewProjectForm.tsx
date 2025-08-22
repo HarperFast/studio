@@ -23,20 +23,22 @@ const NewProjectSchema = z.object({
 		.min(1, { message: 'Project name is required' })
 		.max(75, { message: 'Project name must be less than 75 characters' })
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
+	replicated: z.boolean(),
 });
 
 export function CreateNewProjectForm({
-	restartingInstanceOrCluster,
-	isRestartInstanceOrClusterPending,
+	triggerRestart,
+	isRestartPending,
 }: {
-	restartingInstanceOrCluster: () => void;
-	isRestartInstanceOrClusterPending: boolean;
+	triggerRestart: () => void;
+	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof NewProjectSchema>>({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
 			newApplicationName: '',
+			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 
@@ -45,7 +47,7 @@ export function CreateNewProjectForm({
 		createNewProject({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
-				restartingInstanceOrCluster();
+				triggerRestart();
 			},
 			onError: (error) => {
 				toast.error(`Error creating project: ${error.message}`);
@@ -73,7 +75,7 @@ export function CreateNewProjectForm({
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isRestartInstanceOrClusterPending}
+						disabled={!form.formState.isDirty || isRestartPending}
 					>
 						Create <ArrowRight />
 					</Button>

@@ -3,13 +3,18 @@ import { useMutation } from '@tanstack/react-query';
 
 export interface CreateComponentFormData {
 	newApplicationName: string;
+	replicated: boolean;
 }
 
-async function onCreateComponentSubmit({ newApplicationName, instanceClient }: CreateComponentFormData & InstanceClientConfig) {
+async function onCreateComponentSubmit({
+	newApplicationName,
+	instanceClient,
+	replicated,
+}: CreateComponentFormData & InstanceClientConfig) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_component',
 		project: newApplicationName,
-		replicated: true,
+		replicated,
 	});
 	return data;
 }

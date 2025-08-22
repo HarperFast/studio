@@ -4,53 +4,29 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
 import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
-import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft, FolderPlus, Import } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useState } from 'react';
 
 export function NewApplications() {
 	const [appType, setAppType] = useState('');
 
-	const { instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
-	const instanceParams = useInstanceClientParams();
-	const { mutate: restartInstance, isPending: isRestartInstanceOrClusterPending } = useUpdateRestartInstance();
+	const { instanceId }: { instanceId?: string; } = useParams({ strict: false });
+	const { instanceClient } = useInstanceClientParams();
 	const navigate = useNavigate();
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 
-	const restartingInstanceOrCluster = () => {
-		const toastId = toast.loading('Restarting', {
-			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
-			duration: 60000, // Keep the toast open until dismissed
-			action: {
-				label: 'Dismiss',
-				onClick: () => toast.dismiss(),
-			},
-		});
-		restartInstance(instanceParams, {
-			onSuccess: () => {
-				toast.dismiss(toastId);
-				toast.success('Success', {
-					description: `${targetNoun} restarted!`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-				void navigate({ to: `../editor` });
-			},
-			onError: () => {
-				toast.error('Error', {
-					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-		});
-	};
+	const onRestartedSuccessfully = useCallback(() => {
+		void navigate({ to: `../editor` });
+	}, [navigate]);
+	const { onRestartClick, isRestartPending } = useRestartInstanceClick({
+		operation: 'restart_service',
+		targetNoun,
+		instanceClient,
+		onRestartedSuccessfully,
+	});
+
 	return (
 		<div className="flex items-center justify-center gap-4 min-h-[calc(80vh-theme(spacing.20))]">
 			<Card className="w-full h-full max-w-xl">
@@ -85,13 +61,12 @@ export function NewApplications() {
 					<div className="mt-6">
 						{appType === 'create' ? (
 							<CreateNewProjectForm
-								restartingInstanceOrCluster={restartingInstanceOrCluster}
-								isRestartInstanceOrClusterPending={isRestartInstanceOrClusterPending}
+								triggerRestart={onRestartClick}
+								isRestartPending={isRestartPending}
 							/>
 						) : appType === 'import' ? (
 							<ImportProjectForm
-								restartingInstanceOrCluster={restartingInstanceOrCluster}
-								isRestartInstanceOrClusterPending={isRestartInstanceOrClusterPending}
+								isRestartPending={isRestartPending}
 							/>
 						) : (
 							<p className="text-center">Please select an option to continue.</p>

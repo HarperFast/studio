@@ -20,23 +20,25 @@ export const LogFiltersSchema = z.object({
 
 interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersSchema>;
+	replicated: boolean;
 }
 
 export function getReadLogQueryOptions({
 	entityId,
 	instanceClient,
 	logFilters,
+	replicated,
 }: GetReadLogParams & InstanceClientIdConfig) {
 	if (logFilters.level === 'undefined') {
 		logFilters.level = undefined;
 	}
 	return queryOptions({
-		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order] as const,
+		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
 				start: 0,
-				replicated: true,
+				replicated,
 				...logFilters,
 			});
 			return data as ReadLogItem[];

@@ -27,14 +27,13 @@ const ImportProjectSchema = z.object({
 		.max(75, { message: 'Project name must be less than 75 characters' })
 		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
 	applicationUrl: z.string(),
+	replicated: z.boolean(),
 });
 
 export function ImportProjectForm({
-	restartingInstanceOrCluster,
-	isRestartInstanceOrClusterPending,
+	isRestartPending,
 }: {
-	restartingInstanceOrCluster: () => void;
-	isRestartInstanceOrClusterPending: boolean;
+	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm<z.infer<typeof ImportProjectSchema>>({
@@ -42,6 +41,7 @@ export function ImportProjectForm({
 		defaultValues: {
 			newApplicationName: '',
 			applicationUrl: '',
+			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 
@@ -50,7 +50,6 @@ export function ImportProjectForm({
 		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
-				restartingInstanceOrCluster();
 			},
 			onError: (error) => {
 				toast.error(`Error creating Application: ${error.message}`);
@@ -117,7 +116,7 @@ export function ImportProjectForm({
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartInstanceOrClusterPending}
+						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartPending}
 					>
 						{!isDeployComponentPending ? (
 							<>

@@ -1,6 +1,5 @@
+import { RestartButton } from '@/components/RestartButton';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
@@ -8,14 +7,12 @@ import { ApplicationURL } from '@/features/instance/config/overview/components/A
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
-import { useUpdateRestartInstance } from '@/features/instance/operations/mutations/updateRestartInstance';
 import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import Editor from '@monaco-editor/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ReactNode } from 'react';
-import { toast } from 'sonner';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -30,7 +27,6 @@ export function ConfigOverviewIndex() {
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
-	const { mutate: restartInstance, isPending: isRestartInstancePending } = useUpdateRestartInstance();
 	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
 		getInstanceInfoQueryOptions({ clusterId, instanceId }),
 	);
@@ -43,61 +39,16 @@ export function ConfigOverviewIndex() {
 		getConfigurationQueryOptions(instanceParams),
 	);
 
-	const restartingInstance = () => {
-		const toastId = toast.loading('Restarting', {
-			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
-			duration: 60000, // Keep the toast open until dismissed
-			action: {
-				label: 'Dismiss',
-				onClick: () => toast.dismiss(),
-			},
-		});
-		restartInstance(instanceParams, {
-			onSuccess: () => {
-				toast.dismiss(toastId);
-				toast.success('Success', {
-					description: `${targetNoun} restarted!`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-			onError: () => {
-				toast.error('Error', {
-					description: `Failed to restart ${targetNoun.toLowerCase()}.`,
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
-			},
-		});
-	};
-
 	return (
 		<div className="h-full flex flex-col">
 			{isLocalStudio ? (
 				<LocalStudioOverview>
 					<dl className="grid grid-cols-1 sm:grid-cols-3">
-						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
+						<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
 							<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										variant="positiveOutline"
-										className="ml-4 rounded-full cursor-pointer"
-										onClick={restartingInstance}
-										disabled={isRestartInstancePending}
-									>
-										Restart {targetNoun}
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>This fully restarts the Harper service and causes
-									downtime.</TooltipContent>
-							</Tooltip>
+							<RestartButton targetNoun={targetNoun} instanceClient={instanceParams.instanceClient} operation="restart" />
 						</div>
 					</dl>
 				</LocalStudioOverview>
@@ -111,25 +62,11 @@ export function ConfigOverviewIndex() {
 							<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 						</div>
 						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										variant="positiveOutline"
-										className="ml-4 rounded-full cursor-pointer"
-										onClick={restartingInstance}
-										disabled={isRestartInstancePending}
-									>
-										Restart {targetNoun}
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>This fully restarts the Harper service and causes
-									downtime.</TooltipContent>
-							</Tooltip>
+							<RestartButton targetNoun={targetNoun} instanceClient={instanceParams.instanceClient} operation="restart" />
 						</div>
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 							<InstanceNodeName loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
 						</div>
-
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 							<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
 						</div>

@@ -5,15 +5,22 @@ interface CreateTableFormData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
 	primaryKey: string;
+	replicated: boolean;
 }
 
-async function onCreateTableSubmit({ databaseName, tableName, primaryKey, instanceClient }: CreateTableFormData) {
+async function onCreateTableSubmit({
+	databaseName,
+	tableName,
+	primaryKey,
+	replicated,
+	instanceClient,
+}: CreateTableFormData) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_table',
 		database: databaseName,
 		table: tableName,
 		primary_key: primaryKey,
-		replicated: true,
+		replicated,
 	});
 	return data;
 }

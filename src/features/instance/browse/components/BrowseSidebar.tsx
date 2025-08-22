@@ -91,7 +91,11 @@ export function BrowseSidebar() {
 	}, [selectedTableName, navigate]);
 
 	const submitNewDatabase = useCallback((formData: z.infer<typeof NewDatabaseSchema>) => {
-		createNewDatabase({ ...formData, ...instanceParams }, {
+		createNewDatabase({
+			...formData,
+			...instanceParams,
+			replicated: instanceParams.entityType === 'cluster',
+		}, {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({
 					queryKey: [instanceParams.entityId, 'describe_all'],
@@ -107,7 +111,12 @@ export function BrowseSidebar() {
 	}, [createNewDatabase, form, instanceParams, onSelectDatabase, queryClient, router]);
 
 	const onDeleteTable = useCallback((targetDatabaseName: string, targetTableName: string) => {
-		deleteTable({ databaseName: targetDatabaseName, tableName: targetTableName, ...instanceParams }, {
+		deleteTable({
+			databaseName: targetDatabaseName,
+			tableName: targetTableName,
+			...instanceParams,
+			replicated: instanceParams.entityType === 'cluster',
+		}, {
 			onSuccess: async () => {
 				setIsDeleteModalOpen(false);
 				await queryClient.invalidateQueries({
@@ -124,7 +133,11 @@ export function BrowseSidebar() {
 	}, [deleteTable, instanceParams, onSelectTable, queryClient, router, selectedTableName]);
 
 	const onDeleteDatabase = useCallback((targetDatabaseName: string) => {
-		deleteDatabase({ databaseName: targetDatabaseName, ...instanceParams }, {
+		deleteDatabase({
+			databaseName: targetDatabaseName,
+			...instanceParams,
+			replicated: instanceParams.entityType === 'cluster',
+		}, {
 			onSuccess: async () => {
 				setIsDeleteModalOpen(false);
 				await queryClient.invalidateQueries({
