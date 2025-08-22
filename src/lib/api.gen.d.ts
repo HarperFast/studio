@@ -4550,7 +4550,7 @@ export interface components {
             /** Format: Int */
             locationsPerPlan?: number;
             name: string;
-            performanceDescription?: string;
+            performanceDescription: string;
             planLimits?: components["schemas"]["PlanLimits"];
             /** Format: Float */
             priceUsd: number;
