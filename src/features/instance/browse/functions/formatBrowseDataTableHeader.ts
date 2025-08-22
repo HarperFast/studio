@@ -14,7 +14,7 @@ function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 		const { attribute, is_primary_key, indexed } = attributes[i];
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
-			header: is_primary_key ? 'Primary Key' : attribute,
+			header: attribute,
 			accessorKey: attribute,
 			enableSorting: Boolean(is_primary_key || indexed),
 		};
