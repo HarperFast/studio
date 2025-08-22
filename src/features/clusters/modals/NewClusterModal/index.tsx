@@ -1,9 +1,14 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
+import { defaultOperationsApiPort } from '@/config/constants';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { ClusterBilling } from '@/features/clusters/modals/NewClusterModal/ClusterBilling';
 import { ClusterDetails } from '@/features/clusters/modals/NewClusterModal/ClusterDetails';
+import { calculateInstanceFQDN } from '@/features/clusters/modals/NewClusterModal/lib/calculateInstanceFQDN';
+import {
+	pickDefaultDeploymentPerformanceAndRegionPlans,
+} from '@/features/clusters/modals/NewClusterModal/lib/pickDefaultDeploymentPerformanceAndRegionPlans';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
@@ -58,79 +63,109 @@ export function NewClusterModal({
 	const refineZod = useCallback((data: z.infer<typeof NewClusterSchema>, ctx: z.RefinementCtx) => {
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
-		for (let i = 0; i < data.regionPlans.length; i++) {
-			const regionPlan = data.regionPlans[i];
-			const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
-			if (!names.has(regionPlan.regionName)) {
-				names.add(regionPlan.regionName);
-			} else {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					path: [`regionPlans.${i}.regionName`],
-					message: 'You can only select a region once!',
-				});
-			}
-			if (selectedPlan?.allowedRegionIds?.length && region?.id && !selectedPlan.allowedRegionIds.includes(region.id)) {
-				const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
-				if (!prefixMatches) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						path: [`regionPlans.${i}.regionName`],
-						message: `This region is not available with the selected performance tier!`,
-					});
+		const isSelfManaged = data.deploymentDescription === 'Manage Your Own Installation/Configuration';
+		if (isSelfManaged) {
+			for (let i = 0; i < data.instances.length; i++) {
+				const fqdn = calculateInstanceFQDN(data.instances[i]);
+				if (!names.has(fqdn)) {
+					names.add(fqdn);
 				} else {
 					ctx.addIssue({
 						code: z.ZodIssueCode.custom,
-						path: [`regionPlans.${i}.latencyDescription`],
-						message: `This latency is not available with the selected performance tier!`,
+						path: [`instances.${i}.fqdn`],
+						message: 'Every instance url must be unique!',
 					});
+				}
+			}
+		} else {
+			for (let i = 0; i < data.regionPlans.length; i++) {
+				const regionPlan = data.regionPlans[i];
+				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
+				if (!names.has(regionPlan.regionName)) {
+					names.add(regionPlan.regionName);
+				} else {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						path: [`regionPlans.${i}.regionName`],
+						message: 'You can only select a region once!',
+					});
+				}
+				if (selectedPlan?.allowedRegionIds?.length && region?.id && !selectedPlan.allowedRegionIds.includes(region.id)) {
+					const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
+					if (!prefixMatches) {
+						ctx.addIssue({
+							code: z.ZodIssueCode.custom,
+							path: [`regionPlans.${i}.regionName`],
+							message: `This region is not available with the selected performance tier!`,
+						});
+					} else {
+						ctx.addIssue({
+							code: z.ZodIssueCode.custom,
+							path: [`regionPlans.${i}.latencyDescription`],
+							message: `This latency is not available with the selected performance tier!`,
+						});
+					}
 				}
 			}
 		}
 	}, [deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
 
 	const form = useForm({
-		mode: 'onBlur',
+		mode: 'onChange',
 		resolver: zodResolver(NewClusterSchema.superRefine(refineZod)),
 		defaultValues: savedClusterState ?? {
 			systemName: '',
 			abbreviatedName: '',
+			regionPlans: [],
+			instances: [],
 			// The rest of the fields will be defaulted in the "pickDefaultDeploymentPerformanceAndRegionPlans"
 			// useEffect below.
 		},
 	});
 
-	useEffect(function pickDefaultDeploymentPerformanceAndRegionPlans() {
-		if (form.getValues().deploymentDescription) {
-			// We already have a deployment description picked! Neat.
-			return;
-		}
-		if (planTypes && regionLocations) {
-			const freeColocatedPlan = planTypes
-				.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated');
-			const allowedRegionIds = freeColocatedPlan?.allowedRegionIds;
-			if (freeColocatedPlan && allowedRegionIds?.length) {
-				const allowedFreeRegions = regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id));
-				const allowedGlobalFreeRegion = allowedFreeRegions.find(regionLocation => regionLocation.region === 'Global');
-				if (allowedGlobalFreeRegion) {
-					form.setValue('deploymentDescription', freeColocatedPlan.deploymentDescription);
-					form.setValue('performanceDescription', freeColocatedPlan.performanceDescription);
-					form.setValue('regionPlans', [
-						{
-							regionName: allowedGlobalFreeRegion.region,
-							latencyDescription: allowedGlobalFreeRegion.latencyDescription,
-						},
-					]);
-				}
-			}
-		}
-	}, [form, planTypes, regionLocations]);
+	useEffect(() => pickDefaultDeploymentPerformanceAndRegionPlans(form, planTypes, regionLocations), [form, planTypes, regionLocations]);
 
 	const systemName = form.watch('systemName');
 	const abbreviatedName = form.watch('abbreviatedName');
 	const selectedDeployment = form.watch('deploymentDescription');
 	const selectedPerformance = form.watch('performanceDescription');
 	const selectedRegionPlans = form.watch('regionPlans');
+	const selectedInstances = form.watch('instances');
+
+	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
+		const values = form.getValues();
+		const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+		if (!selectedDeployment) {
+			return;
+		}
+		if (isSelfManaged) {
+			if (values.abbreviatedName) {
+				form.setValue('abbreviatedName', '');
+			}
+			if (values.regionPlans.length) {
+				form.setValue('regionPlans', []);
+			}
+			if (!values.instances.length) {
+				form.setValue('instances', [
+					{
+						secure: 'true',
+						fqdn: '',
+						port: defaultOperationsApiPort,
+					},
+				]);
+			}
+		} else {
+			if (values.fqdn) {
+				form.setValue('fqdn', '');
+			}
+			if (values.instances.length) {
+				form.setValue('instances', []);
+			}
+			if (!values.regionPlans.length) {
+				pickDefaultDeploymentPerformanceAndRegionPlans(form, planTypes, regionLocations);
+			}
+		}
+	}, [form, planTypes, regionLocations, selectedDeployment]);
 
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
@@ -164,12 +199,14 @@ export function NewClusterModal({
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
-		: selectedRegionPlans.reduce((total, region) => {
-			const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
-			return total + (!regionPlan
-				? 0
-				: selectedPlan.priceUsd! * regionPlan.instanceCount / 2);
-		}, 0);
+		: selectedDeployment === 'Manage Your Own Installation/Configuration'
+			? selectedInstances.length * selectedPlan.priceUsd
+			: selectedRegionPlans.reduce((total, region) => {
+				const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
+				return total + (!regionPlan
+					? 0
+					: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
+			}, 0);
 
 	const onClusterCreatedCallback = useCallback(() => {
 		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
@@ -182,19 +219,34 @@ export function NewClusterModal({
 		const formData = form.getValues();
 		const plans: SchemaRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
-		for (const regionPlan of formData.regionPlans) {
-			const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
-			plans.push({
-				planId: plan.id,
-				regionId: region.id,
-				autoRenew: true,
-			});
+
+		const isSelfManaged = formData.deploymentDescription === 'Manage Your Own Installation/Configuration';
+		if (isSelfManaged) {
+			for (const instance of formData.instances) {
+				plans.push({
+					planId: plan.id,
+					autoRenew: true,
+					operationsApiSecure: instance.secure === 'true',
+					instanceFqdn: instance.fqdn,
+					operationsApiPort: instance.port || defaultOperationsApiPort,
+				});
+			}
+		} else {
+			for (const regionPlan of formData.regionPlans) {
+				const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
+				plans.push({
+					planId: plan.id,
+					regionId: region.id,
+					autoRenew: true,
+				});
+			}
 		}
 		setSavedClusterState(null);
 		submitNewClusterData({
 			organizationId: orgId,
 			name: formData.systemName,
-			abbreviatedName: formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName,
+			abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
+			fqdn: isSelfManaged && formData.fqdn || undefined,
 			autoRenew: true,
 			regionPlans: plans,
 		}, { onSuccess: onClusterCreatedCallback });
