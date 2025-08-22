@@ -18,6 +18,7 @@ import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useDeleteClusterMutation } from './mutations/deleteCluster';
+import SubNavMenu from '@/components/SubNavMenu';
 
 const route = getRouteApi('');
 
@@ -97,7 +98,7 @@ export function ClustersList() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
+			<SubNavMenu>
 				{isSuccess && orgInfo?.clusters?.length ? (
 					<div className="flex items-center justify-between h-full text-sm text-white">
 						<div className="w-full">
@@ -129,7 +130,7 @@ export function ClustersList() {
 						)}
 					</div>
 				) : null}
-			</nav>
+			</SubNavMenu>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				{clustersData.keys.length ? (
 					clustersData.keys.map((clusterStatus) => (
