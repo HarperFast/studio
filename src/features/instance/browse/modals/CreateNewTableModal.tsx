@@ -88,8 +88,9 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<Button variant="positiveOutline" className="w-full rounded-full" size="lg">
-					<Plus /> Create a Table
+				<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
+					<Plus />
+					<span>Create a <u>T</u>able</span>
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-[425px]">

@@ -13,7 +13,7 @@ export function Browse() {
 			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3">
 				<BrowseSidebar />
 			</section>
-			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
+			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9 flex flex-col">
 				{!databaseName ? (
 					<div className="flex items-center justify-center h-full">
 						<p className="pt-2 text-sm text-center">Please select a database.</p>
@@ -25,8 +25,7 @@ export function Browse() {
 				) : (
 					<Suspense
 						fallback={
-							<Loading className="flex flex-col items-center justify-center h-full"
-								text="Loading Data Table" />
+							<Loading centered text="Loading Data Table" />
 						}
 					>
 						<Outlet />
