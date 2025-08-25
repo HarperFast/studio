@@ -16,15 +16,15 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Plus, Table } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCreateTableMutation } from '@/features/instance/operations/mutations/createTable';
-import { toast } from 'sonner';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
+import { Plus, Table } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const CreateTableSchema = z.object({
 	tableName: z
@@ -40,10 +40,7 @@ const CreateTableSchema = z.object({
 		}),
 	primaryKey: z
 		.string()
-		.min(1, {
-			message: 'Primary key is required.',
-		})
-		.regex(/^[a-zA-Z0-9_]+$/, {
+		.regex(/^[a-zA-Z0-9_]*$/, {
 			message: 'Primary key can only contain letters, numbers, and underscores.',
 		})
 		.max(14, {
@@ -70,13 +67,13 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	const { mutate: submitNewTableData } = useCreateTableMutation();
 
 	const submitForm = async (formData: z.infer<typeof CreateTableSchema>) => {
-		const updatedFormData = {
-			...formData,
-			...instanceParams,
+		submitNewTableData({
+			tableName: formData.tableName,
+			primaryKey: formData.primaryKey || 'id',
 			databaseName,
+			...instanceParams,
 			replicated: instanceParams.entityType === 'cluster',
-		};
-		submitNewTableData(updatedFormData, {
+		}, {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'describe_all'], refetchType: 'all' });
 				toast.success(`Table ${formData.tableName} created successfully`);
@@ -91,8 +88,9 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<Button variant="positiveOutline" className="w-full rounded-full" size="lg">
-					<Plus /> Create a Table
+				<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
+					<Plus />
+					<span>Create a <u>T</u>able</span>
 				</Button>
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-[425px]">
@@ -124,7 +122,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 								<FormItem className="">
 									<FormLabel className="pb-1">Primary Key</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. id" {...field} />
+										<Input type="text" placeholder="id" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>

@@ -6,8 +6,10 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	DialogTrigger,
 } from '@/components/ui/dialog';
 import { ArrowLeft, Trash, TriangleAlert } from 'lucide-react';
+import { ReactNode } from 'react';
 
 export function ConfirmDeletionModal({
 	typeOfThingBeingDeleted,
@@ -16,6 +18,7 @@ export function ConfirmDeletionModal({
 	setIsModalOpen,
 	deletionConfirmed,
 	deletionPending,
+	trigger,
 }: {
 	typeOfThingBeingDeleted: string;
 	nameOfThingBeingDeleted?: string;
@@ -23,9 +26,15 @@ export function ConfirmDeletionModal({
 	setIsModalOpen: (isOpen: boolean) => void;
 	deletionConfirmed: () => void;
 	deletionPending: boolean;
+	trigger?: ReactNode;
 }) {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+			{trigger && (
+				<DialogTrigger asChild>
+					{trigger}
+				</DialogTrigger>
+			)}
 			<DialogContent className="sm:max-w-[750px]">
 				<DialogHeader>
 					<DialogTitle>Are you sure you want to delete this {typeOfThingBeingDeleted}?</DialogTitle>

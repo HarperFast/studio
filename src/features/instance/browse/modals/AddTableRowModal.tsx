@@ -25,7 +25,9 @@ export function AddTableRowModal({
 			onSaveChanges(JSON.parse(addTableRecordData));
 		}
 	}, [addTableRecordData, onSaveChanges, isValidJSON]);
+	const [madeChanges, setMadeChanges] = useState(false);
 	const onValidate = useCallback((markers: unknown[]) => {
+		setMadeChanges(true);
 		setIsValidJSON(markers.length === 0);
 	}, [setIsValidJSON]);
 	const sampleJSON = useMemo(() => {
@@ -42,7 +44,9 @@ export function AddTableRowModal({
 	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 		{/* NOTE - Is this okay to do for the aria describedby? */}
 		<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => {
-			event.preventDefault();
+			if (madeChanges) {
+				event.preventDefault();
+			}
 		}}>
 			<DialogHeader>
 				<DialogTitle>Add New {instanceTable.name}</DialogTitle>

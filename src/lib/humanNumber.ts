@@ -1,3 +1,5 @@
+import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
+
 const units = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
 
 export function humanNumber(input: number): string {
@@ -16,5 +18,5 @@ export function humanNumber(input: number): string {
 		++u;
 	} while (Math.round(Math.abs(value) * r) / r >= thresh && u < units.length - 1);
 
-	return `${new Intl.NumberFormat().format(Math.round(value))} ${units[u]}`;
+	return `${addCommasToNumbers(Math.round(value))} ${units[u]}`;
 }
