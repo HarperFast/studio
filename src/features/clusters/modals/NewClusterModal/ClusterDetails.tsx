@@ -8,13 +8,14 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RegionFormInputs } from '@/features/clusters/modals/NewClusterModal/components/RegionFormInputs';
+import { ClusterRegions } from '@/features/clusters/modals/NewClusterModal/ClusterRegions';
+import { ClusterInstances } from '@/features/clusters/modals/NewClusterModal/components/ClusterInstances';
 import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
 import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
-import { ArrowRight, PlusIcon } from 'lucide-react';
-import { Suspense, useCallback, useEffect, useMemo } from 'react';
-import { useFieldArray, UseFormReturn } from 'react-hook-form';
+import { ArrowRight } from 'lucide-react';
+import { Suspense, useEffect, useMemo } from 'react';
+import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
 interface ClusterDetailsProps {
@@ -24,7 +25,6 @@ interface ClusterDetailsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;
-	selectedRegionPlans: z.infer<typeof NewClusterSchema>['regionPlans'];
 	totalPrice: number;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
 	selectedDeployment: string;
@@ -38,17 +38,11 @@ export function ClusterDetails({
 	regionLocations,
 	regionNameToLatencyToRegion,
 	selectedPlan,
-	selectedRegionPlans,
 	totalPrice,
 	deploymentToPerformanceToPlan,
 	selectedDeployment,
 	selectedPerformance,
 }: ClusterDetailsProps) {
-	const fieldArray = useFieldArray({
-		control: form.control,
-		name: 'regionPlans',
-	});
-
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
@@ -58,24 +52,14 @@ export function ClusterDetails({
 			return aPrice - bPrice;
 		}), [deploymentToPerformanceToPlan]);
 
-	const onAddARegionClick = useCallback(() => {
-		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
-		const firstRegionLocation = regionLocations?.find(r => !selectedRegionNames.includes(r.region));
-		if (firstRegionLocation) {
-			fieldArray.append({
-				regionName: firstRegionLocation.region,
-				latencyDescription: firstRegionLocation.latencyDescription,
-			});
-			void form.trigger();
-		}
-	}, [fieldArray, form, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans]);
-
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
 			form.setValue('performanceDescription', availablePerformanceDescriptions[0]);
 			void form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
+
+	const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
 
 	return (<>
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
@@ -96,32 +80,6 @@ export function ClusterDetails({
 					</FormItem>
 				)}
 			/>
-			<FormField
-				control={form.control}
-				name="abbreviatedName"
-				render={({ field }) => (
-					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Host Name</FormLabel>
-						<FormControl>
-							<Input
-								type="text"
-								maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
-								autoCapitalize="none"
-								placeholder={calculatedNames.suggestedAbbreviatedName}
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-			<FormItem className="col-span-3 ">
-				<FormLabel className="pb-1">Full Host Name</FormLabel>
-				<FormControl>
-					<span>{calculatedNames.fullHostName}</span>
-				</FormControl>
-				<FormMessage />
-			</FormItem>
 
 			<FormField
 				control={form.control}
@@ -194,33 +152,74 @@ export function ClusterDetails({
 				)}
 			/>
 
+			{isSelfManaged
+				? (<>
+					<FormField
+						control={form.control}
+						name="fqdn"
+						render={({ field }) => (
+							<FormItem className="md:col-span-6 col-span-3">
+								<FormLabel className="pb-1">Optional Cluster Load Balancer Host Name</FormLabel>
+								<FormControl>
+									<Input
+										type="text"
+										autoCapitalize="none"
+										autoComplete="off"
+										autoCorrect="off"
+										placeholder="example.your-company.com"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</>)
+				: (<>
+					<FormField
+						control={form.control}
+						name="abbreviatedName"
+						render={({ field }) => (
+							<FormItem className="col-span-3">
+								<FormLabel className="pb-1">Host Name</FormLabel>
+								<FormControl>
+									<Input
+										type="text"
+										maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
+										autoCapitalize="none"
+										autoComplete="off"
+										autoCorrect="off"
+										placeholder={calculatedNames.suggestedAbbreviatedName}
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormItem className="col-span-3 ">
+						<FormLabel className="pb-1">Full Host Name</FormLabel>
+						<FormControl>
+							<span>{calculatedNames.fullHostName}</span>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				</>)
+			}
+
+			{isSelfManaged
+				? (<ClusterInstances form={form} />)
+				: (<ClusterRegions
+					form={form}
+					regionLocations={regionLocations}
+					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+					selectedPlan={selectedPlan}
+				/>)
+			}
+
 			{selectedPlan?.resourcesPerInstance && (
 				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
 			)}
-
-			{fieldArray.fields.map((field, index) => (
-				<RegionFormInputs
-					control={form.control}
-					fieldArray={fieldArray}
-					form={form}
-					index={index}
-					key={field.id}
-					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-					selectedPlan={selectedPlan}
-				/>
-			))}
-
-			<div className="md:col-span-6 col-span-3">
-				<Button
-					type="button"
-					variant="positiveOutline"
-					className="rounded-full"
-					onClick={onAddARegionClick}
-				>
-					<PlusIcon />
-					Add Additional Region Usage
-				</Button>
-			</div>
 		</div>
 		<DialogFooter className="mt-3">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>

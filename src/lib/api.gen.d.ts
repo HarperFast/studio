@@ -4328,12 +4328,23 @@ export interface components {
             terminatedByUserId?: string;
         };
         ClusterUpsert: {
-            abbreviatedName: string;
+            abbreviatedName?: string;
             autoRenew: boolean;
+            fqdn?: string;
             name: string;
             /** Format: ID */
             organizationId: string;
-            regionPlans: components["schemas"]["RegionPlan"][];
+            regionPlans: components["schemas"]["ClusterUpsertRegionPlan"][];
+        };
+        ClusterUpsertRegionPlan: {
+            autoRenew?: boolean;
+            instanceFqdn?: string;
+            /** Format: Int */
+            operationsApiPort?: number;
+            operationsApiSecure?: boolean;
+            /** Format: ID */
+            planId: string;
+            regionId?: string;
         };
         Configuration: {
             description?: string;
@@ -4550,7 +4561,7 @@ export interface components {
             /** Format: Int */
             locationsPerPlan?: number;
             name: string;
-            performanceDescription?: string;
+            performanceDescription: string;
             planLimits?: components["schemas"]["PlanLimits"];
             /** Format: Float */
             priceUsd: number;
@@ -4766,6 +4777,7 @@ export type SchemaBillingAddress = components['schemas']['BillingAddress'];
 export type SchemaCloudInstanceType = components['schemas']['CloudInstanceType'];
 export type SchemaCluster = components['schemas']['Cluster'];
 export type SchemaClusterUpsert = components['schemas']['ClusterUpsert'];
+export type SchemaClusterUpsertRegionPlan = components['schemas']['ClusterUpsertRegionPlan'];
 export type SchemaConfiguration = components['schemas']['Configuration'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];

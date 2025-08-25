@@ -171,7 +171,7 @@ export function ClustersList() {
 				)}
 			</section>
 			<NewClusterModal
-				orgId={organizationId}
+				organizationId={organizationId}
 				isModalOpen={isNewClusterModalOpen}
 				setIsModalOpen={(isOpen: boolean) => setIsNewClusterModalOpen(isOpen)}
 			/>

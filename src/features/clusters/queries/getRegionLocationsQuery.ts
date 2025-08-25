@@ -1,17 +1,25 @@
 import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 
-async function getRegionLocations() {
-	const { data } = await apiClient.get(`/Region/`);
+export interface GetRegionLocationsParams {
+	organizationId?: string;
+	availableHosts?: boolean;
+}
+
+async function getRegionLocations({ organizationId, availableHosts }: GetRegionLocationsParams = {}) {
+	const { data } = await apiClient.get(`/Region/`, {
+		params: {
+			availableHosts,
+			organizationId,
+		},
+	});
 	return data;
 }
 
-function getRegionLocationsOptions() {
+export function getRegionLocationsOptions({ organizationId, availableHosts }: GetRegionLocationsParams = {}) {
 	return {
-		queryKey: [queryKeys.cluster, 'regionLocations'],
-		queryFn: getRegionLocations,
+		queryKey: [queryKeys.cluster, 'regionLocations', organizationId, availableHosts],
+		queryFn: () => getRegionLocations({ organizationId, availableHosts }),
 		retry: false,
 	};
 }
-
-export { getRegionLocationsOptions };
