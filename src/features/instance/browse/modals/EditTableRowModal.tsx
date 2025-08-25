@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 export function EditTableRowModal({
 	canEditRecords,
@@ -29,12 +29,18 @@ export function EditTableRowModal({
 	isDeleteTableRecordsPending: boolean;
 }) {
 	const [isValidJSON, setIsValidJSON] = useState(true);
+	const [madeChanges, setMadeChanges] = useState(false);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
+
 	const value = useMemo(() => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime  }) => rowWithoutTime);
+		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => rowWithoutTime);
 		return JSON.stringify(dataWithoutTimes, null, 4);
 	}, [data]);
+	const onValidate = useCallback((markers: unknown[]) => {
+		setMadeChanges(true);
+		setIsValidJSON(markers.length === 0);
+	}, [setIsValidJSON]);
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -42,7 +48,9 @@ export function EditTableRowModal({
 			<DialogContent
 				aria-describedby={undefined}
 				onEscapeKeyDown={canEditRecords ? (event) => {
-					event.preventDefault();
+					if (madeChanges) {
+						event.preventDefault();
+					}
 				} : undefined}
 			>
 				<DialogHeader>
@@ -55,9 +63,7 @@ export function EditTableRowModal({
 						theme="vs-dark"
 						options={canEditRecords ? undefined : { readOnly: true }}
 						value={value}
-						onValidate={(markers) => {
-							setIsValidJSON(markers.length === 0);
-						}}
+						onValidate={onValidate}
 						onChange={(updatedValue) => {
 							setUpdatedTableRecordData(updatedValue);
 						}}
