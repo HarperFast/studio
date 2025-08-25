@@ -40,7 +40,7 @@ export async function loadInstanceBrowseData(
 			.filter(Boolean)
 			.join('/');
 		if (!preload) {
-			throw redirect({ to });
+			throw redirect({ to, replace: true });
 		}
 	}
 	return data;
