@@ -1,3 +1,4 @@
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link, useLocation } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 import { useMemo } from 'react';
@@ -18,12 +19,14 @@ export function Breadcrumbs() {
 		// Start at 1 to skip over the first top level route. The home icon will cover that.
 		for (let index = 1; index < routeHistory.length; index++) {
 			const route = routeHistory[index];
-			const name = route.startsWith('org-')
-				? 'Org'
-				: route.startsWith('clu-')
-					? 'Cluster'
-					: route.slice(0, 1).toUpperCase() + route.slice(1);
 			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
+			let name = capitalizeWords(route);
+			if (name.startsWith('Org ')) {
+				name = 'Org';
+			}
+			else if (name.startsWith('Clu ')) {
+				name = 'Cluster';
+			}
 
 			breadcrumbs.push(
 				<svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" className="size-5 shrink-0 text-grey">
