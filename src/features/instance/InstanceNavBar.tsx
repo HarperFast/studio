@@ -1,3 +1,4 @@
+import { createBreadcrumbs } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -8,14 +9,39 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
-import { Link } from '@tanstack/react-router';
-import { ChartBarBig, GaugeIcon, List, Menu, NotepadText, Package } from 'lucide-react';
+import { Link, useLocation } from '@tanstack/react-router';
+import { ChartBarBig, GaugeIcon, HomeIcon, List, Menu, NotepadText, Package } from 'lucide-react';
 
-function DesktopInstanceNavBar() {
+function DesktopInstanceNavBar({ breadcrumb_routes }: { breadcrumb_routes: { name: string; path: string }[] }) {
 	const canManage = useInstanceManagePermission();
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
-			<h1 className="text-xl font-bold">Instance:</h1>
+			<ol role="list" className="flex items-center space-x-0 md:space-x-2 pb-2">
+					<li>
+						<div>
+							<Link to="/">
+								<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
+								<span className="sr-only">Home</span>
+							</Link>
+						</div>
+					</li>
+					{breadcrumb_routes.map((page) => (
+						<li key={page.name}>
+							<div className="flex items-center">
+								<svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" className="size-5 shrink-0 text-grey">
+									<path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
+								</svg>
+								<Link
+									to={page.path}
+									aria-current={page.name ? 'page' : undefined}
+									className="ml-4 text-xs md:text-sm font-medium hover:text-grey"
+								>
+									{page.name}
+								</Link>
+							</div>
+						</li>
+					))}
+				</ol>
 			<div className="flex space-x-2 *:hover:text-grey">
 				<Link to="browse" className="p-2">
 					<List className="inline-block" /> Browse
@@ -41,11 +67,37 @@ function DesktopInstanceNavBar() {
 	);
 }
 
-function MobileInstanceNavBar() {
+function MobileInstanceNavBar({breadcrumb_routes}: {breadcrumb_routes: { name: string; path: string }[]}) {
 	const canManage = useInstanceManagePermission();
 	return (
+		<>
 		<div className="flex md:hidden items-center justify-between p-2 text-white">
-			<h1 className="text-xl font-bold">Instance</h1>
+			<ol role="list" className="flex items-center space-x-0pb-2">
+					<li>
+						<div>
+							<Link to="/">
+								<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
+								<span className="sr-only">Home</span>
+							</Link>
+						</div>
+					</li>
+					{breadcrumb_routes.map((page) => (
+						<li key={page.name}>
+							<div className="flex items-center">
+								<svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" className="size-5 shrink-0 text-grey">
+									<path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
+								</svg>
+								<Link
+									to={page.path}
+									aria-current={page.name ? 'page' : undefined}
+									className=" text-xs font-medium hover:text-grey"
+								>
+									{page.name}
+								</Link>
+							</div>
+						</li>
+					))}
+				</ol>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" className="p-0">
@@ -77,14 +129,19 @@ function MobileInstanceNavBar() {
 				</DropdownMenuContent>
 			</DropdownMenu>
 		</div>
+		</>
 	);
 }
 
 export function InstanceNavBar() {
+	const location = useLocation();
+	const breadcrumb_routes = createBreadcrumbs(location);
+	breadcrumb_routes.splice(1, 1);
+	breadcrumb_routes.splice(2, 1);
 	return (
 		<>
-			<DesktopInstanceNavBar />
-			<MobileInstanceNavBar />
+			<DesktopInstanceNavBar breadcrumb_routes={breadcrumb_routes} />
+			<MobileInstanceNavBar breadcrumb_routes={breadcrumb_routes} />
 		</>
 	);
 }

@@ -1,16 +1,25 @@
-import { Link, useLocation } from '@tanstack/react-router';
+import { Link, ParsedLocation, useLocation } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
+
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createBreadcrumbs(location: ParsedLocation<any>) {
+
+	const route_history = location.pathname.split('/').filter((x) => x && x.length > 0);
+
+	return route_history.map((route, index) => {
+		const path = `/${route_history.slice(0, index + 1).join('/')}`;
+		return { name: route, path };
+	});
+}
 
 export function SubNavMenu({ children }: { children?: React.ReactNode }) {
 	const location = useLocation();
 
-	const route_history = location.pathname.split('/').filter((x) => x && x.length > 0);
-
-	const breadcrumb_routes = route_history.reduce((acc: { name: string; path: string }[], route) => {
-		const prev_path = acc[acc.length - 1]?.path ?? '';
-		acc.push({ name: route, path: `${prev_path}/${route}` });
-		return acc;
-	}, []);
+	const breadcrumb_routes = createBreadcrumbs(location);
+	
+  //NOTE: Removes the cluster/organization id from the breadcrumb
+	breadcrumb_routes.splice(1, 1);
 
 	return (
 		<nav className="fixed top-20 w-full  md:h-12 z-39 py-2 px-4 md:px-12 bg-grey-700">
