@@ -16,15 +16,15 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Plus, Table } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useCreateTableMutation } from '@/features/instance/operations/mutations/createTable';
-import { toast } from 'sonner';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
+import { Plus, Table } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
 
 const CreateTableSchema = z.object({
 	tableName: z
