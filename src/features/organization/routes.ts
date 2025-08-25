@@ -1,6 +1,4 @@
 import { createBillingRouteTree } from '@/features/organization/billing/routes';
-import { OrganizationIndex } from '@/features/organization/index';
-import { OrganizationLayout } from '@/features/organization/OrganizationLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { OrgConfigRolesIndex } from '@/features/organization/roles';
 import { OrgConfigUsersIndex } from '@/features/organization/users';
@@ -13,13 +11,6 @@ export const orgLayoutRoute = createRoute({
 	loader: (opts) => {
 		return opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId));
 	},
-	component: OrganizationLayout,
-});
-
-const orgIndexRoute = createRoute({
-	getParentRoute: () => orgLayoutRoute,
-	path: '/',
-	component: OrganizationIndex,
 });
 
 const orgRolesRoute = createRoute({
@@ -45,7 +36,6 @@ const orgUserRoute = createRoute({
 });
 
 export const orgRoutes = [
-	orgIndexRoute,
 	createBillingRouteTree(orgLayoutRoute),
 	orgRolesRoute,
 	orgRoleRoute,

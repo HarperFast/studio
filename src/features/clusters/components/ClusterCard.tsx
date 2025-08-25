@@ -15,9 +15,11 @@ import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
+import { notYetImplemented } from '@/lib/notYetImplemented';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
-import { useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { Ellipsis } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
@@ -33,15 +35,12 @@ export function ClusterCard({
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useInstanceAuth(cluster.id);
-	const navigate = useNavigate();
 
-	const isReadyForInteraction = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster]);
-	const canDelete = useMemo(() => remove && cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status, remove]);
-
+	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
+	const notTerminated = useMemo(() => cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status]);
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
 
-	const onInstancesClick = useCallback(() => navigate({ to: cluster.id }), [navigate, cluster]);
 	const onSignOutClick = useCallback(async () => {
 		await onInstanceLogoutSubmit({ instanceClient });
 		authStore.setUserForEntity(cluster, null);
@@ -56,12 +55,28 @@ export function ClusterCard({
 		onDeleteClusterModal(cluster);
 	}, [cluster, onDeleteClusterModal]);
 
+	const menuItems = [
+		isActive && update && (
+			<DropdownMenuItem onClick={notYetImplemented}>Edit</DropdownMenuItem>),
+		isActive && view && (
+			<Link to={cluster.id}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
+		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
+			<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>),
+		notTerminated && remove && (
+			<DropdownMenuItem
+				className="bg-red focus:bg-red/70 focus:text-white"
+				onClick={onDeleteClick}>
+				Delete
+			</DropdownMenuItem>
+		),
+	].filter(excludeFalsy);
+
 	return (
 		<Card className="relative">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{cluster.id}</span>
-					{(isReadyForInteraction && (view || update) || canDelete) && (<DropdownMenu>
+					<DropdownMenu>
 						<DropdownMenuTrigger>
 							<Ellipsis aria-label="Cluster options" />
 						</DropdownMenuTrigger>
@@ -75,22 +90,12 @@ export function ClusterCard({
 									: <Badge variant="warning">OFF</Badge>}
 								</DropdownMenuLabel>
 							))}
-							<DropdownMenuSeparator />
-							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
-							{isReadyForInteraction && view && (
-								<DropdownMenuItem onClick={onInstancesClick}>Instances</DropdownMenuItem>)}
-							{isReadyForInteraction && view && !!operationsUrl && !auth.isLoading && auth.user && (
-								<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>)}
-							{/*{isReadyForInteraction && update && (<DropdownMenuItem>Edit</DropdownMenuItem>)}*/}
-							{canDelete && (
-								<DropdownMenuItem
-									className="bg-red focus:bg-red/70 focus:text-white"
-									onClick={onDeleteClick}>
-									Delete
-								</DropdownMenuItem>
-							)}
+							{menuItems.length > 0 && (<>
+								<DropdownMenuSeparator />
+								{...menuItems}
+							</>)}
 						</DropdownMenuContent>
-					</DropdownMenu>)}
+					</DropdownMenu>
 				</CardDescription>
 				<CardTitle>
 					<h2>{cluster.name}</h2>
@@ -99,7 +104,7 @@ export function ClusterCard({
 			<CardContent className="flex justify-between">
 				{cluster.status && (
 					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>)}
-				{isReadyForInteraction && view && (<ClusterCardAction cluster={cluster} />)}
+				{isActive && view && (<ClusterCardAction cluster={cluster} />)}
 			</CardContent>
 		</Card>
 	);

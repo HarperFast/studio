@@ -21,7 +21,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 			beforeLoad: async ({ context, params }) => {
 				const auth = context.authentication[params.clusterId];
 				if (!auth || (!auth.isLoading && !auth.user)) {
-					const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/sign-in`;
+					const to = `/orgs/${params.organizationId}/${params.clusterId}/sign-in`;
 					throw redirect({ to, search: { redirect: currentUrlAfterHash() } });
 				}
 				return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
@@ -35,7 +35,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 		beforeLoad: async ({ context, params }) => {
 			const auth = context.authentication[params.instanceId];
 			if (!auth || (!auth.isLoading && !auth.user)) {
-				const to = `/orgs/${params.organizationId}/clusters/${params.clusterId}/instance/${params.instanceId}/sign-in`;
+				const to = `/orgs/${params.organizationId}/${params.clusterId}/instance/${params.instanceId}/sign-in`;
 				throw redirect({ to, search: { redirect: currentUrlAfterHash() } });
 			}
 			return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));

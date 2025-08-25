@@ -94,7 +94,7 @@ export function ClusterSetPassword() {
 	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, router, submitInstanceResetPassword, tempPassword]);
 
 	if (cluster && !cluster.resetPassword) {
-		return <Navigate to="../sign-in" />;
+		return <Navigate to="../sign-in" replace={true} />;
 	}
 
 	// TODO: There's a lot we can DRY up between the sign in form variants.

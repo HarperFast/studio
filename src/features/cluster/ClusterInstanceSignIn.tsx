@@ -97,7 +97,7 @@ export function ClusterInstanceSignIn() {
 	}, [cluster, instance, instanceClient, navigate, noun, operationsUrl, redirect, router, submitInstanceLogin]);
 
 	if (cluster?.resetPassword) {
-		return <Navigate to="../set-password" />;
+		return <Navigate to="../set-password" replace={true} />;
 	}
 
 	return (
