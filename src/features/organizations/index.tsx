@@ -1,5 +1,5 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
-import SubNavMenu from '@/components/SubNavMenu';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { Input } from '@/components/ui/input';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
@@ -74,14 +74,14 @@ export function OrganizationsIndex() {
 	return (
 		<>
 			<SubNavMenu>
-					<div className="flex w-full justify-between">
-						<Input
-							placeholder="Filter by name"
-							className="inline-block w-full md:w-64 bg-black border"
-							onChange={onFilterByNameChanged}
-						/>
+				<div className="flex w-full justify-between">
+					<Input
+						placeholder="Filter by name"
+						className="inline-block w-full md:w-64 bg-black border"
+						onChange={onFilterByNameChanged}
+					/>
 					<NewOrganizationModal />
-					</div>
+				</div>
 			</SubNavMenu>
 			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">

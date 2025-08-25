@@ -1,4 +1,4 @@
-import SubNavMenu from '@/components/SubNavMenu';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon } from 'lucide-react';
@@ -21,18 +21,18 @@ export function OrgBillingIndex() {
 
 	return (
 		<>
-		<SubNavMenu />
-		<div className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-			<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
-				<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
-					<DesktopBillingNavBar />
-					<MobileBillingNavBar />
-				</section>
-				<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
-					<Outlet />
-				</section>
+			<SubNavMenu />
+			<div className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+				<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
+					<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
+						<DesktopBillingNavBar />
+						<MobileBillingNavBar />
+					</section>
+					<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
+						<Outlet />
+					</section>
+				</div>
 			</div>
-		</div>
 		</>
 	);
 }
@@ -47,7 +47,13 @@ function DesktopBillingNavBar() {
 
 			<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
 				<li>
-					<Link to={``} className={sharedClasses} activeOptions={{ exact: true }} inactiveProps={inactiveProps} activeProps={activeProps}>
+					<Link
+						to={``}
+						className={sharedClasses}
+						activeOptions={{ exact: true }}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
 						<CreditCardIcon className="inline-block" /> <span className="ms-3">Payment Method</span>
 					</Link>
 				</li>
@@ -65,7 +71,13 @@ function MobileBillingNavBar() {
 	return (
 		<ul className="flex space-x-4 md:hidden py-2">
 			<li>
-				<Link to={``} className={sharedClasses} activeOptions={{ exact: true }} inactiveProps={inactiveProps} activeProps={activeProps}>
+				<Link
+					to={``}
+					className={sharedClasses}
+					activeOptions={{ exact: true }}
+					inactiveProps={inactiveProps}
+					activeProps={activeProps}
+				>
 					<CreditCardIcon className="inline-block" /> <span className="ms-3">Payment Method</span>
 				</Link>
 			</li>

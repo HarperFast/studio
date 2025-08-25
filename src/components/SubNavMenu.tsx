@@ -1,7 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 
-export default function SubNavMenu({ children }: { children?: React.ReactNode }) {
+export function SubNavMenu({ children }: { children?: React.ReactNode }) {
 	const location = useLocation();
 
 	const route_history = location.pathname.split('/').filter((x) => x && x.length > 0);
@@ -27,12 +27,7 @@ export default function SubNavMenu({ children }: { children?: React.ReactNode })
 					{breadcrumb_routes.map((page) => (
 						<li key={page.name}>
 							<div className="flex items-center">
-								<svg
-									fill="currentColor"
-									viewBox="0 0 20 20"
-									aria-hidden="true"
-									className="size-5 shrink-0 text-grey"
-								>
+								<svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" className="size-5 shrink-0 text-grey">
 									<path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
 								</svg>
 								<Link
@@ -46,7 +41,7 @@ export default function SubNavMenu({ children }: { children?: React.ReactNode })
 						</li>
 					))}
 				</ol>
-			{children}
+				{children}
 			</div>
 		</nav>
 	);

@@ -18,13 +18,13 @@ import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useDeleteClusterMutation } from '@/features/clusters/mutations/deleteCluster';
-import SubNavMenu from '@/components/SubNavMenu';
+import { SubNavMenu } from '@/components/SubNavMenu';
 
 const route = getRouteApi('');
 
 export function ClustersList() {
 	const queryClient = useQueryClient();
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string } = route.useParams();
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
@@ -47,7 +47,7 @@ export function ClustersList() {
 				?.slice()
 				.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 				.sort(byClusterStatusThenName) || [],
-			'status',
+			'status'
 		);
 		return {
 			keys: Object.keys(groups),
@@ -85,7 +85,7 @@ export function ClustersList() {
 				});
 			}
 		},
-		[deleteCluster, queryClient, setIsDeleteClusterModalOpen],
+		[deleteCluster, queryClient, setIsDeleteClusterModalOpen]
 	);
 
 	const onDeleteClusterModal = useCallback((cluster: Cluster) => {
@@ -101,11 +101,11 @@ export function ClustersList() {
 			<SubNavMenu>
 				{isSuccess && orgInfo?.clusters?.length ? (
 					<div className="flex w-full justify-between">
-							<Input
-								placeholder="Filter by name"
-								className="inline-block w-full md:w-64 bg-black border"
-								onChange={onFilterByNameChanged}
-							/>
+						<Input
+							placeholder="Filter by name"
+							className="inline-block w-full md:w-64 bg-black border"
+							onChange={onFilterByNameChanged}
+						/>
 
 						{create && (
 							<Button
@@ -145,7 +145,6 @@ export function ClustersList() {
 							No clusters found.
 							{create && ' Create a new cluster.'}
 						</h2>
-
 
 						{create && (
 							<Button
