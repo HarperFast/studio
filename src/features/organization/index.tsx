@@ -7,7 +7,7 @@ export function OrganizationIndex() {
 	const matchRoute = useMatchRoute();
 	const match = matchRoute({ to: '/orgs/$organizationId' });
 	if (match) {
-		return <Navigate to={`${organizationId}/clusters`} />;
+		return <Navigate to={`/orgs/${organizationId}/clusters`} />;
 	} else {
 		return <Outlet />;
 	}

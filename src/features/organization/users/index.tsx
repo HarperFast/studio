@@ -1,5 +1,6 @@
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { dataTableColumns } from '@/features/organization/users/constants/tableDefinition';
@@ -19,7 +20,7 @@ const route = getRouteApi('');
 
 export function OrgConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string; } = route.useParams();
+	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string } = route.useParams();
 	const { update } = useOrganizationRolePermissions(organizationId);
 	const {
 		data: organizationRoles,
@@ -42,15 +43,15 @@ export function OrgConfigUsersIndex() {
 		return Object.values(users).sort(sortByEmail);
 	}, [organizationRoles]);
 
-	const selectedUser = useMemo(
-		() => cloudUsers?.find(user => user.id === orgUserId),
-		[cloudUsers, orgUserId],
-	);
+	const selectedUser = useMemo(() => cloudUsers?.find((user) => user.id === orgUserId), [cloudUsers, orgUserId]);
 
-	const onSelectUser = useCallback((newUserId: string | undefined) => {
-		const parts = [orgUserId ? '..' : '', newUserId].filter(Boolean);
-		void navigate({ to: parts.join('/') });
-	}, [orgUserId, navigate]);
+	const onSelectUser = useCallback(
+		(newUserId: string | undefined) => {
+			const parts = [orgUserId ? '..' : '', newUserId].filter(Boolean);
+			void navigate({ to: parts.join('/') });
+		},
+		[orgUserId, navigate]
+	);
 
 	const isEditModalOpen = !!orgUserId && !!selectedUser;
 
@@ -59,10 +60,15 @@ export function OrgConfigUsersIndex() {
 		attribute: 'email',
 		descending: false,
 	});
-	const sortingState = useMemo(() => ([{
-		desc: sortTableDataParams.descending,
-		id: sortTableDataParams.attribute,
-	}]), [sortTableDataParams]);
+	const sortingState = useMemo(
+		() => [
+			{
+				desc: sortTableDataParams.descending,
+				id: sortTableDataParams.attribute,
+			},
+		],
+		[sortTableDataParams]
+	);
 
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
@@ -72,9 +78,12 @@ export function OrgConfigUsersIndex() {
 		setIsAddModalOpen(false);
 	}, [refetch, setIsAddModalOpen]);
 
-	const onRowClick = useCallback((rowData: Row<SchemaUser>) => {
-		onSelectUser(rowData.original.id);
-	}, [onSelectUser]);
+	const onRowClick = useCallback(
+		(rowData: Row<SchemaUser>) => {
+			onSelectUser(rowData.original.id);
+		},
+		[onSelectUser]
+	);
 	const closeEditModal = useCallback(() => {
 		onSelectUser(undefined);
 	}, [onSelectUser]);
@@ -87,35 +96,54 @@ export function OrgConfigUsersIndex() {
 	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-			<Suspense
-				fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-				<SimpleBrowseDataTable<SchemaUser, unknown>
-					data={cloudUsers}
-					isFetching={isFetching || isRefetching}
-					columns={dataTableColumns}
-					onRowClick={onRowClick}
-					sortingState={sortingState}
-				>
-					<Button variant="defaultOutline" onClick={onRefreshClick}
-						accessKey="r"
-						disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
-						className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
-					{update && (<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
-						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>)}
-				</SimpleBrowseDataTable>
-				{update && (<AddUserModal
-					isModalOpen={isAddModalOpen}
-					onChangesSaved={onUsedAdded}
-					setIsModalOpen={setIsAddModalOpen}
-				/>)}
-				{isEditModalOpen && (<EditUserModal
-					closeModal={closeEditModal}
-					data={selectedUser}
-					isModalOpen={isEditModalOpen}
-					onUserUpdated={onUserUpdated}
-				/>)}
-			</Suspense>
-		</div>
+		<>
+			<SubNavMenu />
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
+					<SimpleBrowseDataTable<SchemaUser, unknown>
+						data={cloudUsers}
+						isFetching={isFetching || isRefetching}
+						columns={dataTableColumns}
+						onRowClick={onRowClick}
+						sortingState={sortingState}
+					>
+						<Button
+							variant="defaultOutline"
+							onClick={onRefreshClick}
+							accessKey="r"
+							disabled={isFetching || isRefetching}
+						>
+							<RefreshCwIcon />{' '}
+							<span className="hidden lg:inline-block">
+								<u>R</u>efresh
+							</span>
+						</Button>
+						{update && (
+							<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a" disabled={isAddModalOpen}>
+								<PlusIcon />{' '}
+								<span>
+									<u>A</u>dd
+								</span>
+							</Button>
+						)}
+					</SimpleBrowseDataTable>
+					{update && (
+						<AddUserModal
+							isModalOpen={isAddModalOpen}
+							onChangesSaved={onUsedAdded}
+							setIsModalOpen={setIsAddModalOpen}
+						/>
+					)}
+					{isEditModalOpen && (
+						<EditUserModal
+							closeModal={closeEditModal}
+							data={selectedUser}
+							isModalOpen={isEditModalOpen}
+							onUserUpdated={onUserUpdated}
+						/>
+					)}
+				</Suspense>
+			</div>
+		</>
 	);
 }

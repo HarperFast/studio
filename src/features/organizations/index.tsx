@@ -1,4 +1,5 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { Input } from '@/components/ui/input';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
@@ -72,25 +73,17 @@ export function OrganizationsIndex() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-				<div className="flex items-center justify-between h-full text-sm text-white">
-					<div className="w-full">
-						<Input
-							placeholder="Filter by name"
-							className="inline-block w-full md:w-64 bg-black border"
-							onChange={onFilterByNameChanged}
-						/>
-						{/*<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>*/}
-						{/*	Sort by A-Z*/}
-						{/*	<span>*/}
-						{/*		<ChevronDown className="inline-block" />*/}
-						{/*	</span>*/}
-						{/*</Button>*/}
-					</div>
+			<SubNavMenu>
+				<div className="flex w-full justify-between">
+					<Input
+						placeholder="Filter by name"
+						className="inline-block w-full md:w-64 bg-black border"
+						onChange={onFilterByNameChanged}
+					/>
 					<NewOrganizationModal />
 				</div>
-			</nav>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			</SubNavMenu>
+			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 					{organizationRoles.map((organizationRole) => (
 						<div

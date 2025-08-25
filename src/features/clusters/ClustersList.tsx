@@ -17,13 +17,14 @@ import { getRouteApi } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useDeleteClusterMutation } from './mutations/deleteCluster';
+import { useDeleteClusterMutation } from '@/features/clusters/mutations/deleteCluster';
+import { SubNavMenu } from '@/components/SubNavMenu';
 
 const route = getRouteApi('');
 
 export function ClustersList() {
 	const queryClient = useQueryClient();
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string } = route.useParams();
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
@@ -46,7 +47,7 @@ export function ClustersList() {
 				?.slice()
 				.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 				.sort(byClusterStatusThenName) || [],
-			'status',
+			'status'
 		);
 		return {
 			keys: Object.keys(groups),
@@ -84,7 +85,7 @@ export function ClustersList() {
 				});
 			}
 		},
-		[deleteCluster, queryClient, setIsDeleteClusterModalOpen],
+		[deleteCluster, queryClient, setIsDeleteClusterModalOpen]
 	);
 
 	const onDeleteClusterModal = useCallback((cluster: Cluster) => {
@@ -97,22 +98,14 @@ export function ClustersList() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
+			<SubNavMenu>
 				{isSuccess && orgInfo?.clusters?.length ? (
-					<div className="flex items-center justify-between h-full text-sm text-white">
-						<div className="w-full">
-							<Input
-								placeholder="Filter by name"
-								className="inline-block w-full md:w-64 bg-black border"
-								onChange={onFilterByNameChanged}
-							/>
-							{/*<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>*/}
-							{/*	Sort by A-Z*/}
-							{/*	<span>*/}
-							{/*		<ChevronDown className="inline-block" />*/}
-							{/*	</span>*/}
-							{/*</Button>*/}
-						</div>
+					<div className="flex w-full justify-between">
+						<Input
+							placeholder="Filter by name"
+							className="inline-block w-full md:w-64 bg-black border"
+							onChange={onFilterByNameChanged}
+						/>
 
 						{create && (
 							<Button
@@ -129,8 +122,8 @@ export function ClustersList() {
 						)}
 					</div>
 				) : null}
-			</nav>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			</SubNavMenu>
+			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				{clustersData.keys.length ? (
 					clustersData.keys.map((clusterStatus) => (
 						<div key={clusterStatus}>
@@ -152,7 +145,6 @@ export function ClustersList() {
 							No clusters found.
 							{create && ' Create a new cluster.'}
 						</h2>
-
 
 						{create && (
 							<Button
