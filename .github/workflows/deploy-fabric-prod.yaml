@@ -2,7 +2,7 @@ name: Deploy Fabric Prod
 on:
   workflow_dispatch:
 jobs:
-  deployToStage:
+  deployToProd:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
