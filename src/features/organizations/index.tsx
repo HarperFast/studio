@@ -74,24 +74,16 @@ export function OrganizationsIndex() {
 	return (
 		<>
 			<SubNavMenu>
-				{/* <div className="flex items-center justify-between h-full text-sm text-white"> */}
 					<div className="flex w-full justify-between">
 						<Input
 							placeholder="Filter by name"
 							className="inline-block w-full md:w-64 bg-black border"
 							onChange={onFilterByNameChanged}
 						/>
-						{/*<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>*/}
-						{/*	Sort by A-Z*/}
-						{/*	<span>*/}
-						{/*		<ChevronDown className="inline-block" />*/}
-						{/*	</span>*/}
-						{/*</Button>*/}
 					<NewOrganizationModal />
 					</div>
-				{/* </div> */}
 			</SubNavMenu>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 					{organizationRoles.map((organizationRole) => (
 						<div

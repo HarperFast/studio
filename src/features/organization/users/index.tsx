@@ -1,5 +1,6 @@
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
+import SubNavMenu from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { dataTableColumns } from '@/features/organization/users/constants/tableDefinition';
@@ -87,7 +88,9 @@ export function OrgConfigUsersIndex() {
 	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+		<>
+		<SubNavMenu />
+		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 			<Suspense
 				fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 				<SimpleBrowseDataTable<SchemaUser, unknown>
@@ -117,5 +120,6 @@ export function OrgConfigUsersIndex() {
 				/>)}
 			</Suspense>
 		</div>
+		</>
 	);
 }

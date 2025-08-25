@@ -1,7 +1,7 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 
-export default function SubNavMenu({ children }: { children: React.ReactNode }) {
+export default function SubNavMenu({ children }: { children?: React.ReactNode }) {
 	const location = useLocation();
 
 	const route_history = location.pathname.split('/').filter((x) => x && x.length > 0);
@@ -13,9 +13,9 @@ export default function SubNavMenu({ children }: { children: React.ReactNode }) 
 	}, []);
 
 	return (
-		<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-			<div className="flex items-center h-full space-x-8">
-				<ol role="list" className="flex items-center space-x-4">
+		<nav className="fixed top-20 w-full  md:h-12 z-39 py-2 px-4 md:px-12 bg-grey-700">
+			<div className="md:flex items-center h-full space-x-8">
+				<ol role="list" className="flex items-center space-x-0 md:space-x-4 pb-2">
 					<li>
 						<div>
 							<Link to="/">
@@ -38,7 +38,7 @@ export default function SubNavMenu({ children }: { children: React.ReactNode }) 
 								<Link
 									to={page.path}
 									aria-current={page.name ? 'page' : undefined}
-									className="ml-4 text-sm font-medium hover:text-grey"
+									className="ml-4 text-xs md:text-sm font-medium hover:text-grey"
 								>
 									{page.name}
 								</Link>

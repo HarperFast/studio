@@ -1,3 +1,4 @@
+import SubNavMenu from '@/components/SubNavMenu';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon } from 'lucide-react';
@@ -12,14 +13,16 @@ export function OrgBillingIndex() {
 
 	if (!update) {
 		return (
-			<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<div className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				You don't have access to manage payments for this organization. Please contact your administrator.
 			</div>
 		);
 	}
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+		<>
+		<SubNavMenu />
+		<div className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 			<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
 				<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
 					<DesktopBillingNavBar />
@@ -30,6 +33,7 @@ export function OrgBillingIndex() {
 				</section>
 			</div>
 		</div>
+		</>
 	);
 }
 

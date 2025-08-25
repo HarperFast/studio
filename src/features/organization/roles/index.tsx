@@ -10,9 +10,10 @@ import { getRouteApi, useNavigate } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import { dataTableColumns } from './constants/tableDefinition';
-import { AddOrganizationRoleModal } from './modals/AddOrganizationRoleModal';
-import { EditOrganizationRoleModal } from './modals/EditOrganizationRoleModal';
+import { dataTableColumns } from '@/features/organization/roles/constants/tableDefinition';
+import { AddOrganizationRoleModal } from '@/features/organization/roles/modals/AddOrganizationRoleModal';
+import { EditOrganizationRoleModal } from '@/features/organization/roles/modals/EditOrganizationRoleModal';
+import SubNavMenu from '@/components/SubNavMenu';
 
 const route = getRouteApi('');
 
@@ -72,7 +73,9 @@ export function OrgConfigRolesIndex() {
 	const onRefreshClick = useRefreshClick(refetch);
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+		<>
+		<SubNavMenu />
+		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 			<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 				<SimpleBrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
 					<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
@@ -103,5 +106,6 @@ export function OrgConfigRolesIndex() {
 				)}
 			</Suspense>
 		</div>
+		</>
 	);
 }

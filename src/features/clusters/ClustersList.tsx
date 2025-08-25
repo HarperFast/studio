@@ -17,7 +17,7 @@ import { getRouteApi } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useDeleteClusterMutation } from './mutations/deleteCluster';
+import { useDeleteClusterMutation } from '@/features/clusters/mutations/deleteCluster';
 import SubNavMenu from '@/components/SubNavMenu';
 
 const route = getRouteApi('');
@@ -100,20 +100,12 @@ export function ClustersList() {
 		<>
 			<SubNavMenu>
 				{isSuccess && orgInfo?.clusters?.length ? (
-					<div className="flex items-center justify-between h-full text-sm text-white">
-						<div className="w-full">
+					<div className="flex w-full justify-between">
 							<Input
 								placeholder="Filter by name"
 								className="inline-block w-full md:w-64 bg-black border"
 								onChange={onFilterByNameChanged}
 							/>
-							{/*<Button className="inline-block w-2/5 md:w-auto md:ml-4" onClick={notYetImplemented}>*/}
-							{/*	Sort by A-Z*/}
-							{/*	<span>*/}
-							{/*		<ChevronDown className="inline-block" />*/}
-							{/*	</span>*/}
-							{/*</Button>*/}
-						</div>
 
 						{create && (
 							<Button
@@ -131,7 +123,7 @@ export function ClustersList() {
 					</div>
 				) : null}
 			</SubNavMenu>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				{clustersData.keys.length ? (
 					clustersData.keys.map((clusterStatus) => (
 						<div key={clusterStatus}>
