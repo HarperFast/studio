@@ -18,7 +18,7 @@ export function SubNavMenu({ children }: { children?: React.ReactNode }) {
 
 	const breadcrumb_routes = createBreadcrumbs(location);
 	
-  //NOTE: Removes the cluster/organization id from the breadcrumb
+  //NOTE: Removes the organization id from the breadcrumb
 	breadcrumb_routes.splice(1, 1);
 
 	return (
