@@ -21,10 +21,13 @@ export function Breadcrumbs() {
 			const route = routeHistory[index];
 			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
+			let id: string | undefined;
 			if (name.startsWith('Org ')) {
+				id = route.split('org-').pop();
 				name = 'Org';
 			}
 			else if (name.startsWith('Clu ')) {
+				id = route.split('clu-').pop();
 				name = 'Cluster';
 			}
 
@@ -37,6 +40,7 @@ export function Breadcrumbs() {
 					className="text-xs md:text-sm font-medium hover:text-grey"
 				>
 					{name}
+					{id && <div className="text-gray-500 text-xs">{id}</div>}
 				</Link>,
 			);
 		}
