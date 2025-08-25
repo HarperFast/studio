@@ -40,10 +40,7 @@ const CreateTableSchema = z.object({
 		}),
 	primaryKey: z
 		.string()
-		.min(1, {
-			message: 'Primary key is required.',
-		})
-		.regex(/^[a-zA-Z0-9_]+$/, {
+		.regex(/^[a-zA-Z0-9_]*$/, {
 			message: 'Primary key can only contain letters, numbers, and underscores.',
 		})
 		.max(14, {
@@ -70,13 +67,13 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	const { mutate: submitNewTableData } = useCreateTableMutation();
 
 	const submitForm = async (formData: z.infer<typeof CreateTableSchema>) => {
-		const updatedFormData = {
-			...formData,
-			...instanceParams,
+		submitNewTableData({
+			tableName: formData.tableName,
+			primaryKey: formData.primaryKey || 'id',
 			databaseName,
+			...instanceParams,
 			replicated: instanceParams.entityType === 'cluster',
-		};
-		submitNewTableData(updatedFormData, {
+		}, {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'describe_all'], refetchType: 'all' });
 				toast.success(`Table ${formData.tableName} created successfully`);
@@ -124,7 +121,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 								<FormItem className="">
 									<FormLabel className="pb-1">Primary Key</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. id" {...field} />
+										<Input type="text" placeholder="id" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
