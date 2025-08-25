@@ -1,12 +1,10 @@
-import { createRoute } from '@tanstack/react-router';
-import { ClustersLayoutComponent } from '@/features/clusters/index';
 import { ClustersList as ClusterList } from '@/features/clusters/ClustersList';
 import { orgLayoutRoute } from '@/features/organization/routes';
+import { createRoute } from '@tanstack/react-router';
 
 export const clustersLayoutRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
-	path: 'clusters',
-	component: ClustersLayoutComponent,
+	id: '_orgLayout',
 });
 
 const clustersIndexRoute = createRoute({

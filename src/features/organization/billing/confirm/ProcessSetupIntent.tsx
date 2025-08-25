@@ -21,7 +21,7 @@ export function ProcessSetupIntent() {
 	const stripe = useStripe();
 	const processStripePaymentMethod = useProcessStripePaymentMethod(organizationId);
 	const navigateBack = useCallback(() => {
-		const to = savedClusterState ? '../../clusters' : '../';
+		const to = savedClusterState ? '../../' : '../';
 		window.history.replaceState(null, '', currentUrlIncludingHash());
 		void navigate({ search: undefined, to });
 	}, [navigate, savedClusterState]);

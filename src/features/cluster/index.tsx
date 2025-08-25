@@ -1,4 +1,5 @@
 import { DataTable } from '@/components/DataTable';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -80,16 +81,7 @@ export function ClusterIndex() {
 	);
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-				{cluster?.instances?.length ? (
-					<div className="flex items-center justify-between h-full text-sm text-white">
-						<div className="w-full text-white">
-							<h2 className="text-xl font-semibold">{cluster.name}</h2>
-							<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
-						</div>
-					</div>
-				) : null}
-			</nav>
+			<SubNavMenu />
 			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<Card className="p-0 mt-4 min-h-96">
 					<CardContent className="p-0 min-h-96">
