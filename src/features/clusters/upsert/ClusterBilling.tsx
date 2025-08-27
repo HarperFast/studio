@@ -60,7 +60,7 @@ export function ClusterBilling({
 					this page.
 				</li>
 				<li>Your account representative can work with you to sort out more precise details, and to help
-					accomplish your objectives with this new
+					accomplish your objectives with this
 					cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
 						us</a>, we are here to help.
 				</li>
@@ -83,12 +83,24 @@ export function ClusterBilling({
 
 	return (<>
 		<ul className="list-disc ml-6 mb-6">
-			<li>You will be billed for this cluster today, and will receive a license for the
-				block of usage you've requested.
+			<li>You will be billed for this cluster today, and will receive a license for the block of usage you've
+				requested.
 			</li>
+			{clusterId && (
+				<li>If you scale up, you'll be charged for the additional blocks you've purchased
+					now${selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : ''}.
+				</li>)}
+			{clusterId && (<li>If you remove a region, that usage block will not be used (because it is specific to that
+				region).</li>)}
 			<li>{selectedAutoRenew
 				? 'When that block is used up, or 3 months elapse, you will be automatically renewed.'
 				: 'When that block is used up, or 3 months elapse, you will NOT be automatically renewed.'}
+			</li>
+			<li>No refunds will be issued.</li>
+			<li>We would love to work with you to sort out more precise details, and to help accomplish your objectives
+				with this
+				cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
+					us</a>, we are here to help.
 			</li>
 		</ul>
 
