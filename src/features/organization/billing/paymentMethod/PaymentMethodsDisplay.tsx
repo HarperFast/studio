@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import {
 	translateStripePaymentMethodStatusToText,
 	translateStripePaymentMethodStatusToVariant,
@@ -23,6 +24,7 @@ export function PaymentMethodsDisplay({
 	onReplacingPaymentMethod,
 }: PaymentMethodsDisplayProps) {
 	const { organizationId } = route.useParams();
+	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const paymentMethod = billing?.paymentMethod;
@@ -62,11 +64,20 @@ export function PaymentMethodsDisplay({
 				) : null}
 				{paymentMethod.status ? <> — <Badge variant={translateStripePaymentMethodStatusToVariant(paymentMethod.status)}>{translateStripePaymentMethodStatusToText(paymentMethod.status)}</Badge></> : null}
 			</div>
-			<div className="mt-2 mb-6">
+			{update && (<div className="mt-2 mb-6">
 				<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
 					Replace Payment Method</Button>
-			</div>
+			</div>)}
 		</>);
+	}
+
+	if (!update) {
+		return (
+			<div>
+				This org doesn't have a payment method, and you don't have access to add one.
+				Please contact your administrator.
+			</div>
+		);
 	}
 
 	return <AddNewPaymentMethod
