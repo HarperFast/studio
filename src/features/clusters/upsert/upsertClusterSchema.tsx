@@ -2,7 +2,7 @@ import { hostNameRegex } from '@/lib/string/regex/hostNameRegex';
 import { maxPortNumber, minPortNumber } from '@/lib/types/portNumbers';
 import { z } from 'zod';
 
-export const NewClusterSchema = z.object({
+export const UpsertClusterSchema = z.object({
 	systemName: z.string()
 		.min(1, 'Must be at least 1 character long.')
 		.max(255, 'Must be at most 255 characters long.'),

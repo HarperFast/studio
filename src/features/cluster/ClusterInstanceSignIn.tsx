@@ -1,4 +1,4 @@
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -102,14 +102,8 @@ export function ClusterInstanceSignIn() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700">
-				<div className="flex items-center justify-between h-full text-sm text-white">
-					<div className="w-full text-white">
-						{cluster?.name ? <h2 className="text-xl font-semibold">{cluster.name}</h2> :
-							<TextLoadingSkeleton />}
-						<p className="text-xs md:text-sm">Cluster ID: {clusterId}</p>
-					</div>
-				</div>
+			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">
+				<Breadcrumbs />
 			</nav>
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">

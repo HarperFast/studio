@@ -1,70 +1,66 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { defaultOperationsApiPort } from '@/config/constants';
-import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
-import { ClusterBilling } from '@/features/clusters/modals/NewClusterModal/ClusterBilling';
-import { ClusterDetails } from '@/features/clusters/modals/NewClusterModal/ClusterDetails';
-import { calculateInstanceFQDN } from '@/features/clusters/modals/NewClusterModal/lib/calculateInstanceFQDN';
+import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
+import { GetRegionLocationsParams } from '@/features/clusters/queries/getRegionLocationsQuery';
+import { ClusterBilling } from '@/features/clusters/upsert/ClusterBilling';
+import { ClusterDetails } from '@/features/clusters/upsert/ClusterDetails';
+import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import {
 	pickDefaultDeploymentPerformanceAndRegionPlans,
-} from '@/features/clusters/modals/NewClusterModal/lib/pickDefaultDeploymentPerformanceAndRegionPlans';
-import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
-import { PriceDisplay } from '@/features/clusters/modals/NewClusterModal/PriceDisplay';
-import {
-	getRegionLocationsOptions,
-	GetRegionLocationsParams,
-} from '@/features/clusters/queries/getRegionLocationsQuery';
-import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
-import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
-import { SchemaRegionPlan } from '@/lib/api.gen';
-import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
-import { sleep } from '@/lib/sleep';
+} from '@/features/clusters/upsert/lib/pickDefaultDeploymentPerformanceAndRegionPlans';
+import { PriceDisplay } from '@/features/clusters/upsert/PriceDisplay';
+import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/lib/api.gen';
+import { Organization } from '@/lib/api.patch';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
-interface NewClusterModalProps {
+interface ClusterFormProps {
+	clusterId?: string;
+	defaultValues: z.infer<typeof UpsertClusterSchema>;
+	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
+	organization: Organization;
 	organizationId: string;
-	isModalOpen: boolean;
-	setIsModalOpen: (isOpen: boolean) => void;
+	planTypes: SchemaPlan[];
+	regionLocations: SchemaRegion[];
+	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	setLimitRegionParameters: (value: GetRegionLocationsParams) => void;
+	setSavedClusterState: (value: null | ({ clusterId?: string } & z.infer<typeof UpsertClusterSchema>)) => void;
+	startOffOnBilling: boolean;
 }
 
-export function NewClusterModal({
+export function ClusterForm({
+	clusterId,
+	defaultValues,
+	deploymentToPerformanceToPlan,
+	organization,
 	organizationId,
-	isModalOpen,
-	setIsModalOpen,
-}: NewClusterModalProps) {
+	planTypes,
+	regionLocations,
+	regionNameToLatencyToRegion,
+	setLimitRegionParameters,
+	setSavedClusterState,
+	startOffOnBilling,
+}: ClusterFormProps) {
+	const navigate = useNavigate();
+
 	const queryClient = useQueryClient();
-	const { data: orgInfo } = useQuery(getOrganizationQueryOptions(organizationId));
-	const { data: planTypes } = useQuery(getPlanTypesOptions());
-	const [limitRegionParameters, setLimitRegionParameters] = useState<GetRegionLocationsParams>({ availableHosts: true });
-	const { data: regionLocations } = useQuery(getRegionLocationsOptions(limitRegionParameters));
-	const { mutate: submitNewClusterData, isPending } = useCreateNewClusterMutation();
-	const [firstLoad, setFirstLoad] = useState(true);
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<z.infer<typeof NewClusterSchema> | null>(LocalStorageKeys.SavedClusterState, null);
+	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
+	const { mutate: submitEditClusterData, isPending: isEditPending } = useEditClusterMutation();
 
-	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(false);
-	const deploymentToPerformanceToPlan = useMemo(() =>
-		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
-	const regionNameToLatencyToRegion = useMemo(() =>
-		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
+	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(startOffOnBilling);
 
-	useEffect(function restoreClusterModalStateAfterPaymentRedirect() {
-		if (firstLoad && savedClusterState && !isModalOpen) {
-			setIsModalOpen(true);
-			setConfirmingPaymentDetails(true);
-		}
-		setFirstLoad(false);
-	}, [firstLoad, isModalOpen, savedClusterState, setIsModalOpen]);
-
-	const refineZod = useCallback((data: z.infer<typeof NewClusterSchema>, ctx: z.RefinementCtx) => {
+	const refineZod = useCallback((data: z.infer<typeof UpsertClusterSchema>, ctx: z.RefinementCtx) => {
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
 		const isSelfManaged = data.deploymentDescription === 'Manage Your Own Installation/Configuration';
@@ -116,18 +112,17 @@ export function NewClusterModal({
 
 	const form = useForm({
 		mode: 'onChange',
-		resolver: zodResolver(NewClusterSchema.superRefine(refineZod)),
-		defaultValues: savedClusterState ?? {
-			systemName: '',
-			abbreviatedName: '',
-			regionPlans: [],
-			instances: [],
-			// The rest of the fields will be defaulted in the "pickDefaultDeploymentPerformanceAndRegionPlans"
-			// useEffect below.
-		},
+		resolver: zodResolver(UpsertClusterSchema.superRefine(refineZod)),
+		defaultValues,
 	});
 
-	useEffect(() => pickDefaultDeploymentPerformanceAndRegionPlans(form, planTypes, regionLocations), [form, planTypes, regionLocations]);
+	const [firstTime, setFirstTime] = useState(true);
+	useEffect(() => {
+		if (firstTime && defaultValues) {
+			setSavedClusterState(null);
+			setFirstTime(false);
+		}
+	}, [defaultValues, firstTime, setSavedClusterState]);
 
 	const systemName = form.watch('systemName');
 	const abbreviatedName = form.watch('abbreviatedName');
@@ -141,7 +136,7 @@ export function NewClusterModal({
 			availableHosts: selectedDeployment !== 'Dedicated for Cluster' ? true : undefined,
 			organizationId: selectedDeployment === 'Dedicated for Organization' ? organizationId : undefined,
 		});
-	}, [organizationId, selectedDeployment]);
+	}, [organizationId, selectedDeployment, setLimitRegionParameters]);
 
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
@@ -181,13 +176,13 @@ export function NewClusterModal({
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
 			toKebabCase(systemName),
-			NewClusterSchema.shape.abbreviatedName.maxLength!,
+			UpsertClusterSchema.shape.abbreviatedName.maxLength!,
 		);
 		return {
 			suggestedAbbreviatedName,
-			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${orgInfo?.subdomain || 'your-org'}.harperfabric.com`,
+			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${organization.subdomain || 'your-org'}.harperfabric.com`,
 		};
-	}, [systemName, abbreviatedName, orgInfo]);
+	}, [systemName, abbreviatedName, organization]);
 	const selectedPlan = useMemo(() =>
 		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
 
@@ -233,10 +228,15 @@ export function NewClusterModal({
 
 	const onClusterCreatedCallback = useCallback(() => {
 		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-		setIsModalOpen(false);
-		setConfirmingPaymentDetails(false);
-		form.reset();
-	}, [form, queryClient, setIsModalOpen]);
+		void navigate({ to: '../' });
+		toast.success('Cluster Created', { description: 'It is being provisioned now.' });
+	}, [navigate, queryClient]);
+
+	const onClusterEditedCallback = useCallback(() => {
+		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+		void navigate({ to: '../../' });
+		toast.success('Cluster Edited', { description: 'The updates are being applied now.' });
+	}, [navigate, queryClient]);
 
 	const submitCreateCluster = useCallback(async () => {
 		const formData = form.getValues();
@@ -265,15 +265,22 @@ export function NewClusterModal({
 			}
 		}
 		setSavedClusterState(null);
-		submitNewClusterData({
-			organizationId,
-			name: formData.systemName,
-			abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
-			fqdn: isSelfManaged && formData.fqdn || undefined,
-			autoRenew: true,
-			regionPlans: plans,
-		}, { onSuccess: onClusterCreatedCallback });
-	}, [calculatedNames.suggestedAbbreviatedName, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitNewClusterData]);
+		if (clusterId) {
+			submitEditClusterData({
+				id: clusterId,
+				regionPlans: plans,
+			}, { onSuccess: onClusterEditedCallback });
+		} else {
+			submitNewClusterData({
+				organizationId,
+				name: formData.systemName,
+				abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
+				fqdn: isSelfManaged && formData.fqdn || undefined,
+				autoRenew: true,
+				regionPlans: plans,
+			}, { onSuccess: onClusterCreatedCallback });
+		}
+	}, [calculatedNames.suggestedAbbreviatedName, clusterId, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, onClusterEditedCallback, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitEditClusterData, submitNewClusterData]);
 
 	const submitClusterDetailsForm = useCallback(() => {
 		if (totalPrice > 0) {
@@ -284,66 +291,58 @@ export function NewClusterModal({
 	}, [submitCreateCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
-		setSavedClusterState(redirecting ? form.getValues() : null);
-	}, [form, setSavedClusterState]);
-
-	const onOpenChange = useCallback(async () => {
-		setIsModalOpen(false);
-		await sleep(500);
-		// Give it a breath to avoid a re-render.
-		setConfirmingPaymentDetails(false);
-	}, [setIsModalOpen]);
+		setSavedClusterState(redirecting ? { clusterId, ...form.getValues() } : null);
+	}, [clusterId, form, setSavedClusterState]);
 
 	const onGoBackToDetails = useCallback(() => {
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	return (
-		<Dialog open={isModalOpen} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[825px]">
-				<DialogHeader>
-					<div className="absolute top-6 right-12 text-right">
-						<dt className="font-light">Total Price</dt>
-						<dd className="font-bold"><PriceDisplay price={totalPrice} /></dd>
-					</div>
-				</DialogHeader>
-				<Form {...form}>
-					{!confirmingPaymentDetails
-						? (<>
-							<DialogTitle>Cluster Configuration</DialogTitle>
-							<DialogDescription>Configure your Harper system and define deployment
-								plans.</DialogDescription>
+	return (<>
+		<div className="absolute top-3 right-12 text-right">
+			<dt className="font-light">Total Price</dt>
+			<dd className="font-bold"><PriceDisplay price={totalPrice} /></dd>
+		</div>
+		<Form {...form}>
+			{!confirmingPaymentDetails
+				? (<>
+					<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Configuration</h1>
+					<p className="text-muted-foreground text-sm mb-6">Configure your Harper system and define
+						deployment
+						plans.</p>
 
-							<DialogTitle>System</DialogTitle>
-							<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
-								<ClusterDetails
-									deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
-									calculatedNames={calculatedNames}
-									form={form}
-									isPending={isPending}
-									regionLocations={regionLocations}
-									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-									selectedPlan={selectedPlan}
-									selectedDeployment={selectedDeployment}
-									selectedPerformance={selectedPerformance}
-									totalPrice={totalPrice}
-								/>
-							</form>
-						</>)
-						: (<>
-							<DialogTitle>Cluster Billing</DialogTitle>
-							<DialogDescription>Please confirm the following billing details:</DialogDescription>
+					<h1 className="text-lg leading-none text-white font-semibold mb-4">System</h1>
+					<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
+						<ClusterDetails
+							calculatedNames={calculatedNames}
+							clusterId={clusterId}
+							deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
+							form={form}
+							isPending={isCreatePending || isEditPending}
+							regionLocations={regionLocations}
+							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+							selectedDeployment={selectedDeployment}
+							selectedPerformance={selectedPerformance}
+							selectedPlan={selectedPlan}
+							totalPrice={totalPrice}
+						/>
+					</form>
+				</>)
+				: (<>
+					<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Billing</h1>
+					<p className="text-muted-foreground text-sm mb-2">Please confirm the following billing
+						details:</p>
 
-							<ClusterBilling
-								isPending={isPending}
-								onGoBackToDetails={onGoBackToDetails}
-								onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-								onSubmit={submitCreateCluster}
-							/>
-						</>)
-					}
-				</Form>
-			</DialogContent>
-		</Dialog>
-	);
+					<ClusterBilling
+						isPending={isCreatePending || isEditPending}
+						onGoBackToDetails={onGoBackToDetails}
+						onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+						onSubmit={submitCreateCluster}
+						organizationId={organizationId}
+						clusterId={clusterId}
+					/>
+				</>)
+			}
+		</Form>
+	</>);
 }

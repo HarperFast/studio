@@ -15,13 +15,19 @@ export function ProcessSetupIntent() {
 	const { setup_intent_client_secret: clientSecretAfterHash }: {
 		setup_intent_client_secret?: string
 	} = useSearch({ strict: false });
-	const [savedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
+	const [savedClusterState] = useLocalStorage<{
+		clusterId?: string
+	} & unknown | null>(LocalStorageKeys.SavedClusterState, null);
 	const clientSecret = clientSecretBeforeHash || clientSecretAfterHash;
 
 	const stripe = useStripe();
 	const processStripePaymentMethod = useProcessStripePaymentMethod(organizationId);
 	const navigateBack = useCallback(() => {
-		const to = savedClusterState ? '../../' : '../';
+		const to = savedClusterState
+			? savedClusterState.clusterId
+				? `../../${savedClusterState.clusterId}/edit`
+				: '../../new-cluster'
+			: '../';
 		window.history.replaceState(null, '', currentUrlIncludingHash());
 		void navigate({ search: undefined, to });
 	}, [navigate, savedClusterState]);

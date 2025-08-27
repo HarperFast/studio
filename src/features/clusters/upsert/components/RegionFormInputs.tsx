@@ -12,7 +12,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
+import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -20,9 +20,9 @@ import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
 type RegionFormInputsProps = {
-	control: Control<z.infer<typeof NewClusterSchema>>,
-	fieldArray: UseFieldArrayReturn<z.infer<typeof NewClusterSchema>, 'regionPlans'>,
-	form: UseFormReturn<z.infer<typeof NewClusterSchema>>,
+	control: Control<z.infer<typeof UpsertClusterSchema>>,
+	fieldArray: UseFieldArrayReturn<z.infer<typeof UpsertClusterSchema>, 'regionPlans'>,
+	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>,
 	index: number,
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>,
 	selectedPlan: SchemaPlan | undefined,

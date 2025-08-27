@@ -1,5 +1,5 @@
 import { ClustersList as ClusterList } from '@/features/clusters/ClustersList';
-import { EditCluster } from '@/features/clusters/EditCluster';
+import { UpsertCluster } from '@/features/clusters/upsert';
 import { orgLayoutRoute } from '@/features/organization/routes';
 import { createRoute } from '@tanstack/react-router';
 
@@ -17,13 +17,13 @@ const clustersIndexRoute = createRoute({
 const newClusterRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
 	path: '/new-cluster',
-	component: EditCluster,
+	component: UpsertCluster,
 });
 
 const editClusterRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
 	path: '$clusterId/edit',
-	component: EditCluster,
+	component: UpsertCluster,
 });
 
 export const clustersRoutes = [
