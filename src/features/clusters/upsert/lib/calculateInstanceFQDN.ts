@@ -1,8 +1,8 @@
 import { defaultOperationsApiPort } from '@/config/constants';
-import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
+import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { z } from 'zod';
 
-export function calculateInstanceFQDN(instance: z.infer<typeof NewClusterSchema.shape.instances.element>) {
+export function calculateInstanceFQDN(instance: z.infer<typeof UpsertClusterSchema.shape.instances.element>) {
 	let { secure, fqdn, port } = instance;
 	if (!port) {
 		port = defaultOperationsApiPort;

@@ -8,10 +8,10 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClusterRegions } from '@/features/clusters/modals/NewClusterModal/ClusterRegions';
-import { ClusterInstances } from '@/features/clusters/modals/NewClusterModal/components/ClusterInstances';
-import { ResourcesPerInstance } from '@/features/clusters/modals/NewClusterModal/components/ResourcesPerInstance';
-import { NewClusterSchema } from '@/features/clusters/modals/NewClusterModal/newClusterSchema';
+import { ClusterRegions } from '@/features/clusters/upsert/ClusterRegions';
+import { ClusterInstances } from '@/features/clusters/upsert/components/ClusterInstances';
+import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance';
+import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { Suspense, useEffect, useMemo } from 'react';
@@ -20,28 +20,30 @@ import { z } from 'zod';
 
 interface ClusterDetailsProps {
 	calculatedNames: { suggestedAbbreviatedName: string; fullHostName: string };
-	form: UseFormReturn<z.infer<typeof NewClusterSchema>>;
+	clusterId?: string;
+	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
+	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
 	isPending: boolean;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
-	selectedPlan: SchemaPlan | undefined;
-	totalPrice: number;
-	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
 	selectedDeployment: string;
 	selectedPerformance: string;
+	selectedPlan: SchemaPlan | undefined;
+	totalPrice: number;
 }
 
 export function ClusterDetails({
 	calculatedNames,
+	clusterId,
+	deploymentToPerformanceToPlan,
 	form,
 	isPending,
 	regionLocations,
 	regionNameToLatencyToRegion,
-	selectedPlan,
-	totalPrice,
-	deploymentToPerformanceToPlan,
 	selectedDeployment,
 	selectedPerformance,
+	selectedPlan,
+	totalPrice,
 }: ClusterDetailsProps) {
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
@@ -72,8 +74,9 @@ export function ClusterDetails({
 						<FormControl>
 							<Input
 								type="text"
-								maxLength={NewClusterSchema.shape.systemName.maxLength!}
+								maxLength={UpsertClusterSchema.shape.systemName.maxLength!}
 								autoCapitalize="words"
+								disabled={!!clusterId}
 								{...field} />
 						</FormControl>
 						<FormMessage />
@@ -90,10 +93,13 @@ export function ClusterDetails({
 
 						<Suspense fallback={<TextLoadingSkeleton />}>
 							<FormControl>
-								<Select {...field} onValueChange={(deploymentDescription) => {
-									field.onChange(deploymentDescription);
-									void form.trigger();
-								}}>
+								<Select
+									{...field}
+									disabled={!!clusterId}
+									onValueChange={(deploymentDescription) => {
+										field.onChange(deploymentDescription);
+										void form.trigger();
+									}}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Choose Tier" />
 									</SelectTrigger>
@@ -162,12 +168,13 @@ export function ClusterDetails({
 								<FormLabel className="pb-1">Optional Cluster Load Balancer Host Name</FormLabel>
 								<FormControl>
 									<Input
+										{...field}
 										type="text"
 										autoCapitalize="none"
 										autoComplete="off"
 										autoCorrect="off"
 										placeholder="example.your-company.com"
-										{...field}
+										disabled={!!clusterId}
 									/>
 								</FormControl>
 								<FormMessage />
@@ -184,13 +191,14 @@ export function ClusterDetails({
 								<FormLabel className="pb-1">Host Name</FormLabel>
 								<FormControl>
 									<Input
+										{...field}
 										type="text"
-										maxLength={NewClusterSchema.shape.abbreviatedName.maxLength!}
+										maxLength={UpsertClusterSchema.shape.abbreviatedName.maxLength!}
 										autoCapitalize="none"
 										autoComplete="off"
 										autoCorrect="off"
 										placeholder={calculatedNames.suggestedAbbreviatedName}
-										{...field}
+										disabled={!!clusterId}
 									/>
 								</FormControl>
 								<FormMessage />
@@ -223,7 +231,8 @@ export function ClusterDetails({
 		</div>
 		<DialogFooter className="mt-3">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
-				{totalPrice > 0 ? 'Confirm Payment Details' : 'Create New Cluster'} <ArrowRight />
+				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
+				<ArrowRight />
 			</Button>
 		</DialogFooter>
 	</>);

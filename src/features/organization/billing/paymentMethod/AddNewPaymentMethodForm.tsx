@@ -42,9 +42,9 @@ export function AddNewPaymentMethodForm({
 		const result = await stripe.confirmSetup({
 			clientSecret: stripeOptions.clientSecret!,
 			elements,
-			redirect: 'if_required',
+			// redirect: 'if_required',
 			// If you want to test the redirect, this will force it to happen.
-			// redirect: 'always' as 'if_required',
+			redirect: 'always' as 'if_required',
 			confirmParams: {
 				return_url: `${window.location.origin}/#/orgs/${organizationId}/billing/confirm`,
 			},

@@ -17,7 +17,6 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
-import { notYetImplemented } from '@/lib/notYetImplemented';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { Link } from '@tanstack/react-router';
 import { Ellipsis } from 'lucide-react';
@@ -57,7 +56,7 @@ export function ClusterCard({
 
 	const menuItems = [
 		isActive && update && (
-			<DropdownMenuItem onClick={notYetImplemented}>Edit</DropdownMenuItem>),
+			<Link to={`${cluster.id}/edit`}><DropdownMenuItem>Edit</DropdownMenuItem></Link>),
 		isActive && view && (
 			<Link to={cluster.id}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (

@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
-import { NewClusterModal } from '@/features/clusters/modals/NewClusterModal';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
@@ -13,7 +12,7 @@ import { groupBy } from '@/lib/groupBy';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { getRouteApi, Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -29,7 +28,6 @@ export function ClustersList() {
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
 	const { mutate: deleteCluster, isPending: isDeletingClusterPending } = useDeleteClusterMutation();
 
-	const [isNewClusterModalOpen, setIsNewClusterModalOpen] = useState(false);
 	const [isDeleteClusterModalOpen, setIsDeleteClusterModalOpen] = useState(false);
 	const [deleteClusterInfo, setDeleteClusterInfo] = useState({
 		id: '',
@@ -108,17 +106,18 @@ export function ClustersList() {
 						/>
 
 						{create && (
-							<Button
-								variant="positive"
-								className="w-full rounded-full md:w-44"
-								accessKey="n"
-								onClick={() => setIsNewClusterModalOpen(true)}
-							>
-								<Plus />{' '}
-								<span>
-									<u>N</u>ew Cluster
-								</span>
-							</Button>
+							<Link to="new-cluster">
+								<Button
+									variant="positive"
+									className="w-full rounded-full md:w-44"
+									accessKey="n"
+								>
+									<Plus />{' '}
+									<span>
+										<u>N</u>ew Cluster
+									</span>
+								</Button>
+							</Link>
 						)}
 					</div>
 				) : null}
@@ -147,26 +146,22 @@ export function ClustersList() {
 						</h2>
 
 						{create && (
-							<Button
-								variant="positive"
-								className="w-full rounded-full md:w-44"
-								accessKey="n"
-								onClick={() => setIsNewClusterModalOpen(true)}
-							>
-								<Plus />{' '}
-								<span>
-									<u>N</u>ew Cluster
-								</span>
-							</Button>
+							<Link to="new-cluster">
+								<Button
+									variant="positive"
+									className="w-full rounded-full md:w-44"
+									accessKey="n"
+								>
+									<Plus />{' '}
+									<span>
+										<u>N</u>ew Cluster
+									</span>
+								</Button>
+							</Link>
 						)}
 					</div>
 				)}
 			</section>
-			<NewClusterModal
-				organizationId={organizationId}
-				isModalOpen={isNewClusterModalOpen}
-				setIsModalOpen={(isOpen: boolean) => setIsNewClusterModalOpen(isOpen)}
-			/>
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted="cluster"
 				nameOfThingBeingDeleted={deleteClusterInfo.name}
