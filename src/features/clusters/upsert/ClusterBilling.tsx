@@ -15,6 +15,7 @@ interface ClusterBillingProps {
 	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
 	readonly onSubmit?: () => void;
 	readonly organizationId: string;
+	readonly selectedAutoRenew: boolean;
 	readonly selectedPlan: SchemaPlan | undefined;
 }
 
@@ -25,6 +26,7 @@ export function ClusterBilling({
 	onSaveStateForBillingRedirect,
 	onSubmit,
 	organizationId,
+	selectedAutoRenew,
 	selectedPlan,
 }: ClusterBillingProps) {
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
@@ -84,8 +86,9 @@ export function ClusterBilling({
 			<li>You will be billed for this cluster today, and will receive a license for the
 				block of usage you've requested.
 			</li>
-			<li>When that block is used up, or 3 months elapse, you will be automatically
-				renewed.
+			<li>{selectedAutoRenew
+				? 'When that block is used up, or 3 months elapse, you will be automatically renewed.'
+				: 'When that block is used up, or 3 months elapse, you will NOT be automatically renewed.'}
 			</li>
 		</ul>
 

@@ -130,6 +130,7 @@ export function ClusterForm({
 	const selectedPerformance = form.watch('performanceDescription');
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
+	const selectedAutoRenew = form.watch('autoRenew');
 
 	useEffect(() => {
 		setLimitRegionParameters({
@@ -340,6 +341,7 @@ export function ClusterForm({
 						onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
 						onSubmit={submitCreateCluster}
 						organizationId={organizationId}
+						selectedAutoRenew={selectedAutoRenew}
 						selectedPlan={selectedPlan}
 					/>
 				</>)
