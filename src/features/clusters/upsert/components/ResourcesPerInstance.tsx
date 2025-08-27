@@ -87,7 +87,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 		},
 	].filter(excludeFalsy), [planLimits, resourcesPerInstance]);
 
-	return <FormItem className="md:col-span-6">
+	return <FormItem className="col-span-3 md:col-span-6">
 		<FormLabel className="inline-flex">
 			<Button
 				type="button"
@@ -95,8 +95,8 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 				className="text-white cursor-pointer"
 				onClick={onUsageLimitsClick}
 			>
-				Purchasing usage block for {humanNumber(planLimits.readsPerMinuteCount!)} reads/min &amp;
-				{humanNumber(planLimits.totalReadCount)} total reads per region,<br/>
+				Purchasing usage block for {humanNumber(planLimits.readsPerMinuteCount!)} reads/min
+				&amp; {humanNumber(planLimits.totalReadCount)} total reads per region,<br/>
 				{humanNumber(planLimits.writesPerMinuteCount!)} writes/min &amp; {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months, expand for more details:
 				{toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 			</Button>
