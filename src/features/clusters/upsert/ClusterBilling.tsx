@@ -96,7 +96,8 @@ export function ClusterBilling({
 				? 'When that block is used up, or 3 months elapse, you will be automatically renewed.'
 				: 'When that block is used up, or 3 months elapse, you will NOT be automatically renewed.'}
 			</li>
-			<li>No refunds will be issued.</li>
+			<li>While refunds are not available, we’d be happy to assist you with... swag, depending on availability.
+			</li>
 			<li>We would love to work with you to sort out more precise details, and to help accomplish your objectives
 				with this
 				cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
