@@ -127,7 +127,7 @@ export function ClusterDetails({
 				name="performanceDescription"
 				render={({ field }) => (
 					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
+						<FormLabel className="pb-1">{selectedDeployment.startsWith('Self') ? 'Support' : 'Performance'} &amp; Usage</FormLabel>
 
 						<Suspense fallback={<TextLoadingSkeleton />}>
 							<FormControl>
@@ -225,8 +225,8 @@ export function ClusterDetails({
 				/>)
 			}
 
-			{selectedPlan?.resourcesPerInstance && (
-				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
+			{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
+				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
 			)}
 		</div>
 		<DialogFooter className="mt-3">
