@@ -247,20 +247,20 @@ export function ClusterForm({
 		if (isSelfManaged) {
 			for (const instance of formData.instances) {
 				plans.push({
-					planId: plan.id,
-					autoRenew: true,
-					operationsApiSecure: instance.secure === 'true',
+					autoRenew: formData.autoRenew,
 					instanceFqdn: instance.fqdn,
 					operationsApiPort: instance.port || defaultOperationsApiPort,
+					operationsApiSecure: instance.secure === 'true',
+					planId: plan.id,
 				});
 			}
 		} else {
 			for (const regionPlan of formData.regionPlans) {
 				const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
 				plans.push({
+					autoRenew: formData.autoRenew,
 					planId: plan.id,
 					regionId: region.id,
-					autoRenew: true,
 				});
 			}
 		}
@@ -276,7 +276,7 @@ export function ClusterForm({
 				name: formData.systemName,
 				abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
 				fqdn: isSelfManaged && formData.fqdn || undefined,
-				autoRenew: true,
+				autoRenew: formData.autoRenew,
 				regionPlans: plans,
 			}, { onSuccess: onClusterCreatedCallback });
 		}
