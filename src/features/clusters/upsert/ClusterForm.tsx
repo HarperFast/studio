@@ -334,12 +334,13 @@ export function ClusterForm({
 						details:</p>
 
 					<ClusterBilling
+						clusterId={clusterId}
 						isPending={isCreatePending || isEditPending}
 						onGoBackToDetails={onGoBackToDetails}
 						onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
 						onSubmit={submitCreateCluster}
 						organizationId={organizationId}
-						clusterId={clusterId}
+						selectedPlan={selectedPlan}
 					/>
 				</>)
 			}

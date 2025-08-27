@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
+import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
+import { SchemaPlan } from '@/lib/api.gen';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -13,6 +15,7 @@ interface ClusterBillingProps {
 	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
 	readonly onSubmit?: () => void;
 	readonly organizationId: string;
+	readonly selectedPlan: SchemaPlan | undefined;
 }
 
 export function ClusterBilling({
@@ -22,6 +25,7 @@ export function ClusterBilling({
 	onSaveStateForBillingRedirect,
 	onSubmit,
 	organizationId,
+	selectedPlan,
 }: ClusterBillingProps) {
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
@@ -84,6 +88,10 @@ export function ClusterBilling({
 				renewed.
 			</li>
 		</ul>
+
+		{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
+			<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
+		)}
 
 		<p className="text-muted-foreground text-sm mb-6">Payment method:</p>
 
