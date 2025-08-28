@@ -24,6 +24,14 @@ type RowData = {
 	original: ReadLogItem;
 };
 
+const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
+	limit: '100',
+	level: 'undefined',
+	from: '',
+	until: '',
+	order: 'asc',
+};
+
 const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'level',
@@ -111,13 +119,7 @@ export function Logs() {
 
 	const form = useForm<z.infer<typeof LogFiltersFormSchema>>({
 		resolver: zodResolver(LogFiltersFormSchema),
-		defaultValues: {
-			limit: '100',
-			level: 'undefined',
-			from: '',
-			until: '',
-			order: 'asc',
-		},
+		defaultValues: defaultFormValues,
 		mode: 'onChange',
 	});
 
@@ -143,13 +145,7 @@ export function Logs() {
 
 	const resetFilters = async () => {
 		form.reset();
-		setLogFilters({
-			limit: '100',
-			level: 'undefined',
-			from: '',
-			until: '',
-			order: 'asc',
-		});
+		setLogFilters(defaultFormValues);
 	};
 
 	const onRefreshClick = useRefreshClick(refetchReadLogQueryOptions);
