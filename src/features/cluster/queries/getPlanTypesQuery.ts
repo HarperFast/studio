@@ -2,17 +2,19 @@ import { apiClient } from '@/config/apiClient';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
-const getPlanTypes = async () => {
-	const { data } = await apiClient.get(`/Plan/`);
+async function getPlanTypes(organizationId: string) {
+	const { data } = await apiClient.get(`/Plan/`, {
+		params: {
+			organizationId,
+		},
+	});
 	return data;
-};
+}
 
-function getPlanTypesOptions() {
+export function getPlanTypesOptions(organizationId: string) {
 	return queryOptions({
-		queryKey: [queryKeys.cluster, 'instancePlan'],
-		queryFn: getPlanTypes,
+		queryKey: [queryKeys.organization, organizationId, 'instancePlan'],
+		queryFn: () => getPlanTypes(organizationId),
 		retry: false,
 	});
 }
-
-export { getPlanTypesOptions };
