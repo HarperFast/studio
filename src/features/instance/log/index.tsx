@@ -1,19 +1,11 @@
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
-import { FormField } from '@/components/ui/form/FormField';
-import { FormItem } from '@/components/ui/form/FormItem';
-import { FormLabel } from '@/components/ui/form/FormLabel';
-import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import {
 	getReadLogQueryOptions,
+	LogFiltersFormSchema,
 	LogFiltersSchema,
 	ReadLogItem,
 } from '@/features/instance/operations/queries/getReadLog';
@@ -23,6 +15,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { LogsFiltersForm } from './components/LogsFiltersForm';
 
 type RowData = {
 	original: ReadLogItem;
@@ -86,9 +79,8 @@ const isValidDateRange = (startDate?: Date, endDate?: Date) => {
 };
 
 export function Logs() {
-	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersSchema>>({
-		limit: 1000,
-		order: 'desc',
+	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>({
+		limit: "1000",
 	});
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
@@ -104,10 +96,14 @@ export function Logs() {
 		replicated: instanceParams.entityType === 'cluster',
 	}));
 
-	const form = useForm<z.infer<typeof LogFiltersSchema>>({
-		resolver: zodResolver(LogFiltersSchema),
+	const form = useForm<z.infer<typeof LogFiltersFormSchema>>({
+		resolver: zodResolver(LogFiltersFormSchema),
 		defaultValues: {
-			order: 'desc',
+			limit: '1000',
+			level: 'undefined',
+			from: '',
+			until: '',
+			order: 'asc',
 		},
 		mode: 'onChange',
 	});
@@ -117,37 +113,40 @@ export function Logs() {
 		setIsViewLogModalOpen(true);
 	};
 
-	const submitFilters = async (data: z.infer<typeof LogFiltersSchema>) => {
-		if (!isValidDateRange(data.from, data.until)) {
-			form.setError('from', {
-				type: 'onChange',
-				message: 'Start date must be before end date',
-			});
-			form.setError('until', {
-				type: 'onChange',
-				message: 'End date must be after start date',
-			});
-			return;
-		}
-		setLogFilters(data);
+	const submitFilters = async (data: z.infer<typeof LogFiltersFormSchema>) => {
+
+		console.log('data', data);
+	// 	if (!isValidDateRange(data.from, data.until)) {
+	// 		form.setError('from', {
+	// 			type: 'onChange',
+	// 			message: 'Start date must be before end date',
+	// 		});
+	// 		form.setError('until', {
+	// 			type: 'onChange',
+	// 			message: 'End date must be after start date',
+	// 		});
+	// 		return;
+	// 	}
+	// 	setLogFilters(data);
 	};
 
 	const resetFilters = async () => {
 		form.reset();
-		setLogFilters({
-			limit: 1000,
-			level: undefined,
-			from: undefined,
-			until: undefined,
-			order: 'desc',
-		});
+		// setLogFilters({
+			// limit: "1000",
+			// level: undefined,
+			// from: undefined,
+			// until: undefined,	
+			// order: 'desc',
+		// });
 	};
 
 	return (
 		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
 			<section className="col-span-1 md:col-span-4 lg:col-span-3">
 				<h2 className="pb-6 text-2xl">Log Filters</h2>
-				<Form {...form}>
+				<LogsFiltersForm form={form} resetFilters={resetFilters} submitFilters={submitFilters} />
+				{/* <Form {...form}>
 					<form onSubmit={form.handleSubmit(submitFilters)} className="flex-col space-y-5">
 						<FormField
 							control={form.control}
@@ -292,7 +291,7 @@ export function Logs() {
 							Clear Filters
 						</Button>
 					</form>
-				</Form>
+				</Form> */}
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
 				{isLoading ? (

@@ -17,6 +17,13 @@ export const LogFiltersSchema = z.object({
 	until: z.date().or(z.undefined()).optional(),
 	order: z.enum(['asc', 'desc']).optional(),
 });
+export const LogFiltersFormSchema = z.object({
+	limit: z.string().optional(),
+	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
+	from: z.string().or(z.undefined()).optional(),
+	until: z.string().or(z.undefined()).optional(),
+	order: z.enum(['asc', 'desc']).optional(),
+});
 
 interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersSchema>;
@@ -29,9 +36,9 @@ export function getReadLogQueryOptions({
 	logFilters,
 	replicated,
 }: GetReadLogParams & InstanceClientIdConfig) {
-	if (logFilters.level === 'undefined') {
-		logFilters.level = undefined;
-	}
+	// if (logFilters.level === 'undefined') {
+	// 	logFilters.level = undefined;
+	// }
 	return queryOptions({
 		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated] as const,
 		queryFn: async () => {
@@ -39,7 +46,7 @@ export function getReadLogQueryOptions({
 				operation: 'read_log',
 				start: 0,
 				replicated,
-				...logFilters,
+				// ...logFilters,
 			});
 			return data as ReadLogItem[];
 		},
