@@ -10,13 +10,6 @@ export interface ReadLogItem {
 	message: string;
 }
 
-export const LogFiltersSchema = z.object({
-	limit: z.coerce.number().optional(),
-	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
-	from: z.date().or(z.undefined()).optional(),
-	until: z.date().or(z.undefined()).optional(),
-	order: z.enum(['asc', 'desc']).optional(),
-});
 export const LogFiltersFormSchema = z.object({
 	limit: z.string().optional(),
 	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
@@ -26,7 +19,7 @@ export const LogFiltersFormSchema = z.object({
 });
 
 interface GetReadLogParams {
-	logFilters: z.infer<typeof LogFiltersSchema>;
+	logFilters: z.infer<typeof LogFiltersFormSchema>;
 	replicated: boolean;
 }
 
@@ -36,17 +29,22 @@ export function getReadLogQueryOptions({
 	logFilters,
 	replicated,
 }: GetReadLogParams & InstanceClientIdConfig) {
-	// if (logFilters.level === 'undefined') {
-	// 	logFilters.level = undefined;
-	// }
+	if (logFilters.level === 'undefined') {
+		logFilters.level = undefined;
+	}
 	return queryOptions({
 		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated] as const,
 		queryFn: async () => {
+			const updatedLogFilters = {
+				...logFilters,
+				from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
+				until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
+			};
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
 				start: 0,
 				replicated,
-				// ...logFilters,
+				...updatedLogFilters,
 			});
 			return data as ReadLogItem[];
 		},

@@ -6,7 +6,6 @@ import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import {
 	getReadLogQueryOptions,
 	LogFiltersFormSchema,
-	LogFiltersSchema,
 	ReadLogItem,
 } from '@/features/instance/operations/queries/getReadLog';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -69,7 +68,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	},
 ];
 
-const isValidDateRange = (startDate?: Date, endDate?: Date) => {
+const isValidDateRange = (startDate?: string, endDate?: string) => {
 	if (!startDate && !endDate) return true;
 	if (!startDate || !endDate) return true;
 
@@ -80,21 +79,24 @@ const isValidDateRange = (startDate?: Date, endDate?: Date) => {
 
 export function Logs() {
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>({
-		limit: "1000",
+		limit: '1000',
+		level: 'undefined',
+		from: '',
+		until: '',
+		order: 'asc',
 	});
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
 
 	const instanceParams = useInstanceClientIdParams();
-	const {
-		data: instanceLogs,
-		isLoading,
-	} = useQuery(getReadLogQueryOptions({
-		logFilters,
-		...instanceParams,
-		replicated: instanceParams.entityType === 'cluster',
-	}));
+	const { data: instanceLogs, isLoading } = useQuery(
+		getReadLogQueryOptions({
+			logFilters,
+			...instanceParams,
+			replicated: instanceParams.entityType === 'cluster',
+		})
+	);
 
 	const form = useForm<z.infer<typeof LogFiltersFormSchema>>({
 		resolver: zodResolver(LogFiltersFormSchema),
@@ -114,31 +116,29 @@ export function Logs() {
 	};
 
 	const submitFilters = async (data: z.infer<typeof LogFiltersFormSchema>) => {
-
-		console.log('data', data);
-	// 	if (!isValidDateRange(data.from, data.until)) {
-	// 		form.setError('from', {
-	// 			type: 'onChange',
-	// 			message: 'Start date must be before end date',
-	// 		});
-	// 		form.setError('until', {
-	// 			type: 'onChange',
-	// 			message: 'End date must be after start date',
-	// 		});
-	// 		return;
-	// 	}
-	// 	setLogFilters(data);
+		if (!isValidDateRange(data.from, data.until)) {
+			form.setError('from', {
+				type: 'onChange',
+				message: 'Start date must be before end date',
+			});
+			form.setError('until', {
+				type: 'onChange',
+				message: 'End date must be after start date',
+			});
+			return;
+		}
+		setLogFilters(data);
 	};
 
 	const resetFilters = async () => {
 		form.reset();
-		// setLogFilters({
-			// limit: "1000",
-			// level: undefined,
-			// from: undefined,
-			// until: undefined,	
-			// order: 'desc',
-		// });
+		setLogFilters({
+			limit: '1000',
+			level: 'undefined',
+			from: '',
+			until: '',
+			order: 'asc',
+		});
 	};
 
 	return (
@@ -146,152 +146,6 @@ export function Logs() {
 			<section className="col-span-1 md:col-span-4 lg:col-span-3">
 				<h2 className="pb-6 text-2xl">Log Filters</h2>
 				<LogsFiltersForm form={form} resetFilters={resetFilters} submitFilters={submitFilters} />
-				{/* <Form {...form}>
-					<form onSubmit={form.handleSubmit(submitFilters)} className="flex-col space-y-5">
-						<FormField
-							control={form.control}
-							name="limit"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Log Limit</FormLabel>
-									<Select
-										onValueChange={(value) => {
-											field.onChange(parseInt(value));
-										}}
-										defaultValue="1000"
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Select log limit" defaultValue="1000" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectItem value="1000">1000</SelectItem>
-												<SelectItem value="500">500</SelectItem>
-												<SelectItem value="250">250</SelectItem>
-												<SelectItem value="100">100</SelectItem>
-												<SelectItem value="10">10</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="level"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Log Level</FormLabel>
-									<Select
-										onValueChange={(value) => {
-											if (value === 'undefined') {
-												field.onChange(undefined);
-												return;
-											}
-											field.onChange(value);
-										}}
-										defaultValue={field.value}
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Select log level" defaultValue={undefined} />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectItem value="undefined">All</SelectItem>
-												<SelectItem value="notify">Notify</SelectItem>
-												<SelectItem value="error">Error</SelectItem>
-												<SelectItem value="warn">Warn</SelectItem>
-												<SelectItem value="info">Info</SelectItem>
-												<SelectItem value="debug">Debug</SelectItem>
-												<SelectItem value="trace">Trace</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="from"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Start Date:</FormLabel>
-									<FormControl>
-										<Input
-											type="datetime-local"
-											value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ''}
-											onChange={(e) => {
-												const val = e.target.value;
-												field.onChange(val ? new Date(val) : undefined);
-											}}
-											onBlur={field.onBlur}
-											name={field.name}
-											ref={field.ref}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="until"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>End Date:</FormLabel>
-									<FormControl>
-										<Input
-											type="datetime-local"
-											value={field.value ? new Date(field.value).toISOString().slice(0, 16) : ''}
-											onChange={(e) => {
-												const val = e.target.value;
-												field.onChange(val ? new Date(val) : undefined);
-											}}
-											onBlur={field.onBlur}
-											name={field.name}
-											ref={field.ref}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="order"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Log Order</FormLabel>
-									<Select
-										onValueChange={(value) => {
-											field.onChange(value);
-										}}
-										defaultValue={field.value}
-									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Log order" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectItem value="asc">Ascending</SelectItem>
-												<SelectItem value="desc">Descending</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<Button type="submit" variant="positiveOutline" className="w-full mt-4">
-							Apply Filters
-						</Button>
-						<Button type="reset" variant="destructiveOutline" onClick={() => resetFilters()} className="w-full mt-2">
-							Clear Filters
-						</Button>
-					</form>
-				</Form> */}
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
 				{isLoading ? (
@@ -306,5 +160,3 @@ export function Logs() {
 		</div>
 	);
 }
-
-
