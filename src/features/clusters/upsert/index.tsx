@@ -30,7 +30,7 @@ export function UpsertCluster() {
 
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId));
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
-	const { data: planTypes } = useQuery(getPlanTypesOptions());
+	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions(limitRegionParameters));
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
