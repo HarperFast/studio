@@ -91,7 +91,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 		<FormLabel>
 			Purchasing usage block for {humanNumber(planLimits.readsPerMinuteCount!)} reads/min
 			&amp; {humanNumber(planLimits.totalReadCount)} total reads per region,
-			{humanNumber(planLimits.writesPerMinuteCount!)} writes/min &amp; {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months.
+			{humanNumber(planLimits.writesPerMinuteCount!)} writes/min &amp; {humanNumber(planLimits.totalWriteCount)} total writes, for 3 months.
 			<Button
 				type="button"
 				variant="link"
