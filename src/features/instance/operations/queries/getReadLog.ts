@@ -35,8 +35,9 @@ export function getReadLogQueryOptions({
 	return queryOptions({
 		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated] as const,
 		queryFn: async () => {
-			const updatedLogFilters = {
+			const formattedLogFilters = {
 				...logFilters,
+				limit: logFilters.limit ? parseInt(logFilters.limit, 10) : undefined,
 				from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
 				until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
 			};
@@ -44,7 +45,7 @@ export function getReadLogQueryOptions({
 				operation: 'read_log',
 				start: 0,
 				replicated,
-				...updatedLogFilters,
+				...formattedLogFilters,
 			});
 			return data as ReadLogItem[];
 		},
