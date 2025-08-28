@@ -15,7 +15,7 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { Suspense, useEffect, useMemo } from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, useFormState } from 'react-hook-form';
 import { z } from 'zod';
 
 interface ClusterDetailsProps {
@@ -45,6 +45,7 @@ export function ClusterDetails({
 	selectedPlan,
 	totalPrice,
 }: ClusterDetailsProps) {
+	const { isDirty, isValid } = useFormState();
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
@@ -250,7 +251,7 @@ export function ClusterDetails({
 			)}
 		</div>
 		<DialogFooter className="mt-3">
-			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
+			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>
 				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
 				<ArrowRight />
 			</Button>
