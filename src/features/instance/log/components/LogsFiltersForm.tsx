@@ -29,7 +29,7 @@ export function LogsFiltersForm({
 						name="limit"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel>Log Limit</FormLabel>
+								<FormLabel>Log Limit:</FormLabel>
 								<Select onValueChange={field.onChange} value={field.value}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Select log limit" />
@@ -53,7 +53,7 @@ export function LogsFiltersForm({
 						name="level"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel>Log Level</FormLabel>
+								<FormLabel>Log Level:</FormLabel>
 								<Select onValueChange={field.onChange} value={field.value}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Select log level" />
@@ -105,7 +105,7 @@ export function LogsFiltersForm({
 						name="order"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel>Log Order</FormLabel>
+								<FormLabel>Log Order:</FormLabel>
 								<Select onValueChange={field.onChange} value={field.value}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Log order" />

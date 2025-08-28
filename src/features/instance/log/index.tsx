@@ -15,6 +15,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
+import { useRefreshClick } from '@/hooks/useRefreshClick';
+import { Button } from '@/components/ui/button';
+import { RefreshCwIcon } from 'lucide-react';
+import { Toggle } from '@/components/ui/toggle';
 
 type RowData = {
 	original: ReadLogItem;
@@ -79,7 +83,7 @@ const isValidDateRange = (startDate?: string, endDate?: string) => {
 
 export function Logs() {
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>({
-		limit: '1000',
+		limit: '100',
 		level: 'undefined',
 		from: '',
 		until: '',
@@ -88,20 +92,27 @@ export function Logs() {
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
+	const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
 
 	const instanceParams = useInstanceClientIdParams();
-	const { data: instanceLogs, isLoading } = useQuery(
+	const {
+		data: instanceLogs,
+		isLoading,
+		refetch: refetchReadLogQueryOptions,
+		isFetching: isFetchingInstanceLogs,
+	} = useQuery(
 		getReadLogQueryOptions({
 			logFilters,
 			...instanceParams,
 			replicated: instanceParams.entityType === 'cluster',
+			isAutoRefreshEnabled,
 		})
 	);
 
 	const form = useForm<z.infer<typeof LogFiltersFormSchema>>({
 		resolver: zodResolver(LogFiltersFormSchema),
 		defaultValues: {
-			limit: '1000',
+			limit: '100',
 			level: 'undefined',
 			from: '',
 			until: '',
@@ -133,13 +144,15 @@ export function Logs() {
 	const resetFilters = async () => {
 		form.reset();
 		setLogFilters({
-			limit: '1000',
+			limit: '100',
 			level: 'undefined',
 			from: '',
 			until: '',
 			order: 'asc',
 		});
 	};
+
+	const onRefreshClick = useRefreshClick(refetchReadLogQueryOptions);
 
 	return (
 		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
@@ -152,6 +165,15 @@ export function Logs() {
 					<div>Loading...</div>
 				) : (
 					<div className="h-32">
+						<div className="flex items-center justify-between md:justify-normal md:space-x-2">
+							<Button variant="defaultOutline" onClick={onRefreshClick} disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}>
+								<RefreshCwIcon />
+							</Button>
+							<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>
+								<RefreshCwIcon />
+								Auto Refresh {isAutoRefreshEnabled ? 'On' : 'Off'}
+							</Toggle>
+						</div>
 						<LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />
 					</div>
 				)}

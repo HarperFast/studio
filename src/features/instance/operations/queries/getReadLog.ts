@@ -21,6 +21,7 @@ export const LogFiltersFormSchema = z.object({
 interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersFormSchema>;
 	replicated: boolean;
+	isAutoRefreshEnabled: boolean;
 }
 
 export function getReadLogQueryOptions({
@@ -28,12 +29,13 @@ export function getReadLogQueryOptions({
 	instanceClient,
 	logFilters,
 	replicated,
+	isAutoRefreshEnabled,
 }: GetReadLogParams & InstanceClientIdConfig) {
 	if (logFilters.level === 'undefined') {
 		logFilters.level = undefined;
 	}
 	return queryOptions({
-		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated] as const,
+		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated, isAutoRefreshEnabled] as const,
 		queryFn: async () => {
 			const formattedLogFilters = {
 				...logFilters,
@@ -50,5 +52,6 @@ export function getReadLogQueryOptions({
 			return data as ReadLogItem[];
 		},
 		retry: false,
+		refetchInterval: isAutoRefreshEnabled ? 5000 : false,
 	});
 }
