@@ -246,9 +246,9 @@ export function ClusterDetails({
 				/>)
 			}
 
-			{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
-				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
-			)}
+			{selectedPlan?.planLimits?.totalReadCount! > 0 ? (
+				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance!} />
+			) : 'This plan has no usage limits'}
 		</div>
 		<DialogFooter className="mt-3">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>

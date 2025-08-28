@@ -21,69 +21,69 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 	}, [toggled, setToggled]);
 
 	const rows = useMemo(() => [
-		planLimits.totalReadCount && {
+		planLimits.totalReadCount > 0 && {
 			label: 'Total Reads',
 			value: `${humanNumber(planLimits.totalReadCount)} reads`,
 		},
-		planLimits.totalReadsBytes && {
+		planLimits.totalReadsBytes > 0 && {
 			label: 'Total Read Transfer',
 			value: `${humanFileSize(planLimits.totalReadsBytes)}`,
 		},
-		planLimits.readsPerMinuteCount && {
+		planLimits.readsPerMinuteCount! > 0 && {
 			label: 'Read Rate',
-			value: `${humanNumber(planLimits.readsPerMinuteCount * 60)}/min`,
+			value: `${humanNumber(planLimits.readsPerMinuteCount! * 60)}/min`,
 		},
-		planLimits.readsPerMinuteBytes && {
+		planLimits.readsPerMinuteBytes! > 0 && {
 			label: 'Read Bandwidth',
-			value: `${humanFileSize(planLimits.readsPerMinuteBytes * 60)}/min`,
+			value: `${humanFileSize(planLimits.readsPerMinuteBytes! * 60)}/min`,
 		},
-		planLimits.totalWriteCount && {
+		planLimits.totalWriteCount > 0 && {
 			label: 'Total Writes',
 			value: `${humanNumber(planLimits.totalWriteCount)} reads`,
 		},
-		planLimits.totalWritesBytes && {
+		planLimits.totalWritesBytes > 0 && {
 			label: 'Total Write Transfer',
 			value: `${humanFileSize(planLimits.totalWritesBytes)}`,
 		},
-		planLimits.writesPerMinuteCount && {
+		planLimits.writesPerMinuteCount! > 0 && {
 			label: 'Write Rate',
-			value: `${humanNumber(planLimits.writesPerMinuteCount * 60)}/min`,
+			value: `${humanNumber(planLimits.writesPerMinuteCount! * 60)}/min`,
 		},
-		planLimits.writesPerMinuteBytes && {
+		planLimits.writesPerMinuteBytes! > 0 && {
 			label: 'Write Bandwidth',
-			value: `${humanFileSize(planLimits.writesPerMinuteBytes * 60)}/min`,
+			value: `${humanFileSize(planLimits.writesPerMinuteBytes! * 60)}/min`,
 		},
-		planLimits.totalRealTimeMessageDeliveries && {
+		planLimits.totalRealTimeMessageDeliveries > 0 && {
 			label: 'Total Real-Time Messages',
 			value: `${humanNumber(planLimits.totalRealTimeMessageDeliveries)} messages`,
 		},
-		planLimits.totalRealTimeMessageDeliveryBytes && {
+		planLimits.totalRealTimeMessageDeliveryBytes > 0 && {
 			label: 'Total Real-Time Message Transfer',
 			value: `${humanFileSize(planLimits.totalRealTimeMessageDeliveryBytes)}`,
 		},
-		planLimits.realTimeMessageDeliveriesPerMinute && {
+		planLimits.realTimeMessageDeliveriesPerMinute! > 0 && {
 			label: 'Real-Time Message Rate',
-			value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute * 60)}/min`,
+			value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute! * 60)}/min`,
 		},
-		planLimits.realTimeMessageDeliveryBytesPerMinute && {
+		planLimits.realTimeMessageDeliveryBytesPerMinute! > 0 && {
 			label: 'Real-Time Message Bandwidth',
-			value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute * 60)}/min`,
+			value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute! * 60)}/min`,
 		},
-		planLimits.tlsHandshakes && {
+		planLimits.tlsHandshakes! > 0 && {
 			label: 'TLS Handshakes',
-			value: `${humanNumber(planLimits.tlsHandshakes * 60)}`,
+			value: `${humanNumber(planLimits.tlsHandshakes! * 60)}`,
 		},
-		planLimits.applicationComputeHours && {
+		planLimits.applicationComputeHours! > 0 && {
 			label: 'Application Compute Hours',
-			value: `${humanNumber(planLimits.applicationComputeHours * 60)}`,
+			value: `${humanNumber(planLimits.applicationComputeHours! * 60)}`,
 		},
-		resourcesPerInstance?.storageGb && {
+		resourcesPerInstance?.storageGb! > 0 && {
 			label: 'Storage',
-			value: `${humanFileSize(resourcesPerInstance.storageGb * 1000_000_000)}`,
+			value: `${humanFileSize(resourcesPerInstance.storageGb! * 1000_000_000)}`,
 		},
-		{
+		planLimits.expirationMonths > 0 && planLimits.expirationMonths < 1000 && {
 			label: 'Expiration',
-			value: '3 months',
+			value: `${planLimits.expirationMonths} months`,
 		},
 	].filter(excludeFalsy), [planLimits, resourcesPerInstance]);
 
@@ -95,9 +95,9 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 				className="text-white cursor-pointer"
 				onClick={onUsageLimitsClick}
 			>
-				Purchasing usage block for {humanNumber(planLimits.readsPerMinuteCount!)} reads/min
-				&amp; {humanNumber(planLimits.totalReadCount)} total reads per region,<br/>
-				{humanNumber(planLimits.writesPerMinuteCount!)} writes/min &amp; {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months, expand for more details:
+				Purchasing usage block for {planLimits.readsPerMinuteCount! > 0 ? humanNumber(planLimits.readsPerMinuteCount!) + ' reads/min & ' : ''}
+				{humanNumber(planLimits.totalReadCount)} total reads per {planLimits.readsPerMinuteCount! > 0 ? 'region' : 'server'},<br/>
+				{planLimits.writesPerMinuteCount! > 0 ? humanNumber(planLimits.writesPerMinuteCount!) + ' writes/min & ' : ''} {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months, expand for more details:
 				{toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 			</Button>
 		</FormLabel>
