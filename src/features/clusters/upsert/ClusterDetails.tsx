@@ -15,7 +15,7 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { Suspense, useEffect, useMemo } from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, useFormState } from 'react-hook-form';
 import { z } from 'zod';
 
 interface ClusterDetailsProps {
@@ -45,14 +45,11 @@ export function ClusterDetails({
 	selectedPlan,
 	totalPrice,
 }: ClusterDetailsProps) {
+	const { isDirty, isValid } = useFormState();
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
-			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
-			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
-			return aPrice - bPrice;
-		}), [deploymentToPerformanceToPlan]);
+		Object.keys(deploymentToPerformanceToPlan).sort(), [deploymentToPerformanceToPlan]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
@@ -61,7 +58,7 @@ export function ClusterDetails({
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
-	const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
 	return (<>
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
@@ -69,7 +66,7 @@ export function ClusterDetails({
 				control={form.control}
 				name="systemName"
 				render={({ field }) => (
-					<FormItem className="col-span-3 md:col-span-6">
+					<FormItem className="col-span-3">
 						<FormLabel className="pb-1">Harper System Name</FormLabel>
 						<FormControl>
 							<Input
@@ -78,6 +75,26 @@ export function ClusterDetails({
 								autoCapitalize="words"
 								disabled={!!clusterId}
 								{...field} />
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+
+			<FormField
+				control={form.control}
+				name="autoRenew"
+				render={({ field }) => (
+					<FormItem className="col-span-3">
+						<FormLabel className="pb-1">Auto Renew</FormLabel>
+						<FormControl>
+							<Input
+								{...field}
+								value={field.value as unknown as string}
+								checked={field.value === true}
+								type="checkbox"
+								disabled={!!clusterId}
+							/>
 						</FormControl>
 						<FormMessage />
 					</FormItem>
@@ -127,7 +144,7 @@ export function ClusterDetails({
 				name="performanceDescription"
 				render={({ field }) => (
 					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Performance &amp; Usage</FormLabel>
+						<FormLabel className="pb-1">{selectedDeployment.startsWith('Self') ? 'Support' : 'Performance'} &amp; Usage</FormLabel>
 
 						<Suspense fallback={<TextLoadingSkeleton />}>
 							<FormControl>
@@ -225,12 +242,12 @@ export function ClusterDetails({
 				/>)
 			}
 
-			{selectedPlan?.resourcesPerInstance && (
-				<ResourcesPerInstance resourcesPerInstance={selectedPlan.resourcesPerInstance} />
+			{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
+				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
 			)}
 		</div>
 		<DialogFooter className="mt-3">
-			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
+			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>
 				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
 				<ArrowRight />
 			</Button>

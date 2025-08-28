@@ -6,6 +6,7 @@ export const UpsertClusterSchema = z.object({
 	systemName: z.string()
 		.min(1, 'Must be at least 1 character long.')
 		.max(255, 'Must be at most 255 characters long.'),
+	autoRenew: z.boolean(),
 	abbreviatedName: z
 		.string()
 		.max(10, 'Must be at most 10 characters long.')

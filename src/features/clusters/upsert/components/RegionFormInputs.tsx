@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
@@ -36,25 +37,25 @@ export function RegionFormInputs({
 	regionNameToLatencyToRegion,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() =>
-		Object.keys(regionNameToLatencyToRegion), [regionNameToLatencyToRegion]);
+		Object.keys(regionNameToLatencyToRegion).sort(), [regionNameToLatencyToRegion]);
 	const isDedicated = form.watch('deploymentDescription')?.startsWith('Dedicated');
 	const selectedRegionName = form.watch(`regionPlans.${index}.regionName`);
 	const selectedLatencyDescription = form.watch(`regionPlans.${index}.latencyDescription`);
 	const availableLatencyDescriptions = useMemo(() =>
-		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}), [regionNameToLatencyToRegion, selectedRegionName]);
+		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}).sort(sortByNumberPrefix).reverse(), [regionNameToLatencyToRegion, selectedRegionName]);
 
 	useEffect(function autoPickLatencyDescription() {
 		if (selectedRegionName && availableLatencyDescriptions?.length && !availableLatencyDescriptions?.includes(selectedLatencyDescription)) {
 			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
 			const newValue = availableLatencyDescriptions.find(description => !oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue) || availableLatencyDescriptions[0];
 			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
-			form.trigger();
+			void form.trigger();
 		}
 	}, [availableLatencyDescriptions, form, index, selectedLatencyDescription, selectedRegionName]);
 
 	const onRemoveClicked = useCallback(() => {
 		fieldArray?.remove(index);
-		form.trigger();
+		void form.trigger();
 	}, [fieldArray, form, index]);
 
 	return (

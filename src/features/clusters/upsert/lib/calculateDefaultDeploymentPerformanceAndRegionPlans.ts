@@ -6,20 +6,21 @@ export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 	planTypes: SchemaPlan[],
 	regionLocations: SchemaRegion[],
 ): null | Pick<z.infer<typeof UpsertClusterSchema>, 'deploymentDescription' | 'performanceDescription' | 'regionPlans'> {
-	const freeColocatedPlan = planTypes
-		.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated');
-	const allowedRegionIds = freeColocatedPlan?.allowedRegionIds;
-	if (freeColocatedPlan && allowedRegionIds?.length) {
-		const allowedFreeRegions = regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id));
-		const allowedGlobalFreeRegion = allowedFreeRegions.find(regionLocation => regionLocation.region === 'Global');
-		if (allowedGlobalFreeRegion) {
+	const planToSelect = planTypes.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated')
+		|| planTypes.find(planType => planType.deploymentType === 'colocated')
+		|| planTypes[0];
+	const allowedRegionIds = planToSelect?.allowedRegionIds;
+	if (planToSelect) {
+		const allowedRegions = allowedRegionIds ? regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id)) : regionLocations;
+		const regionToSelect = allowedRegions.find(regionLocation => regionLocation.region === 'Global') || allowedRegions[0];
+		if (regionToSelect) {
 			return {
-				deploymentDescription: freeColocatedPlan.deploymentDescription,
-				performanceDescription: freeColocatedPlan.performanceDescription,
+				deploymentDescription: planToSelect.deploymentDescription,
+				performanceDescription: planToSelect.performanceDescription,
 				regionPlans: [
 					{
-						regionName: allowedGlobalFreeRegion.region,
-						latencyDescription: allowedGlobalFreeRegion.latencyDescription,
+						regionName: regionToSelect.region,
+						latencyDescription: regionToSelect.latencyDescription,
 					},
 				],
 			};
