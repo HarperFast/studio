@@ -62,7 +62,7 @@ export function ClusterDetails({
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
-	const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
 	return (<>
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
