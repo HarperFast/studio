@@ -49,11 +49,7 @@ export function ClusterDetails({
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
-			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
-			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
-			return aPrice - bPrice;
-		}), [deploymentToPerformanceToPlan]);
+		Object.keys(deploymentToPerformanceToPlan).sort(), [deploymentToPerformanceToPlan]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
