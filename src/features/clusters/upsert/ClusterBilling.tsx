@@ -88,7 +88,7 @@ export function ClusterBilling({
 			</li>
 			{clusterId && (
 				<li>If you scale up, you'll be charged for the additional blocks you've purchased
-					now${selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : ''}.
+					now{selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : ''}.
 				</li>)}
 			{clusterId && (<li>If you remove a region, that usage block will not be used (because it is specific to that
 				region).</li>)}
