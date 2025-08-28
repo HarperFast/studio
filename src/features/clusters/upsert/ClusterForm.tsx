@@ -135,7 +135,7 @@ export function ClusterForm({
 	useEffect(() => {
 		setLimitRegionParameters({
 			availableHosts: selectedDeployment !== 'Dedicated' ? true : undefined,
-			organizationId: selectedDeployment === 'Dedicated' ? organizationId : undefined,
+			organizationId,
 		});
 	}, [organizationId, selectedDeployment, setLimitRegionParameters]);
 
