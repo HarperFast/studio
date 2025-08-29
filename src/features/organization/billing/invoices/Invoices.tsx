@@ -1,3 +1,4 @@
+import { ContactUs } from '@/components/ContactUs';
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,7 @@ export function Invoices() {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your invoices on this page.
-				Want to explore your solution with Harper
-				more? <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
-				us</a>, we would love to talk!
+				Want to explore your solution with Harper more? <ContactUs />, we would love to talk!
 			</span>
 		);
 	}
@@ -39,8 +38,7 @@ export function Invoices() {
 		return (
 			<span>
 				Your invoices will be shown here once one is available! Want to explore your solution with Harper
-				more? <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
-				us</a>, we would love to talk!
+				more? <ContactUs />, we would love to talk!
 			</span>
 		);
 	}

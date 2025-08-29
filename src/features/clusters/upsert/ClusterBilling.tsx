@@ -1,3 +1,4 @@
+import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
@@ -60,9 +61,7 @@ export function ClusterBilling({
 					this page.
 				</li>
 				<li>Your account representative can work with you to sort out more precise details, and to help
-					accomplish your objectives with this
-					cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
-						us</a>, we are here to help.
+					accomplish your objectives with this cluster. <ContactUs />, we are here to help.
 				</li>
 			</ul>
 
@@ -99,9 +98,7 @@ export function ClusterBilling({
 			<li>While refunds are not available, we’d be happy to assist you with... swag, depending on availability.
 			</li>
 			<li>We would love to work with you to sort out more precise details, and to help accomplish your objectives
-				with this
-				cluster. <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
-					us</a>, we are here to help.
+				with this cluster. <ContactUs />, we are here to help.
 			</li>
 		</ul>
 
