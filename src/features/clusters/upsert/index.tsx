@@ -1,5 +1,7 @@
+import { ContactUs } from '@/components/ContactUs';
+import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
-import { SubNavMenu } from '@/components/SubNavMenu';
+import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import {
@@ -82,6 +84,9 @@ export function UpsertCluster() {
 				regionPlans.push(...defaults.regionPlans);
 			}
 		}
+		if (!isSelfManaged && !regionPlans.length) {
+			regionPlans.push({ regionName: '', latencyDescription: '' });
+		}
 
 		return {
 			autoRenew: cluster?.plans?.[0]?.autoRenew ?? true,
@@ -96,25 +101,44 @@ export function UpsertCluster() {
 	}, [cluster, clusterId, planTypes, regionLocations, savedClusterState]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocations;
+	if (isLoading) {
+		return (
+			<SubNavSimpleLayout>
+				<Loading centered={true} text="Loading..." />
+			</SubNavSimpleLayout>
+		);
+	}
 
-	return (<>
-		<SubNavMenu />
-		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))] relative">
-			{isLoading
-				? (<Loading centered={true} text="Loading..." />)
-				: (<ClusterForm
-					clusterId={clusterId}
-					defaultValues={defaultValues}
-					deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
-					organization={organization}
-					organizationId={organizationId}
-					planTypes={planTypes}
-					regionLocations={regionLocations}
-					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-					setLimitRegionParameters={setLimitRegionParameters}
-					setSavedClusterState={setSavedClusterState}
-					startOffOnBilling={!!savedClusterState}
-				/>)}
-		</div>
-	</>);
+	if (planTypes.length === 0) {
+		return (
+			<SubNavSimpleLayout>
+				<ErrorComponent
+					title={`Cluster ${clusterId ? 'Modification' : 'Creation'} Not Currently Allowed`}
+					error={{
+						message: <>
+							There are no available deployment types right now! Please try again later, or <ContactUs />.
+						</>,
+					}}
+				/>
+			</SubNavSimpleLayout>
+		);
+	}
+
+	return (
+		<SubNavSimpleLayout>
+			<ClusterForm
+				clusterId={clusterId}
+				defaultValues={defaultValues}
+				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
+				organization={organization}
+				organizationId={organizationId}
+				planTypes={planTypes}
+				regionLocations={regionLocations}
+				regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+				setLimitRegionParameters={setLimitRegionParameters}
+				setSavedClusterState={setSavedClusterState}
+				startOffOnBilling={!!savedClusterState}
+			/>
+		</SubNavSimpleLayout>
+	);
 }

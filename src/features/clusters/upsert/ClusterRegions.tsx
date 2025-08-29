@@ -1,3 +1,5 @@
+import { ContactUs } from '@/components/ContactUs';
+import { ErrorComponent } from '@/components/ErrorComponent';
 import { Button } from '@/components/ui/button';
 import { RegionFormInputs } from '@/features/clusters/upsert/components/RegionFormInputs';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
@@ -41,6 +43,22 @@ export function ClusterRegions({
 			void form.trigger();
 		}
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
+
+	if (!regionLocations?.length) {
+		return (<div className="md:col-span-6 col-span-3">
+			<ErrorComponent
+				className="mt-0 m-0"
+				title="No Regions Available"
+				showReturnToHome={false}
+				error={{
+					message: <>
+						The deployment type you selected currently has no available regions. Please try a different
+						deployment type, try again later, or <ContactUs />.
+					</>,
+				}}
+			/>
+		</div>);
+	}
 
 	return (<>
 		{regionPlansFieldArray.fields.map((field, index) => (
