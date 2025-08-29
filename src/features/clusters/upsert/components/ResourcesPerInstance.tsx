@@ -88,17 +88,17 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 	].filter(excludeFalsy), [planLimits, resourcesPerInstance]);
 
 	return <FormItem className="col-span-3 md:col-span-6">
-		<FormLabel className="inline-flex">
+		<FormLabel>
+			Purchasing usage block for {planLimits.readsPerMinuteCount! > 0 ? humanNumber(planLimits.readsPerMinuteCount!) + ' reads/min & ' : ''}
+			{humanNumber(planLimits.totalReadCount)} total reads per {planLimits.readsPerMinuteCount! > 0 ? 'region' : 'server'},<br/>
+			{planLimits.writesPerMinuteCount! > 0 ? humanNumber(planLimits.writesPerMinuteCount!) + ' writes/min & ' : ''} {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months.
 			<Button
 				type="button"
 				variant="link"
 				className="text-white cursor-pointer"
 				onClick={onUsageLimitsClick}
 			>
-				Purchasing usage block for {planLimits.readsPerMinuteCount! > 0 ? humanNumber(planLimits.readsPerMinuteCount!) + ' reads/min & ' : ''}
-				{humanNumber(planLimits.totalReadCount)} total reads per {planLimits.readsPerMinuteCount! > 0 ? 'region' : 'server'},<br/>
-				{planLimits.writesPerMinuteCount! > 0 ? humanNumber(planLimits.writesPerMinuteCount!) + ' writes/min & ' : ''} {humanNumber(planLimits.totalWriteCount!)} total writes, for 3 months, expand for more details:
-				{toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
+				Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 			</Button>
 		</FormLabel>
 		<FormControl>

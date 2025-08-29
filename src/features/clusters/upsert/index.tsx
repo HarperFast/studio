@@ -14,6 +14,7 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -33,9 +34,9 @@ export function UpsertCluster() {
 	const { data: regionLocations } = useQuery(getRegionLocationsOptions(limitRegionParameters));
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
-		groupThenKeyBy(planTypes || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
+		groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
 	const regionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
-		groupThenKeyBy(regionLocations || [], 'region', 'latencyDescription'), [regionLocations]);
+		groupThenKeyBy(regionLocations?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocations]);
 
 	const defaultValues = useMemo<null | z.infer<typeof UpsertClusterSchema>>(() => {
 		if (savedClusterState) {
@@ -51,6 +52,7 @@ export function UpsertCluster() {
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations);
 
+		let isSelfManaged = false;
 		if (planTypes && regionLocations) {
 			if (cluster) {
 				if (cluster.plans) {
@@ -68,6 +70,7 @@ export function UpsertCluster() {
 				}
 				if (!regionPlans.length && cluster.instances) {
 					for (const instance of cluster.instances) {
+						isSelfManaged = true;
 						instances.push({
 							fqdn: instance.instanceFqdn,
 							port: instance.operationsApiPort,
@@ -86,7 +89,7 @@ export function UpsertCluster() {
 			abbreviatedName: cluster?.abbreviatedName ?? '',
 			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
 			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
-			fqdn: cluster?.fqdn ?? '',
+			fqdn: isSelfManaged ? cluster?.fqdn ?? '' : '',
 			instances,
 			regionPlans,
 		};

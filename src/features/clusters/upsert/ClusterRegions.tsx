@@ -3,7 +3,7 @@ import { RegionFormInputs } from '@/features/clusters/upsert/components/RegionFo
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { PlusIcon } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -27,17 +27,20 @@ export function ClusterRegions({
 		name: 'regionPlans',
 	});
 
-	const onAddARegionClick = useCallback(() => {
+	const nextAvailableRegionToAdd = useMemo(() => {
 		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
-		const firstNewRegionLocation = regionLocations?.find(r => !selectedRegionNames.includes(r.region));
-		if (firstNewRegionLocation) {
+		return regionLocations?.find(r => !selectedRegionNames.includes(r.region));
+	}, [regionLocations, regionNameToLatencyToRegion, selectedRegionPlans]);
+
+	const onAddARegionClick = useCallback(() => {
+		if (nextAvailableRegionToAdd) {
 			regionPlansFieldArray.append({
-				regionName: firstNewRegionLocation.region,
-				latencyDescription: firstNewRegionLocation.latencyDescription,
+				regionName: nextAvailableRegionToAdd.region,
+				latencyDescription: nextAvailableRegionToAdd.latencyDescription,
 			});
 			void form.trigger();
 		}
-	}, [regionPlansFieldArray, form, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans]);
+	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
 	return (<>
 		{regionPlansFieldArray.fields.map((field, index) => (
@@ -52,7 +55,7 @@ export function ClusterRegions({
 			/>
 		))}
 
-		<div className="md:col-span-6 col-span-3">
+		{nextAvailableRegionToAdd && (<div className="md:col-span-6 col-span-3">
 			<Button
 				type="button"
 				variant="positiveOutline"
@@ -62,6 +65,6 @@ export function ClusterRegions({
 				<PlusIcon />
 				Add Additional Region Usage
 			</Button>
-		</div>
+		</div>)}
 	</>);
 }

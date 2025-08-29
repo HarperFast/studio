@@ -63,7 +63,7 @@ export function ClusterForm({
 	const refineZod = useCallback((data: z.infer<typeof UpsertClusterSchema>, ctx: z.RefinementCtx) => {
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
-		const isSelfManaged = data.deploymentDescription === 'Manage Your Own Installation/Configuration';
+		const isSelfManaged = data.deploymentDescription === 'Self-Hosted';
 		if (isSelfManaged) {
 			for (let i = 0; i < data.instances.length; i++) {
 				const fqdn = calculateInstanceFQDN(data.instances[i]);
@@ -141,7 +141,7 @@ export function ClusterForm({
 
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
-		const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+		const isSelfManaged = selectedDeployment === 'Self-Hosted';
 		if (!selectedDeployment) {
 			return;
 		}
@@ -205,7 +205,7 @@ export function ClusterForm({
 	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations]);
 
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
-		const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+		const isSelfManaged = selectedDeployment === 'Self-Hosted';
 		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
 			for (let i = 0; i < selectedRegionPlans.length; i++) {
 				const regionPlan = selectedRegionPlans[i];
@@ -218,7 +218,7 @@ export function ClusterForm({
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
-		: selectedDeployment === 'Manage Your Own Installation/Configuration'
+		: selectedDeployment === 'Self-Hosted'
 			? selectedInstances.length * selectedPlan.priceUsd
 			: selectedRegionPlans.reduce((total, region) => {
 				const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
@@ -244,7 +244,7 @@ export function ClusterForm({
 		const plans: SchemaRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
 
-		const isSelfManaged = formData.deploymentDescription === 'Manage Your Own Installation/Configuration';
+		const isSelfManaged = formData.deploymentDescription === 'Self-Hosted';
 		if (isSelfManaged) {
 			for (const instance of formData.instances) {
 				plans.push({

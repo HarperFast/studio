@@ -49,11 +49,7 @@ export function ClusterDetails({
 	const availablePerformanceDescriptions = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan).sort((a, b) => {
-			const aPrice = Object.values(deploymentToPerformanceToPlan[a])[0].priceUsd ?? 0;
-			const bPrice = Object.values(deploymentToPerformanceToPlan[b])[0].priceUsd ?? 0;
-			return aPrice - bPrice;
-		}), [deploymentToPerformanceToPlan]);
+		Object.keys(deploymentToPerformanceToPlan).sort(), [deploymentToPerformanceToPlan]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
@@ -62,7 +58,7 @@ export function ClusterDetails({
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
-	const isSelfManaged = selectedDeployment === 'Manage Your Own Installation/Configuration';
+	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
 	return (<>
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
