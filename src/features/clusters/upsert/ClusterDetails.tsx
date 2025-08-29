@@ -242,9 +242,7 @@ export function ClusterDetails({
 				/>)
 			}
 
-			{selectedPlan?.planLimits?.totalReadCount! > 0 ? (
-				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance!} />
-			) : 'This plan has no usage limits'}
+			<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} />
 		</div>
 		<DialogFooter className="mt-3 mb-12">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>

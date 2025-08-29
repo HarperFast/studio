@@ -5,6 +5,8 @@ import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMe
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { SchemaPlan } from '@/lib/api.gen';
+import { pluralize } from '@/lib/pluralize';
+import { isPositive } from '@/lib/types/isPositive';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -36,6 +38,7 @@ export function ClusterBilling({
 	const isEnterprise = organization?.type === 'ENTERPRISE';
 	const hasValidPaymentMethod = allowBypass || isEnterprise || billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
+	const expirationMonths = isPositive(selectedPlan?.planLimits?.expirationMonths) && selectedPlan.planLimits.expirationMonths < 1000 && selectedPlan.planLimits.expirationMonths;
 
 	const footer = (<>
 		<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end mt-3 max-w-xl">
@@ -80,20 +83,21 @@ export function ClusterBilling({
 		</>);
 	}
 
+	const andMightAutoRenew = selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : '';
+	const orPossiblyExpires = expirationMonths && `, or ${pluralize(expirationMonths, 'month', 'months')} elapse`;
+	const maybeNot = selectedAutoRenew ? ' NOT' : '';
+
 	return (<>
 		<ul className="list-disc ml-6 mb-6">
 			<li>You will be billed for this cluster today, and will receive a license for the block of usage you've
 				requested.
 			</li>
 			{clusterId && (
-				<li>If you scale up, you'll be charged for the additional blocks you've purchased
-					now{selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : ''}.
+				<li>If you scale up, you'll be charged for the additional blocks you've purchased now{andMightAutoRenew}.
 				</li>)}
-			{clusterId && (<li>If you remove a region, that usage block will not be used (because it is specific to that
-				region).</li>)}
-			<li>{selectedAutoRenew
-				? 'When that block is used up, or 3 months elapse, you will be automatically renewed.'
-				: 'When that block is used up, or 3 months elapse, you will NOT be automatically renewed.'}
+			{clusterId && (<li>If you remove a region, that region's usage block will not be used anymore (because it is
+				specific to that region).</li>)}
+			<li>When that block is used up{orPossiblyExpires}, you will{maybeNot} be automatically renewed.
 			</li>
 			<li>While refunds are not available, we’d be happy to assist you with... swag, depending on availability.
 			</li>
@@ -102,9 +106,7 @@ export function ClusterBilling({
 			</li>
 		</ul>
 
-		{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
-			<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
-		)}
+		<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} />
 
 		<p className="text-muted-foreground text-sm mb-6">Payment method:</p>
 
