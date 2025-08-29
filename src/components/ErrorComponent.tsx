@@ -1,22 +1,31 @@
-import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
-import { useOverallAuth } from '@/hooks/useAuth';
 import { isLocalStudio } from '@/config/constants';
+import { useOverallAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/cn';
+import { Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
+import { ReactNode } from 'react';
 
-export function ErrorComponent({ error }: { error: Error }) {
+interface ErrorProps {
+	className?: string | undefined;
+	error: Error | { message: string | ReactNode };
+	title?: string;
+	showReturnToHome?: boolean;
+}
+
+export function ErrorComponent({ className, error, title, showReturnToHome }: ErrorProps) {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
 
 	return (
-		<Card className="text-red p-5 border border-red rounded-md m-12 mt-36">
+		<Card className={cn('text-red p-5 border border-red rounded-md m-12 mt-36', className)}>
 			<CardHeader>
 				<CardTitle className="text-2xl">
-					<h2>Component Error</h2>
+					<h2>{title ?? 'Component Error'}</h2>
 				</CardTitle>
 				<CardDescription>{error.message}</CardDescription>
 			</CardHeader>
-			<CardContent>
+			{showReturnToHome !== false && (<CardContent>
 				{user && !isUserLoading ? (
 					<Link to={isLocalStudio ? '/browse' : '/orgs'}>
 						<Button>
@@ -32,7 +41,7 @@ export function ErrorComponent({ error }: { error: Error }) {
 						</Button>
 					</Link>
 				)}
-			</CardContent>
+			</CardContent>)}
 		</Card>
 	);
 }

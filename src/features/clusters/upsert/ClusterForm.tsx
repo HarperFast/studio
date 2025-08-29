@@ -132,7 +132,7 @@ export function ClusterForm({
 	const selectedInstances = form.watch('instances');
 	const selectedAutoRenew = form.watch('autoRenew');
 
-	useEffect(() => {
+	useEffect(function syncRegionsWithSelectedDeploymentType() {
 		setLimitRegionParameters({
 			availableHosts: selectedDeployment !== 'Dedicated for Cluster' ? true : undefined,
 			organizationId: selectedDeployment === 'Dedicated for Organization' ? organizationId : undefined,
