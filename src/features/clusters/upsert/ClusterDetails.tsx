@@ -61,7 +61,7 @@ export function ClusterDetails({
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
 	return (<>
-		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6 overflow-auto max-h-[calc(100vh-theme(spacing.52))]">
+		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
 			<FormField
 				control={form.control}
 				name="systemName"
@@ -242,11 +242,9 @@ export function ClusterDetails({
 				/>)
 			}
 
-			{selectedPlan?.planLimits && selectedPlan.resourcesPerInstance && (
-				<ResourcesPerInstance planLimits={selectedPlan.planLimits} resourcesPerInstance={selectedPlan.resourcesPerInstance} />
-			)}
+			<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} />
 		</div>
-		<DialogFooter className="mt-3">
+		<DialogFooter className="mt-3 mb-12">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>
 				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
 				<ArrowRight />

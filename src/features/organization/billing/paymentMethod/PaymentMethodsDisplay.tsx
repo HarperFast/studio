@@ -1,3 +1,4 @@
+import { ContactUs } from '@/components/ContactUs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
@@ -48,9 +49,7 @@ export function PaymentMethodsDisplay({
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this
-				page. Want to explore your solution with Harper
-				more? <a href="https://www.harpersystems.dev/contact" target="_blank" className="underline">Contact
-				us</a>, we would love to talk!
+				page. Want to explore your solution with Harper more? <ContactUs />, we would love to talk!
 			</span>
 		);
 	}
