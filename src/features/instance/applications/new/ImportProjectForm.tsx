@@ -51,9 +51,6 @@ export function ImportProjectForm({
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
 			},
-			onError: (error) => {
-				toast.error(`Error creating Application: ${error.message}`);
-			},
 		});
 	};
 	const handleFetchApplication = async (url: string) => {

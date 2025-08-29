@@ -49,9 +49,6 @@ export function CreateNewProjectForm({
 				toast.success(`Project ${formData.newApplicationName} created successfully`);
 				triggerRestart();
 			},
-			onError: (error) => {
-				toast.error(`Error creating project: ${error.message}`);
-			},
 		});
 	};
 	return (
