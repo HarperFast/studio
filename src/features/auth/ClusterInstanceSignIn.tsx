@@ -13,6 +13,7 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
+import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { queryKeys } from '@/react-query/constants';
@@ -42,6 +43,7 @@ export function ClusterInstanceSignIn() {
 	const navigate = useNavigate();
 	const router = useRouter();
 	const queryClient = useQueryClient();
+	const { redirect } = useSearch({ strict: false });
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
@@ -61,8 +63,12 @@ export function ClusterInstanceSignIn() {
 		}
 		return null;
 	}, [cluster, instance]);
+
 	const instanceClient = useInstanceClient(operationsUrl);
-	const { redirect } = useSearch({ strict: false });
+	const warnAboutLoginCookieIssues = useMemo(
+		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
+		[operationsUrl],
+	);
 
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
@@ -158,6 +164,19 @@ export function ClusterInstanceSignIn() {
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
 								Sign In
 							</Button>
+							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.MixedLoopback && (
+								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+									<span className="font-medium">Warning!</span> Your login might not work because
+									you're mixing 127.0.0.1 and localhost. Pick one or the other.
+								</div>
+							)}
+							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.InsecureCookieOutsideChromeAndFirefox && (
+								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+									<span className="font-medium">Warning!</span> Your login might not work because your
+									browser doesn't consider localhost to be secure, so it doesn't pass the cookies
+									along. Firefox or Chromium based browsers should pass the cookies properly.
+								</div>
+							)}
 						</form>
 					</Form>
 				</div>
