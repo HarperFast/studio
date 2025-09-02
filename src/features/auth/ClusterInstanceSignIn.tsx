@@ -12,12 +12,14 @@ import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { authStore } from '@/lib/authStore';
+import { authStore, OverallAppSignIn } from '@/lib/authStore';
+import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -37,19 +39,20 @@ const SignInSchema = z.object({
 		.max(50, { message: 'Password must be less than 50 characters' }),
 });
 
-const route = getRouteApi('');
-
 export function ClusterInstanceSignIn() {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = route.useParams();
+	const navigate = useNavigate();
+	const router = useRouter();
+	const queryClient = useQueryClient();
+	const { redirect } = useSearch({ strict: false });
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
 	const instance = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
 		[cluster, instanceId]);
-	const noun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
+	const noun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
 
-	const navigate = useNavigate();
 	const operationsUrl = useMemo(() => {
 		if (cluster) {
 			if (instance) {
@@ -60,9 +63,12 @@ export function ClusterInstanceSignIn() {
 		}
 		return null;
 	}, [cluster, instance]);
+
 	const instanceClient = useInstanceClient(operationsUrl);
-	const { redirect } = useSearch({ strict: false });
-	const router = useRouter();
+	const warnAboutLoginCookieIssues = useMemo(
+		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
+		[operationsUrl],
+	);
 
 	const form = useForm<z.infer<typeof SignInSchema>>({
 		resolver: zodResolver(SignInSchema),
@@ -75,26 +81,34 @@ export function ClusterInstanceSignIn() {
 	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignInSchema>) => {
-		if (!operationsUrl) {
-			toast.error(`${noun} is not yet fully loaded, please wait a moment before trying to sign in.`);
-			return;
-		}
-		submitInstanceLogin({ ...formData, instanceClient }, {
-			onSuccess: async (response) => {
-				toast.success(response.message);
-				const user = await getInstanceUserInfo({ instanceClient });
-				// If we sign in to the cluster, we've authenticated against all of its instances too.
-				if (cluster?.instances?.length && !instance) {
-					for (const clusterInstance of cluster.instances) {
-						authStore.setUserForEntity(clusterInstance, user);
-					}
-				}
-				authStore.setUserForEntity(instance || cluster || null, user);
-				router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
+		submitInstanceLogin(
+			{
+				...formData,
+				instanceClient,
 			},
-		});
-	}, [cluster, instance, instanceClient, navigate, noun, operationsUrl, redirect, router, submitInstanceLogin]);
+			{
+				onSuccess: async (response) => {
+					toast.success(response.message);
+					const user = await getInstanceUserInfo({ instanceClient });
+					// If we sign in to the cluster, we've authenticated against all of its instances too.
+					if (cluster?.instances?.length && !instance) {
+						for (const clusterInstance of cluster.instances) {
+							authStore.setUserForEntity(clusterInstance, user);
+						}
+					}
+					authStore.setUserForEntity(instance || cluster || OverallAppSignIn, user);
+					void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
+					router.invalidate();
+					await navigate({
+						to: redirect?.startsWith('/')
+							? redirect
+							: isLocalStudio
+								? '/browse'
+								: '../browse',
+					});
+				},
+			});
+	}, [cluster, instance, instanceClient, navigate, queryClient, redirect, router, submitInstanceLogin]);
 
 	if (cluster?.resetPassword) {
 		return <Navigate to="../set-password" replace={true} />;
@@ -102,9 +116,10 @@ export function ClusterInstanceSignIn() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">
-				<Breadcrumbs />
-			</nav>
+			{!isLocalStudio && (
+				<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">
+					<Breadcrumbs />
+				</nav>)}
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">
@@ -149,6 +164,19 @@ export function ClusterInstanceSignIn() {
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
 								Sign In
 							</Button>
+							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.MixedLoopback && (
+								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+									<span className="font-medium">Warning!</span> Your login might not work because
+									you're mixing 127.0.0.1 and localhost. Pick one or the other.
+								</div>
+							)}
+							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.InsecureCookieOutsideChromeAndFirefox && (
+								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+									<span className="font-medium">Warning!</span> Your login might not work because your
+									browser doesn't consider localhost to be secure, so it doesn't pass the cookies
+									along. Firefox or Chromium based browsers should pass the cookies properly.
+								</div>
+							)}
 						</form>
 					</Form>
 				</div>
