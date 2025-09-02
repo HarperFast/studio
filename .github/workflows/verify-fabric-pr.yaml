@@ -1,10 +1,10 @@
-name: Verify Fabric PR
+name: Verify PR
 on:
   workflow_dispatch:
   pull_request:
-    branches: [harper/fabric]
+    branches: [dev, stage, prod]
 jobs:
-  verifyFabricPR:
+  verifyPR:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
