@@ -130,7 +130,6 @@ export function ClusterForm({
 	const selectedPerformance = form.watch('performanceDescription');
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
-	const selectedAutoRenew = form.watch('autoRenew');
 
 	useEffect(function syncRegionsWithSelectedDeploymentType() {
 		setLimitRegionParameters({
@@ -248,7 +247,7 @@ export function ClusterForm({
 		if (isSelfManaged) {
 			for (const instance of formData.instances) {
 				plans.push({
-					autoRenew: formData.autoRenew,
+					autoRenew: true,
 					instanceFqdn: instance.fqdn,
 					operationsApiPort: instance.port || defaultOperationsApiPort,
 					operationsApiSecure: instance.secure === 'true',
@@ -259,7 +258,7 @@ export function ClusterForm({
 			for (const regionPlan of formData.regionPlans) {
 				const region = regionNameToLatencyToRegion[regionPlan.regionName][regionPlan.latencyDescription];
 				plans.push({
-					autoRenew: formData.autoRenew,
+					autoRenew: true,
 					planId: plan.id,
 					regionId: region.id,
 				});
@@ -273,11 +272,11 @@ export function ClusterForm({
 			}, { onSuccess: onClusterEditedCallback });
 		} else {
 			submitNewClusterData({
-				organizationId,
-				name: formData.systemName,
 				abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
+				autoRenew: true,
 				fqdn: isSelfManaged && formData.fqdn || undefined,
-				autoRenew: formData.autoRenew,
+				name: formData.systemName,
+				organizationId,
 				regionPlans: plans,
 			}, { onSuccess: onClusterCreatedCallback });
 		}
@@ -341,7 +340,6 @@ export function ClusterForm({
 						onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
 						onSubmit={submitCreateCluster}
 						organizationId={organizationId}
-						selectedAutoRenew={selectedAutoRenew}
 						selectedPlan={selectedPlan}
 					/>
 				</>)

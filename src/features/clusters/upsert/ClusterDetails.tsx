@@ -66,7 +66,7 @@ export function ClusterDetails({
 				control={form.control}
 				name="systemName"
 				render={({ field }) => (
-					<FormItem className="col-span-3">
+					<FormItem className="col-span-3 md:col-span-6">
 						<FormLabel className="pb-1">Harper System Name</FormLabel>
 						<FormControl>
 							<Input
@@ -75,26 +75,6 @@ export function ClusterDetails({
 								autoCapitalize="words"
 								disabled={!!clusterId}
 								{...field} />
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			<FormField
-				control={form.control}
-				name="autoRenew"
-				render={({ field }) => (
-					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Auto Renew</FormLabel>
-						<FormControl>
-							<Input
-								{...field}
-								value={field.value as unknown as string}
-								checked={field.value === true}
-								type="checkbox"
-								disabled={!!clusterId}
-							/>
 						</FormControl>
 						<FormMessage />
 					</FormItem>

@@ -18,7 +18,6 @@ interface ClusterBillingProps {
 	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
 	readonly onSubmit?: () => void;
 	readonly organizationId: string;
-	readonly selectedAutoRenew: boolean;
 	readonly selectedPlan: SchemaPlan | undefined;
 }
 
@@ -29,7 +28,6 @@ export function ClusterBilling({
 	onSaveStateForBillingRedirect,
 	onSubmit,
 	organizationId,
-	selectedAutoRenew,
 	selectedPlan,
 }: ClusterBillingProps) {
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
@@ -83,9 +81,7 @@ export function ClusterBilling({
 		</>);
 	}
 
-	const andMightAutoRenew = selectedAutoRenew ? ', and your next auto renewal will be for all purchased blocks' : '';
 	const orPossiblyExpires = expirationMonths && `, or ${pluralize(expirationMonths, 'month', 'months')} elapse`;
-	const maybeNot = selectedAutoRenew ? ' NOT' : '';
 
 	return (<>
 		<ul className="list-disc ml-6 mb-6">
@@ -93,11 +89,12 @@ export function ClusterBilling({
 				requested.
 			</li>
 			{clusterId && (
-				<li>If you scale up, you'll be charged for the additional blocks you've purchased now{andMightAutoRenew}.
+				<li>If you scale up, you'll be charged for the additional blocks you've purchased now, and your next
+					auto renewal will be for all purchased blocks.
 				</li>)}
 			{clusterId && (<li>If you remove a region, that region's usage block will not be used anymore (because it is
 				specific to that region).</li>)}
-			<li>When that block is used up{orPossiblyExpires}, you will{maybeNot} be automatically renewed.
+			<li>When that block is used up{orPossiblyExpires}, you will be automatically renewed.
 			</li>
 			<li>While refunds are not available, we’d be happy to assist you with... swag, depending on availability.
 			</li>
