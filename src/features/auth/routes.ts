@@ -1,13 +1,13 @@
-import { OverallAppSignIn } from '@/lib/authStore';
-import { createRoute, redirect } from '@tanstack/react-router';
 import { AuthLayout } from '@/features/auth/AuthLayout';
+import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
+import { ForgotPassword } from '@/features/auth/ForgotPassword';
+import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
 import { SignIn } from '@/features/auth/SignIn';
 import { SignUp } from '@/features/auth/SignUp';
-import { ForgotPassword } from '@/features/auth/ForgotPassword';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';
-import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
+import { OverallAppSignIn } from '@/lib/authStore';
 import { rootRoute } from '@/router/rootRoute';
-import { LocalSignIn } from '@/features/auth/LocalSignIn';
+import { createRoute, redirect } from '@tanstack/react-router';
 
 const authLayout = createRoute({
 	getParentRoute: () => rootRoute,
@@ -30,7 +30,7 @@ const signInRoute = createRoute({
 const localSignInRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: '/',
-	component: LocalSignIn,
+	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location }) => {
 		if (context.authentication[OverallAppSignIn]?.user) {
 			const search: Record<string, string> = location?.search;

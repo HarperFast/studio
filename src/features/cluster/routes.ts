@@ -1,4 +1,4 @@
-import { ClusterInstanceSignIn } from '@/features/cluster/ClusterInstanceSignIn';
+import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
 import { ClusterIndex } from '@/features/cluster/index';
