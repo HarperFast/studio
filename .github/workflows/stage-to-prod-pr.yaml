@@ -1,0 +1,22 @@
+name: Daily Stage to Prod PR
+
+on:
+  # Daily at about noon eastern, 9am Pacific
+  schedule:
+    - cron: '0 16 * * *'
+  # Or manually via workflow dispatch.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  openStageToProdPR:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: 'prod'
