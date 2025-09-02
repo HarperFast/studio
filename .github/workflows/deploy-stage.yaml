@@ -1,8 +1,11 @@
-name: Deploy Fabric Prod
+name: Deploy to Stage
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - stage
 jobs:
-  deployToProd:
+  deployToStage:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -17,11 +20,11 @@ jobs:
         run: pnpm test
       - name: Run lint
         run: pnpm lint
-      - name: Build staging
-        run: pnpm build:staging
+      - name: Build stage
+        run: pnpm build:stage
       - name: Install HarperDB
         run: npm install -g harperdb@4.6.0
-      - name: Deploy to prod
+      - name: Deploy to stage
         run: |
           rm -rf node_modules # Clean up node_modules, harper will install
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_PROD }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_PROD }}' harperdb deploy target='${{ secrets.CLI_DEPLOY_TARGET_PROD }}' restart=true
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' harperdb deploy target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=true
