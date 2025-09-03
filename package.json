@@ -18,8 +18,7 @@
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"test:watch": "vitest",
-		"prepare": "husky"
+		"test:watch": "vitest"
 	},
 	"release": {
 		"branches": [
@@ -148,7 +147,6 @@
 		"eslint-plugin-react-hooks": "^5.0.0",
 		"eslint-plugin-react-refresh": "^0.4.18",
 		"globals": "^15.14.0",
-		"husky": "^9.1.7",
 		"oxlint": "^0.15.12",
 		"semantic-release": "^24.1.0",
 		"typescript": "~5.7.2",
