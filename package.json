@@ -11,40 +11,85 @@
 		"build:dev": "tsc -b && vite build --mode dev",
 		"build:stage": "tsc -b && vite build --mode stage",
 		"build:prod": "tsc -b && vite build --mode prod",
-		"commitlint": "commitlint --from=HEAD~1 --to=HEAD",
+		"commitlint": "commitlint --edit",
 		"release": "semantic-release",
 		"update-sdk": "npx -y dotenv-cli -e .env.local -- npm run update-sdk:fetch && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o ./src/lib/api.gen.d.ts",
 		"update-sdk:fetch": "mkdir -p dist && curl --location \"$VITE_CENTRAL_MANAGER_API_URL/openapi\" -u \"$HDB_ADMIN_USERNAME_FOR_OPENAPI:$HDB_ADMIN_PASSWORD_FOR_OPENAPI\" -o ./dist/central-manager.json",
 		"lint": "eslint .",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"prepare": "husky"
 	},
 	"release": {
-		"branches": ["stage"],
+		"branches": [
+			"stage"
+		],
 		"tagFormat": "v${version}",
 		"plugins": [
-			["@semantic-release/commit-analyzer", {
-				"preset": "conventionalcommits",
-				"releaseRules": [
-					{"type": "feat", "release": "minor"},
-					{"type": "fix", "release": "patch"},
-					{"type": "perf", "release": "patch"},
-					{"type": "refactor", "release": "patch"},
-					{"type": "chore", "release": "patch"},
-					{"type": "docs", "release": "patch"},
-					{"type": "style", "release": "patch"},
-					{"type": "test", "release": "patch"},
-					{"type": "build", "release": "patch"},
-					{"type": "ci", "release": "patch"},
-					{"type": "revert", "release": "patch"},
-					{"type": "*", "release": "patch"}
-				]
-			}],
+			[
+				"@semantic-release/commit-analyzer",
+				{
+					"preset": "conventionalcommits",
+					"releaseRules": [
+						{
+							"type": "feat",
+							"release": "minor"
+						},
+						{
+							"type": "fix",
+							"release": "patch"
+						},
+						{
+							"type": "perf",
+							"release": "patch"
+						},
+						{
+							"type": "refactor",
+							"release": "patch"
+						},
+						{
+							"type": "chore",
+							"release": "patch"
+						},
+						{
+							"type": "docs",
+							"release": "patch"
+						},
+						{
+							"type": "style",
+							"release": "patch"
+						},
+						{
+							"type": "test",
+							"release": "patch"
+						},
+						{
+							"type": "build",
+							"release": "patch"
+						},
+						{
+							"type": "ci",
+							"release": "patch"
+						},
+						{
+							"type": "revert",
+							"release": "patch"
+						},
+						{
+							"type": "*",
+							"release": "patch"
+						}
+					]
+				}
+			],
 			"@semantic-release/release-notes-generator",
-			["@semantic-release/github", {
-				"successComment": false
-			}]
+			[
+				"@semantic-release/github",
+				{
+					"successComment": false
+				}
+			]
 		]
 	},
 	"dependencies": {
@@ -93,8 +138,8 @@
 		"@commitlint/config-conventional": "^19.5.0",
 		"@eslint/js": "^9.19.0",
 		"@semantic-release/commit-analyzer": "^13.0.0",
-		"@semantic-release/release-notes-generator": "^14.0.0",
 		"@semantic-release/github": "^10.0.7",
+		"@semantic-release/release-notes-generator": "^14.0.0",
 		"@tanstack/router-devtools": "^1.111.11",
 		"@types/react": "^19.0.8",
 		"@types/react-dom": "^19.0.3",
@@ -103,6 +148,7 @@
 		"eslint-plugin-react-hooks": "^5.0.0",
 		"eslint-plugin-react-refresh": "^0.4.18",
 		"globals": "^15.14.0",
+		"husky": "^9.1.7",
 		"oxlint": "^0.15.12",
 		"semantic-release": "^24.1.0",
 		"typescript": "~5.7.2",
