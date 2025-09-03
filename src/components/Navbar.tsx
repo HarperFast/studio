@@ -9,7 +9,7 @@ import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
-	BookMarkedIcon,
+	BookOpenTextIcon,
 	BuildingIcon,
 	HandshakeIcon,
 	LogInIcon,
@@ -108,7 +108,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 					to="/docs"
 					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
 				>
-					<BookMarkedIcon className="mr-4" /> Resources
+					<BookOpenTextIcon className="mr-4" /> Docs
 				</Link>
 				<Link
 					to={undefined}
@@ -206,7 +206,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 									rel="noreferrer noopener"
 									className="flex-row items-center"
 								>
-									<BookMarkedIcon /> <span className="hidden lg:inline-block">Resources</span>
+									<BookOpenTextIcon /> <span className="hidden lg:inline-block">Docs</span>
 								</Link>
 							</NavigationMenuLink>
 						</NavigationMenuItem>
@@ -243,7 +243,7 @@ function AnonymousNav() {
 								rel="noreferrer noopener"
 								className="flex-row items-center"
 							>
-								<BookMarkedIcon /> <span className="hidden md:inline-block">Resources</span>
+								<BookOpenTextIcon /> <span className="hidden md:inline-block">Docs</span>
 							</Link>
 						</NavigationMenuLink>
 					</NavigationMenuItem>
