@@ -6,5 +6,9 @@ module.exports = {
 			'always',
 			['sentence-case', 'start-case', 'pascal-case', 'upper-case'],
 		],
+		'body-max-line-length': [
+			0,
+			'never',
+		],
 	},
 };
