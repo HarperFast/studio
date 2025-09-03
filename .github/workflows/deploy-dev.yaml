@@ -26,7 +26,6 @@ jobs:
       - name: Determine version tag for build
         run: |
           VERSION_TAG="v${GITHUB_SHA:0:7}"
-          echo "$VERSION_TAG"
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build dev
         run: pnpm build:dev
