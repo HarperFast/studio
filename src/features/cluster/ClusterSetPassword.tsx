@@ -7,7 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { defaultClusterUsername } from '@/config/constants';
+import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
@@ -88,7 +88,7 @@ export function ClusterSetPassword() {
 				const user = await getInstanceUserInfo({ instanceClient });
 				authStore.setUserForEntity(cluster || null, user);
 				router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '../browse' });
+				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},
 		});
 	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, router, submitInstanceResetPassword, tempPassword]);

@@ -7,7 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { isLocalStudio } from '@/config/constants';
+import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
@@ -103,8 +103,8 @@ export function ClusterInstanceSignIn() {
 						to: redirect?.startsWith('/')
 							? redirect
 							: isLocalStudio
-								? '/browse'
-								: '../browse',
+								? defaultInstanceRoute
+								: defaultInstanceRouteUpOne,
 					});
 				},
 			});

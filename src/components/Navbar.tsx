@@ -3,7 +3,7 @@ import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
-import { isLocalStudio } from '@/config/constants';
+import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
@@ -36,7 +36,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 	return (
 		<div className="md:hidden" id="mobile-menu">
 			<div className="flex items-center justify-between">
-				<Link to={isLocalStudio ? '/browse' : '/orgs'}>
+				<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 					<Logo />
 					<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
@@ -132,7 +132,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 		<div className="hidden md:block">
 			<div className="flex items-center justify-between">
 				<div className="inline-block">
-					<Link to={isLocalStudio ? '/browse' : '/orgs'}>
+					<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 						<Logo />
 						<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
 					</Link>

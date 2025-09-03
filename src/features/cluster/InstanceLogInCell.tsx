@@ -1,5 +1,6 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
+import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -36,7 +37,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	}
 	return <span className="flex gap-4">
 		<Link
-			to={`instance/${instance.id}/browse`}
+			to={`instance/${instance.id}${defaultInstanceRoute}`}
 			className="text-sm"
 			aria-label={`Go to ${instance.name} instance`}
 			title={`Go to ${instance.name} instance`}

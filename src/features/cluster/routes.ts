@@ -1,3 +1,4 @@
+import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { ClusterLayout } from '@/features/cluster/ClusterLayout';
 import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
@@ -30,7 +31,7 @@ const clusterSignInRoute = createRoute({
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/')
 					? search.redirect
-					: '../browse' });
+					: defaultInstanceRouteUpOne });
 		}
 	},
 });
@@ -44,7 +45,7 @@ const instanceSignInRoute = createRoute({
 			const search: Record<string, string> = location?.search;
 			throw redirect({ to: search?.redirect?.startsWith('/')
 					? search.redirect
-					: '../browse' });
+					: defaultInstanceRouteUpOne });
 		}
 	},
 });

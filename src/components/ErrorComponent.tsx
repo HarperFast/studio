@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { isLocalStudio } from '@/config/constants';
+import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
 import { Link } from '@tanstack/react-router';
@@ -27,7 +27,7 @@ export function ErrorComponent({ className, error, title, showReturnToHome }: Er
 			</CardHeader>
 			{showReturnToHome !== false && (<CardContent>
 				{user && !isUserLoading ? (
-					<Link to={isLocalStudio ? '/browse' : '/orgs'}>
+					<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 						<Button>
 							{' '}
 							<ArrowLeft /> Return to Home
