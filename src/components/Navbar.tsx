@@ -38,7 +38,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 			<div className="flex items-center justify-between">
 				<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 					<Logo />
-					<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
+					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
 				<button
 					type="button"
@@ -134,7 +134,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 				<div className="inline-block">
 					<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 						<Logo />
-						<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
+						<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 					</Link>
 				</div>
 				<NavigationMenu>
@@ -230,7 +230,7 @@ function AnonymousNav() {
 			<div className="inline-block">
 				<Link to="/">
 					<Logo />
-					<span className="text-grey text-xs inline-block pl-2">v{import.meta.env.VITE_STUDIO_VERSION}</span>
+					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
 			</div>
 			<NavigationMenu>
