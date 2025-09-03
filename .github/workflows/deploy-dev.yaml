@@ -10,6 +10,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - name: Set up Node.js
         uses: actions/setup-node@v4
       - name: Set up pnpm
@@ -20,6 +23,11 @@ jobs:
         run: pnpm test
       - name: Run lint
         run: pnpm lint
+      - name: Determine version tag for build
+        run: |
+          VERSION_TAG="v${GITHUB_SHA:0:7}"
+          echo "$VERSION_TAG"
+          echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build dev
         run: pnpm build:dev
       - name: Install HarperDB

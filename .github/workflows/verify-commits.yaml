@@ -1,0 +1,18 @@
+name: Verify Commits
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened, ready_for_review]
+  push:
+    branches: [dev, stage, prod]
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commitlint
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: commitlint.config.cjs
