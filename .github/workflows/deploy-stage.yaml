@@ -7,20 +7,38 @@ on:
 jobs:
   deployToStage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
       - name: Install dependencies
         run: pnpm install
       - name: Run unit tests
         run: pnpm test
       - name: Run lint
         run: pnpm lint
-      - name: Build stage
+      - name: Verify stage can build
+        run: pnpm build:stage
+      - name: Semantic release
+        run: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Determine version tag for build
+        run: |
+          VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
+          if [ -z "$VERSION_TAG" ]; then
+            VERSION_TAG="v0.0.0+${GITHUB_SHA:0:7}"
+          fi
+          echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
+      - name: Build stage for release
         run: pnpm build:stage
       - name: Install HarperDB
         run: npm install -g harperdb@4.6.0
