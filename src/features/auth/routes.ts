@@ -1,3 +1,4 @@
+import { defaultInstanceRoute } from '@/config/constants';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { ForgotPassword } from '@/features/auth/ForgotPassword';
@@ -34,7 +35,7 @@ const localSignInRoute = createRoute({
 	beforeLoad: ({ context, location }) => {
 		if (context.authentication[OverallAppSignIn]?.user) {
 			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/browse' });
+			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : defaultInstanceRoute });
 		}
 	},
 });

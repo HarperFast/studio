@@ -1,9 +1,9 @@
-import { Link } from '@tanstack/react-router';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
-import { isLocalStudio } from '@/config/constants';
+import { Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 
 export function NotFoundComponent() {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
@@ -17,7 +17,7 @@ export function NotFoundComponent() {
 				</CardHeader>
 				<CardContent>
 					{user && !isUserLoading ? (
-						<Link to={ isLocalStudio ? "/browse" : "/orgs" }>
+						<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
 							<Button>
 								{' '}
 								<ArrowLeft /> Return to Home

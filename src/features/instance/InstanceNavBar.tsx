@@ -18,14 +18,14 @@ function DesktopInstanceNavBar() {
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<Breadcrumbs />
 			<div className="flex space-x-2 *:hover:text-grey">
+				<Link to="applications" className="p-2">
+					<Package className="inline-block" /> Applications
+				</Link>
 				<Link to="browse" className="p-2">
 					<List className="inline-block" /> Browse
 				</Link>
 				{canManage && (
 					<>
-						<Link to="applications" className="p-2">
-							<Package className="inline-block" /> Applications
-						</Link>
 						<Link to="status" className="p-2">
 							<GaugeIcon className="inline-block" /> Status
 						</Link>
@@ -58,13 +58,13 @@ function MobileInstanceNavBar() {
 					<DropdownMenuLabel>Instance Menu</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem asChild>
+						<Link to="applications">Applications</Link>
+					</DropdownMenuItem>
+					<DropdownMenuItem asChild>
 						<Link to="browse">Browse</Link>
 					</DropdownMenuItem>
 					{canManage && (
 						<>
-							<DropdownMenuItem asChild>
-								<Link to="applications">Applications</Link>
-							</DropdownMenuItem>
 							<DropdownMenuItem asChild>
 								<Link to="status">Status</Link>
 							</DropdownMenuItem>
