@@ -5,9 +5,10 @@ import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
-import { Save } from 'lucide-react';
+import { ImportIcon, PlusIcon, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useEditorView } from '../../../hooks/useEditorView';
+import { NewProjectModal } from '../../../modals/NewProjectModal';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
@@ -32,10 +33,15 @@ const extensionToLanguageMap = {
 export function TextEditorView() {
 	const { selectedFolderFile, onSaveFile, isSavingFile, isFolder } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
-	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | null>(selectedFolderFile.content || null, [selectedFolderFile.filePath]);
+	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | null>(
+		selectedFolderFile.content || null,
+		[selectedFolderFile.filePath]
+	);
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
-	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
+	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientParams();
+	const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+	const [appType, setAppType] = useState<'create' | 'import'>('create');
 
 	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
 
@@ -55,12 +61,15 @@ export function TextEditorView() {
 						className="w-32 rounded-full"
 						onClick={() => {
 							if (updateFileContent !== null) {
-								onSaveFile({
-									...instanceParams,
-									file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
-									payload: updateFileContent,
-									project: selectedFolderFile.projectName,
-								}, selectedFolderFile.filePath);
+								onSaveFile(
+									{
+										...instanceParams,
+										file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
+										payload: updateFileContent,
+										project: selectedFolderFile.projectName,
+									},
+									selectedFolderFile.filePath
+								);
 							}
 						}}
 						disabled={
@@ -73,12 +82,34 @@ export function TextEditorView() {
 						<Save />
 						<span className="ms-1">Save</span>
 					</Button>
-					<RestartButton targetNoun={targetNoun} instanceClient={instanceParams.instanceClient} operation="restart_service" />
+					<RestartButton
+						targetNoun={targetNoun}
+						instanceClient={instanceParams.instanceClient}
+						operation="restart_service"
+					/>
+
+					<Button variant="defaultOutline" className="w-38 rounded-full" onClick={() => setIsNewProjectModalOpen(true)}>
+						<PlusIcon /> New Application
+					</Button>
 				</div>
 			</div>
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
-				<div className="flex items-center justify-center h-full">
+				<div className="flex flex-col items-center justify-center h-full space-y-4">
 					<span className="text-white">No file selected</span>
+					<div>
+						<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
+							setIsNewProjectModalOpen(true); 
+							setAppType('create');
+							}}>
+							<PlusIcon /> Create New
+						</Button>
+						<Button variant="defaultOutline" className="ms-4" size="lg" onClick={() => {
+							setIsNewProjectModalOpen(true);
+							setAppType('import');
+						}}>
+							<ImportIcon /> Import Application
+						</Button>
+					</div>
 				</div>
 			) : (
 				<Editor
@@ -95,6 +126,7 @@ export function TextEditorView() {
 					}}
 				/>
 			)}
+			<NewProjectModal isModalOpen={isNewProjectModalOpen} setIsModalOpen={setIsNewProjectModalOpen} appType={appType} setAppType={setAppType} />
 		</div>
 	);
 }
