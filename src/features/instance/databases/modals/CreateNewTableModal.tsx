@@ -27,6 +27,12 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const CreateTableSchema = z.object({
+	databaseName: z
+		.string()
+		.regex(/^[a-zA-Z0-9_]*$/, {
+			message: 'Database name can only contain letters, numbers, and underscores',
+		})
+		.max(75, { message: 'Database name must be less than 75 characters' }),
 	tableName: z
 		.string()
 		.min(1, {
@@ -49,8 +55,8 @@ const CreateTableSchema = z.object({
 });
 
 export function CreateNewTableModal({ databaseName, onSelectTable }: {
-	readonly databaseName: string;
-	readonly onSelectTable: (tableName: string | undefined) => void;
+	readonly databaseName: string | undefined;
+	readonly onSelectTable: (databaseName: string | undefined, tableName: string | undefined) => void;
 }) {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
@@ -59,6 +65,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	const form = useForm({
 		resolver: zodResolver(CreateTableSchema),
 		defaultValues: {
+			databaseName: databaseName || '',
 			tableName: '',
 			primaryKey: '',
 		},
@@ -67,19 +74,24 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	const { mutate: submitNewTableData } = useCreateTableMutation();
 
 	const submitForm = async (formData: z.infer<typeof CreateTableSchema>) => {
+		const databaseName = formData.databaseName || 'data';
+		const tableName = formData.tableName;
 		submitNewTableData({
-			tableName: formData.tableName,
-			primaryKey: formData.primaryKey || 'id',
 			databaseName,
+			tableName,
+			primaryKey: formData.primaryKey || 'id',
 			...instanceParams,
 			replicated: instanceParams.entityType === 'cluster',
 		}, {
 			onSuccess: async () => {
-				await queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, 'describe_all'], refetchType: 'all' });
-				toast.success(`Table ${formData.tableName} created successfully`);
+				await queryClient.invalidateQueries({
+					queryKey: [instanceParams.entityId, 'describe_all'],
+					refetchType: 'all',
+				});
+				toast.success(`Table ${tableName} created successfully`);
 				setIsModalOpen(false);
 				form.reset();
-				onSelectTable(formData.tableName);
+				onSelectTable(databaseName, tableName);
 				await router.invalidate();
 			},
 		});
@@ -97,7 +109,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 				<DialogHeader>
 					<DialogTitle>Create a New Table</DialogTitle>
 					<DialogDescription>
-						Create a new table for <strong>{databaseName}</strong>.
+						What would you like to create?
 					</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
@@ -109,7 +121,15 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 								<FormItem className="">
 									<FormLabel className="pb-1">Table Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="ex. Users" {...field} />
+										<Input
+											{...field}
+											type="text"
+											placeholder="ex. Users"
+											maxLength={CreateTableSchema.shape.tableName.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -122,7 +142,36 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 								<FormItem className="">
 									<FormLabel className="pb-1">Primary Key</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="id" {...field} />
+										<Input
+											{...field}
+											placeholder="id"
+											type="text"
+											maxLength={CreateTableSchema.shape.primaryKey.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="databaseName"
+							render={({ field }) => (
+								<FormItem className="">
+									<FormLabel className="pb-1">Database Name</FormLabel>
+									<FormControl>
+										<Input
+											{...field}
+											type="text"
+											placeholder="data"
+											maxLength={CreateTableSchema.shape.databaseName.maxLength!}
+											autoCapitalize="off"
+											autoComplete="off"
+											autoCorrect="off"
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>

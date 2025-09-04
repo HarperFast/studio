@@ -1,4 +1,5 @@
 import { getInstanceClient } from '@/config/getInstanceClient';
+import { buildAbsoluteLinkToTable } from '@/features/instance/databases/functions/buildAbsoluteLinkToTable';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { OverallAppSignIn } from '@/lib/authStore';
 import { QueryClient } from '@tanstack/react-query';
@@ -31,16 +32,15 @@ export async function loadInstanceBrowseData(
 		}
 	}
 	if (newDatabaseName || newTableName) {
-		const to = [
-			params.databaseName ? '..' : '',
-			params.tableName ? '..' : '',
-			newDatabaseName ?? params.databaseName,
-			newTableName,
-		]
-			.filter(Boolean)
-			.join('/');
 		if (!preload) {
-			throw redirect({ to, replace: true });
+			throw redirect({
+				to: buildAbsoluteLinkToTable({
+					...params,
+					databaseName: newDatabaseName ?? params.databaseName,
+					tableName: newTableName,
+				}),
+				replace: true,
+			});
 		}
 	}
 	return data;

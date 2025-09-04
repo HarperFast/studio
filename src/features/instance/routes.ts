@@ -1,9 +1,9 @@
 import { createStatusRouteTree } from '@/features/instance/status/routes';
 import { createRoute } from '@tanstack/react-router';
-import { Browse } from '@/features/instance/browse';
+import { Databases } from '@/features/instance/databases';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { createConfigRouteTree } from '@/features/instance/config/routes';
-import { createBrowseRouteTree } from '@/features/instance/browse/routes';
+import { createBrowseRouteTree } from '@/features/instance/databases/routes';
 import { createApplicationsRoutes } from '@/features/instance/applications/routes';
 import { createLogRouteTree } from '@/features/instance/log/routes';
 
@@ -13,7 +13,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 	const instanceIndexRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: mode === 'cluster' ? '/index' : '/',
-		component: Browse,
+		component: Databases,
 	});
 
 	const children = [

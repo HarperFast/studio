@@ -1,10 +1,10 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { BrowseDataTable } from '@/features/instance/browse/components/BrowseDataTable';
-import { formatBrowseDataTableHeader } from '@/features/instance/browse/functions/formatBrowseDataTableHeader';
-import { AddTableRowModal } from '@/features/instance/browse/modals/AddTableRowModal';
-import { EditTableRowModal } from '@/features/instance/browse/modals/EditTableRowModal';
+import { BrowseDataTable } from '@/features/instance/databases/components/BrowseDataTable';
+import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
+import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';

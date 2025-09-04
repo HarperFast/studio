@@ -21,8 +21,8 @@ function DesktopInstanceNavBar() {
 				<Link to="applications" className="p-2">
 					<Package className="inline-block" /> Applications
 				</Link>
-				<Link to="browse" className="p-2">
-					<List className="inline-block" /> Browse
+				<Link to="databases" className="p-2">
+					<List className="inline-block" /> Databases
 				</Link>
 				{canManage && (
 					<>
@@ -61,7 +61,7 @@ function MobileInstanceNavBar() {
 						<Link to="applications">Applications</Link>
 					</DropdownMenuItem>
 					<DropdownMenuItem asChild>
-						<Link to="browse">Browse</Link>
+						<Link to="databases">Databases</Link>
 					</DropdownMenuItem>
 					{canManage && (
 						<>
