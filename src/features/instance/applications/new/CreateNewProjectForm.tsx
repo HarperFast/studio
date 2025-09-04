@@ -62,7 +62,7 @@ export function CreateNewProjectForm({
 							<FormItem>
 								<FormLabel className="pb-1 text-center">New Project Name</FormLabel>
 								<FormControl>
-									<Input type="text" placeholder="e-commerce-store" className="text-center bg-black" {...field} />
+									<Input type="text" placeholder="e-commerce-store" className="text-center" {...field} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
