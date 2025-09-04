@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { Link } from '@tanstack/react-router';
-import { ChartBarBig, GaugeIcon, List, Menu, NotepadText, Package } from 'lucide-react';
+import { DatabaseIcon, GaugeIcon, Menu, NotepadText, Package, SettingsIcon } from 'lucide-react';
 
 function DesktopInstanceNavBar() {
 	const canManage = useInstanceManagePermission();
@@ -19,21 +19,28 @@ function DesktopInstanceNavBar() {
 			<Breadcrumbs />
 			<div className="flex space-x-2 *:hover:text-grey">
 				<Link to="applications" className="p-2">
-					<Package className="inline-block" /> Applications
+					<Package className="inline-block" />
+					<span className="hidden xl:inline-block ml-1">Applications</span>
+					<span className="visible xl:hidden ml-1"> Apps</span>
+
 				</Link>
 				<Link to="databases" className="p-2">
-					<List className="inline-block" /> Databases
+					<DatabaseIcon className="inline-block" />
+					<span className="hidden xl:inline-block ml-1"> Databases</span>
 				</Link>
 				{canManage && (
 					<>
 						<Link to="status" className="p-2">
-							<GaugeIcon className="inline-block" /> Status
-						</Link>
-						<Link to="config" className="p-2">
-							<ChartBarBig className="inline-block" /> Config
+							<GaugeIcon className="inline-block" />
+							<span className="hidden xl:inline-block ml-1">Status</span>
 						</Link>
 						<Link to="logs" className="p-2">
-							<NotepadText className="inline-block" /> Logs
+							<NotepadText className="inline-block" />
+							<span className="hidden xl:inline-block ml-1">Logs</span>
+						</Link>
+						<Link to="config" className="p-2">
+							<SettingsIcon className="inline-block" />
+							<span className="hidden xl:inline-block ml-1">Config</span>
 						</Link>
 					</>
 				)}
