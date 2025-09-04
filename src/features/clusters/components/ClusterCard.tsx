@@ -27,10 +27,10 @@ const deletedClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
 
 export function ClusterCard({
 	cluster,
-	onDeleteClusterModal,
+	onTerminateClusterModal,
 }: {
 	cluster: Cluster;
-	onDeleteClusterModal: (cluster: Cluster) => void;
+	onTerminateClusterModal: (cluster: Cluster) => void;
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useInstanceAuth(cluster.id);
@@ -50,9 +50,9 @@ export function ClusterCard({
 			}
 		}
 	}, [cluster, instanceClient]);
-	const onDeleteClick = useCallback(() => {
-		onDeleteClusterModal(cluster);
-	}, [cluster, onDeleteClusterModal]);
+	const onTerminateClick = useCallback(() => {
+		onTerminateClusterModal(cluster);
+	}, [cluster, onTerminateClusterModal]);
 
 	const menuItems = [
 		isActive && update && (
@@ -64,8 +64,8 @@ export function ClusterCard({
 		notTerminated && remove && (
 			<DropdownMenuItem
 				className="bg-red focus:bg-red/70 focus:text-white"
-				onClick={onDeleteClick}>
-				Delete
+				onClick={onTerminateClick}>
+				Terminate
 			</DropdownMenuItem>
 		),
 	].filter(excludeFalsy);
