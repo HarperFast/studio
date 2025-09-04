@@ -20,6 +20,9 @@ export function Breadcrumbs() {
 		// Start at 1 to skip over the first top level route. The home icon will cover that.
 		for (let index = 1; index < routeHistory.length; index++) {
 			const route = routeHistory[index];
+			if (route === 'instance') {
+				continue;
+			}
 
 			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
