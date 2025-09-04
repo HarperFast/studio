@@ -5,7 +5,7 @@ import { getComponentsQueryOptions } from '@/features/instance/operations/querie
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { TextEditorView } from './components/TextEditorView';
 
-export function EditApplications() {
+export function ApplicationsEditor() {
 	const instanceParams = useInstanceClientIdParams();
 	const { data: getComponentsQueryData } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 

@@ -3,6 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useRestartClusterClick } from '@/hooks/useRestartClusterClick';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
+import { RotateCcwIcon } from 'lucide-react';
 
 interface RestartButtonParams extends InstanceClientConfig {
 	targetNoun: 'Instance' | 'Cluster';
@@ -23,11 +24,11 @@ export function RestartButton({
 		<TooltipTrigger asChild>
 			<Button
 				variant="positiveOutline"
-				className="ml-4 rounded-full cursor-pointer"
+				className="mx-4 rounded-full cursor-pointer"
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 				disabled={isRestartPending || isRestartClusterPending}
 			>
-				Restart {targetNoun}
+			<RotateCcwIcon /> Restart {targetNoun}
 			</Button>
 		</TooltipTrigger>
 		<TooltipContent>
