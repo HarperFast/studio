@@ -1,12 +1,12 @@
 import { isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
+import { translateUrlForDatadog } from '@/integrations/datadog/translateUrlForDatadog';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { isLocalUser } from '@/lib/types/isLocalUser';
-import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
 import { datadogRum } from '@datadog/browser-rum';
 import { reactPlugin } from '@datadog/browser-rum-react';
-import { useLocation } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useLocation, useParams } from '@tanstack/react-router';
+import { useEffect, useMemo } from 'react';
 
 let initialized = false;
 const enabled = !import.meta.env.DEV && !isLocalStudio;
@@ -42,6 +42,8 @@ export function useDatadog() {
 export function useOnRouteLoadTracker() {
 	const location = useLocation();
 	const { user } = useOverallAuth();
+	const params = useParams({ strict: false });
+	const name = useMemo(() => translateUrlForDatadog(location.href, params), [location.href, params]);
 
 	useEffect(() => {
 		if (!enabled) {
@@ -50,9 +52,9 @@ export function useOnRouteLoadTracker() {
 		datadogRum.startView({
 			service: 'studio',
 			version: import.meta.env.VITE_STUDIO_VERSION,
-			name: currentUrlAfterHash(),
+			name,
 		});
-	}, [location.href]);
+	}, [name]);
 
 	useEffect(() => {
 		if (!enabled) {
