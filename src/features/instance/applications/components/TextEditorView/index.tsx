@@ -7,8 +7,8 @@ import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
 import { ImportIcon, PlusIcon, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useEditorView } from '../../../hooks/useEditorView';
-import { NewProjectModal } from '../../../modals/NewProjectModal';
+import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { NewProjectModal } from '@/features/instance/applications/modals/NewProjectModal';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
