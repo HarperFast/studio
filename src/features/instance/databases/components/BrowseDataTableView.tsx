@@ -276,6 +276,8 @@ export function BrowseDataTableView() {
 			<ConfirmDeletionModal
 				typeOfThingBeingDeleted="table"
 				nameOfThingBeingDeleted={tableName}
+				transitiveVerb="Drop"
+				presentParticiple="Dropping"
 				isModalOpen={isDeleteModalOpen}
 				setIsModalOpen={() => setIsDeleteModalOpen(false)}
 				deletionConfirmed={onDeletionConfirmed}
