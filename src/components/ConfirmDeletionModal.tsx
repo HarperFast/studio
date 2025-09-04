@@ -19,6 +19,8 @@ export function ConfirmDeletionModal({
 	deletionConfirmed,
 	deletionPending,
 	trigger,
+	presentParticiple = 'Deleting',
+	transitiveVerb = 'Delete',
 }: {
 	typeOfThingBeingDeleted: string;
 	nameOfThingBeingDeleted?: string;
@@ -27,6 +29,8 @@ export function ConfirmDeletionModal({
 	deletionConfirmed: () => void;
 	deletionPending: boolean;
 	trigger?: ReactNode;
+	presentParticiple?: 'Deleting' | 'Terminating' | string;
+	transitiveVerb?: 'Delete' | 'Terminate' | string;
 }) {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -37,7 +41,7 @@ export function ConfirmDeletionModal({
 			)}
 			<DialogContent className="sm:max-w-[750px]">
 				<DialogHeader>
-					<DialogTitle>Are you sure you want to delete this {typeOfThingBeingDeleted}?</DialogTitle>
+					<DialogTitle>Are you sure you want to {transitiveVerb.toLowerCase()} this {typeOfThingBeingDeleted}?</DialogTitle>
 					<DialogDescription>This action cannot be undone.</DialogDescription>
 				</DialogHeader>
 				<div className="p-3 my-5 text-white rounded-md bg-amber-600">
@@ -45,7 +49,7 @@ export function ConfirmDeletionModal({
 						<TriangleAlert className="inline-block size-5" /> <span>Warning</span>
 					</p>
 					<p className="pt-2 text-base">
-						By deleting {typeOfThingBeingDeleted} <span className="font-semibold">{nameOfThingBeingDeleted} </span>
+						By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted} <span className="font-semibold">{nameOfThingBeingDeleted} </span>
 						you will lose the data stored in it permanently.
 					</p>
 				</div>
@@ -60,7 +64,7 @@ export function ConfirmDeletionModal({
 							onClick={deletionConfirmed}
 							disabled={deletionPending}
 						>
-							<Trash /> Delete
+							<Trash /> {transitiveVerb}
 						</Button>
 					</div>
 				</DialogFooter>
