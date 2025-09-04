@@ -11,8 +11,10 @@ export const clusterLayoutRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,
 	path: '$clusterId',
 	component: ClusterLayout,
-	loader: ({ context, params }) => {
-		return context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId));
+	beforeLoad: async ({ context, params }) => {
+		return {
+			cluster: await context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId)),
+		};
 	},
 });
 
@@ -29,9 +31,11 @@ const clusterSignInRoute = createRoute({
 	beforeLoad: ({ context, location, params }) => {
 		if (context.authentication[params.clusterId]?.user) {
 			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/')
+			throw redirect({
+				to: search?.redirect?.startsWith('/')
 					? search.redirect
-					: defaultInstanceRouteUpOne });
+					: defaultInstanceRouteUpOne,
+			});
 		}
 	},
 });
@@ -43,9 +47,11 @@ const instanceSignInRoute = createRoute({
 	beforeLoad: ({ context, location, params }) => {
 		if (context.authentication[params.instanceId || params.clusterId]?.user) {
 			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/')
+			throw redirect({
+				to: search?.redirect?.startsWith('/')
 					? search.redirect
-					: defaultInstanceRouteUpOne });
+					: defaultInstanceRouteUpOne,
+			});
 		}
 	},
 });
