@@ -116,7 +116,7 @@ export function DatabasesSidebar() {
 									>
 										{tableName}
 										<span>
-											{tableName === tableName && <ArrowRight />}
+											{params.tableName === tableName && <ArrowRight />}
 										</span>
 									</Button>
 								</li>
