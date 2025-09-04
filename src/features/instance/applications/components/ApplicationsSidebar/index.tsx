@@ -1,5 +1,5 @@
-import { EmptyApplicationsView } from '@/features/instance/applications/editor/components/ApplicationsSidebar/EmptyApplicationsView';
-import { FileTreeExplorer } from '@/features/instance/applications/editor/components/ApplicationsSidebar/FileTreeExplorer';
+import { EmptyApplicationsView } from '@/features/instance/applications/components/ApplicationsSidebar/EmptyApplicationsView';
+import { FileTreeExplorer } from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer';
 import { GetComponentsResponse } from '@/features/instance/operations/queries/getComponents';
 import { FileMenuActionButtons } from './FileTreeExplorer/FileMenuActionButtons';
 
