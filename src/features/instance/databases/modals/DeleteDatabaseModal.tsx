@@ -47,6 +47,8 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 		<ConfirmDeletionModal
 			typeOfThingBeingDeleted="database"
 			nameOfThingBeingDeleted={databaseName}
+			transitiveVerb="Drop"
+			presentParticiple="Dropping"
 			isModalOpen={isModalOpen}
 			setIsModalOpen={setIsModalOpen}
 			deletionConfirmed={onDeleteDatabase}
