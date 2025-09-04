@@ -80,7 +80,7 @@ export function ImportProjectForm({
 							<FormItem>
 								<FormLabel className="pb-1">New Project Name</FormLabel>
 								<FormControl>
-									<Input type="text" placeholder="e-commerce-store" className="bg-black " {...field} />
+									<Input type="text" placeholder="e-commerce-store" {...field} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
@@ -96,7 +96,6 @@ export function ImportProjectForm({
 									<Input
 										type="url"
 										placeholder="https://github.com/HarperDB/nextjs-example"
-										className="bg-black"
 										{...field}
 										onChange={(e: FormEvent<HTMLInputElement>) => {
 											// field.onChange(handleFetchApplication(e.currentTarget.value));
