@@ -130,7 +130,7 @@
 		"tailwind-merge": "^3.0.2",
 		"tailwindcss": "^4.0.9",
 		"tailwindcss-animate": "^1.0.7",
-		"zod": "^3.25.0"
+		"zod": "^4.0.0"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "^19.5.0",
