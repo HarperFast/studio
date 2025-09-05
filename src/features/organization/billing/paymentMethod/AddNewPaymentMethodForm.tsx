@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 interface AddNewPaymentMethodFormProps {
 	readonly hasExistingBilling: boolean;
 	readonly onPaymentAdded: (added: boolean) => void;
-	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	readonly onSaveStateForBillingRedirect?: (redirecting: boolean) => void;
 }
 
 export function AddNewPaymentMethodForm({

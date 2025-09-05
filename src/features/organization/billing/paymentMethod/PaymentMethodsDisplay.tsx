@@ -16,14 +16,12 @@ import { useCallback, useState } from 'react';
 const route = getRouteApi('');
 
 interface PaymentMethodsDisplayProps {
-	onSaveStateForBillingRedirect: (redirecting: boolean) => void;
-	onReplacingPaymentMethod: (value: boolean) => void;
+	onSaveStateForBillingRedirect?: (redirecting: boolean) => void;
+	onReplacingPaymentMethod?: (value: boolean) => void;
 }
 
-export function PaymentMethodsDisplay({
-	onSaveStateForBillingRedirect,
-	onReplacingPaymentMethod,
-}: PaymentMethodsDisplayProps) {
+export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
+	const { onSaveStateForBillingRedirect, onReplacingPaymentMethod } = props ?? {};
 	const { organizationId } = route.useParams();
 	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
