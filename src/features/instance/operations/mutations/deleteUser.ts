@@ -12,16 +12,16 @@ interface DeleteUserResponse {
 
 export const DeleteUserFormSchema = z.object({
 	username: z.string({
-		message: 'Please enter a username.',
+		error: 'Please enter a username.',
 		// TODO: usernames must have only letters, numbers, hyphens, and underscores
-	}).min(1, { message: 'Please enter a username.' }),
+	}).min(1, { error: 'Please enter a username.' }),
 	confirmUsernameForDeletion: z.string({
-		message: 'Please type the username again to confirm deletion.',
+		error: 'Please type the username again to confirm deletion.',
 		// TODO: usernames must have only letters, numbers, hyphens, and underscores
-	}).min(1, { message: 'Please confirm the username to delete.' }),
+	}).min(1, { error: 'Please confirm the username to delete.' }),
 })
 	.refine((data) => data.username === data.confirmUsernameForDeletion, {
-		message: 'Username does not match',
+		error: 'Username does not match',
 		path: ['confirmUsernameForDeletion'], // This specifies where the error message should be attached
 	});
 

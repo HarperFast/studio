@@ -16,28 +16,27 @@ import { z } from 'zod';
 const SignInSchema = z.object({
 	firstname: z
 		.string({
-			message: 'Please enter your first name.',
+			error: 'Please enter your first name.',
 		})
-		.min(2, { message: 'First name is required.' })
-		.max(50, { message: 'First name must be less than 50 characters.' }),
+		.min(2, { error: 'First name is required.' })
+		.max(50, { error: 'First name must be less than 50 characters.' }),
 	lastname: z
 		.string({
-			message: 'Please enter your last name.',
+			error: 'Please enter your last name.',
 		})
-		.min(2, { message: 'Last name is required.' })
-		.max(50, { message: 'Last name must be less than 50 characters.' }),
+		.min(2, { error: 'Last name is required.' })
+		.max(50, { error: 'Last name must be less than 50 characters.' }),
 	email: z
-		.string({
-			message: 'Please select an email to display.',
+		.email({
+			error: 'Please enter a valid email address.',
 		})
-		.max(75, { message: 'Email must be less than 75 characters.' })
-		.email(),
+		.max(75, { error: 'Email must be less than 75 characters.' }),
 	password: z
 		.string({
-			message: 'Please enter your password.',
+			error: 'Please enter your password.',
 		})
-		.min(8, { message: 'Password must be 8 characters or more.' })
-		.max(50, { message: 'Password must be less than 50 characters.' }),
+		.min(8, { error: 'Password must be 8 characters or more.' })
+		.max(50, { error: 'Password must be less than 50 characters.' }),
 });
 
 export function SignUp() {

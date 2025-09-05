@@ -28,15 +28,15 @@ import { z } from 'zod';
 const SignInSchema = z.object({
 	username: z
 		.string({
-			message: 'Please enter your username.',
+			error: 'Please enter your username.',
 		})
-		.max(75, { message: 'Username must be less than 75 characters' }),
+		.max(75, { error: 'Username must be less than 75 characters' }),
 	password: z
 		.string({
-			message: 'Please enter your password',
+			error: 'Please enter your password',
 		})
-		.min(1, { message: 'Password is required' })
-		.max(50, { message: 'Password must be less than 50 characters' }),
+		.min(1, { error: 'Password is required' })
+		.max(50, { error: 'Password must be less than 50 characters' }),
 });
 
 export function ClusterInstanceSignIn() {

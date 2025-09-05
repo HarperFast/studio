@@ -30,27 +30,27 @@ const CreateTableSchema = z.object({
 	databaseName: z
 		.string()
 		.regex(/^[a-zA-Z0-9_]*$/, {
-			message: 'Database name can only contain letters, numbers, and underscores',
+			error: 'Database name can only contain letters, numbers, and underscores',
 		})
-		.max(75, { message: 'Database name must be less than 75 characters' }),
+		.max(75, { error: 'Database name must be less than 75 characters' }),
 	tableName: z
 		.string()
 		.min(1, {
-			message: 'Table name is required.',
+			error: 'Table name is required.',
 		})
 		.regex(/^[a-zA-Z0-9_]+$/, {
-			message: 'Table name can only contain letters, numbers, and underscores.',
+			error: 'Table name can only contain letters, numbers, and underscores.',
 		})
 		.max(30, {
-			message: 'Table name must be less than 30 characters.',
+			error: 'Table name must be less than 30 characters.',
 		}),
 	primaryKey: z
 		.string()
 		.regex(/^[a-zA-Z0-9_]*$/, {
-			message: 'Primary key can only contain letters, numbers, and underscores.',
+			error: 'Primary key can only contain letters, numbers, and underscores.',
 		})
 		.max(14, {
-			message: 'Primary key must be less than 14 characters.',
+			error: 'Primary key must be less than 14 characters.',
 		}),
 });
 

@@ -17,11 +17,10 @@ import { toast } from 'sonner';
 
 const VerifyEmailSchema = z.object({
 	email: z
-		.string({
-			message: 'Please enter a valid email address',
+		.email({
+			error: 'Please enter a valid email address',
 		})
-		.max(75, { message: 'Email must be less than 75 characters' })
-		.email({ message: 'Please enter a valid email address' }),
+		.max(75, { error: 'Email must be less than 75 characters' }),
 });
 
 function SendEmailVerification() {

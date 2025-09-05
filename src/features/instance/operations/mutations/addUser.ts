@@ -11,26 +11,26 @@ interface AddUserFormData extends InstanceClientConfig {
 
 export const AddUserFormSchema = z.object({
 	username: z.string({
-		message: 'Please enter a username.',
+		error: 'Please enter a username.',
 		// TODO: usernames must have only letters, numbers, hyphens, and underscores
-	}).min(1, { message: 'Please enter a username.' }),
+	}).min(1, { error: 'Please enter a username.' }),
 	role: z.string({
-		message: 'Please select a role.',
+		error: 'Please select a role.',
 	}),
 	password: z
 		.string({
-			message: 'Please enter a password.',
+			error: 'Please enter a password.',
 		})
 		// TODO: Verify restrictions
-		.min(8, { message: 'Password must be 8 characters or more.' })
-		.max(50, { message: 'Password must be less than 50 characters.' }),
+		.min(8, { error: 'Password must be 8 characters or more.' })
+		.max(50, { error: 'Password must be less than 50 characters.' }),
 	confirmPassword: z
 		.string({
-			message: 'Please enter the password again.',
+			error: 'Please enter the password again.',
 		}),
 })
 	.refine((data) => data.password === data.confirmPassword, {
-		message: 'Passwords do not match',
+		error: 'Passwords do not match',
 		path: ['confirmPassword'], // This specifies where the error message should be attached
 	});
 

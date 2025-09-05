@@ -19,17 +19,16 @@ import { z } from 'zod';
 
 const SignInSchema = z.object({
 	email: z
-		.string({
-			message: 'Please enter a valid email address.',
+		.email({
+			error: 'Please enter a valid email address.',
 		})
-		.max(75, { message: 'Email must be less than 75 characters' })
-		.email({ message: 'Please enter a valid email address.' }),
+		.max(75, { error: 'Email must be less than 75 characters' }),
 	password: z
 		.string({
-			message: 'Please enter your password',
+			error: 'Please enter your password',
 		})
-		.min(1, { message: 'Password is required' })
-		.max(50, { message: 'Password must be less than 50 characters' }),
+		.min(1, { error: 'Password is required' })
+		.max(50, { error: 'Password must be less than 50 characters' }),
 });
 
 export function SignIn() {

@@ -18,14 +18,14 @@ const ResetPasswordSchema = z
 	.object({
 		password: z
 			.string({
-				message: 'Please enter your new password.',
+				error: 'Please enter your new password.',
 			})
-			.min(8, { message: 'Password must be at least 8 characters' })
-			.max(50, { message: 'Password must be less than 50 characters.' }),
+			.min(8, { error: 'Password must be at least 8 characters' })
+			.max(50, { error: 'Password must be less than 50 characters.' }),
 		confirmPassword: z.string(),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
-		message: 'Passwords do not match',
+		error: 'Passwords do not match',
 		path: ['confirmPassword'],
 	});
 

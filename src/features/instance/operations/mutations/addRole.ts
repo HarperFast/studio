@@ -11,14 +11,14 @@ export interface AddRoleFormData {
 export const AddRoleFormSchema = z.object({
 	role: z
 		.string({
-			message: 'Please enter a role.',
+			error: 'Please enter a role.',
 		})
-		.min(1, { message: 'Please enter a role.' })
+		.min(1, { error: 'Please enter a role.' })
 		.regex(/^[a-zA-Z_]+$/, {
-			message: 'Role must contain only letters and underscores.',
+			error: 'Role must contain only letters and underscores.',
 		})
 		.max(30, {
-			message: 'Role must be less than 30 characters.',
+			error: 'Role must be less than 30 characters.',
 		}),
 	super_user: z.boolean(),
 	structure_user: z.boolean(),
