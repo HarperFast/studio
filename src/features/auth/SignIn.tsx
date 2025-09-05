@@ -10,6 +10,7 @@ import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
 import { reoClient } from '@/integrations/reo/reo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
+import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -52,6 +53,7 @@ export function SignIn() {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
 				authStore.setUserForEntity(OverallAppSignIn, data);
+				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
 
 				const company = parseCompanyFromEmail(data.email);
 				if (company) {
@@ -63,7 +65,7 @@ export function SignIn() {
 				}
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : '/orgs' });
+				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 			},
 		});
 	};

@@ -1,3 +1,4 @@
+import { isLocalStudio } from '@/config/constants';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
@@ -11,7 +12,7 @@ export function Breadcrumbs() {
 			.filter((x) => x && x.length > 0);
 
 		const breadcrumbs = [
-			<Link to="/">
+			<Link to={isLocalStudio ? '/' : '/orgs'}>
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
 				<span className="sr-only">Home</span>
 			</Link>,
