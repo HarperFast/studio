@@ -39,7 +39,7 @@ export function AddUserModal({
 }) {
 	const instanceParams = useInstanceClientIdParams();
 	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
-	const form = useForm<z.infer<typeof AddUserFormSchema>>({
+	const form = useForm({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
 			username: '',

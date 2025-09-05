@@ -38,7 +38,7 @@ export function SignIn() {
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
 
-	const form = useForm<z.infer<typeof SignInSchema>>({
+	const form = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			email: '',

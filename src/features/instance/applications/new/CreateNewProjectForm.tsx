@@ -34,7 +34,7 @@ export function CreateNewProjectForm({
 	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
-	const form = useForm<z.infer<typeof NewProjectSchema>>({
+	const form = useForm({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
 			newApplicationName: '',

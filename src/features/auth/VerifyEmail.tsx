@@ -27,7 +27,7 @@ const VerifyEmailSchema = z.object({
 function SendEmailVerification() {
 	const navigate = useNavigate();
 	const { mutate: submitResendEmailVerification, isPending } = useResendEmailVerification();
-	const form = useForm<z.infer<typeof VerifyEmailSchema>>({
+	const form = useForm({
 		resolver: zodResolver(VerifyEmailSchema),
 		defaultValues: {
 			email: '',

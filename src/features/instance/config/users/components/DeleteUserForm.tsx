@@ -15,7 +15,6 @@ import { Trash } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { z } from 'zod';
 
 export function DeleteUserForm({
 	data,
@@ -25,7 +24,7 @@ export function DeleteUserForm({
 	onUserDeleted: () => void;
 }) {
 	const { mutate: deleteUser, isPending: isDeleteUserPending } = useDeleteUserMutation();
-	const deleteForm = useForm<z.infer<typeof DeleteUserFormSchema>>({
+	const deleteForm = useForm({
 		resolver: zodResolver(DeleteUserFormSchema),
 		defaultValues: {
 			username: data.username,

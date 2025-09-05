@@ -43,7 +43,7 @@ const SignInSchema = z.object({
 export function SignUp() {
 	const navigate = useNavigate();
 	const { email } = useSearch({ strict: false });
-	const form = useForm<z.infer<typeof SignInSchema>>({
+	const form = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			firstname: '',

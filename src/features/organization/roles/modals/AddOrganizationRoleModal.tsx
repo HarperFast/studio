@@ -53,7 +53,7 @@ export function AddOrganizationRoleModal({
 
 	const { mutate: addOrganizationRole, isPending } = useAddOrganizationRole();
 
-	const form = useForm<z.infer<typeof AddOrganizationRoleSchema>>({
+	const form = useForm({
 		resolver: zodResolver(AddOrganizationRoleSchema),
 		defaultValues: {
 			roleName: '',

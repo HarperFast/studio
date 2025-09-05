@@ -36,7 +36,7 @@ export function ImportProjectForm({
 	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
-	const form = useForm<z.infer<typeof ImportProjectSchema>>({
+	const form = useForm({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
 			newApplicationName: '',

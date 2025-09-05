@@ -44,7 +44,7 @@ export function AlterUserForm({
 	const instanceParams = useInstanceClientIdParams();
 	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
-	const alterForm = useForm<z.infer<typeof AlterUserFormSchema>>({
+	const alterForm = useForm({
 		resolver: zodResolver(AlterUserFormSchema),
 		defaultValues: {
 			username: data.username,

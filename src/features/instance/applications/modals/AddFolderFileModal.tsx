@@ -45,7 +45,7 @@ export function AddFolderFileModal({
 			.trim(),
 	});
 
-	const form = useForm<z.infer<typeof NewFileFolderSchema>>({
+	const form = useForm({
 		resolver: zodResolver(NewFileFolderSchema),
 		defaultValues: {
 			name: '',
