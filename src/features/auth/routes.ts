@@ -7,6 +7,7 @@ import { SignIn } from '@/features/auth/SignIn';
 import { SignUp } from '@/features/auth/SignUp';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';
 import { OverallAppSignIn } from '@/lib/authStore';
+import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 
@@ -21,9 +22,11 @@ const signInRoute = createRoute({
 	path: '/',
 	component: SignIn,
 	beforeLoad: ({ context, location }) => {
-		if (context.authentication[OverallAppSignIn]?.user) {
+		const user = context.authentication[OverallAppSignIn]?.user;
+		if (user) {
 			const search: Record<string, string> = location?.search;
-			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : '/orgs' });
+			const defaultRoute = getDefaultSignedInCloudRouteForUser(user);
+			throw redirect({ to: search?.redirect?.startsWith('/') ? search.redirect : defaultRoute });
 		}
 	},
 });

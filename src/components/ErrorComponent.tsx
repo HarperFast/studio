@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
+import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { ReactNode } from 'react';
@@ -16,6 +17,7 @@ interface ErrorProps {
 
 export function ErrorComponent({ className, error, title, showReturnToHome }: ErrorProps) {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
+	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 
 	return (
 		<Card className={cn('text-red p-5 border border-red rounded-md m-12 mt-36', className)}>
@@ -27,7 +29,7 @@ export function ErrorComponent({ className, error, title, showReturnToHome }: Er
 			</CardHeader>
 			{showReturnToHome !== false && (<CardContent>
 				{user && !isUserLoading ? (
-					<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
+					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 						<Button>
 							{' '}
 							<ArrowLeft /> Return to Home

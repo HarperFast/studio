@@ -7,6 +7,7 @@ import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
+import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
 import {
 	BookOpenTextIcon,
@@ -28,6 +29,8 @@ const route = getRouteApi('');
 const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
+	const { user } = useOverallAuth();
+	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
@@ -36,7 +39,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 	return (
 		<div className="md:hidden" id="mobile-menu">
 			<div className="flex items-center justify-between">
-				<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
+				<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 					<Logo />
 					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>
@@ -123,6 +126,8 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 }
 
 function DesktopNav({ signOut }: { signOut: () => void }) {
+	const { user } = useOverallAuth();
+	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 	const { organizationId }: { organizationId: string; } = route.useParams();
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
@@ -132,7 +137,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 		<div className="hidden md:block">
 			<div className="flex items-center justify-between">
 				<div className="inline-block">
-					<Link to={isLocalStudio ? defaultInstanceRoute : '/orgs'}>
+					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 						<Logo />
 						<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 					</Link>
