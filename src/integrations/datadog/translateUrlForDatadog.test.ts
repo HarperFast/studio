@@ -10,17 +10,17 @@ describe('translateUrlForDatadog', () => {
 			databaseName: 'data',
 			tableName: 'Users',
 		};
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('/orgs/$organizationId/$clusterId/browse/$databaseName/$tableName/');
 	});
 
 	it('adds a trailing slash if missing', () => {
 		const href = '/orgs/acme/';
-		const result = translateUrlForDatadog(href, {});
+		const result = translateUrlForDatadog(href, [{}]);
 		expect(result).toBe('/orgs/acme/');
 
 		const href2 = '/orgs/acme';
-		const result2 = translateUrlForDatadog(href2, {});
+		const result2 = translateUrlForDatadog(href2, [{}]);
 		expect(result2).toBe('/orgs/acme/');
 	});
 
@@ -31,7 +31,7 @@ describe('translateUrlForDatadog', () => {
 			clusterId: 'clu-2',
 			instanceId: 'ins-3',
 		};
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('/orgs/$organizationId/$clusterId/instances/$instanceId/');
 	});
 
@@ -40,7 +40,7 @@ describe('translateUrlForDatadog', () => {
 		const params = {
 			organizationId: 'org-2',
 		};
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('/orgs/org-1/other/');
 	});
 
@@ -49,7 +49,7 @@ describe('translateUrlForDatadog', () => {
 		const params = {
 			organizationId: 'org-1',
 		};
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('/files/my-org-1-file/');
 	});
 
@@ -59,7 +59,7 @@ describe('translateUrlForDatadog', () => {
 			databaseName: 'data',
 			tableName: 'Users',
 		};
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('/dbs/$databaseName/tables/$tableName/');
 	});
 
@@ -70,7 +70,21 @@ describe('translateUrlForDatadog', () => {
 			clusterId: 'clu-2',
 		};
 		// The function simply splits on '?', so the query is dropped; the rest remains intact, including protocol and host.
-		const result = translateUrlForDatadog(href, params);
+		const result = translateUrlForDatadog(href, [params]);
 		expect(result).toBe('https://example.com/app#/orgs/$organizationId/$clusterId/');
+	});
+
+	it('works with multiple params', () => {
+		const href = '/orgs/org-1/clu-2?x=1&y=2';
+		const params: Record<string, string>[] = [
+			{
+				organizationId: 'org-1',
+			},
+			{
+				clusterId: 'clu-2',
+			},
+		];
+		const result = translateUrlForDatadog(href, params);
+		expect(result).toBe('/orgs/$organizationId/$clusterId/');
 	});
 });
