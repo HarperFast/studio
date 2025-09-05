@@ -1,4 +1,4 @@
-import { ApplicationsIndex } from '@/features/instance/applications';
+import { ApplicationsEditor } from '@/features/instance/applications';
 import { createApplicationsRoutes } from '@/features/instance/applications/routes';
 import { createConfigRouteTree } from '@/features/instance/config/routes';
 import { createBrowseRouteTree } from '@/features/instance/databases/routes';
@@ -13,7 +13,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 	const instanceIndexRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: mode === 'cluster' ? '/index' : '/',
-		component: ApplicationsIndex,
+		component: ApplicationsEditor,
 	});
 
 	const children = [
