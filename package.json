@@ -94,7 +94,7 @@
 	"dependencies": {
 		"@datadog/browser-rum": "^6.18.0",
 		"@datadog/browser-rum-react": "^6.18.0",
-		"@hookform/resolvers": "^4.1.2",
+		"@hookform/resolvers": "^5.0.0",
 		"@monaco-editor/react": "^4.7.0",
 		"@radix-ui/react-alert-dialog": "^1.1.6",
 		"@radix-ui/react-dialog": "^1.1.6",
