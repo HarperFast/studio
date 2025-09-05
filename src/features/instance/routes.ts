@@ -1,11 +1,11 @@
+import { ApplicationsIndex } from '@/features/instance/applications';
+import { createApplicationsRoutes } from '@/features/instance/applications/routes';
+import { createConfigRouteTree } from '@/features/instance/config/routes';
+import { createBrowseRouteTree } from '@/features/instance/databases/routes';
+import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
+import { createLogRouteTree } from '@/features/instance/log/routes';
 import { createStatusRouteTree } from '@/features/instance/status/routes';
 import { createRoute } from '@tanstack/react-router';
-import { Browse } from '@/features/instance/browse';
-import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
-import { createConfigRouteTree } from '@/features/instance/config/routes';
-import { createBrowseRouteTree } from '@/features/instance/browse/routes';
-import { createApplicationsRoutes } from '@/features/instance/applications/routes';
-import { createLogRouteTree } from '@/features/instance/log/routes';
 
 export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') {
 	const instanceLayoutRoute = createInstanceLayoutRoute(mode);
@@ -13,7 +13,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 	const instanceIndexRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: mode === 'cluster' ? '/index' : '/',
-		component: Browse,
+		component: ApplicationsIndex,
 	});
 
 	const children = [

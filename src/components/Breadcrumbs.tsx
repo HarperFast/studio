@@ -1,10 +1,11 @@
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
-import { Link, useLocation } from '@tanstack/react-router';
+import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function Breadcrumbs() {
 	const location = useLocation();
+	const routeContext = useRouteContext({ strict: false });
 	const breadcrumbs = useMemo(() => {
 		const routeHistory = location.pathname.split('/')
 			.filter((x) => x && x.length > 0);
@@ -19,16 +20,24 @@ export function Breadcrumbs() {
 		// Start at 1 to skip over the first top level route. The home icon will cover that.
 		for (let index = 1; index < routeHistory.length; index++) {
 			const route = routeHistory[index];
+			if (route === 'instance') {
+				continue;
+			}
+
 			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
 			let id: string | undefined;
 			if (name.startsWith('Org ')) {
 				id = route.split('org-').pop();
-				name = 'Org';
+				name = routeContext?.organization?.name || 'Org';
 			}
 			else if (name.startsWith('Clu ')) {
 				id = route.split('clu-').pop();
-				name = 'Cluster';
+				name = routeContext?.cluster?.name || 'Cluster';
+			}
+			else if (name.startsWith('Ins ')) {
+				id = route.split('ins-').pop();
+				name = 'Instance';
 			}
 
 			breadcrumbs.push(
@@ -46,7 +55,7 @@ export function Breadcrumbs() {
 		}
 
 		return breadcrumbs;
-	}, [location.pathname]);
+	}, [location.pathname, routeContext?.cluster?.name, routeContext?.organization?.name]);
 
 
 	return (

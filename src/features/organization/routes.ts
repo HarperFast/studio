@@ -8,8 +8,10 @@ import { createRoute } from '@tanstack/react-router';
 export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '$organizationId',
-	loader: (opts) => {
-		return opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId));
+	beforeLoad: async (opts) => {
+		return {
+			organization: await opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId)),
+		};
 	},
 });
 
