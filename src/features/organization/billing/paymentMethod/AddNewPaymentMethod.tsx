@@ -6,7 +6,7 @@ import { useParams } from '@tanstack/react-router';
 
 interface AddNewPaymentMethodProps {
 	readonly onPaymentAdded: (added: boolean) => void;
-	readonly onSaveStateForBillingRedirect: (redirecting: boolean) => void;
+	readonly onSaveStateForBillingRedirect?: (redirecting: boolean) => void;
 }
 
 export function AddNewPaymentMethod({ onPaymentAdded, onSaveStateForBillingRedirect }: AddNewPaymentMethodProps) {
