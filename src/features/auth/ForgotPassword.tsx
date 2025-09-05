@@ -24,7 +24,7 @@ const ForgotPasswordSchema = z.object({
 
 export function ForgotPassword() {
 	const navigate = useNavigate();
-	const form = useForm<z.infer<typeof ForgotPasswordSchema>>({
+	const form = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
 		defaultValues: {
 			email: '',

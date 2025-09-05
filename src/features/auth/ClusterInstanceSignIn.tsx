@@ -70,7 +70,7 @@ export function ClusterInstanceSignIn() {
 		[operationsUrl],
 	);
 
-	const form = useForm<z.infer<typeof SignInSchema>>({
+	const form = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			username: '',

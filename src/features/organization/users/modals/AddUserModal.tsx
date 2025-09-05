@@ -55,7 +55,7 @@ export function AddUserModal({
 	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
 	const [shouldInvite, setShouldInvite] = useState(false);
 
-	const form = useForm<z.infer<typeof AddOrganizationRoleSchema>>({
+	const form = useForm({
 		resolver: zodResolver(AddOrganizationRoleSchema),
 		defaultValues: {
 			email: '',

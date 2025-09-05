@@ -108,7 +108,7 @@ export function EditOrganizationRoleModal({
 		),
 	);
 
-	const form = useForm<z.infer<typeof UpdateOrganizationRoleSchema>>({
+	const form = useForm({
 		resolver: zodResolver(UpdateOrganizationRoleSchema),
 		defaultValues: {
 			roleName: roleInfo.role as string,

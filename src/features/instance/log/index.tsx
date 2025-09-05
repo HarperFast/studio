@@ -117,7 +117,7 @@ export function Logs() {
 		})
 	);
 
-	const form = useForm<z.infer<typeof LogFiltersFormSchema>>({
+	const form = useForm({
 		resolver: zodResolver(LogFiltersFormSchema),
 		defaultValues: defaultFormValues,
 		mode: 'onChange',

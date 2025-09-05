@@ -58,7 +58,7 @@ export function ClusterSetPassword() {
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
 
-	const form = useForm<z.infer<typeof ClusterSetPasswordSchema>>({
+	const form = useForm({
 		resolver: zodResolver(ClusterSetPasswordSchema),
 		defaultValues: {
 			username: '',
