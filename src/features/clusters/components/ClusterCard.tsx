@@ -71,7 +71,7 @@ export function ClusterCard({
 	].filter(excludeFalsy);
 
 	return (
-		<Card className="relative">
+		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{cluster.id}</span>

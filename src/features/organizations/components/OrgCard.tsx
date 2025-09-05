@@ -28,7 +28,7 @@ export function OrgCard({
 	}, [onDeleteOrgModal, organizationRole]);
 
 	return (
-		<Card className="relative">
+		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{organizationId}</span>
