@@ -71,7 +71,7 @@ export function ClusterForm({
 					names.add(fqdn);
 				} else {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: 'custom',
 						path: [`instances.${i}.fqdn`],
 						message: 'Every instance url must be unique!',
 					});
@@ -85,7 +85,7 @@ export function ClusterForm({
 					names.add(regionPlan.regionName);
 				} else {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: 'custom',
 						path: [`regionPlans.${i}.regionName`],
 						message: 'You can only select a region once!',
 					});
@@ -94,13 +94,13 @@ export function ClusterForm({
 					const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
 					if (!prefixMatches) {
 						ctx.addIssue({
-							code: z.ZodIssueCode.custom,
+							code: 'custom',
 							path: [`regionPlans.${i}.regionName`],
 							message: `This region is not available with the selected performance tier!`,
 						});
 					} else {
 						ctx.addIssue({
-							code: z.ZodIssueCode.custom,
+							code: 'custom',
 							path: [`regionPlans.${i}.latencyDescription`],
 							message: `This latency is not available with the selected performance tier!`,
 						});

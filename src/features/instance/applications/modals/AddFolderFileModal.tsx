@@ -35,13 +35,13 @@ export function AddFolderFileModal({
 	const NewFileFolderSchema = z.object({
 		name: z
 			.string({
-				message: 'Please enter a valid name',
+				error: 'Please enter a valid name',
 			})
-			.min(1, { message: 'Must be at least 1 character long' })
+			.min(1, { error: 'Must be at least 1 character long' })
 			.regex(/^[a-zA-Z0-9_\- .]+$/, {
-				message: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces',
+				error: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces',
 			})
-			.max(50, { message: 'Must be less than 50 characters' })
+			.max(50, { error: 'Must be less than 50 characters' })
 			.trim(),
 	});
 

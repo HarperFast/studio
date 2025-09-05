@@ -11,30 +11,30 @@ export interface AlterUserRequestBody extends InstanceClientConfig {
 
 export const AlterUserFormSchema = z.object({
 	username: z.string({
-		message: 'Please enter a username.',
-	}).min(1, { message: 'Please enter a username.' }),
+		error: 'Please enter a username.',
+	}).min(1, { error: 'Please enter a username.' }),
 	role: z.string({
-		message: 'Please select a role.',
+		error: 'Please select a role.',
 	}),
 	newPassword: z
 		.string({
-			message: 'Please enter a password.',
+			error: 'Please enter a password.',
 		})
 		// TODO: Verify restrictions
-		.max(50, { message: 'Password must be less than 50 characters.' })
+		.max(50, { error: 'Password must be less than 50 characters.' })
 		.optional(),
 	confirmPassword: z
 		.string({
-			message: 'Please enter the password again.',
+			error: 'Please enter the password again.',
 		})
 		.optional(),
 })
 	.refine((data) => !data.newPassword || data.newPassword.length >= 8, {
-		message: 'Password must be 8 characters or more.',
+		error: 'Password must be 8 characters or more.',
 		path: ['password'], // This specifies where the error message should be attached
 	})
 	.refine((data) => !data.newPassword || data.newPassword === data.confirmPassword, {
-		message: 'Passwords do not match',
+		error: 'Passwords do not match',
 		path: ['confirmPassword'], // This specifies where the error message should be attached
 	});
 

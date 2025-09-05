@@ -4,17 +4,17 @@ export const NewOrganizationSchema = z.object({
 	name: z
 		.string()
 		.min(1, {
-			message: 'Please enter a name.',
+			error: 'Please enter a name.',
 		})
 		.max(255, {
-			message: 'The name cannot be longer than 255 characters.',
+			error: 'The name cannot be longer than 255 characters.',
 		}),
 	subdomain: z
 		.string()
 		.max(10, {
-			message: 'The subdomain cannot be longer than 10 characters.',
+			error: 'The subdomain cannot be longer than 10 characters.',
 		})
 		.regex(/^[a-zA-Z0-9-]*$/, {
-			message: 'Please only use letters, digits and dashes (-) in the subdomain.',
+			error: 'Please only use letters, digits and dashes (-) in the subdomain.',
 		}),
 });

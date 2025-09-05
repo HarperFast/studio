@@ -23,9 +23,9 @@ import { z } from 'zod';
 const ImportProjectSchema = z.object({
 	newApplicationName: z
 		.string()
-		.min(1, { message: 'Project name is required' })
-		.max(75, { message: 'Project name must be less than 75 characters' })
-		.regex(/^[a-zA-Z0-9-_]+$/, { message: 'Can only contain letters, numbers, dashes and underscores' }),
+		.min(1, { error: 'Project name is required' })
+		.max(75, { error: 'Project name must be less than 75 characters' })
+		.regex(/^[a-zA-Z0-9-_]+$/, { error: 'Can only contain letters, numbers, dashes and underscores' }),
 	applicationUrl: z.string(),
 	replicated: z.boolean(),
 });
