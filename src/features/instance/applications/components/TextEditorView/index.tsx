@@ -52,7 +52,7 @@ export function TextEditorView() {
 	}, [selectedFolderFile]);
 
 	return (
-		<div className="h-full">
+		<div className="h-[calc(100vh-theme(spacing.52))]">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
 				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
 				<div>
@@ -98,7 +98,7 @@ export function TextEditorView() {
 					<span className="text-white">No file selected</span>
 					<div>
 						<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
-							setIsNewProjectModalOpen(true); 
+							setIsNewProjectModalOpen(true);
 							setAppType('create');
 							}}>
 							<PlusIcon /> Create New
