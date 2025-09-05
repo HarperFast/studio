@@ -17,7 +17,7 @@ const DesktopConfigNavBar = () => {
 				inactiveProps={inactiveProps}
 				activeProps={activeProps}
 			>
-				<PieChartIcon className="inline-block" /> <span className="ms-3">Instance Overview</span>
+				<PieChartIcon className="inline-block" /> <span className="ms-3">Overview</span>
 			</Link>
 
 			<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
