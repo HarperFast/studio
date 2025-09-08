@@ -14,23 +14,26 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const SignInSchema = z.object({
-	firstname: z
-		.string()
-		.min(2, { error: 'Please enter your first name.' })
-		.max(50, { error: 'First name cannot be longer than 50 characters.' }),
-	lastname: z
-		.string()
-		.min(2, { error: 'Please enter your last name.' })
-		.max(50, { error: 'Last name cannot be longer than 50 characters.' }),
 	email: z
 		.email({
 			error: 'Please enter a valid email address.',
 		})
-		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
+		.trim()
+		.toLowerCase()
+		.max(80, { error: 'Email cannot be longer than 80 characters.' }),
+	firstname: z
+		.string()
+		.trim()
+		.min(2, { error: 'Please enter your first name.' })
+		.max(40, { error: 'First name cannot be longer than 40 characters.' }),
+	lastname: z
+		.string()
+		.trim()
+		.min(2, { error: 'Please enter your last name.' })
+		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 	password: z
 		.string()
-		.min(8, { error: 'Password must be at least 8 characters long.' })
-		.max(50, { error: 'Password cannot be longer than 50 characters.' }),
+		.min(8, { error: 'Password must be at least 8 characters long.' }),
 });
 
 export function SignUp() {

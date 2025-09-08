@@ -26,11 +26,13 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+const schemaRegex = /^[\x20-\x2E|\x30-\x5F|\x61-\x7E]*$/;
+
 const CreateTableSchema = z.object({
 	databaseName: z
 		.string()
-		.regex(/^[a-zA-Z0-9_]*$/, {
-			error: 'Database name can only contain letters, numbers, and underscores.',
+		.regex(schemaRegex, {
+			error: 'Database name cannot include backticks or forward slashes.',
 		})
 		.max(75, { error: 'Database name cannot be longer than 75 characters.' }),
 	tableName: z
@@ -38,19 +40,19 @@ const CreateTableSchema = z.object({
 		.nonempty({
 			error: 'Table name is required.',
 		})
-		.regex(/^[a-zA-Z0-9_]*$/, {
-			error: 'Table name can only contain letters, numbers, and underscores.',
+		.regex(schemaRegex, {
+			error: 'Table name cannot include backticks or forward slashes.',
 		})
-		.max(30, {
-			error: 'Table name cannot be longer than 30 characters.',
+		.max(250, {
+			error: 'Table name cannot be longer than 250 characters.',
 		}),
 	primaryKey: z
 		.string()
-		.regex(/^[a-zA-Z0-9_]*$/, {
-			error: 'Primary key can only contain letters, numbers, and underscores.',
+		.regex(schemaRegex, {
+			error: 'Primary key cannot include backticks or forward slashes.',
 		})
-		.max(14, {
-			error: 'Primary key cannot be longer than 14 characters.',
+		.max(250, {
+			error: 'Primary key cannot be longer than 250 characters.',
 		}),
 });
 

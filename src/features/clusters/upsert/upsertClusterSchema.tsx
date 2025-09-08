@@ -8,7 +8,7 @@ export const UpsertClusterSchema = z.object({
 		.max(255, 'System name cannot be longer than 255 characters long.'),
 	abbreviatedName: z
 		.string()
-		.max(10, 'Must be at most 10 characters long.')
+		.max(20, 'Must be at most 20 characters long.')
 		.regex(/^[a-zA-Z0-9-]*$/, 'Can only contain letters, numbers and dashes'),
 	fqdn: z
 		.string()
@@ -23,7 +23,7 @@ export const UpsertClusterSchema = z.object({
 			regionName: z.string().nonempty('Please select a region.'),
 			latencyDescription: z.string().nonempty('Please select a latency tier.'),
 		}),
-	),
+	).max(50, { error: 'A maximum of 50 regions can be selected for each cluster. ' }),
 
 	instances: z.array(
 		z.object({
@@ -36,5 +36,5 @@ export const UpsertClusterSchema = z.object({
 				.max(maxPortNumber, 'That port number is too high.')
 				.optional(),
 		}),
-	),
+	).max(100, { error: 'A maximum of 100 instances can be added to each cluster.' }),
 });

@@ -11,8 +11,8 @@ export const NewOrganizationSchema = z.object({
 		}),
 	subdomain: z
 		.string()
-		.max(10, {
-			error: 'The subdomain cannot be longer than 10 characters.',
+		.max(62, {
+			error: 'The subdomain cannot be longer than 62 characters.',
 		})
 		.regex(/^[a-zA-Z0-9-]*$/, {
 			error: 'Please only use letters, digits and dashes (-) in the subdomain.',

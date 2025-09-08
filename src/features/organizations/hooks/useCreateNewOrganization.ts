@@ -2,7 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { useMutation } from '@tanstack/react-query';
 import { SchemaOrganization } from '@/lib/api.gen';
 
-export async function onNewOrganizationSubmit(newOrg: Omit<SchemaOrganization, 'id' | 'type'>): Promise<SchemaOrganization> {
+async function onNewOrganizationSubmit(newOrg: Omit<SchemaOrganization, 'id' | 'type'>): Promise<SchemaOrganization> {
 	const { data } = await apiClient.post('/Organization/', {
 		...newOrg,
 	});
