@@ -19,9 +19,22 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { Button } from '@/components/ui/button';
 import { RefreshCwIcon } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
+import { BadgeNodeVariantValues, nodeVariant } from '@/components/ui/utils/badgeNode';
 
 type RowData = {
 	original: ReadLogItem;
+};
+
+let nodeEntries = 0;
+const cache = new Map<string, BadgeNodeVariantValues>();
+
+const memoizeNodeNames = (nodeName: string): BadgeNodeVariantValues => {
+	if (cache.has(nodeName)) return cache.get(nodeName)!;
+	nodeEntries++;
+	const nodeVariantIndex = nodeEntries % nodeVariant.length;
+	const memoized = nodeVariant[nodeVariantIndex] as BadgeNodeVariantValues;
+	cache.set(nodeName, memoized);
+	return memoized;
 };
 
 const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
@@ -60,6 +73,16 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'thread',
 		header: 'Thread',
+	},
+	{
+		accessorKey: 'node',
+		header: 'Node',
+		cell: ({ row }) => {
+			const { node } = row.original;
+			const variant: BadgeNodeVariantValues = memoizeNodeNames(node);
+
+			return <Badge variant={variant}>{node}</Badge>;
+		},
 	},
 	{
 		accessorKey: 'tags',
@@ -162,7 +185,11 @@ export function Logs() {
 				) : (
 					<div className="h-32">
 						<div className="flex items-center justify-between md:justify-normal md:space-x-2">
-							<Button variant="defaultOutline" onClick={onRefreshClick} disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}>
+							<Button
+								variant="defaultOutline"
+								onClick={onRefreshClick}
+								disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+							>
 								<RefreshCwIcon />
 							</Button>
 							<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>
