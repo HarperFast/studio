@@ -30,8 +30,8 @@ export function useDatadog() {
 				trackViewsManually: true,
 
 				sessionSampleRate: 100,
-				sessionReplaySampleRate: 20,
-				defaultPrivacyLevel: 'mask-user-input',
+				sessionReplaySampleRate: 0,
+				defaultPrivacyLevel: 'mask',
 
 				plugins: [reactPlugin()],
 			});
