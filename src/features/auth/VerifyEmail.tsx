@@ -1,26 +1,26 @@
+import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useVerifyEmailMutation, VerifyEmailToken } from '@/features/auth/hooks/useVerifyEmail';
-import { useCallback, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { useForm } from 'react-hook-form';
+import { useVerifyEmailMutation, VerifyEmailToken } from '@/features/auth/hooks/useVerifyEmail';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { useCallback, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
-import { toast } from 'sonner';
 
 const VerifyEmailSchema = z.object({
 	email: z
 		.email({
-			error: 'Please enter a valid email address',
+			error: 'Please enter a valid email address.',
 		})
-		.max(75, { error: 'Email must be less than 75 characters' }),
+		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
 });
 
 function SendEmailVerification() {
@@ -101,7 +101,7 @@ export function VerifyEmail() {
 				},
 			});
 		},
-		[submitEmailVerificationToken, navigate]
+		[submitEmailVerificationToken, navigate],
 	);
 
 	useEffect(() => {

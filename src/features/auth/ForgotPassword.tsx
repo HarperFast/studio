@@ -16,9 +16,9 @@ import { toast } from 'sonner';
 const ForgotPasswordSchema = z.object({
 	email: z
 		.email({
-			error: 'Please enter a valid email address',
+			error: 'Please enter a valid email address.',
 		})
-		.max(75, { error: 'Email must be less than 75 characters' }),
+		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
 });
 
 export function ForgotPassword() {

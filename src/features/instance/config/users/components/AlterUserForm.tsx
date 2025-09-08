@@ -19,11 +19,11 @@ import {
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
-	AlterUserFormSchema,
 	AlterUserRequestBody,
 	useAlterUser,
 } from '@/features/instance/operations/mutations/alterUser';
 import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
+import { AlterUserFormSchema } from '@/features/instance/operations/schemas/alterUserFormSchema';
 import { LocalUser } from '@/lib/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSuspenseQuery } from '@tanstack/react-query';

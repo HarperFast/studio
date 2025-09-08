@@ -23,10 +23,12 @@ import { z } from 'zod';
 const ImportProjectSchema = z.object({
 	newApplicationName: z
 		.string()
-		.min(1, { error: 'Project name is required' })
-		.max(75, { error: 'Project name must be less than 75 characters' })
-		.regex(/^[a-zA-Z0-9-_]+$/, { error: 'Can only contain letters, numbers, dashes and underscores' }),
-	applicationUrl: z.string(),
+		.nonempty({ error: 'Project name is required.' })
+		.max(75, { error: 'Project name cannot be longer than 75 characters.' })
+		.regex(/^[a-zA-Z0-9-_]*$/, { error: 'Can only contain letters, numbers, dashes and underscores.' }),
+	applicationUrl: z
+		.string()
+		.nonempty({ error: 'Please enter a Application URL.' }),
 	replicated: z.boolean(),
 });
 

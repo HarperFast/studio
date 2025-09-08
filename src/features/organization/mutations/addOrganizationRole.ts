@@ -5,14 +5,14 @@ import z from 'zod';
 
 export const AddOrganizationRoleSchema = z.object({
 	roleName: z
-		.string({
+		.string()
+		.nonempty({
 			error: 'Please enter a role name.',
 		})
-		.min(1, { error: 'Role name must be at least 1 character.' })
-		.regex(/^[a-zA-Z_]+$/, {
+		.regex(/^[a-zA-Z_]*$/, {
 			error: 'Role must contain only letters and underscores.',
 		})
-		.max(30, { error: 'Role name must be less than 30 characters.' }),
+		.max(30, { error: 'Role name cannot be longer than 30 characters.' }),
 	updateOrganization: z.boolean(),
 	deleteOrganization: z.boolean(),
 });

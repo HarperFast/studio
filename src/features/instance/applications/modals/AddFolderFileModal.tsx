@@ -34,14 +34,12 @@ export function AddFolderFileModal({
 }) {
 	const NewFileFolderSchema = z.object({
 		name: z
-			.string({
-				error: 'Please enter a valid name',
+			.string()
+			.nonempty({ error: 'Please enter a valid name.' })
+			.regex(/^[a-zA-Z0-9_\- .]*$/, {
+				error: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces.',
 			})
-			.min(1, { error: 'Must be at least 1 character long' })
-			.regex(/^[a-zA-Z0-9_\- .]+$/, {
-				error: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces',
-			})
-			.max(50, { error: 'Must be less than 50 characters' })
+			.max(50, { error: 'Names cannot be longer than 50 characters.' })
 			.trim(),
 	});
 
