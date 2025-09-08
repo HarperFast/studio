@@ -19,23 +19,14 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { Button } from '@/components/ui/button';
 import { RefreshCwIcon } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
-import { BadgeNodeVariantValues, nodeVariant } from '@/components/ui/utils/badgeNode';
+import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type RowData = {
 	original: ReadLogItem;
 };
 
-let nodeEntries = 0;
-const cache = new Map<string, BadgeNodeVariantValues>();
 
-const memoizeNodeNames = (nodeName: string): BadgeNodeVariantValues => {
-	if (cache.has(nodeName)) return cache.get(nodeName)!;
-	nodeEntries++;
-	const nodeVariantIndex = nodeEntries % nodeVariant.length;
-	const memoized = nodeVariant[nodeVariantIndex] as BadgeNodeVariantValues;
-	cache.set(nodeName, memoized);
-	return memoized;
-};
 
 const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	limit: '100',
@@ -80,8 +71,14 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		cell: ({ row }) => {
 			const { node } = row.original;
 			const variant: BadgeNodeVariantValues = memoizeNodeNames(node);
-
-			return <Badge variant={variant}>{node}</Badge>;
+			return (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Badge variant={variant}>{node.split('.')[0]}...</Badge>
+					</TooltipTrigger>
+					<TooltipContent className='bg-grey-700' arrowClassName='bg-grey-700 fill-grey-700'>{node}</TooltipContent>
+				</Tooltip>
+			);
 		},
 	},
 	{

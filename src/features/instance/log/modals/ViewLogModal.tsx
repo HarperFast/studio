@@ -6,6 +6,7 @@ import { BadgeStatus, renderBadgeLogLevelText, renderBadgeLogLevelVariant } from
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
 import { ReadLogItem } from '@/features/instance/operations/queries/getReadLog';
+import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
 
 function isJsonString(str: string) {
 	try {
@@ -25,6 +26,8 @@ export function ViewLogModal({
 	isModalOpen: boolean;
 	data: ReadLogItem | undefined;
 }) {
+
+	const variant: BadgeNodeVariantValues = data ? memoizeNodeNames(data.node) : 'default';
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
@@ -48,6 +51,10 @@ export function ViewLogModal({
 						<div>
 							<h3>Thread:</h3>
 							<p className="text-sm">{data.thread}</p>
+						</div>
+						<div>
+							<h3>Node:</h3>
+							<Badge variant={variant}>{data.node}</Badge>
 						</div>
 
 						<div>
