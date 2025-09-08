@@ -58,7 +58,7 @@ export function ClusterCard({
 		isActive && update && (
 			<Link to={`${cluster.id}/edit`}><DropdownMenuItem>Edit</DropdownMenuItem></Link>),
 		isActive && view && (
-			<Link to={cluster.id}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
+			<Link to={`${cluster.id}/instances`}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
 			<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>),
 		notTerminated && remove && (

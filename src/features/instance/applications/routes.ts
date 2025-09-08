@@ -5,10 +5,10 @@ import { ApplicationsEditor } from '@/features/instance/applications';
 export function createApplicationsRoutes(instanceLayoutRoute: ReturnType<typeof createInstanceLayoutRoute>) {
 	const instanceApplicationsIndexRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
-		path: 'applications',
+		path: '/',
 		component: ApplicationsEditor,
 	});
-	
+
 	return [
 		instanceApplicationsIndexRoute,
 	];

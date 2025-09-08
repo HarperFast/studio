@@ -110,6 +110,10 @@ export function ClusterInstanceSignIn() {
 			});
 	}, [cluster, instance, instanceClient, navigate, queryClient, redirect, router, submitInstanceLogin]);
 
+	if (cluster && !cluster?.fqdn) {
+		return <Navigate to="../instances" replace={true} />;
+	}
+
 	if (cluster?.resetPassword) {
 		return <Navigate to="../set-password" replace={true} />;
 	}

@@ -1,6 +1,7 @@
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 
-export function buildAbsoluteLinkToTable({
+export function buildAbsoluteLinkToDatabasePage({
 	clusterId,
 	databaseName,
 	instanceId,
@@ -14,15 +15,9 @@ export function buildAbsoluteLinkToTable({
 	tableName?: string;
 }): string {
 	const databases = [`databases`, databaseName, tableName].filter(excludeFalsy).join('/');
-	if (organizationId) {
-		return '/' + [
-			'orgs',
-			organizationId,
-			clusterId,
-			instanceId && 'instance',
-			instanceId,
-			databases,
-		].filter(excludeFalsy).join('/')
-;	}
-	return `/${databases}`;
+	return buildAbsoluteLinkToPage({
+		organizationId,
+		instanceId,
+		clusterId,
+	}, databases);
 }

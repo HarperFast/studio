@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { buildAbsoluteLinkToTable } from '@/features/instance/databases/functions/buildAbsoluteLinkToTable';
+import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -36,7 +36,7 @@ export function DatabasesSidebar() {
 			router.invalidate();
 		} else {
 			void navigate({
-				to: buildAbsoluteLinkToTable({
+				to: buildAbsoluteLinkToDatabasePage({
 					...params,
 					databaseName: newDatabaseName,
 					tableName: tableNames[0],
@@ -51,7 +51,7 @@ export function DatabasesSidebar() {
 
 	const onSelectTable = useCallback((newDatabaseName: string | undefined, newTableName: string | undefined) => {
 		void navigate({
-			to: buildAbsoluteLinkToTable({
+			to: buildAbsoluteLinkToDatabasePage({
 				...params,
 				databaseName: newDatabaseName,
 				tableName: newTableName,

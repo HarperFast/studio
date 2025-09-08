@@ -5,9 +5,9 @@ const route = getRouteApi('');
 export function OrganizationIndex() {
 	const { organizationId }: { organizationId: string; } = route.useParams();
 	const matchRoute = useMatchRoute();
-	const match = matchRoute({ to: '/orgs/$organizationId' });
+	const match = matchRoute({ to: '/$organizationId' });
 	if (match) {
-		return <Navigate to={`/orgs/${organizationId}/clusters`} />;
+		return <Navigate to={`/${organizationId}/clusters`} />;
 	} else {
 		return <Outlet />;
 	}

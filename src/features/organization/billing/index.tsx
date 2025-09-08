@@ -1,5 +1,6 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon } from 'lucide-react';
 
@@ -38,6 +39,7 @@ export function OrgBillingIndex() {
 }
 
 function DesktopBillingNavBar() {
+	const params = useParams({ strict: false });
 	return (
 		<div className="hidden md:block">
 			<span className={sharedClasses}>
@@ -48,7 +50,7 @@ function DesktopBillingNavBar() {
 			<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
 				<li>
 					<Link
-						to={``}
+						to={buildAbsoluteLinkToPage(params, 'billing')}
 						className={sharedClasses}
 						activeOptions={{ exact: true }}
 						inactiveProps={inactiveProps}
@@ -58,8 +60,9 @@ function DesktopBillingNavBar() {
 					</Link>
 				</li>
 				<li>
-					<Link to={`invoices`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-						<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
+					<Link to={buildAbsoluteLinkToPage(params, 'billing/invoices')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+						<ReceiptTextIcon className="inline-block" />
+						<span className="ms-3">Invoices &amp; Payments</span>
 					</Link>
 				</li>
 			</ul>
@@ -68,11 +71,12 @@ function DesktopBillingNavBar() {
 }
 
 function MobileBillingNavBar() {
+	const params = useParams({ strict: false });
 	return (
 		<ul className="flex space-x-4 md:hidden py-2">
 			<li>
 				<Link
-					to={``}
+					to={buildAbsoluteLinkToPage(params, 'billing')}
 					className={sharedClasses}
 					activeOptions={{ exact: true }}
 					inactiveProps={inactiveProps}
@@ -82,7 +86,7 @@ function MobileBillingNavBar() {
 				</Link>
 			</li>
 			<li>
-				<Link to={`invoices`} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+				<Link to={buildAbsoluteLinkToPage(params, 'billing/invoices')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
 					<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
 				</Link>
 			</li>

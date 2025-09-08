@@ -1,12 +1,10 @@
 import { createRoute } from '@tanstack/react-router';
 import { dashboardLayout } from '@/router/dashboardRoute';
-import { OrganizationsLayout } from '@/features/organizations/OrganizationsLayout';
 import { OrganizationsIndex } from '@/features/organizations/index';
 
 export const orgsLayoutRoute = createRoute({
 	getParentRoute: () => dashboardLayout,
-	path: 'orgs',
-	component: OrganizationsLayout,
+	id: '_orgsLayout',
 });
 
 const orgsIndexRoute = createRoute({

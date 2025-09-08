@@ -1,5 +1,5 @@
 import { getInstanceClient } from '@/config/getInstanceClient';
-import { buildAbsoluteLinkToTable } from '@/features/instance/databases/functions/buildAbsoluteLinkToTable';
+import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { OverallAppSignIn } from '@/lib/authStore';
 import { QueryClient } from '@tanstack/react-query';
@@ -34,7 +34,7 @@ export async function loadInstanceBrowseData(
 	if (newDatabaseName || newTableName) {
 		if (!preload) {
 			throw redirect({
-				to: buildAbsoluteLinkToTable({
+				to: buildAbsoluteLinkToDatabasePage({
 					...params,
 					databaseName: newDatabaseName ?? params.databaseName,
 					tableName: newTableName,

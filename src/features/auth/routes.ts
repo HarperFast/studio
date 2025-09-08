@@ -19,7 +19,7 @@ const authLayout = createRoute({
 
 const signInRoute = createRoute({
 	getParentRoute: () => authLayout,
-	path: '/',
+	path: 'sign-in',
 	component: SignIn,
 	beforeLoad: ({ context, location }) => {
 		const user = context.authentication[OverallAppSignIn]?.user;
@@ -33,7 +33,7 @@ const signInRoute = createRoute({
 
 const localSignInRoute = createRoute({
 	getParentRoute: () => rootRoute,
-	path: '/',
+	path: 'sign-in',
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location }) => {
 		if (context.authentication[OverallAppSignIn]?.user) {

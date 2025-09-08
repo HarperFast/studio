@@ -15,7 +15,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	}
 
 	if (!cluster.fqdn) {
-		return <Link to={cluster.id} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+		return <Link to={`${cluster.id}/instances`} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				Instances <ArrowRight className="inline-block" />
 			</span>

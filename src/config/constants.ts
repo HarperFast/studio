@@ -4,5 +4,5 @@ export const defaultOperationsApiPort = 9925;
 export const defaultOperationsApiSecure = true;
 export const defaultClusterUsername = 'HDB_ADMIN';
 
-export const defaultInstanceRoute = '/applications';
-export const defaultInstanceRouteUpOne = '../applications';
+export const defaultInstanceRoute = '/';
+export const defaultInstanceRouteUpOne = '../';
