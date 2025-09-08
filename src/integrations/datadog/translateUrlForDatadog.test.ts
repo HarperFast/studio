@@ -3,7 +3,7 @@ import { translateUrlForDatadog } from './translateUrlForDatadog';
 
 describe('translateUrlForDatadog', () => {
 	it('removes query string parameters and ensures trailing slash', () => {
-		const href = '/orgs/acme/clu-123/browse/data/Users?like=this&and=that';
+		const href = '/acme/clu-123/browse/data/Users?like=this&and=that';
 		const params = {
 			organizationId: 'acme',
 			clusterId: 'clu-123',
@@ -11,37 +11,37 @@ describe('translateUrlForDatadog', () => {
 			tableName: 'Users',
 		};
 		const result = translateUrlForDatadog(href, [params]);
-		expect(result).toBe('/orgs/$organizationId/$clusterId/browse/$databaseName/$tableName/');
+		expect(result).toBe('/$organizationId/$clusterId/browse/$databaseName/$tableName/');
 	});
 
 	it('adds a trailing slash if missing', () => {
-		const href = '/orgs/acme/';
+		const href = '/acme/';
 		const result = translateUrlForDatadog(href, [{}]);
-		expect(result).toBe('/orgs/acme/');
+		expect(result).toBe('/acme/');
 
-		const href2 = '/orgs/acme';
+		const href2 = '/acme';
 		const result2 = translateUrlForDatadog(href2, [{}]);
-		expect(result2).toBe('/orgs/acme/');
+		expect(result2).toBe('/acme/');
 	});
 
 	it('replaces multiple parameters in the path', () => {
-		const href = '/orgs/org-1/clu-2/instances/ins-3/';
+		const href = '/org-1/clu-2/instances/ins-3/';
 		const params = {
 			organizationId: 'org-1',
 			clusterId: 'clu-2',
 			instanceId: 'ins-3',
 		};
 		const result = translateUrlForDatadog(href, [params]);
-		expect(result).toBe('/orgs/$organizationId/$clusterId/instances/$instanceId/');
+		expect(result).toBe('/$organizationId/$clusterId/instances/$instanceId/');
 	});
 
 	it('does not replace when param value not present', () => {
-		const href = '/orgs/org-1/other/';
+		const href = '/org-1/other/';
 		const params = {
 			organizationId: 'org-2',
 		};
 		const result = translateUrlForDatadog(href, [params]);
-		expect(result).toBe('/orgs/org-1/other/');
+		expect(result).toBe('/org-1/other/');
 	});
 
 	it('only replaces whole path segments bounded by slashes', () => {
@@ -64,18 +64,18 @@ describe('translateUrlForDatadog', () => {
 	});
 
 	it('works with hash fragments and query strings in full href', () => {
-		const href = 'https://example.com/app#/orgs/org-1/clu-2?x=1&y=2';
+		const href = 'https://example.com/app#/org-1/clu-2?x=1&y=2';
 		const params = {
 			organizationId: 'org-1',
 			clusterId: 'clu-2',
 		};
 		// The function simply splits on '?', so the query is dropped; the rest remains intact, including protocol and host.
 		const result = translateUrlForDatadog(href, [params]);
-		expect(result).toBe('https://example.com/app#/orgs/$organizationId/$clusterId/');
+		expect(result).toBe('https://example.com/app#/$organizationId/$clusterId/');
 	});
 
 	it('works with multiple params', () => {
-		const href = '/orgs/org-1/clu-2?x=1&y=2';
+		const href = '/org-1/clu-2?x=1&y=2';
 		const params: Record<string, string>[] = [
 			{
 				organizationId: 'org-1',
@@ -85,6 +85,6 @@ describe('translateUrlForDatadog', () => {
 			},
 		];
 		const result = translateUrlForDatadog(href, params);
-		expect(result).toBe('/orgs/$organizationId/$clusterId/');
+		expect(result).toBe('/$organizationId/$clusterId/');
 	});
 });

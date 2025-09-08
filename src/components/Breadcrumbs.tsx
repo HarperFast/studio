@@ -1,4 +1,3 @@
-import { isLocalStudio } from '@/config/constants';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
@@ -12,14 +11,13 @@ export function Breadcrumbs() {
 			.filter((x) => x && x.length > 0);
 
 		const breadcrumbs = [
-			<Link to={isLocalStudio ? '/' : '/orgs'}>
+			<Link to="/">
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
 				<span className="sr-only">Home</span>
 			</Link>,
 		];
 
-		// Start at 1 to skip over the first top level route. The home icon will cover that.
-		for (let index = 1; index < routeHistory.length; index++) {
+		for (let index = 0; index < routeHistory.length; index++) {
 			const route = routeHistory[index];
 			if (route === 'instance') {
 				continue;

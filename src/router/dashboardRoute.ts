@@ -1,8 +1,8 @@
+import { Dashboard } from '@/features/layouts/Dashboard';
 import { OverallAppSignIn } from '@/lib/authStore';
 import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
-import { createRoute, redirect } from '@tanstack/react-router';
 import { rootRoute } from '@/router/rootRoute';
-import { Dashboard } from '@/features/layouts/Dashboard';
+import { createRoute, redirect } from '@tanstack/react-router';
 
 export const dashboardLayout = createRoute({
 	getParentRoute: () => rootRoute,
@@ -12,10 +12,8 @@ export const dashboardLayout = createRoute({
 		const auth = context.authentication[OverallAppSignIn];
 		if (auth && !auth.isLoading && !auth.user) {
 			throw redirect({
-				to: '/',
-				search: {
-					redirect: currentUrlAfterHash(),
-				},
+				to: '/sign-in',
+				search: currentUrlAfterHash() !== '/' && { redirect: currentUrlAfterHash() },
 			});
 		}
 	},

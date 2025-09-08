@@ -5,8 +5,8 @@ export function getDefaultSignedInCloudRouteForUser(user: User | LocalUser | nul
 	if (user && !isLocalUser(user)) {
 		const orgIds = Object.keys(user.roles);
 		if (orgIds.length === 1) {
-			return `/orgs/${orgIds[0]}`;
+			return `/${orgIds[0]}`;
 		}
 	}
-	return '/orgs';
+	return '/';
 }

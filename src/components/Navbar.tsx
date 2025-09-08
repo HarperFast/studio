@@ -62,7 +62,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 				{!isLocalStudio && (
 					<>
 						<Link
-							to="/orgs"
+							to="/"
 							className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md"
 							activeProps={activeLinkProps}
 						>
@@ -72,21 +72,21 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 						{(showOrgUsersAndRoles || showBilling) ? (
 							<div className="bg-black rounded-2xl">
 								{showOrgUsersAndRoles && (<Link
-									to={`/orgs/${organizationId}/roles`}
+									to={`/${organizationId}/roles`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
 									<HandshakeIcon className="mr-4" /> Roles
 								</Link>)}
 								{showOrgUsersAndRoles && (<Link
-									to={`/orgs/${organizationId}/users`}
+									to={`/${organizationId}/users`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
 									<UsersIcon className="mr-4" /> Users
 								</Link>)}
 								{showBilling && (<Link
-									to={`/orgs/${organizationId}/billing`}
+									to={`/${organizationId}/billing`}
 									className="flex flex-row px-3 py-2 text-base text-gray-300 font-medium rounded-md"
 									activeProps={activeLinkProps}
 								>
@@ -148,7 +148,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 							<>
 								<NavigationMenuItem>
 									<NavigationMenuLink asChild>
-										<Link to="/orgs" className="flex-row items-center" activeProps={activeLinkProps}>
+										<Link to="/" className="flex-row items-center" activeProps={activeLinkProps}>
 											<BuildingIcon /> Organizations
 										</Link>
 									</NavigationMenuLink>
@@ -158,7 +158,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
-													to={`/orgs/${organizationId}/roles`}
+													to={`/${organizationId}/roles`}
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
@@ -169,7 +169,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										{showOrgUsersAndRoles && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
-													to={`/orgs/${organizationId}/users`}
+													to={`/${organizationId}/users`}
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
@@ -180,7 +180,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 										{showBilling && (<NavigationMenuItem>
 											<NavigationMenuLink asChild>
 												<Link
-													to={`/orgs/${organizationId}/billing`}
+													to={`/${organizationId}/billing`}
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>

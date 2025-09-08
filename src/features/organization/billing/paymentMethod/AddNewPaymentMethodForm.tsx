@@ -46,7 +46,7 @@ export function AddNewPaymentMethodForm({
 			// If you want to test the redirect, this will force it to happen.
 			// redirect: 'always' as 'if_required',
 			confirmParams: {
-				return_url: `${window.location.origin}/#/orgs/${organizationId}/billing/confirm`,
+				return_url: `${window.location.origin}/#/${organizationId}/billing/confirm`,
 			},
 		});
 
