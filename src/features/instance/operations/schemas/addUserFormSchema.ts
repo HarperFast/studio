@@ -4,6 +4,8 @@ export const AddUserFormSchema = z
 	.object({
 		username: z
 			.string()
+			.trim()
+			.toLowerCase()
 			.nonempty({ error: 'Please enter a username.' }),
 		role: z
 			.string()
@@ -12,8 +14,7 @@ export const AddUserFormSchema = z
 			}),
 		password: z
 			.string()
-			.min(8, { error: 'Password must be at least 8 characters long.' })
-			.max(50, { error: 'Password cannot be longer than 50 characters.' }),
+			.min(8, { error: 'Password must be at least 8 characters long.' }),
 		confirmPassword: z.string(),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
