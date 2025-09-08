@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient } from '@/config/useInstanceClient';
+import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -20,7 +21,7 @@ import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { Link } from '@tanstack/react-router';
 import { Ellipsis } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const activeClusterStatuses = ['RUNNING'];
 const deletedClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
@@ -39,16 +40,22 @@ export function ClusterCard({
 	const notTerminated = useMemo(() => cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status]);
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
+	const [signingOut, setSigningOut] = useState(false);
 
 	const onSignOutClick = useCallback(async () => {
+		setSigningOut(true);
+		const fullCluster = await getClusterInfo(cluster.id).catch(err => {
+			console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
+			return null;
+		});
 		await onInstanceLogoutSubmit({ instanceClient });
-		authStore.setUserForEntity(cluster, null);
-		if (cluster.instances?.length) {
+		if (fullCluster?.instances?.length) {
 			// Flag all cluster instances as signed out as well.
-			for (const instance of cluster.instances) {
+			for (const instance of fullCluster.instances) {
 				authStore.setUserForEntity(instance, null);
 			}
 		}
+		authStore.setUserForEntity(cluster, null);
 	}, [cluster, instanceClient]);
 	const onTerminateClick = useCallback(() => {
 		onTerminateClusterModal(cluster);
@@ -56,11 +63,11 @@ export function ClusterCard({
 
 	const menuItems = [
 		isActive && update && (
-			<Link to={`${cluster.id}/edit`}><DropdownMenuItem>Edit</DropdownMenuItem></Link>),
+			<Link to={`${cluster.id}/edit`} disabled={signingOut}><DropdownMenuItem>Edit</DropdownMenuItem></Link>),
 		isActive && view && (
-			<Link to={`${cluster.id}/instances`}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
+			<Link to={`${cluster.id}/instances`} disabled={signingOut}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
-			<DropdownMenuItem onClick={onSignOutClick}>Sign Out</DropdownMenuItem>),
+			<DropdownMenuItem onClick={onSignOutClick} disabled={signingOut}>Sign Out</DropdownMenuItem>),
 		notTerminated && remove && (
 			<DropdownMenuItem
 				className="bg-red focus:bg-red/70 focus:text-white"
