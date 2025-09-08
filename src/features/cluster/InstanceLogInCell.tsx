@@ -27,7 +27,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	}
 	if (!instanceUser) {
 		return <Link
-			to={`instance/${instance.id}/sign-in`}
+			to={`../instance/${instance.id}/sign-in`}
 			className="text-sm"
 			aria-label={`Sign in to ${instance.name} instance`}
 			title={`Sign in to ${instance.name} instance`}
@@ -37,7 +37,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	}
 	return <span className="flex gap-4">
 		<Link
-			to={`instance/${instance.id}${defaultInstanceRoute}`}
+			to={`../instance/${instance.id}${defaultInstanceRoute}`}
 			className="text-sm"
 			aria-label={`Go to ${instance.name} instance`}
 			title={`Go to ${instance.name} instance`}
