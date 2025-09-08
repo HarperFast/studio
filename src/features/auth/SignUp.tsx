@@ -83,6 +83,7 @@ export function SignUp() {
 										type="text"
 										placeholder="Jane"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										autoCapitalize="words"
 										{...field}
 									/>
 								</FormControl>
@@ -101,6 +102,7 @@ export function SignUp() {
 										type="text"
 										placeholder="Doe"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										autoCapitalize="words"
 										{...field}
 									/>
 								</FormControl>
@@ -121,6 +123,8 @@ export function SignUp() {
 										disabled={!!email}
 										placeholder="jane.doe@harpersystems.dev"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										autoComplete="email"
+										autoCapitalize="none"
 										{...field}
 									/>
 								</FormControl>
