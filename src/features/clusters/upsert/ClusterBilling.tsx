@@ -96,8 +96,7 @@ export function ClusterBilling({
 				specific to that region).</li>)}
 			<li>When that block is used up{orPossiblyExpires}, you will be automatically renewed.
 			</li>
-			<li>While refunds are not available, we’d be happy to assist you with... swag, depending on availability.
-			</li>
+			<li>While refunds are not available, we’d be happy to assist you with troubleshooting.</li>
 			<li>We would love to work with you to sort out more precise details, and to help accomplish your objectives
 				with this cluster. <ContactUs />, we are here to help.
 			</li>
