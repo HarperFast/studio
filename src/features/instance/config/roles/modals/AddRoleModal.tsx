@@ -17,9 +17,9 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	AddRoleFormData,
-	AddRoleFormSchema,
 	useAddRoleMutation,
 } from '@/features/instance/operations/mutations/addRole';
+import { AddRoleFormSchema } from '@/features/instance/operations/schemas/addRoleFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save } from 'lucide-react';
 import { useCallback } from 'react';

@@ -22,14 +22,10 @@ const SignInSchema = z.object({
 	email: z
 		.email({
 			error: 'Please enter a valid email address.',
-		})
-		.max(75, { error: 'Email must be less than 75 characters' }),
+		}),
 	password: z
-		.string({
-			error: 'Please enter your password',
-		})
-		.min(1, { error: 'Password is required' })
-		.max(50, { error: 'Password must be less than 50 characters' }),
+		.string()
+		.nonempty({ error: 'Please enter your password.' }),
 });
 
 export function SignIn() {

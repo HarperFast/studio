@@ -14,6 +14,7 @@ import {
 	useInstanceResetPasswordMutation,
 } from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
+import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,25 +24,6 @@ import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-
-const ClusterSetPasswordSchema = z
-	.object({
-		username: z.string({
-			error: 'Please enter a username.',
-			// TODO: usernames must have only letters, numbers, hyphens, and underscores
-		}).min(1, { error: 'Please enter a username.' }),
-		password: z
-			.string({
-				error: 'Please enter your password',
-			})
-			.min(1, { error: 'Password is required' })
-			.max(50, { error: 'Password must be less than 50 characters' }),
-		confirmPassword: z.string(),
-	})
-	.refine((data) => data.password === data.confirmPassword, {
-		error: 'Passwords do not match',
-		path: ['confirmPassword'],
-	});
 
 const route = getRouteApi('');
 
@@ -59,18 +41,19 @@ export function ClusterSetPassword() {
 	const router = useRouter();
 
 	const form = useForm({
-		resolver: zodResolver(ClusterSetPasswordSchema),
+		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
-			username: '',
-			password: '',
 			confirmPassword: '',
+			password: '',
+			role: 'super_user',
+			username: '',
 		},
 	});
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
 
 	const { mutate: submitInstanceResetPassword, isPending } = useInstanceResetPasswordMutation();
 
-	const submitForm = useCallback(async (formData: z.infer<typeof ClusterSetPasswordSchema>) => {
+	const submitForm = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
 		if (!operationsUrl) {
 			toast.error('Cluster is not yet fully loaded, please wait a moment before trying to sign in.');
 			return;
@@ -87,7 +70,7 @@ export function ClusterSetPassword() {
 				toast.success(response.message);
 				const user = await getInstanceUserInfo({ instanceClient });
 				authStore.setUserForEntity(cluster || null, user);
-				router.invalidate();
+				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},
 		});
@@ -97,7 +80,6 @@ export function ClusterSetPassword() {
 		return <Navigate to="../sign-in" replace={true} />;
 	}
 
-	// TODO: There's a lot we can DRY up between the sign in form variants.
 	return (
 		<>
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">

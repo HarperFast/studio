@@ -5,10 +5,10 @@ import z from 'zod';
 export const AddOrganizationRoleSchema = z.object({
 	email: z
 		.email({
-			error: 'Please enter a valid email address',
+			error: 'Please enter a valid email address.',
 		})
-		.max(75, { error: 'Email must be less than 75 characters' }),
-	roleId: z.string().min(1, { error: 'Please select a role' }),
+		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
+	roleId: z.string().nonempty({ error: 'Please select a role.' }),
 });
 
 export async function onAddUserToOrganizationRoleSubmit(formData: z.infer<typeof AddOrganizationRoleSchema>) {

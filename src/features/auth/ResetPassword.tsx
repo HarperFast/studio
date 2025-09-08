@@ -17,15 +17,13 @@ import { useResetPasswordMutation } from './hooks/useResetPassword';
 const ResetPasswordSchema = z
 	.object({
 		password: z
-			.string({
-				error: 'Please enter your new password.',
-			})
-			.min(8, { error: 'Password must be at least 8 characters' })
-			.max(50, { error: 'Password must be less than 50 characters.' }),
+			.string()
+			.min(8, { error: 'Password must be at least 8 characters long.' })
+			.max(50, { error: 'Password cannot be longer than 50 characters.' }),
 		confirmPassword: z.string(),
 	})
 	.refine((data) => data.password === data.confirmPassword, {
-		error: 'Passwords do not match',
+		error: 'Passwords do not match.',
 		path: ['confirmPassword'],
 	});
 

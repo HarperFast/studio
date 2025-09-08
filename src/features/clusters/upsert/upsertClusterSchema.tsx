@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 export const UpsertClusterSchema = z.object({
 	systemName: z.string()
-		.min(1, 'Must be at least 1 character long.')
-		.max(255, 'Must be at most 255 characters long.'),
+		.nonempty('Please enter a system name.')
+		.max(255, 'System name cannot be longer than 255 characters long.'),
 	abbreviatedName: z
 		.string()
 		.max(10, 'Must be at most 10 characters long.')
@@ -15,8 +15,8 @@ export const UpsertClusterSchema = z.object({
 		.regex(hostNameRegex, 'Please enter a valid host name without the port or any path.')
 		.optional(),
 
-	deploymentDescription: z.string().min(1, 'Please select a deployment tier.'),
-	performanceDescription: z.string().min(1, 'Please select a performance tier.'),
+	deploymentDescription: z.string().nonempty('Please select a deployment tier.'),
+	performanceDescription: z.string().nonempty('Please select a performance tier.'),
 
 	regionPlans: z.array(
 		z.object({

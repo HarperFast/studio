@@ -18,8 +18,9 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { AddUserFormSchema, useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
+import { useAddUserMutation } from '@/features/instance/operations/mutations/addUser';
 import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
+import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';

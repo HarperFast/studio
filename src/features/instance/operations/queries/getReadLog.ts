@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 
@@ -9,14 +10,6 @@ export interface ReadLogItem {
 	tags: string[];
 	message: string;
 }
-
-export const LogFiltersFormSchema = z.object({
-	limit: z.string().optional(),
-	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
-	from: z.string().or(z.undefined()).optional(),
-	until: z.string().or(z.undefined()).optional(),
-	order: z.enum(['asc', 'desc']).optional(),
-});
 
 interface GetReadLogParams {
 	logFilters: z.infer<typeof LogFiltersFormSchema>;

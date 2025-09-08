@@ -5,9 +5,9 @@ import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import {
 	getReadLogQueryOptions,
-	LogFiltersFormSchema,
 	ReadLogItem,
 } from '@/features/instance/operations/queries/getReadLog';
+import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';

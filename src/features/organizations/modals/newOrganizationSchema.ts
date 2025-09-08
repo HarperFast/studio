@@ -3,11 +3,11 @@ import { z } from 'zod';
 export const NewOrganizationSchema = z.object({
 	name: z
 		.string()
-		.min(1, {
+		.nonempty({
 			error: 'Please enter a name.',
 		})
 		.max(255, {
-			error: 'The name cannot be longer than 255 characters.',
+			error: 'Name cannot be longer than 255 characters.',
 		}),
 	subdomain: z
 		.string()
