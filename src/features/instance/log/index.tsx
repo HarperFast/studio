@@ -19,10 +19,14 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { Button } from '@/components/ui/button';
 import { RefreshCwIcon } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
+import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type RowData = {
 	original: ReadLogItem;
 };
+
+
 
 const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	limit: '100',
@@ -60,6 +64,22 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'thread',
 		header: 'Thread',
+	},
+	{
+		accessorKey: 'node',
+		header: 'Node',
+		cell: ({ row }) => {
+			const { node } = row.original;
+			const variant: BadgeNodeVariantValues = memoizeNodeNames(node);
+			return (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Badge variant={variant}>{node.split('.')[0]}...</Badge>
+					</TooltipTrigger>
+					<TooltipContent className='bg-grey-700' arrowClassName='bg-grey-700 fill-grey-700'>{node}</TooltipContent>
+				</Tooltip>
+			);
+		},
 	},
 	{
 		accessorKey: 'tags',
@@ -162,7 +182,11 @@ export function Logs() {
 				) : (
 					<div className="h-32">
 						<div className="flex items-center justify-between md:justify-normal md:space-x-2">
-							<Button variant="defaultOutline" onClick={onRefreshClick} disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}>
+							<Button
+								variant="defaultOutline"
+								onClick={onRefreshClick}
+								disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+							>
 								<RefreshCwIcon />
 							</Button>
 							<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>

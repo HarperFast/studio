@@ -8,6 +8,7 @@ export interface ReadLogItem {
 	timestamp: string;
 	thread: string;
 	tags: string[];
+	node: string;
 	message: string;
 }
 
@@ -28,7 +29,16 @@ export function getReadLogQueryOptions({
 		logFilters.level = undefined;
 	}
 	return queryOptions({
-		queryKey: [entityId, 'read_log', logFilters.limit, logFilters.level, logFilters.from, logFilters.until, logFilters.order, replicated, isAutoRefreshEnabled] as const,
+		queryKey: [
+			entityId,
+			'read_log',
+			logFilters.limit,
+			logFilters.level,
+			logFilters.from,
+			logFilters.until,
+			logFilters.order,
+			replicated,
+		] as const,
 		queryFn: async () => {
 			const formattedLogFilters = {
 				...logFilters,
