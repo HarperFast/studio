@@ -81,7 +81,7 @@ function FiletypeIcon({ extension }: { readonly extension: string | null }) {
 		case 'css':
 			return <i className={'file-icon filetype-css fas fa-file text-blue'} />;
 		case 'html':
-			return <i className={'file-icon filetype-html fas fa-html5 text-orange'} />;
+			return <i className={'file-icon filetype-unknown far fa-file-alt'} />; //NOTE: Using unknown icon for HTML file due to not finding one in font awesome.
 		case 'json':
 			return <i className={'file-icon filetype-json fas fa-cog'} />;
 		case 'ts':
