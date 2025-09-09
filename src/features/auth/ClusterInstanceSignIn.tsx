@@ -97,7 +97,7 @@ export function ClusterInstanceSignIn() {
 			});
 	}, [cluster, instance, instanceClient, navigate, queryClient, redirect, router, submitInstanceLogin]);
 
-	if (cluster && !cluster?.fqdn) {
+	if (!instanceId && cluster && !cluster?.fqdn) {
 		return <Navigate to="../instances" replace={true} />;
 	}
 
