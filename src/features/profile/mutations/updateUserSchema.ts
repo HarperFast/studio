@@ -25,7 +25,6 @@ export const UpdateUserSchema = z
 				error: 'Please enter your new password.',
 			})
 			.min(8, { error: 'Password must be 8 characters or more.' })
-			.max(50, { error: 'Password must be less than 50 characters.' })
 			.or(z.string().max(0)),
 		confirmNewPassword: z
 			.string()
