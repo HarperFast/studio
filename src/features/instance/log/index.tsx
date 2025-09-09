@@ -72,12 +72,17 @@ const columns: ColumnDef<ReadLogItem>[] = [
 			const { node } = row.original;
 			const variant: BadgeNodeVariantValues = memoizeNodeNames(node);
 			return (
-				<Tooltip>
+				<>
+				{node ? (
+						<Tooltip>
 					<TooltipTrigger asChild>
 						<Badge variant={variant}>{node.split('.')[0]}...</Badge>
 					</TooltipTrigger>
 					<TooltipContent className='bg-grey-700' arrowClassName='bg-grey-700 fill-grey-700'>{node}</TooltipContent>
 				</Tooltip>
+				) : null}
+			
+				</>
 			);
 		},
 	},
