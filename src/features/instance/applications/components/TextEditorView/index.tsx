@@ -55,10 +55,10 @@ export function TextEditorView() {
 		<div className="h-[calc(100vh-theme(spacing.52))]">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
 				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
-				<div>
+				<div className='flex flex-col justify-end space-y-2 md:justify-normal md:flex-row '>
 					<Button
 						variant="positiveOutline"
-						className="w-32 rounded-full"
+						className="w-38 rounded-full"
 						onClick={() => {
 							if (updateFileContent !== null) {
 								onSaveFile(
@@ -96,7 +96,7 @@ export function TextEditorView() {
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
 				<div className="flex flex-col items-center justify-center h-full space-y-4">
 					<span className="text-white">No file selected</span>
-					<div>
+					<div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
 						<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
 							setIsNewProjectModalOpen(true);
 							setAppType('create');
