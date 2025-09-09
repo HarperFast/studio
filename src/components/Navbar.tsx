@@ -289,8 +289,8 @@ export function Navbar() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				await navigate({ to: '/' });
-				router.invalidate();
+				void navigate({ to: '/sign-in' });
+				void router.invalidate();
 			},
 		});
 	}, [signOut, router, navigate]);
