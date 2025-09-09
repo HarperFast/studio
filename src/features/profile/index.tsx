@@ -10,6 +10,7 @@ import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { useUpdateUserMutation } from '@/features/profile/mutations/updateUserMutation';
 import { UpdateUserSchema } from '@/features/profile/mutations/updateUserSchema';
+import { useCloudAuth } from '@/hooks/useAuth';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { Save } from 'lucide-react';
@@ -21,13 +22,13 @@ import { z } from 'zod';
 export function ProfileIndex() {
 	const router = useRouter();
 	const navigate = useNavigate();
+	const { user } = useCloudAuth();
 	const form = useForm({
 		resolver: zodResolver(UpdateUserSchema),
 		defaultValues: async () => {
 			const user = await getCurrentUser();
 			return {
 				confirmNewPassword: '',
-				email: user.email,
 				firstname: user.firstname,
 				id: user.id,
 				lastname: user.lastname,
@@ -106,25 +107,18 @@ export function ProfileIndex() {
 						)}
 					/>
 
-					<FormField
-						control={form.control}
-						name="email"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Email</FormLabel>
-								<FormControl>
-									<Input
-										type="email"
-										enterKeyHint="next"
-										autoComplete="email"
-										autoCapitalize="none"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					<FormLabel className="pb-1">Email</FormLabel>
+					<FormControl>
+						<Input
+							type="email"
+							enterKeyHint="next"
+							autoComplete="email"
+							autoCapitalize="none"
+							value={user?.email || ''}
+							disabled={true}
+							readOnly={true}
+						/>
+					</FormControl>
 
 					<FormField
 						control={form.control}
