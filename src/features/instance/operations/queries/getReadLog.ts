@@ -45,7 +45,6 @@ export function getReadLogQueryOptions({
 			logFilters.until,
 			logFilters.order,
 			replicated,
-			isAutoRefreshEnabled,
 		] as const,
 		queryFn: async () => {
 			const formattedLogFilters = {
