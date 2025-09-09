@@ -6,10 +6,12 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { useUpdateUserMutation } from '@/features/profile/mutations/updateUserMutation';
 import { UpdateUserSchema } from '@/features/profile/mutations/updateUserSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { Save } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +19,8 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 export function ProfileIndex() {
+	const router = useRouter();
+	const navigate = useNavigate();
 	const form = useForm({
 		resolver: zodResolver(UpdateUserSchema),
 		defaultValues: async () => {
@@ -37,13 +41,24 @@ export function ProfileIndex() {
 		async (formData: z.infer<typeof UpdateUserSchema>) => {
 			if (formData) {
 				updateUser(formData, {
-					onSuccess: () => {
+					onSuccess: (data) => {
+						form.reset(data);
 						toast.success('Profile updated successfully!');
+						if (formData.newPassword) {
+							toast.success('Profile updated successfully!', {
+								description: 'Please sign in with your new password.',
+							});
+							logoutOnSuccess();
+							void navigate({ to: '/sign-in' });
+							void router.invalidate();
+						} else {
+							toast.success('Profile updated successfully!');
+						}
 					},
 				});
 			}
 		},
-		[updateUser],
+		[form, navigate, router, updateUser],
 	);
 
 	return (
@@ -158,7 +173,7 @@ export function ProfileIndex() {
 							type="submit"
 							variant="submit"
 							className="rounded-full"
-							disabled={isUpdatePending}
+							disabled={isUpdatePending || !form.formState.isDirty || !form.formState.isValid}
 						>
 							<Save /> Update Profile
 						</Button>
