@@ -3,11 +3,6 @@ import { z } from 'zod';
 export const UpdateUserSchema = z
 	.object({
 		id: z.string(),
-		email: z
-			.email({
-				error: 'Please enter a valid email address.',
-			})
-			.max(75, { error: 'Email must be less than 75 characters.' }),
 		firstname: z
 			.string({
 				error: 'Please enter your first name.',
