@@ -57,7 +57,7 @@ export function RadioButtonGroup<
 								<Label
 									htmlFor={`${name}-${option.value}`}
 									className={cn(
-										'flex h-10 cursor-pointer items-center justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-grey-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+										'flex h-10 items-center justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-grey-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
 										'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
 									)}
 								>
@@ -88,7 +88,7 @@ export function RadioButtonGroup<
 					<Label
 						htmlFor={`${name}-${option.value}`}
 						className={cn(
-							'flex h-10 cursor-pointer items-center bg-black/30 justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+							'flex h-10 items-center bg-black/30 justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
 							'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
 						)}
 					>

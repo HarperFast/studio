@@ -115,7 +115,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 			<Button
 				type="button"
 				variant="link"
-				className="text-white cursor-pointer"
+				className="text-white"
 				onClick={onUsageLimitsClick}
 			>
 				Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}

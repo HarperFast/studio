@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
+import { cn } from '@/lib/cn';
 import {
 	ColumnDef,
 	flexRender,
@@ -74,7 +75,7 @@ export function BrowseDataTable<TData, TValue>({
 				{table.getRowModel().rows?.length ? (table.getRowModel().rows.map((row) => (
 					<TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}
 						onClick={() => onRowClick?.(row)}
-						className="hover:bg-muted/10 data-[state=selected]:bg-muted">
+						className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}>
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
 							className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -33,7 +33,7 @@ export function OrgCard({
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{organizationId}</span>
 					{remove && (<DropdownMenu>
-						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white cursor-pointer">
+						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white">
 							<Ellipsis aria-label="Options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent>
