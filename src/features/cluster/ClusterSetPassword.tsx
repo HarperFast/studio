@@ -85,7 +85,7 @@ export function ClusterSetPassword() {
 			</nav>
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
-					<h2 className="text-2xl font-light">Set Harper Cluster Password</h2>
+					<h2 className="text-2xl font-light">Create Admin User</h2>
 					<Form {...form}>
 						<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
 							<FormField
@@ -138,7 +138,7 @@ export function ClusterSetPassword() {
 								)}
 							/>
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
-								Set Cluster Admin Password
+								Create Admin User
 							</Button>
 						</form>
 					</Form>
