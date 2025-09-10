@@ -66,7 +66,11 @@ export function TableHeadSortable<TData extends RowData>({ header, onColumnClick
 	}, [header, onColumnClick]);
 	if (header.column.columnDef.enableSorting) {
 		return <TableHead {...props} className="px-0">
-			<Button type="button" variant="ghost" className="rounded-none" onClick={onClickSort}>
+			<Button
+				type="button"
+				variant="ghost"
+				className={cn('rounded-none', !header.column.getIsSorted() || header.column.getIsSorted() === 'asc' ? 'cursor-n-resize' : 'cursor-s-resize')}
+				onClick={onClickSort}>
 				{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 				{header.column.getIsSorted() === 'asc'
 					? <ArrowUp />
