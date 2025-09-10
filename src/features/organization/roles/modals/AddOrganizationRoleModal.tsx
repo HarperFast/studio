@@ -14,7 +14,7 @@ import {
 import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
-import { getRouteApi } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -36,8 +36,6 @@ const defaultPermissions: Pick<SchemaRoleOrganizationPermissions, 'roles' | 'clu
 	},
 };
 
-const route = getRouteApi('');
-
 export function AddOrganizationRoleModal({
 	isModalOpen,
 	onChangesSaved,
@@ -47,7 +45,7 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
 

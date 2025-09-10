@@ -8,7 +8,7 @@ import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
-import { getRouteApi, Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import {
 	BookOpenTextIcon,
 	BuildingIcon,
@@ -24,14 +24,12 @@ import {
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
-const route = getRouteApi('');
-
 const activeLinkProps = { className: 'text-white' };
 
 function MobileNav({ signOut }: { signOut: () => void }) {
 	const { user } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const showBilling = canUpdateOrganization;
@@ -128,7 +126,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 function DesktopNav({ signOut }: { signOut: () => void }) {
 	const { user } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const showBilling = canUpdateOrganization;

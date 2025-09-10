@@ -19,16 +19,14 @@ import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi, Navigate, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const route = getRouteApi('');
-
 export function ClusterSetPassword() {
-	const { clusterId }: { clusterId: string; } = route.useParams();
+	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);

@@ -11,14 +11,12 @@ import { Instance } from '@/lib/api.patch';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
-const route = getRouteApi('');
-
 export function ClusterIndex() {
-	const { clusterId }: { clusterId: string; } = route.useParams();
+	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);

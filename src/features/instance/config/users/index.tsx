@@ -9,12 +9,10 @@ import { getListUsersQueryOptions } from '@/features/instance/operations/queries
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalUser } from '@/lib/api.patch';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-
-const route = getRouteApi('');
 
 export function ConfigUsersIndex() {
 	const navigate = useNavigate();
@@ -22,7 +20,7 @@ export function ConfigUsersIndex() {
 		instanceId?: string;
 		clusterId?: string;
 		username?: string;
-	} = route.useParams();
+	} = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: localUsers,

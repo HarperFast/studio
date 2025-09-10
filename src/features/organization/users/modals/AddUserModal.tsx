@@ -32,15 +32,13 @@ import { useInviteUserToOrganizationRole } from '@/features/organization/mutatio
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { MailWarningIcon, Save } from 'lucide-react';
 import { Suspense, useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-
-const route = getRouteApi('');
 
 export function AddUserModal({
 	isModalOpen,
@@ -51,7 +49,7 @@ export function AddUserModal({
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
 	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
 	const [shouldInvite, setShouldInvite] = useState(false);
 

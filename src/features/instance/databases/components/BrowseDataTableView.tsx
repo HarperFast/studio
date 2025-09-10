@@ -17,13 +17,11 @@ import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } f
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { queryClient } from '@/react-query/queryClient';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { PaginationState, Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-
-const route = getRouteApi('');
 
 export function BrowseDataTableView() {
 	const allParams: {
@@ -31,7 +29,7 @@ export function BrowseDataTableView() {
 		instanceId?: string;
 		databaseName: string;
 		tableName: string;
-	} = route.useParams();
+	} = useParams({ strict: false });
 
 	const navigate = useNavigate();
 	const instanceParams = useInstanceClientIdParams();

@@ -8,13 +8,11 @@ import { getListRolesQueryOptions } from '@/features/instance/operations/queries
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalRole } from '@/lib/api.patch';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import { EditRoleModal } from './modals/EditRoleModal';
-
-const route = getRouteApi('');
 
 export function ConfigRolesIndex() {
 	const navigate = useNavigate();
@@ -22,7 +20,7 @@ export function ConfigRolesIndex() {
 		instanceId?: string;
 		clusterId?: string;
 		roleId?: string;
-	} = route.useParams();
+	} = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: localRoles,
