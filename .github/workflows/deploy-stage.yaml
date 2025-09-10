@@ -63,4 +63,5 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           rm -rf node_modules # Clean up node_modules, harper will install
+          echo "{}" > package.json
           CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' harperdb deploy target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=true
