@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - dev
+
+concurrency:
+  group: dev
+  cancel-in-progress: false
+
 jobs:
   deployToDev:
     runs-on: ubuntu-latest

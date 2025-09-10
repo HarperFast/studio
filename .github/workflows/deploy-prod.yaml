@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - prod
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
 jobs:
   deployToProd:
     runs-on: ubuntu-latest
