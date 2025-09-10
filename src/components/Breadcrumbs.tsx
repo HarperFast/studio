@@ -58,7 +58,7 @@ export function Breadcrumbs() {
 
 
 	return (
-		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4">
+		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4 overflow-x-scroll">
 			{...breadcrumbs}
 		</div>
 	);

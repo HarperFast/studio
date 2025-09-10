@@ -12,7 +12,7 @@ export function ApplicationsEditor() {
 	return (
 		<EditorViewProvider>
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-12 h-[calc(100vh-theme(spacing.40))]">
-				<section className="col-span-1 overflow-y-scroll text-white md:col-span-4 lg:col-span-3">
+				<section className="col-span-1 overflow-y-scroll min-h-48 text-white md:col-span-4 lg:col-span-3">
 					<ApplicationsSidebar fileTreeQueryData={getComponentsQueryData} />
 				</section>
 				<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
