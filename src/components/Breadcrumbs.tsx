@@ -26,15 +26,17 @@ export function Breadcrumbs() {
 			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
 			let id: string | undefined;
-			if (name.startsWith('Org ')) {
+			if (route === 'databases' && routeHistory.length === index + 3) {
+				id = routeHistory[index + 1];
+				name = routeHistory[index + 2];
+				index += 2;
+			} else if (name.startsWith('Org ')) {
 				id = route.split('org-').pop();
 				name = routeContext?.organization?.name || 'Org';
-			}
-			else if (name.startsWith('Clu ')) {
+			} else if (name.startsWith('Clu ')) {
 				id = route.split('clu-').pop();
 				name = routeContext?.cluster?.name || 'Cluster';
-			}
-			else if (name.startsWith('Ins ')) {
+			} else if (name.startsWith('Ins ')) {
 				id = route.split('ins-').pop();
 				name = 'Instance';
 			}
@@ -58,7 +60,7 @@ export function Breadcrumbs() {
 
 
 	return (
-		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4 overflow-x-auto">
+		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4">
 			{...breadcrumbs}
 		</div>
 	);
