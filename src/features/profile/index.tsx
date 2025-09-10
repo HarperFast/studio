@@ -44,7 +44,6 @@ export function ProfileIndex() {
 				updateUser(formData, {
 					onSuccess: (data) => {
 						form.reset(data);
-						toast.success('Profile updated successfully!');
 						if (formData.newPassword) {
 							toast.success('Profile updated successfully!', {
 								description: 'Please sign in with your new password.',
