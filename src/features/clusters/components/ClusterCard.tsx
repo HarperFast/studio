@@ -37,7 +37,7 @@ export function ClusterCard({
 	const auth = useInstanceAuth(cluster.id);
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
-	const notTerminated = useMemo(() => cluster.status && !deletedClusterStatuses.includes(cluster.status), [cluster.status]);
+	const isTerminated = useMemo(() => cluster.status && deletedClusterStatuses.includes(cluster.status), [cluster.status]);
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
 	const [signingOut, setSigningOut] = useState(false);
@@ -68,7 +68,7 @@ export function ClusterCard({
 			<Link to={`${cluster.id}/instances`} disabled={signingOut}><DropdownMenuItem>Instances</DropdownMenuItem></Link>),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
 			<DropdownMenuItem onClick={onSignOutClick} disabled={signingOut}>Sign Out</DropdownMenuItem>),
-		notTerminated && remove && (
+		!isTerminated && remove && (
 			<DropdownMenuItem
 				className="bg-red focus:bg-red/70 focus:text-white"
 				onClick={onTerminateClick}>
@@ -82,7 +82,7 @@ export function ClusterCard({
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{cluster.id}</span>
-					<DropdownMenu>
+					{!isTerminated && (<DropdownMenu>
 						<DropdownMenuTrigger>
 							<Ellipsis aria-label="Cluster options" />
 						</DropdownMenuTrigger>
@@ -101,7 +101,7 @@ export function ClusterCard({
 								{...menuItems}
 							</>)}
 						</DropdownMenuContent>
-					</DropdownMenu>
+					</DropdownMenu>)}
 				</CardDescription>
 				<CardTitle>
 					<h2>{cluster.name}</h2>
