@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/cn';
 import { ColumnDef, flexRender, getCoreRowModel, Row, useReactTable } from '@tanstack/react-table';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,7 +46,7 @@ export function LogsDataTable<TData extends ReadLogItem, TValue>({
 							<TableRow
 								key={row.id}
 								data-state={row.getIsSelected() && 'selected'}
-								className="hover:bg-muted/10 data-[state=selected]:bg-muted max-w-full"
+								className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted max-w-full', onRowClick && 'cursor-pointer')}
 								onClick={() => onRowClick?.(row as Row<TData>)}
 							>
 								{row.getVisibleCells().map((cell) => (

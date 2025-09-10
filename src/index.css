@@ -211,6 +211,13 @@
 }
 
 @layer base {
+  button:not([disabled]),
+  [role="button"]:not([disabled]),
+  input[type="checkbox"],
+  input[type="radio"],
+  label {
+    cursor: pointer;
+  }
   h1 {
     @apply font-bold font-radioGrotesk;
   }

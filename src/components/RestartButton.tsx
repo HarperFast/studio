@@ -24,7 +24,7 @@ export function RestartButton({
 		<TooltipTrigger asChild>
 			<Button
 				variant="positiveOutline"
-				className="mx-0 md:mx-4 rounded-full cursor-pointer"
+				className="mx-0 md:mx-4 rounded-full"
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 				disabled={isRestartPending || isRestartClusterPending}
 			>
