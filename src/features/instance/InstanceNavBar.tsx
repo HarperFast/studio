@@ -20,27 +20,27 @@ function DesktopInstanceNavBar() {
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<Breadcrumbs />
 			<div className="flex space-x-2 *:hover:text-grey">
-				<Link to={buildAbsoluteLinkToPage(params)} className="p-2">
+				<Link to={buildAbsoluteLinkToPage(params)} className="p-2 text-center">
 					<Package className="inline-block" />
 					<span className="hidden xl:inline-block ml-1">Applications</span>
 					<span className="visible xl:hidden ml-1"> Apps</span>
 
 				</Link>
-				<Link to={buildAbsoluteLinkToPage(params, 'databases')} className="p-2">
+				<Link to={buildAbsoluteLinkToPage(params, 'databases')} className="p-2 text-center">
 					<DatabaseIcon className="inline-block" />
 					<span className="hidden xl:inline-block ml-1"> Databases</span>
 				</Link>
 				{canManage && (
 					<>
-						<Link to={buildAbsoluteLinkToPage(params, 'status')} className="p-2">
+						<Link to={buildAbsoluteLinkToPage(params, 'status')} className="p-2 text-center">
 							<GaugeIcon className="inline-block" />
 							<span className="hidden xl:inline-block ml-1">Status</span>
 						</Link>
-						<Link to={buildAbsoluteLinkToPage(params, 'logs')} className="p-2">
+						<Link to={buildAbsoluteLinkToPage(params, 'logs')} className="p-2 text-center">
 							<NotepadText className="inline-block" />
 							<span className="hidden xl:inline-block ml-1">Logs</span>
 						</Link>
-						<Link to={buildAbsoluteLinkToPage(params, 'config')} className="p-2">
+						<Link to={buildAbsoluteLinkToPage(params, 'config')} className="p-2 text-center">
 							<SettingsIcon className="inline-block" />
 							<span className="hidden xl:inline-block ml-1">Config</span>
 						</Link>
