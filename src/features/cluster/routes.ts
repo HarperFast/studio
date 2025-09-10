@@ -20,7 +20,7 @@ export const clusterLayoutRoute = createRoute({
 
 const clusterIndexRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
-	path: '/instances',
+	path: 'instances',
 	component: ClusterIndex,
 });
 
