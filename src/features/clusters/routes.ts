@@ -5,7 +5,7 @@ import { createRoute } from '@tanstack/react-router';
 
 export const clustersLayoutRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
-	id: '_orgLayout',
+	id: '_clusterLayout',
 });
 
 const clustersIndexRoute = createRoute({
