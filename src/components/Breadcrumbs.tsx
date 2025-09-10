@@ -47,7 +47,7 @@ export function Breadcrumbs() {
 				</svg>,
 				<Link
 					to={path}
-					className="text-xs md:text-sm font-medium hover:text-grey"
+					className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 				>
 					{name}
 					{id && <div className="text-gray-500 text-xs hidden md:block">{id}</div>}
@@ -60,7 +60,7 @@ export function Breadcrumbs() {
 
 
 	return (
-		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4">
+		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
 			{...breadcrumbs}
 		</div>
 	);
