@@ -50,7 +50,7 @@ export function Breadcrumbs() {
 					className="text-xs md:text-sm font-medium hover:text-grey"
 				>
 					{name}
-					{id && <div className="text-gray-500 text-xs">{id}</div>}
+					{id && <div className="text-gray-500 text-xs hidden md:block">{id}</div>}
 				</Link>,
 			);
 		}
