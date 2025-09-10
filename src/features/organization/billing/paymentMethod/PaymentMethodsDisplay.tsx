@@ -10,10 +10,8 @@ import {
 } from '@/integrations/stripe/translateStripePaymentMethodStatus';
 import { formatMonthAndYear } from '@/lib/formatMonthAndYear';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-
-const route = getRouteApi('');
 
 interface PaymentMethodsDisplayProps {
 	onSaveStateForBillingRedirect?: (redirecting: boolean) => void;
@@ -22,7 +20,7 @@ interface PaymentMethodsDisplayProps {
 
 export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	const { onSaveStateForBillingRedirect, onReplacingPaymentMethod } = props ?? {};
-	const { organizationId } = route.useParams();
+	const { organizationId } = useParams({ strict: false });
 	const { update } = useOrganizationPermissions(organizationId);
 	const { data: organization, refetch } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;

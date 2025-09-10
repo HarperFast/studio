@@ -7,17 +7,15 @@ import { CreateNewTableModal } from '@/features/instance/databases/modals/Create
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/lib/api.patch';
-import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router';
+import { useLoaderData, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
-
-const route = getRouteApi('');
 
 export function DatabasesSidebar() {
 	const router = useRouter();
 
-	const params: { databaseName?: string; tableName?: string; } = route.useParams();
-	const instanceDatabaseMap = route.useLoaderData() as InstanceDatabaseMap;
+	const params: { databaseName?: string; tableName?: string; } = useParams({ strict: false });
+	const instanceDatabaseMap = useLoaderData({ strict: false }) as InstanceDatabaseMap;
 	const navigate = useNavigate();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 

@@ -1,25 +1,23 @@
 import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
+import { dataTableColumns } from '@/features/organization/roles/constants/tableDefinition';
+import { AddOrganizationRoleModal } from '@/features/organization/roles/modals/AddOrganizationRoleModal';
+import { EditOrganizationRoleModal } from '@/features/organization/roles/modals/EditOrganizationRoleModal';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationRole } from '@/lib/api.gen';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
-import { dataTableColumns } from '@/features/organization/roles/constants/tableDefinition';
-import { AddOrganizationRoleModal } from '@/features/organization/roles/modals/AddOrganizationRoleModal';
-import { EditOrganizationRoleModal } from '@/features/organization/roles/modals/EditOrganizationRoleModal';
-import { SubNavMenu } from '@/components/SubNavMenu';
-
-const route = getRouteApi('');
 
 export function OrgConfigRolesIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgRoleId }: { organizationId: string; orgRoleId?: string } = route.useParams();
+	const { organizationId, orgRoleId }: { organizationId: string; orgRoleId?: string } = useParams({ strict: false });
 	const { create } = useOrganizationRolePermissions(organizationId);
 
 	const {

@@ -6,10 +6,8 @@ import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaUser } from '@/lib/api.gen';
 import { keyBy } from '@/lib/keyBy';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-
-const route = getRouteApi('');
 
 export function EditUserModal({
 	closeModal,
@@ -22,7 +20,7 @@ export function EditUserModal({
 	isModalOpen: boolean;
 	onUserUpdated: () => void;
 }) {
-	const { organizationId }: { organizationId: string; } = route.useParams();
+	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
 	const auth = useCloudAuth();
 	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;

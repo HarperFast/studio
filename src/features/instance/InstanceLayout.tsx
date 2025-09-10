@@ -1,12 +1,10 @@
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, Outlet } from '@tanstack/react-router';
-
-const route = getRouteApi('');
+import { Outlet, useParams } from '@tanstack/react-router';
 
 export function InstanceLayout() {
-	const params: { instanceId?: string; clusterId?: string; } = route.useParams();
+	const params: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const { isSuccess } = useSuspenseQuery(getInstanceInfoQueryOptions(params));
 
 	if (!isSuccess) {

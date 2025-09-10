@@ -11,16 +11,14 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaUser } from '@/lib/api.gen';
 import { sortByEmail } from '@/lib/arrays/sort/byEmail';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 
-const route = getRouteApi('');
-
 export function OrgConfigUsersIndex() {
 	const navigate = useNavigate();
-	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string } = route.useParams();
+	const { organizationId, orgUserId }: { organizationId: string; orgUserId?: string } = useParams({ strict: false });
 	const { update } = useOrganizationRolePermissions(organizationId);
 	const {
 		data: organizationRoles,
