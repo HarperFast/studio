@@ -1,6 +1,5 @@
 import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
-import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
@@ -101,8 +100,6 @@ export function ClusterBilling({
 				with this cluster. <ContactUs />, we are here to help.
 			</li>
 		</ul>
-
-		<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} />
 
 		<p className="text-muted-foreground text-sm mb-6">Payment method:</p>
 
