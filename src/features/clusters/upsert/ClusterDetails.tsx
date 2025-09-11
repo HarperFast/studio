@@ -32,10 +32,10 @@ interface ClusterDetailsProps {
 }
 
 const DEPLOYMENT_FULL_DESCRIPTION: { [key: string]: string } = {
-	"Colocated": "Colocated (shared infrastructure for optimized value)",
-	"Dedicated": "Dedicated (dedicated infrastructure for consistent performance)",
-	"Self-Hosted": "Self-Hosted (your own infrastructure)",
-}
+	'Colocated': 'Shared infrastructure for optimized value',
+	'Dedicated': 'Dedicated infrastructure for consistent performance',
+	'Self-Hosted': 'Your own infrastructure',
+};
 
 export function ClusterDetails({
 	calculatedNames,
@@ -51,14 +51,37 @@ export function ClusterDetails({
 	totalPrice,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
-	const availablePerformanceDescriptions = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}), [deploymentToPerformanceToPlan, selectedDeployment]);
+	const availablePerformanceDescriptions = useMemo(() => {
+		return Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}).map(performanceTier => {
+			const splitByParens = performanceTier.slice(0, -1).split('(');
+			if (splitByParens.length > 1) {
+				return {
+					performanceTier,
+					name: splitByParens[0],
+					description: splitByParens[1],
+				};
+			}
+			const splitByFor = performanceTier.split(' for ');
+			if (splitByFor.length > 1) {
+				return {
+					performanceTier,
+					name: splitByFor[0],
+					description: 'For ' + splitByFor[1],
+				};
+			}
+			return {
+				performanceTier,
+				name: performanceTier,
+				description: '',
+			};
+		});
+	}, [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() =>
 		Object.keys(deploymentToPerformanceToPlan).sort(), [deploymentToPerformanceToPlan]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
-		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.includes(selectedPerformance)) {
-			form.setValue('performanceDescription', availablePerformanceDescriptions[0]);
+		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.find(sp => sp.performanceTier === selectedPerformance)) {
+			form.setValue('performanceDescription', availablePerformanceDescriptions[0].performanceTier);
 			void form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
@@ -102,7 +125,7 @@ export function ClusterDetails({
 										field.onChange(deploymentDescription);
 										void form.trigger();
 									}}>
-									<SelectTrigger className="w-full">
+									<SelectTrigger className="w-full h-auto">
 										<SelectValue placeholder="Choose Tier" />
 									</SelectTrigger>
 									<SelectContent>
@@ -111,7 +134,11 @@ export function ClusterDetails({
 												<SelectItem
 													key={deploymentDescription}
 													value={deploymentDescription}
-												>{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] ?? deploymentDescription}</SelectItem>
+												>
+													<dt className="text-left font-bold text-sm/6">{deploymentDescription}</dt>
+													{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] && (
+														<dd className="font-light">{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription]}</dd>)}
+												</SelectItem>
 											))}
 										</SelectGroup>
 									</SelectContent>
@@ -138,16 +165,20 @@ export function ClusterDetails({
 									void form.trigger();
 								}}
 									disabled={!availablePerformanceDescriptions?.length}>
-									<SelectTrigger className="w-full">
+									<SelectTrigger className="w-full h-auto">
 										<SelectValue placeholder="Choose Tier" />
 									</SelectTrigger>
 									<SelectContent>
 										<SelectGroup>
 											{availablePerformanceDescriptions.map((performanceDescription) => (
 												<SelectItem
-													key={performanceDescription}
-													value={performanceDescription}
-												>{performanceDescription}</SelectItem>
+													key={performanceDescription.name}
+													value={performanceDescription.performanceTier}
+												>
+													<dt className="text-left font-bold text-sm/6">{performanceDescription.name}</dt>
+													{performanceDescription.description && (
+														<dd className="font-light">{performanceDescription.description}</dd>)}
+												</SelectItem>
 											))}
 										</SelectGroup>
 									</SelectContent>

@@ -123,8 +123,11 @@ export function RegionFormInputs({
 					</Button>
 				</div>
 			)}
-			<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription
-				]}/>
+			<ResourcesPerInstance
+				planLimits={selectedPlan?.planLimits}
+				resourcesPerInstance={selectedPlan?.resourcesPerInstance}
+				selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription]}
+			/>
 		</div>
 	);
 }
