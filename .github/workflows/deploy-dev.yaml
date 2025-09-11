@@ -47,4 +47,4 @@ jobs:
           mv web deploy/
           cd deploy
           echo "{}" > package.json
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' harperdb deploy project='hdbms' target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}'
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' harperdb deploy project='hdbms' target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=true
