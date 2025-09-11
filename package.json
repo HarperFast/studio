@@ -16,6 +16,7 @@
 		"update-sdk": "npx -y dotenv-cli -e .env.local -- npm run update-sdk:fetch && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o ./src/lib/api.gen.d.ts",
 		"update-sdk:fetch": "mkdir -p dist && curl --location \"$VITE_CENTRAL_MANAGER_API_URL/openapi\" -u \"$HDB_ADMIN_USERNAME_FOR_OPENAPI:$HDB_ADMIN_PASSWORD_FOR_OPENAPI\" -o ./dist/central-manager.json",
 		"lint": "eslint .",
+		"prepare": "husky",
 		"preview": "vite preview",
 		"test": "vitest run",
 		"test:watch": "vitest"
@@ -147,6 +148,7 @@
 		"eslint-plugin-react-hooks": "^5.0.0",
 		"eslint-plugin-react-refresh": "^0.4.18",
 		"globals": "^16.0.0",
+		"husky": "^9.1.7",
 		"semantic-release": "^24.1.0",
 		"typescript": "~5.9.0",
 		"typescript-eslint": "^8.22.0",
