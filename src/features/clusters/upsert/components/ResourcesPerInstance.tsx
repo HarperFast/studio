@@ -3,7 +3,7 @@ import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { SchemaPlanLimits, SchemaResourcesPerInstance } from '@/lib/api.gen';
+import { SchemaRegion, SchemaPlanLimits, SchemaResourcesPerInstance } from '@/lib/api.gen';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { humanFileSize } from '@/lib/humanFileSize';
@@ -13,9 +13,10 @@ import { isPositive } from '@/lib/types/isPositive';
 import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
+export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selectedRegion }: {
 	readonly planLimits: SchemaPlanLimits | undefined,
 	readonly resourcesPerInstance: SchemaResourcesPerInstance | undefined
+	readonly selectedRegion: SchemaRegion | undefined
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
@@ -23,7 +24,8 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 	}, [toggled, setToggled]);
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000 && planLimits.expirationMonths;
-
+console.log(selectedRegion);
+	const multiplier = selectedRegion?.purchasedBlockMultiplier ?? 1;
 	const rows = useMemo(() => {
 		if (!planLimits || !resourcesPerInstance) {
 			return [];
@@ -31,19 +33,19 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 		return [
 			isPositive(planLimits.totalReadCount) && {
 				label: 'Total Reads',
-				value: `${humanNumber(planLimits.totalReadCount)} reads`,
+				value: `${humanNumber(planLimits.totalReadCount * multiplier)} reads`,
 			},
 			isPositive(planLimits.totalReadsBytes) && {
 				label: 'Total Read Transfer',
-				value: `${humanFileSize(planLimits.totalReadsBytes)}`,
+				value: `${humanFileSize(planLimits.totalReadsBytes * multiplier)}`,
 			},
 			isPositive(planLimits.readsPerMinuteCount) && {
 				label: 'Read Rate',
-				value: `${humanNumber(planLimits.readsPerMinuteCount * 60)}/min`,
+				value: `${humanNumber(planLimits.readsPerMinuteCount * 60 * multiplier)}/min`,
 			},
 			isPositive(planLimits.readsPerMinuteBytes) && {
 				label: 'Read Bandwidth',
-				value: `${humanFileSize(planLimits.readsPerMinuteBytes * 60)}/min`,
+				value: `${humanFileSize(planLimits.readsPerMinuteBytes * 60 * multiplier)}/min`,
 			},
 			isPositive(planLimits.totalWriteCount) && {
 				label: 'Total Writes',
@@ -63,27 +65,27 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 			},
 			isPositive(planLimits.totalRealTimeMessageDeliveries) && {
 				label: 'Total Real-Time Messages',
-				value: `${humanNumber(planLimits.totalRealTimeMessageDeliveries)} messages`,
+				value: `${humanNumber(planLimits.totalRealTimeMessageDeliveries * multiplier)} messages`,
 			},
 			isPositive(planLimits.totalRealTimeMessageDeliveryBytes) && {
 				label: 'Total Real-Time Message Transfer',
-				value: `${humanFileSize(planLimits.totalRealTimeMessageDeliveryBytes)}`,
+				value: `${humanFileSize(planLimits.totalRealTimeMessageDeliveryBytes * multiplier)}`,
 			},
 			isPositive(planLimits.realTimeMessageDeliveriesPerMinute) && {
 				label: 'Real-Time Message Rate',
-				value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute * 60)}/min`,
+				value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute * 60 * multiplier)}/min`,
 			},
 			isPositive(planLimits.realTimeMessageDeliveryBytesPerMinute) && {
 				label: 'Real-Time Message Bandwidth',
-				value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute * 60)}/min`,
+				value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute * 60 * multiplier)}/min`,
 			},
 			isPositive(planLimits.tlsHandshakes) && {
 				label: 'TLS Handshakes',
-				value: `${humanNumber(planLimits.tlsHandshakes * 60)}`,
+				value: `${humanNumber(planLimits.tlsHandshakes * 60 * multiplier)}`,
 			},
 			isPositive(planLimits.applicationComputeHours) && {
 				label: 'Application Compute Hours',
-				value: `${humanNumber(planLimits.applicationComputeHours * 60)}`,
+				value: `${humanNumber(planLimits.applicationComputeHours * 60 * multiplier)}`,
 			},
 			isPositive(resourcesPerInstance?.storageGb) && {
 				label: 'Storage',
@@ -94,7 +96,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 				value: pluralize(expirationMonths, 'month', 'months'),
 			},
 		].filter(excludeFalsy);
-	}, [expirationMonths, planLimits, resourcesPerInstance]);
+	}, [expirationMonths, planLimits, resourcesPerInstance, multiplier]);
 
 	if (!planLimits || !resourcesPerInstance) {
 		// The user hasn't selected a plan yet. so let's not show anything for the ResourcesPerInstance space yet.
@@ -107,8 +109,8 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance }: {
 
 	return <FormItem className="col-span-3 md:col-span-6">
 		<FormLabel>
-			Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount) ? `${humanNumber(planLimits.readsPerMinuteCount)} reads/min & ` : ''}
-			{humanNumber(planLimits.totalReadCount)} total reads per {isPositive(planLimits.readsPerMinuteCount) ? 'region' : 'server'},<br className="hidden sm:block" />
+			Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount) ? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & ` : ''}
+			{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount) ? 'in ' + (selectedRegion?.region ?? '') + ' region' : 'per server'},<br className="hidden sm:block" />
 			{isPositive(planLimits.writesPerMinuteCount) ? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & ` : ' '}
 			{humanNumber(planLimits.totalWriteCount)} total writes{expirationMonths && `, for ${pluralize(expirationMonths, 'month', 'months')}`}.
 			<br className="block sm:hidden" />

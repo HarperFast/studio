@@ -4624,6 +4624,7 @@ export interface components {
             id: string;
             /** Format: Int */
             instanceCount: number;
+            purchasedBlockMultiplier: number;
             latencyDescription: string;
             region: string;
         };

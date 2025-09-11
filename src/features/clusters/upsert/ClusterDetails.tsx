@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ClusterRegions } from '@/features/clusters/upsert/ClusterRegions';
 import { ClusterInstances } from '@/features/clusters/upsert/components/ClusterInstances';
-import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { ArrowRight } from 'lucide-react';
@@ -30,6 +29,12 @@ interface ClusterDetailsProps {
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number;
+}
+
+const DEPLOYMENT_FULL_DESCRIPTION: { [key: string]: string } = {
+	"Colocated": "Colocated (shared infrastructure for optimized value)",
+	"Dedicated": "Dedicated (dedicated infrastructure for consistent performance)",
+	"Self-Hosted": "Self-Hosted (your own infrastructure)",
 }
 
 export function ClusterDetails({
@@ -106,7 +111,7 @@ export function ClusterDetails({
 												<SelectItem
 													key={deploymentDescription}
 													value={deploymentDescription}
-												>{deploymentDescription}</SelectItem>
+												>{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] ?? deploymentDescription}</SelectItem>
 											))}
 										</SelectGroup>
 									</SelectContent>
@@ -222,7 +227,6 @@ export function ClusterDetails({
 				/>)
 			}
 
-			<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} />
 		</div>
 		<DialogFooter className="mt-3 mb-12">
 			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>
