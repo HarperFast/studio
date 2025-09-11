@@ -124,7 +124,7 @@ importers:
         version: 1.0.7(tailwindcss@4.1.13)
       zod:
         specifier: ^4.0.0
-        version: 4.1.5
+        version: 4.1.8
     devDependencies:
       '@commitlint/cli':
         specifier: ^19.5.0
@@ -3628,8 +3628,8 @@ packages:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
     engines: {node: '>=18'}
 
-  zod@4.1.5:
-    resolution: {integrity: sha512-rcUUZqlLJgBC33IT3PNMgsCq6TzLQEG/Ei/KTCU0PedSWRMAXoOUN+4t/0H+Q8bdnLPdqUYnvboJT0bn/229qg==}
+  zod@4.1.8:
+    resolution: {integrity: sha512-5R1P+WwQqmmMIEACyzSvo4JXHY5WiAFHRMg+zBZKgKS+Q1viRa0C1hmUKtHltoIFKtIdki3pRxkmpP74jnNYHQ==}
 
 snapshots:
 
@@ -6924,4 +6924,4 @@ snapshots:
 
   yoctocolors@2.1.2: {}
 
-  zod@4.1.5: {}
+  zod@4.1.8: {}
