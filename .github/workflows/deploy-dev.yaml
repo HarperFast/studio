@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           cache: 'pnpm'
+      - name: Disable Husky
+        run: echo "HUSKY=0" >> $GITHUB_ENV
       - name: Install dependencies
         run: pnpm install
       - name: Run unit tests
