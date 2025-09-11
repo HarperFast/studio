@@ -33,7 +33,7 @@ export function RestPassword() {
 
 	useEffect(() => {
 		if (!token) {
-			navigate({ to: '/' });
+			void navigate({ to: '/sign-in' });
 		}
 	}, [token, navigate]);
 
@@ -59,7 +59,7 @@ export function RestPassword() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					navigate({ to: '/' });
+					navigate({ to: '/sign-in' });
 				},
 			}
 		);

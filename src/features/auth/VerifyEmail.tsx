@@ -43,7 +43,7 @@ function SendEmailVerification() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/' });
+				navigate({ to: '/sign-in' });
 			},
 		});
 	};
@@ -96,7 +96,7 @@ export function VerifyEmail() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					void navigate({ to: '/' });
+					void navigate({ to: '/sign-in' });
 				},
 			});
 		},

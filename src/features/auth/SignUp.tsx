@@ -62,7 +62,7 @@ export function SignUp() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/' });
+				navigate({ to: '/sign-in' });
 			},
 		});
 	};
