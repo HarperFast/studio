@@ -92,6 +92,8 @@ interface SystemInformationResponse {
 		stats: Array<Record<string, unknown>>;
 		connections: Array<Record<string, unknown>>;
 	};
+
+	[key: string]: unknown;
 }
 
 export function getSystemInformationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

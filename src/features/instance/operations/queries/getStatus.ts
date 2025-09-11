@@ -1,27 +1,41 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-interface CoreStatus {
-	id: string;
-	status: string;
+interface SystemStatus {
+	id: 'availability' | 'maintenance' | 'primary' | string;
+	status: 'Available' | 'Unavailable' | string;
 	__updatedtime__: number;
 	__createdtime__: number;
 }
 
-interface AvailabilityStatus extends CoreStatus {
-	id: 'availability',
-	status: 'Available' | 'Unavailable',
+const enum ComponentStatusName {
+	'hdb.http' = 'hdb.http',
+	'hdb.authentication' = 'hdb.authentication',
+	'hdb.replication' = 'hdb.replication',
+	'hdb.logging' = 'hdb.logging',
+	'hdb.mqtt' = 'hdb.mqtt',
+	'hdb.operationsApi' = 'hdb.operationsApi',
+	'status-check.rest' = 'status-check.rest',
+	'status-check.jsResource' = 'status-check.jsResource',
 }
 
-interface MaintenanceStatus extends CoreStatus {
-	id: 'maintenance',
+interface ComponentStatus {
+	name: ComponentStatusName | string,
+	componentName: ComponentStatusName | string,
+	status: 'healthy' | string,
+	lastChecked: {
+		workers: Record<string, number>,
+		main: number
+	}
 }
 
-interface PrimaryStatus extends CoreStatus {
-	id: 'primary',
-}
+interface StatusResponse {
+	systemStatus: SystemStatus[];
+	restartRequired: boolean;
+	componentStatus: ComponentStatus[];
 
-type StatusResponse = Array<AvailabilityStatus | MaintenanceStatus | PrimaryStatus>;
+	[key: string]: unknown;
+}
 
 export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
