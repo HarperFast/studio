@@ -24,7 +24,6 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 	}, [toggled, setToggled]);
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000 && planLimits.expirationMonths;
-console.log(selectedRegion);
 	const multiplier = selectedRegion?.purchasedBlockMultiplier ?? 1;
 	const rows = useMemo(() => {
 		if (!planLimits || !resourcesPerInstance) {
