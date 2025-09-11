@@ -19,6 +19,7 @@ import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
+import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance.tsx';
 
 type RegionFormInputsProps = {
 	control: Control<z.infer<typeof UpsertClusterSchema>>,
@@ -35,6 +36,7 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
+ 	selectedPlan
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() =>
 		Object.keys(regionNameToLatencyToRegion).sort(), [regionNameToLatencyToRegion]);
@@ -121,6 +123,8 @@ export function RegionFormInputs({
 					</Button>
 				</div>
 			)}
+			<ResourcesPerInstance planLimits={selectedPlan?.planLimits} resourcesPerInstance={selectedPlan?.resourcesPerInstance} selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription
+				]}/>
 		</div>
 	);
 }
