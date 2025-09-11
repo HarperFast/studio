@@ -64,6 +64,164 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/AdminUser/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminUser"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminUser"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/AdminUser/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminUser"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/Cluster/": {
         parameters: {
             query?: never;
@@ -432,6 +590,7 @@ export interface paths {
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
+                    clusterName?: string;
                     cpuCores?: number;
                     createdByUserId?: string;
                     dynamicallyAllocated?: boolean;
@@ -440,13 +599,16 @@ export interface paths {
                     id?: string;
                     instanceFqdn?: string;
                     leaderFqdn?: string;
+                    licenses?: components["schemas"]["License"][];
                     memoryMb?: number;
                     name?: string;
                     operationsApiPort?: number;
                     operationsApiSecure?: boolean;
+                    organizationName?: string;
                     plan?: components["schemas"]["Plan"];
                     planId?: string;
                     readIopsLimit?: number;
+                    region?: string;
                     regionId?: string;
                     replicationFqdn?: string;
                     replicationHosts?: string[];
@@ -512,6 +674,7 @@ export interface paths {
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
+                    clusterName?: string;
                     cpuCores?: number;
                     createdByUserId?: string;
                     dynamicallyAllocated?: boolean;
@@ -520,13 +683,16 @@ export interface paths {
                     id?: string;
                     instanceFqdn?: string;
                     leaderFqdn?: string;
+                    licenses?: components["schemas"]["License"][];
                     memoryMb?: number;
                     name?: string;
                     operationsApiPort?: number;
                     operationsApiSecure?: boolean;
+                    organizationName?: string;
                     plan?: components["schemas"]["Plan"];
                     planId?: string;
                     readIopsLimit?: number;
+                    region?: string;
                     regionId?: string;
                     replicationFqdn?: string;
                     replicationHosts?: string[];
@@ -562,6 +728,7 @@ export interface paths {
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
+                    clusterName?: string;
                     cpuCores?: number;
                     createdByUserId?: string;
                     dynamicallyAllocated?: boolean;
@@ -570,13 +737,16 @@ export interface paths {
                     id?: string;
                     instanceFqdn?: string;
                     leaderFqdn?: string;
+                    licenses?: components["schemas"]["License"][];
                     memoryMb?: number;
                     name?: string;
                     operationsApiPort?: number;
                     operationsApiSecure?: boolean;
+                    organizationName?: string;
                     plan?: components["schemas"]["Plan"];
                     planId?: string;
                     readIopsLimit?: number;
+                    region?: string;
                     regionId?: string;
                     replicationFqdn?: string;
                     replicationHosts?: string[];
@@ -781,6 +951,7 @@ export interface paths {
                     createdAt?: string;
                     createdByUserId?: string;
                     dynamicallyAssignable?: boolean;
+                    encryptVolumes?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -856,6 +1027,7 @@ export interface paths {
                     createdAt?: string;
                     createdByUserId?: string;
                     dynamicallyAssignable?: boolean;
+                    encryptVolumes?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -901,6 +1073,7 @@ export interface paths {
                     createdAt?: string;
                     createdByUserId?: string;
                     dynamicallyAssignable?: boolean;
+                    encryptVolumes?: boolean;
                     fqdn?: string;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
@@ -1666,6 +1839,7 @@ export interface paths {
             parameters: {
                 query?: {
                     billing?: components["schemas"]["Billing"];
+                    channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
@@ -1728,6 +1902,7 @@ export interface paths {
             parameters: {
                 query?: {
                     billing?: components["schemas"]["Billing"];
+                    channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
@@ -1760,6 +1935,7 @@ export interface paths {
             parameters: {
                 query?: {
                     billing?: components["schemas"]["Billing"];
+                    channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
                     createdByUserId?: string;
                     id?: string;
@@ -2333,7 +2509,8 @@ export interface paths {
             parameters: {
                 query?: {
                     allowedRegionIds?: string[];
-                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
@@ -2341,7 +2518,9 @@ export interface paths {
                     locationsPerPlan?: number;
                     name?: string;
                     performanceDescription?: string;
+                    planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
                     priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
@@ -2397,7 +2576,8 @@ export interface paths {
             parameters: {
                 query?: {
                     allowedRegionIds?: string[];
-                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
@@ -2405,7 +2585,9 @@ export interface paths {
                     locationsPerPlan?: number;
                     name?: string;
                     performanceDescription?: string;
+                    planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
                     priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
@@ -2431,7 +2613,8 @@ export interface paths {
             parameters: {
                 query?: {
                     allowedRegionIds?: string[];
-                    cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
@@ -2439,7 +2622,9 @@ export interface paths {
                     locationsPerPlan?: number;
                     name?: string;
                     performanceDescription?: string;
+                    planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
                     priceUsd?: number;
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
@@ -2629,9 +2814,12 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    purchasedBlockMultiplier?: number;
                     region?: string;
                 };
                 header?: never;
@@ -2683,9 +2871,12 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
+                    gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    purchasedBlockMultiplier?: number;
                     region?: string;
                 };
                 header?: never;
@@ -2707,9 +2898,12 @@ export interface paths {
         options: {
             parameters: {
                 query?: {
+                    gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    purchasedBlockMultiplier?: number;
                     region?: string;
                 };
                 header?: never;
@@ -3816,6 +4010,7 @@ export interface paths {
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastLoginDate?: string;
                     lastname?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
@@ -3876,6 +4071,7 @@ export interface paths {
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastLoginDate?: string;
                     lastname?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
@@ -3906,6 +4102,7 @@ export interface paths {
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastLoginDate?: string;
                     lastname?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
@@ -4284,6 +4481,9 @@ export interface components {
         Acme: {
             [key: string]: unknown;
         };
+        AdminUser: {
+            [key: string]: unknown;
+        };
         Alert: {
             actionRequired: string;
             dismissible: boolean;
@@ -4304,12 +4504,12 @@ export interface components {
             postalCode?: string;
             state?: string;
         };
-        CloudInstanceType: {
-            instanceType?: string;
-            provider?: string;
+        CloudInstanceTypes: {
+            gcp?: string;
+            linode?: string;
         };
         Cluster: {
-            abbreviatedName: string;
+            abbreviatedName?: string;
             enableGtm?: boolean;
             fqdn?: string;
             /** Format: ID */
@@ -4350,6 +4550,21 @@ export interface components {
             description?: string;
             name: string;
         };
+        ExternalMonitor: {
+            /** Format: ID */
+            clusterId?: string;
+            /** Format: ID */
+            hostId?: string;
+            /** Format: ID */
+            id?: string;
+            /** Format: ID */
+            instanceId?: string;
+            name?: string;
+            service?: string;
+            type?: string;
+        } & {
+            [key: string]: unknown;
+        };
         ForgotPassword: {
             [key: string]: unknown;
         };
@@ -4358,6 +4573,7 @@ export interface components {
             clusterFqdn?: string;
             /** Format: ID */
             clusterId: string;
+            clusterName?: string;
             /** Format: Float */
             cpuCores?: number;
             /** Format: ID */
@@ -4369,17 +4585,20 @@ export interface components {
             id: string;
             instanceFqdn: string;
             leaderFqdn?: string;
+            licenses?: components["schemas"]["License"][];
             /** Format: Int */
             memoryMb?: number;
             name?: string;
             /** Format: Int */
             operationsApiPort: number;
             operationsApiSecure: boolean;
+            organizationName?: string;
             plan?: components["schemas"]["Plan"];
             /** Format: ID */
             planId?: string;
             /** Format: Int */
             readIopsLimit?: number;
+            region?: string;
             regionId?: string;
             replicationFqdn?: string;
             replicationHosts?: string[];
@@ -4408,6 +4627,7 @@ export interface components {
             /** Format: ID */
             createdByUserId?: string;
             dynamicallyAssignable?: boolean;
+            encryptVolumes?: boolean;
             fqdn?: string;
             id: string;
             instances?: components["schemas"]["HDBInstance"][];
@@ -4447,6 +4667,16 @@ export interface components {
             serialNumber: string;
             status?: string;
         };
+        InstanceMonitoring: {
+            /** Format: ID */
+            id?: string;
+            /** Format: ID */
+            instanceId?: string;
+            /** Format: Float */
+            usedStorageGb?: number;
+        } & {
+            [key: string]: unknown;
+        };
         Invoice: {
             /** Format: Float */
             amountDue: number;
@@ -4484,6 +4714,10 @@ export interface components {
             /** Format: Int */
             start: number;
         };
+        License: {
+            id: string;
+            license: string;
+        };
         LinodeMetadata: {
             /** Format: Int */
             datacenterId: number;
@@ -4512,6 +4746,7 @@ export interface components {
         };
         Organization: {
             billing?: components["schemas"]["Billing"];
+            channel?: string;
             clusters?: components["schemas"]["Cluster"][];
             /** Format: ID */
             createdByUserId?: string;
@@ -4552,7 +4787,8 @@ export interface components {
         };
         Plan: {
             allowedRegionIds?: string[];
-            cloudInstanceTypes?: components["schemas"]["CloudInstanceType"][];
+            channel?: string;
+            cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
             defaultCloudInstanceProvider?: string;
             deploymentDescription: string;
             deploymentType: string;
@@ -4562,7 +4798,11 @@ export interface components {
             locationsPerPlan?: number;
             name: string;
             performanceDescription: string;
+            /** Format: Int */
+            planLevel: number;
             planLimits?: components["schemas"]["PlanLimits"];
+            /** Format: Float */
+            platformPriceUsd?: number;
             /** Format: Float */
             priceUsd: number;
             resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
@@ -4611,27 +4851,53 @@ export interface components {
             createdAt: string;
             /** Format: ID */
             createdByUserId: string;
+            /** Format: Date */
+            exhaustedAt?: string;
+            /** Format: Date */
+            expiresAt?: string;
             /** Format: ID */
             id: string;
+            license?: components["schemas"]["License"];
             plan?: components["schemas"]["Plan"];
             /** Format: ID */
             planId: string;
+            region?: components["schemas"]["Region"];
             regionId?: string;
             stripeInvoiceId?: string;
+            /** Format: Long */
+            usedCpuTime?: number;
+            /** Format: Long */
+            usedReadBytes?: number;
+            /** Format: Long */
+            usedReads?: number;
+            /** Format: Long */
+            usedRealTimeBytes?: number;
+            /** Format: Long */
+            usedRealTimeMessages?: number;
+            /** Format: Long */
+            usedStorage?: number;
+            /** Format: Long */
+            usedWriteBytes?: number;
+            /** Format: Long */
+            usedWrites?: number;
         };
         Region: {
+            gcpPreferredLocations?: string[];
             /** Format: ID */
             id: string;
             /** Format: Int */
             instanceCount: number;
-            purchasedBlockMultiplier: number;
             latencyDescription: string;
+            linodePreferredLocations?: string[];
+            /** Format: Int */
+            purchasedBlockMultiplier: number;
             region: string;
         };
         RegionPlan: {
             autoRenew?: boolean;
             /** Format: ID */
             planId: string;
+            region?: string;
             regionId?: string;
         } & {
             [key: string]: unknown;
@@ -4750,6 +5016,8 @@ export interface components {
             /** Format: ID */
             id: string;
             isVerified?: boolean;
+            /** Format: Date */
+            lastLoginDate?: string;
             lastname: string;
             roles?: components["schemas"]["OrganizationRole"][];
             /** Format: ID */
@@ -4772,21 +5040,25 @@ export interface components {
     pathItems: never;
 }
 export type SchemaAcme = components['schemas']['Acme'];
+export type SchemaAdminUser = components['schemas']['AdminUser'];
 export type SchemaAlert = components['schemas']['Alert'];
 export type SchemaBilling = components['schemas']['Billing'];
 export type SchemaBillingAddress = components['schemas']['BillingAddress'];
-export type SchemaCloudInstanceType = components['schemas']['CloudInstanceType'];
+export type SchemaCloudInstanceTypes = components['schemas']['CloudInstanceTypes'];
 export type SchemaCluster = components['schemas']['Cluster'];
 export type SchemaClusterUpsert = components['schemas']['ClusterUpsert'];
 export type SchemaClusterUpsertRegionPlan = components['schemas']['ClusterUpsertRegionPlan'];
 export type SchemaConfiguration = components['schemas']['Configuration'];
+export type SchemaExternalMonitor = components['schemas']['ExternalMonitor'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];
 export type SchemaHost = components['schemas']['Host'];
 export type SchemaHostManagerCertificate = components['schemas']['HostManagerCertificate'];
+export type SchemaInstanceMonitoring = components['schemas']['InstanceMonitoring'];
 export type SchemaInvoice = components['schemas']['Invoice'];
 export type SchemaInvoiceLine = components['schemas']['InvoiceLine'];
 export type SchemaInvoicePeriod = components['schemas']['InvoicePeriod'];
+export type SchemaLicense = components['schemas']['License'];
 export type SchemaLinodeMetadata = components['schemas']['LinodeMetadata'];
 export type SchemaLocation = components['schemas']['Location'];
 export type SchemaLogin = components['schemas']['Login'];
@@ -4863,6 +5135,7 @@ export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     clusterFqdn = "clusterFqdn",
     leaderFqdn = "leaderFqdn",
     regionId = "regionId",
+    region = "region",
     planId = "planId",
     plan = "plan",
     storageGb = "storageGb",
@@ -4879,7 +5152,10 @@ export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
     operationsApiSecure = "operationsApiSecure",
-    dynamicallyAllocated = "dynamicallyAllocated"
+    dynamicallyAllocated = "dynamicallyAllocated",
+    licenses = "licenses",
+    clusterName = "clusterName",
+    organizationName = "organizationName"
 }
 export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -4895,6 +5171,7 @@ export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     clusterFqdn = "clusterFqdn",
     leaderFqdn = "leaderFqdn",
     regionId = "regionId",
+    region = "region",
     planId = "planId",
     plan = "plan",
     storageGb = "storageGb",
@@ -4911,7 +5188,10 @@ export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
     operationsApiSecure = "operationsApiSecure",
-    dynamicallyAllocated = "dynamicallyAllocated"
+    dynamicallyAllocated = "dynamicallyAllocated",
+    licenses = "licenses",
+    clusterName = "clusterName",
+    organizationName = "organizationName"
 }
 export enum PathsHostIdPropertyGetParametersPathProperty {
     id = "id",
@@ -4935,6 +5215,7 @@ export enum PathsHostIdPropertyGetParametersPathProperty {
     updated = "updated",
     instances = "instances",
     dynamicallyAssignable = "dynamicallyAssignable",
+    encryptVolumes = "encryptVolumes",
     createdAt = "createdAt",
     createdByUserId = "createdByUserId",
     terminatedAt = "terminatedAt",
@@ -4962,6 +5243,7 @@ export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     updated = "updated",
     instances = "instances",
     dynamicallyAssignable = "dynamicallyAssignable",
+    encryptVolumes = "encryptVolumes",
     createdAt = "createdAt",
     createdByUserId = "createdByUserId",
     terminatedAt = "terminatedAt",
@@ -5020,6 +5302,7 @@ export enum PathsLocationIdPropertyGetResponses200ContentApplicationJson {
 export enum PathsOrganizationIdPropertyGetParametersPathProperty {
     id = "id",
     name = "name",
+    channel = "channel",
     createdByUserId = "createdByUserId",
     subdomain = "subdomain",
     status = "status",
@@ -5034,6 +5317,7 @@ export enum PathsOrganizationIdPropertyGetParametersPathProperty {
 export enum PathsOrganizationIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     name = "name",
+    channel = "channel",
     createdByUserId = "createdByUserId",
     subdomain = "subdomain",
     status = "status",
@@ -5065,9 +5349,12 @@ export enum PathsPlanIdPropertyGetParametersPathProperty {
     id = "id",
     name = "name",
     status = "status",
+    planLevel = "planLevel",
     locationsPerPlan = "locationsPerPlan",
     resourcesPerInstance = "resourcesPerInstance",
     priceUsd = "priceUsd",
+    platformPriceUsd = "platformPriceUsd",
+    channel = "channel",
     stripePriceId = "stripePriceId",
     planLimits = "planLimits",
     deploymentType = "deploymentType",
@@ -5081,9 +5368,12 @@ export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     name = "name",
     status = "status",
+    planLevel = "planLevel",
     locationsPerPlan = "locationsPerPlan",
     resourcesPerInstance = "resourcesPerInstance",
     priceUsd = "priceUsd",
+    platformPriceUsd = "platformPriceUsd",
+    channel = "channel",
     stripePriceId = "stripePriceId",
     planLimits = "planLimits",
     deploymentType = "deploymentType",
@@ -5097,13 +5387,19 @@ export enum PathsRegionIdPropertyGetParametersPathProperty {
     id = "id",
     region = "region",
     instanceCount = "instanceCount",
-    latencyDescription = "latencyDescription"
+    purchasedBlockMultiplier = "purchasedBlockMultiplier",
+    latencyDescription = "latencyDescription",
+    linodePreferredLocations = "linodePreferredLocations",
+    gcpPreferredLocations = "gcpPreferredLocations"
 }
 export enum PathsRegionIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     region = "region",
     instanceCount = "instanceCount",
-    latencyDescription = "latencyDescription"
+    purchasedBlockMultiplier = "purchasedBlockMultiplier",
+    latencyDescription = "latencyDescription",
+    linodePreferredLocations = "linodePreferredLocations",
+    gcpPreferredLocations = "gcpPreferredLocations"
 }
 export enum PathsRoleIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5145,7 +5441,8 @@ export enum PathsUserIdPropertyGetParametersPathProperty {
     status = "status",
     terminatedAt = "terminatedAt",
     roles = "roles",
-    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate"
+    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
+    lastLoginDate = "lastLoginDate"
 }
 export enum PathsUserIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5157,6 +5454,7 @@ export enum PathsUserIdPropertyGetResponses200ContentApplicationJson {
     status = "status",
     terminatedAt = "terminatedAt",
     roles = "roles",
-    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate"
+    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
+    lastLoginDate = "lastLoginDate"
 }
 export type operations = Record<string, never>;
