@@ -252,7 +252,7 @@ function AnonymousNav() {
 					</NavigationMenuItem>
 					<NavigationMenuItem>
 						<NavigationMenuLink asChild>
-							<Link to="/" className="flex-row items-center" activeProps={activeLinkProps}>
+							<Link to="/sign-in" className="flex-row items-center" activeProps={activeLinkProps}>
 								<LogInIcon /> Sign In
 							</Link>
 						</NavigationMenuLink>
