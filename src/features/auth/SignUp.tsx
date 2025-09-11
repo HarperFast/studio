@@ -157,7 +157,7 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="m-auto text-sm" to="/">
+				<Link className="m-auto text-sm" to="/sign-in">
 					Already have an account? Sign in instead.
 				</Link>
 			</div>

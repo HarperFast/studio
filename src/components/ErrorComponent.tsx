@@ -36,7 +36,7 @@ export function ErrorComponent({ className, error, title, showReturnToHome }: Er
 						</Button>
 					</Link>
 				) : (
-					<Link to="/">
+					<Link to="/sign-in">
 						<Button>
 							{' '}
 							<ArrowLeft /> Go to Sign In Page

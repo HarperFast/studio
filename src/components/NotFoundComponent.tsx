@@ -26,7 +26,7 @@ export function NotFoundComponent() {
 							</Button>
 						</Link>
 					) : (
-						<Link to="/">
+						<Link to="/sign-in">
 							<Button>
 								{' '}
 								<ArrowLeft /> Go Sign In Page
