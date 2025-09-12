@@ -231,7 +231,7 @@ function AnonymousNav() {
 	return (
 		<div className="flex items-center justify-between">
 			<div className="inline-block">
-				<Link to="/">
+				<Link to="/sign-in">
 					<Logo />
 					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
 				</Link>

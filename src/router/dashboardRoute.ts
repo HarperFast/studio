@@ -1,6 +1,6 @@
 import { Dashboard } from '@/features/layouts/Dashboard';
 import { OverallAppSignIn } from '@/lib/authStore';
-import { currentUrlAfterHash } from '@/lib/urls/currentUrlAfterHash';
+import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 
@@ -13,7 +13,7 @@ export const dashboardLayout = createRoute({
 		if (auth && !auth.isLoading && !auth.user) {
 			throw redirect({
 				to: '/sign-in',
-				search: currentUrlAfterHash() !== '/' && { redirect: currentUrlAfterHash() },
+				search: buildRedirectInSearch(),
 			});
 		}
 	},
