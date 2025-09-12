@@ -193,7 +193,7 @@ export function BrowseDataTableView() {
 					queryKey: [instanceParams.entityId, 'describe_all'],
 					refetchType: 'all',
 				});
-				toast.success(`Table ${targetTableName} deleted successfully`);
+				toast.success(`Table ${targetTableName} dropped successfully`);
 				if (targetTableName === tableName) {
 					void navigate({ to: '../' });
 				}

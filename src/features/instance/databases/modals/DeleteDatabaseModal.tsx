@@ -33,7 +33,7 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 					refetchType: 'all',
 				});
 				await router.invalidate();
-				toast.success(`Database ${databaseName} deleted successfully`);
+				toast.success(`Database ${databaseName} dropped successfully`);
 				onDeleted();
 			},
 		});
