@@ -1,8 +1,8 @@
+import { EstimatedProgressBar } from '@/components/EstimatedProgressBar';
 import { Form } from '@/components/ui/form/Form';
 import { defaultOperationsApiPort } from '@/config/constants';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
-import { GetRegionLocationsParams } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { ClusterBilling } from '@/features/clusters/upsert/ClusterBilling';
 import { ClusterDetails } from '@/features/clusters/upsert/ClusterDetails';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
@@ -34,7 +34,7 @@ interface ClusterFormProps {
 	planTypes: SchemaPlan[];
 	regionLocations: SchemaRegion[];
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
-	setLimitRegionParameters: (value: GetRegionLocationsParams) => void;
+	setOnlyShowAvailableHosts: (value: boolean) => void;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & z.infer<typeof UpsertClusterSchema>)) => void;
 	startOffOnBilling: boolean;
 }
@@ -48,7 +48,7 @@ export function ClusterForm({
 	planTypes,
 	regionLocations,
 	regionNameToLatencyToRegion,
-	setLimitRegionParameters,
+	setOnlyShowAvailableHosts,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -132,11 +132,8 @@ export function ClusterForm({
 	const selectedInstances = form.watch('instances');
 
 	useEffect(function syncRegionsWithSelectedDeploymentType() {
-		setLimitRegionParameters({
-			availableHosts: selectedDeployment !== 'Dedicated' ? true : undefined,
-			organizationId,
-		});
-	}, [organizationId, selectedDeployment, setLimitRegionParameters]);
+		setOnlyShowAvailableHosts(selectedDeployment !== 'Dedicated');
+	}, [organizationId, selectedDeployment, setOnlyShowAvailableHosts]);
 
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
@@ -226,16 +223,42 @@ export function ClusterForm({
 					: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
 			}, 0);
 
-	const onClusterCreatedCallback = useCallback(() => {
-		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-		void navigate({ to: '../' });
-		toast.success('Cluster Created', { description: 'It is being provisioned now.' });
-	}, [navigate, queryClient]);
+	const onStartSaving = useCallback(({
+		creating,
+		deploymentDescription,
+	}: {
+		creating: boolean;
+		deploymentDescription: string;
+	}) =>
+		toast.message(creating ? 'Creating Cluster' : 'Updating Cluster', {
+			description: <EstimatedProgressBar
+				message="This may take a little bit, hold tight!"
+				lateMessage="Still working on it... why don't you grab a coffee, and I'll let you know when it's done?"
+				duration={deploymentDescription === 'Dedicated' ? 60_000 : 5_000}
+			/>,
+			duration: 120_000,
+		}), []);
 
-	const onClusterEditedCallback = useCallback(() => {
+	const onClusterSavedCallback = useCallback(({
+		creating,
+		toastId,
+		isSelfManaged,
+	}: {
+		creating: boolean;
+		isSelfManaged: boolean;
+		toastId: string | number;
+	}) => {
 		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-		void navigate({ to: '../../' });
-		toast.success('Cluster Edited', { description: 'The updates are being applied now.' });
+		void navigate({ to: creating ? '../' : '../../' });
+		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
+			id: toastId,
+			description: isSelfManaged
+				? undefined
+				: creating
+					? 'It is being provisioned now.'
+					: 'The updates are being provisioned now.',
+			duration: 5_000,
+		});
 	}, [navigate, queryClient]);
 
 	const submitCreateCluster = useCallback(async () => {
@@ -265,11 +288,16 @@ export function ClusterForm({
 			}
 		}
 		setSavedClusterState(null);
+		const toastId = onStartSaving({ creating: !clusterId, deploymentDescription: formData.deploymentDescription });
+		const clearToast = () => toast.dismiss(toastId);
 		if (clusterId) {
 			submitEditClusterData({
 				id: clusterId,
 				regionPlans: plans,
-			}, { onSuccess: onClusterEditedCallback });
+			}, {
+				onSuccess: () => onClusterSavedCallback({ isSelfManaged, creating: false, toastId }),
+				onError: clearToast,
+			});
 		} else {
 			submitNewClusterData({
 				abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
@@ -278,9 +306,12 @@ export function ClusterForm({
 				name: formData.systemName,
 				organizationId,
 				regionPlans: plans,
-			}, { onSuccess: onClusterCreatedCallback });
+			}, {
+				onSuccess: () => onClusterSavedCallback({ isSelfManaged, creating: true, toastId }),
+				onError: clearToast,
+			});
 		}
-	}, [calculatedNames.suggestedAbbreviatedName, clusterId, deploymentToPerformanceToPlan, form, onClusterCreatedCallback, onClusterEditedCallback, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitEditClusterData, submitNewClusterData]);
+	}, [calculatedNames.suggestedAbbreviatedName, clusterId, deploymentToPerformanceToPlan, form, onClusterSavedCallback, onStartSaving, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitEditClusterData, submitNewClusterData]);
 
 	const submitClusterDetailsForm = useCallback(() => {
 		if (totalPrice > 0) {

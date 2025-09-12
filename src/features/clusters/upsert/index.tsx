@@ -4,10 +4,7 @@ import { Loading } from '@/components/Loading';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
-import {
-	getRegionLocationsOptions,
-	GetRegionLocationsParams,
-} from '@/features/clusters/queries/getRegionLocationsQuery';
+import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { ClusterForm } from '@/features/clusters/upsert/ClusterForm';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
@@ -25,7 +22,7 @@ import { z } from 'zod';
 
 export function UpsertCluster() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
-	const [limitRegionParameters, setLimitRegionParameters] = useState<GetRegionLocationsParams>({ availableHosts: true });
+	const [onlyShowAvailableHosts, setOnlyShowAvailableHosts] = useState(true);
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<null | ({
 		clusterId?: string
 	} & z.infer<typeof UpsertClusterSchema>)>(LocalStorageKeys.SavedClusterState, null);
@@ -33,7 +30,12 @@ export function UpsertCluster() {
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId));
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
-	const { data: regionLocations } = useQuery(getRegionLocationsOptions(limitRegionParameters));
+	const { data: regionLocationsAvailableHosts } = useQuery(getRegionLocationsOptions({
+		availableHosts: true,
+		organizationId,
+	}));
+	const { data: regionLocationsAll } = useQuery(getRegionLocationsOptions({ organizationId }));
+	const regionLocations = onlyShowAvailableHosts ? regionLocationsAvailableHosts : regionLocationsAll;
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
 		groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
@@ -44,7 +46,7 @@ export function UpsertCluster() {
 		if (savedClusterState) {
 			return savedClusterState;
 		}
-		if (!planTypes || !regionLocations || (clusterId && !cluster)) {
+		if (!planTypes || !regionLocationsAvailableHosts || !regionLocationsAll || (clusterId && !cluster)) {
 			return null;
 		}
 
@@ -52,6 +54,7 @@ export function UpsertCluster() {
 
 		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
+		const regionLocations = onlyShowAvailableHosts ? regionLocationsAvailableHosts : regionLocationsAll;
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations);
 
 		let isSelfManaged = false;
@@ -98,7 +101,7 @@ export function UpsertCluster() {
 			instances,
 			regionPlans,
 		};
-	}, [cluster, clusterId, planTypes, regionLocations, savedClusterState]);
+	}, [cluster, clusterId, onlyShowAvailableHosts, planTypes, regionLocationsAll, regionLocationsAvailableHosts, savedClusterState]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocations;
 	if (isLoading) {
@@ -135,7 +138,7 @@ export function UpsertCluster() {
 				planTypes={planTypes}
 				regionLocations={regionLocations}
 				regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-				setLimitRegionParameters={setLimitRegionParameters}
+				setOnlyShowAvailableHosts={setOnlyShowAvailableHosts}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={!!savedClusterState}
 			/>

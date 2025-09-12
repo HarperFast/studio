@@ -89,7 +89,6 @@ export function VerifyEmail() {
 		(emailToken: VerifyEmailToken) => {
 			submitEmailVerificationToken(emailToken, {
 				onSuccess: () => {
-					//TODO - Trigger a success toast message
 					toast.success('Success', {
 						description: 'Email verified successfully',
 						action: {
@@ -97,7 +96,7 @@ export function VerifyEmail() {
 							onClick: () => toast.dismiss(),
 						},
 					});
-					navigate({ to: '/' });
+					void navigate({ to: '/' });
 				},
 			});
 		},
