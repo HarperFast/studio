@@ -5,7 +5,7 @@ import { browserIsTouchBased } from '@/lib/browserIsTouchBased';
 import { queryClient } from '@/react-query/queryClient';
 import { rootRouteTree } from '@/router/rootRouteTree';
 import { createHashHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { TanStackRouterDevtools } from '@tanstack/router-devtools';
+import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 export function AppRouted() {
 	const authentication = useRootAuthenticationContext();
