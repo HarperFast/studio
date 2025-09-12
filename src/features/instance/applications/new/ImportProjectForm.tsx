@@ -33,8 +33,10 @@ const ImportProjectSchema = z.object({
 });
 
 export function ImportProjectForm({
+	triggerRestart,
 	isRestartPending,
 }: {
+	triggerRestart: () => void;
 	isRestartPending: boolean;
 }) {
 	const instanceParams = useInstanceClientParams();
@@ -52,6 +54,7 @@ export function ImportProjectForm({
 		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.newApplicationName} created successfully`);
+				triggerRestart();
 			},
 		});
 	};

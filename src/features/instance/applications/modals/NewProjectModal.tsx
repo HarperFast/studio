@@ -60,7 +60,7 @@ export function NewProjectModal({
 						{appType === 'create' ? (
 							<CreateNewProjectForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
 						) : appType === 'import' ? (
-							<ImportProjectForm isRestartPending={isRestartPending} />
+							<ImportProjectForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
 						) : (
 							<p className="text-center">Please select an option to continue.</p>
 						)}
