@@ -11,13 +11,11 @@ import {
 	flexRender,
 	getCoreRowModel,
 	getPaginationRowModel,
-	PaginationState,
 	Row,
-	SortingState,
 	useReactTable,
 } from '@tanstack/react-table';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { Dispatch, SetStateAction, useCallback } from 'react';
 
 interface BrowseDataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -27,11 +25,10 @@ interface BrowseDataTableProps<TData, TValue> {
 	totalRecords: number;
 	onRowClick?: (row: Row<TData>) => void;
 	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
-	paginationState: {
-		pageIndex: number; pageSize: number;
-	};
-	sortingState: SortingState;
-	setPagination: Dispatch<SetStateAction<PaginationState>>;
+	pageIndex: number;
+	pageSize: number;
+	setPageIndex: Dispatch<SetStateAction<number>>;
+	setPageSize: Dispatch<SetStateAction<number>>;
 	children: React.ReactNode;
 }
 
@@ -43,9 +40,10 @@ export function BrowseDataTable<TData, TValue>({
 	totalRecords,
 	onRowClick,
 	onColumnClick,
-	paginationState,
-	sortingState,
-	setPagination,
+	pageIndex,
+	setPageIndex,
+	pageSize,
+	setPageSize,
 	children,
 }: BrowseDataTableProps<TData, TValue>) {
 	const table = useReactTable({
@@ -56,11 +54,14 @@ export function BrowseDataTable<TData, TValue>({
 		rowCount: totalRecords,
 		getCoreRowModel: getCoreRowModel(),
 		getPaginationRowModel: getPaginationRowModel(),
-		initialState: {
-			pagination: paginationState, sorting: sortingState,
-		},
-		onPaginationChange: setPagination,
 	});
+
+	const previousPage = useCallback(() => {
+		setPageIndex(pageIndex - 1);
+	}, [pageIndex, setPageIndex]);
+	const nextPage = useCallback(() => {
+	    setPageIndex(pageIndex + 1);
+	}, [pageIndex, setPageIndex]);
 
 	return (<>
 		{children}
@@ -88,8 +89,8 @@ export function BrowseDataTable<TData, TValue>({
 			</TableBody>
 		</Table>
 		<div className="flex items-center justify-end py-4 space-x-2">
-			<Button variant="defaultOutline" size="sm" onClick={table.previousPage} className="select-none"
-				disabled={paginationState.pageIndex === 0}>
+			<Button variant="defaultOutline" size="sm" onClick={previousPage} className="select-none"
+				disabled={pageIndex === 0}>
 				<ArrowLeftIcon />
 				Previous
 			</Button>
@@ -102,8 +103,8 @@ export function BrowseDataTable<TData, TValue>({
 			</div>
 			{totalRecords > 0 && (<>
 				<div>
-					<Select defaultValue={table.getState().pagination.pageSize.toString()} onValueChange={(value) => {
-						table.setPageSize(Number(value));
+					<Select defaultValue={pageSize.toString()} onValueChange={(value) => {
+						setPageSize(Number(value));
 					}}>
 						<SelectTrigger className="h-10 w-[80px]">
 							<SelectValue />
@@ -123,15 +124,15 @@ export function BrowseDataTable<TData, TValue>({
 					</div>
 					<div className="text-center">
 						<dt className="text-sm/6 font-medium text-gray-500 dark:text-gray-400">Page</dt>
-						<dd className="font-semibold tracking-tight">{addCommasToNumbers(paginationState.pageIndex + 1)}</dd>
+						<dd className="font-semibold tracking-tight">{addCommasToNumbers(pageIndex + 1)}</dd>
 					</div>
 				</>)}
 			</>)}
 
 			<div className="grow"></div>
 
-			<Button variant="defaultOutline" size="sm" onClick={table.nextPage} className="select-none"
-				disabled={paginationState.pageIndex === totalPages - 1}>
+			<Button variant="defaultOutline" size="sm" onClick={nextPage} className="select-none"
+				disabled={pageIndex === totalPages - 1}>
 				Next
 				<ArrowRightIcon />
 			</Button>

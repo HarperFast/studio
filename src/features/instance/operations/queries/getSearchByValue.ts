@@ -9,10 +9,8 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 		attribute: string;
 		descending: boolean;
 	};
-	pagination: {
-		pageIndex: number;
-		pageSize: number;
-	};
+	pageIndex: number;
+	pageSize: number;
 }
 
 interface SearchConditions {
@@ -44,15 +42,16 @@ export function getSearchByValueOptions({
 	tableName,
 	searchAttribute,
 	sortTableDataParams,
-	pagination,
+	pageSize,
+	pageIndex,
 }: GetSearchByValueParams) {
 	return queryOptions({
 		queryKey: [
 			entityId,
 			'search_by_value',
 			searchAttribute,
-			pagination.pageIndex || 0,
-			pagination.pageSize || 0,
+			pageIndex || 0,
+			pageSize || 0,
 			databaseName,
 			sortTableDataParams.attribute || 'default',
 			sortTableDataParams.descending || false,
@@ -69,8 +68,8 @@ export function getSearchByValueOptions({
 				search_attribute: searchAttribute,
 				search_value: '*',
 				sort: sortTableDataParams.attribute.length ? sortTableDataParams : undefined,
-				limit: pagination.pageSize,
-				offset: pagination.pageIndex * pagination.pageSize,
+				limit: pageSize,
+				offset: pageIndex * pageSize,
 			} satisfies SearchByValueRequest),
 	});
 }

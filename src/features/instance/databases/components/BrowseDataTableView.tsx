@@ -18,9 +18,9 @@ import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { queryClient } from '@/react-query/queryClient';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { PaginationState, Row } from '@tanstack/react-table';
+import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 export function BrowseDataTableView() {
@@ -67,22 +67,10 @@ export function BrowseDataTableView() {
 		descending: false,
 	}, allParams);
 
-	const sortingState = useMemo(
-		() => [
-			{
-				desc: sortTableDataParams.descending,
-				id: sortTableDataParams.attribute,
-			},
-		],
-		[sortTableDataParams],
-	);
-
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
-	const [pagination, setPagination] = useState<PaginationState>({
-		pageIndex: 0,
-		pageSize: 20,
-	});
-	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pagination.pageSize));
+	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName]);
+	const [pageSize, setPageSize] = useState(20);
+	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pageSize));
 
 	const {
 		data: tableData,
@@ -95,7 +83,8 @@ export function BrowseDataTableView() {
 			tableName,
 			searchAttribute: hashAttribute,
 			sortTableDataParams,
-			pagination,
+			pageSize,
+			pageIndex,
 		}),
 	);
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
@@ -105,8 +94,8 @@ export function BrowseDataTableView() {
 
 	useEffect(() => {
 		setTotalRecords(describeTableData.record_count);
-		setTotalPages(Math.ceil(describeTableData.record_count / pagination.pageSize));
-	}, [describeTableData, pagination.pageSize, pagination.pageIndex]);
+		setTotalPages(Math.ceil(describeTableData.record_count / pageSize));
+	}, [describeTableData, pageSize]);
 
 	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
@@ -217,9 +206,10 @@ export function BrowseDataTableView() {
 				onColumnClick={onColumnClick}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
-				paginationState={pagination}
-				sortingState={sortingState}
-				setPagination={setPagination}
+				pageIndex={pageIndex}
+				pageSize={pageSize}
+				setPageIndex={setPageIndex}
+				setPageSize={setPageSize}
 			>
 				<div className="flex items-center justify-start space-x-2 pt-15 pb-4">
 					{canAddRecords && (
