@@ -150,6 +150,7 @@ export function SignUp() {
 							</FormItem>
 						)}
 					/>
+					<p className="text-xs">By creating an account, you agree to the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline">Privacy Policy</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline">Terms of Service</a></p>
 
 					<Button type="submit" variant="submit" className="w-full my-2 rounded-full">
 						Sign Up For Free
