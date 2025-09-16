@@ -19,8 +19,8 @@ export async function restartInstance({ operation, replicated, instanceClient }:
 		service: operation === 'restart_service' ? 'http' : undefined,
 		replicated,
 	});
-	await sleep(3_000);
-	await axiosRetry(() => getInstanceUserInfo({ instanceClient, timeout: 10_000 }), 5, 3_000);
+	await sleep(10_000);
+	await axiosRetry(() => getInstanceUserInfo({ instanceClient, timeout: 3_000 }), 12, 15_000);
 	return data as UpdateRestartInstanceResponse;
 }
 

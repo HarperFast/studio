@@ -24,7 +24,7 @@ export function useRestartInstanceClick({
 	const onRestartClick = useCallback(() => {
 		const toastId = toast.loading('Restarting', {
 			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
-			duration: 60_000,
+			duration: 180_000,
 			action: {
 				label: 'Dismiss',
 				onClick: () => toast.dismiss(),
