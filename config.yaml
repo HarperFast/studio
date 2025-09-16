@@ -1,4 +1,0 @@
-static:
-  files: web/**
-  index: true
-  extensions: ["html"]

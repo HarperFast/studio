@@ -62,8 +62,7 @@ jobs:
         if: ${{ github.event_name == 'push' }}
         run: |
           mkdir deploy
-          cp config.yaml deploy/
           mv web deploy/
+          cp -R deploy-template/* deploy/
           cd deploy
-          echo "{}" > package.json
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' harperdb deploy project='hdbms' target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=true
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' pnpm harperdb deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=rolling

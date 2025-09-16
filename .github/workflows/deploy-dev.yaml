@@ -34,17 +34,14 @@ jobs:
         run: pnpm lint
       - name: Determine version tag for build
         run: |
-          VERSION_TAG="v${GITHUB_SHA:0:7}"
+          VERSION_TAG="SHA-${GITHUB_SHA:0:7}"
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build dev
         run: pnpm build:dev
-      - name: Install HarperDB
-        run: npm install -g harperdb@4.6.0
       - name: Deploy to dev
         run: |
           mkdir deploy
-          cp config.yaml deploy/
           mv web deploy/
+          cp -R deploy-template/* deploy/
           cd deploy
-          echo "{}" > package.json
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' harperdb deploy project='hdbms' target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=true
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' pnpm harperdb deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=rolling
