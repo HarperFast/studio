@@ -33,8 +33,6 @@ jobs:
         run: pnpm lint
       - name: Build prod
         run: pnpm build:prod
-      - name: Install HarperDB
-        run: npm install -g harperdb@4.6.0
       - name: Deploy to prod
         run: |
           mkdir deploy
