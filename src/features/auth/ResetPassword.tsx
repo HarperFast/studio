@@ -6,6 +6,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
@@ -16,8 +17,7 @@ import { useResetPasswordMutation } from './hooks/useResetPassword';
 
 const ResetPasswordSchema = z
 	.object({
-		password: z
-			.string()
+		password: zodRequirePassword
 			.min(8, { error: 'Password must be at least 8 characters long.' })
 			.max(50, { error: 'Password cannot be longer than 50 characters.' }),
 		confirmPassword: z.string(),

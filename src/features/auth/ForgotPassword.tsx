@@ -4,6 +4,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { zodRequireEmail } from '@/lib/zod/email';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForgotPasswordMutation } from '@/features/auth/hooks/useForgotPassword';
 import { useForm } from 'react-hook-form';
@@ -14,11 +15,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 const ForgotPasswordSchema = z.object({
-	email: z
-		.email({
-			error: 'Please enter a valid email address.',
-		})
-		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
+	email: zodRequireEmail,
 });
 
 export function ForgotPassword() {

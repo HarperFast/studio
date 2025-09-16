@@ -7,6 +7,8 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useSignUpMutation } from '@/features/auth/hooks/useSignUp';
+import { zodRequireEmail } from '@/lib/zod/email';
+import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
@@ -14,12 +16,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const SignInSchema = z.object({
-	email: z
-		.email({
-			error: 'Please enter a valid email address.',
-		})
-		.trim()
-		.toLowerCase()
+	email: zodRequireEmail
 		.max(80, { error: 'Email cannot be longer than 80 characters.' }),
 	firstname: z
 		.string()
@@ -31,8 +28,7 @@ const SignInSchema = z.object({
 		.trim()
 		.min(2, { error: 'Please enter your last name.' })
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
-	password: z
-		.string()
+	password: zodRequirePassword
 		.min(8, { error: 'Password must be at least 8 characters long.' }),
 });
 
@@ -150,7 +146,10 @@ export function SignUp() {
 							</FormItem>
 						)}
 					/>
-					<p className="text-xs">By creating an account, you agree to the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline">Privacy Policy</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline">Terms of Service</a></p>
+					<p className="text-xs">By creating an account, you agree to
+						the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline">Privacy
+							Policy</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline">Terms
+							of Service</a></p>
 
 					<Button type="submit" variant="submit" className="w-full my-2 rounded-full">
 						Sign Up For Free

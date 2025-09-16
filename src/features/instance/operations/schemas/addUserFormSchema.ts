@@ -1,19 +1,16 @@
+import { zodRequirePassword } from '@/lib/zod/password';
+import { zodRequireUsername } from '@/lib/zod/username';
 import { z } from 'zod';
 
 export const AddUserFormSchema = z
 	.object({
-		username: z
-			.string()
-			.trim()
-			.toLowerCase()
-			.nonempty({ error: 'Please enter a username.' }),
+		username: zodRequireUsername,
 		role: z
 			.string()
 			.nonempty({
 				error: 'Please select a role.',
 			}),
-		password: z
-			.string()
+		password: zodRequirePassword
 			.min(8, { error: 'Password must be at least 8 characters long.' }),
 		confirmPassword: z.string(),
 	})

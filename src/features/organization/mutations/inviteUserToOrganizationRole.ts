@@ -1,13 +1,11 @@
 import { apiClient } from '@/config/apiClient';
+import { zodRequireEmail } from '@/lib/zod/email';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
 
 export const InviteOrganizationRoleSchema = z.object({
-	email: z
-		.email({
-			error: 'Please enter a valid email address.',
-		})
-		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
+	email: zodRequireEmail
+		.max(80, { error: 'Email cannot be longer than 80 characters.' }),
 	roleId: z.string().nonempty({ error: 'Please select a role.' }),
 });
 
