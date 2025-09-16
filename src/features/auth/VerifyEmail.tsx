@@ -7,6 +7,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useVerifyEmailMutation, VerifyEmailToken } from '@/features/auth/hooks/useVerifyEmail';
+import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
@@ -16,11 +17,7 @@ import { z } from 'zod';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 
 const VerifyEmailSchema = z.object({
-	email: z
-		.email({
-			error: 'Please enter a valid email address.',
-		})
-		.max(75, { error: 'Email cannot be longer than 75 characters.' }),
+	email: zodRequireEmail,
 });
 
 function SendEmailVerification() {

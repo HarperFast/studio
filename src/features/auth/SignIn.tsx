@@ -11,6 +11,8 @@ import { reoClient } from '@/integrations/reo/reo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
+import { zodRequireEmail } from '@/lib/zod/email';
+import { zodRequirePassword } from '@/lib/zod/password';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,13 +21,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 const SignInSchema = z.object({
-	email: z
-		.email({
-			error: 'Please enter a valid email address.',
-		}),
-	password: z
-		.string()
-		.nonempty({ error: 'Please enter your password.' }),
+	email: zodRequireEmail,
+	password: zodRequirePassword,
 });
 
 export function SignIn() {
