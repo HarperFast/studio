@@ -55,9 +55,6 @@ jobs:
       - name: Build stage for release
         if: ${{ github.event_name == 'push' }}
         run: pnpm build:stage
-      - name: Install HarperDB
-        if: ${{ github.event_name == 'push' }}
-        run: npm install -g harperdb@4.6.0
       - name: Deploy to stage
         if: ${{ github.event_name == 'push' }}
         run: |
