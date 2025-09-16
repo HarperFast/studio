@@ -3,7 +3,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -11,6 +11,7 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { groupBy } from '@/lib/groupBy';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -125,7 +126,7 @@ export function ClustersList() {
 					clustersData.keys.map((clusterStatus) => (
 						<div key={clusterStatus}>
 							<h2 className="mb-2">
-								<Badge variant={renderBadgeStatusVariant(clusterStatus)}>{renderBadgeStatusText(clusterStatus)}</Badge>
+								<Badge variant={renderBadgeStatusVariant(clusterStatus)}>{capitalizeWords(clusterStatus)}</Badge>
 							</h2>
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
 								{clustersData.groups[clusterStatus].map((cluster) => (

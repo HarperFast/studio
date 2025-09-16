@@ -2,7 +2,8 @@ import { Loading } from '@/components/Loading';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { BadgeStatus, renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
 import { ReadLogItem } from '@/features/instance/operations/queries/getReadLog';
@@ -41,7 +42,7 @@ export function ViewLogModal({
 						<div>
 							<h3 className="inline-block pr-2">Level:</h3>
 							<Badge variant={renderBadgeLogLevelVariant(data.level)}>
-								{renderBadgeLogLevelText(data.level as BadgeStatus)}
+								{capitalizeWords(data.level)}
 							</Badge>
 						</div>
 						<div>

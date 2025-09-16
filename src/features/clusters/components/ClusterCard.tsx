@@ -8,7 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
@@ -18,6 +18,7 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { Link } from '@tanstack/react-router';
 import { Ellipsis } from 'lucide-react';
@@ -134,7 +135,7 @@ export function ClusterCard({
 			</CardHeader>
 			<CardContent className="flex justify-between">
 				{cluster.status && (
-					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{renderBadgeStatusText(cluster.status)}</Badge>
+					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
 				)}
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
 			</CardContent>

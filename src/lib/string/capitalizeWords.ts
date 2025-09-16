@@ -1,12 +1,23 @@
+const capitalizedCache = new Map<string, string>();
+
 export function capitalizeWords(name: string): string {
-	if (!name) return '';
+	if (!name) {
+		return '';
+	}
+
+	if (capitalizedCache.has(name)) {
+		return capitalizedCache.get(name) as string;
+	}
 
 	// Normalize separators to single spaces and trim
 	const s = name
 		.replace(/[-_]+/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim();
-	if (!s) return '';
+	if (!s) {
+		capitalizedCache.set(name, '');
+		return '';
+	}
 
 	// Split into tokens handling camelCase/PascalCase, acronyms, and numbers
 	// Pattern parts:
@@ -15,43 +26,52 @@ export function capitalizeWords(name: string): string {
 	// - [A-Z]+ captures remaining all-caps (acronyms)
 	// - [0-9]+ captures numbers
 	const baseTokens = s.match(/([A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|[0-9]+)/g);
-	if (!baseTokens) return '';
+	if (!baseTokens) {
+		capitalizedCache.set(name, '');
+		return '';
+	}
 
 	// Merge plural 's' following an acronym (length>=2), e.g., ["ID", "s"] -> ["IDs"]
 	const tokens: string[] = [];
 	for (let i = 0; i < baseTokens.length; i++) {
-		const tok = baseTokens[i];
+		const token = baseTokens[i];
 		const next = i + 1 < baseTokens.length ? baseTokens[i + 1] : undefined;
 		if (
 			// Case 1: full acronym then plural 's' as separate token -> merge
-			/^[A-Z]{2,}$/.test(tok) &&
+			/^[A-Z]{2,}$/.test(token) &&
 			next === 's'
 		) {
-			tokens.push(tok + 's');
+			tokens.push(token + 's');
 			i++; // skip the 's'
 		} else if (
 			// Case 2: single leading capital followed by capital + 's' (e.g., 'I' + 'Ds') -> merge to 'IDs'
-			/^[A-Z]$/.test(tok) &&
+			/^[A-Z]$/.test(token) &&
 			next !== undefined &&
 			/^[A-Z]s$/.test(next)
 		) {
-			tokens.push(tok + next);
+			tokens.push(token + next);
 			i++; // skip merged next
 		} else {
-			tokens.push(tok);
+			tokens.push(token);
 		}
 	}
 
-	// Capitalize tokens appropriately
-	const words = tokens.map(t => {
-		if (/^[A-Z]{2,}s?$/.test(t)) {
-			// Acronym (e.g., ID, API) possibly with plural 's' -> keep as is
-			return t;
-		}
-		if (/^[0-9]+$/.test(t)) return t; // numbers unchanged
-		// Normal word: capitalize first letter, lowercase rest
-		return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
-	});
+	const words = tokens.map(capitalizeTokenWordsAppropriately);
 
-	return words.join(' ');
+	const result = words.join(' ');
+	capitalizedCache.set(name, result);
+	return result;
+}
+
+function capitalizeTokenWordsAppropriately(t: string): string {
+	if (/^[A-Z]{2,3}s?$/.test(t)) {
+		// Acronym (e.g., ID, API) possibly with plural 's' -> keep as is
+		return t;
+	}
+	if (/^[0-9]+$/.test(t)) {
+		// numbers unchanged
+		return t;
+	}
+	// Normal word: capitalize first letter, lowercase rest
+	return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
 }
