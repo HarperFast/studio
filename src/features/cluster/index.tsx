@@ -7,9 +7,10 @@ import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { EmptyCluster } from '@/features/cluster/EmptyCluster';
 import { InstanceLogInCell } from '@/features/cluster/InstanceLogInCell';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { Instance } from '@/lib/api.patch';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { humanFileSize } from '@/lib/humanFileSize';
-import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -21,62 +22,87 @@ export function ClusterIndex() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
+	const isSelfManaged = useMemo(() => !!cluster?.plans?.[0]?.planId?.startsWith('self-hosted'), [cluster]);
 
 	const columns: ColumnDef<Instance>[] = useMemo(
-		() => [
+		() => ([
 			{
-				accessorKey: 'name', // Accessor key for the "name" field from data object
-				header: 'Name', // Column header
+				id: 'instanceActions',
+				size: 1,
+				minSize: 1,
+				cell: (cell) => (<div className="flex justify-end">
+					<InstanceLogInCell instance={cell.row.original} />
+				</div>),
 			},
-			{
+			isSelfManaged && {
 				accessorKey: 'instanceFqdn',
-				header: 'Instance Url',
-				cell: (cell) => <InstanceLogInCell instance={cell.row.original} />,
-			},
-			{
-				accessorKey: 'instanceTypeId',
-				header: 'Instance Type',
+				size: 90,
+				header: 'URL',
 				cell: (cell) => {
-					return renderInstanceTypeOption(cell.getValue() as InstanceTypes);
+					return calculateInstanceFQDN({
+						secure: cell.row.original.operationsApiSecure ? 'true' : 'false',
+						port: cell.row.original.operationsApiPort,
+						fqdn: cell.row.original.instanceFqdn,
+					});
 				},
 			},
-			{
+			!isSelfManaged && {
+				accessorKey: 'name',
+				size: 90,
+				header: 'Name',
+			},
+			!isSelfManaged && {
 				accessorKey: 'status',
 				header: 'Status',
+				size: 1,
+				minSize: 1,
 				cell: (cell) => {
 					const status = cell.getValue() as string;
 					return <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge>;
 				},
 			},
-			{
+			!isSelfManaged && {
 				accessorKey: 'version',
+				size: 1,
+				minSize: 1,
 				header: 'Version',
 			},
-			{
+			!isSelfManaged && {
 				accessorKey: 'storageGb',
+				size: 1,
+				minSize: 1,
 				header: 'Storage',
 				cell: (cell) => {
 					const value = cell.getValue() as number;
 					return humanFileSize(value, Math.pow(1024, 3));
 				},
 			},
-			{
+			!isSelfManaged && {
 				accessorKey: 'cpuCores',
+				size: 1,
+				minSize: 1,
 				header: 'Cores/Threads',
 				cell: (cell) => {
 					return <>{cell.row.original.cpuCores} / {cell.row.original.threads}</>;
 				},
 			},
-			{
+			!isSelfManaged && {
 				accessorKey: 'memoryMb',
+				size: 1,
+				minSize: 1,
 				header: 'Memory',
 				cell: (cell) => {
 					const value = cell.getValue() as number;
 					return humanFileSize(value, Math.pow(1024, 2));
 				},
 			},
-		],
-		[],
+		] satisfies Array<ColumnDef<Instance> | false>).filter(excludeFalsy),
+		[isSelfManaged],
+	);
+	const instances = useMemo(
+		() =>
+			cluster?.instances?.filter(instance => instance.status !== 'REMOVED') ?? [],
+		[cluster],
 	);
 	return (
 		<>
@@ -86,8 +112,8 @@ export function ClusterIndex() {
 					<CardContent className="p-0 min-h-96">
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
-							: cluster?.instances?.length
-								? <DataTable data={cluster.instances} columns={columns} />
+							: instances.length
+								? <DataTable data={instances} columns={columns} />
 								: <EmptyCluster />
 						}
 					</CardContent>

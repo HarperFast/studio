@@ -1,6 +1,11 @@
+import { cx } from 'class-variance-authority';
 import { useMemo } from 'react';
 
 export function TextLoadingSkeleton({ className }: { className?: string } = {}) {
-	const computedClassName = useMemo(() => `animate-pulse ${className} h-2.5 w-48 bg-gray-200 rounded-full dark:bg-gray-700 mb-4`, [className]);
+	const computedClassName = useMemo(() => cx(
+		`animate-pulse h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 mb-4`,
+		!className?.includes('w-') && 'w-48 ',
+		className,
+	), [className]);
 	return <div className={computedClassName}></div>;
 }

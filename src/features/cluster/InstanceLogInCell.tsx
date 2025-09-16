@@ -1,4 +1,3 @@
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
@@ -8,6 +7,7 @@ import { Instance } from '@/lib/api.patch';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { Link } from '@tanstack/react-router';
+import { LoaderCircleIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
 export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
@@ -19,11 +19,8 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 		authStore.setUserForEntity(instance, null);
 	}, [instance, instanceClient]);
 
-	if (!['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
-		return <p>N/A</p>;
-	}
-	if (instanceAuthIsLoading) {
-		return <TextLoadingSkeleton />;
+	if (instanceAuthIsLoading || !['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
+		return <LoaderCircleIcon className="animate-spin" color="gray" />;
 	}
 	if (!instanceUser) {
 		return <Link
