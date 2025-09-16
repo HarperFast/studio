@@ -27,14 +27,12 @@ type RowData = {
 	original: ReadLogItem;
 };
 
-
-
 const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	limit: '100',
 	level: 'undefined',
 	from: '',
 	until: '',
-	order: 'asc',
+	order: 'desc',
 };
 
 const columns: ColumnDef<ReadLogItem>[] = [
@@ -116,13 +114,7 @@ const isValidDateRange = (startDate?: string, endDate?: string) => {
 };
 
 export function Logs() {
-	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>({
-		limit: '100',
-		level: 'undefined',
-		from: '',
-		until: '',
-		order: 'asc',
-	});
+	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>(defaultFormValues);
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
