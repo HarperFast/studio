@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import { renderBadgeLogLevelText, renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
@@ -8,6 +8,7 @@ import {
 	ReadLogItem,
 } from '@/features/instance/operations/queries/getReadLog';
 import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
@@ -42,7 +43,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 		header: 'Status',
 		cell: ({ row }) => {
 			const { level } = row.original;
-			return <Badge variant={renderBadgeLogLevelVariant(level)}>{renderBadgeLogLevelText(level)}</Badge>;
+			return <Badge variant={renderBadgeLogLevelVariant(level)}>{capitalizeWords(level)}</Badge>;
 		},
 	},
 	{
@@ -81,7 +82,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 					<TooltipContent className='bg-grey-700' arrowClassName='bg-grey-700 fill-grey-700'>{node}</TooltipContent>
 				</Tooltip>
 				) : null}
-			
+
 				</>
 			);
 		},

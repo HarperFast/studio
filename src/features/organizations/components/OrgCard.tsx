@@ -9,6 +9,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Ellipsis } from 'lucide-react';
 import { useCallback } from 'react';
@@ -52,7 +53,7 @@ export function OrgCard({
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="flex justify-between">
-				<Badge>{roleName}</Badge>
+				<Badge>{capitalizeWords(roleName)}</Badge>
 				<Link
 					to={organizationId}
 					className="text-sm"

@@ -3,13 +3,14 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { BadgeStatus, renderBadgeStatusText, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { EmptyCluster } from '@/features/cluster/EmptyCluster';
 import { InstanceLogInCell } from '@/features/cluster/InstanceLogInCell';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Instance } from '@/lib/api.patch';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { InstanceTypes, renderInstanceTypeOption } from '@/lib/InstanceType';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
@@ -43,8 +44,8 @@ export function ClusterIndex() {
 				accessorKey: 'status',
 				header: 'Status',
 				cell: (cell) => {
-					const status = cell.getValue() as BadgeStatus;
-					return <Badge variant={renderBadgeStatusVariant(status)}>{renderBadgeStatusText(status)}</Badge>;
+					const status = cell.getValue() as string;
+					return <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge>;
 				},
 			},
 			{

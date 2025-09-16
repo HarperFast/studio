@@ -18,6 +18,14 @@ describe('capitalizeWords', () => {
 		it('newIDs -> New IDs', () => {
 			expect(capitalizeWords('newIDs')).toBe('New IDs');
 		});
+
+		it('UPDATING_HDB_NODES -> Updating HDB Nodes', () => {
+			expect(capitalizeWords('UPDATING_HDB_NODES')).toBe('Updating HDB Nodes');
+		});
+
+		it('RUNNING -> Running', () => {
+			expect(capitalizeWords('RUNNING')).toBe('Running');
+		});
 	});
 
 	describe('delimiters and whitespace', () => {

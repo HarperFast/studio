@@ -1,5 +1,3 @@
-import { Cluster } from '@/lib/api.patch';
-
 export type BadgeStatusVariant =
 	| string
 	| 'PROVISIONING'
@@ -17,10 +15,11 @@ export type BadgeStatusVariant =
 
 export type BadgeStatusVariantValues = 'warning' | 'success' | 'secondary' | 'destructive' | 'outline' | 'default';
 
-const renderBadgeStatusVariant = (value: BadgeStatusVariant): BadgeStatusVariantValues => {
+export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatusVariantValues {
 	switch (value) {
 		case 'PROVISIONING':
 		case 'CLONE_PENDING':
+		case 'CLONING':
 		case 'CLONE_READY':
 		case 'UPDATING_HDB_NODES':
 		case 'UPDATING':
@@ -30,36 +29,12 @@ const renderBadgeStatusVariant = (value: BadgeStatusVariant): BadgeStatusVariant
 			return 'success';
 		case 'STOPPED':
 			return 'secondary';
-		case 'TERMINATED':
 		case 'TERMINATING':
-		case 'ERROR':
+		case 'TERMINATED':
 		case 'REMOVED':
-		default:
+		case 'ERROR':
 			return 'destructive';
+		default:
+			return 'default';
 	}
-};
-
-const BADGE_STATUS_TEXT: Record<Exclude<Cluster['status'], undefined>, string> = {
-	PROVISIONING: 'Provisioning',
-	RUNNING: 'Running',
-	STOPPED: 'Stopped',
-	TERMINATED: 'Terminated',
-	CLONE_PENDING: 'Clone Pending',
-	UPDATING_HDB_NODES: 'Updating HDB Nodes',
-	UPDATING: 'Updating',
-	UPDATED: 'Updated',
-	ERROR: 'Error',
-	TERMINATING: 'Terminating',
-	CLONE_READY: 'Clone Ready',
-	REMOVED: 'Removed',
-} as const;
-
-export type BadgeStatus = keyof typeof BADGE_STATUS_TEXT;
-
-const renderBadgeStatusText = (value: BadgeStatus) => {
-	const status = BADGE_STATUS_TEXT[value];
-	if (status) return status;
-	throw new Error('Unsupported Status');
-};
-
-export { renderBadgeStatusVariant, renderBadgeStatusText };
+}
