@@ -4,5 +4,7 @@
     "config:recommended"
   ],
   "prConcurrentLimit": 2,
-  "semanticCommits": "enabled"
+  "semanticCommits": "enabled",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict"
 }
