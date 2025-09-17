@@ -25,9 +25,6 @@ export function getReadLogQueryOptions({
 	replicated,
 	isAutoRefreshEnabled,
 }: GetReadLogParams & InstanceClientIdConfig) {
-	if (logFilters.level === 'undefined') {
-		logFilters.level = undefined;
-	}
 	return queryOptions({
 		queryKey: [
 			entityId,
@@ -36,21 +33,18 @@ export function getReadLogQueryOptions({
 			logFilters.level,
 			logFilters.from,
 			logFilters.until,
-			logFilters.order,
 			replicated,
 		] as const,
 		queryFn: async () => {
-			const formattedLogFilters = {
-				...logFilters,
-				limit: logFilters.limit ? parseInt(logFilters.limit, 10) : undefined,
-				from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
-				until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
-			};
 			const { data } = await instanceClient.post('/', {
 				operation: 'read_log',
 				start: 0,
 				replicated,
-				...formattedLogFilters,
+				limit: logFilters.limit ? parseInt(logFilters.limit, 10) : undefined,
+				level: logFilters.level !== 'undefined' ? logFilters.level : undefined,
+				from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
+				until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
+				order: 'desc',
 			});
 			return data as ReadLogItem[];
 		},

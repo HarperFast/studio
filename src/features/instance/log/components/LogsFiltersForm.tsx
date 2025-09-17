@@ -16,7 +16,7 @@ export function LogsFiltersForm({
 	resetFilters,
 	submitFilters,
 }: {
-	form: UseFormReturn;
+	form: UseFormReturn<z.infer<typeof LogFiltersFormSchema>>;
 	resetFilters: () => void;
 	submitFilters: (data: z.infer<typeof LogFiltersFormSchema>) => void;
 }) {
@@ -96,27 +96,6 @@ export function LogsFiltersForm({
 								<FormControl>
 									<Input type="datetime-local" value={field.value} onChange={field.onChange} />
 								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="order"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Log Order:</FormLabel>
-								<Select onValueChange={field.onChange} value={field.value}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Log order" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											<SelectItem value="asc">Ascending</SelectItem>
-											<SelectItem value="desc">Descending</SelectItem>
-										</SelectGroup>
-									</SelectContent>
-								</Select>
 								<FormMessage />
 							</FormItem>
 						)}

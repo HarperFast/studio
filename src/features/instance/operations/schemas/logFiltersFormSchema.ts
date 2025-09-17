@@ -5,5 +5,4 @@ export const LogFiltersFormSchema = z.object({
 	level: z.enum(['notify', 'error', 'warn', 'info', 'debug', 'trace', 'undefined']).optional(),
 	from: z.string().or(z.undefined()).optional(),
 	until: z.string().or(z.undefined()).optional(),
-	order: z.enum(['asc', 'desc']).optional(),
 });
