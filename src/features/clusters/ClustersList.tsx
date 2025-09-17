@@ -42,6 +42,7 @@ export function ClustersList() {
 		const groups = groupBy(
 			orgInfo?.clusters
 				?.slice()
+				.filter(cluster => cluster.status !== 'TERMINATED')
 				.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 				.sort(byClusterStatusThenName) || [],
 			'status'
