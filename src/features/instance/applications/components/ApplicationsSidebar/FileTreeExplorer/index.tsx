@@ -1,6 +1,6 @@
 import { GetComponentsResponse, DirectoryEntry } from '@/features/instance/operations/queries/getComponents';
 import './filetree.css';
-import { useState } from 'react';
+import { ComponentType, useState } from 'react';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 
 interface ParseFileExtension {
@@ -148,13 +148,13 @@ function File({
 	);
 }
 
-function Folder({ directoryEntry }: { readonly directoryEntry: DirectoryEntry }) {
-	const [open, setOpen] = useState(true);
+function Folder({ directoryEntry, depth }: { readonly directoryEntry: DirectoryEntry; readonly depth: number }) {
+	const [open, setOpen] = useState(depth <= 1);
 
 	const entries = [...(directoryEntry.entries || [])].sort(directorySortComparator);
 	const fileExtension = parseFileExtension(directoryEntry.name);
 
-	let Icon: React.ComponentType<HTMLElement>;
+	let Icon: ComponentType<HTMLElement>;
 	// top-level dir === package
 	// FolderIcon/PackageIcon is func so we can give it open args now, but instantiate it later.
 	if (directoryEntry.path && directoryEntry.path.split('/').length === 2) {
@@ -168,8 +168,7 @@ function Folder({ directoryEntry }: { readonly directoryEntry: DirectoryEntry })
 	return (
 		<>
 			{
-				// FIXME: don't hardcode 'components', get from root .name property of fileTree.
-				directoryEntry.name !== 'components' ? (
+				depth > 0 ? (
 					<li
 						key={directoryEntry.key}
 						className={`${directoryEntry.entries ? 'folder-container' : 'file-container'} ${
@@ -189,7 +188,7 @@ function Folder({ directoryEntry }: { readonly directoryEntry: DirectoryEntry })
 			{entries.map((entry) => (
 				<li key={entry.key}>
 					<ul className="pl-2">
-						<Folder directoryEntry={entry} />
+						<Folder directoryEntry={entry} depth={depth + 1} />
 					</ul>
 				</li>
 			))}
@@ -203,7 +202,7 @@ export function FileTreeExplorer({ files }: { readonly files: GetComponentsRespo
 		<div>
 			<div>
 				<ul className="text-gray-400">
-					<Folder directoryEntry={files} />
+					<Folder directoryEntry={files} depth={0} />
 				</ul>
 			</div>
 		</div>
