@@ -20,7 +20,7 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -38,7 +38,7 @@ export function ClusterSetPassword() {
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();
 
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
 			confirmPassword: '',
@@ -47,6 +47,12 @@ export function ClusterSetPassword() {
 			username: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('password');
+	}, [setFocus]);
+
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
 
 	const { mutate: submitInstanceResetPassword, isPending } = useInstanceResetPasswordMutation();
@@ -86,10 +92,10 @@ export function ClusterSetPassword() {
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">Create Admin User</h2>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
+					<Form {...methods}>
+						<form onSubmit={handleSubmit(submitForm)} className="my-4">
 							<FormField
-								control={form.control}
+								control={control}
 								name="username"
 								render={({ field }) => (
 									<FormItem className="my-4">
@@ -106,7 +112,7 @@ export function ClusterSetPassword() {
 								)}
 							/>
 							<FormField
-								control={form.control}
+								control={control}
 								name="password"
 								render={({ field }) => (
 									<FormItem className="my-4">
@@ -122,7 +128,7 @@ export function ClusterSetPassword() {
 								)}
 							/>
 							<FormField
-								control={form.control}
+								control={control}
 								name="confirmPassword"
 								render={({ field }) => (
 									<FormItem className="my-4">

@@ -15,6 +15,7 @@ import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -34,13 +35,18 @@ export function SignIn() {
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
 
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			email: '',
 			password: '',
 		},
 	});
+	const { handleSubmit, control, setFocus } = methods;
+
+	useEffect(() => {
+		setFocus('email');
+	}, [setFocus]);
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
 
@@ -59,7 +65,7 @@ export function SignIn() {
 					});
 				}
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
-				router.invalidate();
+				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 			},
 		});
@@ -68,10 +74,10 @@ export function SignIn() {
 	return (
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Sign in to Harper Fabric</h2>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
+			<Form {...methods}>
+				<form onSubmit={handleSubmit(submitForm)} className="my-4">
 					<FormField
-						control={form.control}
+						control={control}
 						name="email"
 						render={({ field }) => (
 							<FormItem className="my-4">
@@ -79,7 +85,6 @@ export function SignIn() {
 								<FormControl>
 									<Input
 										type="email"
-										placeholder="jane.smith@harperdb.io"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
@@ -89,7 +94,7 @@ export function SignIn() {
 						)}
 					/>
 					<FormField
-						control={form.control}
+						control={control}
 						name="password"
 						render={({ field }) => (
 							<FormItem className="my-4">
@@ -97,7 +102,6 @@ export function SignIn() {
 								<FormControl>
 									<Input
 										type="password"
-										placeholder="password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>

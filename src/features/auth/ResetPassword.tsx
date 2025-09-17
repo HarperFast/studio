@@ -8,7 +8,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -37,17 +37,22 @@ export function RestPassword() {
 		}
 	}, [token, navigate]);
 
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(ResetPasswordSchema),
 		defaultValues: {
 			password: '',
 			confirmPassword: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('password');
+	}, [setFocus]);
 
 	const { mutate: submitResetPasswordData, isPending } = useResetPasswordMutation();
 
-	const submitForm = async (formData: { password: string; confirmPassword: string }) => {
+	const submitForm = useCallback(async (formData: { password: string; confirmPassword: string }) => {
 		submitResetPasswordData(
 			{ token: token as string, password: formData.password },
 			{
@@ -63,15 +68,15 @@ export function RestPassword() {
 				},
 			}
 		);
-	};
+	}, [navigate, submitResetPasswordData, token]);
 
 	return (
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Reset Password</h2>
-			<Form {...form}>
-				<form className="my-4" onSubmit={form.handleSubmit(submitForm)}>
+			<Form {...methods}>
+				<form className="my-4" onSubmit={handleSubmit(submitForm)}>
 					<FormField
-						control={form.control}
+						control={control}
 						name="password"
 						render={({ field }) => (
 							<FormItem className="my-2">
@@ -80,7 +85,6 @@ export function RestPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
-										placeholder="enter new password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
@@ -90,7 +94,7 @@ export function RestPassword() {
 						)}
 					/>
 					<FormField
-						control={form.control}
+						control={control}
 						name="confirmPassword"
 						render={({ field }) => (
 							<FormItem className="my-2">
@@ -99,7 +103,6 @@ export function RestPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
-										placeholder="confirm new password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
