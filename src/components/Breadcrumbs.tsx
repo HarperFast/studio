@@ -23,22 +23,25 @@ export function Breadcrumbs() {
 				continue;
 			}
 
-			const path = `/${routeHistory.slice(0, index + 1).join('/')}`;
+			let path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
 			let id: string | undefined;
 			if (route === 'databases' && routeHistory.length === index + 3) {
-				id = routeHistory[index + 1];
+				// id = routeHistory[index + 1];
 				name = routeHistory[index + 2];
 				index += 2;
 			} else if (name.startsWith('Org ')) {
-				id = route.split('org-').pop();
+				// id = route.split('org-').pop();
 				name = routeContext?.organization?.name || 'Org';
 			} else if (name.startsWith('Clu ')) {
-				id = route.split('clu-').pop();
+				// id = route.split('clu-').pop();
 				name = routeContext?.cluster?.name || 'Cluster';
+				if (routeHistory[index + 1] === 'instance') {
+					path += '/instances';
+				}
 			} else if (name.startsWith('Ins ')) {
-				id = route.split('ins-').pop();
-				name = 'Instance';
+				// id = route.split('ins-').pop();
+				name = routeContext?.instance?.name?.split('.')?.shift() || 'Instance';
 			}
 
 			breadcrumbs.push(
