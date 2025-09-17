@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 
 export function Breadcrumbs() {
 	const location = useLocation();
-	const routeContext = useRouteContext({ strict: false });
+	const { organization, instance, cluster } = useRouteContext({ strict: false });
 	const breadcrumbs = useMemo(() => {
 		const routeHistory = location.pathname.split('/')
 			.filter((x) => x && x.length > 0);
@@ -32,16 +32,16 @@ export function Breadcrumbs() {
 				index += 2;
 			} else if (name.startsWith('Org ')) {
 				// id = route.split('org-').pop();
-				name = routeContext?.organization?.name || 'Org';
+				name = organization?.name || 'Org';
 			} else if (name.startsWith('Clu ')) {
 				// id = route.split('clu-').pop();
-				name = routeContext?.cluster?.name || 'Cluster';
+				name = cluster?.name || 'Cluster';
 				if (routeHistory[index + 1] === 'instance') {
 					path += '/instances';
 				}
 			} else if (name.startsWith('Ins ')) {
 				// id = route.split('ins-').pop();
-				name = routeContext?.instance?.name?.split('.')?.shift() || 'Instance';
+				name = instance?.name?.split('.')?.shift() || 'Instance';
 			}
 
 			breadcrumbs.push(
@@ -59,8 +59,7 @@ export function Breadcrumbs() {
 		}
 
 		return breadcrumbs;
-	}, [location.pathname, routeContext?.cluster?.name, routeContext?.organization?.name]);
-
+	}, [location.pathname, cluster?.name, instance?.name, organization?.name]);
 
 	return (
 		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
