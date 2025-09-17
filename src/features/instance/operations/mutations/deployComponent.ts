@@ -2,13 +2,13 @@ import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
 
 export interface DeployComponentFormData {
-	newApplicationName: string;
+	applicationName: string;
 	applicationUrl: string;
 	replicated: boolean;
 }
 
 async function onDeployComponentSubmit({
-	newApplicationName,
+	applicationName,
 	applicationUrl,
 	instanceClient,
 	replicated,
@@ -18,7 +18,7 @@ async function onDeployComponentSubmit({
 		{
 			operation: 'deploy_component',
 			package: applicationUrl,
-			project: newApplicationName,
+			project: applicationName,
 			replicated,
 			restart: 'rolling',
 		},

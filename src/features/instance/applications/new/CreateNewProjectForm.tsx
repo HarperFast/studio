@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const NewProjectSchema = z.object({
-	newApplicationName: z
+	applicationName: z
 		.string()
 		.nonempty({ error: 'Project name is required.' })
 		.max(75, { error: 'Project name cannot be longer than 75 characters.' })
@@ -37,7 +37,7 @@ export function CreateNewProjectForm({
 	const form = useForm({
 		resolver: zodResolver(NewProjectSchema),
 		defaultValues: {
-			newApplicationName: '',
+			applicationName: '',
 			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
@@ -46,7 +46,7 @@ export function CreateNewProjectForm({
 	const submitForm = (formData: CreateComponentFormData) => {
 		createNewProject({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
-				toast.success(`Project ${formData.newApplicationName} created successfully`);
+				toast.success(`Project ${formData.applicationName} created successfully`);
 				triggerRestart();
 			},
 		});
@@ -57,7 +57,7 @@ export function CreateNewProjectForm({
 				<form onSubmit={form.handleSubmit(submitForm)} className="text-white">
 					<FormField
 						control={form.control}
-						name="newApplicationName"
+						name="applicationName"
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel className="pb-1 text-center">New Project Name</FormLabel>

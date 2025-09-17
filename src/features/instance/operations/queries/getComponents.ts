@@ -10,7 +10,7 @@ export interface DirectoryEntry {
 	key?: string;
 	path?: string;
 	project?: string;
-	readOnly?: boolean;
+	pkg?: string;
 }
 
 export interface HandleFileSelectParams {
@@ -18,6 +18,7 @@ export interface HandleFileSelectParams {
 	projectName: string;
 	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
 	entries?: DirectoryEntry[]; // Optional entries for directory entries
+	pkg?: string;
 }
 
 export interface GetComponentsResponse {
@@ -30,7 +31,7 @@ type GetComponentsResponseWithMetaData = GetComponentsResponse & {
 	key?: string;
 	path?: string;
 	project?: string;
-	readOnly?: boolean;
+	pkg?: string;
 };
 
 export function getComponentsQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
@@ -40,7 +41,7 @@ export function getComponentsQueryOptions({ entityId, instanceClient }: Instance
 			const { data }: { data: GetComponentsResponse } = await instanceClient.post('/', {
 				operation: 'get_components',
 			});
-			return addMetadata(data, data.name, data.name, false) as GetComponentsResponseWithMetaData;
+			return addMetadata(data, data.name, data.name) as GetComponentsResponseWithMetaData;
 		},
 		retry: false,
 	});
@@ -50,7 +51,7 @@ function addMetadata(
 	fileTree: GetComponentsResponseWithMetaData | DirectoryEntry,
 	path: string,
 	rootDir: string,
-	readOnly = false,
+	pkg?: string,
 ): GetComponentsResponseWithMetaData | DirectoryEntry | undefined {
 	if (!fileTree || !fileTree.entries) {
 		return;
@@ -73,9 +74,9 @@ function addMetadata(
 		entry.project = project;
 		entry.path = newPath;
 		entry.key = crypto.randomUUID?.() ?? Math.random().toString().slice(2);
-		entry.readOnly = readOnly || !!entry.package;
+		entry.pkg = entry.package || pkg;
 
-		addMetadata(entry, newPath, rootDir, entry.readOnly);
+		addMetadata(entry, newPath, rootDir, entry.pkg);
 	}
 	return fileTree;
 }

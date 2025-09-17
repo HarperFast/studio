@@ -26,9 +26,9 @@ export function NewProjectModal({
     const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
     const queryClient = useQueryClient();
     const instanceParams = useInstanceClientIdParams();
-  
+
     const onRestartedSuccessfully = useCallback(() => {
-      queryClient.invalidateQueries({queryKey:[instanceParams.entityId, 'get_components']});
+      void queryClient.invalidateQueries({queryKey:[instanceParams.entityId, 'get_components']});
       void setIsModalOpen(false);
     }, [setIsModalOpen, instanceParams.entityId, queryClient]);
     const { onRestartClick, isRestartPending } = useRestartInstanceClick({
@@ -60,7 +60,7 @@ export function NewProjectModal({
 						{appType === 'create' ? (
 							<CreateNewProjectForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
 						) : appType === 'import' ? (
-							<ImportProjectForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
+							<ImportProjectForm onRestartedSuccessfully={onRestartedSuccessfully} />
 						) : (
 							<p className="text-center">Please select an option to continue.</p>
 						)}
