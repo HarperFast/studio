@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const ImportProjectSchema = z.object({
-	newApplicationName: z
+	applicationName: z
 		.string()
 		.nonempty({ error: 'Project name is required.' })
 		.max(75, { error: 'Project name cannot be longer than 75 characters.' })
@@ -33,17 +33,15 @@ const ImportProjectSchema = z.object({
 });
 
 export function ImportProjectForm({
-	triggerRestart,
-	isRestartPending,
+	onRestartedSuccessfully
 }: {
-	triggerRestart: () => void;
-	isRestartPending: boolean;
+	onRestartedSuccessfully: () => void;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm({
 		resolver: zodResolver(ImportProjectSchema),
 		defaultValues: {
-			newApplicationName: '',
+			applicationName: '',
 			applicationUrl: '',
 			replicated: instanceParams.entityType === 'cluster',
 		},
@@ -53,8 +51,8 @@ export function ImportProjectForm({
 	const submitForm = async (formData: DeployComponentFormData) => {
 		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
-				toast.success(`Application ${formData.newApplicationName} created successfully`);
-				triggerRestart();
+				toast.success(`Application ${formData.applicationName} imported successfully`);
+				onRestartedSuccessfully();
 			},
 		});
 	};
@@ -62,14 +60,14 @@ export function ImportProjectForm({
 		if (url.includes('github.com')) {
 			const response = await getGitHubRepo(new URL(url));
 			if (response) {
-				form.setValue('newApplicationName', response);
+				form.setValue('applicationName', response);
 				toast.success(`Application "${response}" found successfully`);
 			} else {
 				toast.error('Invalid GitHub repository URL');
 			}
 		} else {
 			if (url && isValidTarballUrl(url)) {
-				form.setValue('newApplicationName', url);
+				form.setValue('applicationName', url);
 			}
 		}
 	};
@@ -80,7 +78,7 @@ export function ImportProjectForm({
 				<form onSubmit={form.handleSubmit(submitForm)} className="flex flex-col gap-4 text-white">
 					<FormField
 						control={form.control}
-						name="newApplicationName"
+						name="applicationName"
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel className="pb-1">New Project Name</FormLabel>
@@ -117,7 +115,7 @@ export function ImportProjectForm({
 						className="w-full mt-4"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isDeployComponentPending || isRestartPending}
+						disabled={!form.formState.isDirty || isDeployComponentPending}
 					>
 						{!isDeployComponentPending ? (
 							<>

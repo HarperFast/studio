@@ -4,13 +4,16 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
 import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
 import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
+import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { Minus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { Minus, Plus, RefreshCwIcon } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { toast } from 'sonner';
 
 export function FileMenuActionButtons() {
+	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	const { refetch: refetchComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
@@ -20,7 +23,7 @@ export function FileMenuActionButtons() {
 	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
 	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
 
-	const handleAddFolderOrFile = async (name: string) => {
+	const handleAddFolderOrFile = useCallback(async (name: string) => {
 		addFolderFile(
 			{
 				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}/${name}`,
@@ -35,12 +38,14 @@ export function FileMenuActionButtons() {
 				},
 			},
 		);
-	};
+	}, [addFolderFile, instanceParams, isAddingFolder, refetchComponents, selectedFolderFile]);
 
-	const handleDeleteFolderOrFile = async () => {
+	const handleDeleteFolderOrFile = useCallback(async () => {
 		deleteFolderFile(
 			{
-				file: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
+				file: selectedFolderFile.pkg
+					? undefined
+					: `${selectedFolderFile.filePath.split('/').slice(2).join('/')}`,
 				project: selectedFolderFile.projectName,
 				replicated: instanceParams.entityType === 'cluster',
 				...instanceParams,
@@ -52,18 +57,60 @@ export function FileMenuActionButtons() {
 						projectName: '',
 						entries: [],
 						content: '',
+						pkg: '',
 					});
 					refetchComponents();
 					setIsDeleteFolderOrFileClicked(false);
 				},
 			},
 		);
-	};
+	}, [deleteFolderFile, handleFileSelect, instanceParams, refetchComponents, selectedFolderFile]);
+
+	const { mutate: reDeployApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
+
+	const redeployPackage = useCallback(() => {
+		const toastId = toast.loading('Redeploying...');
+		reDeployApplication({
+			applicationName: selectedFolderFile.projectName,
+			applicationUrl: selectedFolderFile.pkg as string,
+			replicated: instanceParams.entityType === 'cluster',
+			...instanceParams,
+		}, {
+			onSuccess: () => {
+				toast.success(
+					`Application ${selectedFolderFile.projectName} redeployed successfully`,
+					{
+						id: toastId,
+					},
+				);
+				void queryClient.invalidateQueries({
+					queryKey: [instanceParams.entityId, 'get_components'],
+					refetchType: 'active',
+				});
+			},
+		});
+	}, [reDeployApplication, selectedFolderFile.projectName, selectedFolderFile.pkg, instanceParams, queryClient]);
+
+	const toggleDeleting = useCallback(() => {
+		setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked);
+	}, [isDeleteFolderOrFileClicked]);
 
 	return (
-		<div className="p-2 border-b border-gray-700">
+		<div className="p-2 border-b border-gray-700 mb-2 h-12">
 			<div>
-				{selectedFolderFile.filePath && isFolder(selectedFolderFile.entries) ? (
+				{selectedFolderFile.pkg && (
+					<Button
+						onClick={redeployPackage}
+						disabled={isDeployComponentPending}
+						variant="positiveOutline"
+						size="sm"
+						className="mr-2 rounded-full"
+					>
+						<RefreshCwIcon className="w-4 h-4" />
+						<span className="ms-1"> Redeploy Package</span>
+					</Button>
+				)}
+				{!selectedFolderFile.pkg && selectedFolderFile.filePath && isFolder(selectedFolderFile.entries) ? (
 					<>
 						<Button
 							onClick={() => {
@@ -98,8 +145,8 @@ export function FileMenuActionButtons() {
 				)}
 				{selectedFolderFile.filePath ? (
 					<Button
-						onClick={() => setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked)}
-						disabled={false}
+						onClick={toggleDeleting}
+						disabled={isDeployComponentPending}
 						variant="destructiveOutline"
 						size="sm"
 						className="rounded-full"
@@ -111,7 +158,7 @@ export function FileMenuActionButtons() {
 			</div>
 
 			{!selectedFolderFile.filePath ?
-				<span className="text-gray-500">Please Select a folder or file</span> : null}
+				<span className="text-gray-500">Please select a folder or file</span> : null}
 
 			<AddFolderFileModal
 				isModalOpen={isAddFolderOrFileClicked}
@@ -124,6 +171,7 @@ export function FileMenuActionButtons() {
 				isModalOpen={isDeleteFolderOrFileClicked}
 				setIsModalOpen={setIsDeleteFolderOrFileClicked}
 				isFolderSelected={isFolder(selectedFolderFile.entries)}
+				isPackageSelected={!!selectedFolderFile.pkg}
 				isPending={isDeleteFolderFilePending}
 				handleDeleteFolderOrFile={handleDeleteFolderOrFile}
 			/>

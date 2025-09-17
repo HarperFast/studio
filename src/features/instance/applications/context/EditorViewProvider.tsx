@@ -52,12 +52,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		}
 	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
 
-	const handleFileSelect = useCallback(async (selectedFileInfo: HandleFileSelectParams) => {
-		setSelectedFolderFile({
-			...selectedFileInfo,
-		});
-	}, []);
-
 	const onSaveFile = useCallback(
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
@@ -87,11 +81,11 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
 			selectedFolderFile: selectedFolderFile,
-			handleFileSelect,
+			handleFileSelect: setSelectedFolderFile,
 			onSaveFile,
 			isSavingFile,
 			isFolder,
 		};
-	}, [selectedFolderFile, handleFileSelect, onSaveFile, isSavingFile]);
+	}, [selectedFolderFile, setSelectedFolderFile, onSaveFile, isSavingFile]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 }

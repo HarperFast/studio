@@ -55,43 +55,45 @@ export function TextEditorView() {
 		<div className="h-[calc(100vh-theme(spacing.52))]">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
 				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
-				<div className='flex flex-col justify-end space-y-2 md:justify-normal md:flex-row '>
-					<Button
-						variant="positiveOutline"
-						className="w-38 rounded-full"
-						onClick={() => {
-							if (updateFileContent !== null) {
-								onSaveFile(
-									{
-										...instanceParams,
-										file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
-										payload: updateFileContent,
-										project: selectedFolderFile.projectName,
-									},
-									selectedFolderFile.filePath
-								);
+				{!selectedFolderFile.pkg && (
+					<div className="flex flex-col justify-end space-y-2 md:justify-normal md:flex-row">
+						<Button
+							variant="positiveOutline"
+							className="w-38 rounded-full"
+							onClick={() => {
+								if (updateFileContent !== null) {
+									onSaveFile(
+										{
+											...instanceParams,
+											file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
+											payload: updateFileContent,
+											project: selectedFolderFile.projectName,
+										},
+										selectedFolderFile.filePath,
+									);
+								}
+							}}
+							disabled={
+								!selectedFolderFile.filePath ||
+								updateFileContent === null ||
+								updateFileContent === selectedFolderFile.content ||
+								isSavingFile
 							}
-						}}
-						disabled={
-							!selectedFolderFile.filePath ||
-							updateFileContent === null ||
-							updateFileContent === selectedFolderFile.content ||
-							isSavingFile
-						}
-					>
-						<Save />
-						<span className="ms-1">Save</span>
-					</Button>
-					<RestartButton
-						targetNoun={targetNoun}
-						instanceClient={instanceParams.instanceClient}
-						operation="restart_service"
-					/>
+						>
+							<Save />
+							<span className="ms-1">Save</span>
+						</Button>
+						<RestartButton
+							targetNoun={targetNoun}
+							instanceClient={instanceParams.instanceClient}
+							operation="restart_service"
+						/>
 
-					<Button variant="defaultOutline" className="w-38 rounded-full" onClick={() => setIsNewProjectModalOpen(true)}>
-						<PlusIcon /> New Application
-					</Button>
-				</div>
+						<Button variant="defaultOutline" className="w-38 rounded-full" onClick={() => setIsNewProjectModalOpen(true)}>
+							<PlusIcon /> New Application
+						</Button>
+					</div>
+				)}
 			</div>
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
 				<div className="flex flex-col items-center justify-center h-full space-y-4">
@@ -101,7 +103,7 @@ export function TextEditorView() {
 							setIsNewProjectModalOpen(true);
 							setAppType('create');
 							}}>
-							<PlusIcon /> Create New
+							<PlusIcon /> Create New Application
 						</Button>
 						<Button variant="defaultOutline" className="ms-4" size="lg" onClick={() => {
 							setIsNewProjectModalOpen(true);
@@ -123,6 +125,7 @@ export function TextEditorView() {
 					options={{
 						automaticLayout: true,
 						minimap: { enabled: false },
+						readOnly: !!selectedFolderFile.pkg,
 					}}
 				/>
 			)}
