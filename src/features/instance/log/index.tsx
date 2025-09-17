@@ -32,7 +32,6 @@ const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	level: 'undefined',
 	from: '',
 	until: '',
-	order: 'desc',
 };
 
 const columns: ColumnDef<ReadLogItem>[] = [
