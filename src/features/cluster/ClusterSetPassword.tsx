@@ -15,6 +15,7 @@ import {
 } from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
+import { useCloudAuth } from '@/hooks/useAuth';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +27,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 export function ClusterSetPassword() {
+	const { user } = useCloudAuth();
 	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
@@ -44,7 +46,7 @@ export function ClusterSetPassword() {
 			confirmPassword: '',
 			password: '',
 			role: 'super_user',
-			username: '',
+			username: user?.email ?? '',
 		},
 	});
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
