@@ -91,7 +91,7 @@ export function ClusterSetPassword() {
 			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">
 				<Breadcrumbs />
 			</nav>
-			<div className="h-screen items-center justify-center flex">
+			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">Create Admin User</h2>
 					<Form {...methods}>
