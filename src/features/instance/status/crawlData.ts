@@ -1,3 +1,4 @@
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
@@ -33,13 +34,16 @@ export function hasTitle(item: ItemForDisplay): item is TitleItem {
 function parseValue(name: string, value: unknown, depth: number, parentName?: string): ItemForDisplay[] {
 	if (value && Array.isArray(value)) {
 		const array = value;
-		return value.map((item, index) =>
-			parseValue(
-				array.length > 1 ? name + ' ' + (index + 1) : name,
-				item,
-				depth + 1,
-				name,
-			)).flat(1);
+		return [
+			array.length > 1 && {title: name, depth},
+			...value.map((item, index) =>
+				parseValue(
+					array.length > 1 ? String(index + 1) : name,
+					item,
+					depth + 1,
+					name,
+				)).flat(1),
+		].filter(excludeFalsy);
 	}
 	if (isObject(value)) {
 		const obj = value;
