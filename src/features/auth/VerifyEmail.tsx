@@ -23,14 +23,19 @@ const VerifyEmailSchema = z.object({
 function SendEmailVerification() {
 	const navigate = useNavigate();
 	const { mutate: submitResendEmailVerification, isPending } = useResendEmailVerification();
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(VerifyEmailSchema),
 		defaultValues: {
 			email: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
 
-	const submitForm = async (formData: z.infer<typeof VerifyEmailSchema>) => {
+	useEffect(() => {
+		setFocus('email');
+	}, [setFocus]);
+
+	const submitForm = useCallback(async (formData: z.infer<typeof VerifyEmailSchema>) => {
 		submitResendEmailVerification(formData, {
 			onSuccess: (message) => {
 				toast.success('Success', {
@@ -43,14 +48,14 @@ function SendEmailVerification() {
 				navigate({ to: '/sign-in' });
 			},
 		});
-	};
+	}, [navigate, submitResendEmailVerification]);
 
 	return (
-		<Form {...form}>
+		<Form {...methods}>
 			<p className="text-sm py-2">Please Enter an Email</p>
-			<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
+			<form onSubmit={handleSubmit(submitForm)} className="my-4">
 				<FormField
-					control={form.control}
+					control={control}
 					name="email"
 					render={({ field }) => (
 						<FormItem className="my-2">
@@ -59,7 +64,6 @@ function SendEmailVerification() {
 								<Input
 									disabled={isPending}
 									type="email"
-									placeholder="jane.doe@harperdb.io"
 									className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 									{...field}
 								/>

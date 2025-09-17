@@ -21,7 +21,7 @@ import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -57,13 +57,18 @@ export function ClusterInstanceSignIn() {
 		[operationsUrl],
 	);
 
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			username: '',
 			password: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('username');
+	}, [setFocus]);
 
 	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
 
@@ -115,10 +120,10 @@ export function ClusterInstanceSignIn() {
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">
 						Sign in to Harper {noun}</h2>
-					<Form {...form}>
-						<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
+					<Form {...methods}>
+						<form onSubmit={handleSubmit(submitForm)} className="my-4">
 							<FormField
-								control={form.control}
+								control={control}
 								name="username"
 								render={({ field }) => (
 									<FormItem className="my-4">
@@ -127,7 +132,6 @@ export function ClusterInstanceSignIn() {
 											<Input
 												autoComplete="username"
 												type="text"
-												placeholder="harpersys"
 												{...field}
 											/>
 										</FormControl>
@@ -136,7 +140,7 @@ export function ClusterInstanceSignIn() {
 								)}
 							/>
 							<FormField
-								control={form.control}
+								control={control}
 								name="password"
 								render={({ field }) => (
 									<FormItem className="my-4">
@@ -144,7 +148,6 @@ export function ClusterInstanceSignIn() {
 										<FormControl>
 											<Input
 												type="password"
-												placeholder="password"
 												{...field}
 											/>
 										</FormControl>

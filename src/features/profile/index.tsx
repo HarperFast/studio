@@ -75,7 +75,6 @@ export function ProfileIndex() {
 								<FormControl>
 									<Input
 										type="text"
-										placeholder="Jane"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
@@ -95,7 +94,6 @@ export function ProfileIndex() {
 								<FormControl>
 									<Input
 										type="text"
-										placeholder="Doe"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}

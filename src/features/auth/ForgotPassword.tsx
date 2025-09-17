@@ -7,6 +7,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useForgotPasswordMutation } from '@/features/auth/hooks/useForgotPassword';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,12 +21,17 @@ const ForgotPasswordSchema = z.object({
 
 export function ForgotPassword() {
 	const navigate = useNavigate();
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
 		defaultValues: {
 			email: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('email');
+	}, [setFocus]);
 
 	const { mutate: submitForgotPasswordData, isPending } = useForgotPasswordMutation();
 
@@ -48,10 +54,10 @@ export function ForgotPassword() {
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Enter your account email</h2>
 			<p className="text-sm pt-1">If a matching account exists, we'll send you a password reset link.</p>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="my-4">
+			<Form {...methods}>
+				<form onSubmit={handleSubmit(submitForm)} className="my-4">
 					<FormField
-						control={form.control}
+						control={control}
 						name="email"
 						render={({ field }) => (
 							<FormItem className="my-2">
@@ -60,7 +66,6 @@ export function ForgotPassword() {
 									<Input
 										disabled={isPending}
 										type="email"
-										placeholder="jane.smith@harperdb.io"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>

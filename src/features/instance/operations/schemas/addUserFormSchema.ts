@@ -16,5 +16,5 @@ export const AddUserFormSchema = z
 	})
 	.refine((data) => data.password === data.confirmPassword, {
 		error: 'Passwords do not match.',
-		path: ['confirmPassword'], // This specifies where the error message should be attached
+		path: ['confirmPassword'],
 	});

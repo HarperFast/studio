@@ -11,6 +11,7 @@ import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -30,27 +31,41 @@ const SignInSchema = z.object({
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 	password: zodRequirePassword
 		.min(8, { error: 'Password must be at least 8 characters long.' }),
-});
+	confirmPassword: z.string(),
+})
+	.refine((data) => data.password === data.confirmPassword, {
+		error: 'Passwords do not match.',
+		path: ['confirmPassword'],
+	});
 
 export function SignUp() {
 	const navigate = useNavigate();
 	const { email } = useSearch({ strict: false });
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			firstname: '',
 			lastname: '',
 			email: email || '',
 			password: '',
+			confirmPassword: '',
 		},
 	});
+	const { setFocus, control, handleSubmit } = methods;
+
+	useEffect(() => {
+		setFocus('firstname');
+	}, [setFocus]);
 
 	const { mutate: submitSignUpData } = useSignUpMutation();
 
 	const submitForm = async (formData: z.infer<typeof SignInSchema>) => {
-		submitSignUpData(formData, {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { confirmPassword, ...userData } = formData;
+		submitSignUpData(userData, {
 			onSuccess: () => {
 				toast.success('Success', {
+					duration: 60_000,
 					description: 'Your account has been created! Please check your email to finish activating your' +
 						' account.',
 					action: {
@@ -66,10 +81,10 @@ export function SignUp() {
 	return (
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Sign up for Harper Studio</h2>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="grid gap-4 my-4">
+			<Form {...methods}>
+				<form onSubmit={handleSubmit(submitForm)} className="grid gap-4 my-4">
 					<FormField
-						control={form.control}
+						control={control}
 						name="firstname"
 						render={({ field }) => (
 							<FormItem>
@@ -77,7 +92,6 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="text"
-										placeholder="Jane"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
@@ -88,7 +102,7 @@ export function SignUp() {
 						)}
 					/>
 					<FormField
-						control={form.control}
+						control={control}
 						name="lastname"
 						render={({ field }) => (
 							<FormItem>
@@ -96,7 +110,6 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="text"
-										placeholder="Doe"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
@@ -107,7 +120,7 @@ export function SignUp() {
 						)}
 					/>
 					<FormField
-						control={form.control}
+						control={control}
 						name="email"
 						render={({ field }) => (
 							<FormItem>
@@ -117,7 +130,6 @@ export function SignUp() {
 										type="email"
 										readOnly={!!email}
 										disabled={!!email}
-										placeholder="jane.doe@harpersystems.dev"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoComplete="email"
 										autoCapitalize="none"
@@ -129,7 +141,7 @@ export function SignUp() {
 						)}
 					/>
 					<FormField
-						control={form.control}
+						control={control}
 						name="password"
 						render={({ field }) => (
 							<FormItem>
@@ -137,7 +149,23 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="password"
-										placeholder="password"
+										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={control}
+						name="confirmPassword"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel className="pb-1">Confirm Password</FormLabel>
+								<FormControl>
+									<Input
+										type="password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
