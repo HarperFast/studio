@@ -175,9 +175,11 @@ export function SignUp() {
 						)}
 					/>
 					<p className="text-xs">By creating an account, you agree to
-						the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline">Privacy
-							Policy</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline">Terms
-							of Service</a></p>
+						the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline hover:text-blue-300">
+							Privacy Policy
+						</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline hover:text-blue-300">
+							Terms of Service
+						</a></p>
 
 					<Button type="submit" variant="submit" className="w-full my-2 rounded-full">
 						Sign Up For Free
@@ -185,7 +187,7 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="m-auto text-sm" to="/sign-in">
+				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in">
 					Already have an account? Sign in instead.
 				</Link>
 			</div>
