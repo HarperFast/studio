@@ -11,7 +11,7 @@ export const ApplicationURL = ({
 	return (
 		<>
 			<dt className="font-bold text-sm/6">Application URL</dt>
-			<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo ? <TextLoadingSkeleton /> : clusterInfo?.fqdn}</dd>
+			<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo ? <TextLoadingSkeleton /> : clusterInfo?.fqdn || 'N/A'}</dd>
 		</>
 	);
 };

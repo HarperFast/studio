@@ -8,7 +8,7 @@ export const InstanceNodeName = ({
 	loadingInstanceInfo?: boolean;
 	instanceInfo?: { name?: string } | undefined;
 }) => {
-	const simplifiedName = useMemo(() => instanceInfo?.name?.split('.')[0], [instanceInfo?.name]);
+	const simplifiedName = useMemo(() => instanceInfo?.name?.split('.')[0] || 'N/A', [instanceInfo?.name]);
 	return (
 		<>
 			<dt className="font-bold text-sm/6">Instance Name</dt>
