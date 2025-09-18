@@ -22,7 +22,7 @@ async function onDeployComponentSubmit({
 			replicated,
 			restart: 'rolling',
 		},
-		{ timeout: 60000 },
+		{ timeout: 300_000 },
 	);
 	return data;
 }

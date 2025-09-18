@@ -49,11 +49,22 @@ export function ImportProjectForm({
 
 	const { mutate: deployNewApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 	const submitForm = async (formData: DeployComponentFormData) => {
+		const toastId = toast.loading(`Importing application...`, {
+			description: 'This may take a bit.',
+			duration: 300_000,
+		});
 		deployNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
-				toast.success(`Application ${formData.applicationName} imported successfully`);
+				toast.success(`Application imported successfully`, {
+					description: `${formData.applicationName} is now available!`,
+					id: toastId,
+					duration: 5_000,
+				});
 				onRestartedSuccessfully();
 			},
+			onError: () => {
+				toast.dismiss(toastId);
+			}
 		});
 	};
 	const handleFetchApplication = async (url: string) => {
