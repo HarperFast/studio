@@ -1,3 +1,4 @@
+import { ApplyLicensesButton } from '@/components/ApplyLicensesButton';
 import { RestartButton } from '@/components/RestartButton';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { isLocalStudio } from '@/config/constants';
@@ -9,10 +10,13 @@ import { InstanceNodeName } from '@/features/instance/config/overview/components
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
+import { getUsageLicensesQueryOptions } from '@/features/instance/operations/queries/getUsageLicenses';
+import { Instance } from '@/lib/api.patch';
+import { keyBy } from '@/lib/keyBy';
 import Editor from '@monaco-editor/react';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import { ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useParams, useRouteContext } from '@tanstack/react-router';
+import { ReactNode, useMemo } from 'react';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -24,20 +28,36 @@ const CloudStudioOverview = ({ children }: { children: ReactNode }) => {
 
 export function ConfigOverviewIndex() {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
+	const { instance: cloudInstance }: { instance?: Instance } = useRouteContext({ strict: false });
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
-	const { data: info, isLoading: loadingInstanceInfo } = useSuspenseQuery(
+	const { data: info, isLoading: loadingInstanceInfo } = useQuery(
 		getInstanceInfoQueryOptions({ clusterId, instanceId }),
+	);
+	const { data: appliedLicenses } = useQuery(
+		getUsageLicensesQueryOptions(instanceParams),
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;
-	const { data: registrationInfo, isLoading: loadingRegistration } = useSuspenseQuery(
+	const { data: registrationInfo, isLoading: loadingRegistration } = useQuery(
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
-	const { data: configurationInfo, isLoading: loadingConfig } = useSuspenseQuery(
+	const { data: configurationInfo, isLoading: loadingConfig } = useQuery(
 		getConfigurationQueryOptions(instanceParams),
 	);
+
+	const newLicenses = useMemo(() => {
+		if (clusterId && !instanceId) {
+			// We won't check the licenses when running through a load balancer.
+			return [];
+		}
+		if (appliedLicenses && cloudInstance?.licenses) {
+			const appliedLicensesById = keyBy(appliedLicenses, 'id');
+			return cloudInstance.licenses.filter(cloudLicense => !appliedLicensesById[cloudLicense.id]);
+		}
+		return [];
+	}, [clusterId, instanceId, appliedLicenses, cloudInstance]);
 
 	return (
 		<div className="h-full flex flex-col">
@@ -61,7 +81,8 @@ export function ConfigOverviewIndex() {
 						<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
 							<InstanceURL loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
 						</div>
-						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
+						<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0 grid gap-1">
+							{newLicenses?.length > 0 && (<ApplyLicensesButton newLicenses={newLicenses} />)}
 							<RestartButton targetNoun={targetNoun} instanceClient={instanceParams.instanceClient} operation="restart" />
 						</div>
 						<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
