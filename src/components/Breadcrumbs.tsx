@@ -1,3 +1,4 @@
+import { Cluster, Instance, Organization } from '@/lib/api.patch';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
@@ -5,7 +6,7 @@ import { useMemo } from 'react';
 
 export function Breadcrumbs() {
 	const location = useLocation();
-	const { organization, instance, cluster } = useRouteContext({ strict: false });
+	const { organization, instance, cluster }: { organization?: Organization; instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
 	const breadcrumbs = useMemo(() => {
 		const routeHistory = location.pathname.split('/')
 			.filter((x) => x && x.length > 0);
