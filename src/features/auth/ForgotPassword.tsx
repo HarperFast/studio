@@ -80,10 +80,10 @@ export function ForgotPassword() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="text-sm" to="/sign-in">
+				<Link className="text-sm hover:text-blue-300" to="/sign-in">
 					Sign in to your account
 				</Link>
-				<Link className="text-sm" to="/sign-up">
+				<Link className="text-sm hover:text-blue-300" to="/sign-up">
 					Sign up for free
 				</Link>
 			</div>
