@@ -126,7 +126,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 			<dl className={cn('divide-y divide-black overflow-hidden transition-[max-height] duration-200 ease-in', toggled ? 'max-h-fit' : 'max-h-0')}>
 				This plan licenses Harper for the usage limits below, for the price listed above. The usage license
 				expires {expirationMonths && `in ${pluralize(expirationMonths, 'month', 'months')} or `}when any usage
-				limit is reached. Usage blocks can be purchased as they are consumed.
+				limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
 				{rows.map((row, index) =>
 					<div key={row.label} className={cn('px-4 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-3', index % 2 === 0 && 'bg-gray-700')}>
 						<dt className="text-sm/6 font-medium text-gray-300">{row.label}</dt>
