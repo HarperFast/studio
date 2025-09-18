@@ -78,7 +78,7 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 						instancesRestarted += 1;
 					}
 					catch {
-						if (i !== instanceClients.length) {
+						if (i + 1 !== instanceClients.length) {
 							// If it fails to restart, or wasn't available, warn for a bit then move on.
 							toast.loading(`Failed Restarting Instance ${i + 1} of ${instanceClients.length}`, {
 								...toastConfig,
