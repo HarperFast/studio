@@ -62,7 +62,7 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 					});
 					licensesApplied += 1;
 				} catch {
-					if (i !== licenses.length) {
+					if (i + 1 !== licenses.length) {
 						// If it fails to applyLicenses, or wasn't available, warn for a bit then move on.
 						toast.loading(`Failed Applying License ${i + 1} of ${licenses.length}`, {
 							...toastConfig,
@@ -103,7 +103,7 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 				id: toastId,
 				description: `${licenseWord} not applied.\n`
 					+ [
-						licenses.length !== licensesApplied && `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
+						licensesApplied > 0 && licenses.length !== licensesApplied && `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
 					].filter(excludeFalsy)[0],
 				duration: 10_000,
 				action: {
