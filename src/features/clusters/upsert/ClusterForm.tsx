@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 interface ClusterFormProps {
+	alreadyUsingFree: boolean;
 	clusterId?: string;
 	defaultValues: z.infer<typeof UpsertClusterSchema>;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
@@ -40,6 +41,7 @@ interface ClusterFormProps {
 }
 
 export function ClusterForm({
+	alreadyUsingFree,
 	clusterId,
 	defaultValues,
 	deploymentToPerformanceToPlan,
@@ -78,6 +80,13 @@ export function ClusterForm({
 				}
 			}
 		} else {
+			if (selectedPlan?.priceUsd === 0 && alreadyUsingFree) {
+				ctx.addIssue({
+					code: 'custom',
+					path: [`performanceDescription`],
+					message: 'Only one free cluster is allowed per organization.',
+				});
+			}
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
 				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
@@ -90,25 +99,33 @@ export function ClusterForm({
 						message: 'You can only select a region once!',
 					});
 				}
-				if (selectedPlan?.allowedRegionIds?.length && region?.id && !selectedPlan.allowedRegionIds.includes(region.id)) {
-					const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
-					if (!prefixMatches) {
+				if (selectedPlan?.allowedRegionIds?.length && region?.id) {
+					if (!selectedPlan.allowedRegionIds.includes(region.id)) {
+						const prefixMatches = stringsShareAPrefix(selectedPlan.allowedRegionIds, region.id);
+						if (!prefixMatches) {
+							ctx.addIssue({
+								code: 'custom',
+								path: [`regionPlans.${i}.regionName`],
+								message: `This region is not available with the selected performance tier!`,
+							});
+						} else {
+							ctx.addIssue({
+								code: 'custom',
+								path: [`regionPlans.${i}.latencyDescription`],
+								message: `This latency is not available with the selected performance tier!`,
+							});
+						}
+					} else if (i >= 1) {
 						ctx.addIssue({
 							code: 'custom',
 							path: [`regionPlans.${i}.regionName`],
-							message: `This region is not available with the selected performance tier!`,
-						});
-					} else {
-						ctx.addIssue({
-							code: 'custom',
-							path: [`regionPlans.${i}.latencyDescription`],
-							message: `This latency is not available with the selected performance tier!`,
+							message: `You can only select one region with this performance tier!`,
 						});
 					}
 				}
 			}
 		}
-	}, [deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
+	}, [alreadyUsingFree, deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
 
 	const form = useForm({
 		mode: 'onChange',

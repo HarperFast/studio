@@ -5,8 +5,9 @@ import { z } from 'zod';
 export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 	planTypes: SchemaPlan[],
 	regionLocations: SchemaRegion[],
+	alreadyUsingFree?: boolean,
 ): null | Pick<z.infer<typeof UpsertClusterSchema>, 'deploymentDescription' | 'performanceDescription' | 'regionPlans'> {
-	const planToSelect = planTypes.find(planType => !planType.priceUsd && planType.deploymentType === 'colocated')
+	const planToSelect = planTypes.find(planType => (alreadyUsingFree ? !!planType.priceUsd : !planType.priceUsd) && planType.deploymentType === 'colocated')
 		|| planTypes.find(planType => planType.deploymentType === 'colocated')
 		|| planTypes[0];
 	const allowedRegionIds = planToSelect?.allowedRegionIds;
