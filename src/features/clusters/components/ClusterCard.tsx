@@ -115,8 +115,7 @@ export function ClusterCard({
 									<DropdownMenuLabel key={plan.planId}>
 										{plan.planId} / {plan.regionId}
 										<br />
-										Auto Renewal{' '}
-										{plan.autoRenew ? <Badge variant="success">ON</Badge> : <Badge variant="warning">OFF</Badge>}
+										Auto Renewal <Badge variant="success">ON</Badge>
 									</DropdownMenuLabel>
 								))}
 								{menuItems.length > 0 && (
