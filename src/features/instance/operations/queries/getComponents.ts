@@ -41,13 +41,14 @@ export function getComponentsQueryOptions({ entityId, instanceClient }: Instance
 			const { data }: { data: GetComponentsResponse } = await instanceClient.post('/', {
 				operation: 'get_components',
 			});
-			return addMetadata(data, data.name, data.name) as GetComponentsResponseWithMetaData;
+			return addMetadata(entityId, data, data.name, data.name) as GetComponentsResponseWithMetaData;
 		},
 		retry: false,
 	});
 }
 
 function addMetadata(
+	entityId: string,
 	fileTree: GetComponentsResponseWithMetaData | DirectoryEntry,
 	path: string,
 	rootDir: string,
@@ -59,24 +60,18 @@ function addMetadata(
 
 	if (path === rootDir) {
 		fileTree.path = rootDir;
-		fileTree.key = crypto.randomUUID?.() ?? Math.random().toString().slice(2);
+		fileTree.key = `${entityId}://${fileTree.project}/${fileTree.path}`;
 	}
 	for (const entry of fileTree.entries ?? []) {
-		/*
-		 * adds 3 properties to directory entry:
-		 *   - project, which is the dir under component root on the instance
-		 *   - path, which is the file path relative to the project
-		 *   - unique key for react dynamic list optimization
-		 */
-
 		const newPath = `${path}/${entry.name}`;
 		const [, project] = newPath.split('/');
 		entry.project = project;
 		entry.path = newPath;
 		entry.key = crypto.randomUUID?.() ?? Math.random().toString().slice(2);
+		fileTree.key = `${entityId}://${fileTree.project}/${fileTree.path}`;
 		entry.pkg = entry.package || pkg;
 
-		addMetadata(entry, newPath, rootDir, entry.pkg);
+		addMetadata(entityId, entry, newPath, rootDir, entry.pkg);
 	}
 	return fileTree;
 }
