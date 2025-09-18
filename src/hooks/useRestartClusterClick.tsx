@@ -125,11 +125,11 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 			toast.error('Error', {
 				id: toastId,
 				description: `Failed to fully restart cluster.\n`
-					+ [
+					+ ([
 						allInstances.length === 0 && 'No instances were found within the cluster to restart.',
 						instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
 						allInstances.length !== instancesRestarted && `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
-					].filter(excludeFalsy)[0],
+					].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {
 					label: 'Dismiss',
