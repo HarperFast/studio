@@ -1,9 +1,7 @@
-import { safeParse } from '@/lib/string/safeParse';
+import { getLocalStorage } from '@/lib/storage/getLocalStorage';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { setLocalStorage } from '@/lib/storage/setLocalStorage';
 import { useEffect, useState } from 'react';
-
-export const enum LocalStorageKeys {
-	'SavedClusterState' = 'SavedClusterState'
-}
 
 /**
  * Uses state that gets bootstrapped from and persists to local storage with the key you specify.
@@ -12,15 +10,8 @@ export const enum LocalStorageKeys {
  * @param defaultValue
  */
 export function useLocalStorage<T>(key: LocalStorageKeys, defaultValue: T): [T, (value: (((prevState: T) => T) | T)) => void] {
-	const lastSetValue = safeParse<T>(localStorage.getItem(key));
-	const state = useState<T>(lastSetValue ?? defaultValue);
+	const state = useState<T>(getLocalStorage(key, defaultValue));
 	const [current] = state;
-	useEffect(() => {
-		if (current === null || current === undefined) {
-			localStorage.removeItem(key);
-		} else {
-			localStorage.setItem(key, JSON.stringify(current));
-		}
-	}, [key, current]);
+	useEffect(() => setLocalStorage(key, current), [key, current]);
 	return state;
 }
