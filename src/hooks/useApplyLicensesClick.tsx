@@ -102,9 +102,9 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 			toast.error('Error', {
 				id: toastId,
 				description: `${licenseWord} not applied.\n`
-					+ [
+					+ ([
 						licensesApplied > 0 && licenses.length !== licensesApplied && `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
-					].filter(excludeFalsy)[0],
+					].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {
 					label: 'Dismiss',
