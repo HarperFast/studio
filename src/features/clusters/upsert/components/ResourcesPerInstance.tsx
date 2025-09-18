@@ -106,7 +106,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 		return 'This plan has no usage limits.';
 	}
 
-	return <FormItem className="col-span-3 md:col-span-6">
+	return <FormItem className="basis-full">
 		<FormLabel>
 			Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount) ? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & ` : ''}
 			{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount) ? 'in ' + (selectedRegion?.region ?? '') + ' region' : 'per server'},<br className="hidden sm:block" />
