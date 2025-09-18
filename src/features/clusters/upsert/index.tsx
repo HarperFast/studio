@@ -75,12 +75,14 @@ export function UpsertCluster() {
 				}
 				if (!regionPlans.length && cluster.instances) {
 					for (const instance of cluster.instances) {
-						isSelfManaged = true;
-						instances.push({
-							fqdn: instance.instanceFqdn,
-							port: instance.operationsApiPort,
-							secure: instance.operationsApiSecure ? 'true' : 'false',
-						});
+						if (instance.status !== 'REMOVED') {
+							isSelfManaged = true;
+							instances.push({
+								fqdn: instance.instanceFqdn,
+								port: instance.operationsApiPort,
+								secure: instance.operationsApiSecure ? 'true' : 'false',
+							});
+						}
 					}
 				}
 			} else if (defaults) {
