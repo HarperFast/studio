@@ -14,6 +14,7 @@ interface ClusterRegionsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;
+	totalPrice: number | undefined;
 }
 
 export function ClusterRegions({
@@ -21,6 +22,7 @@ export function ClusterRegions({
 	regionLocations,
 	regionNameToLatencyToRegion,
 	selectedPlan,
+	totalPrice,
 }: ClusterRegionsProps) {
 	const selectedRegionPlans = form.watch('regionPlans');
 
@@ -31,8 +33,12 @@ export function ClusterRegions({
 
 	const nextAvailableRegionToAdd = useMemo(() => {
 		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
+		if (!totalPrice) {
+			// Free plans can only add a single region.
+			return null;
+		}
 		return regionLocations?.find(r => !selectedRegionNames.includes(r.region));
-	}, [regionLocations, regionNameToLatencyToRegion, selectedRegionPlans]);
+	}, [regionLocations, regionNameToLatencyToRegion, selectedRegionPlans, totalPrice]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {

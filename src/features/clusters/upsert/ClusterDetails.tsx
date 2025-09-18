@@ -255,6 +255,7 @@ export function ClusterDetails({
 					regionLocations={regionLocations}
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 					selectedPlan={selectedPlan}
+					totalPrice={totalPrice}
 				/>)
 			}
 
