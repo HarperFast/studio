@@ -9,11 +9,12 @@ import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from '@/features/clusters/upsert/lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
-import { LocalStorageKeys, useLocalStorage } from '@/hooks/useLocalStorage';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { Cluster, Organization } from '@/lib/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
