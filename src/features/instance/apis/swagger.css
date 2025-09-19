@@ -1,0 +1,15 @@
+.swagger-ui {
+	filter: invert(88%) hue-rotate(180deg);
+
+	.microlight {
+		filter: invert(100%) hue-rotate(180deg);
+	}
+
+	.info {
+		display: none;
+	}
+
+	.scheme-container {
+		box-shadow: none;
+	}
+}
