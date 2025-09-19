@@ -9,51 +9,78 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, useParams } from '@tanstack/react-router';
-import { DatabaseIcon, GaugeIcon, Menu, NotepadText, Package, SettingsIcon } from 'lucide-react';
+import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, SettingsIcon } from 'lucide-react';
+import { ReactNode, useMemo } from 'react';
 
-function DesktopInstanceNavBar() {
+interface Link {
+	to: string;
+	name: string;
+	shortName?: string;
+	icon: ReactNode;
+}
+
+export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
+	const links = useMemo(() => [
+		{
+			to: buildAbsoluteLinkToPage(params),
+			name: 'Applications',
+			shortName: 'Apps',
+			icon: <PackageIcon className="inline-block" />,
+		},
+		{
+			to: buildAbsoluteLinkToPage(params, 'databases'),
+			icon: <DatabaseIcon className="inline-block" />,
+			name: 'Databases',
+		},
+		canManage && {
+			to: buildAbsoluteLinkToPage(params, 'status'),
+			icon: <GaugeIcon className="inline-block" />,
+			name: 'Status',
+		},
+		canManage && {
+			to: buildAbsoluteLinkToPage(params, 'logs'),
+			icon: <NotepadTextIcon className="inline-block" />,
+			name: 'Logs',
+		},
+		canManage && {
+			to: buildAbsoluteLinkToPage(params, 'config'),
+			icon: <SettingsIcon className="inline-block" />,
+			name: 'Config',
+		},
+	].filter(excludeFalsy) satisfies Link[], [canManage, params]);
+	return (
+		<>
+			<DesktopInstanceNavBar links={links} />
+			<MobileInstanceNavBar links={links} />
+		</>
+	);
+}
+
+function DesktopInstanceNavBar({ links }: { links: Link[] }) {
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<Breadcrumbs />
 			<div className="flex space-x-2 *:hover:text-grey">
-				<Link to={buildAbsoluteLinkToPage(params)} className="p-2 text-center">
-					<Package className="inline-block" />
-					<span className="hidden xl:inline-block ml-1">Applications</span>
-					<span className="visible xl:hidden ml-1"> Apps</span>
-
-				</Link>
-				<Link to={buildAbsoluteLinkToPage(params, 'databases')} className="p-2 text-center">
-					<DatabaseIcon className="inline-block" />
-					<span className="hidden xl:inline-block ml-1"> Databases</span>
-				</Link>
-				{canManage && (
-					<>
-						<Link to={buildAbsoluteLinkToPage(params, 'status')} className="p-2 text-center">
-							<GaugeIcon className="inline-block" />
-							<span className="hidden xl:inline-block ml-1">Status</span>
-						</Link>
-						<Link to={buildAbsoluteLinkToPage(params, 'logs')} className="p-2 text-center">
-							<NotepadText className="inline-block" />
-							<span className="hidden xl:inline-block ml-1">Logs</span>
-						</Link>
-						<Link to={buildAbsoluteLinkToPage(params, 'config')} className="p-2 text-center">
-							<SettingsIcon className="inline-block" />
-							<span className="hidden xl:inline-block ml-1">Config</span>
-						</Link>
-					</>
-				)}
+				{links.map(link => (
+					<Link key={link.to} to={link.to} className="p-2 text-center">
+						{link.icon}
+						<span className="hidden xl:inline-block ml-1">{link.name}</span>
+						{link.shortName && (
+							<span className="visible xl:hidden ml-1"> {link.shortName}</span>
+						)}
+					</Link>
+				))}
 			</div>
 		</div>
 	);
 }
 
-function MobileInstanceNavBar() {
-	const canManage = useInstanceManagePermission();
-	const params = useParams({ strict: false });
+function MobileInstanceNavBar({ links }: { links: Link[] }) {
 	return (
 		<>
 			<div className="flex md:hidden items-center justify-between p-2 text-white">
@@ -67,37 +94,15 @@ function MobileInstanceNavBar() {
 					<DropdownMenuContent>
 						<DropdownMenuLabel>Instance Menu</DropdownMenuLabel>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem asChild>
-							<Link to={buildAbsoluteLinkToPage(params)}>Applications</Link>
-						</DropdownMenuItem>
-						<DropdownMenuItem asChild>
-							<Link to={buildAbsoluteLinkToPage(params, 'databases')}>Databases</Link>
-						</DropdownMenuItem>
-						{canManage && (
-							<>
-								<DropdownMenuItem asChild>
-									<Link to={buildAbsoluteLinkToPage(params, 'status')}>Status</Link>
-								</DropdownMenuItem>
-								<DropdownMenuItem asChild>
-									<Link to={buildAbsoluteLinkToPage(params, 'config')}>Config</Link>
-								</DropdownMenuItem>
-								<DropdownMenuItem asChild>
-									<Link to={buildAbsoluteLinkToPage(params, 'logs')}>Logs</Link>
-								</DropdownMenuItem>
-							</>
-						)}
+
+						{links.map(link => (
+							<DropdownMenuItem key={link.to} asChild>
+								<Link to={link.to}>{link.name}</Link>
+							</DropdownMenuItem>
+						))}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
-		</>
-	);
-}
-
-export function InstanceNavBar() {
-	return (
-		<>
-			<DesktopInstanceNavBar />
-			<MobileInstanceNavBar />
 		</>
 	);
 }
