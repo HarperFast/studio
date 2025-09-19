@@ -8,7 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight, Ellipsis } from 'lucide-react';
@@ -22,7 +22,9 @@ export function OrgCard({
 	onDeleteOrgModal: (OrganizationRole: { organizationId: string; organizationName?: string; }) => void;
 }) {
 	const { organizationId, organizationName, roleName } = organizationRole;
-	const { remove } = useOrganizationPermissions(organizationId);
+	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
+	const showBilling = canUpdateOrganization;
+	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 
 	const onDeleteClick = useCallback(() => {
 		onDeleteOrgModal(organizationRole);
@@ -41,9 +43,12 @@ export function OrgCard({
 							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							<Link to={`${organizationId}`}><DropdownMenuItem>Clusters</DropdownMenuItem></Link>
-							<Link to={`${organizationId}/roles`}><DropdownMenuItem>Roles</DropdownMenuItem></Link>
-							<Link to={`${organizationId}/users`}><DropdownMenuItem>Users</DropdownMenuItem></Link>
-							<Link to={`${organizationId}/billing`}><DropdownMenuItem>Billing</DropdownMenuItem></Link>
+							{showOrgUsersAndRoles && (
+								<Link to={`${organizationId}/roles`}><DropdownMenuItem>Roles</DropdownMenuItem></Link>)}
+							{showOrgUsersAndRoles && (
+								<Link to={`${organizationId}/users`}><DropdownMenuItem>Users</DropdownMenuItem></Link>)}
+							{showBilling && (
+								<Link to={`${organizationId}/billing`}><DropdownMenuItem>Billing</DropdownMenuItem></Link>)}
 							<DropdownMenuSeparator />
 							{remove && (<DropdownMenuItem
 								className="focus:bg-red/70 focus:text-white"
