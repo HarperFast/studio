@@ -46,7 +46,7 @@ export function OrgCard({
 							<Link to={`${organizationId}/billing`}><DropdownMenuItem>Billing</DropdownMenuItem></Link>
 							<DropdownMenuSeparator />
 							{remove && (<DropdownMenuItem
-								className="bg-red focus:bg-red/70 focus:text-white"
+								className="focus:bg-red/70 focus:text-white"
 								onClick={onDeleteClick}>
 								Delete</DropdownMenuItem>)}
 						</DropdownMenuContent>

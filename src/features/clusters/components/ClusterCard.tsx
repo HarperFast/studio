@@ -93,7 +93,7 @@ export function ClusterCard({
 			</DropdownMenuItem>
 		),
 		!isTerminated && remove && (
-			<DropdownMenuItem className="bg-red focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
+			<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
 				Terminate
 			</DropdownMenuItem>
 		),
