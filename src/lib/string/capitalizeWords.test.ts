@@ -19,6 +19,10 @@ describe('capitalizeWords', () => {
 			expect(capitalizeWords('newIDs')).toBe('New IDs');
 		});
 
+		it('APIs -> APIs', () => {
+			expect(capitalizeWords('APIs')).toBe('APIs');
+		});
+
 		it('UPDATING_HDB_NODES -> Updating HDB Nodes', () => {
 			expect(capitalizeWords('UPDATING_HDB_NODES')).toBe('Updating HDB Nodes');
 		});

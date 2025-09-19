@@ -43,6 +43,8 @@ export function Breadcrumbs() {
 			} else if (name.startsWith('Ins ')) {
 				// id = route.split('ins-').pop();
 				name = instance?.name?.split('.')?.shift() || 'Instance';
+			} else if (name === 'Apis') {
+				name = 'APIs';
 			}
 
 			breadcrumbs.push(

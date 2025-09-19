@@ -6,6 +6,12 @@ interface ConfigurationInfoResponse {
 	ram_allocation: number;
 	registered: boolean;
 	version: string;
+	http: {
+		port: number | null;
+		securePort: number | null;
+		cors: boolean;
+		corsAccessList: string[];
+	};
 }
 
 export function getConfigurationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

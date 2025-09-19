@@ -12,7 +12,7 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, useParams } from '@tanstack/react-router';
-import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, SettingsIcon } from 'lucide-react';
+import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, ServerIcon, SettingsIcon } from 'lucide-react';
 import { ReactNode, useMemo } from 'react';
 
 interface Link {
@@ -31,6 +31,11 @@ export function InstanceNavBar() {
 			name: 'Applications',
 			shortName: 'Apps',
 			icon: <PackageIcon className="inline-block" />,
+		},
+		canManage && {
+			to: buildAbsoluteLinkToPage(params, 'apis'),
+			name: 'APIs',
+			icon: <ServerIcon className="inline-block" />,
 		},
 		{
 			to: buildAbsoluteLinkToPage(params, 'databases'),

@@ -1,3 +1,4 @@
+import { createAPIsRouteTree } from '@/features/instance/apis/routes';
 import { createApplicationsRoutes } from '@/features/instance/applications/routes';
 import { createConfigRouteTree } from '@/features/instance/config/routes';
 import { createBrowseRouteTree } from '@/features/instance/databases/routes';
@@ -11,6 +12,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 	const children = [
 		createLogRouteTree(instanceLayoutRoute),
 		...createApplicationsRoutes(instanceLayoutRoute),
+		createAPIsRouteTree(instanceLayoutRoute),
 		createStatusRouteTree(instanceLayoutRoute),
 		createConfigRouteTree(instanceLayoutRoute),
 		createBrowseRouteTree(instanceLayoutRoute),

@@ -4,29 +4,29 @@ import { InstanceClientConfig, InstanceClientIdConfig, InstanceTypeConfig } from
 import { OverallAppSignIn } from '@/lib/authStore';
 import { useParams } from '@tanstack/react-router';
 
-export function useInstanceClient(operationsUrl?: string | null) {
+export function useInstanceClient(operationsUrl?: string | null, port?: number, secure?: boolean) {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
-	return getInstanceClient({ id, operationsUrl });
+	return getInstanceClient({ id, operationsUrl, port, secure });
 }
 
-export function useInstanceClientParams(operationsUrl?: string | null): InstanceClientConfig & InstanceTypeConfig {
+export function useInstanceClientParams(operationsUrl?: string | null, port?: number, secure?: boolean): InstanceClientConfig & InstanceTypeConfig {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	return {
-		instanceClient: getInstanceClient({ id, operationsUrl }),
+		instanceClient: getInstanceClient({ id, operationsUrl, port, secure }),
 		entityType: (isLocalStudio || instanceId) ? 'instance' : 'cluster',
 	};
 }
 
-export function useInstanceClientIdParams(operationsUrl?: string | null): InstanceClientIdConfig & InstanceTypeConfig {
+export function useInstanceClientIdParams(operationsUrl?: string | null, port?: number, secure?: boolean): InstanceClientIdConfig & InstanceTypeConfig {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	if (!id) {
 		throw new Error('id could not be automatically calculated in useInstanceClientIdParams');
 	}
 	return {
-		instanceClient: getInstanceClient({ id, operationsUrl }),
+		instanceClient: getInstanceClient({ id, operationsUrl, port, secure }),
 		entityId: id,
 		entityType: (isLocalStudio || instanceId) ? 'instance' : 'cluster',
 	};
