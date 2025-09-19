@@ -40,7 +40,11 @@ export function OrgCard({
 						<DropdownMenuContent>
 							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 							<DropdownMenuSeparator />
-							{/*<DropdownMenuItem>Edit</DropdownMenuItem>*/}
+							<Link to={`${organizationId}`}><DropdownMenuItem>Clusters</DropdownMenuItem></Link>
+							<Link to={`${organizationId}/roles`}><DropdownMenuItem>Roles</DropdownMenuItem></Link>
+							<Link to={`${organizationId}/users`}><DropdownMenuItem>Users</DropdownMenuItem></Link>
+							<Link to={`${organizationId}/billing`}><DropdownMenuItem>Billing</DropdownMenuItem></Link>
+							<DropdownMenuSeparator />
 							{remove && (<DropdownMenuItem
 								className="bg-red focus:bg-red/70 focus:text-white"
 								onClick={onDeleteClick}>
