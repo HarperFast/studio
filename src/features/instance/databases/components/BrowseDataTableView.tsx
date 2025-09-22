@@ -158,11 +158,11 @@ export function BrowseDataTableView() {
 		);
 	};
 
-	const onCSVDataAdded = () => {
+	const onCSVDataAdded = (message: string) => {
 		void refetchDescribeTableQueryOptions();
 		void refetchSearchByValueOptions();
 		setIsImportCSVModalOpen(false);
-		toast.success('Record(s) added successfully');
+		toast.success(`${message}. Please wait a few moments then refresh the table.`);
 	};
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {

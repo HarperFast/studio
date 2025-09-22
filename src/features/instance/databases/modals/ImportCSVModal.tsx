@@ -31,13 +31,13 @@ export function ImportCSVModal({
 }: {
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
-	onSaveChanges: () => void;
+	onSaveChanges: (message: string) => void;
 	database: string;
 	table: string;
 }) {
 	const [selectedCSVFile, setSelectedCSVFile] = useState<File | null>(null);
 	const instanceParams = useInstanceClientIdParams();
-	const { mutate: addCSVData, isLoading: isAddCSVDataPending } = useAddCSVDataMutation();
+	const { mutate: addCSVData, isPending: isAddCSVDataPending } = useAddCSVDataMutation();
 
 	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (!e.target.files) return;
@@ -76,8 +76,10 @@ export function ImportCSVModal({
 				...instanceParams,
 			},
 			{
-				onSuccess: () => {
-					onSaveChanges();
+				onSuccess: ({ message }: { message: string }) => {
+          form.reset();
+          setSelectedCSVFile(null);
+					onSaveChanges(message);
 				},
 			}
 		);
