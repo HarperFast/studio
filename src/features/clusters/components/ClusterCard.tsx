@@ -88,7 +88,7 @@ export function ClusterCard({
 				<DropdownMenuItem>Instances</DropdownMenuItem>
 			</Link>
 		),
-		isActive && view && (
+		isActive && view && !isSelfManaged && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
 				Copy FQDN Url
 			</DropdownMenuItem>
