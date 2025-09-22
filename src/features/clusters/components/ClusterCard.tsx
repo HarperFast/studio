@@ -21,7 +21,7 @@ import { authStore } from '@/lib/authStore';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { Link } from '@tanstack/react-router';
-import { Ellipsis } from 'lucide-react';
+import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -114,7 +114,14 @@ export function ClusterCard({
 		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					<span className="truncate">{cluster?.fqdn}</span>
+					{!isSelfManaged ? (
+						<>
+							<span className="truncate max-w-48">{cluster?.fqdn}</span>
+							<CopyIcon onClick={onCopyFQDNClick} size={16} />
+						</>
+					) : (
+						<span>Self-Hosted</span>
+					)}
 					{!isTerminated && (
 						<DropdownMenu>
 							<DropdownMenuTrigger>
