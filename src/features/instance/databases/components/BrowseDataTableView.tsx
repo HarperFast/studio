@@ -19,9 +19,10 @@ import { queryClient } from '@/react-query/queryClient';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
-import { PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
+import { ImportIcon, PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
 
 export function BrowseDataTableView() {
 	const allParams: {
@@ -62,6 +63,7 @@ export function BrowseDataTableView() {
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
 	const [sortTableDataParams, setSortTableDataParams] = useEffectedState({
 		attribute: hashAttribute,
 		descending: false,
@@ -167,6 +169,10 @@ export function BrowseDataTableView() {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
 
+	const onImportCSVClicked = useCallback(() => {
+		setIsImportCSVModalOpen(true);
+	}, [setIsImportCSVModalOpen]);
+
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
 	const onDeleteTable = useCallback((targetDatabaseName: string, targetTableName: string) => {
@@ -211,7 +217,8 @@ export function BrowseDataTableView() {
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			>
-				<div className="flex items-center justify-start space-x-2 pt-15 pb-4">
+				<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4">
+					<div className='flex space-x-2'>
 					{canAddRecords && (
 						<Button
 							variant="positiveOutline"
@@ -225,12 +232,25 @@ export function BrowseDataTableView() {
 							</span>
 						</Button>
 					)}
+					{canAddRecords && (
+						<Button
+							variant="positiveOutline"
+							onClick={onImportCSVClicked}
+							disabled={isAddModalOpen || isAddTableRecordsPending}
+							accessKey="n"
+						>
+							<ImportIcon />
+							<span>
+								Import <u>C</u>SV
+							</span>
+						</Button>
+					)}
 					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
 						<RefreshCwIcon />
 					</Button>
+					</div>
 
-					<div className="grow"></div>
-
+					<div>
 					{canManageBrowseInstance && (<Button
 						variant="destructiveOutline"
 						onClick={() => setIsDeleteModalOpen(true)}
@@ -238,6 +258,7 @@ export function BrowseDataTableView() {
 						<Trash className="inline-block " />
 						Drop Table
 					</Button>)}
+					</div>
 				</div>
 			</BrowseDataTable>
 			{canAddRecords && (
@@ -271,6 +292,7 @@ export function BrowseDataTableView() {
 				deletionConfirmed={onDeletionConfirmed}
 				deletionPending={isDeletingTable}
 			/>
+			<ImportCSVModal isModalOpen={isImportCSVModalOpen} setIsModalOpen={setIsImportCSVModalOpen} database={databaseName} table={tableName} />
 		</>
 	);
 }
