@@ -37,6 +37,7 @@ export function ClusterCard({
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useInstanceAuth(cluster.id);
+	const isSelfManaged = useMemo(() => !!cluster?.plans?.[0]?.planId?.startsWith('self-hosted'), [cluster]);
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
 	const isTerminated = useMemo(
@@ -71,6 +72,11 @@ export function ClusterCard({
 		toast.info('FQDN url copied to clipboard');
 	}, [cluster.fqdn]);
 
+	const onCopyAPIClick = useCallback(() => {
+		navigator.clipboard.writeText(`https://${cluster.fqdn}`);
+		toast.info('API url copied to clipboard');
+	}, [cluster.fqdn]);
+
 	const menuItems = [
 		isActive && update && (
 			<Link to={`${cluster.id}/edit`} disabled={signingOut}>
@@ -85,6 +91,11 @@ export function ClusterCard({
 		isActive && view && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
 				Copy FQDN Url
+			</DropdownMenuItem>
+		),
+		isActive && view && !isSelfManaged && (
+			<DropdownMenuItem onClick={onCopyAPIClick} disabled={signingOut}>
+				Copy API Url
 			</DropdownMenuItem>
 		),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
@@ -103,7 +114,7 @@ export function ClusterCard({
 		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					<span className="truncate">{cluster.id}</span>
+					<span className="truncate">{cluster?.fqdn}</span>
 					{!isTerminated && (
 						<DropdownMenu>
 							<DropdownMenuTrigger>
