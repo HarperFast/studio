@@ -1,5 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
@@ -10,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { CloudUploadIcon, Save } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { AddCSVDataFormData, useAddCSVDataMutation } from '@/features/instance/operations/mutations/addCSVData';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,71 +25,77 @@ import { AddCSVDataFormSchema } from '../../operations/schemas/addCSVDataFormSch
 export function ImportCSVModal({
 	setIsModalOpen,
 	isModalOpen,
-  database,
-  table
+	onSaveChanges,
+	database,
+	table,
 }: {
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
-  database: string;
-  table: string;
+	onSaveChanges: () => void;
+	database: string;
+	table: string;
 }) {
-  const [selectedCSVFile, setSelectedCSVFile] = useState<File | null>(null);
-const instanceParams = useInstanceClientIdParams();
-  const { mutate: addCSVData } = useAddCSVDataMutation();
+	const [selectedCSVFile, setSelectedCSVFile] = useState<File | null>(null);
+	const instanceParams = useInstanceClientIdParams();
+	const { mutate: addCSVData, isLoading: isAddCSVDataPending } = useAddCSVDataMutation();
 
 	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result;
-        if (typeof text === 'string') {
-          setSelectedCSVFile(file);
-          form.setValue('fileData', text);
-        }
-      };
-      reader.readAsText(file);
-    }
+		if (!e.target.files) return;
+		const file = e.target.files[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				const text = event.target?.result;
+				if (typeof text === 'string') {
+					setSelectedCSVFile(file);
+					form.setValue('fileData', text);
+				}
+			};
+			reader.readAsText(file);
+		}
 		if (e.target.files && e.target.files.length > 0) {
 			setSelectedCSVFile(e.target.files[0]);
 		}
 	};
 
 	const form = useForm({
-    resolver: zodResolver(AddCSVDataFormSchema),
-    defaultValues: {
-      database,
-      table,
-      fileData: undefined,
-    },
-  });
+		resolver: zodResolver(AddCSVDataFormSchema),
+		defaultValues: {
+			database,
+			table,
+			fileData: undefined,
+		},
+	});
 
-  const submitForm = (formData: AddCSVDataFormData) => {
-    addCSVData({
-      fileData: formData.fileData,
-      database,
-      table,
-      ...instanceParams
-    }, {
-      onSuccess: () => {
-        toast.success('CSV data added successfully!');
-        setIsModalOpen(false);
-        setSelectedCSVFile(null);
-      },
-      onError: (error) => {
-        toast.error(`Error adding CSV data: ${error.message}`);
-      },
-    });
-    
-  };
+	const submitForm = (formData: AddCSVDataFormData) => {
+		addCSVData(
+			{
+				fileData: formData.fileData,
+				database,
+				table,
+				...instanceParams,
+			},
+			{
+				onSuccess: () => {
+					onSaveChanges();
+				},
+			}
+		);
+	};
 
 	return (
-		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+		<Dialog
+			onOpenChange={() => {
+				setIsModalOpen(false);
+				setSelectedCSVFile(null);
+				form.reset();
+			}}
+			open={isModalOpen}
+		>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Import CSV</DialogTitle>
-          <DialogDescription>Upload a CSV file to import data into the table.</DialogDescription>
+					<DialogDescription>Upload a CSV file to import data into the table.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)}>
@@ -93,7 +105,10 @@ const instanceParams = useInstanceClientIdParams();
 								name="fileData"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel htmlFor='dropzone-file' className="flex flex-col items-center justify-center w-full h-64 border-2 border-grey border-dashed rounded-lg cursor-pointer bg-grey-700 hover:bg-grey-700/80">
+										<FormLabel
+											htmlFor="dropzone-file"
+											className="flex flex-col items-center justify-center w-full h-64 border-2 border-grey border-dashed rounded-lg cursor-pointer bg-grey-700 hover:bg-grey-700/80"
+										>
 											<FormControl>
 												<div>
 													<div className="flex flex-col items-center justify-center pt-5 pb-6">
@@ -128,7 +143,7 @@ const instanceParams = useInstanceClientIdParams();
 							/>
 						</div>
 						<DialogFooter className="mt-4">
-							<Button variant="submit" className="rounded-full" accessKey="s">
+							<Button variant="submit" className="rounded-full" accessKey="s" disabled={!selectedCSVFile || isAddCSVDataPending}>
 								<Save />{' '}
 								<span>
 									<u>U</u>pload CSV

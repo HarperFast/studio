@@ -46,7 +46,7 @@ export function BrowseDataTableView() {
 			...instanceParams,
 			databaseName,
 			tableName,
-		}),
+		})
 	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -58,16 +58,19 @@ export function BrowseDataTableView() {
 			databaseName: databaseName,
 			tableName: tableName,
 			ids: selectedIds,
-		}),
+		})
 	);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useEffectedState({
-		attribute: hashAttribute,
-		descending: false,
-	}, allParams);
+	const [sortTableDataParams, setSortTableDataParams] = useEffectedState(
+		{
+			attribute: hashAttribute,
+			descending: false,
+		},
+		allParams
+	);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName]);
@@ -87,7 +90,7 @@ export function BrowseDataTableView() {
 			sortTableDataParams,
 			pageSize,
 			pageIndex,
-		}),
+		})
 	);
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
@@ -114,7 +117,7 @@ export function BrowseDataTableView() {
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
-			},
+			}
 		);
 	};
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
@@ -132,9 +135,10 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			},
+			}
 		);
 	};
+
 	const onDeleteRecord = (hashes: unknown[]) => {
 		deleteTableRecords(
 			{
@@ -150,9 +154,17 @@ export function BrowseDataTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			},
+			}
 		);
 	};
+
+	const onCSVDataAdded = () => {
+		void refetchDescribeTableQueryOptions();
+		void refetchSearchByValueOptions();
+		setIsImportCSVModalOpen(false);
+		toast.success('Record(s) added successfully');
+	};
+
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		setSelectedIds([rowData.original[hashAttribute]]);
 		setIsEditModalOpen(!isEditModalOpen);
@@ -175,26 +187,32 @@ export function BrowseDataTableView() {
 
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-	const onDeleteTable = useCallback((targetDatabaseName: string, targetTableName: string) => {
-		deleteTable({
-			databaseName: targetDatabaseName,
-			tableName: targetTableName,
-			...instanceParams,
-			replicated: instanceParams.entityType === 'cluster',
-		}, {
-			onSuccess: async () => {
-				setIsDeleteModalOpen(false);
-				await queryClient.invalidateQueries({
-					queryKey: [instanceParams.entityId, 'describe_all'],
-					refetchType: 'all',
-				});
-				toast.success(`Table ${targetTableName} dropped successfully`);
-				if (targetTableName === tableName) {
-					void navigate({ to: '../' });
+	const onDeleteTable = useCallback(
+		(targetDatabaseName: string, targetTableName: string) => {
+			deleteTable(
+				{
+					databaseName: targetDatabaseName,
+					tableName: targetTableName,
+					...instanceParams,
+					replicated: instanceParams.entityType === 'cluster',
+				},
+				{
+					onSuccess: async () => {
+						setIsDeleteModalOpen(false);
+						await queryClient.invalidateQueries({
+							queryKey: [instanceParams.entityId, 'describe_all'],
+							refetchType: 'all',
+						});
+						toast.success(`Table ${targetTableName} dropped successfully`);
+						if (targetTableName === tableName) {
+							void navigate({ to: '../' });
+						}
+					},
 				}
-			},
-		});
-	}, [deleteTable, instanceParams, navigate, tableName]);
+			);
+		},
+		[deleteTable, instanceParams, navigate, tableName]
+	);
 
 	const onDeletionConfirmed = useCallback(() => {
 		if (databaseName && tableName) {
@@ -218,46 +236,45 @@ export function BrowseDataTableView() {
 				setPageSize={setPageSize}
 			>
 				<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4">
-					<div className='flex space-x-2'>
-					{canAddRecords && (
-						<Button
-							variant="positiveOutline"
-							onClick={onAddClicked}
-							disabled={isAddModalOpen || isAddTableRecordsPending}
-							accessKey="n"
-						>
-							<PlusIcon />
-							<span>
-								Add <u>N</u>ew Record(s)
-							</span>
+					<div className="flex space-x-2">
+						{canAddRecords && (
+							<Button
+								variant="positiveOutline"
+								onClick={onAddClicked}
+								disabled={isAddModalOpen || isAddTableRecordsPending}
+								accessKey="n"
+							>
+								<PlusIcon />
+								<span>
+									Add <u>N</u>ew Record(s)
+								</span>
+							</Button>
+						)}
+						{canAddRecords && (
+							<Button
+								variant="positiveOutline"
+								onClick={onImportCSVClicked}
+								disabled={isAddModalOpen || isAddTableRecordsPending}
+								accessKey="n"
+							>
+								<ImportIcon />
+								<span>
+									Import <u>C</u>SV
+								</span>
+							</Button>
+						)}
+						<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
+							<RefreshCwIcon />
 						</Button>
-					)}
-					{canAddRecords && (
-						<Button
-							variant="positiveOutline"
-							onClick={onImportCSVClicked}
-							disabled={isAddModalOpen || isAddTableRecordsPending}
-							accessKey="n"
-						>
-							<ImportIcon />
-							<span>
-								Import <u>C</u>SV
-							</span>
-						</Button>
-					)}
-					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
-						<RefreshCwIcon />
-					</Button>
 					</div>
 
 					<div>
-					{canManageBrowseInstance && (<Button
-						variant="destructiveOutline"
-						onClick={() => setIsDeleteModalOpen(true)}
-					>
-						<Trash className="inline-block " />
-						Drop Table
-					</Button>)}
+						{canManageBrowseInstance && (
+							<Button variant="destructiveOutline" onClick={() => setIsDeleteModalOpen(true)}>
+								<Trash className="inline-block " />
+								Drop Table
+							</Button>
+						)}
 					</div>
 				</div>
 			</BrowseDataTable>
@@ -292,7 +309,13 @@ export function BrowseDataTableView() {
 				deletionConfirmed={onDeletionConfirmed}
 				deletionPending={isDeletingTable}
 			/>
-			<ImportCSVModal isModalOpen={isImportCSVModalOpen} setIsModalOpen={setIsImportCSVModalOpen} database={databaseName} table={tableName} />
+			<ImportCSVModal
+				isModalOpen={isImportCSVModalOpen}
+				setIsModalOpen={setIsImportCSVModalOpen}
+				onSaveChanges={onCSVDataAdded}
+				database={databaseName}
+				table={tableName}
+			/>
 		</>
 	);
 }
