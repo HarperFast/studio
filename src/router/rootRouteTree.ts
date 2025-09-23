@@ -1,13 +1,14 @@
 import { isLocalStudio } from '@/config/constants';
-import { rootRoute } from '@/router/rootRoute';
 import { authRouteTree, localAuthRoutes } from '@/features/auth/routes';
-import { dashboardLayout } from '@/router/dashboardRoute';
-import { createInstanceRouteTree } from '@/features/instance/routes';
-import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
-import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
+import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
+import { clusterRoutes } from '@/features/cluster/routes';
 import { clustersLayoutRoute, clustersRoutes } from '@/features/clusters/routes';
-import { clusterLayoutRoute, clusterRoutes } from '@/features/cluster/routes';
+import { createInstanceRouteTree } from '@/features/instance/routes';
+import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
+import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
 import { profileRoutes } from '@/features/profile/routes';
+import { dashboardLayout } from '@/router/dashboardRoute';
+import { rootRoute } from '@/router/rootRoute';
 
 export const rootRouteTree = isLocalStudio
 	? rootRoute.addChildren([

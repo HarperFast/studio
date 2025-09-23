@@ -1,3 +1,4 @@
+import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { ClustersList as ClusterList } from '@/features/clusters/ClustersList';
 import { UpsertCluster } from '@/features/clusters/upsert';
 import { orgLayoutRoute } from '@/features/organization/routes';
@@ -21,8 +22,8 @@ const newClusterRoute = createRoute({
 });
 
 const editClusterRoute = createRoute({
-	getParentRoute: () => orgLayoutRoute,
-	path: '$clusterId/edit',
+	getParentRoute: () => clusterLayoutRoute,
+	path: '/edit',
 	component: UpsertCluster,
 });
 
