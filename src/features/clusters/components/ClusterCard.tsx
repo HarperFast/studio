@@ -88,12 +88,12 @@ export function ClusterCard({
 				<DropdownMenuItem>Instances</DropdownMenuItem>
 			</Link>
 		),
-		isActive && view && !isSelfManaged && (
+		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
 				Copy FQDN Url
 			</DropdownMenuItem>
 		),
-		isActive && view && !isSelfManaged && (
+		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyAPIClick} disabled={signingOut}>
 				Copy API Url
 			</DropdownMenuItem>
