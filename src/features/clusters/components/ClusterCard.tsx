@@ -68,7 +68,7 @@ export function ClusterCard({
 
 	const onCopyFQDNClick = useCallback(() => {
 		navigator.clipboard.writeText(cluster.fqdn || '');
-		toast.info('FQDN url copied to clipboard');
+		toast.info('FQDN copied to clipboard');
 	}, [cluster.fqdn]);
 
 	const onCopyAPIClick = useCallback(() => {
