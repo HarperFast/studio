@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Harper is Running!</title>
+	<link rel="icon" type="image/svg+xml" href="/HDBDogOnly.svg" />
+	<link rel="icon" type="dynamic-favicon" href="/favicon_purple.png" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<style>
+		* {
+			padding: 0;
+			margin: 0;
+		}
+
+		#app-bg-color,
+		#app-bg-dots {
+			bottom: 0;
+			height: 100vh;
+			left: 0;
+			position: fixed;
+			right: 0;
+			top: 0;
+			width: 100vw;
+		}
+
+		#app-bg-color {
+			background: linear-gradient(45deg, #312556, #403b8a, #7a3a87) !important;
+			z-index: -2;
+		}
+
+		#app-bg-dots {
+			background: radial-gradient(#403b8a 1px, transparent 0);
+			background-size: 3px 3px;
+			z-index: -1;
+		}
+
+		#content {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			width: 100vw;
+			height: 100vh;
+			font-family: helvetica, sans-serif;
+			color: #efefef;
+			font-size: 12px;
+			line-height: 1.5;
+		}
+
+		ul {
+			margin: 0;
+			padding-inline-start: 10px;
+		}
+
+		a {
+			color: #efefef;
+		}
+
+		hr {
+			width: 153px;
+			background-color: #efefef;
+			/* Modern Browsers */
+			border: 0 none;
+			color: #efefef;
+			height: 1px !important;
+			overflow: hidden;
+			margin: 10px 0;
+		}
+	</style>
+</head>
+
+<body>
+<div id="content">
+	<img src="/HDBDogOnly.svg" width="100px" height="100px" alt="Harper Logo" />
+	<hr />
+	Harper is running!
+	<hr />
+	Ready to learn more?
+	<ul>
+		<li><a href="https://studio.harperdb.io" target="_blank" rel="noopener noreferrer">
+			Harper Studio</a></li>
+		<li><a href="https://docs.harperdb.io" target="_blank" rel="noopener noreferrer">
+			Harper Documentation</a></li>
+		<li><a href="https://api.harperdb.io/" target="_blank" rel="noopener noreferrer">
+			Harper API Examples</a></li>
+	</ul>
+</div>
+<div id="app-bg-color"></div>
+<div id="app-bg-dots"></div>
+</body>
+</html>
