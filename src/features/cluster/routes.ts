@@ -1,22 +1,9 @@
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
-import { ClusterLayout } from '@/features/cluster/ClusterLayout';
+import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
 import { ClusterIndex } from '@/features/cluster/index';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { clustersLayoutRoute } from '@/features/clusters/routes';
 import { createRoute, redirect } from '@tanstack/react-router';
-
-export const clusterLayoutRoute = createRoute({
-	getParentRoute: () => clustersLayoutRoute,
-	path: '$clusterId',
-	component: ClusterLayout,
-	beforeLoad: async ({ context, params }) => {
-		return {
-			cluster: await context.queryClient.ensureQueryData(getClusterInfoQueryOptions(params.clusterId)),
-		};
-	},
-});
 
 const clusterIndexRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,

@@ -1,6 +1,6 @@
-import { clusterLayoutRoute } from '@/features/cluster/routes';
-import { InstanceLayout } from '@/features/instance/InstanceLayout';
+import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
+import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
