@@ -37,7 +37,6 @@ export function ClusterCard({
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useInstanceAuth(cluster.id);
-	const isSelfManaged = useMemo(() => !!cluster?.plans?.[0]?.planId?.startsWith('self-hosted'), [cluster]);
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
 	const isTerminated = useMemo(
@@ -114,9 +113,9 @@ export function ClusterCard({
 		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					{!isSelfManaged ? (
+					{cluster.fqdn ? (
 						<>
-							<span className="truncate max-w-48">{cluster?.fqdn}</span>
+							<span className="truncate max-w-48">{cluster.fqdn}</span>
 							<CopyIcon onClick={onCopyFQDNClick} size={16} />
 						</>
 					) : (
