@@ -63,7 +63,7 @@ export function ImportCSVModal({
 		defaultValues: {
 			database,
 			table,
-			fileData: undefined,
+			fileData: '',
 		},
 	});
 
@@ -77,8 +77,8 @@ export function ImportCSVModal({
 			},
 			{
 				onSuccess: ({ message }: { message: string }) => {
-          form.reset();
-          setSelectedCSVFile(null);
+					form.reset();
+					setSelectedCSVFile(null);
 					onSaveChanges(message);
 				},
 			}
@@ -89,7 +89,6 @@ export function ImportCSVModal({
 		<Dialog
 			onOpenChange={() => {
 				setIsModalOpen(false);
-				setSelectedCSVFile(null);
 				form.reset();
 			}}
 			open={isModalOpen}
@@ -145,7 +144,12 @@ export function ImportCSVModal({
 							/>
 						</div>
 						<DialogFooter className="mt-4">
-							<Button variant="submit" className="rounded-full" accessKey="s" disabled={!selectedCSVFile || isAddCSVDataPending}>
+							<Button
+								variant="submit"
+								className="rounded-full"
+								accessKey="s"
+								disabled={!selectedCSVFile || isAddCSVDataPending}
+							>
 								<Save />{' '}
 								<span>
 									<u>U</u>pload CSV
