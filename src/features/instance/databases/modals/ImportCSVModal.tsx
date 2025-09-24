@@ -53,9 +53,6 @@ export function ImportCSVModal({
 			};
 			reader.readAsText(file);
 		}
-		if (e.target.files && e.target.files.length > 0) {
-			setSelectedCSVFile(e.target.files[0]);
-		}
 	};
 
 	const form = useForm({
