@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 export interface AddCSVDataFormData {
 	database: string;
 	table: string;
-	fileData: File;
+	fileData: string;
 }
 export interface AddCSVDataResponse{
 	message: string;
