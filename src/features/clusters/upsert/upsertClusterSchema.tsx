@@ -9,7 +9,8 @@ export const UpsertClusterSchema = z.object({
 	abbreviatedName: z
 		.string()
 		.max(20, 'Must be at most 20 characters long.')
-		.regex(/^[a-zA-Z0-9-]*$/, 'Can only contain letters, numbers and dashes'),
+		.regex(/^[a-zA-Z0-9-]*$/, 'Can only contain letters, numbers and dashes')
+		.optional(),
 	fqdn: z
 		.string()
 		.regex(hostNameRegex, 'Please enter a valid host name without the port or any path.')
