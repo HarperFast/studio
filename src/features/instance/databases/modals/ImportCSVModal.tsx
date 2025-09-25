@@ -102,7 +102,7 @@ export function ImportCSVModal({
 								control={form.control}
 								name="fileData"
 								render={({ field }) => (
-									<FormItem>
+									<FormItem className="relative">
 										<FormLabel
 											htmlFor="dropzone-file"
 											className="flex flex-col items-center justify-center w-full h-64 border-2 border-grey border-dashed rounded-lg cursor-pointer bg-grey-700 hover:bg-grey-700/80"
@@ -124,7 +124,7 @@ export function ImportCSVModal({
 													<Input
 														id="dropzone-file"
 														type="file"
-														className="hidden"
+														className="opacity-0 w-full h-full absolute left-0 top-0 cursor-pointer"
 														accept=".csv"
 														name={field.name}
 														ref={field.ref}
