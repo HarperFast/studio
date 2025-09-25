@@ -255,7 +255,7 @@ export function BrowseDataTableView() {
 								variant="positiveOutline"
 								onClick={onImportCSVClicked}
 								disabled={isImportCSVModalOpen || isAddTableRecordsPending}
-								accessKey="i"
+								accessKey="c"
 							>
 								<ImportIcon />
 								<span>
