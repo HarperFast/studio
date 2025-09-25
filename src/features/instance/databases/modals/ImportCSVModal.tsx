@@ -144,10 +144,10 @@ export function ImportCSVModal({
 							<Button
 								variant="submit"
 								className="rounded-full"
-								accessKey="s"
+								accessKey="u"
 								disabled={!selectedCSVFile || isAddCSVDataPending}
 							>
-								<Save />{' '}
+								<Save />
 								<span>
 									<u>U</u>pload CSV
 								</span>
