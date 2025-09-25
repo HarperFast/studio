@@ -19,7 +19,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -55,6 +55,7 @@ export function ClusterForm({
 	startOffOnBilling,
 }: ClusterFormProps) {
 	const navigate = useNavigate();
+	const router = useRouter();
 
 	const queryClient = useQueryClient();
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
@@ -266,6 +267,11 @@ export function ClusterForm({
 		toastId: string | number;
 	}) => {
 		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+		if (!creating) {
+			void queryClient.invalidateQueries({ queryKey: [queryKeys.cluster, clusterId], refetchType: 'active' });
+		}
+
+		void router.invalidate();
 		void navigate({ to: creating ? '../' : '../../' });
 		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
 			id: toastId,
@@ -276,7 +282,7 @@ export function ClusterForm({
 					: 'The updates are being provisioned now.',
 			duration: 5_000,
 		});
-	}, [navigate, queryClient]);
+	}, [clusterId, navigate, queryClient, router]);
 
 	const submitCreateCluster = useCallback(async () => {
 		const formData = form.getValues();
