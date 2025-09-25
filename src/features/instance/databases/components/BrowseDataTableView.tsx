@@ -158,12 +158,16 @@ export function BrowseDataTableView() {
 		);
 	};
 
-	const onCSVDataAdded = (message: string) => {
-		void refetchDescribeTableQueryOptions();
-		void refetchSearchByValueOptions();
+	const refreshTable = useCallback(async () => {
+		await refetchDescribeTableQueryOptions();
+		await refetchSearchByValueOptions();
+	}, [refetchDescribeTableQueryOptions, refetchSearchByValueOptions]);
+
+	const onCSVDataAdded = useCallback((message: string) => {
+		void refreshTable();
 		setIsImportCSVModalOpen(false);
 		toast.success(`${message}. Please wait a few moments then refresh the table.`);
-	};
+	}, [refreshTable]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		setSelectedIds([rowData.original[hashAttribute]]);
@@ -175,7 +179,7 @@ export function BrowseDataTableView() {
 			descending: !isAscending,
 		});
 	};
-	const onRefreshClick = useRefreshClick(refetchSearchByValueOptions);
+	const onRefreshClick = useRefreshClick(refreshTable);
 
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
