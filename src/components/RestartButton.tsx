@@ -19,7 +19,7 @@ export function RestartButton({
 		onRestartClick: onRestartClusterClick,
 		isRestartPending: isRestartClusterPending,
 	} = useRestartClusterClick();
-	const { onRestartClick, isRestartPending } = useRestartInstanceClick({ targetNoun, operation, instanceClient });
+	const { onRestartClick, isRestartPending } = useRestartInstanceClick({ operation, instanceClient });
 	return (<Tooltip>
 		<TooltipTrigger asChild>
 			<Button
