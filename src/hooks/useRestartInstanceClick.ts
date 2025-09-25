@@ -1,10 +1,13 @@
+import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useRestartInstance } from '@/features/instance/operations/mutations/restartInstance';
+import { queryKeys } from '@/react-query/constants';
+import { useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
 interface RestartInstanceClickParams extends InstanceClientConfig {
-	targetNoun: 'Instance' | 'Cluster';
 	operation: 'restart_service' | 'restart';
 	onRestartedSuccessfully?: () => void;
 }
@@ -15,12 +18,14 @@ interface RestartInstanceClickResponse {
 }
 
 export function useRestartInstanceClick({
-	targetNoun,
 	operation,
 	instanceClient,
 	onRestartedSuccessfully,
 }: RestartInstanceClickParams): RestartInstanceClickResponse {
+	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string; } = useParams({ strict: false });
+	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const { mutate: restartInstance, isPending: isRestartPending } = useRestartInstance();
+	const queryClient = useQueryClient();
 	const onRestartClick = useCallback(() => {
 		const toastId = toast.loading('Restarting', {
 			description: `Restarting ${targetNoun.toLowerCase()}. This may take up to 60 seconds.`,
@@ -36,6 +41,9 @@ export function useRestartInstanceClick({
 			instanceClient,
 		}, {
 			onSuccess: () => {
+				void queryClient.invalidateQueries({ queryKey: [queryKeys.cluster, clusterId, queryKeys.instance, instanceId], refetchType: 'active' });
+				void queryClient.invalidateQueries({ queryKey: [clusterId], refetchType: 'active' });
+				void queryClient.invalidateQueries({ queryKey: [instanceId], refetchType: 'active' });
 				toast.dismiss(toastId);
 				toast.success('Success', {
 					description: `${targetNoun} restarted!`,
@@ -57,7 +65,7 @@ export function useRestartInstanceClick({
 				});
 			},
 		});
-	}, [instanceClient, onRestartedSuccessfully, operation, restartInstance, targetNoun]);
+	}, [clusterId, instanceClient, instanceId, onRestartedSuccessfully, operation, queryClient, restartInstance, targetNoun]);
 
 	return {
 		onRestartClick,

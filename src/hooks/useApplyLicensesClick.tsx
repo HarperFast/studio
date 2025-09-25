@@ -1,9 +1,12 @@
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { installUsageLicense } from '@/features/instance/operations/mutations/installUsageLicense';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { SchemaLicense } from '@/lib/api.gen';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sleep } from '@/lib/sleep';
+import { useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -18,7 +21,15 @@ interface ApplyLicensesClickResponse {
 
 export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): ApplyLicensesClickResponse {
 	const instanceClient = useInstanceClient();
+	const { instanceId }: { instanceId?: string; } = useParams({ strict: false });
+	const queryClient = useQueryClient();
+	const {isRestartPending, onRestartClick } = useRestartInstanceClick({
+		operation: 'restart_service',
+		instanceClient,
+	});
+
 	const [isApplyLicensesPending, setIsApplyLicensesPending] = useState(false);
+
 	const onApplyLicensesClick = useCallback(async () => {
 		setIsApplyLicensesPending(true);
 
@@ -77,6 +88,8 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 
 		setIsApplyLicensesPending(false);
 
+		void queryClient.invalidateQueries({ queryKey: [instanceId, 'get_configuration'], refetchType: 'active' });
+
 		const licenseWord = licenses.length === 1 ? 'License' : 'Licenses';
 		if (canceled) {
 			toast.error('Cancelled', {
@@ -92,10 +105,13 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 			toast.success('Success', {
 				id: toastId,
 				description: `${licenseWord} applied!\nPlease restart your instance.`,
-				duration: 10_000,
+				duration: 0,
 				action: {
-					label: 'Dismiss',
-					onClick: () => toast.dismiss(),
+					label: 'Restart',
+					onClick: () => {
+						toast.dismiss(toastId);
+						onRestartClick();
+					},
 				},
 			});
 		} else {
@@ -112,12 +128,12 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 				},
 			});
 		}
-	}, [instanceClient, licenses]);
+	}, [instanceClient, instanceId, licenses, onRestartClick, queryClient]);
 
 
 	return {
 		onApplyLicensesClick,
-		isApplyLicensesPending,
+		isApplyLicensesPending: isApplyLicensesPending || isRestartPending,
 	};
 }
 

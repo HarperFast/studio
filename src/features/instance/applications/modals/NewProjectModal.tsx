@@ -2,10 +2,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { FolderPlus, Import } from 'lucide-react';
 import { useCallback} from 'react';
-import { useParams } from '@tanstack/react-router';
 import { useInstanceClientIdParams, useInstanceClientParams } from '@/config/useInstanceClient';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
-import { isLocalStudio } from '@/config/constants';
 import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
 import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,9 +19,7 @@ export function NewProjectModal({
 	readonly appType: string;
 	readonly setAppType: (value: 'create' | 'import') => void;
 }) {
-	const { instanceId }: { instanceId?: string; } = useParams({ strict: false });
 	const { instanceClient } = useInstanceClientParams();
-    const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
     const queryClient = useQueryClient();
     const instanceParams = useInstanceClientIdParams();
 
@@ -33,7 +29,6 @@ export function NewProjectModal({
     }, [setIsModalOpen, instanceParams.entityId, queryClient]);
     const { onRestartClick, isRestartPending } = useRestartInstanceClick({
       operation: 'restart_service',
-      targetNoun,
       instanceClient,
       onRestartedSuccessfully,
     });
