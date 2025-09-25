@@ -246,7 +246,7 @@ export function EditOrganizationRoleModal({
 										defaultValue={updatedPermissions}
 									/>
 								</div>
-								{(remove || update) && (<DialogFooter className="col-span-2">
+								{(!isSelf && (remove || update)) && (<DialogFooter className="col-span-2">
 									<div className="flex justify-between w-full">
 										{remove && (<Button
 											type="button"
