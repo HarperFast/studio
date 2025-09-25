@@ -1,11 +1,9 @@
-import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
-import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
@@ -13,25 +11,16 @@ import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenNa
 import { groupBy } from '@/lib/groupBy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
-import { queryKeys } from '@/react-query/constants';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 export function ClustersList() {
-	const queryClient = useQueryClient();
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
-	const { mutate: terminateCluster, isPending: isTerminateClusterPending } = useTerminateClusterMutation();
 
-	const [isTerminateClusterModalOpen, setIsTerminateClusterModalOpen] = useState(false);
-	const [terminateClusterInfo, setTerminateClusterInfo] = useState({
-		id: '',
-		name: '',
-	});
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 
 	const onFilterByNameChanged = useCallback((e: FormEvent<HTMLInputElement>) => {
@@ -52,47 +41,6 @@ export function ClustersList() {
 			groups,
 		};
 	}, [filterByNameValue, orgInfo?.clusters]);
-
-	const handleTerminatedCluster = useCallback(
-		(clusterInfo: { id: string; name: string }) => {
-			if (clusterInfo) {
-				terminateCluster(clusterInfo.id, {
-					onSuccess: () => {
-						toast.success('Success', {
-							description: `Cluster successfully terminated.`,
-							duration: 5000,
-							action: {
-								label: 'Dismiss',
-								onClick: () => toast.dismiss(),
-							},
-						});
-						void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
-						setIsTerminateClusterModalOpen(false);
-					},
-					onError: () => {
-						toast.error('Error', {
-							description: `Failed to terminate cluster: ${clusterInfo.name}.`,
-							duration: 5000,
-							action: {
-								label: 'Dismiss',
-								onClick: () => toast.dismiss(),
-							},
-						});
-						setIsTerminateClusterModalOpen(false);
-					},
-				});
-			}
-		},
-		[terminateCluster, queryClient, setIsTerminateClusterModalOpen]
-	);
-
-	const onTerminateClusterModal = useCallback((cluster: Cluster) => {
-		setTerminateClusterInfo({
-			id: cluster.id,
-			name: cluster.name,
-		});
-		setIsTerminateClusterModalOpen(true);
-	}, []);
 
 	return (
 		<>
@@ -132,7 +80,7 @@ export function ClustersList() {
 							<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
 								{clustersData.groups[clusterStatus].map((cluster) => (
 									<div key={cluster.id} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-										<ClusterCard cluster={cluster} onTerminateClusterModal={onTerminateClusterModal} />
+										<ClusterCard cluster={cluster} />
 									</div>
 								))}
 							</div>
@@ -162,16 +110,6 @@ export function ClustersList() {
 					</div>
 				)}
 			</section>
-			<ConfirmDeletionModal
-				typeOfThingBeingDeleted="cluster"
-				transitiveVerb="Terminate"
-				presentParticiple="Terminating"
-				nameOfThingBeingDeleted={terminateClusterInfo.name}
-				isModalOpen={isTerminateClusterModalOpen}
-				setIsModalOpen={(isOpen: boolean) => setIsTerminateClusterModalOpen(isOpen)}
-				deletionConfirmed={() => handleTerminatedCluster(terminateClusterInfo)}
-				deletionPending={isTerminateClusterPending}
-			/>
 		</>
 	);
 }
