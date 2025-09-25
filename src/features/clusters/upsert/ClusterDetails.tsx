@@ -226,7 +226,7 @@ export function ClusterDetails({
 									<Input
 										{...field}
 										type="text"
-										maxLength={UpsertClusterSchema.shape.abbreviatedName.maxLength!}
+										maxLength={UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!}
 										autoCapitalize="none"
 										autoComplete="off"
 										autoCorrect="off"

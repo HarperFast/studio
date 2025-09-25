@@ -190,7 +190,7 @@ export function ClusterForm({
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
 			toKebabCase(systemName),
-			UpsertClusterSchema.shape.abbreviatedName.maxLength!,
+			UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!,
 		);
 		return {
 			suggestedAbbreviatedName,
@@ -317,7 +317,9 @@ export function ClusterForm({
 			});
 		} else {
 			submitNewClusterData({
-				abbreviatedName: isSelfManaged ? undefined : (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
+				abbreviatedName: isSelfManaged
+					? undefined
+					: (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
 				autoRenew: true,
 				fqdn: isSelfManaged && formData.fqdn || undefined,
 				name: formData.systemName,
