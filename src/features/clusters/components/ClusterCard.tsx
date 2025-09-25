@@ -116,7 +116,8 @@ export function ClusterCard({
 					{cluster.fqdn ? (
 						<>
 							<span className="truncate max-w-48">{cluster.fqdn}</span>
-							<CopyIcon onClick={onCopyFQDNClick} size={16} />
+							<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
+							<span className="grow"></span>
 						</>
 					) : (
 						<span>Self-Hosted</span>
