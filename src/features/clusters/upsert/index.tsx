@@ -44,7 +44,7 @@ export function UpsertCluster() {
 				&& orgCluster.plans) {
 				for (const clusterPlan of orgCluster.plans) {
 					const foundPlan = planTypes.find(p => p.id === clusterPlan.planId);
-					if (foundPlan?.priceUsd === 0) {
+					if (foundPlan?.priceUsd === 0 && !foundPlan.id.startsWith('self-hosted')) {
 						return true;
 					}
 				}
