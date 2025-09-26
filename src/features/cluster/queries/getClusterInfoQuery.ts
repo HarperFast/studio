@@ -8,12 +8,16 @@ export async function getClusterInfo(clusterId: string) {
 	return data as Cluster;
 }
 
-export function getClusterInfoQueryOptions(clusterId?: string, refetch?: boolean) {
+export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?: boolean | number) {
 	return queryOptions({
 		queryKey: [queryKeys.cluster, clusterId],
-		queryFn: () => getClusterInfo(clusterId!),
+		queryFn: () => getClusterInfo(clusterId as string),
 		retry: false,
 		enabled: !!clusterId,
-		refetchInterval: refetch ? 10000 : undefined,
+		refetchInterval: refetch
+			? refetch === true
+				? 10000
+				: refetch
+			: undefined,
 	});
 }

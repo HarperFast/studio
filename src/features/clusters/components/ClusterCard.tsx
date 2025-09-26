@@ -1,3 +1,4 @@
+import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -8,9 +9,9 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { isBeingUpdated, isRunning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient } from '@/config/useInstanceClient';
-import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
+import { getClusterInfo, getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -18,8 +19,8 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
-import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -37,12 +38,28 @@ export function ClusterCard({
 }) {
 	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const auth = useInstanceAuth(cluster.id);
+	const isUpdating = isBeingUpdated(cluster.status);
+	const { data: clusterById } = useQuery(
+		getClusterInfoQueryOptions(isUpdating && cluster.id, 2000),
+	);
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
 	const isTerminated = useMemo(
 		() => cluster.status && deletedClusterStatuses.includes(cluster.status),
-		[cluster.status]
+		[cluster.status],
 	);
+	const updating = useMemo(() => {
+		if (isUpdating && clusterById?.instances) {
+			const updating = clusterById.instances.reduce((total, instance) =>
+				total + (isBeingUpdated(instance.status) ? 1 : 0), 0);
+			const running = clusterById.instances.reduce((total, instance) =>
+				total + (isRunning(instance.status) ? 1 : 0), 0);
+			return {
+				current: running,
+				total: updating + running,
+			};
+		}
+	}, [clusterById, isUpdating]);
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
 	const [signingOut, setSigningOut] = useState(false);
@@ -151,8 +168,13 @@ export function ClusterCard({
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="flex justify-between">
-				{cluster.status && (
-					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+				{updating && (
+					<ProgressBar
+						animated={true}
+						className="bg-yellow-800/60"
+						width={(updating.current === 0 ? 0 : (updating.current / updating.total * 100)) + '%'}
+						placeholder="updating..."
+					/>
 				)}
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
 			</CardContent>
