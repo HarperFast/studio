@@ -1,3 +1,4 @@
+import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { installUsageLicense } from '@/features/instance/operations/mutations/installUsageLicense';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
@@ -23,7 +24,7 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 	const instanceClient = useInstanceClient();
 	const { instanceId }: { instanceId?: string; } = useParams({ strict: false });
 	const queryClient = useQueryClient();
-	const {isRestartPending, onRestartClick } = useRestartInstanceClick({
+	const { isRestartPending, onRestartClick } = useRestartInstanceClick({
 		operation: 'restart_service',
 		instanceClient,
 	});
@@ -46,7 +47,10 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 
 		const toastId = toast.loading('Applying Licenses', {
 			...toastConfig,
-			description: renderProgressUpdate(),
+			description: <ProgressBar
+				animated={true}
+				width="0%"
+			/>,
 		});
 
 		let licensesApplied = 0;
@@ -59,7 +63,10 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 					: `Applying License ${i + 1} of ${licenses.length}`, {
 					...toastConfig,
 					id: toastId,
-					description: renderProgressUpdate(i, licenses.length),
+					description: <ProgressBar
+						animated={true}
+						width={(i === 0 ? 0 : (i / licenses.length * 100)) + '%'}
+					/>,
 				});
 				try {
 					// Make sure the instance is responding.
@@ -135,14 +142,4 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 		onApplyLicensesClick,
 		isApplyLicensesPending: isApplyLicensesPending || isRestartPending,
 	};
-}
-
-function renderProgressUpdate(current?: number, total?: number) {
-	return (<>
-		{current !== undefined && total !== undefined && total > 0 && (
-			<div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-				<div className="bg-purple-600 h-2.5 rounded-full dark:bg-purple-500" style={{ width: (current === 0 ? 0 : (current / total * 100)) + '%' }}></div>
-			</div>)}
-		<div className="text-xs mt-2">Please don't close your browser or navigate away. This may take a bit.</div>
-	</>);
 }
