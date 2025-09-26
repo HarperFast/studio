@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 export interface CreateComponentFormData {
@@ -10,7 +11,7 @@ async function onCreateComponentSubmit({
 	applicationName,
 	instanceClient,
 	replicated,
-}: CreateComponentFormData & InstanceClientConfig) {
+}: CreateComponentFormData & InstanceClientConfig): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'add_component',
 		project: applicationName,

@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 interface DeleteComponentFileRequest extends InstanceClientConfig {
@@ -7,7 +8,7 @@ interface DeleteComponentFileRequest extends InstanceClientConfig {
 	replicated: boolean;
 }
 
-async function onDeleteComponentFolderFile({ file, project, replicated, instanceClient }: DeleteComponentFileRequest) {
+async function onDeleteComponentFolderFile({ file, project, replicated, instanceClient }: DeleteComponentFileRequest): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_component',
 		file: file || undefined,

@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 interface DeleteDatabaseParams extends InstanceClientConfig {
@@ -6,7 +7,7 @@ interface DeleteDatabaseParams extends InstanceClientConfig {
 	replicated: boolean;
 }
 
-async function onDeleteDatabase({ databaseName, replicated, instanceClient }: DeleteDatabaseParams) {
+async function onDeleteDatabase({ databaseName, replicated, instanceClient }: DeleteDatabaseParams): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_database',
 		database: databaseName,

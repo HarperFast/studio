@@ -1,3 +1,4 @@
+import { rejectReplicationFailures } from '@/lib/api/replication';
 import { authStore, EntityIds, OverallAppSignIn } from '@/lib/authStore';
 import axios from 'axios';
 
@@ -8,7 +9,7 @@ interface InstanceClient {
 
 export function getInstanceClient({ id = OverallAppSignIn, operationsUrl }: InstanceClient = {}) {
 	const baseURL = operationsUrl || authStore.getOperationsUrl(id);
-	return axios.create({
+	const client = axios.create({
 		withCredentials: true,
 		timeout: 15000,
 		headers: {
@@ -16,4 +17,6 @@ export function getInstanceClient({ id = OverallAppSignIn, operationsUrl }: Inst
 		},
 		baseURL,
 	});
+	client.interceptors.response.use(rejectReplicationFailures);
+	return client;
 }
