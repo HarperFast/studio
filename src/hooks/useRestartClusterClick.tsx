@@ -1,3 +1,4 @@
+import { ProgressBar } from '@/components/ProgressBar';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { restartInstance } from '@/features/instance/operations/mutations/restartInstance';
@@ -41,7 +42,10 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 
 		const toastId = toast.loading('Restarting', {
 			...toastConfig,
-			description: renderProgressUpdate(),
+			description: <ProgressBar
+				animated={true}
+				width="0%"
+			/>,
 		});
 
 		const cluster = await getClusterInfo(clusterId);
@@ -62,7 +66,10 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 					toast.loading(`Restarting Instance ${i + 1} of ${instanceClients.length}`, {
 						...toastConfig,
 						id: toastId,
-						description: renderProgressUpdate(i, instanceClients.length),
+						description: <ProgressBar
+							animated={true}
+							width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
+						/>,
 					});
 					try {
 						// Make sure the instance is responding.
@@ -76,8 +83,7 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 							instanceClient,
 						});
 						instancesRestarted += 1;
-					}
-					catch {
+					} catch {
 						if (i + 1 !== instanceClients.length) {
 							// If it fails to restart, or wasn't available, warn for a bit then move on.
 							toast.loading(`Failed Restarting Instance ${i + 1} of ${instanceClients.length}`, {
@@ -144,14 +150,4 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 		onRestartClick,
 		isRestartPending,
 	};
-}
-
-function renderProgressUpdate(current?: number, total?: number) {
-	return (<>
-		{current !== undefined && total !== undefined && total > 0 && (
-			<div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-				<div className="bg-purple-600 h-2.5 rounded-full dark:bg-purple-500" style={{ width: (current === 0 ? 0 : (current / total * 100)) + '%' }}></div>
-			</div>)}
-			<div className="text-xs mt-2">Please don't close your browser or navigate away. This may take a bit.</div>
-	</>);
 }
