@@ -1,5 +1,5 @@
 import { pluralize } from '@/lib/pluralize';
-import { AxiosResponse } from 'axios';
+import type { AxiosResponse } from 'axios';
 
 export interface ReplicatedResponse {
 	message: string;
@@ -34,7 +34,7 @@ export function isReplicatedResponseFailure(message: ReplicatedResponseSuccess |
 	return (message as ReplicatedResponseFailure).status === 'failed';
 }
 
-export function rejectReplicationFailures(response: AxiosResponse<ReplicatedResponse>) {
+export function rejectReplicationFailures(response: Pick<AxiosResponse<ReplicatedResponse>, 'data'>) {
 	if (replicationFailed(response.data)) {
 		const successes = response.data.replicated.filter(isReplicatedResponseSuccess);
 		const failures = response.data.replicated.filter(isReplicatedResponseFailure);
@@ -46,5 +46,5 @@ export function rejectReplicationFailures(response: AxiosResponse<ReplicatedResp
 		const details = failures.map(f => `${f.node}: ${f.reason}`).join('\n');
 		return Promise.reject(explanation + '\n' + details);
 	}
-	return response;
+	return response as AxiosResponse<ReplicatedResponse>;
 }
