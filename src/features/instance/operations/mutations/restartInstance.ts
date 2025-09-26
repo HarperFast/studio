@@ -1,5 +1,6 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { axiosRetry } from '@/lib/axiosRetry';
 import { sleep } from '@/lib/sleep';
 import { useMutation } from '@tanstack/react-query';
@@ -9,11 +10,7 @@ interface RestartInstanceParams {
 	replicated: boolean;
 }
 
-interface UpdateRestartInstanceResponse {
-	message: string;
-}
-
-export async function restartInstance({ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig) {
+export async function restartInstance({ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation,
 		service: operation === 'restart_service' ? 'http' : undefined,
@@ -21,7 +18,7 @@ export async function restartInstance({ operation, replicated, instanceClient }:
 	});
 	await sleep(10_000);
 	await axiosRetry(() => getInstanceUserInfo({ instanceClient, timeout: 3_000 }), 12, 15_000);
-	return data as UpdateRestartInstanceResponse;
+	return data;
 }
 
 export function useRestartInstance() {

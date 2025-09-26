@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 export interface DeployComponentFormData {
@@ -12,7 +13,7 @@ async function onDeployComponentSubmit({
 	applicationUrl,
 	instanceClient,
 	replicated,
-}: DeployComponentFormData & InstanceClientConfig) {
+}: DeployComponentFormData & InstanceClientConfig): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post(
 		'/',
 		{

@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 interface CreateDatabaseFormData extends InstanceClientConfig {
@@ -6,7 +7,11 @@ interface CreateDatabaseFormData extends InstanceClientConfig {
 	replicated: boolean;
 }
 
-async function onCreateDatabaseSubmit({ databaseName, replicated, instanceClient }: CreateDatabaseFormData) {
+async function onCreateDatabaseSubmit({
+	databaseName,
+	replicated,
+	instanceClient,
+}: CreateDatabaseFormData): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'create_database',
 		database: databaseName,
