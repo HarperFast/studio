@@ -1,7 +1,7 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { BrowseDataTable } from '@/features/instance/databases/components/BrowseDataTable';
+import { TableView } from '@/features/instance/databases/components/TableView';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
@@ -24,7 +24,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
 
-export function BrowseDataTableView() {
+export function DatabaseTableView() {
 	const allParams: {
 		clusterId?: string;
 		instanceId?: string;
@@ -226,7 +226,50 @@ export function BrowseDataTableView() {
 
 	return (
 		<>
-			<BrowseDataTable<Record<string, unknown>, unknown>
+			<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4">
+				<div className="flex space-x-2">
+					{canAddRecords && (
+						<Button
+							variant="positiveOutline"
+							onClick={onAddClicked}
+							disabled={isAddModalOpen || isAddTableRecordsPending}
+							accessKey="n"
+						>
+							<PlusIcon />
+							<span>
+								Add <u>N</u>ew Record(s)
+							</span>
+						</Button>
+					)}
+					{canAddRecords && (
+						<Button
+							variant="positiveOutline"
+							onClick={onImportCSVClicked}
+							disabled={isImportCSVModalOpen || isAddTableRecordsPending}
+							accessKey="c"
+						>
+							<ImportIcon />
+							<span>
+								Import <u>C</u>SV
+							</span>
+						</Button>
+					)}
+					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
+						<RefreshCwIcon />
+					</Button>
+				</div>
+
+				<div>
+					{canManageBrowseInstance && (
+						<Button variant="destructiveOutline" onClick={() => setIsDeleteModalOpen(true)}>
+							<Trash className="inline-block " />
+							Drop Table
+						</Button>
+					)}
+				</div>
+			</div>
+
+			<TableView<Record<string, unknown>, unknown>
 				data={tableData?.data || []}
 				isFetching={tableDataFetching}
 				columns={dataTableColumns}
@@ -238,50 +281,7 @@ export function BrowseDataTableView() {
 				pageSize={pageSize}
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
-			>
-				<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4">
-					<div className="flex space-x-2">
-						{canAddRecords && (
-							<Button
-								variant="positiveOutline"
-								onClick={onAddClicked}
-								disabled={isAddModalOpen || isAddTableRecordsPending}
-								accessKey="n"
-							>
-								<PlusIcon />
-								<span>
-									Add <u>N</u>ew Record(s)
-								</span>
-							</Button>
-						)}
-						{canAddRecords && (
-							<Button
-								variant="positiveOutline"
-								onClick={onImportCSVClicked}
-								disabled={isImportCSVModalOpen || isAddTableRecordsPending}
-								accessKey="c"
-							>
-								<ImportIcon />
-								<span>
-									Import <u>C</u>SV
-								</span>
-							</Button>
-						)}
-						<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
-							<RefreshCwIcon />
-						</Button>
-					</div>
-
-					<div>
-						{canManageBrowseInstance && (
-							<Button variant="destructiveOutline" onClick={() => setIsDeleteModalOpen(true)}>
-								<Trash className="inline-block " />
-								Drop Table
-							</Button>
-						)}
-					</div>
-				</div>
-			</BrowseDataTable>
+			/>
 			{canAddRecords && (
 				<AddTableRowModal
 					instanceTable={describeTableData}

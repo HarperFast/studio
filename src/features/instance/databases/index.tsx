@@ -3,7 +3,7 @@ import { DatabasesSidebar } from '@/features/instance/databases/components/Datab
 import { Outlet } from '@tanstack/react-router';
 import { Suspense } from 'react';
 
-export function Databases() {
+export function DatabasesLayout() {
 	return (
 		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
 			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3">
