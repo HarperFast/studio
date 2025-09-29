@@ -15,7 +15,7 @@ import {
 	useReactTable,
 } from '@tanstack/react-table';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
-import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { Dispatch, SetStateAction, useCallback } from 'react';
 
 interface BrowseDataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -29,10 +29,9 @@ interface BrowseDataTableProps<TData, TValue> {
 	pageSize: number;
 	setPageIndex: Dispatch<SetStateAction<number>>;
 	setPageSize: Dispatch<SetStateAction<number>>;
-	children: React.ReactNode;
 }
 
-export function BrowseDataTable<TData, TValue>({
+export function TableView<TData, TValue>({
 	columns,
 	data,
 	isFetching,
@@ -44,7 +43,6 @@ export function BrowseDataTable<TData, TValue>({
 	setPageIndex,
 	pageSize,
 	setPageSize,
-	children,
 }: BrowseDataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -64,7 +62,6 @@ export function BrowseDataTable<TData, TValue>({
 	}, [pageIndex, setPageIndex]);
 
 	return (<>
-		{children}
 		<Table containerClassName="rounded-md bg-black-dark grow max-h-[calc(100vh-128px-16px-112px-80px)]">
 			<TableHeader>
 				{table.getHeaderGroups().map((headerGroup) => (<TableRow key={headerGroup.id} className="border-none">
