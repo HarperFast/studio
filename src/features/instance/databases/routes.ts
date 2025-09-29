@@ -1,6 +1,6 @@
 import { createRoute } from '@tanstack/react-router';
-import { Databases } from '@/features/instance/databases/index';
-import { BrowseDataTableView } from '@/features/instance/databases/components/BrowseDataTableView';
+import { DatabasesLayout } from '@/features/instance/databases/index';
+import { DatabaseTableView } from '@/features/instance/databases/DatabaseTableView';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { loadInstanceBrowseData } from '@/features/instance/databases/route.load';
 
@@ -8,8 +8,8 @@ export function createBrowseRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceBrowseRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: '/databases',
-		component: Databases,
 		loader: ({ context, params, preload }) => loadInstanceBrowseData(context.queryClient, params, preload),
+		component: DatabasesLayout,
 	});
 	const browseDatabaseRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
@@ -19,8 +19,8 @@ export function createBrowseRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const browseTableRoute = createRoute({
 		getParentRoute: () => instanceBrowseRoute,
 		path: '$databaseName/$tableName',
-		component: BrowseDataTableView,
 		loader: ({ context, params, preload }) => loadInstanceBrowseData(context.queryClient, params, preload),
+		component: DatabaseTableView,
 	});
 
 	return instanceBrowseRoute.addChildren([
