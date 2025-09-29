@@ -8,9 +8,10 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
-import { useInstanceClient } from '@/config/useInstanceClient';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
+import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { SignInSchema } from '@/features/instance/operations/schemas/signInSchema';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
@@ -38,7 +39,8 @@ export function ClusterInstanceSignIn() {
 	const instance = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
 		[cluster, instanceId]);
-	const noun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
+	const properNoun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
+	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';
 
 	const operationsUrl = useMemo(() => {
 		if (cluster) {
@@ -51,10 +53,13 @@ export function ClusterInstanceSignIn() {
 		return null;
 	}, [cluster, instance]);
 
-	const instanceClient = useInstanceClient(operationsUrl);
+	const instanceParams = useInstanceClientIdParams(operationsUrl);
 	const warnAboutLoginCookieIssues = useMemo(
 		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
 		[operationsUrl],
+	);
+	const { data: healthy } = useQuery(
+		getInstanceHealthQueryOptions(instanceParams),
 	);
 
 	const methods = useForm({
@@ -76,12 +81,12 @@ export function ClusterInstanceSignIn() {
 		submitInstanceLogin(
 			{
 				...formData,
-				instanceClient,
+				...instanceParams,
 			},
 			{
 				onSuccess: async (response) => {
 					toast.success(response.message);
-					const user = await getInstanceUserInfo({ instanceClient });
+					const user = await getInstanceUserInfo(instanceParams);
 					// If we sign in to the cluster, we've authenticated against all of its instances too.
 					if (cluster?.instances?.length && !instance) {
 						for (const clusterInstance of cluster.instances) {
@@ -100,7 +105,7 @@ export function ClusterInstanceSignIn() {
 					});
 				},
 			});
-	}, [cluster, instance, instanceClient, navigate, queryClient, redirect, router, submitInstanceLogin]);
+	}, [cluster, instance, instanceParams, navigate, queryClient, redirect, router, submitInstanceLogin]);
 
 	if (!instanceId && cluster && !cluster?.fqdn) {
 		return <Navigate to="../instances" replace={true} />;
@@ -119,7 +124,7 @@ export function ClusterInstanceSignIn() {
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">
-						Sign in to Harper {noun}</h2>
+						Sign in to Harper {properNoun}</h2>
 					<Form {...methods}>
 						<form onSubmit={handleSubmit(submitForm)} className="my-4">
 							<FormField
@@ -158,6 +163,13 @@ export function ClusterInstanceSignIn() {
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
 								Sign In
 							</Button>
+							{healthy === false && (
+								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
+									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to GET {operationsUrl}health. Is the server running? Have
+									you <a href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank" className="underline">enabled
+									CORS</a> for the operations API?
+								</div>
+							)}
 							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.MixedLoopback && (
 								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
 									<span className="font-medium">Warning!</span> Your login might not work because
