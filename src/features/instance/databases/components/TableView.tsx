@@ -13,12 +13,14 @@ import {
 	getPaginationRowModel,
 	Row,
 	useReactTable,
+	VisibilityState,
 } from '@tanstack/react-table';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { Dispatch, SetStateAction, useCallback } from 'react';
 
 interface BrowseDataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
+	columnVisibility: VisibilityState;
 	data: TData[];
 	isFetching?: boolean;
 	totalPages: number;
@@ -33,6 +35,7 @@ interface BrowseDataTableProps<TData, TValue> {
 
 export function TableView<TData, TValue>({
 	columns,
+	columnVisibility,
 	data,
 	isFetching,
 	totalPages,
@@ -53,6 +56,9 @@ export function TableView<TData, TValue>({
 		pageCount: totalPages,
 		defaultColumn: {
 			minSize: 1,
+		},
+		state: {
+			columnVisibility,
 		},
 		rowCount: totalRecords,
 		getCoreRowModel: getCoreRowModel(),
