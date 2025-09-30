@@ -1,10 +1,12 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { PickColumnsDropdown } from '@/features/instance/databases/components/PickColumnsDropdown';
 import { TableView } from '@/features/instance/databases/components/TableView';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
+import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
 import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
@@ -15,14 +17,14 @@ import { getSearchByValueOptions } from '@/features/instance/operations/queries/
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { queryClient } from '@/react-query/queryClient';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
+import { Row, VisibilityState } from '@tanstack/react-table';
 import { ImportIcon, PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
 
 export function DatabaseTableView() {
 	const allParams: {
@@ -225,6 +227,11 @@ export function DatabaseTableView() {
 		}
 	}, [databaseName, onDeleteTable, tableName]);
 
+	const [columnVisibility, setColumnVisibility] = useSessionStorage(
+		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
+		{} satisfies VisibilityState,
+	);
+
 	return (
 		<>
 			<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4">
@@ -260,7 +267,12 @@ export function DatabaseTableView() {
 					</Button>
 				</div>
 
-				<div>
+				<div className="flex space-x-2">
+					<PickColumnsDropdown
+						columns={dataTableColumns}
+						columnVisibility={columnVisibility}
+						setColumnVisibility={setColumnVisibility}
+					/>
 					{canManageBrowseInstance && (
 						<Button variant="destructiveOutline" onClick={openDeleteModal}>
 							<Trash className="inline-block " />
@@ -274,6 +286,7 @@ export function DatabaseTableView() {
 				data={tableData?.data || []}
 				isFetching={tableDataFetching}
 				columns={dataTableColumns}
+				columnVisibility={columnVisibility}
 				onRowClick={onRowClick}
 				onColumnClick={onColumnClick}
 				totalPages={totalPages}
