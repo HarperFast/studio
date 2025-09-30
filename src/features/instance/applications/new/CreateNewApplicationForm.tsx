@@ -17,16 +17,16 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const NewProjectSchema = z.object({
+const NewApplicationSchema = z.object({
 	applicationName: z
 		.string()
-		.nonempty({ error: 'Project name is required.' })
-		.max(75, { error: 'Project name cannot be longer than 75 characters.' })
+		.nonempty({ error: 'Application name is required.' })
+		.max(75, { error: 'Application name cannot be longer than 75 characters.' })
 		.regex(/^[a-zA-Z0-9-_]*$/, { error: 'Can only contain letters, numbers, dashes and underscores.' }),
 	replicated: z.boolean(),
 });
 
-export function CreateNewProjectForm({
+export function CreateNewApplicationForm({
 	triggerRestart,
 	isRestartPending,
 }: {
@@ -35,18 +35,18 @@ export function CreateNewProjectForm({
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm({
-		resolver: zodResolver(NewProjectSchema),
+		resolver: zodResolver(NewApplicationSchema),
 		defaultValues: {
 			applicationName: '',
 			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 
-	const { mutate: createNewProject } = useCreateComponentMutation();
+	const { mutate: createNewApplication } = useCreateComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
-		createNewProject({ ...formData, ...instanceParams }, {
+		createNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
-				toast.success(`Project ${formData.applicationName} created successfully`);
+				toast.success(`Application ${formData.applicationName} created successfully`);
 				triggerRestart();
 			},
 		});
@@ -54,22 +54,22 @@ export function CreateNewProjectForm({
 	return (
 		<div className="mx-auto max-w-96">
 			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="text-white">
+				<form onSubmit={form.handleSubmit(submitForm)} className="text-white w-full flex flex-col gap-4">
 					<FormField
 						control={form.control}
 						name="applicationName"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel className="pb-1 text-center">New Project Name</FormLabel>
+								<FormLabel className="pb-1">New Application Name</FormLabel>
 								<FormControl>
-									<Input type="text" placeholder="e-commerce-store" className="text-center" {...field} />
+									<Input type="text" placeholder="e-commerce-store" {...field} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
 						)}
 					/>
 					<Button
-						className="w-full mt-4"
+						className="w-full"
 						variant="submit"
 						type="submit"
 						disabled={!form.formState.isDirty || isRestartPending}
