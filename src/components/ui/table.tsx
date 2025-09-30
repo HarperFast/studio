@@ -1,9 +1,9 @@
-import * as React from 'react';
-import { useCallback } from 'react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { flexRender, Header, RowData } from '@tanstack/react-table';
-import { Button } from '@/components/ui/button';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, GripVerticalIcon } from 'lucide-react';
+import * as React from 'react';
+import { useCallback } from 'react';
 
 export interface TableProps extends React.ComponentProps<'table'> {
 	containerClassName?: string;
@@ -54,7 +54,11 @@ export function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
 	);
 }
 
-export function TableHeadSortable<TData extends RowData>({ header, onColumnClick, ...props }: React.ComponentProps<'th'> & {
+export function TableHeadSortable<TData extends RowData>({
+	header,
+	onColumnClick,
+	...props
+}: React.ComponentProps<'th'> & {
 	header: Header<TData, unknown>;
 	onColumnClick?: (accessorKey: string, willSortByAscending: boolean) => void;
 }) {
@@ -64,26 +68,53 @@ export function TableHeadSortable<TData extends RowData>({ header, onColumnClick
 		// @ts-expect-error The accessorKey isn't accessible.
 		onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 	}, [header, onColumnClick]);
-	if (header.column.columnDef.enableSorting) {
-		return <TableHead {...props} className="px-0">
-			<Button
-				type="button"
-				variant="ghost"
-				className={cn('rounded-none', !header.column.getIsSorted() || header.column.getIsSorted() === 'asc' ? 'cursor-n-resize' : 'cursor-s-resize')}
-				onClick={onClickSort}>
-				{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-				{header.column.getIsSorted() === 'asc'
-					? <ArrowUp />
-					: header.column.getIsSorted() === 'desc'
-						? <ArrowDown />
-						: <ArrowUpDown className="text-gray-600" />}
-			</Button>
-		</TableHead>;
-	} else {
-		return <TableHead {...props} className="px-2">
-			{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-		</TableHead>;
-	}
+	const enableSorting = header.column.columnDef.enableSorting;
+	const enableResizing = header.column.columnDef.enableResizing;
+	const content = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext());
+	const resetSize = useCallback(() => {
+		header.column.resetSize();
+	}, [header]);
+	return <TableHead
+		{...props}
+		style={{ width: `${header.getSize()}px` }}
+		className={enableSorting ? 'px-0' : 'px-2'}
+	>
+		<div className="flex items-center justify-between">
+			{enableSorting ? (
+				<Button
+					type="button"
+					variant="ghost"
+					className={cn('rounded-none', !header.column.getIsSorted() || header.column.getIsSorted() === 'asc' ? 'cursor-n-resize' : 'cursor-s-resize')}
+					onClick={onClickSort}>
+					{content}
+					{header.column.getIsSorted() === 'asc'
+						? <ArrowUp />
+						: header.column.getIsSorted() === 'desc'
+							? <ArrowDown />
+							: <ArrowUpDown className="text-gray-600" />}
+				</Button>
+			) : (
+				content
+			)}
+			{enableResizing && (
+				<Button
+					type="button"
+					variant="ghost"
+					className="cursor-col-resize"
+					onMouseDown={header.getResizeHandler()} // for desktop
+					onTouchStart={header.getResizeHandler()} // for mobile
+					onDoubleClick={resetSize}
+					style={{
+						transform: header.column.getIsResizing()
+							? `translateX(${header.getContext().table.getState().columnSizingInfo.deltaOffset}px)`
+							: '',
+					}}
+				>
+					<GripVerticalIcon />
+				</Button>
+			)}
+		</div>
+	</TableHead>;
 }
 
 export function TableCell({ className, ...props }: React.ComponentProps<'td'>) {
