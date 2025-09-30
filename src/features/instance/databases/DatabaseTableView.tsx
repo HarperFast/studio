@@ -190,6 +190,7 @@ export function DatabaseTableView() {
 	}, [setIsImportCSVModalOpen]);
 
 	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+	const openDeleteModal = useCallback(() => setIsDeleteModalOpen(true), []);
 
 	const onDeleteTable = useCallback(
 		(targetDatabaseName: string, targetTableName: string) => {
@@ -261,7 +262,7 @@ export function DatabaseTableView() {
 
 				<div>
 					{canManageBrowseInstance && (
-						<Button variant="destructiveOutline" onClick={() => setIsDeleteModalOpen(true)}>
+						<Button variant="destructiveOutline" onClick={openDeleteModal}>
 							<Trash className="inline-block " />
 							Drop Table
 						</Button>
