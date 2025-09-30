@@ -1,11 +1,11 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInstanceClientIdParams, useInstanceClientParams } from '@/config/useInstanceClient';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
+import { useCallback } from 'react';
 import { CreateNewApplicationForm } from '@/features/instance/applications/new/CreateNewApplicationForm';
 import { ImportApplicationForm } from '@/features/instance/applications/new/ImportApplicationForm';
-import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
 
 export function NewApplicationModal({
 	isModalOpen = false,
