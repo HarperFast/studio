@@ -8,7 +8,7 @@ import { useParams } from '@tanstack/react-router';
 import { ImportIcon, PlusIcon, Save } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { NewProjectModal } from '@/features/instance/applications/modals/NewProjectModal';
+import { NewApplicationModal } from '@/features/instance/applications/modals/NewApplicationModal';
 
 function parseFileExtension(filename: string) {
 	const parts = (filename || '')?.split('.');
@@ -40,7 +40,7 @@ export function TextEditorView() {
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientParams();
-	const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+	const [isNewApplicationModalOpen, setIsNewApplicationModalOpen] = useState(false);
 	const [appType, setAppType] = useState<'create' | 'import'>('create');
 
 	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
@@ -89,7 +89,7 @@ export function TextEditorView() {
 							operation="restart_service"
 						/>
 
-						<Button variant="defaultOutline" className="w-38 rounded-full" onClick={() => setIsNewProjectModalOpen(true)}>
+						<Button variant="defaultOutline" className="w-38 rounded-full" onClick={() => setIsNewApplicationModalOpen(true)}>
 							<PlusIcon /> New Application
 						</Button>
 					</div>
@@ -100,13 +100,13 @@ export function TextEditorView() {
 					<span className="text-white">No file selected</span>
 					<div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
 						<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
-							setIsNewProjectModalOpen(true);
+							setIsNewApplicationModalOpen(true);
 							setAppType('create');
 							}}>
 							<PlusIcon /> Create New Application
 						</Button>
 						<Button variant="defaultOutline" className="ms-4" size="lg" onClick={() => {
-							setIsNewProjectModalOpen(true);
+							setIsNewApplicationModalOpen(true);
 							setAppType('import');
 						}}>
 							<ImportIcon /> Import Application
@@ -129,7 +129,7 @@ export function TextEditorView() {
 					}}
 				/>
 			)}
-			<NewProjectModal isModalOpen={isNewProjectModalOpen} setIsModalOpen={setIsNewProjectModalOpen} appType={appType} setAppType={setAppType} />
+			<NewApplicationModal isModalOpen={isNewApplicationModalOpen} setIsModalOpen={setIsNewApplicationModalOpen} appType={appType} setAppType={setAppType} />
 		</div>
 	);
 }

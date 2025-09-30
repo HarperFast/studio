@@ -1,14 +1,13 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { FolderPlus, Import } from 'lucide-react';
-import { useCallback} from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInstanceClientIdParams, useInstanceClientParams } from '@/config/useInstanceClient';
+import { CreateNewApplicationForm } from '@/features/instance/applications/new/CreateNewApplicationForm';
+import { ImportApplicationForm } from '@/features/instance/applications/new/ImportApplicationForm';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
-import { CreateNewProjectForm } from '@/features/instance/applications/new/CreateNewProjectForm';
-import { ImportProjectForm } from '@/features/instance/applications/new/ImportProjectForm';
 import { useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
-export function NewProjectModal({
+export function NewApplicationModal({
 	isModalOpen = false,
 	setIsModalOpen,
 	appType,
@@ -40,25 +39,19 @@ export function NewProjectModal({
 					<DialogTitle>Create/Import An Application</DialogTitle>
 					<DialogDescription>Create a new application or import an existing one.</DialogDescription>
 				</DialogHeader>
-					<div className="flex justify-center my-4">
-						<Button className="py-4" variant="positiveOutline" onClick={() => setAppType('create')}>
-							<FolderPlus />
-							Create
-						</Button>
-
-						<Button className="py-4 ml-4" variant="positiveOutline" onClick={() => setAppType('import')}>
-							<Import />
-							Import
-						</Button>
-					</div>
 					<div>
-						{appType === 'create' ? (
-							<CreateNewProjectForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
-						) : appType === 'import' ? (
-							<ImportProjectForm onRestartedSuccessfully={onRestartedSuccessfully} />
-						) : (
-							<p className="text-center">Please select an option to continue.</p>
-						)}
+						<Tabs defaultValue={appType} className="w-full" onValueChange={(value) => setAppType(value as 'create' | 'import')}>
+							<TabsList>
+								<TabsTrigger value="create">Create</TabsTrigger>
+								<TabsTrigger value="import">Import</TabsTrigger>
+							</TabsList>
+							<TabsContent value="create"	className='mt-4'>
+								<CreateNewApplicationForm triggerRestart={onRestartClick} isRestartPending={isRestartPending} />
+							</TabsContent>
+							<TabsContent value="import" className='mt-4'>
+								<ImportApplicationForm onRestartedSuccessfully={onRestartedSuccessfully} />
+							</TabsContent>
+						</Tabs>
 					</div>
 			</DialogContent>
 		</Dialog>

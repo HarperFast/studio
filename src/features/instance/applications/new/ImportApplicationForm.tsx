@@ -7,8 +7,6 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
-import { getGitHubRepo } from '@/features/instance/applications/new/functions/getGitHubRepo';
-import { isValidTarballUrl } from '@/features/instance/applications/new/functions/isValidTarballUrl';
 import {
 	DeployComponentFormData,
 	useDeployComponentMutation,
@@ -20,11 +18,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const ImportProjectSchema = z.object({
+const ImportApplicationSchema = z.object({
 	applicationName: z
 		.string()
-		.nonempty({ error: 'Project name is required.' })
-		.max(75, { error: 'Project name cannot be longer than 75 characters.' })
+		.nonempty({ error: 'Application name is required.' })
+		.max(75, { error: 'Application name cannot be longer than 75 characters.' })
 		.regex(/^[a-zA-Z0-9-_]*$/, { error: 'Can only contain letters, numbers, dashes and underscores.' }),
 	applicationUrl: z
 		.string()
@@ -32,14 +30,14 @@ const ImportProjectSchema = z.object({
 	replicated: z.boolean(),
 });
 
-export function ImportProjectForm({
+export function ImportApplicationForm({
 	onRestartedSuccessfully
 }: {
 	onRestartedSuccessfully: () => void;
 }) {
 	const instanceParams = useInstanceClientParams();
 	const form = useForm({
-		resolver: zodResolver(ImportProjectSchema),
+		resolver: zodResolver(ImportApplicationSchema),
 		defaultValues: {
 			applicationName: '',
 			applicationUrl: '',
@@ -67,21 +65,23 @@ export function ImportProjectForm({
 			}
 		});
 	};
-	const handleFetchApplication = async (url: string) => {
-		if (url.includes('github.com')) {
-			const response = await getGitHubRepo(new URL(url));
-			if (response) {
-				form.setValue('applicationName', response);
-				toast.success(`Application "${response}" found successfully`);
-			} else {
-				toast.error('Invalid GitHub repository URL');
-			}
-		} else {
-			if (url && isValidTarballUrl(url)) {
-				form.setValue('applicationName', url);
-			}
-		}
-	};
+
+	//NOTE - disabled for now until we build out OAuth to improve the experience from private repos/packages
+	// const handleFetchApplication = async (url: string) => {
+	// 	if (url.includes('github.com')) {
+	// 		const response = await getGitHubRepo(new URL(url));
+	// 		if (response) {
+	// 			form.setValue('applicationName', response);
+	// 			toast.success(`Application "${response}" found successfully`);
+	// 		} else {
+	// 			toast.error('Invalid GitHub repository URL');
+	// 		}
+	// 	} else {
+	// 		if (url && isValidTarballUrl(url)) {
+	// 			form.setValue('applicationName', url);
+	// 		}
+	// 	}
+	// };
 
 	return (
 		<div className="mx-auto max-w-96">
@@ -92,7 +92,7 @@ export function ImportProjectForm({
 						name="applicationName"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel className="pb-1">New Project Name</FormLabel>
+								<FormLabel className="pb-1">New Application Name</FormLabel>
 								<FormControl>
 									<Input type="text" placeholder="e-commerce-store" {...field} />
 								</FormControl>
@@ -105,16 +105,14 @@ export function ImportProjectForm({
 						name="applicationUrl"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel className="pb-1">Project URL</FormLabel>
+								<FormLabel className="pb-1">Package Reference</FormLabel>
 								<FormControl>
 									<Input
 										type="url"
 										placeholder="https://github.com/HarperDB/nextjs-example"
 										{...field}
 										onChange={(e: FormEvent<HTMLInputElement>) => {
-											// field.onChange(handleFetchApplication(e.currentTarget.value));
 											field.onChange(e.currentTarget.value);
-											handleFetchApplication(e.currentTarget.value);
 										}}
 									/>
 								</FormControl>
@@ -123,7 +121,7 @@ export function ImportProjectForm({
 						)}
 					/>
 					<Button
-						className="w-full mt-4"
+						className="w-full"
 						variant="submit"
 						type="submit"
 						disabled={!form.formState.isDirty || isDeployComponentPending}
