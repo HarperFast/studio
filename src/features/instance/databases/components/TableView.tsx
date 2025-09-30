@@ -48,7 +48,12 @@ export function TableView<TData, TValue>({
 		data,
 		columns,
 		manualPagination: true,
+		enableColumnResizing: true,
+		columnResizeMode: 'onEnd',
 		pageCount: totalPages,
+		defaultColumn: {
+			minSize: 1,
+		},
 		rowCount: totalRecords,
 		getCoreRowModel: getCoreRowModel(),
 		getPaginationRowModel: getPaginationRowModel(),
@@ -75,6 +80,7 @@ export function TableView<TData, TValue>({
 						onClick={() => onRowClick?.(row)}
 						className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}>
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
+							style={{ width: `${cell.column.getSize()}px` }}
 							className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
 							{flexRender(cell.column.columnDef.cell, cell.getContext())}
 						</TableCell>))}
