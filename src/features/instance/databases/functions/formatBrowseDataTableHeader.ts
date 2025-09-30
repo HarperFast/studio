@@ -1,7 +1,7 @@
-import { InstanceTable } from '@/lib/api.patch';
+import { InstanceAttribute, InstanceTable } from '@/lib/api.patch';
 import { ColumnDef } from '@tanstack/react-table';
 
-function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
+export function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
 	hashAttribute: string;
 } {
@@ -11,12 +11,14 @@ function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const timeColumns: ColumnDef<Record<string, unknown>>[] = [];
 	for (let i = attributes.length - 1; i >= 0; i--) {
-		const { attribute, is_primary_key, indexed } = attributes[i];
+		const { attribute, type, is_primary_key, indexed } = attributes[i];
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
 			accessorKey: attribute,
 			enableSorting: Boolean(is_primary_key || indexed),
+			enableResizing: true,
+			size: sizeByAttributeType(type),
 		};
 		if (is_primary_key) {
 			primaryKeyColumns.push(dataTableColumn);
@@ -34,4 +36,21 @@ function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 	};
 }
 
-export { formatBrowseDataTableHeader };
+function sizeByAttributeType(type: InstanceAttribute['type']) {
+	switch (type) {
+		case 'Id':
+		case 'ID':
+			return 1;
+		case 'Boolean':
+			return 1;
+		case 'Int':
+		case 'Long':
+		case 'Float':
+		case 'BigInt':
+			return 1;
+		case 'Date':
+		case 'String':
+		default:
+			return Math.round(window.innerWidth * 0.1);
+	}
+}
