@@ -55,7 +55,7 @@ export function ConfirmDeletionModal({
 					</p>
 					<p className="pt-2 text-base">
 						By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}
-						<span className="font-semibold">{nameOfThingBeingDeleted} </span>
+						<span className="font-semibold"> {nameOfThingBeingDeleted} </span>
 						you will lose the data stored in it permanently.
 					</p>
 				</div>)}
