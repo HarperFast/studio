@@ -96,15 +96,15 @@ export function FileMenuActionButtons() {
 	}, [isDeleteFolderOrFileClicked]);
 
 	return (
-		<div className="p-2 border-b border-gray-700 mb-2 h-12">
-			<div>
+		<div className="p-2 border-b border-gray-700 mb-2 min-h-12">
+			<div className='flex flex-wrap gap-2'>
 				{selectedFolderFile.pkg && (
 					<Button
 						onClick={redeployPackage}
 						disabled={isDeployComponentPending}
 						variant="positiveOutline"
 						size="sm"
-						className="mr-2 rounded-full"
+						className=" rounded-full"
 					>
 						<RefreshCwIcon className="w-4 h-4" />
 						<span className="ms-1"> Redeploy Package</span>
@@ -120,7 +120,7 @@ export function FileMenuActionButtons() {
 							disabled={false}
 							variant="positiveOutline"
 							size="sm"
-							className="mr-2 rounded-full"
+							className=" rounded-full"
 						>
 							<Plus className="w-4 h-4" />
 							<span className="ms-1"> Folder</span>
@@ -134,7 +134,7 @@ export function FileMenuActionButtons() {
 							disabled={false}
 							variant="positiveOutline"
 							size="sm"
-							className="mr-2 rounded-full"
+							className=" rounded-full"
 						>
 							<Plus className="w-4 h-4" />
 							<span className="ms-1"> File</span>
