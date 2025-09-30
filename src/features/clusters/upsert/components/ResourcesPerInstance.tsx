@@ -107,7 +107,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 	}
 
 	return <FormItem className="basis-full">
-		<FormLabel>
+		<FormLabel onClick={onUsageLimitsClick}>
 			Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount) ? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & ` : ''}
 			{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount) ? 'in ' + (selectedRegion?.region ?? '') + ' region' : 'per server'},<br className="hidden sm:block" />
 			{isPositive(planLimits.writesPerMinuteCount) ? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & ` : ' '}
@@ -117,7 +117,6 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 				type="button"
 				variant="link"
 				className="text-white"
-				onClick={onUsageLimitsClick}
 			>
 				Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 			</Button>
