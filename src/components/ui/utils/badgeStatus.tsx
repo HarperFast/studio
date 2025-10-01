@@ -16,7 +16,7 @@ export type BadgeStatusVariant =
 export type BadgeStatusVariantValues = 'warning' | 'success' | 'secondary' | 'destructive' | 'outline' | 'default';
 
 export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatusVariantValues {
-	if (isBeingUpdated(value)) {
+	if (isPendingUpdate(value) || isBeingUpdated(value)) {
 		return 'warning';
 	}
 	if (isRunning(value)) {
@@ -45,10 +45,18 @@ export function isRunning(value: string | undefined): boolean {
 	}
 }
 
+export function isPendingUpdate(value: string | undefined): boolean {
+	switch (value) {
+		case 'CLONE_PENDING':
+			return true;
+		default:
+			return false;
+	}
+}
+
 export function isBeingUpdated(value: string | undefined): boolean {
 	switch (value) {
 		case 'PROVISIONING':
-		case 'CLONE_PENDING':
 		case 'CLONING':
 		case 'CLONE_READY':
 		case 'UPDATING_HDB_NODES':

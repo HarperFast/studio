@@ -1,5 +1,4 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
-import { ProgressBar } from '@/components/ProgressBar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -10,10 +9,10 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { isBeingUpdated, isRunning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient } from '@/config/useInstanceClient';
-import { getClusterInfo, getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
+import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -21,10 +20,9 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
-import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { queryKeys } from '@/react-query/constants';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -51,27 +49,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		() => cluster.status && deletedClusterStatuses.includes(cluster.status),
 		[cluster.status],
 	);
-
-	const isUpdating = isBeingUpdated(cluster.status);
-	const { data: clusterById } = useQuery(
-		getClusterInfoQueryOptions(isUpdating && cluster.id, 2000),
-	);
-	const updating = useMemo(() => {
-		if (isUpdating && clusterById?.instances) {
-			const updating = clusterById.instances.reduce((total, instance) =>
-				total + (isBeingUpdated(instance.status) ? 1 : 0), 0);
-			const running = clusterById.instances.reduce((total, instance) =>
-				total + (isRunning(instance.status) ? 1 : 0), 0);
-			const current = running;
-			const total = updating + running;
-			return {
-				width: `${current === 0 ? 0 : (current / total * 100)}%`,
-				text: total > 0
-					? `${current} / ${total}`
-					: `${capitalizeWords(cluster.status ?? 'Updating')}...`,
-			};
-		}
-	}, [cluster.status, clusterById?.instances, isUpdating]);
 
 	const onSignOutClick = useCallback(async () => {
 		setSigningOut(true);
@@ -190,7 +167,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 							<DropdownMenuContent>
 								<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
 								{cluster.plans?.map((plan) => (
-									<DropdownMenuLabel key={plan.planId}>
+									<DropdownMenuLabel key={plan.planId + plan.regionId}>
 										{plan.planId} / {plan.regionId}
 										<br />
 										Auto Renewal <Badge variant="success">ON</Badge>
@@ -210,15 +187,8 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 					<h2>{cluster.name}</h2>
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="flex justify-between">
-				{updating && cluster.status && (
-					<ProgressBar
-						animated={true}
-						className="bg-yellow-800/60"
-						width={updating.width}
-						placeholder={updating.text}
-					/>
-				)}
+			<CardContent className="flex items-center justify-between gap-2">
+				<ClusterProgress cluster={cluster} showProgressBarWhenFullyReady={true} />
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
 			</CardContent>
 

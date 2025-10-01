@@ -15,7 +15,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	}
 
 	if (!cluster.fqdn) {
-		return <Link to={`${cluster.id}/instances`} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+		return <Link to={`${cluster.id}/instances`} className="text-sm text-nowrap" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				Instances <ArrowRight className="inline-block" />
 			</span>
@@ -24,13 +24,13 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 
 	if (isPendingResetPassword) {
 		if (update) {
-			return <Link to={`${cluster.id}/set-password`} className="text-sm" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
+			return <Link to={`${cluster.id}/set-password`} className="text-sm text-nowrap" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
 				<span className="py-2 hover:border-b-2">
 					Set Password <ArrowRight className="inline-block" />
 				</span>
 			</Link>;
 		}
-		return <span className="py-2">
+		return <span className="py-2 text-nowrap">
 			Pending Owner Setup
 		</span>;
 	}
@@ -39,13 +39,13 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		return undefined;
 	}
 	if (auth.user) {
-		return <Link to={`${cluster.id}${defaultInstanceRoute}`} className="text-sm" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
+		return <Link to={`${cluster.id}${defaultInstanceRoute}`} className="text-sm text-nowrap" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				View <ArrowRight className="inline-block" />
 			</span>
 		</Link>;
 	}
-	return <Link to={`${cluster.id}/sign-in`} className="text-sm" aria-label={`Sign In to ${cluster.name}`} title={`Sign In to ${cluster.name}`}>
+	return <Link to={`${cluster.id}/sign-in`} className="text-sm text-nowrap" aria-label={`Sign In to ${cluster.name}`} title={`Sign In to ${cluster.name}`}>
 		<span className="py-2 hover:border-b-2">
 			Sign In <ArrowRight className="inline-block" />
 		</span>
