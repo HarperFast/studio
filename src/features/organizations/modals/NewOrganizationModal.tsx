@@ -70,7 +70,7 @@ export function NewOrganizationModal() {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<Button variant="positive" className="rounded-full md:w-44 w-full" accessKey="n">
+				<Button variant="positive" className="rounded-full w-44" accessKey="n">
 					<Plus /> <span><u>N</u>ew Organization</span>
 				</Button>
 			</DialogTrigger>

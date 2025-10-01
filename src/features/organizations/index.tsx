@@ -74,10 +74,10 @@ export function OrganizationsIndex() {
 	return (
 		<>
 			<SubNavMenu>
-				<div className="flex w-full justify-between">
+				<div className="flex w-full justify-end gap-2">
 					<Input
 						placeholder="Filter by name"
-						className="inline-block w-full md:w-64 bg-black border"
+						className="inline-block w-48 md:w-64 bg-black border"
 						onChange={onFilterByNameChanged}
 					/>
 					<NewOrganizationModal />
