@@ -109,7 +109,7 @@ export function ImportApplicationForm({
 								<FormControl>
 									<Input
 										type="url"
-										placeholder="https://github.com/HarperDB/nextjs-example"
+										placeholder="https://github.com/HarperFast/status-check"
 										{...field}
 										onChange={(e: FormEvent<HTMLInputElement>) => {
 											field.onChange(e.currentTarget.value);
