@@ -1,5 +1,7 @@
 import { cva } from 'class-variance-authority';
 
+const hoverBounce = 'hover:-translate-y-1 transition duration-200';
+const outlineCommon = 'border bg-transparent border-2 text-white shadow-xs hover:bg-grey-700/40';
 export const buttonVariants = cva(
 	`inline-flex 
   items-center 
@@ -29,17 +31,17 @@ export const buttonVariants = cva(
 				submit:
 					'bg-gradient-to-r from-blue-100 from-0% to-blue to-100% hover:bg-gradient-to-r hover:from-blue text-primary-foreground shadow-sm',
 				destructive: 'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90',
-				outline: 'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground',
 				secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
 				ghost: 'hover:bg-accent hover:text-muted-foreground',
 				link: 'text-primary underline-offset-4 hover:underline',
 				positive: 'bg-green text-white shadow-xs hover:bg-green/90',
+				outline: `${outlineCommon} ${hoverBounce}`,
 				positiveOutline:
-					'border bg-transparent border-green border-2 text-white shadow-xs hover:-translate-y-1 transition duration-200 hover:bg-grey-700/40',
+					`${outlineCommon} ${hoverBounce} border-green`,
 				destructiveOutline:
-					'border bg-transparent border-destructive border-2 text-white shadow-xs hover:-translate-y-1 transition duration-200 hover:bg-grey-700/40',
+					`${outlineCommon} ${hoverBounce} border-destructive`,
 				defaultOutline:
-					'border bg-transparent border-primary border-2 text-white shadow-xs hover:-translate-y-1 transition duration-200 hover:bg-grey-700/40',
+					`${outlineCommon} ${hoverBounce} border-primary`,
 			},
 			size: {
 				default: 'h-9 px-4 py-2 has-[>svg]:px-3',
