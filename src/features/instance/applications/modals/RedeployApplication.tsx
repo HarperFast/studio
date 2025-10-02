@@ -30,8 +30,10 @@ export function RedeployApplicationModal({
 
   const { setFocus, control, handleSubmit } = methods;
 
-  const submitForm = ({applicationUrl }: { applicationUrl: string }) => {
-    redeployPackage(applicationUrl);
+  const submitForm = ({ applicationUrl }: { applicationUrl: string | undefined }) => {
+	if (applicationUrl) {
+	  redeployPackage(applicationUrl);
+	}
   }
 
   useEffect(() => {
