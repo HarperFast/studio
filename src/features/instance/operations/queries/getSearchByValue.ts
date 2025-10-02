@@ -2,60 +2,50 @@ import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetSearchByValueParams extends InstanceClientIdConfig {
+	enabled: boolean;
 	databaseName: string;
 	tableName: string;
 	searchAttribute: string;
-	sortTableDataParams: {
-		attribute: string;
-		descending: boolean;
-	};
+	sort: { attribute: string; descending: boolean; };
 	pageIndex: number;
 	pageSize: number;
 }
 
-interface SearchConditions {
-	search_attribute: string;
-	search_type: string;
-	search_value: string;
-}
-
 interface SearchByValueRequest {
 	operation: 'search_by_value',
-	conditions?: [SearchConditions];
 	database: string;
 	table: string;
 	search_attribute: string;
 	search_value: string;
-	get_attributes?: string[];
-	limit: number;
+	sort?: { attribute: string; descending: boolean; };
 	offset: number;
-	sort?: {
-		attribute: string;
-		descending: boolean;
-	};
+	limit: number;
+	get_attributes?: string[];
 }
 
 export function getSearchByValueOptions({
+	enabled,
 	entityId,
 	instanceClient,
 	databaseName,
 	tableName,
 	searchAttribute,
-	sortTableDataParams,
-	pageSize,
+	sort,
 	pageIndex,
+	pageSize,
 }: GetSearchByValueParams) {
 	return queryOptions({
+		enabled,
 		queryKey: [
 			entityId,
 			'search_by_value',
+			databaseName,
+			tableName,
 			searchAttribute,
+			sort.attribute || 'default',
+			sort.descending || false,
 			pageIndex || 0,
 			pageSize || 0,
-			databaseName,
-			sortTableDataParams.attribute || 'default',
-			sortTableDataParams.descending || false,
-			tableName,
 		] as const,
 		staleTime: 5_000,
 		// refetchInterval: 10_000,
@@ -67,9 +57,9 @@ export function getSearchByValueOptions({
 				table: tableName,
 				search_attribute: searchAttribute,
 				search_value: '*',
-				sort: sortTableDataParams.attribute.length ? sortTableDataParams : undefined,
-				limit: pageSize,
+				sort: sort.attribute.length ? sort : undefined,
 				offset: pageIndex * pageSize,
+				limit: pageSize,
 			} satisfies SearchByValueRequest),
 	});
 }

@@ -1,6 +1,7 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { ColumnFiltersSchema } from '@/features/instance/databases/components/ColumnFilters';
 import { PickColumnsDropdown } from '@/features/instance/databases/components/PickColumnsDropdown';
 import { TableView } from '@/features/instance/databases/components/TableView';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
@@ -12,18 +13,28 @@ import { useDeleteTableRecords } from '@/features/instance/operations/mutations/
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
+import {
+	getSearchByConditionsOptions,
+	SearchCondition,
+	translateColumnFilterToSearchCondition,
+} from '@/features/instance/operations/queries/getSearchByConditions';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { useToggleCallback } from '@/hooks/useToggleCallback';
+import { keyBy } from '@/lib/keyBy';
 import { queryClient } from '@/react-query/queryClient';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
-import { ImportIcon, PlusIcon, RefreshCwIcon, Trash } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { ImportIcon, PlusIcon, RefreshCwIcon, SearchIcon, Trash } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 export function DatabaseTableView() {
@@ -48,30 +59,36 @@ export function DatabaseTableView() {
 			...instanceParams,
 			databaseName,
 			tableName,
-		})
+		}),
 	);
+	const attributesMap = useMemo(() => keyBy(describeTableData.attributes, 'attribute'), [describeTableData])
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-	const { data: searchByIdData } = useQuery(
-		getSearchByIdOptions({
-			...instanceParams,
-			isEditModalOpen: isEditModalOpen,
-			databaseName: databaseName,
-			tableName: tableName,
-			ids: selectedIds,
-		})
-	);
+	const columnFiltersForm = useForm({
+		resolver: zodResolver(ColumnFiltersSchema),
+	});
+	const columnFiltersValues = columnFiltersForm.watch();
+	const rawSearchConditions: SearchCondition[] | null = useMemo(() => {
+		const conditions: SearchCondition[] = [];
+		for (const key in columnFiltersValues) {
+			if (columnFiltersValues[key]?.length) {
+				conditions.push(translateColumnFilterToSearchCondition(key, columnFiltersValues[key], attributesMap[key]));
+			}
+		}
+		return conditions.length ? conditions : null;
+	}, [attributesMap, columnFiltersValues])
+	const searchConditions = useDebounce(rawSearchConditions, 500, JSON.stringify);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
-	const [sortTableDataParams, setSortTableDataParams] = useEffectedState(
+	const [sort, setSort] = useEffectedState(
 		{
 			attribute: hashAttribute,
 			descending: false,
 		},
-		allParams
+		allParams,
 	);
 
 	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
@@ -79,21 +96,48 @@ export function DatabaseTableView() {
 	const [pageSize, setPageSize] = useState(20);
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pageSize));
 
+	// Full list
 	const {
-		data: tableData,
+		data: fullTableData,
 		refetch: refetchSearchByValueOptions,
 		isFetching: tableDataFetching,
 	} = useQuery(
 		getSearchByValueOptions({
+			enabled: !searchConditions,
 			...instanceParams,
 			databaseName,
 			tableName,
 			searchAttribute: hashAttribute,
-			sortTableDataParams,
+			sort,
 			pageSize,
 			pageIndex,
-		})
+		}),
 	);
+	// Filtered list
+	const { data: filteredTableData } = useQuery(
+		getSearchByConditionsOptions({
+			enabled: !!searchConditions,
+			...instanceParams,
+			databaseName,
+			tableName,
+			conditions: searchConditions,
+			sort,
+			pageSize,
+			pageIndex,
+		}),
+	);
+	const tableData = searchConditions ? filteredTableData : fullTableData;
+	// One by id
+	const { data: searchByIdData } = useQuery(
+		getSearchByIdOptions({
+			...instanceParams,
+			enabled: isEditModalOpen,
+			databaseName: databaseName,
+			tableName: tableName,
+			ids: selectedIds,
+		}),
+	);
+
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
@@ -119,7 +163,7 @@ export function DatabaseTableView() {
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
-			}
+			},
 		);
 	};
 	const onRecordUpdate = (data: Record<string, unknown>[]) => {
@@ -137,7 +181,7 @@ export function DatabaseTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
-			}
+			},
 		);
 	};
 
@@ -156,7 +200,7 @@ export function DatabaseTableView() {
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
-			}
+			},
 		);
 	};
 
@@ -176,7 +220,7 @@ export function DatabaseTableView() {
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
-		setSortTableDataParams({
+		setSort({
 			attribute: accessorKey,
 			descending: !isAscending,
 		});
@@ -215,10 +259,10 @@ export function DatabaseTableView() {
 							void navigate({ to: '../' });
 						}
 					},
-				}
+				},
 			);
 		},
-		[deleteTable, instanceParams, navigate, tableName]
+		[deleteTable, instanceParams, navigate, tableName],
 	);
 
 	const onDeletionConfirmed = useCallback(() => {
@@ -231,6 +275,7 @@ export function DatabaseTableView() {
 		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
 		{} satisfies VisibilityState,
 	);
+	const [showSearch, toggleShowSearch] = useToggleCallback(false);
 
 	return (
 		<>
@@ -268,6 +313,10 @@ export function DatabaseTableView() {
 				</div>
 
 				<div className="flex space-x-2">
+					<Button variant="ghost" onClick={toggleShowSearch}>
+						<SearchIcon className="inline-block " />
+						{showSearch ? 'Clear Search' : 'Search'}
+					</Button>
 					<PickColumnsDropdown
 						columns={dataTableColumns}
 						columnVisibility={columnVisibility}
@@ -285,6 +334,7 @@ export function DatabaseTableView() {
 			<TableView<Record<string, unknown>, unknown>
 				data={tableData?.data || []}
 				isFetching={tableDataFetching}
+				showSearch={showSearch}
 				columns={dataTableColumns}
 				columnVisibility={columnVisibility}
 				onRowClick={onRowClick}
@@ -293,6 +343,7 @@ export function DatabaseTableView() {
 				totalRecords={totalRecords}
 				pageIndex={pageIndex}
 				pageSize={pageSize}
+				columnFiltersForm={columnFiltersForm}
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>

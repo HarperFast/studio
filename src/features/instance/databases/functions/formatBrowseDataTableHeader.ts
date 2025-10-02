@@ -17,6 +17,7 @@ export function formatBrowseDataTableHeader(instanceTable: InstanceTable): {
 			header: attribute,
 			accessorKey: attribute,
 			enableSorting: Boolean(is_primary_key || indexed),
+			enableColumnFilter: Boolean(is_primary_key || indexed),
 			enableResizing: true,
 			size: sizeByAttributeType(type),
 		};

@@ -2,14 +2,14 @@ import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
 interface SearchByIdParams extends InstanceClientIdConfig {
-	isEditModalOpen: boolean;
+	enabled: boolean;
 	databaseName: string;
 	tableName: string;
 	ids: unknown[] | null;
 }
 
 export function getSearchByIdOptions(
-	{ isEditModalOpen, entityId, instanceClient, databaseName, tableName, ids }: SearchByIdParams,
+	{ enabled, entityId, instanceClient, databaseName, tableName, ids }: SearchByIdParams,
 ) {
 	return queryOptions({
 		queryKey: [entityId, 'search_by_id', databaseName, tableName, ids] as const,
@@ -23,7 +23,7 @@ export function getSearchByIdOptions(
 				database: databaseName,
 				table: tableName,
 			}),
-		enabled: isEditModalOpen && !!ids?.length,
+		enabled: enabled && !!ids?.length,
 		retry: false,
 	});
 }

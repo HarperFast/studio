@@ -4,6 +4,7 @@ import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
+import { ColumnFilters, ColumnFiltersSchema } from '@/features/instance/databases/components/ColumnFilters';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { cn } from '@/lib/cn';
 import {
@@ -17,35 +18,41 @@ import {
 } from '@tanstack/react-table';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { Dispatch, SetStateAction, useCallback } from 'react';
+import { UseFormReturn } from 'react-hook-form';
+import { z } from 'zod';
 
 interface BrowseDataTableProps<TData, TValue> {
-	columns: ColumnDef<TData, TValue>[];
-	columnVisibility: VisibilityState;
-	data: TData[];
-	isFetching?: boolean;
-	totalPages: number;
-	totalRecords: number;
-	onRowClick?: (row: Row<TData>) => void;
-	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
-	pageIndex: number;
-	pageSize: number;
-	setPageIndex: Dispatch<SetStateAction<number>>;
-	setPageSize: Dispatch<SetStateAction<number>>;
+	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>,
+	columns: ColumnDef<TData, TValue>[],
+	columnVisibility: VisibilityState,
+	data: TData[],
+	isFetching?: boolean,
+	onColumnClick?: (accessorKey: string, isDescending: boolean) => void,
+	onRowClick?: (row: Row<TData>) => void,
+	pageIndex: number,
+	pageSize: number,
+	setPageIndex: Dispatch<SetStateAction<number>>,
+	setPageSize: Dispatch<SetStateAction<number>>,
+	showSearch: boolean,
+	totalPages: number,
+	totalRecords: number,
 }
 
 export function TableView<TData, TValue>({
 	columns,
 	columnVisibility,
+	columnFiltersForm,
 	data,
 	isFetching,
+	onColumnClick,
+	onRowClick,
+	pageIndex,
+	pageSize,
+	setPageIndex,
+	setPageSize,
+	showSearch,
 	totalPages,
 	totalRecords,
-	onRowClick,
-	onColumnClick,
-	pageIndex,
-	setPageIndex,
-	pageSize,
-	setPageSize,
 }: BrowseDataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
@@ -69,7 +76,7 @@ export function TableView<TData, TValue>({
 		setPageIndex(pageIndex - 1);
 	}, [pageIndex, setPageIndex]);
 	const nextPage = useCallback(() => {
-	    setPageIndex(pageIndex + 1);
+		setPageIndex(pageIndex + 1);
 	}, [pageIndex, setPageIndex]);
 
 	return (<>
@@ -80,6 +87,9 @@ export function TableView<TData, TValue>({
 						<TableHeadSortable key={header.id} header={header} onColumnClick={onColumnClick} />)}
 				</TableRow>))}
 			</TableHeader>
+			{showSearch && (
+				<ColumnFilters columnFiltersForm={columnFiltersForm} headerGroups={table.getHeaderGroups()} />
+			)}
 			<TableBody className="bg-black border border-grey-700">
 				{table.getRowModel().rows?.length ? (table.getRowModel().rows.map((row) => (
 					<TableRow key={row.id} data-state={row.getIsSelected() && 'selected'}
