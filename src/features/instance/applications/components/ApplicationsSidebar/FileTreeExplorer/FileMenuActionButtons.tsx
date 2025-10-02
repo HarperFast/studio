@@ -11,6 +11,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Minus, Plus, RefreshCwIcon } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { RedeployApplicationModal } from '../../../modals/RedeployApplication';
 
 export function FileMenuActionButtons() {
 	const queryClient = useQueryClient();
@@ -19,6 +20,7 @@ export function FileMenuActionButtons() {
 	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
 	const [isAddingFolder, setIsAddingFolder] = useState(false);
 	const [isDeleteFolderOrFileClicked, setIsDeleteFolderOrFileClicked] = useState(false);
+	const [isRedeployApplicationClicked, setIsRedeployApplicationClicked] = useState(false);
 	const { isFolder, selectedFolderFile, handleFileSelect } = useEditorView();
 	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
 	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
@@ -68,11 +70,12 @@ export function FileMenuActionButtons() {
 
 	const { mutate: reDeployApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 
-	const redeployPackage = useCallback(() => {
+	const redeployPackage = useCallback((applicationUrl: string) => {
+		const originalPackageUrl = selectedFolderFile.pkg;
 		const toastId = toast.loading('Redeploying...');
 		reDeployApplication({
 			applicationName: selectedFolderFile.projectName,
-			applicationUrl: selectedFolderFile.pkg as string,
+			applicationUrl,
 			replicated: instanceParams.entityType === 'cluster',
 			...instanceParams,
 		}, {
@@ -87,9 +90,14 @@ export function FileMenuActionButtons() {
 					queryKey: [instanceParams.entityId, 'get_components'],
 					refetchType: 'active',
 				});
+				setIsRedeployApplicationClicked(false);
 			},
+			onError: () => {
+				selectedFolderFile.pkg = originalPackageUrl
+				toast.dismiss(toastId);
+			}
 		});
-	}, [reDeployApplication, selectedFolderFile.projectName, selectedFolderFile.pkg, instanceParams, queryClient]);
+	}, [reDeployApplication, selectedFolderFile, instanceParams, queryClient]);
 
 	const toggleDeleting = useCallback(() => {
 		setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked);
@@ -100,7 +108,7 @@ export function FileMenuActionButtons() {
 			<div className='flex flex-wrap gap-2'>
 				{selectedFolderFile.pkg && (
 					<Button
-						onClick={redeployPackage}
+						onClick={() => setIsRedeployApplicationClicked(true)}
 						disabled={isDeployComponentPending}
 						variant="positiveOutline"
 						size="sm"
@@ -174,6 +182,12 @@ export function FileMenuActionButtons() {
 				isPackageSelected={!!selectedFolderFile.pkg}
 				isPending={isDeleteFolderFilePending}
 				handleDeleteFolderOrFile={handleDeleteFolderOrFile}
+			/>
+			<RedeployApplicationModal
+				isModalOpen={isRedeployApplicationClicked}
+				setIsModalOpen={setIsRedeployApplicationClicked}
+				redeployPackage={redeployPackage}
+				packageUrl={selectedFolderFile.pkg}
 			/>
 		</div>
 	);
