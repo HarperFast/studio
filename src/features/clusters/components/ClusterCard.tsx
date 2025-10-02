@@ -127,13 +127,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	}, [terminateCluster, cluster.id, cluster.name, isSelfManaged, queryClient]);
 
 	const onCopyFQDNClick = useCallback(() => {
-		navigator.clipboard.writeText(cluster.fqdn || '');
-		toast.info('FQDN copied to clipboard');
+		void navigator.clipboard.writeText(cluster.fqdn!);
+		toast.info('Host name copied to clipboard!');
 	}, [cluster.fqdn]);
 
 	const onCopyAPIClick = useCallback(() => {
-		navigator.clipboard.writeText(`https://${cluster.fqdn}`);
-		toast.info('API url copied to clipboard');
+		void navigator.clipboard.writeText(`https://${cluster.fqdn}`);
+		toast.info('API URL copied to clipboard!');
 	}, [cluster.fqdn]);
 
 	const menuItems = [
@@ -149,12 +149,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		),
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
-				Copy FQDN
+				Copy host name
 			</DropdownMenuItem>
 		),
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyAPIClick} disabled={signingOut}>
-				Copy API Url
+				Copy API URL
 			</DropdownMenuItem>
 		),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
