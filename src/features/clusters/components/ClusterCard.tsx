@@ -149,7 +149,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		),
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
-				Copy FQDN Url
+				Copy FQDN
 			</DropdownMenuItem>
 		),
 		isActive && view && cluster.fqdn && (
