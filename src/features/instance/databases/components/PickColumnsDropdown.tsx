@@ -8,7 +8,6 @@ import {
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useToggleCallback } from '@/hooks/useToggleCallback';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
-import { notYetImplemented } from '@/lib/notYetImplemented';
 import { VisibilityState } from '@tanstack/react-table';
 import { Columns3CogIcon } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
@@ -30,7 +29,7 @@ export function PickColumnsDropdown({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" onClick={notYetImplemented}>
+				<Button variant="ghost">
 					<Columns3CogIcon className="inline-block " />
 					Columns
 				</Button>
