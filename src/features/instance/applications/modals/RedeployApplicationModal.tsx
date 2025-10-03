@@ -69,7 +69,7 @@ export function RedeployApplicationModal({
 											<Input
 												type="text"
 												defaultValue={packageUrl}
-												placeholder="https://github.com/HarperDB/nextjs-example"
+												placeholder="https://github.com/HarperFast/status-check"
 												{...field}
 												onChange={(e: FormEvent<HTMLInputElement>) => {
 													field.onChange(e.currentTarget.value);
