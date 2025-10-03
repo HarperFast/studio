@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAnalyticsQueryOptions, MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
-import { InstanceClientConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { useMemo } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
@@ -10,11 +10,12 @@ type Metric = {node: string, id: number, period: number, [key: string]: MetricVa
 type NullableMetric = {[key: string]: NullableMetricValue};
 type CoalescedMetrics = {[id: string]: {[node: string]: MetricValue}};
 
-interface MetricVisualizationParams extends InstanceClientConfig {
+interface MetricVisualizationParams {
 	metricConfig: MetricConfig;
 	metricDataKey: keyof Metric;
 	startTime: number;
 	endTime: number;
+	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
 
 const harperPalette = {
@@ -27,9 +28,9 @@ const harperPalette = {
 	'edge-gray': '#383D40',
 };
 
-export function MetricVisualization({ metricConfig, metricDataKey, startTime, endTime, instanceClient }: MetricVisualizationParams) {
-	const { data } = useQuery(getAnalyticsQueryOptions({instanceClient, metricConfig, startTime, endTime}));
-	const metrics: Metric[] = useMemo(() => {
+export function MetricVisualization({ metricConfig, metricDataKey, startTime, endTime, instanceParams }: MetricVisualizationParams) {
+	const { data } = useQuery(getAnalyticsQueryOptions({instanceParams, metricConfig, startTime, endTime}));
+	const metrics = useMemo(() => {
 		return data?.reduce((ms: Metric[], m: NullableMetric) => {
 			const newMetric: Metric = {node: '', id: 0, period: 0};
 			for (const k in m) {
