@@ -1,10 +1,10 @@
 import { MetricVisualization } from '@/features/instance/status/components/monitoring/MetricVisualization.tsx';
 import { useMemo, useState } from 'react';
-import { InstanceClientConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { Input } from '@/components/ui/input.tsx';
 import { Label } from '@/components/ui/label.tsx';
 import { useInterval } from '@/hooks/useInterval.ts';
-import { MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
+import type { MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
 
 const metrics: MetricConfig[] = [
@@ -19,7 +19,11 @@ const windowOptions: {label: string, value: number}[] = [
 	{label: 'day', value: 24 * 60 * 60_000},
 ];
 
-export function Monitoring({instanceClient}: InstanceClientConfig) {
+interface MonitoringParams {
+	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
+}
+
+export function Monitoring({instanceParams}: MonitoringParams) {
 	const [selectedMetric, setSelectedMetric] = useState(metrics[0]);
 
 	const [updateInterval, setUpdateInterval] = useState(60_000); // default to update every 60 secs
@@ -93,7 +97,7 @@ export function Monitoring({instanceClient}: InstanceClientConfig) {
 			  metricDataKey="count"
 				startTime={startTime}
 				endTime={endTime}
-				instanceClient={instanceClient} />
+				instanceParams={instanceParams} />
 		</div>
 	)
 }
