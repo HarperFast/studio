@@ -26,6 +26,12 @@ interface GetAnalyticsRequest {
 	}[];
 }
 
+type GetAnalyticsResponse = {
+	id: number;
+	metric: string;
+	[key: string]: string|number|boolean|null;
+}
+
 export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, instanceClient }: GetAnalyticsParams) {
 	return queryOptions({
 		queryKey: ['get_analytics', metricConfig.name, metricConfig.path, startTime, endTime] as const,
@@ -39,7 +45,7 @@ export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, ins
 			if (metricConfig.path) {
 				req.conditions = [{ attribute: 'path', value: metricConfig.path }];
 			}
-			const { data } = await instanceClient.post('/', req);
+			const { data } = await instanceClient.post<GetAnalyticsResponse>('/', req);
 			return data;
 		}
 	});
