@@ -31,10 +31,10 @@ export function getUsageLicensesQueryOptions({ entityId, instanceClient }: Insta
 	return queryOptions({
 		queryKey: [entityId, 'get_usage_licenses'] as const,
 		queryFn: async () => {
-			const { data } = await instanceClient.post('/', {
+			const { data } = await instanceClient.post<UsageLicense[]>('/', {
 				operation: 'get_usage_licenses',
 			});
-			return data as UsageLicense[];
+			return data;
 		},
 	});
 }
