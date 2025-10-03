@@ -76,15 +76,6 @@ export function Monitoring({instanceClient}: InstanceClientConfig) {
 							</SelectGroup>
 						</SelectContent>
 					</Select>
-					{/*<Input*/}
-					{/*	className="mr-2 w-16 inline-block"*/}
-					{/*  id="timeWindowInput"*/}
-					{/*	type="text"*/}
-					{/*  onChange={(e) => setTimeWindowInputValue(Number(e.target.value))}*/}
-					{/*  onBlur={(e) => setTimeWindow(Number(e.target.value) * 60_000)}*/}
-					{/*  value={timeWindowInputValue}*/}
-					{/*/>*/}
-					{/*minutes*/}
 					<Label className="ml-8 mr-2">Update every</Label>
 					<Input
 						className="mr-2 w-16 inline-block"
