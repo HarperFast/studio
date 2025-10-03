@@ -13,15 +13,18 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 }
 
 type Comparator =
+	| 'between'
+	// | 'contains' // Turned off for performance reasons until we add warnings for the user.
+	// | 'ends_with' // Turned off for performance reasons until we add warnings for the user.
+	| 'eq'
 	| 'equals'
-	| 'contains'
-	| 'starts_with'
-	| 'ends_with'
 	| 'greater_than'
 	| 'greater_than_equal'
 	| 'less_than'
 	| 'less_than_equal'
-	| 'between';
+	| 'ne'
+	| 'not_equal'
+	| 'starts_with';
 
 export interface SearchCondition {
 	search_attribute: string;
@@ -96,22 +99,23 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 		case 'BigInt':
 		case 'Long':
 		case 'Float': {
-			const comparator = value.match(/^[><=]+/)?.[0];
-			const rawValue = comparator ? value.slice(comparator.length) : value;
-			const parsed = attribute.type.includes('Int') ? parseInt(rawValue, 10) : parseFloat(rawValue);
+			const { comparator, rawNumber } = parseNumericalComparator(value);
+			const parsed = attribute.type.includes('Int') ? parseInt(rawNumber, 10) : parseFloat(rawNumber);
+			if (isNaN(parsed)) {
+				throw new Error(`${rawNumber} does not appear to be a valid number.`);
+			}
 			return {
 				search_attribute: key,
-				search_type: translateNumberComparator(comparator),
+				search_type: comparator,
 				search_value: parsed,
 			};
 		}
 		case 'Date': {
-			const comparator = value.match(/^[><=]+/)?.[0];
-			const rawValue = comparator ? value.slice(comparator.length) : value;
-			const parsed = new Date(rawValue).toISOString();
+			const { comparator, rawNumber } = parseNumericalComparator(value);
+			const parsed = new Date(rawNumber).toISOString();
 			return {
 				search_attribute: key,
-				search_type: translateNumberComparator(comparator),
+				search_type: comparator,
 				search_value: parsed,
 			};
 		}
@@ -134,6 +138,76 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 	}
 }
 
+const comparatorNumericalPrefixMappings: Record<string, Comparator> = {
+	// greater than
+	'>': 'greater_than',
+	'g': 'greater_than',
+	'gt': 'greater_than',
+	'greater': 'greater_than',
+	'greaterthan': 'greater_than',
+
+	// greater than or equals
+	'>=': 'greater_than_equal',
+	'ge': 'greater_than_equal',
+	'gte': 'greater_than_equal',
+	'greaterorequal': 'greater_than_equal',
+	'greaterthanequal': 'greater_than_equal',
+	'greaterthanorequal': 'greater_than_equal',
+
+	// equals
+	'===': 'equals',
+	'==': 'eq',
+	'=': 'eq',
+	'equals': 'equals',
+	'equal': 'equals',
+	'eq': 'eq',
+
+	// not equals
+	'!==': 'not_equal',
+	'!=': 'ne',
+	'notequals': 'not_equal',
+	'notequal': 'not_equal',
+	'ne': 'ne',
+
+	// less than
+	'<': 'less_than',
+	'l': 'less_than',
+	'lt': 'less_than',
+	'less': 'less_than',
+	'lessthan': 'less_than',
+
+	// less than or equals
+	'<=': 'less_than_equal',
+	'lte': 'less_than_equal',
+	'le': 'less_than_equal',
+	'lessorequal': 'less_than_equal',
+	'lessthanequal': 'less_than_equal',
+	'lessthanorequal': 'less_than_equal',
+}
+
+export function parseNumericalComparator(value: string): { comparator: Comparator, rawNumber: string } {
+	const simpleOperator = value.toLowerCase().trim().match(/^([><=a-z_ ]+)([\d._TZ-]+)$/);
+	if (simpleOperator) {
+		const prefix = simpleOperator[1]
+			.replace(/[_ ]+/g, '')
+			.replace(/^([a-z]+)=$/g, '$1');
+		const number = simpleOperator[2];
+		const mappedComparator = comparatorNumericalPrefixMappings[prefix];
+		if (!mappedComparator) {
+			throw new Error(`${prefix} is not a known operator; please use <, <=, >, >=, ==, or !=`);
+		}
+		return {
+			comparator: mappedComparator,
+			rawNumber: number,
+		};
+	}
+	// TODO: Support between.
+	return {
+		comparator: 'equals',
+		rawNumber: value,
+	};
+}
+
 export function translateStringSearchType(anchorStart: boolean, attribute: InstanceAttribute): Comparator {
 	if (anchorStart) {
 		return 'starts_with';
@@ -151,24 +225,16 @@ export function translateStringSearchValue(anchorStart: boolean, value: string) 
 	return value;
 }
 
-export function translateNumberComparator(comparator: string | undefined): Comparator {
-	switch (comparator) {
-		case '>':
-			return 'greater_than';
-		case '>=':
-			return 'greater_than_equal';
-		case '<':
-			return 'less_than';
-		case '<=':
-			return 'less_than_equal';
-		default:
-			return 'equals';
-	}
-
-}
-
 const acceptedOKValues = [
-	'true', 'yes', 'ok', 'yup', '1', 'si', 'bet', 'tru',
+	'1',
+	'bet',
+	'k',
+	'ok',
+	'si',
+	'tru',
+	'true',
+	'yes',
+	'yup',
 ];
 
 export function translateBooleanValue(value: string): boolean {

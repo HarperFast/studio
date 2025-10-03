@@ -1,7 +1,7 @@
 import {
+	parseNumericalComparator,
 	translateBooleanValue,
 	translateColumnFilterToSearchCondition,
-	translateNumberComparator,
 	translateStringSearchType,
 	translateStringSearchValue,
 } from '@/features/instance/operations/queries/getSearchByConditions';
@@ -27,31 +27,46 @@ describe('translateStringSearchType', () => {
 	});
 });
 
+describe('parseNumericalComparator', () => {
+	it('understand greater than equal', () => {
+		const myExpectations = {
+			comparator: 'greater_than_equal',
+			rawNumber: '10',
+		};
+		expect(parseNumericalComparator('>= 10')).toEqual(myExpectations);
+		expect(parseNumericalComparator('gte 10')).toEqual(myExpectations);
+		expect(parseNumericalComparator('gte=10')).toEqual(myExpectations);
+	});
+
+	it('supports dates', () => {
+		const myExpectations = {
+			comparator: 'greater_than_equal',
+			rawNumber: '2025-10-01',
+		};
+		expect(parseNumericalComparator('>= 2025-10-01')).toEqual(myExpectations);
+	});
+
+	it('throws errors with unknown operators', () => {
+		expect(() => parseNumericalComparator('add 2')).toThrowError(
+			'add is not a known operator; please use <, <=, >, >=, ==, or !=',
+		);
+	});
+
+	it('falls back to equals with pure numbers', () => {
+		const myExpectations = {
+			comparator: 'equals',
+			rawNumber: '2025',
+		};
+		expect(parseNumericalComparator('2025')).toEqual(myExpectations);
+	});
+});
+
 describe('translateStringSearchValue', () => {
 	it('strips start anchor', () => {
 		expect(translateStringSearchValue(true, 'foo*')).toBe('foo');
 	});
 	it('returns as-is with no anchors', () => {
 		expect(translateStringSearchValue(false, 'foo')).toBe('foo');
-	});
-});
-
-describe('translateNumberComparator', () => {
-	it('maps > to greater_than', () => {
-		expect(translateNumberComparator('>')).toBe('greater_than');
-	});
-	it('maps >= to greater_than_equal', () => {
-		expect(translateNumberComparator('>=')).toBe('greater_than_equal');
-	});
-	it('maps < to less_than', () => {
-		expect(translateNumberComparator('<')).toBe('less_than');
-	});
-	it('maps <= to less_than_equal', () => {
-		expect(translateNumberComparator('<=')).toBe('less_than_equal');
-	});
-	it('defaults to equals for = and undefined', () => {
-		expect(translateNumberComparator('=')).toBe('equals');
-		expect(translateNumberComparator(undefined)).toBe('equals');
 	});
 });
 
