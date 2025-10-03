@@ -97,8 +97,10 @@ export function TableView<TData, TValue>({
 						className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}>
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
 							style={{ width: `${cell.column.getSize()}px` }}
-							className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
-							{flexRender(cell.column.columnDef.cell, cell.getContext())}
+							className="px-2 py-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
+							{ cell.getValue() == '[object Object]' ? JSON.stringify(cell.getValue()) :
+							flexRender(cell.column.columnDef.cell, cell.getContext())
+							}
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>
 					<TableCell colSpan={columns.length} className="h-24 text-center">
@@ -117,7 +119,7 @@ export function TableView<TData, TValue>({
 			<div className="grow"></div>
 
 			<div className="text-center">
-				<dt className="text-sm/6 font-medium text-gray-500 dark:text-gray-400">Records</dt>
+				<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Records</dt>
 				<dd className="font-semibold tracking-tight">{addCommasToNumbers(totalRecords)}</dd>
 			</div>
 			{totalRecords > 0 && (<>
@@ -138,11 +140,11 @@ export function TableView<TData, TValue>({
 
 				{totalPages > 1 && (<>
 					<div className="text-center">
-						<dt className="text-sm/6 font-medium text-gray-500 dark:text-gray-400">Pages</dt>
+						<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Pages</dt>
 						<dd className="font-semibold tracking-tight">{addCommasToNumbers(totalPages)}</dd>
 					</div>
 					<div className="text-center">
-						<dt className="text-sm/6 font-medium text-gray-500 dark:text-gray-400">Page</dt>
+						<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Page</dt>
 						<dd className="font-semibold tracking-tight">{addCommasToNumbers(pageIndex + 1)}</dd>
 					</div>
 				</>)}
