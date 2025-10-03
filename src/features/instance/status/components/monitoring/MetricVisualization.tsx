@@ -70,23 +70,31 @@ export function MetricVisualization({ metricConfig, metricDataKey, startTime, en
 		return date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
 	}
 
-	return (
-		<ResponsiveContainer width="100%" height={600} className="mt-8">
-			<LineChart width={600} height={300} data={nodeMetrics}>
-				{nodes.map((node, i) => {
-					let metricDifferentiator = metricConfig.name;
-					if (metricConfig.path) {
-						metricDifferentiator += '.' + metricConfig.path;
-					}
-					const key = metricDifferentiator + '.' + node;
-					return <Line key={key} name={node} dataKey={node} stroke={Object.values(harperPalette)[i]} />
+	if (nodeMetrics && nodeMetrics.length > 0) {
+		return (
+			<ResponsiveContainer width="100%" height={600} className="mt-8">
+				<LineChart width={600} height={300} data={nodeMetrics}>
+					{nodes.map((node, i) => {
+						let metricDifferentiator = metricConfig.name;
+						if (metricConfig.path) {
+							metricDifferentiator += '.' + metricConfig.path;
+						}
+						const key = metricDifferentiator + '.' + node;
+						return <Line key={key} name={node} dataKey={node} stroke={Object.values(harperPalette)[i]} />
 					})
-				}
-				<XAxis dataKey={(item) => formatTime(item.id)} />
-				<YAxis unit={metricConfig.unit} width={80} />
-				<Legend />
-				<Tooltip />
-			</LineChart>
-		</ResponsiveContainer>
-	)
+					}
+					<XAxis dataKey={(item) => formatTime(item.id)} />
+					<YAxis unit={metricConfig.unit} width={80} />
+					<Legend />
+					<Tooltip />
+				</LineChart>
+			</ResponsiveContainer>
+		)
+	}
+
+	return (
+		<div className="mt-8">
+			<p>No {metricConfig.name} data for this time period</p>
+		</div>
+	);
 }
