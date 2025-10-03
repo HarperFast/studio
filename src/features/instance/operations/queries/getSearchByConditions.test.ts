@@ -29,21 +29,25 @@ describe('translateStringSearchType', () => {
 
 describe('parseNumericalComparator', () => {
 	it('understand greater than equal', () => {
-		const myExpectations = {
+		expect(parseNumericalComparator('>= 10')).toEqual({
 			comparator: 'greater_than_equal',
 			rawNumber: '10',
-		};
-		expect(parseNumericalComparator('>= 10')).toEqual(myExpectations);
-		expect(parseNumericalComparator('gte 10')).toEqual(myExpectations);
-		expect(parseNumericalComparator('gte=10')).toEqual(myExpectations);
+		});
+		expect(parseNumericalComparator('gte 10')).toEqual({
+			comparator: 'greater_than_equal',
+			rawNumber: '10',
+		});
+		expect(parseNumericalComparator('gte=10')).toEqual({
+			comparator: 'greater_than_equal',
+			rawNumber: '10',
+		});
 	});
 
 	it('supports dates', () => {
-		const myExpectations = {
+		expect(parseNumericalComparator('>= 2025-10-01')).toEqual({
 			comparator: 'greater_than_equal',
 			rawNumber: '2025-10-01',
-		};
-		expect(parseNumericalComparator('>= 2025-10-01')).toEqual(myExpectations);
+		});
 	});
 
 	it('throws errors with unknown operators', () => {
@@ -53,11 +57,10 @@ describe('parseNumericalComparator', () => {
 	});
 
 	it('falls back to equals with pure numbers', () => {
-		const myExpectations = {
+		expect(parseNumericalComparator('2025')).toEqual({
 			comparator: 'equals',
 			rawNumber: '2025',
-		};
-		expect(parseNumericalComparator('2025')).toEqual(myExpectations);
+		});
 	});
 });
 
