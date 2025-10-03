@@ -69,16 +69,21 @@ export function DatabaseTableView() {
 		resolver: zodResolver(ColumnFiltersSchema),
 	});
 	const columnFiltersValues = columnFiltersForm.watch();
-	const rawSearchConditions: SearchCondition[] | null = useMemo(() => {
+	const debouncedColumnFiltersValues = useDebounce(columnFiltersValues, 500, JSON.stringify);
+	const searchConditions: SearchCondition[] | null = useMemo(() => {
 		const conditions: SearchCondition[] = [];
-		for (const key in columnFiltersValues) {
-			if (columnFiltersValues[key]?.length) {
-				conditions.push(translateColumnFilterToSearchCondition(key, columnFiltersValues[key], attributesMap[key]));
+		for (const key in debouncedColumnFiltersValues) {
+			if (debouncedColumnFiltersValues[key]?.length) {
+				try {
+					conditions.push(translateColumnFilterToSearchCondition(key, debouncedColumnFiltersValues[key], attributesMap[key]));
+				}
+				catch (err) {
+					toast.error(String(err));
+				}
 			}
 		}
 		return conditions.length ? conditions : null;
-	}, [attributesMap, columnFiltersValues])
-	const searchConditions = useDebounce(rawSearchConditions, 500, JSON.stringify);
+	}, [attributesMap, debouncedColumnFiltersValues]);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);

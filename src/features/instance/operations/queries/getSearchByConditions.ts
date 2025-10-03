@@ -84,15 +84,12 @@ export function getSearchByConditionsOptions({
 export function translateColumnFilterToSearchCondition(key: string, value: string, attribute: InstanceAttribute | undefined): SearchCondition {
 	switch (attribute?.type) {
 		case 'ID':
-		case 'Date':
 		case 'String': {
-			// TODO: Handle dates.
-			const anchorStart = value[0] === '^';
-			const anchorEnd = value[value.length - 1] === '$';
+			const anchorStart = value[value.length - 1] === '*';
 			return {
 				search_attribute: key,
-				search_type: translateStringSearchType(anchorStart, anchorEnd, attribute),
-				search_value: translateStringSearchValue(anchorStart, anchorEnd, value),
+				search_type: translateStringSearchType(anchorStart, attribute),
+				search_value: translateStringSearchValue(anchorStart, value),
 			};
 		}
 		case 'Int':
@@ -102,6 +99,16 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 			const comparator = value.match(/^[><=]+/)?.[0];
 			const rawValue = comparator ? value.slice(comparator.length) : value;
 			const parsed = attribute.type.includes('Int') ? parseInt(rawValue, 10) : parseFloat(rawValue);
+			return {
+				search_attribute: key,
+				search_type: translateNumberComparator(comparator),
+				search_value: parsed,
+			};
+		}
+		case 'Date': {
+			const comparator = value.match(/^[><=]+/)?.[0];
+			const rawValue = comparator ? value.slice(comparator.length) : value;
+			const parsed = new Date(rawValue).toISOString();
 			return {
 				search_attribute: key,
 				search_type: translateNumberComparator(comparator),
@@ -127,30 +134,18 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 	}
 }
 
-export function translateStringSearchType(anchorStart: boolean, anchorEnd: boolean, attribute: InstanceAttribute): Comparator {
-	if (anchorStart && anchorEnd) {
-		return 'equals';
-	}
+export function translateStringSearchType(anchorStart: boolean, attribute: InstanceAttribute): Comparator {
 	if (anchorStart) {
 		return 'starts_with';
-	}
-	if (anchorEnd) {
-		return 'ends_with';
 	}
 	if (attribute.type === 'ID') {
 		return 'equals';
 	}
-	return 'starts_with';
+	return 'equals';
 }
 
-export function translateStringSearchValue(anchorStart: boolean, anchorEnd: boolean, value: string) {
-	if (anchorStart && anchorEnd) {
-		return value.slice(1, -1);
-	}
+export function translateStringSearchValue(anchorStart: boolean, value: string) {
 	if (anchorStart) {
-		return value.slice(1);
-	}
-	if (anchorEnd) {
 		return value.slice(0, -1);
 	}
 	return value;

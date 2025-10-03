@@ -13,40 +13,26 @@ function attr(type?: InstanceAttribute['type']): InstanceAttribute {
 }
 
 describe('translateStringSearchType', () => {
-	it('returns equals when both anchors are present', () => {
-		expect(translateStringSearchType(true, true, attr('String'))).toBe('equals');
-	});
-
 	it('returns starts_with when only start anchor is present', () => {
-		expect(translateStringSearchType(true, false, attr('String'))).toBe('starts_with');
-	});
-
-	it('returns ends_with when only end anchor is present', () => {
-		expect(translateStringSearchType(false, true, attr('String'))).toBe('ends_with');
+		expect(translateStringSearchType(true, attr('String'))).toBe('starts_with');
 	});
 
 	it('returns equals for ID type when no anchors', () => {
-		expect(translateStringSearchType(false, false, attr('ID'))).toBe('equals');
+		expect(translateStringSearchType(false, attr('ID'))).toBe('equals');
 	});
 
-	it('defaults to starts_with when no anchors and non-ID', () => {
-		expect(translateStringSearchType(false, false, attr('String'))).toBe('starts_with');
-		expect(translateStringSearchType(false, false, attr('Date'))).toBe('starts_with');
+	it('defaults to equals when no anchors and non-ID', () => {
+		expect(translateStringSearchType(false, attr('String'))).toBe('equals');
+		expect(translateStringSearchType(false, attr('Date'))).toBe('equals');
 	});
 });
 
 describe('translateStringSearchValue', () => {
-	it('strips both anchors', () => {
-		expect(translateStringSearchValue(true, true, '^foo$')).toBe('foo');
-	});
-	it('strips start anchor only', () => {
-		expect(translateStringSearchValue(true, false, '^foo')).toBe('foo');
-	});
-	it('strips end anchor only', () => {
-		expect(translateStringSearchValue(false, true, 'foo$')).toBe('foo');
+	it('strips start anchor', () => {
+		expect(translateStringSearchValue(true, 'foo*')).toBe('foo');
 	});
 	it('returns as-is with no anchors', () => {
-		expect(translateStringSearchValue(false, false, 'foo')).toBe('foo');
+		expect(translateStringSearchValue(false, 'foo')).toBe('foo');
 	});
 });
 
@@ -87,7 +73,7 @@ describe('translateBooleanValue', () => {
 describe('translateColumnFilterToSearchCondition', () => {
 	it('handles String attribute with anchors', () => {
 		expect(
-			translateColumnFilterToSearchCondition('name', '^foo$', attr('String')),
+			translateColumnFilterToSearchCondition('name', 'foo', attr('String')),
 		).toEqual({
 			search_attribute: 'name',
 			search_type: 'equals',
@@ -95,10 +81,10 @@ describe('translateColumnFilterToSearchCondition', () => {
 		});
 
 		expect(
-			translateColumnFilterToSearchCondition('name', 'bar$', attr('String')),
+			translateColumnFilterToSearchCondition('name', 'bar*', attr('String')),
 		).toEqual({
 			search_attribute: 'name',
-			search_type: 'ends_with',
+			search_type: 'starts_with',
 			search_value: 'bar',
 		});
 
@@ -106,7 +92,7 @@ describe('translateColumnFilterToSearchCondition', () => {
 			translateColumnFilterToSearchCondition('name', 'baz', attr('String')),
 		).toEqual({
 			search_attribute: 'name',
-			search_type: 'starts_with',
+			search_type: 'equals',
 			search_value: 'baz',
 		});
 	});
