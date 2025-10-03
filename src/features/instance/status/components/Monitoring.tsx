@@ -1,7 +1,6 @@
 import { MetricVisualization } from '@/features/instance/status/components/monitoring/MetricVisualization.tsx';
 import { useMemo, useState } from 'react';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
-import { Input } from '@/components/ui/input.tsx';
 import { Label } from '@/components/ui/label.tsx';
 import { useInterval } from '@/hooks/useInterval.ts';
 import type { MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
@@ -12,11 +11,26 @@ const metrics: MetricConfig[] = [
 	{id: 'cpu-usage-user', name: 'cpu-usage', path: 'user', unit: ' s'},
 ];
 
-const windowOptions: {label: string, value: number}[] = [
+interface TimeSelectOption {
+	label: string;
+	value: number;
+	default?: boolean;
+}
+type TimeSelectOptions = TimeSelectOption[];
+
+const windowOptions: TimeSelectOptions = [
 	{label: '10 mins', value: 10 * 60_000},
-	{label: 'hour', value: 60 * 60_000},
+	{label: 'hour', value: 60 * 60_000, default: true},
 	{label: '6 hours', value: 6 * 60 * 60_000},
 	{label: 'day', value: 24 * 60 * 60_000},
+];
+
+const intervalOptions: TimeSelectOptions = [
+	{label: '15 secs', value: 15_000},
+	{label: '30 secs', value: 30_000},
+	{label: 'minute', value: 60_000, default: true},
+	{label: '5 mins',  value: 5 * 60_000},
+	{label: '15 mins',  value: 15 * 60_000},
 ];
 
 interface MonitoringParams {
@@ -26,16 +40,14 @@ interface MonitoringParams {
 export function Monitoring({instanceParams}: MonitoringParams) {
 	const [selectedMetric, setSelectedMetric] = useState(metrics[0]);
 
-	const [updateInterval, setUpdateInterval] = useState(60_000); // default to update every 60 secs
+	const [updateInterval, setUpdateInterval] = useState(intervalOptions.find((o) => o.default)!);
 	const [endTime, setEndTime] = useState(Date.now);
 
-	const [timeWindow, setTimeWindow] = useState(windowOptions[1]); // default to show last hour
+	const [timeWindow, setTimeWindow] = useState(windowOptions.find((o) => o.default)!);
 
-	useInterval(() => { setEndTime(Date.now); }, updateInterval);
+	useInterval(() => { setEndTime(Date.now); }, updateInterval.value);
 
 	const startTime = useMemo(() => endTime - timeWindow.value, [endTime, timeWindow]);
-
-	const [updateIntervalInputValue, setUpdateIntervalInputValue] = useState(updateInterval / 1000);
 
 	return (
 		<div>
@@ -67,29 +79,36 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 					<Select
 						defaultValue={timeWindow.value.toString()}
 						onValueChange={(value) => {
-							setTimeWindow(windowOptions.find((w) => w.value === Number(value))!);
+							setTimeWindow(windowOptions.find((o) => o.value === Number(value))!);
 						}}>
 						<SelectTrigger className="inline-flex align-middle w-auto h-auto">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectGroup>
-								{windowOptions.map((w) => {
-									return <SelectItem key={w.value} value={w.value.toString()}>{w.label}</SelectItem>
+								{windowOptions.map((o) => {
+									return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
 								})}
 							</SelectGroup>
 						</SelectContent>
 					</Select>
 					<Label className="ml-8 mr-2">Update every</Label>
-					<Input
-						className="mr-2 w-16 inline-block"
-					  id="updateIntervalInput"
-					  type="number"
-					  onChange={(e) => setUpdateIntervalInputValue(Number(e.target.value))}
-					  onBlur={(e) => setUpdateInterval(Number(e.target.value) * 1000)}
-					  value={updateIntervalInputValue}
-					/>
-					seconds
+					<Select
+						defaultValue={updateInterval.value.toString()}
+						onValueChange={(value) => {
+							setUpdateInterval(intervalOptions.find((o) => o.value === Number(value))!);
+						}}>
+						<SelectTrigger className="inline-flex align-middle w-auto h-auto">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectGroup>
+								{intervalOptions.map((o) => {
+									return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
+								})}
+							</SelectGroup>
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 			<MetricVisualization
