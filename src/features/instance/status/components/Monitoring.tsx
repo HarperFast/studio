@@ -80,7 +80,7 @@ export function Monitoring({instanceClient}: InstanceClientConfig) {
 					<Input
 						className="mr-2 w-16 inline-block"
 					  id="updateIntervalInput"
-					  type="text"
+					  type="number"
 					  onChange={(e) => setUpdateIntervalInputValue(Number(e.target.value))}
 					  onBlur={(e) => setUpdateInterval(Number(e.target.value) * 1000)}
 					  value={updateIntervalInputValue}
