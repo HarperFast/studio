@@ -30,7 +30,7 @@ type GetAnalyticsResponse = {
 	id: number;
 	metric: string;
 	[key: string]: string|number|boolean|null;
-}
+}[];
 
 export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, instanceClient }: GetAnalyticsParams) {
 	return queryOptions({
