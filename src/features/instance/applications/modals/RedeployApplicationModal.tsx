@@ -15,36 +15,41 @@ export function RedeployApplicationModal({
 	isModalOpen = false,
 	setIsModalOpen,
 	redeployPackage,
-  packageUrl,
+	isRedeployPackagePending,
+	packageUrl,
 }: {
 	readonly isModalOpen: boolean;
 	readonly setIsModalOpen: (value: boolean) => void;
 	readonly redeployPackage: (applicationUrl: string) => void;
-  readonly packageUrl?: string;
+	readonly isRedeployPackagePending?: boolean;
+	readonly packageUrl?: string;
 }) {
 	const methods = useForm({
-    defaultValues: { 
-      applicationUrl: packageUrl
-    },
-  });
+		defaultValues: {
+			applicationUrl: packageUrl,
+		},
+	});
 
-  const { setFocus, control, handleSubmit } = methods;
+	const { setFocus, control, handleSubmit } = methods;
 
-  const submitForm = ({ applicationUrl }: { applicationUrl: string | undefined }) => {
-	if (applicationUrl) {
-	  redeployPackage(applicationUrl);
-	}
-  }
+	const submitForm = ({ applicationUrl }: { applicationUrl: string | undefined }) => {
+		if (applicationUrl) {
+			redeployPackage(applicationUrl);
+		}
+	};
 
-  useEffect(() => {
-      setFocus('applicationUrl');
-    }, [setFocus]);
+	useEffect(() => {
+		setFocus('applicationUrl');
+	}, [setFocus]);
 
 	return (
-		<Dialog onOpenChange={() => {
-      setIsModalOpen(!isModalOpen);
-      methods.reset({ applicationUrl: packageUrl });
-      }} open={isModalOpen}>
+		<Dialog
+			onOpenChange={() => {
+				setIsModalOpen(!isModalOpen);
+				methods.reset({ applicationUrl: packageUrl });
+			}}
+			open={isModalOpen}
+		>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<DialogHeader>
 					<DialogTitle>Redeploy Package</DialogTitle>
@@ -75,13 +80,24 @@ export function RedeployApplicationModal({
 									</FormItem>
 								)}
 							/>
-							<Button variant="positiveOutline" type="submit" className="w-full rounded-full">
+							<Button
+								variant="positiveOutline"
+								type="submit"
+								className="w-full rounded-full"
+								disabled={isRedeployPackagePending}
+							>
 								<RefreshCwIcon /> Redeploy Application
 							</Button>
-							<Button type="button" variant="default" className="w-full rounded-full" onClick={() => {
-                setIsModalOpen(false)
-                methods.reset({ applicationUrl: packageUrl });
-              }}>
+							<Button
+								type="button"
+								variant="default"
+								className="w-full rounded-full"
+								onClick={() => {
+									setIsModalOpen(false);
+									methods.reset({ applicationUrl: packageUrl });
+								}}
+								disabled={isRedeployPackagePending}
+							>
 								<Ban /> Cancel
 							</Button>
 						</form>

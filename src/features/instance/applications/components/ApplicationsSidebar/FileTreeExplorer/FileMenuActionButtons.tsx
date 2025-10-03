@@ -11,7 +11,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Minus, Plus, RefreshCwIcon } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { RedeployApplicationModal } from '../../../modals/RedeployApplication';
+import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 
 export function FileMenuActionButtons() {
 	const queryClient = useQueryClient();
@@ -187,6 +187,7 @@ export function FileMenuActionButtons() {
 				isModalOpen={isRedeployApplicationClicked}
 				setIsModalOpen={setIsRedeployApplicationClicked}
 				redeployPackage={redeployPackage}
+				isRedeployPackagePending={isDeployComponentPending}
 				packageUrl={selectedFolderFile.pkg}
 			/>
 		</div>
