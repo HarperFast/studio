@@ -127,7 +127,7 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 	}
 }
 
-function translateStringSearchType(anchorStart: boolean, anchorEnd: boolean, attribute: InstanceAttribute): Comparator {
+export function translateStringSearchType(anchorStart: boolean, anchorEnd: boolean, attribute: InstanceAttribute): Comparator {
 	if (anchorStart && anchorEnd) {
 		return 'equals';
 	}
@@ -143,7 +143,7 @@ function translateStringSearchType(anchorStart: boolean, anchorEnd: boolean, att
 	return 'starts_with';
 }
 
-function translateStringSearchValue(anchorStart: boolean, anchorEnd: boolean, value: string) {
+export function translateStringSearchValue(anchorStart: boolean, anchorEnd: boolean, value: string) {
 	if (anchorStart && anchorEnd) {
 		return value.slice(1, -1);
 	}
@@ -156,7 +156,7 @@ function translateStringSearchValue(anchorStart: boolean, anchorEnd: boolean, va
 	return value;
 }
 
-function translateNumberComparator(comparator: string | undefined): Comparator {
+export function translateNumberComparator(comparator: string | undefined): Comparator {
 	switch (comparator) {
 		case '>':
 			return 'greater_than';
@@ -176,7 +176,7 @@ const acceptedOKValues = [
 	'true', 'yes', 'ok', 'yup', '1', 'si', 'bet', 'tru',
 ];
 
-function translateBooleanValue(value: string): boolean {
+export function translateBooleanValue(value: string): boolean {
 	const lowerValue = value.toLowerCase();
 	return acceptedOKValues.includes(lowerValue);
 }
