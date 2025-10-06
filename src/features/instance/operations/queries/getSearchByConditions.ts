@@ -84,25 +84,29 @@ export function getSearchByConditionsOptions({
 	});
 }
 
-export function translateColumnFilterToSearchCondition(key: string, value: string, attribute: InstanceAttribute | undefined): SearchCondition {
+export function translateColumnFilterToSearchConditions(key: string, rawValues: string, attribute: InstanceAttribute | undefined): SearchCondition[] {
+	const split = rawValues.split(/ & /);
+	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute))
+}
+
+export function translateColumnFilterToSearchCondition(key: string, rawValue: string, attribute: InstanceAttribute | undefined): SearchCondition {
+	const { comparator, value } = parseComparator(rawValue);
 	switch (attribute?.type) {
 		case 'ID':
 		case 'String': {
-			const anchorStart = value[value.length - 1] === '*';
 			return {
 				search_attribute: key,
-				search_type: translateStringSearchType(anchorStart, attribute),
-				search_value: translateStringSearchValue(anchorStart, value),
+				search_type: comparator,
+				search_value: value,
 			};
 		}
 		case 'Int':
 		case 'BigInt':
 		case 'Long':
 		case 'Float': {
-			const { comparator, rawNumber } = parseNumericalComparator(value);
-			const parsed = attribute.type.includes('Int') ? parseInt(rawNumber, 10) : parseFloat(rawNumber);
+			const parsed = attribute.type.includes('Int') ? parseInt(value, 10) : parseFloat(value);
 			if (isNaN(parsed)) {
-				throw new Error(`${rawNumber} does not appear to be a valid number.`);
+				throw new Error(`${value} does not appear to be a valid number.`);
 			}
 			return {
 				search_attribute: key,
@@ -111,8 +115,8 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 			};
 		}
 		case 'Date': {
-			const { comparator, rawNumber } = parseNumericalComparator(value);
-			const parsed = new Date(rawNumber).toISOString();
+			const { comparator, value } = parseComparator(rawValue);
+			const parsed = new Date(value).toISOString();
 			return {
 				search_attribute: key,
 				search_type: comparator,
@@ -122,7 +126,7 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 		case 'Boolean': {
 			return {
 				search_attribute: key,
-				search_type: 'equals',
+				search_type: comparator,
 				search_value: translateBooleanValue(value),
 			};
 		}
@@ -132,47 +136,51 @@ export function translateColumnFilterToSearchCondition(key: string, value: strin
 		default:
 			return {
 				search_attribute: key,
-				search_type: 'equals',
+				search_type: comparator,
 				search_value: value,
 			};
 	}
 }
+
+const comparatorEqualityPrefixMappings: Record<string, Comparator> = {
+	// equals
+	'=== ': 'equals',
+	'== ': 'eq',
+	'equals ': 'equals',
+	'equal ': 'equals',
+	'eq ': 'eq',
+
+	// not equals
+	'!== ': 'not_equal',
+	'!= ': 'ne',
+	'notequals ': 'not_equal',
+	'notequal ': 'not_equal',
+	'ne ': 'ne',
+};
 
 const comparatorNumericalPrefixMappings: Record<string, Comparator> = {
 	// greater than
 	'>': 'greater_than',
 	'g': 'greater_than',
 	'gt': 'greater_than',
+	'=gt': 'greater_than',
 	'greater': 'greater_than',
 	'greaterthan': 'greater_than',
 
 	// greater than or equals
 	'>=': 'greater_than_equal',
 	'ge': 'greater_than_equal',
+	'=ge': 'greater_than_equal',
 	'gte': 'greater_than_equal',
 	'greaterorequal': 'greater_than_equal',
 	'greaterthanequal': 'greater_than_equal',
 	'greaterthanorequal': 'greater_than_equal',
 
-	// equals
-	'===': 'equals',
-	'==': 'eq',
-	'=': 'eq',
-	'equals': 'equals',
-	'equal': 'equals',
-	'eq': 'eq',
-
-	// not equals
-	'!==': 'not_equal',
-	'!=': 'ne',
-	'notequals': 'not_equal',
-	'notequal': 'not_equal',
-	'ne': 'ne',
-
 	// less than
 	'<': 'less_than',
 	'l': 'less_than',
 	'lt': 'less_than',
+	'=lt': 'less_than',
 	'less': 'less_than',
 	'lessthan': 'less_than',
 
@@ -180,49 +188,51 @@ const comparatorNumericalPrefixMappings: Record<string, Comparator> = {
 	'<=': 'less_than_equal',
 	'lte': 'less_than_equal',
 	'le': 'less_than_equal',
+	'=le': 'less_than_equal',
 	'lessorequal': 'less_than_equal',
 	'lessthanequal': 'less_than_equal',
 	'lessthanorequal': 'less_than_equal',
-}
+};
 
-export function parseNumericalComparator(value: string): { comparator: Comparator, rawNumber: string } {
-	const simpleOperator = value.toLowerCase().trim().match(/^([><=a-z_ ]+)([\d._TZ-]+)$/);
-	if (simpleOperator) {
-		const prefix = simpleOperator[1]
+export function parseComparator(value: string): { comparator: Comparator, value: string } {
+	const lowered = value.toLowerCase();
+
+	const numericalComparator = lowered.match(/^([>=<a-z_ ]+)([\d._TZ-]+)$/);
+	if (numericalComparator) {
+		const prefix = numericalComparator[1]
 			.replace(/[_ ]+/g, '')
 			.replace(/^([a-z]+)=$/g, '$1');
-		const number = simpleOperator[2];
+		const number = numericalComparator[2];
 		const mappedComparator = comparatorNumericalPrefixMappings[prefix];
-		if (!mappedComparator) {
-			throw new Error(`${prefix} is not a known operator; please use <, <=, >, >=, ==, or !=`);
+		if (mappedComparator) {
+			return {
+				comparator: mappedComparator,
+				value: number,
+			};
 		}
+	}
+
+	for (const equalityPrefix in comparatorEqualityPrefixMappings) {
+		if (lowered.startsWith(equalityPrefix)) {
+			const equalityComparator = comparatorEqualityPrefixMappings[equalityPrefix];
+			return {
+				comparator: equalityComparator,
+				value: value.slice(equalityPrefix.length),
+			};
+		}
+	}
+
+	if (lowered.endsWith('*')) {
 		return {
-			comparator: mappedComparator,
-			rawNumber: number,
+			comparator: 'starts_with',
+			value: value.slice(0, -1),
 		};
 	}
-	// TODO: Support between.
+
 	return {
 		comparator: 'equals',
-		rawNumber: value,
+		value: value,
 	};
-}
-
-export function translateStringSearchType(anchorStart: boolean, attribute: InstanceAttribute): Comparator {
-	if (anchorStart) {
-		return 'starts_with';
-	}
-	if (attribute.type === 'ID') {
-		return 'equals';
-	}
-	return 'equals';
-}
-
-export function translateStringSearchValue(anchorStart: boolean, value: string) {
-	if (anchorStart) {
-		return value.slice(0, -1);
-	}
-	return value;
 }
 
 const acceptedOKValues = [

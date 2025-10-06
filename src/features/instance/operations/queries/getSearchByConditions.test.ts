@@ -1,9 +1,8 @@
 import {
-	parseNumericalComparator,
+	parseComparator,
 	translateBooleanValue,
 	translateColumnFilterToSearchCondition,
-	translateStringSearchType,
-	translateStringSearchValue,
+	translateColumnFilterToSearchConditions,
 } from '@/features/instance/operations/queries/getSearchByConditions';
 import type { InstanceAttribute } from '@/lib/api.patch';
 import { describe, expect, it } from 'vitest';
@@ -12,64 +11,64 @@ function attr(type?: InstanceAttribute['type']): InstanceAttribute {
 	return { attribute: 'col', type };
 }
 
-describe('translateStringSearchType', () => {
-	it('returns starts_with when only start anchor is present', () => {
-		expect(translateStringSearchType(true, attr('String'))).toBe('starts_with');
-	});
-
-	it('returns equals for ID type when no anchors', () => {
-		expect(translateStringSearchType(false, attr('ID'))).toBe('equals');
-	});
-
-	it('defaults to equals when no anchors and non-ID', () => {
-		expect(translateStringSearchType(false, attr('String'))).toBe('equals');
-		expect(translateStringSearchType(false, attr('Date'))).toBe('equals');
-	});
-});
-
-describe('parseNumericalComparator', () => {
+describe('parseComparator', () => {
 	it('understand greater than equal', () => {
-		expect(parseNumericalComparator('>= 10')).toEqual({
+		expect(parseComparator('>= 10')).toEqual({
 			comparator: 'greater_than_equal',
-			rawNumber: '10',
+			value: '10',
 		});
-		expect(parseNumericalComparator('gte 10')).toEqual({
+		expect(parseComparator('gte 10')).toEqual({
 			comparator: 'greater_than_equal',
-			rawNumber: '10',
+			value: '10',
 		});
-		expect(parseNumericalComparator('gte=10')).toEqual({
+		expect(parseComparator('gte=10')).toEqual({
 			comparator: 'greater_than_equal',
-			rawNumber: '10',
+			value: '10',
 		});
 	});
 
 	it('supports dates', () => {
-		expect(parseNumericalComparator('>= 2025-10-01')).toEqual({
+		expect(parseComparator('>= 2025-10-01')).toEqual({
 			comparator: 'greater_than_equal',
-			rawNumber: '2025-10-01',
+			value: '2025-10-01',
 		});
-	});
-
-	it('throws errors with unknown operators', () => {
-		expect(() => parseNumericalComparator('add 2')).toThrowError(
-			'add is not a known operator; please use <, <=, >, >=, ==, or !=',
-		);
 	});
 
 	it('falls back to equals with pure numbers', () => {
-		expect(parseNumericalComparator('2025')).toEqual({
+		expect(parseComparator('2025')).toEqual({
 			comparator: 'equals',
-			rawNumber: '2025',
+			value: '2025',
 		});
 	});
-});
 
-describe('translateStringSearchValue', () => {
-	it('strips start anchor', () => {
-		expect(translateStringSearchValue(true, 'foo*')).toBe('foo');
+	it('can compare strings', () => {
+		expect(parseComparator('!= foo')).toEqual({
+			comparator: 'ne',
+			value: 'foo',
+		});
+		expect(parseComparator('=== foo')).toEqual({
+			comparator: 'equals',
+			value: 'foo',
+		});
+		expect(parseComparator('foo*')).toEqual({
+			comparator: 'starts_with',
+			value: 'foo',
+		});
 	});
-	it('returns as-is with no anchors', () => {
-		expect(translateStringSearchValue(false, 'foo')).toBe('foo');
+
+	it('can compare booleans', () => {
+		expect(parseComparator('!= bet')).toEqual({
+			comparator: 'ne',
+			value: 'bet',
+		});
+		expect(parseComparator('=== ok')).toEqual({
+			comparator: 'equals',
+			value: 'ok',
+		});
+		expect(parseComparator('!== nope')).toEqual({
+			comparator: 'not_equal',
+			value: 'nope',
+		});
 	});
 });
 
@@ -127,6 +126,21 @@ describe('translateColumnFilterToSearchCondition', () => {
 
 	it('parses numeric types and comparators', () => {
 		expect(
+			translateColumnFilterToSearchConditions('age', '> 1 & < 10', attr('Int')),
+		).toEqual([
+			{
+				search_attribute: 'age',
+				search_type: 'greater_than',
+				search_value: 1,
+			},
+			{
+				search_attribute: 'age',
+				search_type: 'less_than',
+				search_value: 10,
+			},
+		]);
+
+		expect(
 			translateColumnFilterToSearchCondition('age', '>=10', attr('Int')),
 		).toEqual({
 			search_attribute: 'age',
@@ -141,6 +155,10 @@ describe('translateColumnFilterToSearchCondition', () => {
 			search_type: 'less_than_equal',
 			search_value: 3.14,
 		});
+
+		expect(() =>
+			translateColumnFilterToSearchCondition('score', '<= pi', attr('Float')),
+		).toThrowError();
 
 		// No comparator defaults to equals
 		expect(
@@ -167,6 +185,32 @@ describe('translateColumnFilterToSearchCondition', () => {
 			search_attribute: 'active',
 			search_type: 'equals',
 			search_value: false,
+		});
+
+		expect(
+			translateColumnFilterToSearchCondition('active', '=== bet', attr('Boolean')),
+		).toEqual({
+			search_attribute: 'active',
+			search_type: 'equals',
+			search_value: true,
+		});
+	});
+
+	it('allows date comparisons', () => {
+		expect(
+			translateColumnFilterToSearchCondition('active', '>= 2025-01-10', attr('Date')),
+		).toEqual({
+			search_attribute: 'active',
+			search_type: 'greater_than_equal',
+			search_value: '2025-01-10T00:00:00.000Z',
+		});
+
+		expect(
+			translateColumnFilterToSearchCondition('active', '!= 2025-01-10', attr('Date')),
+		).toEqual({
+			search_attribute: 'active',
+			search_type: 'ne',
+			search_value: '2025-01-10T00:00:00.000Z',
 		});
 	});
 

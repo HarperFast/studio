@@ -16,7 +16,7 @@ import { getDescribeTableQueryOptions } from '@/features/instance/operations/que
 import {
 	getSearchByConditionsOptions,
 	SearchCondition,
-	translateColumnFilterToSearchCondition,
+	translateColumnFilterToSearchConditions,
 } from '@/features/instance/operations/queries/getSearchByConditions';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
@@ -75,7 +75,7 @@ export function DatabaseTableView() {
 		for (const key in debouncedColumnFiltersValues) {
 			if (debouncedColumnFiltersValues[key]?.length) {
 				try {
-					conditions.push(translateColumnFilterToSearchCondition(key, debouncedColumnFiltersValues[key], attributesMap[key]));
+					conditions.push(...translateColumnFilterToSearchConditions(key, debouncedColumnFiltersValues[key], attributesMap[key]));
 				}
 				catch (err) {
 					toast.error(String(err));
