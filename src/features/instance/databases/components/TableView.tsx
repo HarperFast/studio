@@ -22,6 +22,7 @@ import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
 interface BrowseDataTableProps<TData, TValue> {
+	applyFilters: () => void,
 	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>,
 	columns: ColumnDef<TData, TValue>[],
 	columnVisibility: VisibilityState,
@@ -33,12 +34,13 @@ interface BrowseDataTableProps<TData, TValue> {
 	pageSize: number,
 	setPageIndex: Dispatch<SetStateAction<number>>,
 	setPageSize: Dispatch<SetStateAction<number>>,
-	showSearch: boolean,
+	filtersToggled: boolean,
 	totalPages: number,
 	totalRecords: number,
 }
 
 export function TableView<TData, TValue>({
+	applyFilters,
 	columns,
 	columnVisibility,
 	columnFiltersForm,
@@ -50,7 +52,7 @@ export function TableView<TData, TValue>({
 	pageSize,
 	setPageIndex,
 	setPageSize,
-	showSearch,
+	filtersToggled,
 	totalPages,
 	totalRecords,
 }: BrowseDataTableProps<TData, TValue>) {
@@ -87,8 +89,8 @@ export function TableView<TData, TValue>({
 						<TableHeadSortable key={header.id} header={header} onColumnClick={onColumnClick} />)}
 				</TableRow>))}
 			</TableHeader>
-			{showSearch && (
-				<ColumnFilters columnFiltersForm={columnFiltersForm} headerGroups={table.getHeaderGroups()} />
+			{filtersToggled && (
+				<ColumnFilters applyFilters={applyFilters} columnFiltersForm={columnFiltersForm} headerGroups={table.getHeaderGroups()} />
 			)}
 			<TableBody className="bg-black border border-grey-700">
 				{table.getRowModel().rows?.length ? (table.getRowModel().rows.map((row) => (

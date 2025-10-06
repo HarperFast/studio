@@ -6,7 +6,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
-import { useToggleCallback } from '@/hooks/useToggleCallback';
+import { useToggler } from '@/hooks/useToggler';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { VisibilityState } from '@tanstack/react-table';
 import { Columns3CogIcon } from 'lucide-react';
@@ -55,7 +55,7 @@ function ColumnPicker({
 	columnVisibility: VisibilityState,
 	setColumnVisibility: (columnVisibility: VisibilityState) => void,
 }) {
-	const [isChecked, onCheckedChanged] = useToggleCallback(columnVisibility[columnHeader] ?? true);
+	const { toggled: isChecked, toggle: onCheckedChanged } = useToggler(columnVisibility[columnHeader] ?? true);
 	useEffect(() => {
 		if (columnVisibility[columnHeader] !== isChecked) {
 			setColumnVisibility({

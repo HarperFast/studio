@@ -1,5 +1,11 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ColumnFiltersSchema } from '@/features/instance/databases/components/ColumnFilters';
 import { PickColumnsDropdown } from '@/features/instance/databases/components/PickColumnsDropdown';
@@ -20,19 +26,27 @@ import {
 } from '@/features/instance/operations/queries/getSearchByConditions';
 import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
 import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
-import { useDebounce } from '@/hooks/useDebounce';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
-import { useToggleCallback } from '@/hooks/useToggleCallback';
+import { useToggler } from '@/hooks/useToggler';
 import { keyBy } from '@/lib/keyBy';
 import { queryClient } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
-import { ImportIcon, PlusIcon, RefreshCwIcon, SearchIcon, Trash } from 'lucide-react';
+import {
+	Ellipsis,
+	FunnelIcon,
+	FunnelPlusIcon,
+	FunnelXIcon,
+	ImportIcon,
+	PlusIcon,
+	RefreshCwIcon,
+	Trash,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -61,29 +75,40 @@ export function DatabaseTableView() {
 			tableName,
 		}),
 	);
-	const attributesMap = useMemo(() => keyBy(describeTableData.attributes, 'attribute'), [describeTableData])
+	const attributesMap = useMemo(() => keyBy(describeTableData.attributes, 'attribute'), [describeTableData]);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
 	const columnFiltersForm = useForm({
 		resolver: zodResolver(ColumnFiltersSchema),
 	});
+	const { reset: resetFiltersForm } = columnFiltersForm;
 	const columnFiltersValues = columnFiltersForm.watch();
-	const debouncedColumnFiltersValues = useDebounce(columnFiltersValues, 500, JSON.stringify);
-	const searchConditions: SearchCondition[] | null = useMemo(() => {
+
+	const [appliedSearchConditions, setAppliedSearchConditions] = useState<SearchCondition[] | null>(null);
+
+	const applyFilters = useCallback(() => {
 		const conditions: SearchCondition[] = [];
-		for (const key in debouncedColumnFiltersValues) {
-			if (debouncedColumnFiltersValues[key]?.length) {
+		for (const key in columnFiltersValues) {
+			if (columnFiltersValues[key]?.length) {
 				try {
-					conditions.push(...translateColumnFilterToSearchConditions(key, debouncedColumnFiltersValues[key], attributesMap[key]));
-				}
-				catch (err) {
+					conditions.push(...translateColumnFilterToSearchConditions(key, columnFiltersValues[key], attributesMap[key]));
+				} catch (err) {
 					toast.error(String(err));
 				}
 			}
 		}
-		return conditions.length ? conditions : null;
-	}, [attributesMap, debouncedColumnFiltersValues]);
+		setAppliedSearchConditions(conditions.length ? conditions : null);
+		resetFiltersForm({ ...columnFiltersValues });
+	}, [attributesMap, resetFiltersForm, columnFiltersValues]);
+	const clearFilters = useCallback(() => {
+		// Note sure why we need to resetFiltersForm twice here...
+		resetFiltersForm({}, { keepValues: false, keepDirtyValues: false, keepDefaultValues: false });
+		resetFiltersForm();
+		setAppliedSearchConditions(null);
+		hideFilters();
+	}, [hideFilters, resetFiltersForm]);
 
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -101,6 +126,8 @@ export function DatabaseTableView() {
 	const [pageSize, setPageSize] = useState(20);
 	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pageSize));
 
+	const useFilteredList = filtersToggled && !!appliedSearchConditions;
+
 	// Full list
 	const {
 		data: fullTableData,
@@ -108,7 +135,7 @@ export function DatabaseTableView() {
 		isFetching: tableDataFetching,
 	} = useQuery(
 		getSearchByValueOptions({
-			enabled: !searchConditions,
+			enabled: !useFilteredList,
 			...instanceParams,
 			databaseName,
 			tableName,
@@ -121,17 +148,17 @@ export function DatabaseTableView() {
 	// Filtered list
 	const { data: filteredTableData } = useQuery(
 		getSearchByConditionsOptions({
-			enabled: !!searchConditions,
+			enabled: useFilteredList,
 			...instanceParams,
 			databaseName,
 			tableName,
-			conditions: searchConditions,
+			conditions: appliedSearchConditions,
 			sort,
 			pageSize,
 			pageIndex,
 		}),
 	);
-	const tableData = searchConditions ? filteredTableData : fullTableData;
+	const tableData = useFilteredList ? filteredTableData : fullTableData;
 	// One by id
 	const { data: searchByIdData } = useQuery(
 		getSearchByIdOptions({
@@ -280,7 +307,6 @@ export function DatabaseTableView() {
 		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
 		{} satisfies VisibilityState,
 	);
-	const [showSearch, toggleShowSearch] = useToggleCallback(false);
 
 	return (
 		<>
@@ -312,34 +338,63 @@ export function DatabaseTableView() {
 							</span>
 						</Button>
 					)}
-					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
-						<RefreshCwIcon />
-					</Button>
 				</div>
 
 				<div className="flex space-x-2">
-					<Button variant="ghost" onClick={toggleShowSearch}>
-						<SearchIcon className="inline-block " />
-						{showSearch ? 'Clear Search' : 'Search'}
+					{filtersToggled && appliedSearchConditions && (
+						<Button variant="ghost" onClick={clearFilters} accessKey="f">
+							<FunnelXIcon className="inline-block " />
+							<span>Clear <u>F</u>ilters</span>
+						</Button>
+					)}
+					{filtersToggled && columnFiltersForm.formState.isDirty && (
+						<Button variant="default" onClick={applyFilters}>
+							<FunnelPlusIcon className="inline-block " />
+							Apply Filters
+						</Button>
+					)}
+					{filtersToggled && !appliedSearchConditions && (
+						<Button variant="ghost" onClick={hideFilters} accessKey="f">
+							<FunnelXIcon className="inline-block " />
+							<span>Hide <u>F</u>ilters</span>
+						</Button>
+					)}
+
+					{!filtersToggled && (
+						<Button variant="ghost" onClick={showFilters} accessKey="f">
+							<FunnelIcon className="inline-block " />
+							<span>Show <u>F</u>ilters</span>
+						</Button>
+					)}
+
+					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
+						<RefreshCwIcon />
 					</Button>
+
 					<PickColumnsDropdown
 						columns={dataTableColumns}
 						columnVisibility={columnVisibility}
 						setColumnVisibility={setColumnVisibility}
 					/>
-					{canManageBrowseInstance && (
-						<Button variant="destructiveOutline" onClick={openDeleteModal}>
-							<Trash className="inline-block " />
-							Drop Table
-						</Button>
-					)}
+
+					{canManageBrowseInstance && (<DropdownMenu>
+						<DropdownMenuTrigger>
+							<Ellipsis aria-label="Table options" />
+						</DropdownMenuTrigger>
+						<DropdownMenuContent side="bottom" align="end">
+							<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteModal}>
+								<Trash className="inline-block " />
+								Drop Table
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>)}
 				</div>
 			</div>
 
 			<TableView<Record<string, unknown>, unknown>
 				data={tableData?.data || []}
 				isFetching={tableDataFetching}
-				showSearch={showSearch}
+				filtersToggled={filtersToggled}
 				columns={dataTableColumns}
 				columnVisibility={columnVisibility}
 				onRowClick={onRowClick}
@@ -349,6 +404,7 @@ export function DatabaseTableView() {
 				pageIndex={pageIndex}
 				pageSize={pageSize}
 				columnFiltersForm={columnFiltersForm}
+				applyFilters={applyFilters}
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>
