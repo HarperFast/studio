@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-	{ ignores: ['dist', 'src/lib/api.gen.d.ts', 'vitest.config.ts'] },
+	{ ignores: ['coverage', 'dist', 'src/lib/api.gen.d.ts', 'vitest.config.ts'] },
 	{
 		languageOptions: {
 			parserOptions: {
