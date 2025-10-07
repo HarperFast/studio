@@ -1,0 +1,54 @@
+name: Deploy to Stage with Restart
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: stage-with-restart
+  cancel-in-progress: false
+
+jobs:
+  deployToStage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          cache: 'pnpm'
+      - name: Disable Husky
+        run: echo "HUSKY=0" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run unit tests
+        run: pnpm test
+      - name: Run lint
+        run: pnpm lint
+      - name: Verify stage can build
+        run: pnpm build:stage
+      - name: Determine version tag for build
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
+          if [ -z "$VERSION_TAG" ]; then
+            VERSION_TAG="v0.0.0+${GITHUB_SHA:0:7}"
+          fi
+          echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
+      - name: Build stage for release
+        if: ${{ github.event_name == 'push' }}
+        run: pnpm build:stage
+      - name: Deploy to stage
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          mkdir deploy
+          mv web deploy/
+          cp -R deploy-template/* deploy/
+          cd deploy
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' pnpm harperdb deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=rolling replicated=true

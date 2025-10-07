@@ -1,0 +1,44 @@
+name: Deploy to Dev with Restart
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: dev-with-restart
+  cancel-in-progress: false
+
+jobs:
+  deployToDev:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          cache: 'pnpm'
+      - name: Disable Husky
+        run: echo "HUSKY=0" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run unit tests
+        run: pnpm test
+      - name: Run lint
+        run: pnpm lint
+      - name: Determine version tag for build
+        run: |
+          VERSION_TAG="SHA-${GITHUB_SHA:0:7}"
+          echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
+      - name: Build dev
+        run: pnpm build:dev
+      - name: Deploy to dev
+        run: |
+          mkdir deploy
+          mv web deploy/
+          cp -R deploy-template/* deploy/
+          cd deploy
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' pnpm harperdb deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=rolling replicated=true
