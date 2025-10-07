@@ -1,5 +1,5 @@
-import { Outlet } from '@tanstack/react-router';
 import { Navbar } from '@/components/Navbar';
+import { Outlet } from '@tanstack/react-router';
 
 function ListItem({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
@@ -20,51 +20,26 @@ export function AuthLayout() {
 				<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
 					<div>
 						<h1 className="text-4xl font-bold">Harper Studio</h1>
-						<span>Manage all your Harper instances.</span>
 						<ul className="ps-5">
-							<ListItem title="Manage All Instances">
-								<span>View, create, and delete instances from one location.</span>
-							</ListItem>
-							<ListItem title="Embedded API Server">
-								<span>Harper components give you unlimited application flexibility</span>
+
+							<ListItem title="Global Deployments Managed as One">
+								<span>Coordinate global environments as if they were a single node.</span>
 							</ListItem>
 
-							<ListItem
-								title="Fully Managed Cloud & 5G Instances"
-								children={<span>Go from zero to code in minutes.</span>}
-							/>
-							<ListItem
-								title="Deploy Anywhere"
-								children={
-									<div className="mt-6">
-										<a
-											href="https://hub.docker.com/r/harperdb/harperdb"
-											target="_blank"
-											rel="noreferrer noopener"
-											className="p-2 mr-2 border-2 border-blue-100 rounded-md"
-										>
-											Docker
-										</a>
-										<a
-											href="https://www.npmjs.com/package/harperdb"
-											target="_blank"
-											rel="noreferrer noopener"
-											className="p-2 mr-2 border-2 border-blue-100 rounded-md"
-										>
-											npm
-										</a>
-										<a
-											href="https://docs.harperdb.io/docs/deployments/install-harperdb"
-											target="_blank"
-											rel="noreferrer noopener"
-											className="p-2 border-2 border-blue-100 rounded-md"
-										>
-											all options
-										</a>
-									</div>
-								}
-							/>
+							<ListItem title="Database, App, Cache, & Messaging">
+								<span>Bring your stack together for reliable, ultra-fast performance.</span>
+							</ListItem>
+
+							<ListItem title="NoSQL, Vector, & Blob">
+								<span>Store and serve modern data types with low latency and global reach.</span>
+							</ListItem>
+
+							<ListItem title="Simplified Operations">
+								<span>Focus on what differentiates your app; leave infrastructure to us.</span>
+							</ListItem>
 						</ul>
+
+						<span className="opacity-5">Bravo!</span>
 					</div>
 				</section>
 				<section className="flex items-center justify-center px-6 bg-linear-(--purple-gradient) dark:bg-linear-(--black-dark-gradient)">
