@@ -55,7 +55,7 @@ export function SignIn() {
 
 				const company = parseCompanyFromEmail(data.email);
 				if (company) {
-					reoClient.identify({
+					reoClient?.identify?.({
 						username: data.email,
 						type: 'email',
 						company,
