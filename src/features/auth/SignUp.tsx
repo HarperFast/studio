@@ -80,7 +80,7 @@ export function SignUp() {
 
 	return (
 		<div className="text-white w-xs">
-			<h2 className="text-2xl font-light">Sign up for Harper Studio</h2>
+			<h2 className="text-2xl font-light">Sign up for Harper Fabric</h2>
 			<Form {...methods}>
 				<form onSubmit={handleSubmit(submitForm)} className="grid gap-4 my-4">
 					<FormField
