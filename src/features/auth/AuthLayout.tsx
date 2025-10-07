@@ -31,7 +31,7 @@ export function AuthLayout() {
 							</ListItem>
 
 							<ListItem title="NoSQL, Vector, & Blob">
-								<span>Store and serve modern data types with low latency and global reach.</span>
+								<span>Store and serve modern data types with low latency, semantic search ability, and global reach.</span>
 							</ListItem>
 
 							<ListItem title="Simplified Operations">
