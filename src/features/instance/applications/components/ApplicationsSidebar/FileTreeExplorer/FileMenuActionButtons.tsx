@@ -9,7 +9,7 @@ import { useUpdateComponentFile } from '@/features/instance/operations/mutations
 import { getComponentsQueryOptions } from '@/features/instance/operations/queries/getComponents';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Minus, Plus, RefreshCwIcon } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 
@@ -98,6 +98,11 @@ export function FileMenuActionButtons() {
 			}
 		});
 	}, [reDeployApplication, selectedFolderFile, instanceParams, queryClient]);
+	const restrictPackageModification = useMemo(() => {
+		return selectedFolderFile.pkg?.includes('github.com/HarperDB/status-check-fabric')
+			|| selectedFolderFile.pkg?.includes('github.com/HarperFast/status-check-fabric');
+	}, [selectedFolderFile.pkg]);
+
 
 	const toggleDeleting = useCallback(() => {
 		setIsDeleteFolderOrFileClicked(!isDeleteFolderOrFileClicked);
@@ -106,7 +111,7 @@ export function FileMenuActionButtons() {
 	return (
 		<div className="p-2 border-b border-gray-700 mb-2 min-h-12">
 			<div className='flex flex-wrap gap-2'>
-				{selectedFolderFile.pkg && (
+				{selectedFolderFile.pkg && !restrictPackageModification && (
 					<Button
 						onClick={() => setIsRedeployApplicationClicked(true)}
 						disabled={isDeployComponentPending}
@@ -151,7 +156,7 @@ export function FileMenuActionButtons() {
 				) : (
 					''
 				)}
-				{selectedFolderFile.filePath ? (
+				{selectedFolderFile.filePath && !restrictPackageModification ? (
 					<Button
 						onClick={toggleDeleting}
 						disabled={isDeployComponentPending}

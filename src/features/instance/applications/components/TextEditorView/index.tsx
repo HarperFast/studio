@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEffectedState } from '@/hooks/useEffectedState';
+import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
 import { ImportIcon, PlusIcon, Save } from 'lucide-react';
@@ -51,11 +52,13 @@ export function TextEditorView() {
 		setLanguage(updatedLanguage);
 	}, [selectedFolderFile]);
 
+	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+
 	return (
 		<div className="h-[calc(100vh-theme(spacing.52))]">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
 				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
-				{!selectedFolderFile.pkg && (
+				{!selectedFolderFile.pkg && canManageBrowseInstance && (
 					<div className="flex flex-col justify-end space-y-2 md:justify-normal md:flex-row">
 						<Button
 							variant="positiveOutline"
@@ -98,20 +101,22 @@ export function TextEditorView() {
 			{!selectedFolderFile.filePath || isFolder(selectedFolderFile.entries) ? (
 				<div className="flex flex-col items-center justify-center h-full space-y-4">
 					<span className="text-white">No file selected</span>
-					<div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-						<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
-							setIsNewApplicationModalOpen(true);
-							setAppType('create');
+					{canManageBrowseInstance && (
+						<div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+							<Button variant="positiveOutline" className="ms-4" size="lg" onClick={() => {
+								setIsNewApplicationModalOpen(true);
+								setAppType('create');
 							}}>
-							<PlusIcon /> Create New Application
-						</Button>
-						<Button variant="defaultOutline" className="ms-4" size="lg" onClick={() => {
-							setIsNewApplicationModalOpen(true);
-							setAppType('import');
-						}}>
-							<ImportIcon /> Import Application
-						</Button>
-					</div>
+								<PlusIcon /> Create New Application
+							</Button>
+							<Button variant="defaultOutline" className="ms-4" size="lg" onClick={() => {
+								setIsNewApplicationModalOpen(true);
+								setAppType('import');
+							}}>
+								<ImportIcon /> Import Application
+							</Button>
+						</div>
+					)}
 				</div>
 			) : (
 				<Editor
