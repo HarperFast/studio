@@ -19,7 +19,7 @@ export function AuthLayout() {
 			<div className="pt-20 grid h-screen grid-cols-1 md:grid-cols-2">
 				<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
 					<div>
-						<h1 className="text-4xl font-bold">Harper Studio</h1>
+						<h1 className="text-4xl font-bold">Harper Fabric</h1>
 						<ul className="ps-5">
 
 							<ListItem title="Global Deployments Managed as One">

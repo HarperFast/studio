@@ -1,6 +1,6 @@
-# Harper Studio (Fabric UI)
+# HDBMS
 
-This repository contains the React + TypeScript web application that powers the Harper Studio at https://fabric.harper.fast
+This repository contains the React + TypeScript web application that powers Harper Fabric at https://fabric.harper.fast and Harper Studio locally.
 
 It is also the source for the bundled “Local Studio” UI that ships with the `harperdb` Node package. If you enable `localStudio` in your Harper config YAML, this app is served directly from your local Harper instance.
 
