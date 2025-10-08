@@ -1,10 +1,10 @@
 # Harper Studio (Fabric UI)
 
-This repository contains the React + TypeScript web application that powers the Harper Studio at https://studio.harperfabric.com.
+This repository contains the React + TypeScript web application that powers the Harper Studio at https://fabric.harper.fast
 
 It is also the source for the bundled “Local Studio” UI that ships with the `harperdb` Node package. If you enable `localStudio` in your Harper config YAML, this app is served directly from your local Harper instance.
 
-- Live site: https://studio.harperfabric.com
+- Live site: https://fabric.harper.fast
 - Tech stack: React, Vite, TypeScript, Tailwind CSS, TanStack Router/Query/Table
 - Package manager: pnpm (see package.json `packageManager`)
 
@@ -57,7 +57,7 @@ Then visit http://localhost:9925 (or wherever you've set your operations port) t
 This project uses Vite environment files and modes. You can pass `--mode <name>` to Vite to pick a `.env.<name>` file. Some keys you may encounter:
 
 - `VITE_LOCAL_STUDIO` — whether to run in “Local Studio” mode
-- `VITE_CENTRAL_MANAGER_API_URL` — base URL for API calls (e.g. https://studio.harperfabric.com)
+- `VITE_CENTRAL_MANAGER_API_URL` — base URL for API calls (e.g. https://fabric.harper.fast)
 - `VITE_LOCAL_STUDIO_DEV_URL` — local Harper URL for Local Studio dev (default http://localhost:9925)
 - `VITE_PUBLIC_STRIPE_KEY` — Stripe public key used in billing flows
 - `VITE_ENV_NAME` — environment label (dev/stage/prod)
