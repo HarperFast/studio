@@ -208,7 +208,7 @@ export function ClusterForm({
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
 			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
-				const regionToSelect = possibleRegions?.find(r => r.region === 'Global') || possibleRegions?.[0];
+				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
 				if (regionToSelect) {
 					form.setValue('regionPlans.0.regionName', regionToSelect.region);
 					form.setValue('regionPlans.0.latencyDescription', regionToSelect.latencyDescription);
