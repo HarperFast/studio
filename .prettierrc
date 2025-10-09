@@ -10,5 +10,13 @@
 	"bracketSameLine": false,
 	"bracketSpacing": true,
 	"jsxSingleQuote": false,
-	"arrowParens": "always"
+	"arrowParens": "always",
+	"overrides": [
+		{
+			"files": "*.json",
+			"options": {
+				"useTabs": true
+			}
+		}
+	]
 }
