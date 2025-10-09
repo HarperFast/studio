@@ -13,6 +13,8 @@ import { PriceDisplay } from '@/features/clusters/upsert/PriceDisplay';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/lib/api.gen';
 import { Organization } from '@/lib/api.patch';
+import { sortByField } from '@/lib/arrays/sort/byField';
+import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -33,9 +35,8 @@ interface ClusterFormProps {
 	organization: Organization;
 	organizationId: string;
 	planTypes: SchemaPlan[];
-	regionLocations: SchemaRegion[];
-	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
-	setOnlyShowAvailableHosts: (value: boolean) => void;
+	regionLocationsColocated: SchemaRegion[];
+	regionLocationsDedicated: SchemaRegion[];
 	setSavedClusterState: (value: null | ({ clusterId?: string } & z.infer<typeof UpsertClusterSchema>)) => void;
 	startOffOnBilling: boolean;
 }
@@ -48,9 +49,8 @@ export function ClusterForm({
 	organization,
 	organizationId,
 	planTypes,
-	regionLocations,
-	regionNameToLatencyToRegion,
-	setOnlyShowAvailableHosts,
+	regionLocationsColocated,
+	regionLocationsDedicated,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -62,6 +62,11 @@ export function ClusterForm({
 	const { mutate: submitEditClusterData, isPending: isEditPending } = useEditClusterMutation();
 
 	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(startOffOnBilling);
+
+	const colocatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
+		groupThenKeyBy(regionLocationsColocated?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocationsColocated]);
+	const dedicatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
+		groupThenKeyBy(regionLocationsDedicated?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocationsDedicated]);
 
 	const refineZod = useCallback((data: z.infer<typeof UpsertClusterSchema>, ctx: z.RefinementCtx) => {
 		const names = new Set();
@@ -88,6 +93,10 @@ export function ClusterForm({
 					message: 'Only one free cluster is allowed per organization.',
 				});
 			}
+			const regionNameToLatencyToRegion = selectedPlan?.deploymentDescription !== 'Dedicated'
+				? colocatedRegionNameToLatencyToRegion
+				: dedicatedRegionNameToLatencyToRegion;
+
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
 				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
@@ -126,7 +135,7 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [alreadyUsingFree, deploymentToPerformanceToPlan, regionNameToLatencyToRegion]);
+	}, [alreadyUsingFree, colocatedRegionNameToLatencyToRegion, dedicatedRegionNameToLatencyToRegion, deploymentToPerformanceToPlan]);
 
 	const form = useForm({
 		mode: 'onChange',
@@ -149,9 +158,12 @@ export function ClusterForm({
 	const selectedRegionPlans = form.watch('regionPlans');
 	const selectedInstances = form.watch('instances');
 
-	useEffect(function syncRegionsWithSelectedDeploymentType() {
-		setOnlyShowAvailableHosts(selectedDeployment !== 'Dedicated');
-	}, [organizationId, selectedDeployment, setOnlyShowAvailableHosts]);
+	const regionNameToLatencyToRegion = selectedDeployment !== 'Dedicated'
+		? colocatedRegionNameToLatencyToRegion
+		: dedicatedRegionNameToLatencyToRegion;
+	const regionLocations = selectedDeployment !== 'Dedicated'
+		? regionLocationsColocated
+		: regionLocationsDedicated;
 
 	useEffect(function syncInstancesAndRegionsWithSelfManagedSelection() {
 		const values = form.getValues();
