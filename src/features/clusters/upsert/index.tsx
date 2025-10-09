@@ -10,31 +10,32 @@ import {
 } from '@/features/clusters/upsert/lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { SchemaPlan } from '@/lib/api.gen';
 import { Cluster, Organization } from '@/lib/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { z } from 'zod';
 
 export function UpsertCluster() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
-	const [onlyShowAvailableHosts, setOnlyShowAvailableHosts] = useState(true);
-	const { organization, cluster }: { organization: Organization; cluster?: Cluster } = useRouteContext({ strict: false });
+	const { organization, cluster }: {
+		organization: Organization;
+		cluster?: Cluster
+	} = useRouteContext({ strict: false });
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<null | ({
 		clusterId?: string
 	} & z.infer<typeof UpsertClusterSchema>)>(LocalStorageKeys.SavedClusterState, null);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
-	const { data: regionLocationsAvailableHosts } = useQuery(getRegionLocationsOptions({
+	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
 		availableHosts: true,
 		organizationId,
 	}));
-	const { data: regionLocationsAll } = useQuery(getRegionLocationsOptions({ organizationId }));
-	const regionLocations = onlyShowAvailableHosts ? regionLocationsAvailableHosts : regionLocationsAll;
+	const { data: regionLocationsDedicated } = useQuery(getRegionLocationsOptions({ organizationId }));
 
 	const alreadyUsingFree = useMemo(() => {
 		for (const orgCluster of organization?.clusters ?? []) {
@@ -55,14 +56,12 @@ export function UpsertCluster() {
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
 		groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
-	const regionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
-		groupThenKeyBy(regionLocations?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocations]);
 
 	const defaultValues = useMemo<null | z.infer<typeof UpsertClusterSchema>>(() => {
 		if (savedClusterState) {
 			return savedClusterState;
 		}
-		if (!planTypes || !regionLocationsAvailableHosts || !regionLocationsAll || (clusterId && !cluster)) {
+		if (!planTypes || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)) {
 			return null;
 		}
 
@@ -70,40 +69,40 @@ export function UpsertCluster() {
 
 		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
-		const regionLocations = onlyShowAvailableHosts ? regionLocationsAvailableHosts : regionLocationsAll;
+		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
+			? regionLocationsColocated
+			: regionLocationsDedicated;
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations, alreadyUsingFree);
 
 		let isSelfManaged = false;
-		if (planTypes && regionLocations) {
-			if (cluster) {
-				if (cluster.plans) {
-					for (const plan of cluster.plans) {
-						if (plan.regionId) {
-							const selectedRegion = regionLocations.find(regionLocation => regionLocation.id === plan.regionId);
-							if (selectedRegion) {
-								regionPlans.push({
-									regionName: selectedRegion.region,
-									latencyDescription: selectedRegion.latencyDescription,
-								});
-							}
-						}
-					}
-				}
-				if (!regionPlans.length && cluster.instances) {
-					for (const instance of cluster.instances) {
-						if (instance.status !== 'REMOVED') {
-							isSelfManaged = true;
-							instances.push({
-								fqdn: instance.instanceFqdn,
-								port: instance.operationsApiPort,
-								secure: instance.operationsApiSecure ? 'true' : 'false',
+		if (cluster) {
+			if (cluster.plans) {
+				for (const plan of cluster.plans) {
+					if (plan.regionId) {
+						const selectedRegion = regionLocations.find(regionLocation => regionLocation.id === plan.regionId);
+						if (selectedRegion) {
+							regionPlans.push({
+								regionName: selectedRegion.region,
+								latencyDescription: selectedRegion.latencyDescription,
 							});
 						}
 					}
 				}
-			} else if (defaults) {
-				regionPlans.push(...defaults.regionPlans);
 			}
+			if (!regionPlans.length && cluster.instances) {
+				for (const instance of cluster.instances) {
+					if (instance.status !== 'REMOVED') {
+						isSelfManaged = true;
+						instances.push({
+							fqdn: instance.instanceFqdn,
+							port: instance.operationsApiPort,
+							secure: instance.operationsApiSecure ? 'true' : 'false',
+						});
+					}
+				}
+			}
+		} else if (defaults) {
+			regionPlans.push(...defaults.regionPlans);
 		}
 		if (!isSelfManaged && !regionPlans.length) {
 			regionPlans.push({ regionName: '', latencyDescription: '' });
@@ -119,9 +118,9 @@ export function UpsertCluster() {
 			instances,
 			regionPlans,
 		};
-	}, [alreadyUsingFree, cluster, clusterId, onlyShowAvailableHosts, planTypes, regionLocationsAll, regionLocationsAvailableHosts, savedClusterState]);
+	}, [alreadyUsingFree, cluster, clusterId, planTypes, regionLocationsColocated, regionLocationsDedicated, savedClusterState]);
 
-	const isLoading = !defaultValues || !organization || !planTypes || !regionLocations;
+	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated || !regionLocationsDedicated;
 	if (isLoading) {
 		return (
 			<SubNavSimpleLayout>
@@ -148,18 +147,17 @@ export function UpsertCluster() {
 	return (
 		<SubNavSimpleLayout>
 			<ClusterForm
+				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
 				organization={organization}
 				organizationId={organizationId}
 				planTypes={planTypes}
-				regionLocations={regionLocations}
-				regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-				setOnlyShowAvailableHosts={setOnlyShowAvailableHosts}
+				regionLocationsColocated={regionLocationsColocated}
+				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={!!savedClusterState}
-				alreadyUsingFree={alreadyUsingFree}
 			/>
 		</SubNavSimpleLayout>
 	);
