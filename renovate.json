@@ -1,10 +1,10 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
-  "prConcurrentLimit": 2,
-  "semanticCommits": "enabled",
-  "minimumReleaseAge": "3 days",
-  "internalChecksFilter": "strict"
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": [
+		"config:recommended"
+	],
+	"prConcurrentLimit": 2,
+	"semanticCommits": "enabled",
+	"minimumReleaseAge": "3 days",
+	"internalChecksFilter": "strict"
 }

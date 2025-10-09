@@ -1,0 +1,17 @@
+# EditorConfig helps maintain consistent coding styles across editors and IDEs
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+indent_style = tab
+
+# Match Prettier tabWidth for display width in editors
+tab_width = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Keep trailing spaces in Markdown (used intentionally for line breaks)
+[*.md]
+trim_trailing_whitespace = false
