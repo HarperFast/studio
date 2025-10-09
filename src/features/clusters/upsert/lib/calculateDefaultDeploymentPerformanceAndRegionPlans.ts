@@ -13,7 +13,7 @@ export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 	const allowedRegionIds = planToSelect?.allowedRegionIds;
 	if (planToSelect) {
 		const allowedRegions = allowedRegionIds ? regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id)) : regionLocations;
-		const regionToSelect = allowedRegions.find(regionLocation => regionLocation.region === 'Global') || allowedRegions[0];
+		const regionToSelect = allowedRegions.find(regionLocation => regionLocation.region === 'US') || allowedRegions[0];
 		if (regionToSelect) {
 			return {
 				deploymentDescription: planToSelect.deploymentDescription,
