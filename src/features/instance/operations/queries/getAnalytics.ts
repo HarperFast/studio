@@ -1,10 +1,14 @@
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { queryOptions } from '@tanstack/react-query';
 
+export type MetricDataKey = string | ((metric: Metric) => number);
+export type Units = 'bytes' | 'secs' | 'reads' | 'writes' | 'messages';
 export interface MetricConfig {
 	id: string;
 	name: string;
-	unit: string;
+	label?: string;
+	dataKey: MetricDataKey;
+	units: Units;
 	path?: string;
 }
 
@@ -27,11 +31,17 @@ interface GetAnalyticsRequest {
 	}[];
 }
 
-type GetAnalyticsResponse = {
+export interface Metric {
 	id: number;
 	metric: string;
+	count: number;
+	mean: number;
+	period: number;
+	node: string;
 	[key: string]: string|number|boolean|null;
-}[];
+}
+
+type GetAnalyticsResponse = Metric[];
 
 export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, instanceParams }: GetAnalyticsParams) {
 	return queryOptions({
