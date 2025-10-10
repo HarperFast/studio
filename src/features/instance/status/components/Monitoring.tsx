@@ -3,13 +3,26 @@ import { useMemo, useState } from 'react';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { Label } from '@/components/ui/label.tsx';
 import { useInterval } from '@/hooks/useInterval.ts';
-import type { MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
+import type { Metric, MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
 
 const metrics: MetricConfig[] = [
-	{id: 'db-read', name: 'db-read', unit: ' reads'},
-	{id: 'cpu-usage-user', name: 'cpu-usage', path: 'user', unit: ' s'},
+	{id: 'db-read', name: 'db-read', dataKey: 'count', units: 'reads'},
+	{id: 'db-read-bytes', label: 'db-read-bytes', name: 'db-read', dataKey: metricSum, units: 'bytes'},
+	{id: 'db-write', name: 'db-write', dataKey: 'count', units: 'writes'},
+	{id: 'db-write-bytes', label: 'db-write-bytes', name: 'db-write', dataKey: metricSum, units: 'bytes'},
+	{id: 'db-message', name: 'db-message', dataKey: 'count', units: 'messages'},
+	{id: 'db-message-bytes', label: 'db-message-bytes', name: 'db-message', dataKey: metricSum, units: 'bytes'},
+	{id: 'cpu-usage-user', name: 'cpu-usage', path: 'user', dataKey: metricSum, units: 'secs'},
+	{id: 'cpu-usage-harper', name: 'cpu-usage', path: 'harper', dataKey: metricSum, units: 'secs'},
 ];
+
+function metricSum(metric: Metric) {
+	if (metric.mean && metric.count) {
+		return metric.mean * metric.count;
+	}
+	return 0;
+}
 
 interface TimeSelectOption {
 	label: string;
@@ -66,7 +79,7 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 						<SelectContent>
 							<SelectGroup>
 								{metrics.map((m) => {
-									let itemLabel = m.name;
+									let itemLabel = m.label ?? m.name;
 									if (m.path) {
 										itemLabel += ` (${m.path})`;
 									}
@@ -113,7 +126,6 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 			</div>
 			<MetricVisualization
 			  metricConfig={selectedMetric}
-			  metricDataKey="count"
 				startTime={startTime}
 				endTime={endTime}
 				instanceParams={instanceParams} />
