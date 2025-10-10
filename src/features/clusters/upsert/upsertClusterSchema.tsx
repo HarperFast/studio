@@ -3,9 +3,9 @@ import { maxPortNumber, minPortNumber } from '@/lib/types/portNumbers';
 import { z } from 'zod';
 
 export const UpsertClusterSchema = z.object({
-	systemName: z.string()
-		.nonempty('Please enter a system name.')
-		.max(255, 'System name cannot be longer than 255 characters long.'),
+	clusterName: z.string()
+		.nonempty('Please enter a cluster name.')
+		.max(255, 'Cluster name cannot be longer than 255 characters long.'),
 	abbreviatedName: z
 		.string()
 		.max(20, 'Must be at most 20 characters long.')

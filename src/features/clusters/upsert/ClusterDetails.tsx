@@ -92,14 +92,14 @@ export function ClusterDetails({
 		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
 			<FormField
 				control={form.control}
-				name="systemName"
+				name="clusterName"
 				render={({ field }) => (
 					<FormItem className="col-span-3 md:col-span-6">
-						<FormLabel className="pb-1">Harper System Name</FormLabel>
+						<FormLabel className="pb-1">Cluster Name</FormLabel>
 						<FormControl>
 							<Input
 								type="text"
-								maxLength={UpsertClusterSchema.shape.systemName.maxLength!}
+								maxLength={UpsertClusterSchema.shape.clusterName.maxLength!}
 								autoCapitalize="words"
 								disabled={!!clusterId}
 								{...field} />

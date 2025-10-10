@@ -111,7 +111,7 @@ export function UpsertCluster() {
 
 		return {
 			autoRenew: cluster?.plans?.[0]?.autoRenew ?? true,
-			systemName: cluster?.name ?? '',
+			clusterName: cluster?.name ?? '',
 			abbreviatedName: cluster?.abbreviatedName ?? '',
 			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
 			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
