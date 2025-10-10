@@ -151,7 +151,7 @@ export function ClusterForm({
 		}
 	}, [defaultValues, firstTime, setSavedClusterState]);
 
-	const systemName = form.watch('systemName');
+	const clusterName = form.watch('clusterName');
 	const abbreviatedName = form.watch('abbreviatedName');
 	const selectedDeployment = form.watch('deploymentDescription');
 	const selectedPerformance = form.watch('performanceDescription');
@@ -202,14 +202,14 @@ export function ClusterForm({
 
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
-			toKebabCase(systemName),
+			toKebabCase(clusterName),
 			UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!,
 		);
 		return {
 			suggestedAbbreviatedName,
 			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${organization.subdomain || 'your-org'}.harperfabric.com`,
 		};
-	}, [systemName, abbreviatedName, organization]);
+	}, [clusterName, abbreviatedName, organization]);
 	const selectedPlan = useMemo(() =>
 		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
 
@@ -340,7 +340,7 @@ export function ClusterForm({
 					: (formData.abbreviatedName || calculatedNames.suggestedAbbreviatedName),
 				autoRenew: true,
 				fqdn: isSelfManaged && formData.fqdn || undefined,
-				name: formData.systemName,
+				name: formData.clusterName,
 				organizationId,
 				regionPlans: plans,
 			}, {
@@ -375,11 +375,9 @@ export function ClusterForm({
 			{!confirmingPaymentDetails
 				? (<>
 					<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Configuration</h1>
-					<p className="text-muted-foreground text-sm mb-6">Configure your Harper system and define
-						deployment
-						plans.</p>
+					<p className="text-muted-foreground text-sm mb-6">
+						Configure your Harper cluster and define deployment plans.</p>
 
-					<h1 className="text-lg leading-none text-white font-semibold mb-4">System</h1>
 					<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
 						<ClusterDetails
 							calculatedNames={calculatedNames}
