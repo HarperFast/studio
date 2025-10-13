@@ -1,14 +1,15 @@
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { queryOptions } from '@tanstack/react-query';
+import type { Units } from '@/lib/units';
 
 export type MetricDataKey = string | ((metric: Metric) => number);
-export type Units = 'bytes' | 'secs' | 'reads' | 'writes' | 'messages';
+export type MetricUnits = Units | 'reads' | 'writes' | 'messages';
 export interface MetricConfig {
 	id: string;
 	name: string;
 	label?: string;
 	dataKey: MetricDataKey;
-	units: Units;
+	units: MetricUnits;
 	path?: string;
 }
 

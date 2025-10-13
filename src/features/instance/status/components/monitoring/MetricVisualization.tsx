@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAnalyticsQueryOptions, type MetricConfig, type Metric, type MetricDataKey, type Units } from '@/features/instance/operations/queries/getAnalytics.ts';
+import { getAnalyticsQueryOptions, type MetricConfig, type Metric, type MetricDataKey, type MetricUnits } from '@/features/instance/operations/queries/getAnalytics.ts';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { useMemo, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { scaleValueToUnits, determineUnits } from '@/lib/units';
 import { harperPalette } from '@/lib/colorPalette.ts';
 
 type MetricValue = string | number | boolean;
@@ -17,53 +18,7 @@ interface MetricVisualizationParams {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
 
-const byteUnits = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-const timeUnits = ['secs', 'mins', 'hrs'];
-
-function convertToUnits(value: number, baseUnits: Units, units: string) {
-	let availableUnits;
-	let conversionBase;
-	switch (baseUnits) {
-		case 'bytes': {
-			availableUnits = byteUnits;
-			conversionBase = 1024;
-			break;
-		}
-		case 'secs': {
-			availableUnits = timeUnits;
-			conversionBase = 60;
-			break;
-		}
-		default:
-			return value;
-	}
-	const converstionExponent = availableUnits.indexOf(units);
-	const conversionFactor = conversionBase ** converstionExponent;
-	const converted = (value / conversionFactor).toFixed(2);
-	return Number(converted);
-}
-
-function determineUnits(baseUnits: Units, value: number) {
-	let availableUnits;
-	switch (baseUnits) {
-		case 'bytes':
-			availableUnits = byteUnits;
-			break;
-		case 'secs':
-			availableUnits = timeUnits;
-			break;
-		default:
-			return baseUnits;
-	}
-	let i = 0;
-	while (value > 1024 && i < availableUnits.length - 1) {
-		value /= 1024;
-		i++;
-	}
-	return availableUnits[i];
-}
-
-function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits: Units, conversionUnits?: string) {
+function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits: MetricUnits, conversionUnits?: string) {
 	let baseValue;
 	if (typeof dataKey === 'string') {
 		baseValue = metric[dataKey] as number ?? 0;
@@ -72,7 +27,7 @@ function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits:
 	}
 
 	if (conversionUnits) {
-		return convertToUnits(baseValue, baseUnits, conversionUnits);
+		return scaleValueToUnits(baseValue, baseUnits, conversionUnits);
 	}
 
 	return baseValue;
@@ -107,7 +62,7 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 
 			for (const metric of metrics) {
 				const coalescedTime = Math.floor(metric.id / metric.period) * metric.period;
-				const resolvedMetric = resolveMetricDataKey(metric, dataKey, units, conversionUnits);
+				const resolvedMetric = resolveMetricDataKey(metric, dataKey, units, conversionUnits).toFixed(2);
 
 				if (coalescedMetrics[coalescedTime]) {
 					coalescedMetrics[coalescedTime][metric.node] = resolvedMetric;
