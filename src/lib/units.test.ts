@@ -6,22 +6,22 @@ describe('determineUnits', () => {
 		expect(determineUnits('foos', 0)).toBe('foos');
 	});
 
-	it("should return 'B' for bytes < 1,024", () => {
+	it("should return 'B' for bytes < 1,000", () => {
 		expect(determineUnits('bytes', 0)).toBe('B');
 		expect(determineUnits('bytes', 100)).toBe('B');
-		expect(determineUnits('bytes', 1023)).toBe('B');
+		expect(determineUnits('bytes', 999)).toBe('B');
 	});
 
-	it("should return 'KiB' for bytes >= 1,024 && < 1,048,576", () => {
-		expect(determineUnits('bytes', 1024)).toBe('KiB');
-		expect(determineUnits('bytes', 2048)).toBe('KiB');
-		expect(determineUnits('bytes', 1048575)).toBe('KiB');
+	it("should return 'KiB' for bytes >= 1,000 && < 1,000,000", () => {
+		expect(determineUnits('bytes', 1000)).toBe('KB');
+		expect(determineUnits('bytes', 2000)).toBe('KB');
+		expect(determineUnits('bytes', 900_000)).toBe('KB');
 	});
 
-	it("should return 'MiB' for bytes >= 1,048,576 && < 1,073,741,824", () => {
-		expect(determineUnits('bytes', 1048576)).toBe('MiB');
-		expect(determineUnits('bytes', 10000000)).toBe('MiB');
-		expect(determineUnits('bytes', 1073741823)).toBe('MiB');
+	it("should return 'MiB' for bytes >= 1,000,000 && < 1,000,000,000", () => {
+		expect(determineUnits('bytes', 1_000_000)).toBe('MB');
+		expect(determineUnits('bytes', 10_000_000)).toBe('MB');
+		expect(determineUnits('bytes', 900_000_000)).toBe('MB');
 	});
 
 	it("should return 'secs' for seconds < 60", () => {
@@ -55,20 +55,19 @@ describe('scaleValueToUnits', () => {
 		expect(scaleValueToUnits(1000000, 'bytes', 'B')).toBe(1000000);
 	});
 
-	it('should scale bytes to KiB', () => {
-		expect(scaleValueToUnits(0, 'bytes', 'KiB')).toBe(0);
-		expect(scaleValueToUnits(1023, 'bytes', 'KiB')).toBeCloseTo(1);
-		expect(scaleValueToUnits(1024, 'bytes', 'KiB')).toBe(1);
-		expect(scaleValueToUnits(1024 * 2, 'bytes', 'KiB')).toBe(2);
-		expect(scaleValueToUnits(1024 * 10, 'bytes', 'KiB')).toBe(10);
+	it('should scale bytes to KB', () => {
+		expect(scaleValueToUnits(0, 'bytes', 'KB')).toBe(0);
+		expect(scaleValueToUnits(1000, 'bytes', 'KB')).toBe(1);
+		expect(scaleValueToUnits(1000 * 2, 'bytes', 'KB')).toBe(2);
+		expect(scaleValueToUnits(1000 * 10, 'bytes', 'KB')).toBe(10);
 	});
 
-	it('should scale bytes to MiB', () => {
-		expect(scaleValueToUnits(0, 'bytes', 'MiB')).toBe(0);
-		expect(scaleValueToUnits(1024, 'bytes', 'MiB')).toBeCloseTo(0.001);
-		expect(scaleValueToUnits(1024 * 1024, 'bytes', 'MiB')).toBe(1);
-		expect(scaleValueToUnits(1024 * 1024 * 2, 'bytes', 'MiB')).toBe(2);
-		expect(scaleValueToUnits(1024 * 1024 * 10, 'bytes', 'MiB')).toBe(10);
+	it('should scale bytes to MB', () => {
+		expect(scaleValueToUnits(0, 'bytes', 'MB')).toBe(0);
+		expect(scaleValueToUnits(1000, 'bytes', 'MB')).toBeCloseTo(0.001);
+		expect(scaleValueToUnits(1000 * 1000, 'bytes', 'MB')).toBe(1);
+		expect(scaleValueToUnits(1000 * 1000 * 2, 'bytes', 'MB')).toBe(2);
+		expect(scaleValueToUnits(1000 * 1000 * 10, 'bytes', 'MB')).toBe(10);
 	});
 
 	it('should leave secs scaled to secs as-is', () => {

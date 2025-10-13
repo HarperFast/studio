@@ -1,9 +1,9 @@
 export type Units = 'bytes' | 'secs';
 
-const dataUnits = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+const dataUnits = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 const timeUnits = ['secs', 'mins', 'hrs'];
 const unitsMultipliers = {
-	bytes: 1024,
+	bytes: 1000,
 	secs: 60,
 };
 
