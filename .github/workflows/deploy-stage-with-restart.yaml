@@ -38,7 +38,7 @@ jobs:
         run: |
           VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
           if [ -z "$VERSION_TAG" ]; then
-            VERSION_TAG="v0.0.0+${GITHUB_SHA:0:7}"
+            VERSION_TAG="stage_${GITHUB_SHA:0:7}"
           fi
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build stage for release
