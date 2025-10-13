@@ -67,7 +67,6 @@ export function EditRoleModal({
 			showAttributes: showAttributes,
 		}), null, 2);
 		// We exclude updatedPermissions on purpose from the deps.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes]);
 
 	useEffect(() => {
