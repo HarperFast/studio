@@ -1,5 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { InstanceAttribute } from '@/lib/api.patch';
+import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
+import { autoCast } from '@/lib/casting/autoCast';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetSearchByConditionsParams extends InstanceClientIdConfig {
@@ -86,7 +88,7 @@ export function getSearchByConditionsOptions({
 
 export function translateColumnFilterToSearchConditions(key: string, rawValues: string, attribute: InstanceAttribute | undefined): SearchCondition[] {
 	const split = rawValues.split(/ & /);
-	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute))
+	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute));
 }
 
 export function translateColumnFilterToSearchCondition(key: string, rawValue: string, attribute: InstanceAttribute | undefined): SearchCondition {
@@ -129,17 +131,22 @@ export function translateColumnFilterToSearchCondition(key: string, rawValue: st
 			return {
 				search_attribute: key,
 				search_type: comparator,
-				search_value: translateBooleanValue(value),
+				search_value: translateKnownBooleanTypedValue(value),
 			};
 		}
-		case 'Any':
 		case 'Blob':
 		case 'Bytes':
-		default:
 			return {
 				search_attribute: key,
 				search_type: comparator,
 				search_value: value,
+			};
+		case 'Any':
+		default:
+			return {
+				search_attribute: key,
+				search_type: comparator,
+				search_value: autoCast(value),
 			};
 	}
 }
@@ -235,21 +242,4 @@ export function parseComparator(value: string): { comparator: Comparator, value:
 		comparator: 'equals',
 		value: value,
 	};
-}
-
-const acceptedOKValues = [
-	'1',
-	'bet',
-	'k',
-	'ok',
-	'si',
-	'tru',
-	'true',
-	'yes',
-	'yup',
-];
-
-export function translateBooleanValue(value: string): boolean {
-	const lowerValue = value.toLowerCase();
-	return acceptedOKValues.includes(lowerValue);
 }

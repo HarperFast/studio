@@ -1,10 +1,10 @@
 import {
 	parseComparator,
-	translateBooleanValue,
 	translateColumnFilterToSearchCondition,
 	translateColumnFilterToSearchConditions,
 } from '@/features/instance/operations/queries/getSearchByConditions';
 import type { InstanceAttribute } from '@/lib/api.patch';
+import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
 import { describe, expect, it } from 'vitest';
 
 describe('parseComparator', () => {
@@ -72,13 +72,13 @@ describe('translateBooleanValue', () => {
 	it('recognizes truthy variants (case-insensitive)', () => {
 		const truthy = ['true', 'Yes', 'OK', 'Yup', '1', 'Si', 'bet', 'TrU'];
 		for (const v of truthy) {
-			expect(translateBooleanValue(v)).toBe(true);
+			expect(translateKnownBooleanTypedValue(v)).toBe(true);
 		}
 	});
 	it('returns false for non-matching values', () => {
 		const falsy = ['false', 'no', '0', 'nah', 'maybe', 'foo', '', 'truth'];
 		for (const v of falsy) {
-			expect(translateBooleanValue(v)).toBe(false);
+			expect(translateKnownBooleanTypedValue(v)).toBe(false);
 		}
 	});
 });
