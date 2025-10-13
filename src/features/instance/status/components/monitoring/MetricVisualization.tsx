@@ -3,6 +3,7 @@ import { getAnalyticsQueryOptions, type MetricConfig, type Metric, type MetricDa
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { useMemo, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { harperPalette } from '@/lib/colorPalette.ts';
 
 type MetricValue = string | number | boolean;
 type NullableMetricValue = MetricValue | null;
@@ -15,16 +16,6 @@ interface MetricVisualizationParams {
 	endTime: number;
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
-
-const harperPalette = {
-	'persistence-purple': '#403B8A',
-	'b-tree-green': '#55C58F',
-	'cyber-grape': '#7A3A87',
-	'quantum-purple': '#312556',
-	'cloud-white': '#F5F5F5',
-	'acid-magenta': '#C63368',
-	'edge-gray': '#383D40',
-};
 
 const byteUnits = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
 const timeUnits = ['secs', 'mins', 'hrs'];
