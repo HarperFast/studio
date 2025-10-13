@@ -90,6 +90,9 @@ export function translateColumnFilterToSearchConditions(key: string, rawValues: 
 }
 
 export function translateColumnFilterToSearchCondition(key: string, rawValue: string, attribute: InstanceAttribute | undefined): SearchCondition {
+	if (rawValue.startsWith(key)) {
+		rawValue = rawValue.substring(key.length);
+	}
 	const { comparator, value } = parseComparator(rawValue);
 	switch (attribute?.type) {
 		case 'ID':
@@ -115,7 +118,6 @@ export function translateColumnFilterToSearchCondition(key: string, rawValue: st
 			};
 		}
 		case 'Date': {
-			const { comparator, value } = parseComparator(rawValue);
 			const parsed = new Date(value).toISOString();
 			return {
 				search_attribute: key,

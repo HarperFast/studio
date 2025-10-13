@@ -7,10 +7,6 @@ import {
 import type { InstanceAttribute } from '@/lib/api.patch';
 import { describe, expect, it } from 'vitest';
 
-function attr(type?: InstanceAttribute['type']): InstanceAttribute {
-	return { attribute: 'col', type };
-}
-
 describe('parseComparator', () => {
 	it('understand greater than equal', () => {
 		expect(parseComparator('>= 10')).toEqual({
@@ -170,6 +166,23 @@ describe('translateColumnFilterToSearchCondition', () => {
 		});
 	});
 
+	it('strips off redundant names', () => {
+		expect(
+			translateColumnFilterToSearchConditions('age', 'age > 1 & age < 10', attr('Int')),
+		).toEqual([
+			{
+				search_attribute: 'age',
+				search_type: 'greater_than',
+				search_value: 1,
+			},
+			{
+				search_attribute: 'age',
+				search_type: 'less_than',
+				search_value: 10,
+			},
+		]);
+	});
+
 	it('parses booleans with accepted truthy values', () => {
 		expect(
 			translateColumnFilterToSearchCondition('active', 'Yes', attr('Boolean')),
@@ -231,4 +244,9 @@ describe('translateColumnFilterToSearchCondition', () => {
 			search_value: 'value',
 		});
 	});
+
+	function attr(type?: InstanceAttribute['type']): InstanceAttribute {
+		return { attribute: 'col', type };
+	}
+
 });
