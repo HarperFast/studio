@@ -3,6 +3,7 @@ import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
+import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
@@ -39,7 +40,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 			<div className="flex items-center justify-between">
 				<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 					<Logo />
-					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
+					<Version />
 				</Link>
 				<button
 					type="button"
@@ -137,7 +138,7 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 				<div className="inline-block">
 					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 						<Logo />
-						<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
+						<Version />
 					</Link>
 				</div>
 				<NavigationMenu>
@@ -233,7 +234,7 @@ function AnonymousNav() {
 			<div className="inline-block">
 				<Link to="/sign-in">
 					<Logo />
-					<span className="text-grey text-xs inline-block pl-2">{import.meta.env.VITE_STUDIO_VERSION}</span>
+					<Version />
 				</Link>
 			</div>
 			<NavigationMenu>
