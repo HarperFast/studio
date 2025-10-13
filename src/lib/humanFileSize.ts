@@ -1,21 +1,10 @@
-const units = ['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+import { scaleValueToUnits, determineUnits } from '@/lib/units.ts';
 
 export function humanFileSize(input: number, multiplierFromBytes: number = 1) {
-	const thresh = 1024;
-	const bytes = input * multiplierFromBytes;
-	let value = bytes;
+	const initialValue = input * multiplierFromBytes;
+	const units = determineUnits('bytes', initialValue);
+	const scaled = scaleValueToUnits(initialValue, 'bytes', units);
 
-	if (Math.abs(value) < thresh) {
-		return value + ' B';
-	}
-
-	let u = -1;
-	const r = 10;
-
-	do {
-		value /= thresh;
-		++u;
-	} while (Math.round(Math.abs(value) * r) / r >= thresh && u < units.length - 1);
-
-	return `${new Intl.NumberFormat().format(Math.round(value))} ${units[u]}`;
+	const value = new Intl.NumberFormat().format(Math.round(scaled));
+	return `${value} ${units}`;
 }
