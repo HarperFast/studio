@@ -7,6 +7,7 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ interface RestartClusterClickResponse {
 
 export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClusterClickParams = {}): RestartClusterClickResponse {
 	const { clusterId }: { clusterId?: string; } = useParams({ strict: false });
+	const queryClient = useQueryClient();
 	const [isRestartPending, setIsRestartPending] = useState(false);
 	const onRestartClick = useCallback(async () => {
 		if (!clusterId) {
@@ -99,6 +101,7 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 		}
 
 		setIsRestartPending(false);
+		void queryClient.invalidateQueries({ queryKey: [clusterId] });
 
 		if (canceled) {
 			toast.error('Cancelled', {
