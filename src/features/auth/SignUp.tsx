@@ -175,9 +175,9 @@ export function SignUp() {
 						)}
 					/>
 					<p className="text-xs">By creating an account, you agree to
-						the <a rel="noopener" href="https://www.harpersystems.dev/legal/privacy-policy" target="_blank" className="underline hover:text-blue-300">
+						the <a rel="noopener" href="https://www.harper.fast/resources/privacy-policy" target="_blank" className="underline hover:text-blue-300">
 							Privacy Policy
-						</a> and <a rel="noopener" href="https://www.harpersystems.dev/legal/harperdb-cloud-terms-of-service" target="_blank" className="underline hover:text-blue-300">
+						</a> and <a rel="noopener" href="https://www.harper.fast/resources/terms-of-use" target="_blank" className="underline hover:text-blue-300">
 							Terms of Service
 						</a></p>
 
