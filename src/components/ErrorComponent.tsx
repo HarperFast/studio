@@ -13,9 +13,10 @@ interface ErrorProps {
 	error: Error | { message: string | ReactNode };
 	title?: string;
 	showReturnToHome?: boolean;
+	children?: ReactNode;
 }
 
-export function ErrorComponent({ className, error, title, showReturnToHome }: ErrorProps) {
+export function ErrorComponent({ className, error, title, showReturnToHome, children }: ErrorProps) {
 	const { user, isLoading: isUserLoading } = useOverallAuth();
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 
@@ -27,23 +28,27 @@ export function ErrorComponent({ className, error, title, showReturnToHome }: Er
 				</CardTitle>
 				<CardDescription>{error.message}</CardDescription>
 			</CardHeader>
-			{showReturnToHome !== false && (<CardContent>
-				{user && !isUserLoading ? (
-					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-						<Button>
-							{' '}
-							<ArrowLeft /> Return to Home
-						</Button>
-					</Link>
-				) : (
-					<Link to="/sign-in">
-						<Button>
-							{' '}
-							<ArrowLeft /> Go to Sign In Page
-						</Button>
-					</Link>
+			<CardContent>
+				{children}
+				{showReturnToHome !== false && (user && !isUserLoading
+						? (
+							<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
+								<Button>
+									{' '}
+									<ArrowLeft /> Return to Home
+								</Button>
+							</Link>
+						)
+						: (
+							<Link to="/sign-in">
+								<Button>
+									{' '}
+									<ArrowLeft /> Go to Sign In Page
+								</Button>
+							</Link>
+						)
 				)}
-			</CardContent>)}
+			</CardContent>
 		</Card>
 	);
 }
