@@ -35,6 +35,7 @@ export const buttonVariants = cva(
 				ghost: 'hover:bg-accent hover:text-muted-foreground',
 				link: 'text-primary underline-offset-4 hover:underline',
 				positive: 'bg-green text-white shadow-xs hover:bg-green/90',
+				warning: 'bg-yellow text-white shadow-xs hover:bg-yellow/90',
 				outline: `${outlineCommon} ${hoverBounce}`,
 				positiveOutline:
 					`${outlineCommon} ${hoverBounce} border-green`,
