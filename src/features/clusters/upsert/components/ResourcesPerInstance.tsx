@@ -112,6 +112,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 			{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount) ? 'in ' + (selectedRegion?.region ?? '') + ' region' : 'per server'},<br className="hidden sm:block" />
 			{isPositive(planLimits.writesPerMinuteCount) ? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & ` : ' '}
 			{humanNumber(planLimits.totalWriteCount)} total writes{expirationMonths && `, for ${pluralize(expirationMonths, 'month', 'months')}`}.
+			Beta pricing subject to change
 			<br className="block sm:hidden" />
 			<Button
 				type="button"
