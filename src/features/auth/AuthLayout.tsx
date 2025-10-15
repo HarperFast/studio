@@ -22,6 +22,10 @@ export function AuthLayout() {
 						<h1 className="text-4xl font-bold">Harper Fabric</h1>
 						<ul className="ps-5">
 
+							<ListItem title="Free Tier">
+								<span>Try us out, no credit card required!</span>
+							</ListItem>
+
 							<ListItem title="Global Deployments Managed as One">
 								<span>Coordinate global environments as if they were a single node.</span>
 							</ListItem>
