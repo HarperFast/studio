@@ -3,6 +3,6 @@ declare module 'reodotdev' {
 
 	export interface ReoClient {
 		init: null | (({ clientID: string }) => ReoClient);
-		identify: null | ((person: { username: string; type: string; company: string; }) => void);
+		identify: null | ((person: Record<string, unknown>) => void);
 	}
 }
