@@ -32,15 +32,15 @@ export function InstanceNavBar() {
 			shortName: 'Apps',
 			icon: <PackageIcon className="inline-block" />,
 		},
-		canManage && {
-			to: buildAbsoluteLinkToPage(params, 'apis'),
-			name: 'APIs',
-			icon: <ServerIcon className="inline-block" />,
-		},
 		{
 			to: buildAbsoluteLinkToPage(params, 'databases'),
 			icon: <DatabaseIcon className="inline-block" />,
 			name: 'Databases',
+		},
+		canManage && {
+			to: buildAbsoluteLinkToPage(params, 'apis'),
+			name: 'APIs',
+			icon: <ServerIcon className="inline-block" />,
 		},
 		canManage && {
 			to: buildAbsoluteLinkToPage(params, 'status'),
