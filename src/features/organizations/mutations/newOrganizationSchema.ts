@@ -3,9 +3,6 @@ import { z } from 'zod';
 export const NewOrganizationSchema = z.object({
 	name: z
 		.string()
-		.nonempty({
-			error: 'Please enter a name.',
-		})
 		.max(255, {
 			error: 'Name cannot be longer than 255 characters.',
 		}),
