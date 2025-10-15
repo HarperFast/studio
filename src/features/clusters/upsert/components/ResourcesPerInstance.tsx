@@ -26,7 +26,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000 && planLimits.expirationMonths;
 	const multiplier = selectedRegion?.purchasedBlockMultiplier ?? 1;
 	const rows = useMemo(() => {
-		if (!planLimits || !resourcesPerInstance) {
+		if (!planLimits) {
 			return [];
 		}
 		return [
@@ -86,7 +86,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 				label: 'Application Compute Hours',
 				value: `${humanNumber(planLimits.applicationComputeHours * 60 * multiplier)}`,
 			},
-			isPositive(resourcesPerInstance?.storageGb) && {
+			resourcesPerInstance && isPositive(resourcesPerInstance.storageGb) && {
 				label: 'Storage',
 				value: `${humanFileSize(resourcesPerInstance.storageGb * 1000_000_000)}`,
 			},
@@ -97,7 +97,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 		].filter(excludeFalsy);
 	}, [expirationMonths, planLimits, resourcesPerInstance, multiplier]);
 
-	if (!planLimits || !resourcesPerInstance) {
+	if (!planLimits) {
 		// The user hasn't selected a plan yet. so let's not show anything for the ResourcesPerInstance space yet.
 		return '';
 	}
