@@ -54,13 +54,11 @@ export function SignIn() {
 				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
 
 				const company = parseCompanyFromEmail(data.email);
-				if (company) {
-					reoClient?.identify?.({
-						username: data.email,
-						type: 'email',
-						company,
-					});
-				}
+				reoClient?.identify?.({
+					username: data.email,
+					type: 'email',
+					...(company ? { company } : {}),
+				});
 				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
 				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });

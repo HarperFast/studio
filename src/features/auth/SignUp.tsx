@@ -7,6 +7,8 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useSignUpMutation } from '@/features/auth/hooks/useSignUp';
+import { reoClient } from '@/integrations/reo/reo';
+import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -72,6 +74,14 @@ export function SignUp() {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
 					},
+				});
+				const company = parseCompanyFromEmail(userData.email);
+				reoClient?.identify?.({
+					username: userData.email,
+					type: 'email',
+					firstname: userData.firstname,
+					lastname: userData.lastname,
+					...(company ? { company } : {}),
 				});
 				navigate({ to: '/sign-in' });
 			},
