@@ -1,7 +1,7 @@
 export const requestSnippets = {
 	generators: {
-		node_fetch: {
-			title: 'Node.js Fetch',
+		fetch: {
+			title: 'Fetch',
 			syntax: 'javascript',
 		},
 	},
