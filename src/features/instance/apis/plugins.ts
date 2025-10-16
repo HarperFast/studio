@@ -34,7 +34,7 @@ export const SnippedGeneratorNodeJsPlugin = {
 \theaders: {
 \t\t${headers.map((val: string, key: string) => `"${key}": "${val}"`).valueSeq().join(',\n\t\t')}
 \t},` : ''}${reqBody ? `
-\tbody: JSON.stringify(${stringBody}),` : ''}
+\tbody: ${stringBody},` : ''}
 });
 const data = await response.json();
 console.log(data);
