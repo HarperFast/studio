@@ -2,6 +2,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
+import { UpsertCluster } from '@/features/clusters/upsert';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
@@ -29,6 +30,10 @@ export function ClustersList() {
 			.filter(cluster => cluster.status !== 'TERMINATED')
 			.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 			.sort(byClusterStatusThenName) || [], [filterByNameValue, orgInfo?.clusters]);
+
+	if (!clusters.length && create) {
+		return <UpsertCluster embedded={true} />;
+	}
 
 	return (
 		<>
@@ -70,8 +75,7 @@ export function ClustersList() {
 				) : (
 					<div className="flex-col space-y-5 items-center justify-center text-center">
 						<h2 className="text-2xl text-center text-white">
-							No clusters found.
-							{create && ' Want to create a new cluster?'}
+							No clusters found.{!create ? ' Talk to your org admin to create one!' : ''}
 						</h2>
 
 						{create && (
