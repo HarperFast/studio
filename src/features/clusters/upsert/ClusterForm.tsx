@@ -32,6 +32,7 @@ interface ClusterFormProps {
 	clusterId?: string;
 	defaultValues: z.infer<typeof UpsertClusterSchema>;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
+	embedded: boolean | undefined;
 	organization: Organization;
 	organizationId: string;
 	planTypes: SchemaPlan[];
@@ -46,6 +47,7 @@ export function ClusterForm({
 	clusterId,
 	defaultValues,
 	deploymentToPerformanceToPlan,
+	embedded,
 	organization,
 	organizationId,
 	planTypes,
@@ -284,7 +286,8 @@ export function ClusterForm({
 		}
 
 		void router.invalidate();
-		void navigate({ to: creating ? '../' : '../../' });
+		void navigate({ to: creating ? embedded ? './' : '../' : '../../' });
+		form.reset();
 		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
 			id: toastId,
 			description: isSelfManaged
