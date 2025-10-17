@@ -32,7 +32,6 @@ interface ClusterFormProps {
 	clusterId?: string;
 	defaultValues: z.infer<typeof UpsertClusterSchema>;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
-	embedded: boolean | undefined;
 	organization: Organization;
 	organizationId: string;
 	planTypes: SchemaPlan[];
@@ -47,7 +46,6 @@ export function ClusterForm({
 	clusterId,
 	defaultValues,
 	deploymentToPerformanceToPlan,
-	embedded,
 	organization,
 	organizationId,
 	planTypes,
@@ -272,10 +270,12 @@ export function ClusterForm({
 		}), []);
 
 	const onClusterSavedCallback = useCallback(({
+		clusterId,
 		creating,
 		toastId,
 		isSelfManaged,
 	}: {
+		clusterId: string;
 		creating: boolean;
 		isSelfManaged: boolean;
 		toastId: string | number;
@@ -286,7 +286,7 @@ export function ClusterForm({
 		}
 
 		void router.invalidate();
-		void navigate({ to: creating ? embedded ? './' : '../' : '../../' });
+		void navigate({ to: `/${organizationId}/${clusterId}/${isSelfManaged ? 'instances' : 'progress'}` });
 		form.reset();
 		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
 			id: toastId,
@@ -297,7 +297,7 @@ export function ClusterForm({
 					: 'The updates are being provisioned now.',
 			duration: 5_000,
 		});
-	}, [clusterId, navigate, queryClient, router]);
+	}, [organizationId, navigate, queryClient, router]);
 
 	const submitCreateCluster = useCallback(async () => {
 		const formData = form.getValues();
@@ -333,7 +333,7 @@ export function ClusterForm({
 				id: clusterId,
 				regionPlans: plans,
 			}, {
-				onSuccess: () => onClusterSavedCallback({ isSelfManaged, creating: false, toastId }),
+				onSuccess: (data) => onClusterSavedCallback({ clusterId: data.id, isSelfManaged, creating: false, toastId }),
 				onError: clearToast,
 			});
 		} else {
@@ -347,7 +347,7 @@ export function ClusterForm({
 				organizationId,
 				regionPlans: plans,
 			}, {
-				onSuccess: () => onClusterSavedCallback({ isSelfManaged, creating: true, toastId }),
+				onSuccess: (data) => onClusterSavedCallback({ clusterId: data.id, isSelfManaged, creating: true, toastId }),
 				onError: clearToast,
 			});
 		}

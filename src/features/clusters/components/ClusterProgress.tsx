@@ -2,7 +2,6 @@ import { isBeingUpdated, isPendingUpdate, isRunning } from '@/components/ui/util
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Cluster } from '@/lib/api.patch';
 import { countBy } from '@/lib/countBy';
-import { sleep } from '@/lib/sleep';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,11 +12,11 @@ import { useEffect, useMemo, useState } from 'react';
  * 	2. Updating (Provisioning or Cloning)
  * 	3. Running (Running or Updated)
  */
-export function ClusterProgress({ cluster, showProgressBarWhenFullyReady }: {
+export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 	cluster: Pick<Cluster, 'status' | 'id'>,
-	showProgressBarWhenFullyReady: boolean
+	forceProgressBarVisible?: boolean
 }) {
-	const [showProgress, setShowProgress] = useState(false);
+	const [showProgress, setShowProgress] = useState(forceProgressBarVisible || false);
 
 	const { data: clusterById } = useQuery(
 		getClusterInfoQueryOptions(showProgress && cluster.id, 2000),
@@ -26,13 +25,8 @@ export function ClusterProgress({ cluster, showProgressBarWhenFullyReady }: {
 	useEffect(() => {
 		if (isPendingUpdate(cluster.status) || isBeingUpdated(cluster.status)) {
 			setShowProgress(true);
-		} else if (showProgress && !showProgressBarWhenFullyReady) {
-			const waitingForInstances = clusterById?.instances?.some(instance => isPendingUpdate(instance.status) || isBeingUpdated(instance.status));
-			if (!waitingForInstances) {
-				sleep(10_000).then(() => setShowProgress(false));
-			}
 		}
-	}, [showProgress, cluster.status, clusterById?.instances, showProgressBarWhenFullyReady]);
+	}, [showProgress, cluster.status, clusterById?.instances]);
 
 	const updating = useMemo(() => {
 		const instances = clusterById?.instances ?? [];

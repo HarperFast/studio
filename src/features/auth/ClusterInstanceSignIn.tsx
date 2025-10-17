@@ -112,7 +112,7 @@ export function ClusterInstanceSignIn() {
 	}
 
 	if (cluster?.resetPassword) {
-		return <Navigate to={instance ? '../../set-password' : '../set-password'} replace={true} />;
+		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/finish-setup`} replace={true} />;
 	}
 
 	return (

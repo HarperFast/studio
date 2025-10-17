@@ -17,7 +17,7 @@ import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 
-export function ClusterIndex() {
+export function Instances() {
 	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),

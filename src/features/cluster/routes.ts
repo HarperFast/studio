@@ -1,14 +1,21 @@
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
-import { ClusterSetPassword } from '@/features/cluster/ClusterSetPassword';
-import { ClusterIndex } from '@/features/cluster/index';
+import { FinishSetup } from '@/features/cluster/FinishSetup';
+import { Instances } from '@/features/cluster/Instances';
+import { Progress } from '@/features/cluster/Progress';
 import { createRoute, redirect } from '@tanstack/react-router';
 
-const clusterIndexRoute = createRoute({
+const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instances',
-	component: ClusterIndex,
+	component: Instances,
+});
+
+const clusterProgressRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'progress',
+	component: Progress,
 });
 
 const clusterSignInRoute = createRoute({
@@ -43,15 +50,16 @@ const instanceSignInRoute = createRoute({
 	},
 });
 
-const clusterSetPasswordRoute = createRoute({
+const clusterFinishSetupRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
-	path: 'set-password',
-	component: ClusterSetPassword,
+	path: 'finish-setup',
+	component: FinishSetup,
 });
 
 export const clusterRoutes = [
-	clusterIndexRoute,
+	clusterInstancesRoute,
+	clusterProgressRoute,
+	clusterFinishSetupRoute,
 	clusterSignInRoute,
 	instanceSignInRoute,
-	clusterSetPasswordRoute,
 ];

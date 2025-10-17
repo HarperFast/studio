@@ -32,7 +32,7 @@ export function ClustersList() {
 			.sort(byClusterStatusThenName) || [], [filterByNameValue, orgInfo?.clusters]);
 
 	if (!clusters.length && create) {
-		return <UpsertCluster embedded={true} />;
+		return <UpsertCluster />;
 	}
 
 	return (
