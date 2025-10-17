@@ -15,7 +15,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import { z } from 'zod';
 
 const SignInSchema = z.object({
@@ -42,17 +41,19 @@ const SignInSchema = z.object({
 
 export function SignUp() {
 	const navigate = useNavigate();
-	const { email } = useSearch({ strict: false });
+	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
 	const methods = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
 			firstname: '',
 			lastname: '',
-			email: email || '',
+			email: formPersistenceEmail || searchEmail || '',
 			password: '',
 			confirmPassword: '',
 		},
 	});
+
+	const email = methods.watch('email');
 	const { setFocus, control, handleSubmit } = methods;
 
 	useEffect(() => {
@@ -66,15 +67,6 @@ export function SignUp() {
 		const { confirmPassword, ...userData } = formData;
 		submitSignUpData(userData, {
 			onSuccess: () => {
-				toast.success('Success', {
-					duration: 60_000,
-					description: 'Your account has been created! Please check your email to finish activating your' +
-						' account.',
-					action: {
-						label: 'Dismiss',
-						onClick: () => toast.dismiss(),
-					},
-				});
 				const company = parseCompanyFromEmail(userData.email);
 				reoClient?.identify?.({
 					username: userData.email,
@@ -83,7 +75,7 @@ export function SignUp() {
 					lastname: userData.lastname,
 					...(company ? { company } : {}),
 				});
-				navigate({ to: '/sign-in' });
+				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
 			},
 		});
 	};
@@ -138,8 +130,8 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="email"
-										readOnly={!!email}
-										disabled={!!email}
+										readOnly={!!searchEmail}
+										disabled={!!searchEmail}
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoComplete="email"
 										autoCapitalize="none"
@@ -197,12 +189,10 @@ export function SignUp() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in">
+				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
 					Already have an account? Sign in instead.
 				</Link>
 			</div>
 		</div>
 	);
 }
-
-

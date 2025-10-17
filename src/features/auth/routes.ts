@@ -6,6 +6,7 @@ import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
 import { SignIn } from '@/features/auth/SignIn';
 import { SignUp } from '@/features/auth/SignUp';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';
+import { Verifying } from '@/features/auth/Verifying';
 import { OverallAppSignIn } from '@/lib/authStore';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { rootRoute } from '@/router/rootRoute';
@@ -60,6 +61,12 @@ const verifyEmailRoute = createRoute({
 	component: VerifyEmail,
 });
 
+const verifyingEmailRoute = createRoute({
+	getParentRoute: () => authLayout,
+	path: 'verifying',
+	component: Verifying,
+});
+
 const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'reset-password',
@@ -67,7 +74,14 @@ const resetPasswordRoute = createRoute({
 });
 
 export const authRouteTree =
-	authLayout.addChildren([signInRoute, signUpRoute, forgotPasswordRoute, verifyEmailRoute, resetPasswordRoute]);
+	authLayout.addChildren([
+		signInRoute,
+		signUpRoute,
+		forgotPasswordRoute,
+		verifyEmailRoute,
+		verifyingEmailRoute,
+		resetPasswordRoute,
+	]);
 
 export const localAuthRoutes = [
 	localSignInRoute,
