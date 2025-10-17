@@ -107,7 +107,9 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 					</Link>
 				)}
 				<Link
-					to="/docs"
+					to="https://docs.harperdb.io/docs"
+					target="_blank"
+					rel="noreferrer noopener"
 					className="flex flex-row px-3 py-2 text-base font-medium text-gray-300 rounded-md hover:bg-gray-700 hover:text-white"
 				>
 					<BookOpenTextIcon className="mr-4" /> Docs
