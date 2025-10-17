@@ -2,7 +2,7 @@ import { defaultInstanceRoute } from '@/config/constants';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { ForgotPassword } from '@/features/auth/ForgotPassword';
-import { RestPassword as ResetPassword } from '@/features/auth/ResetPassword';
+import { ResetPassword } from '@/features/auth/ResetPassword';
 import { SignIn } from '@/features/auth/SignIn';
 import { SignUp } from '@/features/auth/SignUp';
 import { VerifyEmail } from '@/features/auth/VerifyEmail';

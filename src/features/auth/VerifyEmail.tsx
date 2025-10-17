@@ -29,6 +29,7 @@ function SendEmailVerification() {
 			email: '',
 		},
 	});
+	const email = methods.watch('email');
 	const { setFocus, control, handleSubmit } = methods;
 
 	useEffect(() => {
@@ -45,7 +46,7 @@ function SendEmailVerification() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/sign-in' });
+				navigate({ to: '/sign-in', search: { me: email } });
 			},
 		});
 	}, [navigate, submitResendEmailVerification]);
