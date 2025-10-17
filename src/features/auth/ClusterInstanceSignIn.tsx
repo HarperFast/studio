@@ -7,6 +7,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -39,6 +40,8 @@ export function ClusterInstanceSignIn() {
 	const instance = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
 		[cluster, instanceId]);
+	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
+
 	const properNoun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
 	const commonNoun = isLocalStudio ? 'instance' : instanceId ? 'instance' : 'cluster';
 
@@ -95,7 +98,7 @@ export function ClusterInstanceSignIn() {
 					}
 					authStore.setUserForEntity(instance || cluster || OverallAppSignIn, user);
 					void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
-					router.invalidate();
+					void router.invalidate();
 					await navigate({
 						to: redirect?.startsWith('/')
 							? redirect
@@ -111,8 +114,11 @@ export function ClusterInstanceSignIn() {
 		return <Navigate to="../instances" replace={true} />;
 	}
 
-	if (cluster?.resetPassword) {
+	if (isActive && cluster?.resetPassword) {
 		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/finish-setup`} replace={true} />;
+	}
+	if (!isActive && cluster?.resetPassword) {
+		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/progress`} replace={true} />;
 	}
 
 	return (
@@ -165,7 +171,8 @@ export function ClusterInstanceSignIn() {
 							</Button>
 							{healthy === false && (
 								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
-									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to GET {operationsUrl}health. Is the server running? Have
+									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to
+									GET {operationsUrl}health. Is the server running? Have
 									you <a href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank" className="underline">enabled
 									CORS</a> for the operations API?
 								</div>
