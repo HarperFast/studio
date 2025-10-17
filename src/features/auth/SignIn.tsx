@@ -28,6 +28,7 @@ const SignInSchema = z.object({
 
 export function SignIn() {
 	const navigate = useNavigate();
+	const { me: formPersistenceEmail } = useSearch({ strict: false });
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { redirect } = useSearch({ strict: false });
@@ -35,10 +36,12 @@ export function SignIn() {
 	const methods = useForm({
 		resolver: zodResolver(SignInSchema),
 		defaultValues: {
-			email: '',
+			email: formPersistenceEmail || '',
 			password: '',
 		},
 	});
+
+	const email = methods.watch('email');
 	const { handleSubmit, control, setFocus } = methods;
 
 	useEffect(() => {
@@ -111,15 +114,13 @@ export function SignIn() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="text-sm hover:text-blue-300" to="/sign-up">
+				<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
 					Sign up for free
 				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/forgot-password">
+				<Link className="text-sm hover:text-blue-300" to="/forgot-password" search={{ me: email }}>
 					Forgot password?
 				</Link>
 			</div>
 		</div>
 	);
 }
-
-

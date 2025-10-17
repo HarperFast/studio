@@ -229,3 +229,22 @@
     @apply h-full bg-black font-ubuntu text-white;
   }
 }
+
+
+/* Fun dancing flower loading animation */
+@keyframes flower-dance {
+  0% { transform: rotate(0deg) translateY(0) scale(1); }
+  20% { transform: rotate(-12deg) translateY(-3px) scale(1.06); }
+  40% { transform: rotate(6deg) translateY(0) scale(1); }
+  60% { transform: rotate(12deg) translateY(-3px) scale(1.06); }
+  80% { transform: rotate(-6deg) translateY(0) scale(1); }
+  100% { transform: rotate(0deg) translateY(0) scale(1); }
+}
+
+@layer utilities {
+  .animate-flower-dance {
+    animation: flower-dance 1.15s ease-in-out infinite;
+    transform-origin: bottom center;
+    display: inline-block;
+  }
+}

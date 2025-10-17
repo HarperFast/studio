@@ -5,7 +5,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { zodRequireEmail } from '@/lib/zod/email';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useForgotPasswordMutation } from '@/features/auth/hooks/useForgotPassword';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -21,12 +21,14 @@ const ForgotPasswordSchema = z.object({
 
 export function ForgotPassword() {
 	const navigate = useNavigate();
+	const { me: formPersistenceEmail } = useSearch({ strict: false });
 	const methods = useForm({
 		resolver: zodResolver(ForgotPasswordSchema),
 		defaultValues: {
-			email: '',
+			email: formPersistenceEmail || '',
 		},
 	});
+	const email = methods.watch('email');
 	const { setFocus, control, handleSubmit } = methods;
 
 	useEffect(() => {
@@ -80,15 +82,13 @@ export function ForgotPassword() {
 				</form>
 			</Form>
 			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="text-sm hover:text-blue-300" to="/sign-in">
+				<Link className="text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
 					Sign in to your account
 				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/sign-up">
+				<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
 					Sign up for free
 				</Link>
 			</div>
 		</div>
 	);
 }
-
-
