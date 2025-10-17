@@ -20,7 +20,7 @@ import { useParams, useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { z } from 'zod';
 
-export function UpsertCluster(params?: { embedded?: boolean }) {
+export function UpsertCluster() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
 	const { organization, cluster }: {
 		organization: Organization;
@@ -151,7 +151,6 @@ export function UpsertCluster(params?: { embedded?: boolean }) {
 				clusterId={clusterId}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
-				embedded={params?.embedded}
 				organization={organization}
 				organizationId={organizationId}
 				planTypes={planTypes}

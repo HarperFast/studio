@@ -9,6 +9,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
@@ -27,9 +28,6 @@ import { Link } from '@tanstack/react-router';
 import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-
-const activeClusterStatuses = ['RUNNING'];
-const deletedClusterStatuses = ['TERMINATING', 'TERMINATED', 'REMOVED'];
 
 export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	const queryClient = useQueryClient();
@@ -188,7 +186,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="flex items-center justify-between gap-2">
-				<ClusterProgress cluster={cluster} showProgressBarWhenFullyReady={true} />
+				<ClusterProgress cluster={cluster} />
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
 			</CardContent>
 

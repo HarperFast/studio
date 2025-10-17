@@ -21,12 +21,13 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { ActivityIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-export function ClusterSetPassword() {
+export function FinishSetup() {
 	const { user } = useCloudAuth();
 	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
@@ -94,6 +95,10 @@ export function ClusterSetPassword() {
 			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">Create Admin User</h2>
+					<p className="text-muted-foreground">
+						You are ready to create your first user in your new cluster. These credentials belong to you alone, and you
+						can create more users and roles once you create this first one.
+					</p>
 					<Form {...methods}>
 						<form onSubmit={handleSubmit(submitForm)} className="my-4">
 							<FormField
@@ -145,11 +150,18 @@ export function ClusterSetPassword() {
 									</FormItem>
 								)}
 							/>
+
 							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
 								Create Admin User
 							</Button>
 						</form>
 					</Form>
+
+					<p className="text-muted-foreground flex gap-2 align-middle">
+						<ActivityIcon size={36} className="flex-none" />
+						<span>These credentials will be used to sign into your cluster directly, providing you a secure connection
+							from your browser to your cluster.</span>
+					</p>
 				</div>
 			</div>
 		</>
