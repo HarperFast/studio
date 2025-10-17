@@ -27,7 +27,7 @@ const ResetPasswordSchema = z
 		path: ['confirmPassword'],
 	});
 
-export function RestPassword() {
+export function ResetPassword() {
 	const { token } = useSearch({ strict: false });
 	const navigate = useNavigate();
 

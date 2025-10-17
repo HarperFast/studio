@@ -47,7 +47,7 @@ export function ForgotPassword() {
 						onClick: () => toast.dismiss(),
 					},
 				});
-				navigate({ to: '/sign-in' });
+				navigate({ to: '/sign-in', search: { me: email } });
 			},
 		});
 	};
