@@ -42,7 +42,7 @@ export function CreateNewApplicationForm({
 		},
 	});
 
-	const { mutate: createNewApplication } = useCreateComponentMutation();
+	const { mutate: createNewApplication, isPending: isCreateNewApplicationPending } = useCreateComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
 		createNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
@@ -72,7 +72,7 @@ export function CreateNewApplicationForm({
 						className="w-full"
 						variant="submit"
 						type="submit"
-						disabled={!form.formState.isDirty || isRestartPending}
+						disabled={!form.formState.isDirty || isCreateNewApplicationPending || isRestartPending}
 					>
 						Create <ArrowRight />
 					</Button>
