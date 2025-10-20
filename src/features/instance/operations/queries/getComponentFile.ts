@@ -4,7 +4,7 @@ import { queryOptions } from '@tanstack/react-query';
 
 interface GetComponentFileRequest extends InstanceClientIdConfig {
 	file: string | undefined;
-	project: string;
+	project: string | undefined;
 }
 
 interface GetComponentFileResponse {
@@ -36,7 +36,7 @@ export function getComponentFileQueryOptions({ entityId, instanceClient, file, p
 				...data,
 			};
 		},
-		enabled: !!file,
+		enabled: !!file && !!project,
 		retry: false,
 	});
 }
