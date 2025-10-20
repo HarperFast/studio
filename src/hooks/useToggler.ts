@@ -22,9 +22,10 @@ export function useToggler(defaultValue?: boolean) {
 	return useMemo(() => {
 		return {
 			toggled,
+			setToggled,
 			toggle,
 			toggleOn,
 			toggleOff,
 		};
-	}, [toggle, toggleOff, toggleOn, toggled]);
+	}, [toggle, setToggled, toggleOff, toggleOn, toggled]);
 }
