@@ -22,13 +22,16 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	});
 	const instanceParams = useInstanceClientIdParams();
 
+	/*
+	 Load the selected file contents.
+	 */
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
 				file:
-					selectedFolderFile.entries == undefined
+					!selectedFolderFile.entries
 						? // removes the first two segments
-						  // (/components/<projectName>)
+							// (/components/<projectName>)
 						selectedFolderFile.filePath.split('/').slice(2).join('/')
 						: // don't try to load the contents of folders
 						'',
@@ -37,9 +40,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			},
 		),
 	);
-
-	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
-
 	useEffect(() => {
 		if (
 			getComponentFileQueryData?.message &&
@@ -47,11 +47,49 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		) {
 			setSelectedFolderFile((prev) => ({
 				...prev,
-				content: getComponentFileQueryData?.message,
+				content: getComponentFileQueryData.message,
 			}));
 		}
 	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
 
+	/*
+	 Load the selected directory read-me contents.
+	 */
+	const { data: getReadMeQueryData } = useQuery(
+		getComponentFileQueryOptions(
+			{
+				file:
+					selectedFolderFile.directoryReadMe?.path
+						? // removes the first two segments
+							// (/components/<projectName>)
+						selectedFolderFile.directoryReadMe.path.split('/').slice(2).join('/')
+						:
+						'',
+				project: selectedFolderFile.projectName,
+				...instanceParams,
+			},
+		),
+	);
+	useEffect(() => {
+		if (
+			getReadMeQueryData?.message &&
+			getReadMeQueryData.file == selectedFolderFile.directoryReadMe?.path?.split('/').slice(2).join('/')
+		) {
+			setSelectedFolderFile((prev) => ({
+				...prev,
+				directoryReadMe: {
+					name: '',
+					...prev.directoryReadMe,
+					content: getReadMeQueryData.message,
+				}
+			}));
+		}
+	}, [getReadMeQueryData, selectedFolderFile.directoryReadMe?.path]);
+
+	/*
+	 Save changes.
+	 */
+	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
 	const onSaveFile = useCallback(
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
@@ -78,6 +116,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		[saveComponentFile, selectedFolderFile],
 	);
 
+	/*
+	 Memoize the tracked state.
+	 */
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
 			selectedFolderFile: selectedFolderFile,

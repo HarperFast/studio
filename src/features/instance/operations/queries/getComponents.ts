@@ -11,6 +11,7 @@ export interface DirectoryEntry {
 	path?: string;
 	project?: string;
 	pkg?: string;
+	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
 }
 
 export interface HandleFileSelectParams {
@@ -18,6 +19,7 @@ export interface HandleFileSelectParams {
 	projectName: string;
 	content?: string; // Made optional to allow for state without content i.e. handleFileSelect()
 	entries?: DirectoryEntry[]; // Optional entries for directory entries
+	directoryReadMe?: DirectoryEntry;
 	pkg?: string;
 }
 
