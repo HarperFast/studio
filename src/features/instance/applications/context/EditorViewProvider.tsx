@@ -1,26 +1,50 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { EditorViewContext, EditorViewContextValue } from '@/features/instance/applications/context/EditorViewContext';
 import {
 	SetComponentFileRequest,
 	useUpdateComponentFile,
 } from '@/features/instance/operations/mutations/updateComponentFile';
 import { getComponentFileQueryOptions } from '@/features/instance/operations/queries/getComponentFile';
-import { DirectoryEntry, HandleFileSelectParams } from '@/features/instance/operations/queries/getComponents';
+import {
+	APIDirectoryEntry,
+	APIFileEntry,
+	getComponentsQueryOptions,
+} from '@/features/instance/operations/queries/getComponents';
+import { transformNodes } from '@/lib/arrays/transformNodes';
 import { useQuery } from '@tanstack/react-query';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-
-function isFolder(entries?: DirectoryEntry[]) {
-	return Boolean(entries);
-}
+import { DirectoryEntry } from './directoryEntry';
+import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
+import { FileEntry } from './fileEntry';
+import { isDirectory } from './isDirectory';
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
-	const [selectedFolderFile, setSelectedFolderFile] = useState<HandleFileSelectParams>({
-		filePath: '',
-		projectName: '',
-		content: '',
-	});
+	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | null>(null);
+	const [openedEntryContents, setOpenedEntryContents] = useState<string | null>(null);
 	const instanceParams = useInstanceClientIdParams();
+
+	/*
+	 Create our structured view from the relational API data.
+	 */
+	const { data: apiComponents } = useQuery(getComponentsQueryOptions(instanceParams));
+	const rootEntries: Array<DirectoryEntry | FileEntry> = useMemo(() => {
+		if (!apiComponents) {
+			return [];
+		}
+		return transformNodes(
+			apiComponents.entries,
+			'entries',
+			(node: APIFileEntry | APIDirectoryEntry, parents: APIDirectoryEntry[]) => {
+				return {
+					name: node.name,
+					path: [...parents.map(p => p.name), node.name].join('/'),
+					project: parents[0]?.name,
+					package: parents[0]?.package,
+				} satisfies DirectoryEntry | FileEntry;
+			},
+		);
+
+	}, [apiComponents]);
 
 	/*
 	 Load the selected file contents.
@@ -28,77 +52,36 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
-				file:
-					!selectedFolderFile.entries
-						? // removes the first two segments
-							// (/components/<projectName>)
-						selectedFolderFile.filePath.split('/').slice(2).join('/')
-						: // don't try to load the contents of folders
-						'',
-				project: selectedFolderFile.projectName,
+				file: !openedEntry || isDirectory(openedEntry)
+					? ''
+					: openedEntry.path.split('/').slice(1).join('/'),
+				project: openedEntry?.project ?? '',
 				...instanceParams,
 			},
 		),
 	);
 	useEffect(() => {
+		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
 		if (
-			getComponentFileQueryData?.message &&
-			getComponentFileQueryData.file == selectedFolderFile.filePath.split('/').slice(2).join('/')
+			loadedPath === openedEntry?.path &&
+			getComponentFileQueryData?.message
 		) {
-			setSelectedFolderFile((prev) => ({
-				...prev,
-				content: getComponentFileQueryData.message,
-			}));
+			setOpenedEntryContents(getComponentFileQueryData.message);
+		} else {
+			setOpenedEntryContents(null);
 		}
-	}, [getComponentFileQueryData, selectedFolderFile.filePath]);
-
-	/*
-	 Load the selected directory read-me contents.
-	 */
-	const { data: getReadMeQueryData } = useQuery(
-		getComponentFileQueryOptions(
-			{
-				file:
-					selectedFolderFile.directoryReadMe?.path
-						? // removes the first two segments
-							// (/components/<projectName>)
-						selectedFolderFile.directoryReadMe.path.split('/').slice(2).join('/')
-						:
-						'',
-				project: selectedFolderFile.projectName,
-				...instanceParams,
-			},
-		),
-	);
-	useEffect(() => {
-		if (
-			getReadMeQueryData?.message &&
-			getReadMeQueryData.file == selectedFolderFile.directoryReadMe?.path?.split('/').slice(2).join('/')
-		) {
-			setSelectedFolderFile((prev) => ({
-				...prev,
-				directoryReadMe: {
-					name: '',
-					...prev.directoryReadMe,
-					content: getReadMeQueryData.message,
-				}
-			}));
-		}
-	}, [getReadMeQueryData, selectedFolderFile.directoryReadMe?.path]);
+	}, [getComponentFileQueryData, openedEntry]);
 
 	/*
 	 Save changes.
 	 */
 	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
-	const onSaveFile = useCallback(
+	const saveFile = useCallback(
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
 				onSuccess: () => {
-					if (selectedFolderFile?.filePath === filePath) {
-						setSelectedFolderFile({
-							...selectedFolderFile,
-							content: data.payload,
-						});
+					if (openedEntry?.path === filePath && data.payload) {
+						setOpenedEntryContents(data.payload);
 					}
 					toast.success('Success', {
 						description: `${data.file.split('/').pop()} saved successfully. A restart is required to see changes.`,
@@ -113,7 +96,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[saveComponentFile, selectedFolderFile],
+		[saveComponentFile, openedEntry],
 	);
 
 	/*
@@ -121,12 +104,19 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
-			selectedFolderFile: selectedFolderFile,
-			handleFileSelect: setSelectedFolderFile,
-			onSaveFile,
+
+			rootEntries,
+
+			openedEntry,
+			setOpenedEntry,
+
+			openedEntryContents,
+			setOpenedEntryContents,
+
+			saveFile,
 			isSavingFile,
-			isFolder,
+
 		};
-	}, [selectedFolderFile, setSelectedFolderFile, onSaveFile, isSavingFile]);
+	}, [rootEntries, openedEntry, openedEntryContents, isSavingFile]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 }

@@ -2,24 +2,20 @@ import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { NewApplicationModal } from '@/features/instance/applications/modals/NewApplicationModal';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useToggler } from '@/hooks/useToggler';
+import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
 import { PlusIcon, Save } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import Markdown from 'react-markdown';
 import './directory-read-me.css';
 
-function parseFileExtension(filename: string) {
-	const parts = (filename || '')?.split('.');
-	return parts.length > 1 ? parts.slice(-1)[0] : '';
-}
-
-const extensionToLanguageMap = {
+const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
 	cjs: 'javascript',
 	jsx: 'javascript',
@@ -35,11 +31,11 @@ const extensionToLanguageMap = {
 };
 
 export function TextEditorView() {
-	const { selectedFolderFile, onSaveFile, isSavingFile, isFolder } = useEditorView();
+	const { openedEntryContents, openedEntry, saveFile, isSavingFile } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
 	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | undefined>(
-		selectedFolderFile.content || undefined,
-		[selectedFolderFile.filePath],
+		openedEntryContents || undefined,
+		[openedEntryContents],
 	);
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
@@ -51,44 +47,48 @@ export function TextEditorView() {
 	} = useToggler(false);
 	const [appType, setAppType] = useState<'create' | 'import'>('create');
 
-	const crumbPath = selectedFolderFile.filePath.split('/').slice(1).join('/').replace(/\//g, ' > ');
+	const crumbPath = openedEntry?.path.split('/').join('/').replace(/\//g, ' > ');
 
 	useEffect(() => {
-		const extension = parseFileExtension(selectedFolderFile.filePath) as keyof typeof extensionToLanguageMap;
+		const extension = parseFileExtension(openedEntry?.path);
 		const updatedLanguage = extensionToLanguageMap[extension] || 'plaintext';
 		setLanguage(updatedLanguage);
-	}, [selectedFolderFile]);
+	}, [openedEntry]);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
 	const onSaveClick = useCallback(() => {
-		if (updateFileContent !== undefined) {
-			onSaveFile(
+		if (openedEntry && updateFileContent !== undefined) {
+			saveFile(
 				{
 					...instanceParams,
-					file: selectedFolderFile.filePath.split('/').slice(2).join('/'),
+					file: openedEntry.path.split('/').slice(1).join('/'),
 					payload: updateFileContent,
-					project: selectedFolderFile.projectName,
+					project: openedEntry.project,
 				},
-				selectedFolderFile.filePath,
+				openedEntry.path,
 			);
 		}
-	}, [updateFileContent, onSaveFile, instanceParams, selectedFolderFile.filePath, selectedFolderFile.projectName]);
+	}, [updateFileContent, saveFile, instanceParams, openedEntry]);
+
+	if (!openedEntry) {
+		return null;
+	}
 
 	return (
 		<div className="h-[calc(100vh-theme(spacing.52))]">
 			<div className="flex items-center justify-between py-1 border-b border-gray-700">
-				<span className="p-2">{selectedFolderFile.filePath ? crumbPath : 'Select a file'}</span>
-				{!selectedFolderFile.pkg && canManageBrowseInstance && (
+				<span className="p-2">{openedEntry.path ? crumbPath : 'Select a file'}</span>
+				{!openedEntry.package && canManageBrowseInstance && (
 					<div className="flex flex-col justify-end space-y-2 md:justify-normal md:flex-row">
 						<Button
 							variant="positiveOutline"
 							className="w-38 rounded-full"
 							onClick={onSaveClick}
 							disabled={
-								!selectedFolderFile.filePath ||
+								!openedEntry.path ||
 								updateFileContent === undefined ||
-								updateFileContent === selectedFolderFile.content ||
+								updateFileContent === openedEntryContents ||
 								isSavingFile
 							}
 						>
@@ -108,26 +108,25 @@ export function TextEditorView() {
 				)}
 			</div>
 
-			{selectedFolderFile.filePath && <>
-
-				{!isFolder(selectedFolderFile.entries) && <Editor
+			{openedEntryContents && <>
+				{!isDirectory(openedEntry) && <Editor
 					className="w-full min-h-full h-80"
 					language={language}
 					theme="vs-dark"
-					value={selectedFolderFile.content || ''}
+					value={openedEntryContents || ''}
 					onChange={setUpdateFileContent}
 					options={{
 						automaticLayout: true,
 						minimap: { enabled: false },
-						readOnly: !!selectedFolderFile.pkg,
+						readOnly: !!openedEntry.package,
 					}}
 				/>}
 
-				{selectedFolderFile.directoryReadMe?.content && <div className="directoryReadMe max-w-4xl">
-					<Markdown>
-						{selectedFolderFile.directoryReadMe.content}
-					</Markdown>
-				</div>}
+				{/*{openedEntry.directoryReadMe?.content && <div className="directoryReadMe max-w-4xl">*/}
+				{/*	<Markdown>*/}
+				{/*		{openedEntry.directoryReadMe.content}*/}
+				{/*	</Markdown>*/}
+				{/*</div>}*/}
 
 			</>}
 
