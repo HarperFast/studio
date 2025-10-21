@@ -35,11 +35,19 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			apiComponents.entries,
 			'entries',
 			(node: APIFileEntry | APIDirectoryEntry, parents: APIDirectoryEntry[]) => {
+				const readMeAPIFile = isDirectory(node) && node.entries.find(e => e.name.toLowerCase() === 'readme.md');
+				const overviewEntry = readMeAPIFile && !isDirectory(readMeAPIFile) && {
+					name: readMeAPIFile.name,
+					path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
+					project: (parents[0] || node)?.name,
+					package: (parents[0] || node)?.package,
+				} || undefined;
 				return {
 					name: node.name,
 					path: [...parents.map(p => p.name), node.name].join('/'),
 					project: parents[0]?.name,
 					package: parents[0]?.package,
+					overviewEntry,
 				} satisfies DirectoryEntry | FileEntry;
 			},
 		);
@@ -49,13 +57,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Load the selected file contents.
 	 */
+	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path) || '';
+	const projectToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
-				file: !openedEntry || isDirectory(openedEntry)
-					? ''
-					: openedEntry.path.split('/').slice(1).join('/'),
-				project: openedEntry?.project ?? '',
+				file: pathToLoad?.split('/').slice(1).join('/'),
+				project: projectToLoad,
 				...instanceParams,
 			},
 		),
@@ -63,14 +71,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	useEffect(() => {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
 		if (
-			loadedPath === openedEntry?.path &&
+			loadedPath === pathToLoad &&
 			getComponentFileQueryData?.message
 		) {
 			setOpenedEntryContents(getComponentFileQueryData.message);
 		} else {
 			setOpenedEntryContents(null);
 		}
-	}, [getComponentFileQueryData, openedEntry]);
+	}, [getComponentFileQueryData, pathToLoad]);
 
 	/*
 	 Save changes.
