@@ -10,7 +10,7 @@ import {
 	getComponentsQueryOptions,
 } from '@/features/instance/operations/queries/getComponents';
 import { transformNodes } from '@/lib/arrays/transformNodes';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { DirectoryEntry } from './directoryEntry';
@@ -26,7 +26,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Create our structured view from the relational API data.
 	 */
-	const { data: apiComponents } = useQuery(getComponentsQueryOptions(instanceParams));
+	const { data: apiComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 	const rootEntries: Array<DirectoryEntry | FileEntry> = useMemo(() => {
 		if (!apiComponents) {
 			return [];
@@ -45,8 +45,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				return {
 					name: node.name,
 					path: [...parents.map(p => p.name), node.name].join('/'),
-					project: parents[0]?.name,
-					package: parents[0]?.package,
+					project: (parents[0] || node)?.name,
+					package: (parents[0] || node)?.package,
 					overviewEntry,
 				} satisfies DirectoryEntry | FileEntry;
 			},
