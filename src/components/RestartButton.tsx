@@ -1,19 +1,24 @@
 import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/buttonVariants';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useRestartClusterClick } from '@/hooks/useRestartClusterClick';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
+import { cx, VariantProps } from 'class-variance-authority';
 import { RotateCcwIcon } from 'lucide-react';
 
-interface RestartButtonParams extends InstanceClientConfig {
+interface RestartButtonParams extends InstanceClientConfig, VariantProps<typeof buttonVariants> {
 	targetNoun: 'Instance' | 'Cluster';
 	operation: 'restart_service' | 'restart';
+	className?: string;
 }
 
 export function RestartButton({
 	targetNoun,
 	instanceClient,
 	operation,
+	variant,
+	className,
 }: RestartButtonParams) {
 	const {
 		onRestartClick: onRestartClusterClick,
@@ -23,12 +28,12 @@ export function RestartButton({
 	return (<Tooltip>
 		<TooltipTrigger asChild>
 			<Button
-				variant="positiveOutline"
-				className="mx-0 md:mx-4 rounded-full"
+				variant={variant || 'positiveOutline'}
+				className={cx('mx-0 md:mx-4 rounded-full', className)}
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 				disabled={isRestartPending || isRestartClusterPending}
 			>
-			<RotateCcwIcon /> Restart {targetNoun}
+				<RotateCcwIcon /> Restart {targetNoun}
 			</Button>
 		</TooltipTrigger>
 		<TooltipContent>

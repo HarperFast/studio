@@ -1,14 +1,29 @@
+import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
-import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	DirectoryIcon,
+} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/DirectoryIcon';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
+import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
+import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
+import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
+import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
+import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { useEffectedState } from '@/hooks/useEffectedState';
+import { useToggler } from '@/hooks/useToggler';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
-import { Editor } from '@monaco-editor/react';
-import { SaveIcon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
+import { FileIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './directory-read-me.css';
 import Markdown from 'react-markdown';
+import { toast } from 'sonner';
 
 const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
@@ -26,13 +41,24 @@ const extensionToLanguageMap: Record<string, string> = {
 };
 
 export function TextEditorView() {
-	const instanceParams = useInstanceClientParams();
+	const queryClient = useQueryClient();
+	const { instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const instanceParams = useInstanceClientIdParams();
 	const { openedEntryContents, openedEntry, saveFile, isSavingFile } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
 	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | undefined>(
 		openedEntryContents || undefined,
 		[openedEntryContents],
 	);
+	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
+
+	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+
+	// TODO: Split all this logic up into smaller files, right?
+
+	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor) => {
+		editorRef.current = editor;
+	}, [editorRef]);
 
 	useEffect(() => {
 		const extension = parseFileExtension(openedEntry?.path);
@@ -54,6 +80,116 @@ export function TextEditorView() {
 		}
 	}, [updateFileContent, saveFile, instanceParams, openedEntry]);
 
+	const onDiscardClick = useCallback(() => {
+		if (openedEntryContents) {
+			setUpdateFileContent(openedEntryContents);
+		}
+		if (editorRef) {
+			editorRef.current?.setValue(openedEntryContents || '');
+		}
+	}, [openedEntryContents]);
+
+	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
+	const { toggled: isAddingFolder, toggleOn: setIsAddingFolder } = useToggler(false);
+	const { toggled: isDeleteFolderOrFileClicked, setToggled: setIsDeleteFolderOrFileClicked } = useToggler(false);
+	const { toggled: isRedeployApplicationClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
+	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
+	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
+
+	const handleAddFolderOrFile = useCallback(async (name: string) => {
+		if (!openedEntry) {
+			return;
+		}
+		addFolderFile(
+			{
+				file: `${openedEntry.path.split('/').slice(1).join('/')}/${name}`,
+				project: openedEntry.project,
+				payload: isAddingFolder ? undefined : '',
+				...instanceParams,
+			},
+			{
+				onSuccess: () => {
+					// TODO: refetchComponents();
+					setIsAddFolderOrFileClicked(false);
+				},
+			},
+		);
+	}, [addFolderFile, instanceParams, isAddingFolder, openedEntry]);
+
+	const handleDeleteFolderOrFile = useCallback(async () => {
+		if (!openedEntry) {
+			return;
+		}
+		deleteFolderFile(
+			{
+				file: openedEntry.package
+					? undefined
+					: `${openedEntry.path.split('/').slice(1).join('/')}`,
+				project: openedEntry.project,
+				replicated: instanceParams.entityType === 'cluster',
+				...instanceParams,
+			},
+			{
+				onSuccess: () => {
+					// TODO: Select parent.
+					// setOpenedEntry({
+					// 	filePath: '',
+					// 	projectName: '',
+					// 	entries: [],
+					// 	content: '',
+					// 	pkg: '',
+					// });
+					// refetchComponents();
+					setIsDeleteFolderOrFileClicked(false);
+				},
+			},
+		);
+	}, [deleteFolderFile, instanceParams, openedEntry]);
+
+	const { mutate: reDeployApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
+
+	const redeployPackage = useCallback((applicationUrl: string) => {
+		if (!openedEntry) {
+			return;
+		}
+		const originalPackageUrl = openedEntry.package;
+		const toastId = toast.loading('Redeploying...');
+		reDeployApplication({
+			applicationName: openedEntry.project,
+			applicationUrl,
+			replicated: instanceParams.entityType === 'cluster',
+			...instanceParams,
+		}, {
+			onSuccess: () => {
+				toast.success(
+					`Application ${openedEntry.project} redeployed successfully`,
+					{
+						id: toastId,
+					},
+				);
+				void queryClient.invalidateQueries({
+					queryKey: [instanceParams.entityId, 'get_components'],
+					refetchType: 'active',
+				});
+				setIsRedeployApplicationClicked(false);
+			},
+			onError: () => {
+				openedEntry.package = originalPackageUrl;
+				toast.dismiss(toastId);
+			},
+		});
+	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
+	// TODO:
+	// const restrictPackageModification = useMemo(() => {
+	// 	return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
+	// 		|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
+	// }, [openedEntry.package]);
+
+
+	const onDeleteClick = useCallback(() => {
+		setIsDeleteFolderOrFileClicked(true);
+	}, []);
+
 	if (!openedEntry) {
 		return null;
 	}
@@ -67,11 +203,13 @@ export function TextEditorView() {
 							language={language}
 							theme="vs-dark"
 							value={openedEntryContents || ''}
+							onMount={handleEditorDidMount}
 							onChange={setUpdateFileContent}
 							options={{
 								automaticLayout: true,
 								minimap: { enabled: false },
 								readOnly: !!openedEntry.package,
+								padding: { top: 50 },
 							}}
 						/>
 					)
@@ -82,22 +220,127 @@ export function TextEditorView() {
 					</div>)}
 			</>}
 
-			<div className="fixed bottom-4 right-4">
-				<Button
-					variant="positiveOutline"
-					className="w-38 rounded-full"
+			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-12 -mr-1">
+
+				{!isDirectory(openedEntry) && <Button
+					variant="default"
+					className="rounded-none"
 					onClick={onSaveClick}
 					disabled={
-						!openedEntry.path ||
 						updateFileContent === undefined ||
 						updateFileContent === openedEntryContents ||
 						isSavingFile
 					}
+					accessKey="s"
 				>
 					<SaveIcon />
-					<span className="ms-1">Save</span>
+					<span><u>S</u>ave</span>
+				</Button>}
+
+				<Button
+					variant="ghost"
+					className="rounded-none"
+					// onClick={onRenameClick}
+					disabled={
+						updateFileContent === undefined ||
+						updateFileContent === openedEntryContents ||
+						isSavingFile
+					}
+					accessKey="s"
+				>
+					<PencilIcon />
+					<span><u>R</u>ename</span>
 				</Button>
+
+				{isDirectory(openedEntry) && <Button
+					variant="ghost"
+					className="rounded-none"
+					// onClick={onNewFileClick}
+					accessKey="n"
+				>
+					<FileIcon />
+					<span><u>N</u>ew File</span>
+				</Button>}
+
+				{isDirectory(openedEntry) && <Button
+					variant="ghost"
+					className="rounded-none"
+					onClick={setIsAddingFolder}
+					accessKey="n"
+				>
+					<DirectoryIcon />
+					<span><u>A</u>dd Directory</span>
+				</Button>}
+
+				{openedEntry.package && <Button
+					variant="ghost"
+					className="rounded-none"
+					// onClick={onRedeplyClick}
+					accessKey="n"
+				>
+					<PackageIcon />
+					<span>Redeploy <u>P</u>ackage</span>
+				</Button>}
+
+				<RestartButton
+					targetNoun={targetNoun}
+					instanceClient={instanceParams.instanceClient}
+					operation="restart_service"
+					variant="ghost"
+					className="rounded-none"
+				/>
+
+				<div className="grow"></div>
+
+				<Button
+					variant="destructiveGhost"
+					className="rounded-none"
+					onClick={onDeleteClick}
+					accessKey="n"
+				>
+					<TrashIcon />
+					<span><u>D</u>elete</span>
+				</Button>
+
+				{!isDirectory(openedEntry) && <Button
+					variant="ghost"
+					className="rounded-none"
+					onClick={onDiscardClick}
+					disabled={
+						updateFileContent === undefined ||
+						updateFileContent === openedEntryContents ||
+						isSavingFile
+					}
+					accessKey="d"
+				>
+					<SaveIcon />
+					<span><u>D</u>iscard Changes</span>
+				</Button>}
+
 			</div>
+
+			<AddFolderFileModal
+				isModalOpen={isAddFolderOrFileClicked}
+				setIsModalOpen={setIsAddFolderOrFileClicked}
+				isAddingFolder={isAddingFolder}
+				handleAddFolderOrFile={handleAddFolderOrFile}
+				isPending={isAddFolderFilePending}
+			/>
+			<DeleteFolderFileModal
+				isModalOpen={isDeleteFolderOrFileClicked}
+				setIsModalOpen={setIsDeleteFolderOrFileClicked}
+				isFolderSelected={isDirectory(openedEntry)}
+				isPackageSelected={!!openedEntry.package}
+				isPending={isDeleteFolderFilePending}
+				handleDeleteFolderOrFile={handleDeleteFolderOrFile}
+			/>
+			<RedeployApplicationModal
+				isModalOpen={isRedeployApplicationClicked}
+				setIsModalOpen={setIsRedeployApplicationClicked}
+				redeployPackage={redeployPackage}
+				isRedeployPackagePending={isDeployComponentPending}
+				packageUrl={openedEntry.package}
+			/>
 		</>
 	);
 }
