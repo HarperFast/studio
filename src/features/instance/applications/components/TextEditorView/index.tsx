@@ -14,6 +14,7 @@ import { useParams } from '@tanstack/react-router';
 import { PlusIcon, Save } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import './directory-read-me.css';
+import Markdown from 'react-markdown';
 
 const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
@@ -76,8 +77,8 @@ export function TextEditorView() {
 	}
 
 	return (
-		<div className="h-[calc(100vh-theme(spacing.52))]">
-			<div className="flex items-center justify-between py-1 border-b border-gray-700">
+		<>
+			<div className="hidden flex items-center justify-between py-1 border-b border-gray-700">
 				<span className="p-2">{openedEntry.path ? crumbPath : 'Select a file'}</span>
 				{!openedEntry.package && canManageBrowseInstance && (
 					<div className="flex flex-col justify-end space-y-2 md:justify-normal md:flex-row">
@@ -109,25 +110,25 @@ export function TextEditorView() {
 			</div>
 
 			{openedEntryContents && <>
-				{!isDirectory(openedEntry) && <Editor
-					className="w-full min-h-full h-80"
-					language={language}
-					theme="vs-dark"
-					value={openedEntryContents || ''}
-					onChange={setUpdateFileContent}
-					options={{
-						automaticLayout: true,
-						minimap: { enabled: false },
-						readOnly: !!openedEntry.package,
-					}}
-				/>}
-
-				{/*{openedEntry.directoryReadMe?.content && <div className="directoryReadMe max-w-4xl">*/}
-				{/*	<Markdown>*/}
-				{/*		{openedEntry.directoryReadMe.content}*/}
-				{/*	</Markdown>*/}
-				{/*</div>}*/}
-
+				{!isDirectory(openedEntry)
+					? (<Editor
+							className="w-full min-h-full h-80"
+							language={language}
+							theme="vs-dark"
+							value={openedEntryContents || ''}
+							onChange={setUpdateFileContent}
+							options={{
+								automaticLayout: true,
+								minimap: { enabled: false },
+								readOnly: !!openedEntry.package,
+							}}
+						/>
+					)
+					: (<div className="directoryReadMe max-w-4xl">
+						<Markdown>
+							{openedEntryContents}
+						</Markdown>
+					</div>)}
 			</>}
 
 			<NewApplicationModal
@@ -136,6 +137,6 @@ export function TextEditorView() {
 				appType={appType}
 				setAppType={setAppType}
 			/>
-		</div>
+		</>
 	);
 }

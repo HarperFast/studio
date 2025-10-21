@@ -15,7 +15,8 @@
 	--rct-bar-color: var(--white);
 	--rct-focus-outline: var(--white);
 
-	--rct-color-focustree-item-selected-bg: var(--purple);
+	--rct-color-focustree-item-selected-bg: var(--green);
+	--rct-color-focustree-item-selected-text: var(--black);
 	--rct-color-focustree-item-hover-bg: var(--blue);
 	--rct-color-focustree-item-hover-text: inherit;
 	--rct-color-focustree-item-active-bg: var(--purple-200);
