@@ -169,28 +169,31 @@ export function Logs() {
 
 	return (
 		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
-			<section className="col-span-1 md:col-span-4 lg:col-span-3">
-				<h2 className="pb-6 text-2xl">Log Filters</h2>
+			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pt-4 md:pt-12">
 				<LogsFiltersForm form={form} resetFilters={resetFilters} submitFilters={submitFilters} />
+
+				<div className="flex items-center justify-between space-x-2 mt-2">
+					<Button
+						variant="defaultOutline"
+						onClick={onRefreshClick}
+						disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+						className="grow"
+					>
+						<RefreshCwIcon />
+						Refresh
+					</Button>
+					<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>
+						<RefreshCwIcon />
+						Auto Refresh {isAutoRefreshEnabled ? 'On' : 'Off'}
+					</Toggle>
+				</div>
+
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
 				{isLoading ? (
 					<div>Loading...</div>
 				) : (
-					<div className="h-32">
-						<div className="flex items-center justify-between md:justify-normal md:space-x-2">
-							<Button
-								variant="defaultOutline"
-								onClick={onRefreshClick}
-								disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
-							>
-								<RefreshCwIcon />
-							</Button>
-							<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>
-								<RefreshCwIcon />
-								Auto Refresh {isAutoRefreshEnabled ? 'On' : 'Off'}
-							</Toggle>
-						</div>
+					<div>
 						<LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />
 					</div>
 				)}

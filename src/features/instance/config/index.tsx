@@ -8,10 +8,27 @@ const sharedClasses = 'flex items-center p-2 rounded-lg group';
 const inactiveProps = { className: 'text-white hover:bg-gray-700' };
 const activeProps = { className: 'text-black bg-white pointer-events-none cursor-default' };
 
+export function ConfigIndex() {
+	return (
+		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
+			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
+				<DesktopConfigNavBar />
+				<MobileConfigNavBar />
+			</section>
+			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9 md:pt-4">
+				<Suspense fallback={
+					<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
+					<Outlet />
+				</Suspense>
+			</section>
+		</div>
+	);
+}
+
 function DesktopConfigNavBar() {
 	const params = useParams({ strict: false });
 	return (
-		<div className="hidden md:block">
+		<div className="hidden md:block pl-4 pt-4">
 			<Link
 				to={buildAbsoluteLinkToPage(params, 'config')}
 				className={sharedClasses}
@@ -41,7 +58,7 @@ function DesktopConfigNavBar() {
 function MobileConfigNavBar() {
 	const params = useParams({ strict: false });
 	return (
-		<ul className="flex space-x-4 md:hidden py-2">
+		<ul className="flex space-x-4 md:hidden py-2 px-4">
 			<li>
 				<Link
 					to={buildAbsoluteLinkToPage(params, 'config')}
@@ -64,22 +81,5 @@ function MobileConfigNavBar() {
 				</Link>
 			</li>
 		</ul>
-	);
-}
-
-export function ConfigIndex() {
-	return (
-		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))]">
-			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
-				<DesktopConfigNavBar />
-				<MobileConfigNavBar />
-			</section>
-			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9">
-				<Suspense fallback={
-					<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-					<Outlet />
-				</Suspense>
-			</section>
-		</div>
 	);
 }
