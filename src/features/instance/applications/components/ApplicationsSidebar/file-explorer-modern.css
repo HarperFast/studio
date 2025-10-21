@@ -4,7 +4,6 @@
 :root {
 	--rct-color-tree-bg: transparent;
 	--rct-item-height: 28px;
-	--rct-color-search-highlight-bg: var(--green);
 
 	--rct-color-tree-focus-outline: transparent;
 	--rct-item-margin: 1px;
@@ -12,15 +11,6 @@
 	--rct-radius: 4px;
 	--rct-bar-offset: 6px;
 	--rct-bar-width: 4px;
-	--rct-bar-color: var(--white);
-	--rct-focus-outline: var(--white);
-
-	--rct-color-focustree-item-selected-bg: var(--green);
-	--rct-color-focustree-item-selected-text: var(--black);
-	--rct-color-focustree-item-hover-bg: var(--blue);
-	--rct-color-focustree-item-hover-text: inherit;
-	--rct-color-focustree-item-active-bg: var(--purple-200);
-	--rct-color-focustree-item-active-text: var(--white);
 
 	--rct-arrow-size: 10px;
 	--rct-arrow-container-size: 16px;
@@ -31,15 +21,10 @@
 	--rct-search-width: 120px;
 	--rct-search-height: 24px;
 	--rct-search-padding: 4px;
-	--rct-search-border: #b4b7bd;
-	--rct-search-border-bottom: #0366d6;
-	--rct-search-bg: var(--white);
-	--rct-search-text: var(--black);
 	--rct-search-text-offset: calc(var(--rct-search-padding) * 2 + 16px);
 	--rct-search-container-width: calc(var(--rct-search-width) + var(--rct-search-text-offset) + var(--rct-search-padding) + 2px);
-}
 
-.rct-dark {
+
 	--rct-color-search-highlight-bg: #2f5381;
 
 	--rct-bar-color: #1d7be5;
@@ -59,7 +44,6 @@
 	--rct-search-border-bottom: #1d7be5;
 	--rct-search-bg: #373737;
 	--rct-search-text: #ffffff;
-	--rct-search-text-offset: calc(var(--rct-search-padding) * 2 + 16px);
 }
 
 .rct-tree-item-button {
