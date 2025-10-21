@@ -6,7 +6,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
@@ -100,12 +100,15 @@ export function LogsFiltersForm({
 							</FormItem>
 						)}
 					/>
-					<Button type="submit" variant="positiveOutline" className="w-full mt-4">
-						Apply Filters
-					</Button>
-					<Button type="reset" variant="destructiveOutline" onClick={() => resetFilters()} className="w-full mt-2">
-						Clear Filters
-					</Button>
+
+					<div className="flex items-center justify-between space-x-2 mt-2">
+						<Button type="submit" variant="positiveOutline" className="grow">
+							Apply Filters
+						</Button>
+						<Button type="reset" variant="destructiveOutline" onClick={() => resetFilters()}>
+							Clear Filters
+						</Button>
+					</div>
 				</form>
 			</Form>
 		</div>

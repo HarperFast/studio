@@ -65,7 +65,6 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 	return (
 		<div>
 			<div className="flex justify-between">
-				<h1 className="pb-6 text-3xl">Status</h1>
 				<div className="justify-items-end grid grid-cols-1 lg:grid-cols-3 gap-4">
 					<div className="flex flex-nowrap items-center">
 						<Label className="ml-8 mr-2">Metric:</Label>

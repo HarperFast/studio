@@ -52,7 +52,7 @@ export function SimpleBrowseDataTable<TData, TValue>({
 	});
 
 	return (<>
-		<div className="flex items-center justify-end space-x-2 py-4">
+		<div className="flex items-center justify-end space-x-2 pb-4">
 			<div className="grow lg:hidden"></div>
 			{children}
 			<div className="grow hidden lg:visible"></div>

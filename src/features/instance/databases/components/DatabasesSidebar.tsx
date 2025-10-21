@@ -58,8 +58,8 @@ export function DatabasesSidebar() {
 	}, [navigate, params]);
 
 	return (
-		<div>
-			<h1 className="pb-6 text-3xl">Databases</h1>
+		<div className="pl-3">
+			<h1 className="pt-3 pb-3 text-3xl">Databases</h1>
 			<div className="">
 				{databaseNames?.length > 0 && (<div className="flex space-x-2">
 					<Select

@@ -111,7 +111,7 @@ export function TableView<TData, TValue>({
 				</TableRow>)}
 			</TableBody>
 		</Table>
-		<div className="flex items-center justify-end py-4 space-x-2">
+		<div className="flex items-center justify-end py-4 space-x-2 pr-4">
 			<Button variant="defaultOutline" size="sm" onClick={previousPage} className="select-none"
 				disabled={pageIndex === 0}>
 				<ArrowLeftIcon />
