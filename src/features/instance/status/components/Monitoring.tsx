@@ -66,62 +66,68 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 		<div>
 			<div className="flex justify-between">
 				<h1 className="pb-6 text-3xl">Status</h1>
-				<div>
-					<Label className="ml-8 mr-2">Metric:</Label>
-					<Select
-						defaultValue={selectedMetric.id}
-						onValueChange={(value) => {
-							setSelectedMetric(metrics.find((m) => m.id === value) || metrics[0]);
-						}}>
-						<SelectTrigger className="inline-flex align-middle w-auto h-auto">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{metrics.map((m) => {
-									let itemLabel = m.label ?? m.name;
-									if (m.path) {
-										itemLabel += ` (${m.path})`;
-									}
-									return <SelectItem key={m.id} value={m.id}>{itemLabel}</SelectItem>;
-								})}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-					<Label className="ml-8 mr-2">Show last</Label>
-					<Select
-						defaultValue={timeWindow.value.toString()}
-						onValueChange={(value) => {
-							setTimeWindow(windowOptions.find((o) => o.value === Number(value))!);
-						}}>
-						<SelectTrigger className="inline-flex align-middle w-auto h-auto">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{windowOptions.map((o) => {
-									return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
-								})}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-					<Label className="ml-8 mr-2">Update every</Label>
-					<Select
-						defaultValue={updateInterval.value.toString()}
-						onValueChange={(value) => {
-							setUpdateInterval(intervalOptions.find((o) => o.value === Number(value))!);
-						}}>
-						<SelectTrigger className="inline-flex align-middle w-auto h-auto">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{intervalOptions.map((o) => {
-									return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
-								})}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
+				<div className="justify-items-end grid grid-cols-1 lg:grid-cols-3 gap-4">
+					<div className="flex flex-nowrap items-center">
+						<Label className="ml-8 mr-2">Metric:</Label>
+						<Select
+							defaultValue={selectedMetric.id}
+							onValueChange={(value) => {
+								setSelectedMetric(metrics.find((m) => m.id === value) || metrics[0]);
+							}}>
+							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{metrics.map((m) => {
+										let itemLabel = m.label ?? m.name;
+										if (m.path) {
+											itemLabel += ` (${m.path})`;
+										}
+										return <SelectItem key={m.id} value={m.id}>{itemLabel}</SelectItem>;
+									})}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="flex flex-nowrap items-center">
+						<Label className="ml-8 mr-2">Show last</Label>
+						<Select
+							defaultValue={timeWindow.value.toString()}
+							onValueChange={(value) => {
+								setTimeWindow(windowOptions.find((o) => o.value === Number(value))!);
+							}}>
+							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{windowOptions.map((o) => {
+										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
+									})}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
+					<div className="flex flex-nowrap items-center">
+						<Label className="ml-8 mr-2">Update every</Label>
+						<Select
+							defaultValue={updateInterval.value.toString()}
+							onValueChange={(value) => {
+								setUpdateInterval(intervalOptions.find((o) => o.value === Number(value))!);
+							}}>
+							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{intervalOptions.map((o) => {
+										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
+									})}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
 				</div>
 			</div>
 			<MetricVisualization
