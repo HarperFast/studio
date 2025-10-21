@@ -17,13 +17,14 @@ import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
 
 export function ApplicationsSidebar() {
 	const { rootEntries, openedEntry, setOpenedEntry } = useEditorView();
-	const { instanceId }: { instanceId: string } = useParams({ strict: false });
+	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string } = useParams({ strict: false });
 
 	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package).map<TreeItemIndex>(rootEntry => rootEntry.name);
 	const defaultFocusedItem = defaultFolderExpansions[0];
-	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceId}` as 'FileFocused/{instanceId}', defaultFocusedItem);
-	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceId}` as 'FolderOpened/{instanceId}', defaultFolderExpansions);
-	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceId}` as 'FileSelected/{instanceId}', [] as TreeItemIndex[]);
+	const defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
+	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceId || clusterId}` as 'FileFocused/{instanceId}', defaultFocusedItem);
+	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceId || clusterId}` as 'FolderOpened/{instanceId}', defaultFolderExpansions);
+	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceId || clusterId}` as 'FileSelected/{instanceId}', defaultSelectedItem);
 
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
