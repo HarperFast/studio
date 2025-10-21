@@ -145,7 +145,6 @@
 	width: 120px;
 }
 
-/* TODO see renaming form in multiple tree example, wraps around */
 .rct-tree-item-renaming-form {
 	flex-grow: 1;
 	display: flex;

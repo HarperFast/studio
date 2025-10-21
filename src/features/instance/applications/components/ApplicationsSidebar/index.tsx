@@ -27,8 +27,22 @@ export function ApplicationsSidebar() {
 		}
 	}, [setOpenedEntry]);
 
-	// TODO: onRenameItem
-	// TODO: onDrop
+	// TODO: folder icons
+	// TODO: sort folders to the top
+	// TODO: context menu right click
+	// TODO: mobile context menu, FAB?
+	// TODO: onRenameItem f2 handling
+	// TODO: on drag item from one folder to another
+	// TODO: save file
+	// TODO: add file
+	// TODO: add folder
+	// TODO: delete file
+	// TODO: delete folder
+	// TODO: redeploy package
+	// TODO: package is read-only
+	// TODO: stick packages under a different top level node
+	// TODO: restart cluster
+	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
 	return (
 		<div className="h-full overflow-auto pr-1.5">
 			<ControlledTreeEnvironment
