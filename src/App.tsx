@@ -13,7 +13,7 @@ export function App() {
 		<>
 			<QueryClientProvider client={queryClient}>
 				<AppRouted />
-				<ReactQueryDevtools buttonPosition="bottom-right" />
+				<ReactQueryDevtools buttonPosition="bottom-left" />
 			</QueryClientProvider>
 			<Toaster richColors />
 		</>

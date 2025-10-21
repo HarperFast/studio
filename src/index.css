@@ -248,3 +248,7 @@
     display: inline-block;
   }
 }
+
+.tsqd-open-btn-container {
+	margin-bottom: 22px;
+}
