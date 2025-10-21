@@ -19,8 +19,10 @@ export function ApplicationsSidebar() {
 	const { rootEntries, openedEntry, setOpenedEntry } = useEditorView();
 	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 
-	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceId}` as 'FileFocused/{instanceId}', undefined as TreeItemIndex | undefined);
-	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceId}` as 'FolderOpened/{instanceId}', [] as TreeItemIndex[]);
+	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package).map<TreeItemIndex>(rootEntry => rootEntry.name);
+	const defaultFocusedItem = defaultFolderExpansions[0];
+	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceId}` as 'FileFocused/{instanceId}', defaultFocusedItem);
+	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceId}` as 'FolderOpened/{instanceId}', defaultFolderExpansions);
 	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceId}` as 'FileSelected/{instanceId}', [] as TreeItemIndex[]);
 
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
@@ -35,7 +37,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: pre-set expand-collapse according to existing logic
 	// TODO: FAB in bottom right for actions
 	// TODO: onRenameItem f2 handling
 	// TODO: on drag item from one folder to another
