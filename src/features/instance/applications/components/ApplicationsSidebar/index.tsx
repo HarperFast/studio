@@ -30,7 +30,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [setOpenedEntry]);
 
-	// TODO: sort folders to the top
 	// TODO: pre-set expand-collapse according to existing logic
 	// TODO: remember expand-collapse
 	// TODO: FAB in bottom right for actions

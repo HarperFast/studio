@@ -10,16 +10,21 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>> = {};
 	const rootId = '__root__';
 
-	const childIds: string[] = [];
+	const directoryIds: string[] = [];
+	const fileIds: string[] = [];
 	for (const entry of rootEntries) {
-		childIds.push(entry.path);
+		if (isDirectory(entry)) {
+			directoryIds.push(entry.path);
+		} else {
+			fileIds.push(entry.path);
+		}
 		addEntry(items, entry);
 	}
 
 	items[rootId] = {
 		index: rootId,
 		isFolder: true,
-		children: childIds,
+		children: [...directoryIds, ...fileIds],
 		data: null,
 	};
 
@@ -33,8 +38,16 @@ function addEntry(
 	const index = entry.path;
 	if (isDirectory(entry)) {
 		const dir = entry as DirectoryEntry;
-		const children = dir.entries.map((e) => e.path);
-		items[index] = { index, isFolder: true, children, data: entry };
+		const childDirectoryIds: string[] = [];
+		const childFileIds: string[] = [];
+		for (const childEntry of dir.entries) {
+			if (isDirectory(childEntry)) {
+				childDirectoryIds.push(childEntry.path);
+			} else {
+				childFileIds.push(childEntry.path);
+			}
+		}
+		items[index] = { index, isFolder: true, children: [...childDirectoryIds, ...childFileIds], data: entry };
 		for (const child of dir.entries) {
 			addEntry(items, child);
 		}
