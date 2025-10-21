@@ -13,7 +13,7 @@ export function Breadcrumbs() {
 
 		const breadcrumbs = [
 			<Link to="/">
-				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
+				<HomeIcon aria-hidden="true" className="size-5 shrink-0 invisible md:visible" />
 				<span className="sr-only">Home</span>
 			</Link>,
 		];

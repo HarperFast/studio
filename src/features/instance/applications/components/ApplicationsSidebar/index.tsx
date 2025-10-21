@@ -30,7 +30,7 @@ export function ApplicationsSidebar() {
 	// TODO: onRenameItem
 	// TODO: onDrop
 	return (
-		<div className="h-full overflow-auto pr-1">
+		<div className="h-full overflow-auto pr-1.5">
 			<ControlledTreeEnvironment
 				items={items}
 				getItemTitle={(item) => getItemTitle(item)}
