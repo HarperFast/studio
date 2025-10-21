@@ -7,6 +7,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { ControlledTreeEnvironment, Tree, type TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
 
 export function ApplicationsSidebar() {
 	const { rootEntries, setOpenedEntry } = useEditorView();
@@ -35,6 +37,18 @@ export function ApplicationsSidebar() {
 				canDragAndDrop={true}
 				canReorderItems={false}
 				canSearch={true}
+				renderItemTitle={({ title, item }) => {
+					const data = item.data as DirectoryEntry | FileEntry | null;
+					const isDir = isDirectory(data);
+					const name = title;
+					const ext = !isDir ? (name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? null : null) : null;
+					return (
+						<>
+							{!isDir ? <FileTypeIcon extension={ext} /> : null}
+							<span>{name}</span>
+						</>
+					);
+				}}
 				viewState={{
 					['applicationsTree']: {
 						focusedItem,
