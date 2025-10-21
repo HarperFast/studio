@@ -38,7 +38,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: FAB in bottom right for actions
 	// TODO: add file
 	// TODO: add folder
 	// TODO: delete file
