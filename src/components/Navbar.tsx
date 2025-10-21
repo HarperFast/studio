@@ -65,8 +65,7 @@ function MobileNav({ signOut }: { signOut: () => void }) {
 							className="flex flex-row px-3 py-2 text-base font-medium text-white bg-gray-900 rounded-md"
 							activeProps={activeLinkProps}
 						>
-							<BuildingIcon className="mr-4" />
-							Organizations
+							<BuildingIcon className="mr-4" /> Organizations
 						</Link>
 						{(showOrgUsersAndRoles || showBilling) ? (
 							<div className="bg-black rounded-2xl">
@@ -150,7 +149,8 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 								<NavigationMenuItem>
 									<NavigationMenuLink asChild>
 										<Link to="/" className="flex-row items-center" activeProps={activeLinkProps}>
-											<BuildingIcon /> Organizations
+											<BuildingIcon />
+											<span className="hidden xl:inline-block">Organizations</span>
 										</Link>
 									</NavigationMenuLink>
 								</NavigationMenuItem>
@@ -163,7 +163,9 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
-													<HandshakeIcon className="inline-block" /> Roles
+													<HandshakeIcon className="inline-block" />
+													<span className="hidden xl:inline-block">Roles</span>
+													<span className="xl:hidden">&nbsp;</span>
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>)}
@@ -174,7 +176,9 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
-													<UsersIcon className="inline-block" /> Users
+													<UsersIcon className="inline-block" />
+													<span className="hidden xl:inline-block">Users</span>
+													<span className="xl:hidden">&nbsp;</span>
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>)}
@@ -185,7 +189,9 @@ function DesktopNav({ signOut }: { signOut: () => void }) {
 													className="flex-row items-center"
 													activeProps={activeLinkProps}
 												>
-													<ReceiptIcon className="inline-block" /> Billing
+													<ReceiptIcon className="inline-block" />
+													<span className="hidden xl:inline-block">Billing</span>
+													<span className="xl:hidden">&nbsp;</span>
 												</Link>
 											</NavigationMenuLink>
 										</NavigationMenuItem>)}
