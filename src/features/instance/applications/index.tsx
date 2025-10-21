@@ -30,7 +30,7 @@ export function ApplicationsEditor() {
 				<ApplicationsSidebar />
 			</aside>
 
-			<div className={cx('transition-all md:ml-54 h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:ml-56')}>
+			<div className={cx('transition-all md:ml-56 h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:ml-56')}>
 				<TextEditorView />
 			</div>
 		</EditorViewProvider>

@@ -7,31 +7,35 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useCallback, useMemo, useState } from 'react';
-import { ControlledTreeEnvironment, Tree, type TreeItem } from 'react-complex-tree';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { useParams } from '@tanstack/react-router';
+import { useEffect, useMemo } from 'react';
+import { ControlledTreeEnvironment, Tree } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
 
 export function ApplicationsSidebar() {
-	const { rootEntries, setOpenedEntry } = useEditorView();
+	const { rootEntries, openedEntry, setOpenedEntry } = useEditorView();
+	const { instanceId }: { instanceId: string } = useParams({ strict: false });
 
-	const [focusedItem, setFocusedItem] = useState<TreeItemIndex | undefined>();
-	const [expandedItems, setExpandedItems] = useState<TreeItemIndex[]>([]);
-	const [selectedItems, setSelectedItems] = useState<TreeItemIndex[]>([]);
+	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceId}` as 'FileFocused/{instanceId}', undefined as TreeItemIndex | undefined);
+	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceId}` as 'FolderOpened/{instanceId}', [] as TreeItemIndex[]);
+	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceId}` as 'FileSelected/{instanceId}', [] as TreeItemIndex[]);
 
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
-	const onPrimaryAction = useCallback((item: TreeItem<DirectoryEntry | FileEntry | null>) => {
-		// Open files on activation; directories toggle expansion automatically
-		const entry = item.data as DirectoryEntry | FileEntry | undefined;
-		if (entry) {
-			setOpenedEntry(entry);
+	useEffect(() => {
+		if (openedEntry?.path !== focusedItem && focusedItem) {
+			const item = items[focusedItem];
+			const entry = item?.data as DirectoryEntry | FileEntry | undefined;
+			if (entry) {
+				setOpenedEntry(entry);
+			}
 		}
-	}, [setOpenedEntry]);
+	}, [openedEntry, focusedItem, items]);
 
 	// TODO: pre-set expand-collapse according to existing logic
-	// TODO: remember expand-collapse
 	// TODO: FAB in bottom right for actions
 	// TODO: onRenameItem f2 handling
 	// TODO: on drag item from one folder to another
@@ -79,7 +83,6 @@ export function ApplicationsSidebar() {
 					setExpandedItems(expandedItems.filter(expandedItemIndex => expandedItemIndex !== item.index))
 				}
 				onSelectItems={items => setSelectedItems(items)}
-				onPrimaryAction={onPrimaryAction}
 			>
 				<Tree treeId="applicationsTree" rootItem={rootId} treeLabel="Applications file tree" />
 			</ControlledTreeEnvironment>

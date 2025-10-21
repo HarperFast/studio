@@ -3,4 +3,5 @@ import { APIDirectoryEntry } from '@/features/instance/operations/queries/getCom
 
 export interface DirectoryEntry extends APIDirectoryEntry, FileEntry {
 	entries: Array<DirectoryEntry | FileEntry>;
+	overviewEntry?: FileEntry;
 }
