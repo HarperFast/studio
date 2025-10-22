@@ -38,11 +38,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: Split all this logic up into smaller files, right?
-
-	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
-	//  copy-cut-paste selections?)
-	// TODO: keyboard shortcut for deleting a file?
 	// TODO: stick packages under a different top level node // package-locked-icon fas fa-lock ml-2
 	// TODO: icon showing package is read-only
 
@@ -51,6 +46,10 @@ export function ApplicationsSidebar() {
 	// TODO: restore focus after closing a modal (to the editor or the file tree)
 
 	// TODO: context menu when right click on tree
+
+	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
+	//  copy-cut-paste selections?)
+	// TODO: keyboard shortcut for deleting a file?
 
 	// TODO: on drag item from one folder to another
 	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
