@@ -288,14 +288,6 @@ export function TextEditorView() {
 
 				<div className="grow"></div>
 
-				{!restrictPackageModification && canManageBrowseInstance && <Button
-					variant="destructiveGhost"
-					className="rounded-none"
-					onClick={onDeleteClick}
-				>
-					<TrashIcon />
-					<span className="hidden xl:inline-block"><u>D</u>elete</span>
-				</Button>}
 
 				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
@@ -311,6 +303,14 @@ export function TextEditorView() {
 					<span className="hidden xl:inline-block">Revert Changes</span>
 				</Button>}
 
+				{!restrictPackageModification && canManageBrowseInstance && <Button
+					variant="destructiveGhost"
+					className="rounded-none"
+					onClick={onDeleteClick}
+				>
+					<TrashIcon />
+					<span className="hidden xl:inline-block"><u>D</u>elete</span>
+				</Button>}
 			</div>
 
 			<AddDirectoryOrFileModal

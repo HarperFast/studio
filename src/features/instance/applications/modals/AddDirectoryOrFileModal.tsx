@@ -18,6 +18,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
 import { useCallback } from 'react';
@@ -33,7 +34,7 @@ export function AddDirectoryOrFileModal({
 	readonly hideModal: () => void;
 	readonly type: 'directory' | 'file';
 }) {
-	const { openedEntry, reloadRootEntries } = useEditorView();
+	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const { mutate: addFolderFile, isPending } = useUpdateComponentFile();
 	const NewFileFolderSchema = z.object({
@@ -59,14 +60,14 @@ export function AddDirectoryOrFileModal({
 			return;
 		}
 		const splitPath = openedEntry.path.split('/');
-		const intoPath = (
+		const filePath = (
 			isDirectory(openedEntry)
 				? splitPath.slice(1)
 				: splitPath.slice(1, -1)
 		).join('/');
 		addFolderFile(
 			{
-				file: `${intoPath}/${data.name}`,
+				file: `${filePath}/${data.name}`,
 				project: openedEntry.project,
 				payload: type === 'directory' ? undefined : '',
 				...instanceParams,
@@ -76,10 +77,16 @@ export function AddDirectoryOrFileModal({
 					reloadRootEntries();
 					hideModal();
 					form.reset();
+					const treeId = [openedEntry.project, filePath, data.name].filter(excludeFalsy).join('/');
+					setFocusedItem(treeId);
+					setSelectedItems([treeId]);
+					if (type === 'directory') {
+						setExpandedItems(expandedItems => [...expandedItems, treeId]);
+					}
 				},
 			},
 		);
-	}, [addFolderFile, instanceParams, type, openedEntry, reloadRootEntries]);
+	}, [addFolderFile, setFocusedItem, setSelectedItems, setExpandedItems, instanceParams, type, openedEntry, reloadRootEntries]);
 
 	const onCancelClick = useCallback(() => {
 		hideModal();

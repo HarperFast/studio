@@ -1,6 +1,6 @@
 export interface SessionStorageKeys {
-	'FileFocused/{instanceId}': true;
-	'FolderOpened/{instanceId}': true;
-	'FileSelected/{instanceId}': true;
+	'FileFocused/{entityId}': true;
+	'FolderOpened/{entityId}': true;
+	'FileSelected/{entityId}': true;
 	'ColumnDisplayed/{database}/{table}': true;
 }

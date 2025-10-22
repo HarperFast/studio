@@ -1,5 +1,6 @@
 import { SetComponentFileRequest } from '@/features/instance/operations/mutations/updateComponentFile';
 import { createContext } from 'react';
+import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
 import { FileEntry } from './fileEntry';
 
@@ -12,6 +13,13 @@ export type EditorViewContextValue = {
 
 	openedEntryContents: string | null;
 	setOpenedEntryContents: (contents: string | null) => void;
+
+	focusedItem: TreeItemIndex | undefined,
+	setFocusedItem: (entry: TreeItemIndex | undefined | ((prevState: TreeItemIndex | undefined) => TreeItemIndex | undefined)) => void,
+	expandedItems: TreeItemIndex[],
+	setExpandedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void,
+	selectedItems: TreeItemIndex[],
+	setSelectedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void,
 
 	saveFile: (data: SetComponentFileRequest, filePath: string) => void;
 	isSavingFile: boolean;
