@@ -69,7 +69,6 @@ export function TextEditorView() {
 			return;
 		}
 		const [editor, monaco] = mountedRef.current;
-		// TODO: Split these out too.
 		const disposables = [
 			editor.addAction({
 				id: 'new-file',
@@ -124,7 +123,7 @@ export function TextEditorView() {
 	useListener(
 		'SaveFile',
 		() => {
-			if (openedEntry && updateFileContent !== undefined) {
+			if (openedEntry && updateFileContent !== undefined && !fileIsClean && !isSavingFile) {
 				saveFile(
 					{
 						...instanceParams,
