@@ -108,6 +108,8 @@ export function AddDirectoryOrFileModal({
 										<Input
 											disabled={isPending}
 											type="text"
+											autoComplete="off"
+											autoCapitalize="off"
 											{...field}
 										/>
 									</FormControl>
