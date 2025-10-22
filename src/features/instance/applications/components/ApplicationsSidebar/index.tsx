@@ -38,7 +38,6 @@ export function ApplicationsSidebar() {
 	}, [openedEntry, focusedItem, items]);
 
 	// TODO: onRenameItem f2 handling
-	// TODO: on drag item from one folder to another
 	// TODO: Split all this logic up into smaller files, right?
 
 	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
@@ -50,6 +49,7 @@ export function ApplicationsSidebar() {
 	// TODO: import application
 
 	// TODO: context menu when right click on tree
+	// TODO: on drag item from one folder to another
 	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
 	// TODO: open file after creating it
 	// TODO: select folder after creating it
