@@ -9,6 +9,7 @@ import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/mod
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { useEffectedState } from '@/hooks/useEffectedState';
+import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useToggler } from '@/hooks/useToggler';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
@@ -46,6 +47,7 @@ export function TextEditorView() {
 		[openedEntryContents],
 	);
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
+	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
 	const mountedRef = useRef<Parameters<OnMount> | null>(null);
 
@@ -148,7 +150,7 @@ export function TextEditorView() {
 	}, [openedEntry?.package]);
 
 	useEffect(() => {
-		if (!mountedRef.current) {
+		if (!mountedRef.current || !canManageBrowseInstance) {
 			return;
 		}
 		const [editor, monaco] = mountedRef.current;
@@ -187,7 +189,7 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, onSaveClick, onRevertChangesClicked]);
+	}, [mountedRef, canManageBrowseInstance, onAddFileClicked, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked, onDeleteClick]);
 
 	if (!openedEntry) {
 		return null;
@@ -207,7 +209,7 @@ export function TextEditorView() {
 							options={{
 								automaticLayout: true,
 								minimap: { enabled: false },
-								readOnly: !!openedEntry.package,
+								readOnly: !!openedEntry.package || !canManageBrowseInstance,
 								padding: { top: 50 },
 							}}
 						/>
@@ -221,7 +223,7 @@ export function TextEditorView() {
 
 			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-12 -mr-1">
 
-				{!isDirectory(openedEntry) && !openedEntry.package && <Button
+				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 					variant="default"
 					className="rounded-none"
 					onClick={onSaveClick}
@@ -235,7 +237,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>S</u>ave</span>
 				</Button>}
 
-				{!openedEntry.package && <Button
+				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
 					// onClick={onRenameClick}
@@ -249,7 +251,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>R</u>ename</span>
 				</Button>}
 
-				{!openedEntry.package && <Button
+				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddFileClicked}
@@ -258,7 +260,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
 				</Button>}
 
-				{!openedEntry.package && <Button
+				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddDirectoryClicked}
@@ -267,7 +269,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
 				</Button>}
 
-				{!!openedEntry.package && !restrictPackageModification && <Button
+				{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onRedeployClicked}
@@ -276,17 +278,17 @@ export function TextEditorView() {
 					<span>Redeploy <u>P</u>ackage</span>
 				</Button>}
 
-				<RestartButton
+				{canManageBrowseInstance && <RestartButton
 					targetNoun={targetNoun}
 					instanceClient={instanceParams.instanceClient}
 					operation="restart_service"
 					variant="ghost"
 					className="rounded-none"
-				/>
+				/>}
 
 				<div className="grow"></div>
 
-				{!restrictPackageModification && <Button
+				{!restrictPackageModification && canManageBrowseInstance && <Button
 					variant="destructiveGhost"
 					className="rounded-none"
 					onClick={onDeleteClick}
@@ -295,7 +297,7 @@ export function TextEditorView() {
 					<span className="hidden xl:inline-block"><u>D</u>elete</span>
 				</Button>}
 
-				{!isDirectory(openedEntry) && !openedEntry.package && <Button
+				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onRevertChangesClicked}

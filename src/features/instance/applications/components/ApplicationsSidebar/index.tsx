@@ -39,12 +39,17 @@ export function ApplicationsSidebar() {
 	}, [openedEntry, focusedItem, items]);
 
 	// TODO: consistently drive file and folder selection through context (particularly during creation and deletion)
-	// TODO: Split all this logic up into smaller files, right?
 	// TODO: onRenameItem f2 handling
 	// TODO: on drag item from one folder to another
+	// TODO: Split all this logic up into smaller files, right?
 
-	// TODO: stick packages under a different top level node
+	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
+	//  copy-cut-paste selections?)
+	// TODO: keyboard shortcut for deleting a file?
+	// TODO: stick packages under a different top level node // package-locked-icon fas fa-lock ml-2
 	// TODO: icon showing package is read-only
+	// TODO: new application
+	// TODO: import application
 
 	// TODO: context menu when right click on tree
 	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
