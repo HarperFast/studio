@@ -11,7 +11,6 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { setWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
-import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, RefreshCwIcon } from 'lucide-react';
 import { FormEvent, useCallback } from 'react';
@@ -19,7 +18,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 export function RedeployApplicationModal() {
-	const isModalOpen = useWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+	const isModalOpen = useWatchedValue('ShowRedeployApplicationModal', false);
 
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
@@ -52,7 +51,7 @@ export function RedeployApplicationModal() {
 					queryKey: [instanceParams.entityId, 'get_components'],
 					refetchType: 'active',
 				});
-				setWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+				setWatchedValue('ShowRedeployApplicationModal', false);
 			},
 			onError: () => {
 				openedEntry.package = originalPackageUrl;
@@ -76,7 +75,7 @@ export function RedeployApplicationModal() {
 	};
 
 	const modalClosed = useCallback(() => {
-		setWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+		setWatchedValue('ShowRedeployApplicationModal', false);
 		methods.reset({ applicationUrl: packageUrl });
 	}, [isModalOpen, methods]);
 

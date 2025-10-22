@@ -20,7 +20,6 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
 import { useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
-import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
 import { useCallback } from 'react';
@@ -28,9 +27,8 @@ import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function AddDirectoryOrFileModal() {
-	type ModalType = 'directory' | 'file' | false;
-	const type = useWatchedValue<ModalType>(WatchedValueKeys.ShowAddDirectoryOrFileModalType, false);
-	const hideModal = useSetWatchedValue<ModalType>(WatchedValueKeys.ShowAddDirectoryOrFileModalType, false);
+	const type = useWatchedValue('ShowAddDirectoryOrFileModalType', false);
+	const hideModal = useSetWatchedValue('ShowAddDirectoryOrFileModalType', false);
 
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();

@@ -7,7 +7,6 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { currySetWatchedValue, useSetWatchedValue } from '@/hooks/useWatchedValue';
-import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
@@ -98,19 +97,19 @@ export function TextEditorView() {
 				id: 'new-file',
 				label: 'New File',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
-				run: currySetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'file'),
+				run: currySetWatchedValue('ShowAddDirectoryOrFileModalType', 'file'),
 			}),
 			editor.addAction({
 				id: 'rename-file',
 				label: 'Rename File',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyR],
-				run: currySetWatchedValue(WatchedValueKeys.ShowRenameFileModal, true),
+				run: currySetWatchedValue('ShowRenameFileModal', true),
 			}),
 			editor.addAction({
 				id: 'new-directory',
 				label: 'New Directory',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyN],
-				run: currySetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'directory'),
+				run: currySetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory'),
 			}),
 			editor.addAction({
 				id: 'save-file',
@@ -126,7 +125,7 @@ export function TextEditorView() {
 			editor.addAction({
 				id: 'delete-file',
 				label: 'Delete File',
-				run: currySetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true),
+				run: currySetWatchedValue('ShowDeleteDirectoryOrFileModal', true),
 			}),
 		];
 		return () => {
@@ -136,11 +135,11 @@ export function TextEditorView() {
 		};
 	}, [mountedRef, canManageBrowseInstance, openedEntry, onSaveClick, onRevertChangesClicked]);
 
-	const onAddFileClick = useSetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'file');
-	const onAddDirectoryClick = useSetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'directory');
-	const onRenameClick = useSetWatchedValue(WatchedValueKeys.ShowRenameFileModal, true);
-	const onDeleteClick = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true);
-	const onRedeployClick = useSetWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, true);
+	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
+	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');
+	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
+	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
+	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
 
 	if (!openedEntry) {
 		return null;
