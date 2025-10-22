@@ -5,10 +5,9 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
-import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
+import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
-import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useToggler } from '@/hooks/useToggler';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
@@ -16,7 +15,7 @@ import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './directory-read-me.css';
 import Markdown from 'react-markdown';
 import { toast } from 'sonner';
@@ -49,8 +48,6 @@ export function TextEditorView() {
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 
 	const mountedRef = useRef<Parameters<OnMount> | null>(null);
-
-	// TODO: Split all this logic up into smaller files, right?
 
 	useEffect(() => {
 		const extension = parseFileExtension(openedEntry?.path);
@@ -117,44 +114,13 @@ export function TextEditorView() {
 		toggleOff: hideAddingDirectory,
 	} = useToggler(false);
 	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
-	const { toggled: isDeleteDirectoryOrFileClicked, setToggled: setIsDeleteDirectoryOrFileClicked } = useToggler(false);
-	const { toggled: isRedeployApplicationClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
-	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDropComponent();
+	const { toggled: isDeleteDirectoryOrFileClicked, toggleOn: onDeleteClick, setToggled: setIsDeleteDirectoryOrFileClicked } = useToggler(false);
+	const { toggled: isRedeployApplicationClicked, toggleOn: onRedeployClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
 
 	const onHideAddDirectoryModal = useCallback(() => {
 		hideAddingDirectory();
 		hideAddingFile();
 	}, []);
-
-	const handleDeleteFolderOrFile = useCallback(async () => {
-		if (!openedEntry) {
-			return;
-		}
-		deleteFolderFile(
-			{
-				file: openedEntry.package
-					? undefined
-					: `${openedEntry.path.split('/').slice(1).join('/')}`,
-				project: openedEntry.project,
-				replicated: instanceParams.entityType === 'cluster',
-				...instanceParams,
-			},
-			{
-				onSuccess: () => {
-					// TODO: Select parent.
-					// setOpenedEntry({
-					// 	filePath: '',
-					// 	projectName: '',
-					// 	entries: [],
-					// 	content: '',
-					// 	pkg: '',
-					// });
-					// refetchComponents();
-					setIsDeleteDirectoryOrFileClicked(false);
-				},
-			},
-		);
-	}, [deleteFolderFile, instanceParams, openedEntry]);
 
 	const { mutate: reDeployApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
 
@@ -189,16 +155,14 @@ export function TextEditorView() {
 			},
 		});
 	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
-	// TODO:
-	// const restrictPackageModification = useMemo(() => {
-	// 	return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
-	// 		|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
-	// }, [openedEntry.package]);
 
-
-	const onDeleteClick = useCallback(() => {
-		setIsDeleteDirectoryOrFileClicked(true);
-	}, []);
+	const restrictPackageModification = useMemo(() => {
+		if (!openedEntry) {
+			return false;
+		}
+		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
+			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
+	}, [openedEntry?.package]);
 
 	if (!openedEntry) {
 		return null;
@@ -232,7 +196,7 @@ export function TextEditorView() {
 
 			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-12 -mr-1">
 
-				{!isDirectory(openedEntry) && <Button
+				{!isDirectory(openedEntry) && !openedEntry.package && <Button
 					variant="default"
 					className="rounded-none"
 					onClick={onSaveClick}
@@ -247,7 +211,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>S</u>ave</span>
 				</Button>}
 
-				<Button
+				{!openedEntry.package && <Button
 					variant="ghost"
 					className="rounded-none"
 					// onClick={onRenameClick}
@@ -260,9 +224,9 @@ export function TextEditorView() {
 				>
 					<PencilIcon />
 					<span className="hidden lg:inline-block"><u>R</u>ename</span>
-				</Button>
+				</Button>}
 
-				<Button
+				{!openedEntry.package && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddFileClicked}
@@ -270,9 +234,9 @@ export function TextEditorView() {
 				>
 					<FileIcon />
 					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
-				</Button>
+				</Button>}
 
-				<Button
+				{!openedEntry.package && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddDirectoryClicked}
@@ -280,12 +244,12 @@ export function TextEditorView() {
 				>
 					<FolderIcon />
 					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
-				</Button>
+				</Button>}
 
-				{openedEntry.package && <Button
+				{!!openedEntry.package && !restrictPackageModification && <Button
 					variant="ghost"
 					className="rounded-none"
-					// onClick={onRedeplyClick}
+					onClick={onRedeployClicked}
 					accessKey="n"
 				>
 					<PackageIcon />
@@ -302,7 +266,7 @@ export function TextEditorView() {
 
 				<div className="grow"></div>
 
-				<Button
+				{!restrictPackageModification && <Button
 					variant="destructiveGhost"
 					className="rounded-none"
 					onClick={onDeleteClick}
@@ -310,9 +274,9 @@ export function TextEditorView() {
 				>
 					<TrashIcon />
 					<span className="hidden xl:inline-block"><u>D</u>elete</span>
-				</Button>
+				</Button>}
 
-				{!isDirectory(openedEntry) && <Button
+				{!isDirectory(openedEntry) && !openedEntry.package && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onDiscardClick}
@@ -334,13 +298,9 @@ export function TextEditorView() {
 				hideModal={onHideAddDirectoryModal}
 				type={isAddingDirectory ? 'directory' : 'file'}
 			/>
-			<DeleteFolderFileModal
+			<DeleteDirectoryOrFileModal
 				isModalOpen={isDeleteDirectoryOrFileClicked}
 				setIsModalOpen={setIsDeleteDirectoryOrFileClicked}
-				isFolderSelected={isDirectory(openedEntry)}
-				isPackageSelected={!!openedEntry.package}
-				isPending={isDeleteFolderFilePending}
-				handleDeleteFolderOrFile={handleDeleteFolderOrFile}
 			/>
 			<RedeployApplicationModal
 				isModalOpen={isRedeployApplicationClicked}
