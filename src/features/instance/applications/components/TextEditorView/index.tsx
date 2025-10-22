@@ -4,11 +4,11 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
+import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteFolderFileModal } from '@/features/instance/applications/modals/DeleteFolderFileModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
-import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
+import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useToggler } from '@/hooks/useToggler';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
@@ -112,14 +112,19 @@ export function TextEditorView() {
 	}, [mountedRef, onSaveClick, onDiscardClick]);
 
 	const {
-		toggled: isAddFolderOrFileClicked,
-		toggleOn: onNewFileClick,
-		setToggled: setIsAddFolderOrFileClicked,
+		toggled: isAddingDirectory,
+		toggleOn: onAddDirectoryClicked,
+		toggleOff: hideAddingDirectory,
 	} = useToggler(false);
-	const { toggled: isAddingFolder, toggleOn: setIsAddingFolder } = useToggler(false);
-	const { toggled: isDeleteFolderOrFileClicked, setToggled: setIsDeleteFolderOrFileClicked } = useToggler(false);
+	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
+	const { toggled: isDeleteDirectoryOrFileClicked, setToggled: setIsDeleteDirectoryOrFileClicked } = useToggler(false);
 	const { toggled: isRedeployApplicationClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
-	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
+	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDropComponent();
+
+	const onHideAddDirectoryModal = useCallback(() => {
+		hideAddingDirectory();
+		hideAddingFile();
+	}, []);
 
 	const handleDeleteFolderOrFile = useCallback(async () => {
 		if (!openedEntry) {
@@ -145,7 +150,7 @@ export function TextEditorView() {
 					// 	pkg: '',
 					// });
 					// refetchComponents();
-					setIsDeleteFolderOrFileClicked(false);
+					setIsDeleteDirectoryOrFileClicked(false);
 				},
 			},
 		);
@@ -192,7 +197,7 @@ export function TextEditorView() {
 
 
 	const onDeleteClick = useCallback(() => {
-		setIsDeleteFolderOrFileClicked(true);
+		setIsDeleteDirectoryOrFileClicked(true);
 	}, []);
 
 	if (!openedEntry) {
@@ -260,7 +265,7 @@ export function TextEditorView() {
 				<Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={onNewFileClick}
+					onClick={onAddFileClicked}
 					accessKey="n"
 				>
 					<FileIcon />
@@ -270,7 +275,7 @@ export function TextEditorView() {
 				<Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={setIsAddingFolder}
+					onClick={onAddDirectoryClicked}
 					accessKey="n"
 				>
 					<FolderIcon />
@@ -324,14 +329,14 @@ export function TextEditorView() {
 
 			</div>
 
-			<AddFolderFileModal
-				isModalOpen={isAddFolderOrFileClicked}
-				setIsModalOpen={setIsAddFolderOrFileClicked}
-				isAddingFolder={isAddingFolder}
+			<AddDirectoryOrFileModal
+				isModalOpen={isAddingDirectory || isAddingFile}
+				hideModal={onHideAddDirectoryModal}
+				type={isAddingDirectory ? 'directory' : 'file'}
 			/>
 			<DeleteFolderFileModal
-				isModalOpen={isDeleteFolderOrFileClicked}
-				setIsModalOpen={setIsDeleteFolderOrFileClicked}
+				isModalOpen={isDeleteDirectoryOrFileClicked}
+				setIsModalOpen={setIsDeleteDirectoryOrFileClicked}
 				isFolderSelected={isDirectory(openedEntry)}
 				isPackageSelected={!!openedEntry.package}
 				isPending={isDeleteFolderFilePending}
