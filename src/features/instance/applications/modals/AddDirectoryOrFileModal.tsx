@@ -18,7 +18,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
-import { useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
