@@ -1,5 +1,5 @@
 export const enum WatchedValueKeys {
-	ShowAddDirectoryOrFileModal = 'ShowAddDirectoryOrFileModal',
+	ShowAddDirectoryOrFileModalType = 'ShowAddDirectoryOrFileModalType',
 	ShowDeleteDirectoryOrFileModal = 'ShowDeleteDirectoryOrFileModal',
 	ShowRedeployApplicationModal = 'ShowRedeployApplicationModal',
 	ShowRenameFileModal = 'ShowRenameFileModal',

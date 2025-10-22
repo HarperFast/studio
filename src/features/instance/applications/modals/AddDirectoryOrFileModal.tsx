@@ -18,22 +18,20 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
+import { useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 
-export function AddDirectoryOrFileModal({
-	isModalOpen = false,
-	hideModal,
-	type,
-}: {
-	readonly isModalOpen?: boolean;
-	readonly hideModal: () => void;
-	readonly type: 'directory' | 'file';
-}) {
+export function AddDirectoryOrFileModal() {
+	type ModalType = 'directory' | 'file' | false;
+	const type = useWatchedValue<ModalType>(WatchedValueKeys.ShowAddDirectoryOrFileModalType, false);
+	const hideModal = useSetWatchedValue<ModalType>(WatchedValueKeys.ShowAddDirectoryOrFileModalType, false);
+
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const { mutate: addFolderFile, isPending } = useSetComponentFile();
@@ -94,7 +92,7 @@ export function AddDirectoryOrFileModal({
 	}, [hideModal, form]);
 
 	return (
-		<Dialog onOpenChange={hideModal} open={isModalOpen}>
+		<Dialog onOpenChange={hideModal} open={!!type}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)}>
