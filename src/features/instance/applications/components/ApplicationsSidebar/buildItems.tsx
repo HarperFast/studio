@@ -9,12 +9,18 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 } {
 	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>> = {};
 	const rootId = '__root__';
+	const importedApplications = 'importedApplications';
 
 	const directoryIds: string[] = [];
+	const applicationIds: string[] = [];
 	const fileIds: string[] = [];
 	for (const entry of rootEntries) {
 		if (isDirectory(entry)) {
-			directoryIds.push(entry.path);
+			if (entry.package) {
+				applicationIds.push(entry.path);
+			} else {
+				directoryIds.push(entry.path);
+			}
 		} else {
 			fileIds.push(entry.path);
 		}
@@ -24,11 +30,26 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	items[rootId] = {
 		index: rootId,
 		isFolder: true,
-		children: [...directoryIds, ...fileIds],
+		children: [importedApplications, ...directoryIds, ...fileIds],
 		data: null,
 		canMove: false,
 		canRename: false,
 	} satisfies TreeItem<null>;
+
+	items[importedApplications] = {
+		index: importedApplications,
+		isFolder: true,
+		children: applicationIds,
+		data: {
+			name: 'Imported Applications',
+			package: 'Imported Applications',
+			path: '',
+			project: '',
+			entries: [],
+		},
+		canMove: false,
+		canRename: false,
+	} satisfies TreeItem<DirectoryEntry>;
 
 	return { items, rootId };
 }
@@ -65,8 +86,8 @@ function addEntry(
 			index,
 			isFolder: false,
 			data: entry,
-			canMove: true,
-			canRename: true,
+			canMove: !entry.package,
+			canRename: !entry.package,
 		} satisfies TreeItem<FileEntry>;
 	}
 }
