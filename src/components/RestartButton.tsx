@@ -11,6 +11,7 @@ interface RestartButtonParams extends InstanceClientConfig, VariantProps<typeof 
 	targetNoun: 'Instance' | 'Cluster';
 	operation: 'restart_service' | 'restart';
 	className?: string;
+	disabled?: boolean;
 }
 
 export function RestartButton({
@@ -19,6 +20,7 @@ export function RestartButton({
 	operation,
 	variant,
 	className,
+	disabled,
 }: RestartButtonParams) {
 	const {
 		onRestartClick: onRestartClusterClick,
@@ -31,7 +33,7 @@ export function RestartButton({
 				variant={variant || 'positiveOutline'}
 				className={cx('mx-0 md:mx-4 rounded-full', className)}
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
-				disabled={isRestartPending || isRestartClusterPending}
+				disabled={disabled || isRestartPending || isRestartClusterPending}
 			>
 				<RotateCcwIcon /> Restart {targetNoun}
 			</Button>

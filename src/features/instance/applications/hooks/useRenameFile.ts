@@ -62,7 +62,7 @@ export function useRenameFile() {
 
 			reloadRootEntries();
 
-			const existingIndex = `${data.project}/${data.path}`;
+			const existingIndex = data.path;
 			const newIndex = `${existingIndex.split('/').slice(0, -1).join('/')}/${name}`;
 
 			setSelectedItems(selectedItems => {

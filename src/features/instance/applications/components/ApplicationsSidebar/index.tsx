@@ -38,7 +38,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: rename from editor handling
 	// TODO: Split all this logic up into smaller files, right?
 
 	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we

@@ -7,6 +7,7 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
+import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -91,6 +92,7 @@ export function TextEditorView() {
 		toggleOff: hideAddingDirectory,
 	} = useToggler(false);
 	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
+	const { toggled: isRenamingFile, toggleOn: onRenameClick, toggleOff: onHideRenamingFileModal } = useToggler(false);
 	const {
 		toggled: isDeleteDirectoryOrFileClicked,
 		toggleOn: onDeleteClick,
@@ -162,6 +164,12 @@ export function TextEditorView() {
 				run: onAddFileClicked,
 			}),
 			editor.addAction({
+				id: 'rename-file',
+				label: 'Rename File',
+				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyR],
+				run: onRenameClick,
+			}),
+			editor.addAction({
 				id: 'new-directory',
 				label: 'New Directory',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyN],
@@ -189,11 +197,13 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, onAddFileClicked, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked, onDeleteClick]);
+	}, [mountedRef, canManageBrowseInstance, onAddFileClicked, onRenameClick, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked, onDeleteClick]);
 
 	if (!openedEntry) {
 		return null;
 	}
+
+	const fileIsClean = updateFileContent === undefined || updateFileContent === openedEntryContents;
 
 	return (
 		<>
@@ -227,11 +237,7 @@ export function TextEditorView() {
 					variant="default"
 					className="rounded-none"
 					onClick={onSaveClick}
-					disabled={
-						updateFileContent === undefined ||
-						updateFileContent === openedEntryContents ||
-						isSavingFile
-					}
+					disabled={fileIsClean || isSavingFile}
 				>
 					<SaveIcon />
 					<span className="hidden lg:inline-block"><u>S</u>ave</span>
@@ -240,12 +246,8 @@ export function TextEditorView() {
 				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
-					// onClick={onRenameClick}
-					disabled={
-						updateFileContent === undefined ||
-						updateFileContent === openedEntryContents ||
-						isSavingFile
-					}
+					onClick={onRenameClick}
+					disabled={!fileIsClean || isSavingFile}
 				>
 					<PencilIcon />
 					<span className="hidden lg:inline-block"><u>R</u>ename</span>
@@ -284,6 +286,7 @@ export function TextEditorView() {
 					operation="restart_service"
 					variant="ghost"
 					className="rounded-none"
+					disabled={!fileIsClean || isSavingFile}
 				/>}
 
 				<div className="grow"></div>
@@ -293,11 +296,7 @@ export function TextEditorView() {
 					variant="ghost"
 					className="rounded-none"
 					onClick={onRevertChangesClicked}
-					disabled={
-						updateFileContent === undefined ||
-						updateFileContent === openedEntryContents ||
-						isSavingFile
-					}
+					disabled={fileIsClean || isSavingFile}
 				>
 					<Undo2Icon />
 					<span className="hidden xl:inline-block">Revert Changes</span>
@@ -317,6 +316,10 @@ export function TextEditorView() {
 				isModalOpen={isAddingDirectory || isAddingFile}
 				hideModal={onHideAddDirectoryModal}
 				type={isAddingDirectory ? 'directory' : 'file'}
+			/>
+			<RenameFileModal
+				isModalOpen={isRenamingFile}
+				hideModal={onHideRenamingFileModal}
 			/>
 			<DeleteDirectoryOrFileModal
 				isModalOpen={isDeleteDirectoryOrFileClicked}
