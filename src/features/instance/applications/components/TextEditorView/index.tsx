@@ -69,7 +69,7 @@ export function TextEditorView() {
 		}
 	}, [updateFileContent, saveFile, instanceParams, openedEntry]);
 
-	const onDiscardClick = useCallback(() => {
+	const onRevertChangesClicked = useCallback(() => {
 		if (openedEntryContents) {
 			setUpdateFileContent(openedEntryContents);
 		}
@@ -83,39 +83,22 @@ export function TextEditorView() {
 		mountedRef.current = [editor, monaco];
 	}, [mountedRef, onSaveClick]);
 
-	useEffect(() => {
-		if (!mountedRef.current) {
-			return;
-		}
-		const [editor, monaco] = mountedRef.current;
-		const disposables = [
-			editor.addAction({
-				id: 'save-file',
-				label: 'Save Changes',
-				keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
-				run: onSaveClick,
-			}),
-			editor.addAction({
-				id: 'revert-file',
-				label: 'Revert File',
-				run: onDiscardClick,
-			}),
-		];
-		return () => {
-			for (const disposable of disposables) {
-				disposable?.dispose();
-			}
-		};
-	}, [mountedRef, onSaveClick, onDiscardClick]);
-
 	const {
 		toggled: isAddingDirectory,
 		toggleOn: onAddDirectoryClicked,
 		toggleOff: hideAddingDirectory,
 	} = useToggler(false);
 	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
-	const { toggled: isDeleteDirectoryOrFileClicked, toggleOn: onDeleteClick, setToggled: setIsDeleteDirectoryOrFileClicked } = useToggler(false);
-	const { toggled: isRedeployApplicationClicked, toggleOn: onRedeployClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
+	const {
+		toggled: isDeleteDirectoryOrFileClicked,
+		toggleOn: onDeleteClick,
+		setToggled: setIsDeleteDirectoryOrFileClicked,
+	} = useToggler(false);
+	const {
+		toggled: isRedeployApplicationClicked,
+		toggleOn: onRedeployClicked,
+		setToggled: setIsRedeployApplicationClicked,
+	} = useToggler(false);
 
 	const onHideAddDirectoryModal = useCallback(() => {
 		hideAddingDirectory();
@@ -164,6 +147,48 @@ export function TextEditorView() {
 			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
 	}, [openedEntry?.package]);
 
+	useEffect(() => {
+		if (!mountedRef.current) {
+			return;
+		}
+		const [editor, monaco] = mountedRef.current;
+		const disposables = [
+			editor.addAction({
+				id: 'new-file',
+				label: 'New File',
+				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
+				run: onAddFileClicked,
+			}),
+			editor.addAction({
+				id: 'new-directory',
+				label: 'New Directory',
+				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyN],
+				run: onAddDirectoryClicked,
+			}),
+			editor.addAction({
+				id: 'save-file',
+				label: 'Save Changes',
+				keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+				run: onSaveClick,
+			}),
+			editor.addAction({
+				id: 'revert-file',
+				label: 'Revert File',
+				run: onRevertChangesClicked,
+			}),
+			editor.addAction({
+				id: 'delete-file',
+				label: 'Delete File',
+				run: onDeleteClick,
+			}),
+		];
+		return () => {
+			for (const disposable of disposables) {
+				disposable?.dispose();
+			}
+		};
+	}, [mountedRef, onSaveClick, onRevertChangesClicked]);
+
 	if (!openedEntry) {
 		return null;
 	}
@@ -205,7 +230,6 @@ export function TextEditorView() {
 						updateFileContent === openedEntryContents ||
 						isSavingFile
 					}
-					accessKey="s"
 				>
 					<SaveIcon />
 					<span className="hidden lg:inline-block"><u>S</u>ave</span>
@@ -220,7 +244,6 @@ export function TextEditorView() {
 						updateFileContent === openedEntryContents ||
 						isSavingFile
 					}
-					accessKey="s"
 				>
 					<PencilIcon />
 					<span className="hidden lg:inline-block"><u>R</u>ename</span>
@@ -230,7 +253,6 @@ export function TextEditorView() {
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddFileClicked}
-					accessKey="n"
 				>
 					<FileIcon />
 					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
@@ -240,7 +262,6 @@ export function TextEditorView() {
 					variant="ghost"
 					className="rounded-none"
 					onClick={onAddDirectoryClicked}
-					accessKey="n"
 				>
 					<FolderIcon />
 					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
@@ -250,7 +271,6 @@ export function TextEditorView() {
 					variant="ghost"
 					className="rounded-none"
 					onClick={onRedeployClicked}
-					accessKey="n"
 				>
 					<PackageIcon />
 					<span>Redeploy <u>P</u>ackage</span>
@@ -270,7 +290,6 @@ export function TextEditorView() {
 					variant="destructiveGhost"
 					className="rounded-none"
 					onClick={onDeleteClick}
-					accessKey="n"
 				>
 					<TrashIcon />
 					<span className="hidden xl:inline-block"><u>D</u>elete</span>
@@ -279,16 +298,15 @@ export function TextEditorView() {
 				{!isDirectory(openedEntry) && !openedEntry.package && <Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={onDiscardClick}
+					onClick={onRevertChangesClicked}
 					disabled={
 						updateFileContent === undefined ||
 						updateFileContent === openedEntryContents ||
 						isSavingFile
 					}
-					accessKey="d"
 				>
 					<Undo2Icon />
-					<span className="hidden xl:inline-block"><u>D</u>iscard Changes</span>
+					<span className="hidden xl:inline-block">Revert Changes</span>
 				</Button>}
 
 			</div>

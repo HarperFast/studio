@@ -38,7 +38,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: application command with shortcuts for creation and deletion
 	// TODO: consistently drive file and folder selection through context (particularly during creation and deletion)
 	// TODO: Split all this logic up into smaller files, right?
 	// TODO: onRenameItem f2 handling
