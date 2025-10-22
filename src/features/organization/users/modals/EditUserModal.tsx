@@ -33,17 +33,17 @@ export function EditUserModal({
 		<Dialog onOpenChange={changesMade ? onUserUpdated : closeModal} open={isModalOpen}>
 			<DialogContent className="sm:max-w-[750px]">
 				<DialogHeader>
-					<DialogTitle>{isSelf ? 'View Your Roles' : update ? 'Edit User Roles' : 'View User Roles'}</DialogTitle>
+					<DialogTitle>{update ? 'Edit ' : 'View '} {data.email} {isSelf ? '(yourself)' : ''}</DialogTitle>
 				</DialogHeader>
 
-				{!isSelf && update && (<DialogDescription>
-					To remove this user from the organization, uncheck all of the boxes below.
+				{update && (<DialogDescription>
+					To remove {isSelf ? 'your self' : 'this user'} from the organization, uncheck all of the boxes below.
 				</DialogDescription>)}
 
 				{orgRoles.map((orgRole) => (
 					<OrgUserRoleCheckbox
 						key={orgRole.id}
-						readOnly={isSelf || !update}
+						readOnly={!update}
 						canRemove={remove}
 						data={data}
 						orgRole={orgRole}
