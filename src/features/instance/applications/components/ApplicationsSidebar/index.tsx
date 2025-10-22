@@ -45,14 +45,18 @@ export function ApplicationsSidebar() {
 	// TODO: keyboard shortcut for deleting a file?
 	// TODO: stick packages under a different top level node // package-locked-icon fas fa-lock ml-2
 	// TODO: icon showing package is read-only
+
 	// TODO: new application
 	// TODO: import application
+	// TODO: restore focus after closing a modal (to the editor or the file tree)
 
 	// TODO: context menu when right click on tree
+
 	// TODO: on drag item from one folder to another
 	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
 	// TODO: open file after creating it
 	// TODO: select folder after creating it
+
 	const renameFile = useRenameFile();
 	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | null>, name: string) => renameFile(item.data, name), [renameFile]);
 
