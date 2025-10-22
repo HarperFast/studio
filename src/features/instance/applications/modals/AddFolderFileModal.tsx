@@ -14,24 +14,28 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
+import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function AddFolderFileModal({
 	isModalOpen = false,
 	setIsModalOpen,
-	isPending,
 	isAddingFolder,
-	handleAddFolderOrFile,
 }: {
 	readonly isModalOpen?: boolean;
 	readonly setIsModalOpen: (value: boolean) => void;
-	readonly isPending?: boolean;
 	readonly isAddingFolder?: boolean;
-	readonly handleAddFolderOrFile?: (name: string) => void;
 }) {
+	const { openedEntry, reloadRootEntries } = useEditorView();
+	const instanceParams = useInstanceClientIdParams();
+	const { mutate: addFolderFile, isPending } = useUpdateComponentFile();
 	const NewFileFolderSchema = z.object({
 		name: z
 			.string()
@@ -50,11 +54,43 @@ export function AddFolderFileModal({
 		},
 	});
 
+	const submitForm = useCallback((data: z.infer<typeof NewFileFolderSchema>) => {
+		if (!openedEntry) {
+			return;
+		}
+		const splitPath = openedEntry.path.split('/');
+		const intoPath = (
+			isDirectory(openedEntry)
+				? splitPath.slice(1)
+				: splitPath.slice(1, -1)
+		).join('/');
+		addFolderFile(
+			{
+				file: `${intoPath}/${data.name}`,
+				project: openedEntry.project,
+				payload: isAddingFolder ? undefined : '',
+				...instanceParams,
+			},
+			{
+				onSuccess: () => {
+					reloadRootEntries();
+					setIsModalOpen(false);
+					form.reset();
+				},
+			},
+		);
+	}, [addFolderFile, instanceParams, isAddingFolder, openedEntry, reloadRootEntries]);
+
+	const onCancelClick = useCallback(() => {
+		setIsModalOpen(false);
+		form.reset();
+	}, [setIsModalOpen, form]);
+
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
-					<form>
+					<form onSubmit={form.handleSubmit(submitForm)}>
 						<DialogHeader>
 							<DialogTitle>Add {isAddingFolder ? 'Folder' : 'File'}</DialogTitle>
 							<DialogDescription>
@@ -84,7 +120,7 @@ export function AddFolderFileModal({
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="button" variant="destructiveOutline" className="rounded-full" onClick={() => setIsModalOpen(false)}>
+								<Button type="button" variant="destructiveOutline" className="rounded-full" onClick={onCancelClick}>
 									<Ban /> Cancel
 								</Button>
 								<Button
@@ -92,13 +128,6 @@ export function AddFolderFileModal({
 									type="submit"
 									className="rounded-full"
 									disabled={isPending}
-									onClick={(e) => {
-										e.preventDefault();
-										form.handleSubmit((data) => {
-											handleAddFolderOrFile?.(data.name);
-											form.reset();
-										})();
-									}}
 								>
 									<Plus /> Add {isAddingFolder ? 'Folder' : 'File'}
 								</Button>

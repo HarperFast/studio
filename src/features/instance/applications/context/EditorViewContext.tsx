@@ -5,6 +5,7 @@ import { FileEntry } from './fileEntry';
 
 export type EditorViewContextValue = {
 	rootEntries: Array<DirectoryEntry | FileEntry>;
+	reloadRootEntries: () => void;
 
 	openedEntry: DirectoryEntry | FileEntry | null;
 	setOpenedEntry: (entry: DirectoryEntry | FileEntry | null) => void;
