@@ -24,14 +24,14 @@ import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
 
-export function AddFolderFileModal({
+export function AddDirectoryOrFileModal({
 	isModalOpen = false,
-	setIsModalOpen,
-	isAddingFolder,
+	hideModal,
+	type,
 }: {
 	readonly isModalOpen?: boolean;
-	readonly setIsModalOpen: (value: boolean) => void;
-	readonly isAddingFolder?: boolean;
+	readonly hideModal: () => void;
+	readonly type: 'directory' | 'file';
 }) {
 	const { openedEntry, reloadRootEntries } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
@@ -68,33 +68,33 @@ export function AddFolderFileModal({
 			{
 				file: `${intoPath}/${data.name}`,
 				project: openedEntry.project,
-				payload: isAddingFolder ? undefined : '',
+				payload: type === 'directory' ? undefined : '',
 				...instanceParams,
 			},
 			{
 				onSuccess: () => {
 					reloadRootEntries();
-					setIsModalOpen(false);
+					hideModal();
 					form.reset();
 				},
 			},
 		);
-	}, [addFolderFile, instanceParams, isAddingFolder, openedEntry, reloadRootEntries]);
+	}, [addFolderFile, instanceParams, type, openedEntry, reloadRootEntries]);
 
 	const onCancelClick = useCallback(() => {
-		setIsModalOpen(false);
+		hideModal();
 		form.reset();
-	}, [setIsModalOpen, form]);
+	}, [hideModal, form]);
 
 	return (
-		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+		<Dialog onOpenChange={hideModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)}>
 						<DialogHeader>
-							<DialogTitle>Add {isAddingFolder ? 'Folder' : 'File'}</DialogTitle>
+							<DialogTitle>Add {type}</DialogTitle>
 							<DialogDescription>
-								Enter the name of the {isAddingFolder ? 'folder' : 'file'} you want to add:
+								Enter the name of the {type} you want to add:
 							</DialogDescription>
 						</DialogHeader>
 
@@ -103,13 +103,11 @@ export function AddFolderFileModal({
 							name="name"
 							render={({ field }) => (
 								<FormItem className="my-2">
-									<FormLabel>{isAddingFolder ? 'Folder' : 'File'} Name</FormLabel>
+									<FormLabel>Name</FormLabel>
 									<FormControl>
 										<Input
 											disabled={isPending}
 											type="text"
-											placeholder={`${isAddingFolder ? 'New Folder' : 'New File'}`}
-											className=""
 											{...field}
 										/>
 									</FormControl>
@@ -129,7 +127,7 @@ export function AddFolderFileModal({
 									className="rounded-full"
 									disabled={isPending}
 								>
-									<Plus /> Add {isAddingFolder ? 'Folder' : 'File'}
+									<Plus /> Add {type}
 								</Button>
 							</div>
 						</DialogFooter>
