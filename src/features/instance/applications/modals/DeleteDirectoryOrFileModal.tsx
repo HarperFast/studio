@@ -31,7 +31,6 @@ export function DeleteDirectoryOrFileModal({
 					? undefined
 					: `${openedEntry.path.split('/').slice(1).join('/')}`,
 				project: openedEntry.project,
-				replicated: instanceParams.entityType === 'cluster',
 				...instanceParams,
 			},
 			{
