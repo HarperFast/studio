@@ -16,6 +16,23 @@ interface GetComponentFileResponse {
 	size: number;
 }
 
+export async function getComponentFile({
+	instanceClient,
+	file,
+	project,
+}: GetComponentFileRequest): Promise<GetComponentFileResponse> {
+	const { data } = await instanceClient.post('/', {
+		operation: 'get_component_file',
+		file,
+		project,
+	});
+	return {
+		file,
+		project,
+		...data,
+	};
+}
+
 export function getComponentFileQueryOptions({ entityId, instanceClient, file, project }: GetComponentFileRequest) {
 	return queryOptions({
 		queryKey: [
@@ -24,18 +41,7 @@ export function getComponentFileQueryOptions({ entityId, instanceClient, file, p
 			file,
 			project,
 		] as const,
-		queryFn: async (): Promise<GetComponentFileResponse> => {
-			const { data } = await instanceClient.post('/', {
-				operation: 'get_component_file',
-				file,
-				project,
-			});
-			return {
-				file,
-				project,
-				...data,
-			};
-		},
+		queryFn: () => getComponentFile({ entityId, instanceClient, file, project }),
 		enabled: !!file && !!project,
 		retry: false,
 	});

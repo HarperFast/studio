@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
+import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, Plus } from 'lucide-react';
@@ -36,7 +36,7 @@ export function AddDirectoryOrFileModal({
 }) {
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
-	const { mutate: addFolderFile, isPending } = useUpdateComponentFile();
+	const { mutate: addFolderFile, isPending } = useSetComponentFile();
 	const NewFileFolderSchema = z.object({
 		name: z
 			.string()

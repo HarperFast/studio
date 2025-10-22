@@ -1,3 +1,4 @@
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { buildItems } from '@/features/instance/applications/components/ApplicationsSidebar/buildItems';
 import {
 	DirectoryIcon,
@@ -7,14 +8,19 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useEffect, useMemo } from 'react';
-import { ControlledTreeEnvironment, Tree } from 'react-complex-tree';
+import { dropComponent } from '@/features/instance/operations/mutations/dropComponent';
+import { setComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
+import { getComponentFile } from '@/features/instance/operations/queries/getComponentFile';
+import { useCallback, useEffect, useMemo } from 'react';
+import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
+import { toast } from 'sonner';
 import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
 
 export function ApplicationsSidebar() {
 	const {
 		rootEntries,
+		reloadRootEntries,
 		openedEntry,
 		setOpenedEntry,
 		focusedItem,
@@ -25,6 +31,7 @@ export function ApplicationsSidebar() {
 		setSelectedItems,
 	} = useEditorView();
 
+	const instanceParams = useInstanceClientIdParams();
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
 	useEffect(function setOpenedEntryFromFocusedItem() {
@@ -37,7 +44,7 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: onRenameItem f2 handling
+	// TODO: rename from editor handling
 	// TODO: Split all this logic up into smaller files, right?
 
 	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
@@ -54,6 +61,75 @@ export function ApplicationsSidebar() {
 	// TODO: open file after creating it
 	// TODO: select folder after creating it
 
+	const onRenameItem = useCallback(async (item: TreeItem<FileEntry | DirectoryEntry | null>, name: string) => {
+		if (item.data && item.data?.name !== name) {
+			const oldFile = item.data.path.split('/').slice(1).join('/');
+			const newFile = item.data.path.split('/').slice(1, -1).join('/') + '/' + name;
+
+			const toastId = toast.loading('Renaming', {
+				description: 'Loading existing contents...',
+				duration: 0,
+			});
+			const fileContents = await getComponentFile({
+				...instanceParams,
+				file: oldFile,
+				project: item.data.project,
+			});
+
+			toast.loading('Renaming', {
+				id: toastId,
+				description: 'Copying to new name...',
+				duration: 0,
+			});
+			await setComponentFile({
+				...instanceParams,
+				file: newFile,
+				project: item.data.project,
+				payload: fileContents.message,
+			});
+
+			toast.loading('Renaming', {
+				id: toastId,
+				description: 'Removing old copy...',
+				duration: 0,
+			});
+			await dropComponent({
+				...instanceParams,
+				file: oldFile,
+				project: item.data.project,
+			});
+			toast.success('Renamed!', {
+				id: toastId,
+				description: 'All done!',
+				duration: 3000,
+			});
+
+			reloadRootEntries();
+
+			const existingIndex = item.index;
+			const newIndex = (item.index as string).split('/').slice(0, -1).join('/') + '/' + name;
+
+			setSelectedItems(selectedItems => {
+				const selectedIndex = selectedItems.indexOf(existingIndex);
+				if (selectedIndex >= 0) {
+					return [
+						...selectedItems.slice(0, selectedIndex),
+						...selectedItems.slice(selectedIndex + 1),
+						newIndex,
+					];
+				}
+				return selectedItems;
+			});
+
+			setFocusedItem(focusedItem => {
+				if (focusedItem === existingIndex) {
+					return newIndex;
+				}
+				return focusedItem;
+			});
+		}
+	}, [openedEntry]);
+
 	return (
 		<div className="h-full overflow-auto pr-1.5">
 			<ControlledTreeEnvironment
@@ -62,6 +138,7 @@ export function ApplicationsSidebar() {
 				canDragAndDrop={true}
 				canReorderItems={false}
 				canSearch={true}
+				onRenameItem={onRenameItem}
 				renderItemTitle={({ title, item, context }) => {
 					const data = item.data as DirectoryEntry | FileEntry | null;
 					const isDir = isDirectory(data);

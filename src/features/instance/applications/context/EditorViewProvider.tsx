@@ -1,8 +1,8 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	SetComponentFileRequest,
-	useUpdateComponentFile,
-} from '@/features/instance/operations/mutations/updateComponentFile';
+	useSetComponentFile,
+} from '@/features/instance/operations/mutations/setComponentFile';
 import { getComponentFileQueryOptions } from '@/features/instance/operations/queries/getComponentFile';
 import {
 	APIDirectoryEntry,
@@ -98,7 +98,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Save changes.
 	 */
-	const { mutate: saveComponentFile, isPending: isSavingFile } = useUpdateComponentFile();
+	const { mutate: saveComponentFile, isPending: isSavingFile } = useSetComponentFile();
 	const saveFile = useCallback(
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
