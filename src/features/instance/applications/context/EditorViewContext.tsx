@@ -1,4 +1,4 @@
-import { SetComponentFileRequest } from '@/features/instance/operations/mutations/updateComponentFile';
+import { SetComponentFileRequest } from '@/features/instance/operations/mutations/setComponentFile';
 import { createContext } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';

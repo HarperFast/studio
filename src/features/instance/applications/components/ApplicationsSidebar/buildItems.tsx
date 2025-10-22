@@ -26,7 +26,9 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 		isFolder: true,
 		children: [...directoryIds, ...fileIds],
 		data: null,
-	};
+		canMove: false,
+		canRename: false,
+	} satisfies TreeItem<null>;
 
 	return { items, rootId };
 }
@@ -54,7 +56,7 @@ function addEntry(
 			data: entry,
 			canMove: false,
 			canRename: false,
-		} satisfies TreeItem<DirectoryEntry | FileEntry>;
+		} satisfies TreeItem<DirectoryEntry>;
 		for (const child of dir.entries) {
 			addEntry(items, child);
 		}
@@ -65,6 +67,6 @@ function addEntry(
 			data: entry,
 			canMove: true,
 			canRename: true,
-		};
+		} satisfies TreeItem<FileEntry>;
 	}
 }

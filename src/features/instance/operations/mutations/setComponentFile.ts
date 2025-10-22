@@ -7,7 +7,7 @@ export interface SetComponentFileRequest extends InstanceClientConfig, InstanceT
 	project: string;
 }
 
-async function onUpdateComponentFile({ file, payload, project, entityType, instanceClient }: SetComponentFileRequest) {
+export async function setComponentFile({ file, payload, project, entityType, instanceClient }: SetComponentFileRequest) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'set_component_file',
 		file,
@@ -18,8 +18,8 @@ async function onUpdateComponentFile({ file, payload, project, entityType, insta
 	return data;
 }
 
-export function useUpdateComponentFile() {
+export function useSetComponentFile() {
 	return useMutation({
-		mutationFn: onUpdateComponentFile,
+		mutationFn: setComponentFile,
 	});
 }
