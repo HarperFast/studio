@@ -2,9 +2,6 @@ import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import {
-	DirectoryIcon,
-} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/DirectoryIcon';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { AddFolderFileModal } from '@/features/instance/applications/modals/AddFolderFileModal';
@@ -12,14 +9,13 @@ import { DeleteFolderFileModal } from '@/features/instance/applications/modals/D
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 import { useDeleteComponentFolderFile } from '@/features/instance/operations/mutations/deleteComponentFolderFile';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
-import { useUpdateComponentFile } from '@/features/instance/operations/mutations/updateComponentFile';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useToggler } from '@/hooks/useToggler';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { FileIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon } from 'lucide-react';
+import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import './directory-read-me.css';
 import Markdown from 'react-markdown';
@@ -52,13 +48,9 @@ export function TextEditorView() {
 	);
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 
-	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+	const mountedRef = useRef<Parameters<OnMount> | null>(null);
 
 	// TODO: Split all this logic up into smaller files, right?
-
-	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor) => {
-		editorRef.current = editor;
-	}, [editorRef]);
 
 	useEffect(() => {
 		const extension = parseFileExtension(openedEntry?.path);
@@ -84,37 +76,50 @@ export function TextEditorView() {
 		if (openedEntryContents) {
 			setUpdateFileContent(openedEntryContents);
 		}
-		if (editorRef) {
-			editorRef.current?.setValue(openedEntryContents || '');
+		if (mountedRef.current) {
+			const [editor] = mountedRef.current;
+			editor.setValue(openedEntryContents || '');
 		}
 	}, [openedEntryContents]);
 
-	const [isAddFolderOrFileClicked, setIsAddFolderOrFileClicked] = useState(false);
+	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
+		mountedRef.current = [editor, monaco];
+	}, [mountedRef, onSaveClick]);
+
+	useEffect(() => {
+		if (!mountedRef.current) {
+			return;
+		}
+		const [editor, monaco] = mountedRef.current;
+		const disposables = [
+			editor.addAction({
+				id: 'save-file',
+				label: 'Save Changes',
+				keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+				run: onSaveClick,
+			}),
+			editor.addAction({
+				id: 'revert-file',
+				label: 'Revert File',
+				run: onDiscardClick,
+			}),
+		];
+		return () => {
+			for (const disposable of disposables) {
+				disposable?.dispose();
+			}
+		};
+	}, [mountedRef, onSaveClick, onDiscardClick]);
+
+	const {
+		toggled: isAddFolderOrFileClicked,
+		toggleOn: onNewFileClick,
+		setToggled: setIsAddFolderOrFileClicked,
+	} = useToggler(false);
 	const { toggled: isAddingFolder, toggleOn: setIsAddingFolder } = useToggler(false);
 	const { toggled: isDeleteFolderOrFileClicked, setToggled: setIsDeleteFolderOrFileClicked } = useToggler(false);
 	const { toggled: isRedeployApplicationClicked, setToggled: setIsRedeployApplicationClicked } = useToggler(false);
-	const { mutate: addFolderFile, isPending: isAddFolderFilePending } = useUpdateComponentFile();
 	const { mutate: deleteFolderFile, isPending: isDeleteFolderFilePending } = useDeleteComponentFolderFile();
-
-	const handleAddFolderOrFile = useCallback(async (name: string) => {
-		if (!openedEntry) {
-			return;
-		}
-		addFolderFile(
-			{
-				file: `${openedEntry.path.split('/').slice(1).join('/')}/${name}`,
-				project: openedEntry.project,
-				payload: isAddingFolder ? undefined : '',
-				...instanceParams,
-			},
-			{
-				onSuccess: () => {
-					// TODO: refetchComponents();
-					setIsAddFolderOrFileClicked(false);
-				},
-			},
-		);
-	}, [addFolderFile, instanceParams, isAddingFolder, openedEntry]);
 
 	const handleDeleteFolderOrFile = useCallback(async () => {
 		if (!openedEntry) {
@@ -196,7 +201,7 @@ export function TextEditorView() {
 
 	return (
 		<>
-			{openedEntryContents && <>
+			{openedEntryContents !== undefined && <>
 				{!isDirectory(openedEntry)
 					? (<Editor
 							className="w-full min-h-full h-80"
@@ -234,7 +239,7 @@ export function TextEditorView() {
 					accessKey="s"
 				>
 					<SaveIcon />
-					<span><u>S</u>ave</span>
+					<span className="hidden lg:inline-block"><u>S</u>ave</span>
 				</Button>}
 
 				<Button
@@ -249,28 +254,28 @@ export function TextEditorView() {
 					accessKey="s"
 				>
 					<PencilIcon />
-					<span><u>R</u>ename</span>
+					<span className="hidden lg:inline-block"><u>R</u>ename</span>
 				</Button>
 
-				{isDirectory(openedEntry) && <Button
+				<Button
 					variant="ghost"
 					className="rounded-none"
-					// onClick={onNewFileClick}
+					onClick={onNewFileClick}
 					accessKey="n"
 				>
 					<FileIcon />
-					<span><u>N</u>ew File</span>
-				</Button>}
+					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
+				</Button>
 
-				{isDirectory(openedEntry) && <Button
+				<Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={setIsAddingFolder}
 					accessKey="n"
 				>
-					<DirectoryIcon />
-					<span><u>A</u>dd Directory</span>
-				</Button>}
+					<FolderIcon />
+					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
+				</Button>
 
 				{openedEntry.package && <Button
 					variant="ghost"
@@ -299,7 +304,7 @@ export function TextEditorView() {
 					accessKey="n"
 				>
 					<TrashIcon />
-					<span><u>D</u>elete</span>
+					<span className="hidden xl:inline-block"><u>D</u>elete</span>
 				</Button>
 
 				{!isDirectory(openedEntry) && <Button
@@ -313,8 +318,8 @@ export function TextEditorView() {
 					}
 					accessKey="d"
 				>
-					<SaveIcon />
-					<span><u>D</u>iscard Changes</span>
+					<Undo2Icon />
+					<span className="hidden xl:inline-block"><u>D</u>iscard Changes</span>
 				</Button>}
 
 			</div>
@@ -323,8 +328,6 @@ export function TextEditorView() {
 				isModalOpen={isAddFolderOrFileClicked}
 				setIsModalOpen={setIsAddFolderOrFileClicked}
 				isAddingFolder={isAddingFolder}
-				handleAddFolderOrFile={handleAddFolderOrFile}
-				isPending={isAddFolderFilePending}
 			/>
 			<DeleteFolderFileModal
 				isModalOpen={isDeleteFolderOrFileClicked}

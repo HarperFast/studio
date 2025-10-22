@@ -10,9 +10,8 @@ import {
 	getComponentsQueryOptions,
 } from '@/features/instance/operations/queries/getComponents';
 import { transformNodes } from '@/lib/arrays/transformNodes';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
 import { FileEntry } from './fileEntry';
@@ -22,6 +21,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | null>(null);
 	const [openedEntryContents, setOpenedEntryContents] = useState<string | null>(null);
 	const instanceParams = useInstanceClientIdParams();
+	const queryClient = useQueryClient();
+
+	const reloadRootEntries = useCallback(() => {
+		void queryClient.invalidateQueries({
+			queryKey: [instanceParams.entityId, 'get_components'],
+			refetchType: 'active',
+		});
+	}, [queryClient, instanceParams]);
 
 	/*
 	 Create our structured view from the relational API data.
@@ -91,13 +98,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 					if (openedEntry?.path === filePath && data.payload) {
 						setOpenedEntryContents(data.payload);
 					}
-					toast.success('Success', {
-						description: `${data.file.split('/').pop()} saved successfully. A restart is required to see changes.`,
-						action: {
-							label: 'Dismiss',
-							onClick: () => toast.dismiss(),
-						},
-					});
 				},
 				onError: (error) => {
 					console.error('Error saving file:', error);
@@ -114,6 +114,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		return {
 
 			rootEntries,
+			reloadRootEntries,
 
 			openedEntry,
 			setOpenedEntry,
