@@ -5,22 +5,19 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
-import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
-import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
-import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useToggler } from '@/hooks/useToggler';
+import { currySetWatchedValue, useSetWatchedValue } from '@/hooks/useWatchedValue';
+import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './directory-read-me.css';
 import Markdown from 'react-markdown';
-import { toast } from 'sonner';
 
 const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
@@ -38,7 +35,6 @@ const extensionToLanguageMap: Record<string, string> = {
 };
 
 export function TextEditorView() {
-	const queryClient = useQueryClient();
 	const { instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntryContents, openedEntry, saveFile, isSavingFile } = useEditorView();
@@ -93,55 +89,11 @@ export function TextEditorView() {
 	} = useToggler(false);
 	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
 	const { toggled: isRenamingFile, toggleOn: onRenameClick, toggleOff: onHideRenamingFileModal } = useToggler(false);
-	const {
-		toggled: isDeleteDirectoryOrFileClicked,
-		toggleOn: onDeleteClick,
-		setToggled: setIsDeleteDirectoryOrFileClicked,
-	} = useToggler(false);
-	const {
-		toggled: isRedeployApplicationClicked,
-		toggleOn: onRedeployClicked,
-		setToggled: setIsRedeployApplicationClicked,
-	} = useToggler(false);
 
 	const onHideAddDirectoryModal = useCallback(() => {
 		hideAddingDirectory();
 		hideAddingFile();
 	}, []);
-
-	const { mutate: reDeployApplication, isPending: isDeployComponentPending } = useDeployComponentMutation();
-
-	const redeployPackage = useCallback((applicationUrl: string) => {
-		if (!openedEntry) {
-			return;
-		}
-		const originalPackageUrl = openedEntry.package;
-		const toastId = toast.loading('Redeploying...');
-		reDeployApplication({
-			applicationName: openedEntry.project,
-			applicationUrl,
-			replicated: instanceParams.entityType === 'cluster',
-			...instanceParams,
-		}, {
-			onSuccess: () => {
-				toast.success(
-					`Application ${openedEntry.project} redeployed successfully`,
-					{
-						id: toastId,
-					},
-				);
-				void queryClient.invalidateQueries({
-					queryKey: [instanceParams.entityId, 'get_components'],
-					refetchType: 'active',
-				});
-				setIsRedeployApplicationClicked(false);
-			},
-			onError: () => {
-				openedEntry.package = originalPackageUrl;
-				toast.dismiss(toastId);
-			},
-		});
-	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
 
 	const restrictPackageModification = useMemo(() => {
 		if (!openedEntry) {
@@ -151,8 +103,11 @@ export function TextEditorView() {
 			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
 	}, [openedEntry?.package]);
 
+	const onDeleteClick = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true);
+	const onRedeployClicked = useSetWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, true);
+
 	useEffect(() => {
-		if (!mountedRef.current || !canManageBrowseInstance) {
+		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package) {
 			return;
 		}
 		const [editor, monaco] = mountedRef.current;
@@ -189,7 +144,7 @@ export function TextEditorView() {
 			editor.addAction({
 				id: 'delete-file',
 				label: 'Delete File',
-				run: onDeleteClick,
+				run: currySetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true),
 			}),
 		];
 		return () => {
@@ -197,7 +152,7 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, onAddFileClicked, onRenameClick, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked, onDeleteClick]);
+	}, [mountedRef, canManageBrowseInstance, openedEntry, onAddFileClicked, onRenameClick, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked]);
 
 	if (!openedEntry) {
 		return null;
@@ -243,7 +198,7 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>S</u>ave</span>
 				</Button>}
 
-				{!openedEntry.package && canManageBrowseInstance && <Button
+				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
 					onClick={onRenameClick}
@@ -320,17 +275,6 @@ export function TextEditorView() {
 			<RenameFileModal
 				isModalOpen={isRenamingFile}
 				hideModal={onHideRenamingFileModal}
-			/>
-			<DeleteDirectoryOrFileModal
-				isModalOpen={isDeleteDirectoryOrFileClicked}
-				setIsModalOpen={setIsDeleteDirectoryOrFileClicked}
-			/>
-			<RedeployApplicationModal
-				isModalOpen={isRedeployApplicationClicked}
-				setIsModalOpen={setIsRedeployApplicationClicked}
-				redeployPackage={redeployPackage}
-				isRedeployPackagePending={isDeployComponentPending}
-				packageUrl={openedEntry.package}
 			/>
 		</>
 	);

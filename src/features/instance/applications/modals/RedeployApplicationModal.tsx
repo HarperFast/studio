@@ -7,30 +7,67 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
+import { setWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
+import { useQueryClient } from '@tanstack/react-query';
 import { Ban, RefreshCwIcon } from 'lucide-react';
-import { FormEvent, useEffect } from 'react';
+import { FormEvent, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
-export function RedeployApplicationModal({
-	isModalOpen = false,
-	setIsModalOpen,
-	redeployPackage,
-	isRedeployPackagePending,
-	packageUrl,
-}: {
-	readonly isModalOpen: boolean;
-	readonly setIsModalOpen: (value: boolean) => void;
-	readonly redeployPackage: (applicationUrl: string) => void;
-	readonly isRedeployPackagePending?: boolean;
-	readonly packageUrl?: string;
-}) {
+export function RedeployApplicationModal() {
+	const isModalOpen = useWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+
+	const queryClient = useQueryClient();
+	const instanceParams = useInstanceClientIdParams();
+
+	const { openedEntry } = useEditorView();
+	const packageUrl = openedEntry?.package;
+
+	const { mutate: reDeployApplication, isPending } = useDeployComponentMutation();
+
+	const redeployPackage = useCallback((applicationUrl: string) => {
+		if (!openedEntry) {
+			return;
+		}
+		const originalPackageUrl = openedEntry.package;
+		const toastId = toast.loading('Redeploying...');
+		reDeployApplication({
+			applicationName: openedEntry.project,
+			applicationUrl,
+			replicated: instanceParams.entityType === 'cluster',
+			...instanceParams,
+		}, {
+			onSuccess: () => {
+				toast.success(
+					`Application ${openedEntry.project} redeployed successfully`,
+					{
+						id: toastId,
+					},
+				);
+				void queryClient.invalidateQueries({
+					queryKey: [instanceParams.entityId, 'get_components'],
+					refetchType: 'active',
+				});
+				setWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+			},
+			onError: () => {
+				openedEntry.package = originalPackageUrl;
+				toast.dismiss(toastId);
+			},
+		});
+	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
+
 	const methods = useForm({
 		defaultValues: {
 			applicationUrl: packageUrl,
 		},
 	});
 
-	const { setFocus, control, handleSubmit } = methods;
+	const { control, handleSubmit } = methods;
 
 	const submitForm = ({ applicationUrl }: { applicationUrl: string | undefined }) => {
 		if (applicationUrl) {
@@ -38,16 +75,14 @@ export function RedeployApplicationModal({
 		}
 	};
 
-	useEffect(() => {
-		setFocus('applicationUrl');
-	}, [setFocus]);
+	const modalClosed = useCallback(() => {
+		setWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, false);
+		methods.reset({ applicationUrl: packageUrl });
+	}, [isModalOpen, methods]);
 
 	return (
 		<Dialog
-			onOpenChange={() => {
-				setIsModalOpen(!isModalOpen);
-				methods.reset({ applicationUrl: packageUrl });
-			}}
+			onOpenChange={modalClosed}
 			open={isModalOpen}
 		>
 			<DialogContent aria-describedby={undefined} className="text-white">
@@ -69,7 +104,7 @@ export function RedeployApplicationModal({
 											<Input
 												type="text"
 												defaultValue={packageUrl}
-												placeholder="https://github.com/HarperFast/status-check"
+												autoFocus={true}
 												{...field}
 												onChange={(e: FormEvent<HTMLInputElement>) => {
 													field.onChange(e.currentTarget.value);
@@ -84,7 +119,7 @@ export function RedeployApplicationModal({
 								variant="positiveOutline"
 								type="submit"
 								className="w-full rounded-full"
-								disabled={isRedeployPackagePending}
+								disabled={isPending}
 							>
 								<RefreshCwIcon /> Redeploy Application
 							</Button>
@@ -92,11 +127,8 @@ export function RedeployApplicationModal({
 								type="button"
 								variant="default"
 								className="w-full rounded-full"
-								onClick={() => {
-									setIsModalOpen(false);
-									methods.reset({ applicationUrl: packageUrl });
-								}}
-								disabled={isRedeployPackagePending}
+								onClick={modalClosed}
+								disabled={isPending}
 							>
 								<Ban /> Cancel
 							</Button>

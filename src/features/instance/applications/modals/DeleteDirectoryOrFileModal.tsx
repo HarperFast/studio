@@ -4,16 +4,14 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
+import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { Ban, Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 
-export function DeleteDirectoryOrFileModal({
-	isModalOpen = false,
-	setIsModalOpen,
-}: {
-	readonly isModalOpen: boolean;
-	readonly setIsModalOpen: (value: boolean) => void;
-}) {
+export function DeleteDirectoryOrFileModal() {
+	const isModalOpen = useWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
+
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems } = useEditorView();
 	const isDirectorySelected = isDirectory(openedEntry);
@@ -35,7 +33,7 @@ export function DeleteDirectoryOrFileModal({
 			},
 			{
 				onSuccess: () => {
-					setIsModalOpen(false);
+					setWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
 					const itemToFocus = !openedEntry.package && openedEntry.path.split('/').slice(0, -1).join('/');
 					setFocusedItem(itemToFocus || undefined);
 					setSelectedItems(itemToFocus ? [itemToFocus] : []);
@@ -50,12 +48,10 @@ export function DeleteDirectoryOrFileModal({
 		handleDeleteFolderOrFile();
 	}, [handleDeleteFolderOrFile]);
 
-	const onClickNo = useCallback(() => {
-		setIsModalOpen(false);
-	}, [setIsModalOpen]);
+	const closeModal = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
 
 	return (
-		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<DialogHeader>
 					<DialogTitle>Delete {thing}</DialogTitle>
@@ -68,7 +64,7 @@ export function DeleteDirectoryOrFileModal({
 				</DialogHeader>
 
 				<div className="flex w-full gap-4">
-					<Button variant="ghostOutline" className="w-full rounded-full" onClick={onClickNo}>
+					<Button variant="ghostOutline" className="w-full rounded-full" onClick={closeModal}>
 						<Ban /> Cancel
 					</Button>
 					<Button
