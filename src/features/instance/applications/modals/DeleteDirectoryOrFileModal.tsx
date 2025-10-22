@@ -15,10 +15,10 @@ export function DeleteDirectoryOrFileModal({
 	readonly setIsModalOpen: (value: boolean) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntry, reloadRootEntries, setOpenedEntry } = useEditorView();
-	const isFolderSelected = isDirectory(openedEntry);
+	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems } = useEditorView();
+	const isDirectorySelected = isDirectory(openedEntry);
 	const isPackageSelected = !!openedEntry?.package;
-	const thing = isPackageSelected ? 'Package' : isFolderSelected ? 'Folder' : 'File';
+	const thing = isPackageSelected ? 'Package' : isDirectorySelected ? 'Directory' : 'File';
 	const { mutate: deleteFolderFile, isPending, isSuccess } = useDropComponent();
 
 	const handleDeleteFolderOrFile = useCallback(() => {
@@ -37,7 +37,9 @@ export function DeleteDirectoryOrFileModal({
 			{
 				onSuccess: () => {
 					setIsModalOpen(false);
-					setOpenedEntry(null);
+					const itemToFocus = !openedEntry.package && openedEntry.path.split('/').slice(0, -1).join('/');
+					setFocusedItem(itemToFocus || undefined);
+					setSelectedItems(itemToFocus ? [itemToFocus] : []);
 					reloadRootEntries();
 				},
 			},

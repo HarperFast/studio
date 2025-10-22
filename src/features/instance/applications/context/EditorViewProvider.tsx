@@ -9,9 +9,11 @@ import {
 	APIFileEntry,
 	getComponentsQueryOptions,
 } from '@/features/instance/operations/queries/getComponents';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { transformNodes } from '@/lib/arrays/transformNodes';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
+import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
 import { FileEntry } from './fileEntry';
@@ -58,8 +60,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				} satisfies DirectoryEntry | FileEntry;
 			},
 		);
-
 	}, [apiComponents]);
+
+	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package).map<TreeItemIndex>(rootEntry => rootEntry.name);
+	const defaultFocusedItem = defaultFolderExpansions[0] as TreeItemIndex | undefined;
+	const defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
+	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}', defaultFocusedItem);
+	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceParams.entityId}` as 'FolderOpened/{entityId}', defaultFolderExpansions);
+	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}', defaultSelectedItem);
 
 	/*
 	 Load the selected file contents.
@@ -95,7 +103,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		(data: SetComponentFileRequest, filePath: string) => {
 			saveComponentFile(data, {
 				onSuccess: () => {
-					if (openedEntry?.path === filePath && data.payload) {
+					if (openedEntry?.path === filePath && data.payload !== undefined) {
 						setOpenedEntryContents(data.payload);
 					}
 				},
@@ -116,6 +124,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			rootEntries,
 			reloadRootEntries,
 
+			focusedItem,
+			setFocusedItem,
+			expandedItems,
+			setExpandedItems,
+			selectedItems,
+			setSelectedItems,
+
 			openedEntry,
 			setOpenedEntry,
 
@@ -126,6 +141,25 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			isSavingFile,
 
 		};
-	}, [rootEntries, openedEntry, openedEntryContents, isSavingFile]);
+	}, [
+		rootEntries,
+		reloadRootEntries,
+
+		focusedItem,
+		setFocusedItem,
+		expandedItems,
+		setExpandedItems,
+		selectedItems,
+		setSelectedItems,
+
+		openedEntry,
+		setOpenedEntry,
+
+		openedEntryContents,
+		setOpenedEntryContents,
+
+		saveFile,
+		isSavingFile,
+	]);
 	return <EditorViewContext.Provider value={value}>{children}</EditorViewContext.Provider>;
 }
