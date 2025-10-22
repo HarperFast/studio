@@ -17,7 +17,6 @@ import { Input } from '@/components/ui/input';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFile } from '@/features/instance/applications/hooks/useRenameFile';
 import { useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
-import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,8 +24,8 @@ import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function RenameFileModal() {
-	const isModalOpen = useWatchedValue(WatchedValueKeys.ShowRenameFileModal, false);
-	const hideModal = useSetWatchedValue(WatchedValueKeys.ShowRenameFileModal, false);
+	const isModalOpen = useWatchedValue('ShowRenameFileModal', false);
+	const hideModal = useSetWatchedValue('ShowRenameFileModal', false);
 
 	const { openedEntry } = useEditorView();
 	const RenameFileSchema = z.object({

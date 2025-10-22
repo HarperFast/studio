@@ -5,12 +5,11 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
 import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
-import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { Ban, Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 
 export function DeleteDirectoryOrFileModal() {
-	const isModalOpen = useWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
+	const isModalOpen = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems } = useEditorView();
@@ -33,7 +32,7 @@ export function DeleteDirectoryOrFileModal() {
 			},
 			{
 				onSuccess: () => {
-					setWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
+					setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 					const itemToFocus = !openedEntry.package && openedEntry.path.split('/').slice(0, -1).join('/');
 					setFocusedItem(itemToFocus || undefined);
 					setSelectedItems(itemToFocus ? [itemToFocus] : []);
@@ -48,7 +47,7 @@ export function DeleteDirectoryOrFileModal() {
 		handleDeleteFolderOrFile();
 	}, [handleDeleteFolderOrFile]);
 
-	const closeModal = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, false);
+	const closeModal = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
