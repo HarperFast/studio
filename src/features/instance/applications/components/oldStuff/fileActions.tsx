@@ -28,7 +28,7 @@
 // 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 // 	const instanceParams = useInstanceClientParams();
 // 	const crumbPath = openedEntry?.path.split('/').join('/').replace(/\//g, ' > ');
-//
+// TODO: here's the import / new stuff to migrate
 // 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 //
 // 	return (
