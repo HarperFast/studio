@@ -61,7 +61,8 @@ export function TextEditorView() {
 			return false;
 		}
 		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
-			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
+			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
+			|| openedEntry.package === 'Imported Applications';
 	}, [openedEntry?.package]);
 
 	useEffect(() => {
@@ -220,14 +221,15 @@ export function TextEditorView() {
 					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
 				</Button>}
 
-				{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification && <Button
-					variant="ghost"
-					className="rounded-none"
-					onClick={onRedeployClick}
-				>
-					<PackageIcon />
-					<span>Redeploy <u>P</u>ackage</span>
-				</Button>}
+				{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification &&
+					<Button
+						variant="ghost"
+						className="rounded-none"
+						onClick={onRedeployClick}
+					>
+						<PackageIcon />
+						<span>Redeploy <u>P</u>ackage</span>
+					</Button>}
 
 				{canManageBrowseInstance && <RestartButton
 					targetNoun={targetNoun}

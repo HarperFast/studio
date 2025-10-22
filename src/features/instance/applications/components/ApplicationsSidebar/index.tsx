@@ -2,12 +2,16 @@ import { buildItems } from '@/features/instance/applications/components/Applicat
 import {
 	DirectoryIcon,
 } from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/DirectoryIcon';
+import {
+	LockedIcon,
+} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/LockedIcon';
 import { getItemTitle } from '@/features/instance/applications/components/ApplicationsSidebar/getItemTitle';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFile } from '@/features/instance/applications/hooks/useRenameFile';
+import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
@@ -38,9 +42,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: stick packages under a different top level node // package-locked-icon fas fa-lock ml-2
-	// TODO: icon showing package is read-only
-
 	// TODO: new application
 	// TODO: import application
 	// TODO: restore focus after closing a modal (to the editor or the file tree)
@@ -69,19 +70,22 @@ export function ApplicationsSidebar() {
 				canSearch={true}
 				onRenameItem={onRenameItem}
 				renderItemTitle={({ title, item, context }) => {
-					const data = item.data as DirectoryEntry | FileEntry | null;
-					const isDir = isDirectory(data);
-					const name = title;
-					const ext = !isDir ? (name.includes('.') ? name.split('.').pop()?.toLowerCase() ?? null : null) : null;
 					return (
 						<>
-							{isDir ? <DirectoryIcon opened={context.isExpanded} /> : <FileTypeIcon extension={ext} />}
-							<span>{name}</span>
+							{
+								isDirectory(item.data)
+									? <DirectoryIcon
+										opened={context.isExpanded}
+										pkg={!!item.data?.package || title === 'Imported Applications'} />
+									: <FileTypeIcon extension={parseFileExtension(title)} />
+							}
+							<span className="text-nowrap">{title}</span>
+							{item.data?.package && <LockedIcon />}
 						</>
 					);
 				}}
 				viewState={{
-					['applicationsTree']: {
+					applicationsTree: {
 						focusedItem,
 						expandedItems,
 						selectedItems,
