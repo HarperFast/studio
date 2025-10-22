@@ -16,7 +16,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFile } from '@/features/instance/applications/hooks/useRenameFile';
-import { useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

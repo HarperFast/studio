@@ -6,7 +6,8 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { currySetWatchedValue, useSetWatchedValue } from '@/hooks/useWatchedValue';
+import { curryEmitToListeners, useEmitToListeners, useListener } from '@/lib/events/listener';
+import { currySetWatchedValue, useSetWatchedValue } from '@/lib/events/watcher';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';
@@ -33,12 +34,13 @@ const extensionToLanguageMap: Record<string, string> = {
 export function TextEditorView() {
 	const { instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntryContents, openedEntry, saveFile, isSavingFile } = useEditorView();
+	const { openedEntryContents, openedEntry, isSavingFile, saveFile } = useEditorView();
 	const [language, setLanguage] = useState('javascript');
 	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | undefined>(
 		openedEntryContents || undefined,
 		[openedEntryContents],
 	);
+	const fileIsClean = updateFileContent === undefined || updateFileContent === openedEntryContents;
 	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
@@ -50,33 +52,9 @@ export function TextEditorView() {
 		setLanguage(updatedLanguage);
 	}, [openedEntry]);
 
-	const onSaveClick = useCallback(() => {
-		if (openedEntry && updateFileContent !== undefined) {
-			saveFile(
-				{
-					...instanceParams,
-					file: openedEntry.path.split('/').slice(1).join('/'),
-					payload: updateFileContent,
-					project: openedEntry.project,
-				},
-				openedEntry.path,
-			);
-		}
-	}, [updateFileContent, saveFile, instanceParams, openedEntry]);
-
-	const onRevertChangesClicked = useCallback(() => {
-		if (openedEntryContents) {
-			setUpdateFileContent(openedEntryContents);
-		}
-		if (mountedRef.current) {
-			const [editor] = mountedRef.current;
-			editor.setValue(openedEntryContents || '');
-		}
-	}, [openedEntryContents]);
-
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		mountedRef.current = [editor, monaco];
-	}, [mountedRef, onSaveClick]);
+	}, [mountedRef]);
 
 	const restrictPackageModification = useMemo(() => {
 		if (!openedEntry) {
@@ -115,12 +93,12 @@ export function TextEditorView() {
 				id: 'save-file',
 				label: 'Save Changes',
 				keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
-				run: onSaveClick,
+				run: curryEmitToListeners('SaveFile', true),
 			}),
 			editor.addAction({
 				id: 'revert-file',
 				label: 'Revert File',
-				run: onRevertChangesClicked,
+				run: curryEmitToListeners('RevertChanges', true),
 			}),
 			editor.addAction({
 				id: 'delete-file',
@@ -133,19 +111,49 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, openedEntry, onSaveClick, onRevertChangesClicked]);
+	}, [mountedRef, canManageBrowseInstance, openedEntry]);
 
 	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
 	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');
 	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
 	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
+	const onSaveClick = useEmitToListeners('SaveFile', true);
+	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
+
+	useListener(
+		'SaveFile',
+		() => {
+			if (openedEntry && updateFileContent !== undefined) {
+				saveFile(
+					{
+						...instanceParams,
+						file: openedEntry.path.split('/').slice(1).join('/'),
+						payload: updateFileContent,
+						project: openedEntry.project,
+					},
+					openedEntry.path,
+				);
+			}
+		},
+		[openedEntry, instanceParams, updateFileContent],
+	);
+
+	useListener(
+		'RevertChanges',
+		() => {
+			if (openedEntryContents && mountedRef.current) {
+				const [editor] = mountedRef.current;
+				setUpdateFileContent(openedEntryContents);
+				editor.setValue(openedEntryContents);
+			}
+		},
+		[openedEntryContents, mountedRef],
+	);
 
 	if (!openedEntry) {
 		return null;
 	}
-
-	const fileIsClean = updateFileContent === undefined || updateFileContent === openedEntryContents;
 
 	return (
 		<>

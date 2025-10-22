@@ -4,7 +4,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
-import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { Ban, Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 

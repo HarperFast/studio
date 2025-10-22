@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
-import { setWatchedValue, useWatchedValue } from '@/hooks/useWatchedValue';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, RefreshCwIcon } from 'lucide-react';
 import { FormEvent, useCallback } from 'react';
