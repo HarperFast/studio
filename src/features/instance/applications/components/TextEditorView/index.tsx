@@ -4,11 +4,8 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
-import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { useToggler } from '@/hooks/useToggler';
 import { currySetWatchedValue, useSetWatchedValue } from '@/hooks/useWatchedValue';
 import { WatchedValueKeys } from '@/lib/storage/watchedValueKeys';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
@@ -82,19 +79,6 @@ export function TextEditorView() {
 		mountedRef.current = [editor, monaco];
 	}, [mountedRef, onSaveClick]);
 
-	const {
-		toggled: isAddingDirectory,
-		toggleOn: onAddDirectoryClicked,
-		toggleOff: hideAddingDirectory,
-	} = useToggler(false);
-	const { toggled: isAddingFile, toggleOn: onAddFileClicked, toggleOff: hideAddingFile } = useToggler(false);
-	const { toggled: isRenamingFile, toggleOn: onRenameClick, toggleOff: onHideRenamingFileModal } = useToggler(false);
-
-	const onHideAddDirectoryModal = useCallback(() => {
-		hideAddingDirectory();
-		hideAddingFile();
-	}, []);
-
 	const restrictPackageModification = useMemo(() => {
 		if (!openedEntry) {
 			return false;
@@ -103,32 +87,30 @@ export function TextEditorView() {
 			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric');
 	}, [openedEntry?.package]);
 
-	const onDeleteClick = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true);
-	const onRedeployClicked = useSetWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, true);
-
 	useEffect(() => {
 		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package) {
 			return;
 		}
 		const [editor, monaco] = mountedRef.current;
+		// TODO: Split these out too.
 		const disposables = [
 			editor.addAction({
 				id: 'new-file',
 				label: 'New File',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
-				run: onAddFileClicked,
+				run: currySetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'file'),
 			}),
 			editor.addAction({
 				id: 'rename-file',
 				label: 'Rename File',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyR],
-				run: onRenameClick,
+				run: currySetWatchedValue(WatchedValueKeys.ShowRenameFileModal, true),
 			}),
 			editor.addAction({
 				id: 'new-directory',
 				label: 'New Directory',
 				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyN],
-				run: onAddDirectoryClicked,
+				run: currySetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'directory'),
 			}),
 			editor.addAction({
 				id: 'save-file',
@@ -152,7 +134,13 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, openedEntry, onAddFileClicked, onRenameClick, onAddDirectoryClicked, onSaveClick, onRevertChangesClicked]);
+	}, [mountedRef, canManageBrowseInstance, openedEntry, onSaveClick, onRevertChangesClicked]);
+
+	const onAddFileClick = useSetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'file');
+	const onAddDirectoryClick = useSetWatchedValue(WatchedValueKeys.ShowAddDirectoryOrFileModalType, 'directory');
+	const onRenameClick = useSetWatchedValue(WatchedValueKeys.ShowRenameFileModal, true);
+	const onDeleteClick = useSetWatchedValue(WatchedValueKeys.ShowDeleteDirectoryOrFileModal, true);
+	const onRedeployClick = useSetWatchedValue(WatchedValueKeys.ShowRedeployApplicationModal, true);
 
 	if (!openedEntry) {
 		return null;
@@ -211,7 +199,7 @@ export function TextEditorView() {
 				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={onAddFileClicked}
+					onClick={onAddFileClick}
 				>
 					<FileIcon />
 					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
@@ -220,7 +208,7 @@ export function TextEditorView() {
 				{!openedEntry.package && canManageBrowseInstance && <Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={onAddDirectoryClicked}
+					onClick={onAddDirectoryClick}
 				>
 					<FolderIcon />
 					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
@@ -229,7 +217,7 @@ export function TextEditorView() {
 				{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification && <Button
 					variant="ghost"
 					className="rounded-none"
-					onClick={onRedeployClicked}
+					onClick={onRedeployClick}
 				>
 					<PackageIcon />
 					<span>Redeploy <u>P</u>ackage</span>
@@ -266,16 +254,6 @@ export function TextEditorView() {
 					<span className="hidden xl:inline-block"><u>D</u>elete</span>
 				</Button>}
 			</div>
-
-			<AddDirectoryOrFileModal
-				isModalOpen={isAddingDirectory || isAddingFile}
-				hideModal={onHideAddDirectoryModal}
-				type={isAddingDirectory ? 'directory' : 'file'}
-			/>
-			<RenameFileModal
-				isModalOpen={isRenamingFile}
-				hideModal={onHideRenamingFileModal}
-			/>
 		</>
 	);
 }

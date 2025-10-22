@@ -1,5 +1,7 @@
+import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
+import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
 import { useToggler } from '@/hooks/useToggler';
 import { cx } from 'class-variance-authority';
 import { PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
@@ -36,8 +38,10 @@ export function ApplicationsEditor() {
 				<TextEditorView />
 			</div>
 
+			<AddDirectoryOrFileModal />
 			<DeleteDirectoryOrFileModal />
 			<RedeployApplicationModal />
+			<RenameFileModal />
 		</EditorViewProvider>
 	);
 }
