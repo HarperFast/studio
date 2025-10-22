@@ -35,7 +35,8 @@ export function RestartButton({
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 				disabled={disabled || isRestartPending || isRestartClusterPending}
 			>
-				<RotateCcwIcon /> Restart {targetNoun}
+				<RotateCcwIcon />
+				<span className="hidden md:inline-block">Restart {targetNoun}</span>
 			</Button>
 		</TooltipTrigger>
 		<TooltipContent>
