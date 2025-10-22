@@ -2,22 +2,19 @@ import { MouseEvent, useCallback, useMemo, useState } from 'react';
 
 export function useToggler(defaultValue?: boolean) {
 	const [toggled, setToggled] = useState<boolean>(defaultValue || false);
-	const toggle = useCallback((e: MouseEvent) => {
-		e.preventDefault();
+	const toggle = useCallback((e?: MouseEvent | unknown) => {
+		(e as MouseEvent)?.preventDefault?.();
 		setToggled((checked: boolean) => {
 			return !checked;
 		});
-		return false;
 	}, []);
-	const toggleOn = useCallback((e?: MouseEvent) => {
-		e?.preventDefault();
+	const toggleOn = useCallback((e?: MouseEvent | unknown) => {
+		(e as MouseEvent)?.preventDefault?.();
 		setToggled(true);
-		return false;
 	}, []);
-	const toggleOff = useCallback((e?: MouseEvent) => {
-		e?.preventDefault();
+	const toggleOff = useCallback((e?: MouseEvent | unknown) => {
+		(e as MouseEvent)?.preventDefault?.();
 		setToggled(false);
-		return false;
 	}, []);
 	return useMemo(() => {
 		return {
