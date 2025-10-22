@@ -47,11 +47,24 @@ function addEntry(
 				childFileIds.push(childEntry.path);
 			}
 		}
-		items[index] = { index, isFolder: true, children: [...childDirectoryIds, ...childFileIds], data: entry };
+		items[index] = {
+			index,
+			isFolder: true,
+			children: [...childDirectoryIds, ...childFileIds],
+			data: entry,
+			canMove: false,
+			canRename: false,
+		} satisfies TreeItem<DirectoryEntry | FileEntry>;
 		for (const child of dir.entries) {
 			addEntry(items, child);
 		}
 	} else {
-		items[index] = { index, isFolder: false, data: entry };
+		items[index] = {
+			index,
+			isFolder: false,
+			data: entry,
+			canMove: true,
+			canRename: true,
+		};
 	}
 }
