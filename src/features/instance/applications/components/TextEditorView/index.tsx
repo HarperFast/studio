@@ -1,22 +1,13 @@
-import { RestartButton } from '@/components/RestartButton';
-import { Button } from '@/components/ui/button';
-import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import {
-	importedApplications,
-	newApplication,
-} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
-import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { ContentActions } from '@/features/instance/applications/components/ContentActions';
+import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { curryEmitToListeners, useEmitToListeners, useListener } from '@/lib/events/listener';
-import { currySetWatchedValue, useSetWatchedValue } from '@/lib/events/watcher';
+import { curryEmitToListeners, useListener } from '@/lib/events/listener';
+import { currySetWatchedValue } from '@/lib/events/watcher';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
-import { useParams } from '@tanstack/react-router';
-import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import './directory-read-me.css';
 
 const extensionToLanguageMap: Record<string, string> = {
@@ -35,19 +26,17 @@ const extensionToLanguageMap: Record<string, string> = {
 };
 
 export function TextEditorView() {
-	const { instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntryContents, openedEntry, isSavingFile, saveFile } = useEditorView();
-	const [language, setLanguage] = useState('javascript');
-	const [updateFileContent, setUpdateFileContent] = useEffectedState<string | undefined>(
-		openedEntryContents || undefined,
-		[openedEntryContents],
-	);
-	const fileIsClean = updateFileContent === undefined || updateFileContent === openedEntryContents;
-	const targetNoun = instanceId || isLocalStudio ? 'Instance' : 'Cluster';
-	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile } = useEditorView();
+	const { content: updatedFileContent, setContent } = useEditorFileContent(openedEntry?.path);
 
+	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
+		setContent(newValue !== openedEntryContents ? newValue : undefined);
+	}, []);
+
+	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const mountedRef = useRef<Parameters<OnMount> | null>(null);
+	const [language, setLanguage] = useState('javascript');
 
 	useEffect(() => {
 		const extension = parseFileExtension(openedEntry?.path);
@@ -58,16 +47,6 @@ export function TextEditorView() {
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		mountedRef.current = [editor, monaco];
 	}, [mountedRef]);
-
-	const restrictPackageModification = useMemo(() => {
-		if (!openedEntry) {
-			return false;
-		}
-		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
-			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
-			|| openedEntry.path === importedApplications
-			|| openedEntry.path === newApplication;
-	}, [openedEntry?.package]);
 
 	useEffect(() => {
 		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package || restrictPackageModification) {
@@ -117,38 +96,30 @@ export function TextEditorView() {
 		};
 	}, [mountedRef, canManageBrowseInstance, openedEntry, restrictPackageModification]);
 
-	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
-	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');
-	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
-	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
-	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
-	const onSaveClick = useEmitToListeners('SaveFile', true);
-	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
-
 	useListener(
 		'SaveFile',
 		() => {
-			if (openedEntry && updateFileContent !== undefined && !fileIsClean && !isSavingFile) {
+			if (openedEntry && !isSavingFile && updatedFileContent !== undefined) {
 				saveFile(
 					{
 						...instanceParams,
 						file: openedEntry.path.split('/').slice(1).join('/'),
-						payload: updateFileContent,
+						payload: updatedFileContent,
 						project: openedEntry.project,
 					},
 					openedEntry.path,
 				);
 			}
 		},
-		[openedEntry, instanceParams, updateFileContent],
+		[openedEntry, instanceParams, updatedFileContent],
 	);
 
 	useListener(
 		'RevertChanges',
 		() => {
-			if (openedEntryContents && mountedRef.current) {
+			if (openedEntryContents !== undefined && mountedRef.current) {
 				const [editor] = mountedRef.current;
-				setUpdateFileContent(openedEntryContents);
+				setUpdatedFileContent(undefined);
 				editor.setValue(openedEntryContents);
 			}
 		},
@@ -165,98 +136,17 @@ export function TextEditorView() {
 				className="w-full min-h-full h-80"
 				language={language}
 				theme="vs-dark"
-				value={openedEntryContents || ''}
+				value={updatedFileContent ?? openedEntryContents}
 				onMount={handleEditorDidMount}
-				onChange={setUpdateFileContent}
+				onChange={setUpdatedFileContent}
 				options={{
 					automaticLayout: true,
 					minimap: { enabled: false },
-					readOnly: !!openedEntry.package || !canManageBrowseInstance,
+					readOnly: isSavingFile || !!openedEntry.package || !canManageBrowseInstance,
 					padding: { top: 50 },
 				}}
 			/>
-
-			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12 -mr-1">
-
-				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
-					variant="default"
-					className="rounded-none"
-					onClick={onSaveClick}
-					disabled={fileIsClean || isSavingFile}
-				>
-					<SaveIcon />
-					<span className="hidden lg:inline-block"><u>S</u>ave</span>
-				</Button>}
-
-				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
-					variant="ghost"
-					className="rounded-none"
-					onClick={onRenameClick}
-					disabled={!fileIsClean || isSavingFile}
-				>
-					<PencilIcon />
-					<span className="hidden lg:inline-block"><u>R</u>ename</span>
-				</Button>}
-
-				{!openedEntry.package && canManageBrowseInstance && <Button
-					variant="ghost"
-					className="rounded-none"
-					onClick={onAddFileClick}
-				>
-					<FileIcon />
-					<span className="hidden lg:inline-block"><u>N</u>ew File</span>
-				</Button>}
-
-				{!openedEntry.package && canManageBrowseInstance && <Button
-					variant="ghost"
-					className="rounded-none"
-					onClick={onAddDirectoryClick}
-				>
-					<FolderIcon />
-					<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
-				</Button>}
-
-				{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification &&
-					<Button
-						variant="ghost"
-						className="rounded-none"
-						onClick={onRedeployClick}
-					>
-						<PackageIcon />
-						<span>Redeploy <u>P</u>ackage</span>
-					</Button>}
-
-				{canManageBrowseInstance && <RestartButton
-					targetNoun={targetNoun}
-					instanceClient={instanceParams.instanceClient}
-					operation="restart_service"
-					variant="ghost"
-					className="rounded-none"
-					disabled={!fileIsClean || isSavingFile}
-				/>}
-
-				<div className="grow"></div>
-
-
-				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
-					variant="ghost"
-					className="rounded-none"
-					onClick={onRevertChangesClicked}
-					disabled={fileIsClean || isSavingFile}
-				>
-					<Undo2Icon />
-					<span className="hidden xl:inline-block">Revert Changes</span>
-				</Button>}
-
-				{!restrictPackageModification && canManageBrowseInstance && <Button
-					variant="destructiveGhost"
-					className="rounded-none"
-					onClick={onDeleteClick}
-				>
-					<TrashIcon />
-					<span className="hidden xl:inline-block"><u>D</u>elete</span>
-				</Button>}
-			</div>
+			<ContentActions />
 		</>
 	);
 }

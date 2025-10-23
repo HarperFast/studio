@@ -5,6 +5,7 @@ export interface WatchedValuesTypeMap {
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowRedeployApplicationModal: boolean;
 	ShowRenameFileModal: boolean;
+	'Session:{key}': unknown;
 }
 
 export type WatchedValueKeys = keyof WatchedValuesTypeMap;

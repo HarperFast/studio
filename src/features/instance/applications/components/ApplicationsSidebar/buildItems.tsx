@@ -1,18 +1,14 @@
-import {
-	importedApplications,
-	newApplication,
-	rootId,
-} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import type { TreeItem } from 'react-complex-tree';
+import { importedApplications, newApplication, rootId } from './specialItems';
 
 export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
-	items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>>;
+	items: Record<string, TreeItem<DirectoryEntry | FileEntry | undefined>>;
 	rootId: string
 } {
-	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>> = {};
+	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | undefined>> = {};
 
 	const directoryIds: string[] = [];
 	const applicationIds: string[] = [];
@@ -34,10 +30,10 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 		index: rootId,
 		isFolder: true,
 		children: [newApplication, importedApplications, ...directoryIds, ...fileIds],
-		data: null,
+		data: undefined,
 		canMove: false,
 		canRename: false,
-	} satisfies TreeItem<null>;
+	} satisfies TreeItem<undefined>;
 
 	items[importedApplications] = {
 		index: importedApplications,
@@ -70,7 +66,7 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 }
 
 function addEntry(
-	items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>>,
+	items: Record<string, TreeItem<DirectoryEntry | FileEntry | undefined>>,
 	entry: DirectoryEntry | FileEntry,
 ) {
 	const index = entry.path;

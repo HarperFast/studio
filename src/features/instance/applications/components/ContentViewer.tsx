@@ -1,5 +1,6 @@
 import { Loading } from '@/components/Loading';
 import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
+import { ContentActions } from '@/features/instance/applications/components/ContentActions';
 import { TextEditorView } from '@/features/instance/applications/components/TextEditorView';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -14,14 +15,10 @@ export function ContentViewer() {
 	}
 
 	if (isDirectory(openedEntry)) {
-		if (openedEntryContents !== undefined) {
-			return <div className="directoryReadMe max-w-4xl">
-				<Markdown>
-					{openedEntryContents}
-				</Markdown>
-			</div>;
-		}
-		return <span></span>;
+		return <div className="directoryReadMe max-w-4xl">
+			<ContentActions />
+			<Markdown>{openedEntryContents}</Markdown>
+		</div>;
 	}
 	if (openedEntryContents === undefined) {
 		return <Loading />;

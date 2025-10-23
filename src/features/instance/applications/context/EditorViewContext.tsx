@@ -8,11 +8,12 @@ export type EditorViewContextValue = {
 	rootEntries: Array<DirectoryEntry | FileEntry>;
 	reloadRootEntries: () => void;
 
-	openedEntry: DirectoryEntry | FileEntry | null;
-	setOpenedEntry: (entry: DirectoryEntry | FileEntry | null) => void;
+	openedEntry: DirectoryEntry | FileEntry | undefined;
+	setOpenedEntry: (entry: DirectoryEntry | FileEntry | undefined) => void;
 
-	openedEntryContents: string | null;
-	setOpenedEntryContents: (contents: string | null) => void;
+	restrictPackageModification: boolean;
+	openedEntryContents: string | undefined;
+	setOpenedEntryContents: (contents: string | undefined) => void;
 
 	focusedItem: TreeItemIndex | undefined,
 	setFocusedItem: (entry: TreeItemIndex | undefined | ((prevState: TreeItemIndex | undefined) => TreeItemIndex | undefined)) => void,

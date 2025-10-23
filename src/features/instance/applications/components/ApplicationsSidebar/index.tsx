@@ -1,6 +1,3 @@
-import { buildItems } from '@/features/instance/applications/components/ApplicationsSidebar/buildItems';
-import { getItemTitle } from '@/features/instance/applications/components/ApplicationsSidebar/getItemTitle';
-import { ItemTitle } from '@/features/instance/applications/components/ApplicationsSidebar/ItemTitle';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -13,6 +10,9 @@ import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { DraggingPosition } from 'react-complex-tree/src/types';
 import { toast } from 'sonner';
+import { buildItems } from './buildItems';
+import { getItemTitle } from './getItemTitle';
+import { ItemTitle } from './ItemTitle';
 
 export function ApplicationsSidebar() {
 	const {
@@ -40,7 +40,7 @@ export function ApplicationsSidebar() {
 	}, [openedEntry, focusedItem, items]);
 
 	const renameFiles = useRenameFiles();
-	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | null>[], target: DraggingPosition) => {
+	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
 		switch (target.targetType) {
 			case 'item':
 				if (items[target.targetItem]?.data?.package) {
@@ -60,7 +60,7 @@ export function ApplicationsSidebar() {
 				break;
 		}
 	}, [items]);
-	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | null>, name: string) => {
+	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | undefined>, name: string) => {
 		if (item.data) {
 			return renameFiles([
 				{

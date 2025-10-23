@@ -1,25 +1,22 @@
-import {
-	NewApplicationIcon,
-} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/NewApplicationIcon';
-import {
-	importedApplications,
-	newApplication,
-} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
+import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { TreeItem } from 'react-complex-tree';
 import { TreeItemRenderContext } from 'react-complex-tree/src/types';
-import { DirectoryIcon } from './FileTreeExplorer/DirectoryIcon';
-import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
-import { LockedIcon } from './FileTreeExplorer/LockedIcon';
+import { DirectoryIcon } from './DirectoryIcon';
+import { FileTypeIcon } from './FileTypeIcon';
+import { LockedIcon } from './LockedIcon';
+import { NewApplicationIcon } from './NewApplicationIcon';
+import { importedApplications, newApplication } from './specialItems';
 
 export function ItemTitle({ title, item, context }: {
 	title: string;
-	item: TreeItem<DirectoryEntry | FileEntry | null>,
+	item: TreeItem<DirectoryEntry | FileEntry | undefined>,
 	context: TreeItemRenderContext
 }) {
+	const { content } = useEditorFileContent(item.data?.path);
 	return <>
 		{
 			item.data?.path === newApplication
@@ -30,7 +27,7 @@ export function ItemTitle({ title, item, context }: {
 						pkg={!!item.data?.package || item.data.path === importedApplications} />
 					: <FileTypeIcon extension={parseFileExtension(title)} />
 		}
-		<span className="text-nowrap">{title}</span>
+		<span className="text-nowrap">{title}{content ? '*' : ''}</span>
 		{item.data?.package && <LockedIcon />}
 	</>;
 }
