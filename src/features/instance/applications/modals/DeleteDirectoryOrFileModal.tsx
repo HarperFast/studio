@@ -15,8 +15,10 @@ export function DeleteDirectoryOrFileModal() {
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems } = useEditorView();
 	const isDirectorySelected = isDirectory(openedEntry);
 	const isPackageSelected = !!openedEntry?.package;
-	const thing = isPackageSelected ? 'Package' : isDirectorySelected ? 'Directory' : 'File';
+	const action = isPackageSelected ? 'Remove' : 'Delete';
+	const thing = isPackageSelected ? 'Imported Application' : isDirectorySelected ? 'Directory' : 'File';
 	const { mutate: deleteFolderFile, isPending, isSuccess } = useDropComponent();
+	const actionStatus = isSuccess ? `${action}d` : isPending ? `${action.slice(0, -1)}ing` : action;
 
 	const handleDeleteFolderOrFile = useCallback(() => {
 		if (!openedEntry) {
@@ -53,9 +55,9 @@ export function DeleteDirectoryOrFileModal() {
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<DialogHeader>
-					<DialogTitle>Delete {thing}</DialogTitle>
+					<DialogTitle>{action} {thing}</DialogTitle>
 					<DialogDescription>
-						Are you sure you want to delete this {thing.toLowerCase()}?
+						Are you sure you want to {action.toLowerCase()} this {thing.toLowerCase()}?
 					</DialogDescription>
 					<DialogDescription>
 						{openedEntry?.path}
@@ -74,7 +76,7 @@ export function DeleteDirectoryOrFileModal() {
 						autoFocus={true}
 						onClick={onClickYes}
 					>
-						<Trash /> {isSuccess ? 'Deleted' : isPending ? 'Deleting' : 'Delete'} {thing}{isPending ? '...' : ''}
+						<Trash /> {actionStatus} {thing}{isPending ? '...' : ''}
 					</Button>
 				</div>
 			</DialogContent>
