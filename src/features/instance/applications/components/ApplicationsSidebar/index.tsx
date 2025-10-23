@@ -45,6 +45,7 @@ export function ApplicationsSidebar() {
 
 	// TODO: context menu when right click on tree
 	// TODO: warn when new file / new folder / rename will overwrite something else
+	// TODO: warn when moving to a different file without saving changes, or flag with a * and maintain their edits
 
 	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
 	//  copy-cut-paste selections?)
