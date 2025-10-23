@@ -7,7 +7,7 @@ import { curryEmitToListeners, useListener } from '@/lib/events/listener';
 import { currySetWatchedValue } from '@/lib/events/watcher';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import './directory-read-me.css';
 
 const extensionToLanguageMap: Record<string, string> = {
@@ -35,7 +35,7 @@ export function TextEditorView() {
 	}, []);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
-	const mountedRef = useRef<Parameters<OnMount> | null>(null);
+	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
 	const [language, setLanguage] = useState('javascript');
 
 	useEffect(() => {
@@ -45,14 +45,14 @@ export function TextEditorView() {
 	}, [openedEntry]);
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
-		mountedRef.current = [editor, monaco];
-	}, [mountedRef]);
+		setMounted([editor, monaco]);
+	}, []);
 
 	useEffect(() => {
-		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package || restrictPackageModification) {
+		if (!mounted || !canManageBrowseInstance || !!openedEntry?.package || restrictPackageModification) {
 			return;
 		}
-		const [editor, monaco] = mountedRef.current;
+		const [editor, monaco] = mounted;
 		const disposables = [
 			editor.addAction({
 				id: 'new-file',
@@ -94,7 +94,7 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, openedEntry, restrictPackageModification]);
+	}, [mounted, canManageBrowseInstance, openedEntry, restrictPackageModification]);
 
 	useListener(
 		'SaveFile',
@@ -117,13 +117,13 @@ export function TextEditorView() {
 	useListener(
 		'RevertChanges',
 		() => {
-			if (openedEntryContents !== undefined && mountedRef.current) {
-				const [editor] = mountedRef.current;
+			if (openedEntryContents !== undefined && mounted) {
+				const [editor] = mounted;
 				setUpdatedFileContent(undefined);
 				editor.setValue(openedEntryContents);
 			}
 		},
-		[openedEntryContents, mountedRef],
+		[openedEntryContents, mounted],
 	);
 
 	if (!openedEntry) {
