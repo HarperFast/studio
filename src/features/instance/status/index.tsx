@@ -1,8 +1,8 @@
 import { isLocalStudio } from '@/config/constants';
-import { CloudStatus } from '@/features/instance/status/CloudStatus';
-import { LocalStatus } from '@/features/instance/status/LocalStatus';
-import { Monitoring } from '@/features/instance/status/components/Monitoring.tsx';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient.tsx';
+import { CloudStatus } from '@/features/instance/status/CloudStatus';
+import { Monitoring } from '@/features/instance/status/components/Monitoring.tsx';
+import { LocalStatus } from '@/features/instance/status/LocalStatus';
 
 export function StatusIndex() {
 	const instanceParams = useInstanceClientIdParams();
@@ -12,7 +12,8 @@ export function StatusIndex() {
 			<div className="">
 				<Monitoring instanceParams={instanceParams} />
 			</div>
-				{isLocalStudio ? <LocalStatus instanceParams={instanceParams} /> : <CloudStatus instanceParams={instanceParams} />}
+			{isLocalStudio ? <LocalStatus instanceParams={instanceParams} /> :
+				<CloudStatus instanceParams={instanceParams} />}
 		</div>
 	);
 }
