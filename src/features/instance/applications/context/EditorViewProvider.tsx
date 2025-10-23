@@ -64,13 +64,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	}, [apiComponents]);
 
 	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package && rootEntry.path !== newApplication).map<TreeItemIndex>(rootEntry => rootEntry.name);
-	let defaultFocusedItem = defaultFolderExpansions[0] as TreeItemIndex | undefined;
+	let defaultFocusedItem = defaultFolderExpansions[0];
 	let defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
 	if (!defaultFocusedItem) {
 		defaultFocusedItem = newApplication;
 		defaultSelectedItem = [newApplication];
 	}
-	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}', defaultFocusedItem);
+	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}', defaultFocusedItem as TreeItemIndex | undefined);
 	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceParams.entityId}` as 'FolderOpened/{entityId}', defaultFolderExpansions);
 	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}', defaultSelectedItem);
 

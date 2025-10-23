@@ -18,7 +18,6 @@ import { useParams } from '@tanstack/react-router';
 import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './directory-read-me.css';
-import Markdown from 'react-markdown';
 
 const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
@@ -162,29 +161,20 @@ export function TextEditorView() {
 
 	return (
 		<>
-			{openedEntryContents !== undefined && <>
-				{!isDirectory(openedEntry)
-					? (<Editor
-							className="w-full min-h-full h-80"
-							language={language}
-							theme="vs-dark"
-							value={openedEntryContents || ''}
-							onMount={handleEditorDidMount}
-							onChange={setUpdateFileContent}
-							options={{
-								automaticLayout: true,
-								minimap: { enabled: false },
-								readOnly: !!openedEntry.package || !canManageBrowseInstance,
-								padding: { top: 50 },
-							}}
-						/>
-					)
-					: (<div className="directoryReadMe max-w-4xl">
-						<Markdown>
-							{openedEntryContents}
-						</Markdown>
-					</div>)}
-			</>}
+			<Editor
+				className="w-full min-h-full h-80"
+				language={language}
+				theme="vs-dark"
+				value={openedEntryContents || ''}
+				onMount={handleEditorDidMount}
+				onChange={setUpdateFileContent}
+				options={{
+					automaticLayout: true,
+					minimap: { enabled: false },
+					readOnly: !!openedEntry.package || !canManageBrowseInstance,
+					padding: { top: 50 },
+				}}
+			/>
 
 			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12 -mr-1">
 
