@@ -36,9 +36,6 @@ export function parsePackageType(pkg: { url: string }) {
 		meta.type = 'npm';
 		const parts = pkg.url.split('/');
 
-		// TODO: what should this format be?
-		// what does the form need?
-
 		if (parts.length === 1) {
 			// no scope, e.g harperdb[@2], not @harperdb/harperdb[@2]
 

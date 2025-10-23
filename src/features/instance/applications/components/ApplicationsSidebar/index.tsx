@@ -1,21 +1,18 @@
 import { buildItems } from '@/features/instance/applications/components/ApplicationsSidebar/buildItems';
-import {
-	DirectoryIcon,
-} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/DirectoryIcon';
-import {
-	LockedIcon,
-} from '@/features/instance/applications/components/ApplicationsSidebar/FileTreeExplorer/LockedIcon';
 import { getItemTitle } from '@/features/instance/applications/components/ApplicationsSidebar/getItemTitle';
+import { ItemTitle } from '@/features/instance/applications/components/ApplicationsSidebar/ItemTitle';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
-import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useRenameFile } from '@/features/instance/applications/hooks/useRenameFile';
-import { parseFileExtension } from '@/lib/string/parseFileExtension';
+import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
+import { joinPath } from '@/lib/string/paths/joinPath';
+import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
-import { FileTypeIcon } from './FileTreeExplorer/FileTypeIcon';
+import { DraggingPosition } from 'react-complex-tree/src/types';
+import { toast } from 'sonner';
 
 export function ApplicationsSidebar() {
 	const {
@@ -52,45 +49,55 @@ export function ApplicationsSidebar() {
 	//  copy-cut-paste selections?)
 	// TODO: keyboard shortcut for deleting a file?
 
-	// TODO: on drag item from one folder to another
 	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
-	// TODO: open file after creating it
-	// TODO: select folder after creating it
+	// TODO: resizable left tray
 
-	const renameFile = useRenameFile();
-	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | null>, name: string) => renameFile(item.data, name), [renameFile]);
+	const renameFiles = useRenameFiles();
+	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | null>[], target: DraggingPosition) => {
+		switch (target.targetType) {
+			case 'item':
+				if (items[target.targetItem]?.data?.package) {
+					toast.error('Read-Only Imported Application', {
+						description: 'To make changes to an application, please click the "Redeploy" button and update the' +
+							' reference.',
+					});
+				} else {
+					return renameFiles(droppedItems.map(item => ({
+						from: item.index as string,
+						to: joinPath(target.targetItem as string, extractFileNameFromPath(item.index as string)),
+					})));
+				}
+				break;
+			default:
+				toast.error(`${target.targetType} drop not yet supported`);
+				break;
+		}
+	}, [items]);
+	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | null>, name: string) => {
+		if (item.data) {
+			return renameFiles([
+				{
+					from: item.data.path,
+					to: renameFileInPath(item.data.path, name),
+				},
+			]);
+		}
+	}, [renameFiles]);
 
 	return (
 		<div className="h-full overflow-auto pr-1.5">
 			<ControlledTreeEnvironment
-				items={items}
-				getItemTitle={(item) => getItemTitle(item)}
 				canDragAndDrop={true}
+				canDropOnFolder={true}
+				canDropOnNonFolder={false}
 				canReorderItems={false}
 				canSearch={true}
+				getItemTitle={(item) => getItemTitle(item)}
+				items={items}
+				onDrop={onDrop}
 				onRenameItem={onRenameItem}
-				renderItemTitle={({ title, item, context }) => {
-					return (
-						<>
-							{
-								isDirectory(item.data)
-									? <DirectoryIcon
-										opened={context.isExpanded}
-										pkg={!!item.data?.package || title === 'Imported Applications'} />
-									: <FileTypeIcon extension={parseFileExtension(title)} />
-							}
-							<span className="text-nowrap">{title}</span>
-							{item.data?.package && <LockedIcon />}
-						</>
-					);
-				}}
-				viewState={{
-					applicationsTree: {
-						focusedItem,
-						expandedItems,
-						selectedItems,
-					},
-				}}
+				renderItemTitle={ItemTitle}
+				viewState={{ applicationsTree: { focusedItem, expandedItems, selectedItems } }}
 				onFocusItem={item => setFocusedItem(item.index)}
 				onExpandItem={item => setExpandedItems([...expandedItems, item.index])}
 				onCollapseItem={item =>
