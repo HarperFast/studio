@@ -44,6 +44,7 @@ export function ApplicationsSidebar() {
 	// TODO: restore focus after closing a modal (to the editor or the file tree)
 
 	// TODO: context menu when right click on tree
+	// TODO: warn when new file / new folder / rename will overwrite something else
 
 	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
 	//  copy-cut-paste selections?)
