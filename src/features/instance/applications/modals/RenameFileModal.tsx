@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Ban, PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -43,7 +44,7 @@ export function RenameFileModal() {
 			}),
 	});
 	const [isPending, setIsPending] = useState(false);
-	const renameFile = useRenameFiles();
+	const renameFiles = useRenameFiles();
 
 	const form = useForm({
 		resolver: zodResolver(RenameFileSchema),
@@ -61,7 +62,12 @@ export function RenameFileModal() {
 		}
 
 		setIsPending(true);
-		await renameFile(openedEntry, data.name);
+		await renameFiles([
+			{
+				from: openedEntry.path,
+				to: renameFileInPath(openedEntry.path, data.name),
+			},
+		]);
 		hideModal();
 		form.reset();
 		setIsPending(false);
