@@ -59,9 +59,9 @@ export function DeleteDirectoryOrFileModal() {
 					<DialogDescription>
 						Are you sure you want to {action.toLowerCase()} this {thing.toLowerCase()}?
 					</DialogDescription>
-					<DialogDescription>
+					{!isPackageSelected && <DialogDescription>
 						{openedEntry?.path}
-					</DialogDescription>
+					</DialogDescription>}
 				</DialogHeader>
 
 				<div className="flex w-full gap-4">
