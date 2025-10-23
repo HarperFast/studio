@@ -39,21 +39,6 @@ export function ApplicationsSidebar() {
 		}
 	}, [openedEntry, focusedItem, items]);
 
-	// TODO: new application
-	// TODO: import application
-	// TODO: restore focus after closing a modal (to the editor or the file tree)
-
-	// TODO: context menu when right click on tree
-	// TODO: warn when new file / new folder / rename will overwrite something else
-	// TODO: warn when moving to a different file without saving changes, or flag with a * and maintain their edits
-
-	// TODO: keyboard shortcuts when the editor isn't focused (creating files and folders, deleting, can we
-	//  copy-cut-paste selections?)
-	// TODO: keyboard shortcut for deleting a file?
-
-	// TODO: on drop file or folder from outside the editor to upload stuff rapidly
-	// TODO: resizable left tray
-
 	const renameFiles = useRenameFiles();
 	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | null>[], target: DraggingPosition) => {
 		switch (target.targetType) {

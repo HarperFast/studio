@@ -1,3 +1,8 @@
+import {
+	importedApplications,
+	newApplication,
+	rootId,
+} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
@@ -8,8 +13,6 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	rootId: string
 } {
 	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | null>> = {};
-	const rootId = '__root__';
-	const importedApplications = 'importedApplications';
 
 	const directoryIds: string[] = [];
 	const applicationIds: string[] = [];
@@ -30,7 +33,7 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	items[rootId] = {
 		index: rootId,
 		isFolder: true,
-		children: [importedApplications, ...directoryIds, ...fileIds],
+		children: [newApplication, importedApplications, ...directoryIds, ...fileIds],
 		data: null,
 		canMove: false,
 		canRename: false,
@@ -42,14 +45,26 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 		children: applicationIds,
 		data: {
 			name: 'Imported Applications',
-			package: 'Imported Applications',
-			path: '',
+			path: importedApplications,
+			package: importedApplications,
 			project: '',
 			entries: [],
 		},
 		canMove: false,
 		canRename: false,
 	} satisfies TreeItem<DirectoryEntry>;
+
+	items[newApplication] = {
+		index: newApplication,
+		isFolder: false,
+		data: {
+			name: 'New Application',
+			path: newApplication,
+			project: '',
+		},
+		canMove: false,
+		canRename: false,
+	} satisfies TreeItem<FileEntry>;
 
 	return { items, rootId };
 }

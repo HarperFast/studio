@@ -2,6 +2,10 @@ import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	importedApplications,
+	newApplication,
+} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEffectedState } from '@/hooks/useEffectedState';
@@ -62,11 +66,12 @@ export function TextEditorView() {
 		}
 		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
 			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
-			|| openedEntry.package === 'Imported Applications';
+			|| openedEntry.path === importedApplications
+			|| openedEntry.path === newApplication;
 	}, [openedEntry?.package]);
 
 	useEffect(() => {
-		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package) {
+		if (!mountedRef.current || !canManageBrowseInstance || !!openedEntry?.package || restrictPackageModification) {
 			return;
 		}
 		const [editor, monaco] = mountedRef.current;
@@ -111,7 +116,7 @@ export function TextEditorView() {
 				disposable?.dispose();
 			}
 		};
-	}, [mountedRef, canManageBrowseInstance, openedEntry]);
+	}, [mountedRef, canManageBrowseInstance, openedEntry, restrictPackageModification]);
 
 	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
 	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');

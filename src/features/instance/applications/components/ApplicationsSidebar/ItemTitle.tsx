@@ -1,3 +1,4 @@
+import { importedApplications } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
@@ -18,7 +19,7 @@ export function ItemTitle({ title, item, context }: {
 			isDirectory(item.data)
 				? <DirectoryIcon
 					opened={context.isExpanded}
-					pkg={!!item.data?.package || title === 'Imported Applications'} />
+					pkg={!!item.data?.package || item.data.path === importedApplications} />
 				: <FileTypeIcon extension={parseFileExtension(title)} />
 		}
 		<span className="text-nowrap">{title}</span>
