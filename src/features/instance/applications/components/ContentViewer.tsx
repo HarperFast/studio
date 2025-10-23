@@ -1,4 +1,3 @@
-import { Loading } from '@/components/Loading';
 import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { ContentActions } from '@/features/instance/applications/components/ContentActions';
 import { TextEditorView } from '@/features/instance/applications/components/TextEditorView';
@@ -19,9 +18,6 @@ export function ContentViewer() {
 			<ContentActions />
 			<Markdown>{openedEntryContents}</Markdown>
 		</div>;
-	}
-	if (openedEntryContents === undefined) {
-		return <Loading />;
 	}
 	return <TextEditorView />;
 }
