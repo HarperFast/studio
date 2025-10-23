@@ -1,5 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
+import {
+	importedApplications,
+	newApplication,
+} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
+import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
@@ -21,8 +25,9 @@ import { FileEntry } from './fileEntry';
 import { isDirectory } from './isDirectory';
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
-	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | null>(null);
-	const [openedEntryContents, setOpenedEntryContents] = useState<string | null>(null);
+	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | undefined>(undefined);
+	const [openedEntryContents, setOpenedEntryContents] = useState<string | undefined>(undefined);
+	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntry?.path);
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 
@@ -94,9 +99,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			loadedPath === pathToLoad &&
 			getComponentFileQueryData?.message
 		) {
-			setOpenedEntryContents(getComponentFileQueryData.message);
+			setOpenedEntryContents(getComponentFileQueryData.message || undefined);
 		} else {
-			setOpenedEntryContents(null);
+			setOpenedEntryContents(undefined);
 		}
 	}, [getComponentFileQueryData, pathToLoad]);
 
@@ -109,7 +114,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			saveComponentFile(data, {
 				onSuccess: () => {
 					if (openedEntry?.path === filePath && data.payload !== undefined) {
-						setOpenedEntryContents(data.payload);
+						setOpenedEntryContents(data.payload || undefined);
+						setUpdatedEntryContents(undefined);
 					}
 				},
 				onError: (error) => {
@@ -117,8 +123,18 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[saveComponentFile, openedEntry],
+		[saveComponentFile, setUpdatedEntryContents, openedEntry],
 	);
+
+	const restrictPackageModification = useMemo(() => {
+		if (!openedEntry) {
+			return false;
+		}
+		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
+			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
+			|| openedEntry.path === importedApplications
+			|| openedEntry.path === newApplication;
+	}, [openedEntry?.package]);
 
 	/*
 	 Memoize the tracked state.
@@ -136,6 +152,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			selectedItems,
 			setSelectedItems,
 
+			restrictPackageModification,
 			openedEntry,
 			setOpenedEntry,
 
@@ -157,6 +174,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		selectedItems,
 		setSelectedItems,
 
+		restrictPackageModification,
 		openedEntry,
 		setOpenedEntry,
 
