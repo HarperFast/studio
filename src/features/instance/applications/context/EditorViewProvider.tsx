@@ -1,4 +1,5 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
@@ -62,9 +63,13 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		);
 	}, [apiComponents]);
 
-	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package).map<TreeItemIndex>(rootEntry => rootEntry.name);
-	const defaultFocusedItem = defaultFolderExpansions[0] as TreeItemIndex | undefined;
-	const defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
+	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package && rootEntry.path !== newApplication).map<TreeItemIndex>(rootEntry => rootEntry.name);
+	let defaultFocusedItem = defaultFolderExpansions[0] as TreeItemIndex | undefined;
+	let defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
+	if (!defaultFocusedItem) {
+		defaultFocusedItem = newApplication;
+		defaultSelectedItem = [newApplication];
+	}
 	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}', defaultFocusedItem);
 	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceParams.entityId}` as 'FolderOpened/{entityId}', defaultFolderExpansions);
 	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}', defaultSelectedItem);
