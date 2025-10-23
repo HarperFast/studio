@@ -1,3 +1,4 @@
+import { ContentViewer } from '@/features/instance/applications/components/ContentViewer';
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
@@ -6,7 +7,6 @@ import { useToggler } from '@/hooks/useToggler';
 import { cx } from 'class-variance-authority';
 import { PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
-import { TextEditorView } from './components/TextEditorView';
 import { EditorViewProvider } from './context/EditorViewProvider';
 
 export function ApplicationsEditor() {
@@ -35,7 +35,7 @@ export function ApplicationsEditor() {
 			</aside>
 
 			<div className={cx('relative transition-all md:ml-56 h-[calc(100vh-theme(spacing.32))] overflow-hidden', toggled && 'sm:ml-56')}>
-				<TextEditorView />
+				<ContentViewer />
 			</div>
 
 			<AddDirectoryOrFileModal />

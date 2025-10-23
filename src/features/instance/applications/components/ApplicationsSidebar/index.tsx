@@ -79,7 +79,7 @@ export function ApplicationsSidebar() {
 				canDropOnNonFolder={false}
 				canReorderItems={false}
 				canSearch={true}
-				getItemTitle={(item) => getItemTitle(item)}
+				getItemTitle={getItemTitle}
 				items={items}
 				onDrop={onDrop}
 				onRenameItem={onRenameItem}
