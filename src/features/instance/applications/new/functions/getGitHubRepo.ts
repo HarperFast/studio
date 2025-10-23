@@ -91,7 +91,6 @@ function parsePackageType(pkg: PackageInput | null): PackageMeta | null {
 		meta.type = 'npm';
 		const parts = pkg.url.split('/');
 
-		// TODO: what should this format be?
 		// what does the form need?
 
 		if (parts.length === 1) {

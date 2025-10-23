@@ -181,7 +181,7 @@ export function TextEditorView() {
 					</div>)}
 			</>}
 
-			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-12 -mr-1">
+			<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12 -mr-1">
 
 				{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 					variant="default"
