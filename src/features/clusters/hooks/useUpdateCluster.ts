@@ -8,7 +8,7 @@ async function onEditClusterSubmit(
 	const { data } = await apiClient.put(
 		`/Cluster/${clusterInfo.id}` as '/Cluster/{id}',
 		{ regionPlans: clusterInfo.regionPlans },
-		{ timeout: 120_000 },
+		{ timeout: 0 },
 	);
 	return data;
 }
