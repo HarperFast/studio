@@ -51,6 +51,7 @@ export function CreateNewApplicationForm({
 			},
 		});
 	};
+
 	return (
 		<div className="mx-auto max-w-96">
 			<Form {...form}>

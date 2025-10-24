@@ -27,14 +27,14 @@ export function ApplicationsEditor() {
 
 			<aside id="file-explorer-sidebar" className={cx(
 				'pt-[calc(theme(spacing.32))] w-56 h-screen fixed top-0 left-0 z-30',
-				'bg-black-dark',
+				'bg-black-dark shadow shadow-black',
 				'transition-transform -translate-x-full',
 				toggled ? 'translate-x-0' : 'md:translate-x-0',
 			)} aria-label="Sidebar">
 				<ApplicationsSidebar />
 			</aside>
 
-			<div className={cx('relative transition-all md:ml-56 h-[calc(100vh-theme(spacing.32))] overflow-hidden', toggled && 'sm:ml-56')}>
+			<div className={cx('relative md:ml-56 h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:ml-56')}>
 				<ContentViewer />
 			</div>
 
