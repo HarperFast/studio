@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import {
 	CreateComponentFormData,
-	useCreateComponentMutation,
-} from '@/features/instance/operations/mutations/createComponent';
+	useAddComponentMutation,
+} from '@/features/instance/operations/mutations/addComponent';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -42,7 +42,7 @@ export function CreateNewApplicationForm({
 		},
 	});
 
-	const { mutate: createNewApplication, isPending: isCreateNewApplicationPending } = useCreateComponentMutation();
+	const { mutate: createNewApplication, isPending: isCreateNewApplicationPending } = useAddComponentMutation();
 	const submitForm = (formData: CreateComponentFormData) => {
 		createNewApplication({ ...formData, ...instanceParams }, {
 			onSuccess: () => {
