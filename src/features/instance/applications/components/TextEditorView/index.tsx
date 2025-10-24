@@ -29,11 +29,11 @@ const extensionToLanguageMap: Record<string, string> = {
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile } = useEditorView();
-	const { content: updatedFileContent, setContent } = useEditorFileContent(openedEntry?.path);
+	const { content: updatedFileContent, setContent } = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
-	}, []);
+	}, [openedEntryContents]);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
@@ -131,6 +131,8 @@ export function TextEditorView() {
 		return null;
 	}
 
+	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance;
+
 	return (
 		<>
 			<Editor
@@ -139,11 +141,11 @@ export function TextEditorView() {
 				theme="vs-dark"
 				value={updatedFileContent ?? openedEntryContents}
 				onMount={handleEditorDidMount}
-				onChange={setUpdatedFileContent}
+				onChange={readOnly ? undefined : setUpdatedFileContent}
 				options={{
 					automaticLayout: true,
 					minimap: { enabled: false },
-					readOnly: isSavingFile || !!openedEntry.package || !canManageBrowseInstance,
+					readOnly,
 					padding: { top: 48 },
 				}}
 			/>
