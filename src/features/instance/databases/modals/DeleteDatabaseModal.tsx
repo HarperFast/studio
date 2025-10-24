@@ -1,23 +1,23 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
-import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
-import { Trash } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
 
 export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 	readonly databaseName: string;
-	readonly onDeleted: () => void;
+	readonly onDeleted: (deleted: 'table' | 'database') => void;
 }) {
+	const isModalOpen = useWatchedValue('ShowDeleteDatabase', false);
+	const closeModal = useSetWatchedValue('ShowDeleteDatabase', false);
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	const router = useRouter();
-	const [isModalOpen, setIsModalOpen] = useState(false);
 	const { mutate: deleteDatabase, isPending: isDeletingDatabase } = useDeleteDatabaseMutation();
 
 	const onDeleteDatabase = useCallback(() => {
@@ -27,14 +27,14 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 			replicated: instanceParams.entityType === 'cluster',
 		}, {
 			onSuccess: async () => {
-				setIsModalOpen(false);
+				closeModal();
 				await queryClient.invalidateQueries({
 					queryKey: [instanceParams.entityId, 'describe_all'],
 					refetchType: 'all',
 				});
 				await router.invalidate();
 				toast.success(`Database ${databaseName} dropped successfully`);
-				onDeleted();
+				onDeleted('database');
 			},
 		});
 	}, [databaseName, deleteDatabase, instanceParams, onDeleted, queryClient, router]);
@@ -50,19 +50,9 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 			transitiveVerb="Drop"
 			presentParticiple="Dropping"
 			isModalOpen={isModalOpen}
-			setIsModalOpen={setIsModalOpen}
+			setIsModalOpen={closeModal}
 			deletionConfirmed={onDeleteDatabase}
 			deletionPending={isDeletingDatabase}
-			trigger={<Button
-				className="w-full rounded-full"
-				size="sm"
-				aria-label="Delete selected database"
-				variant="destructiveOutline"
-				disabled={isDeletingDatabase}
-				onClick={() => setIsModalOpen(true)}
-			>
-				<Trash /> Drop Database
-			</Button>}
 		/>
 	);
 }
