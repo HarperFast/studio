@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { templates } from '@/features/instance/applications/modals/templates';
+import { useCLISteps } from '@/features/instance/applications/modals/useCLISteps';
 import {
 	CreateComponentFormData,
 	useCreateComponentMutation,
@@ -84,7 +85,8 @@ export function NewApplication() {
 		},
 	});
 
-	const appName = form.watch('applicationName');
+	const appName = form.watch('applicationName') || defaultApplicationName;
+	const cliSteps = useCLISteps(appName, instanceParams.instanceClient.defaults.baseURL);
 
 	// TODO: Most of these will be in the form state instead.
 	const [selectedTemplate, setSelectedTemplate] = useState(templates[0].id);
@@ -161,7 +163,7 @@ export function NewApplication() {
 			</div>
 
 			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="flex flex-col gap-4 m-4">
+				<form onSubmit={form.handleSubmit(submitForm)} className="flex flex-col gap-4 p-4">
 
 					<Card className="bg-black-dark">
 						<CardHeader>
@@ -420,87 +422,38 @@ export function NewApplication() {
 									</CardDescription>
 								</CardHeader>
 								<CardContent className="space-y-6">
-									<div className="space-y-3">
-										<div className="flex items-center gap-2">
-											<div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-												1
-											</div>
-											<h3>Install Harper CLI</h3>
-										</div>
-										<div className="ml-8">
-											<div className="bg-muted rounded-lg p-4 flex items-center justify-between group">
-												<code className="text-sm">npm install -g harperdb</code>
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => void navigator.clipboard.writeText('npm install -g harperdb')}
-												>
-													<CopyIcon className="w-4 h-4" />
-												</Button>
-											</div>
-										</div>
-									</div>
 
-									<Separator />
-
-									<div className="space-y-3">
-										<div className="flex items-center gap-2">
-											<div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-												2
+									{cliSteps.map((cliStep, index) => (
+										<div key={cliStep.title} className="space-y-3">
+											<div className="flex items-center gap-2">
+												<div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+													{index + 1}
+												</div>
+												<h3>{cliStep.title}</h3>
 											</div>
-											<h3>Login to Harper</h3>
-										</div>
-										<div className="ml-8">
-											<div className="bg-muted rounded-lg p-4 flex items-center justify-between group">
-												<code className="text-sm">harperdb login</code>
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => void navigator.clipboard.writeText('harperdb login')}
-												>
-													<CopyIcon className="w-4 h-4" />
-												</Button>
-											</div>
-											<p className="text-muted-foreground text-sm mt-2">
-												You will be prompted to enter your credentials
-											</p>
-										</div>
-									</div>
+											<div className="ml-8">
+												<div className="bg-black-dark rounded-lg p-4 flex items-center justify-between group">
+													<code className="text-sm whitespace-pre truncate">{cliStep.code}</code>
+													<Button
+														variant="default"
+														size="sm"
+														onClick={() => void navigator.clipboard.writeText(cliStep.code)}
+													>
+														<CopyIcon className="w-4 h-4" />
+													</Button>
+												</div>
+												{cliStep.note && <p className="text-muted-foreground text-sm mt-2">{cliStep.note}</p>}
 
-									<Separator />
-
-									<div className="space-y-3">
-										<div className="flex items-center gap-2">
-											<div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-												3
+												{cliStep.alert && (<Alert className="mt-2">
+													<TerminalIcon className="w-4 h-4" />
+													<AlertDescription>{cliStep.alert}</AlertDescription>
+												</Alert>)}
 											</div>
-											<h3>Deploy Application</h3>
-										</div>
-										<div className="ml-8 space-y-3">
-											<div className="bg-muted rounded-lg p-4 flex items-center justify-between group">
-												<code className="text-sm">harperdb deploy --cluster=name</code>
-												<Button
-													variant="ghost"
-													size="sm"
-													onClick={() => void navigator.clipboard.writeText('harperdb deploy --cluster=name')}
-												>
-													<CopyIcon className="w-4 h-4" />
-												</Button>
-											</div>
-											<p className="text-muted-foreground text-sm">
-												Replace <code className="bg-muted px-1 py-0.5 rounded text-xs">name</code> with your cluster
-												name
-											</p>
-											<Alert>
-												<TerminalIcon className="w-4 h-4" />
-												<AlertDescription>
-													Make sure you are in your application directory before running the deploy command
-												</AlertDescription>
-											</Alert>
-										</div>
-									</div>
 
-									<Separator />
+											<Separator />
+										</div>
+									))}
+
 
 									{appName && (
 										<div className="bg-accent rounded-lg p-4">
