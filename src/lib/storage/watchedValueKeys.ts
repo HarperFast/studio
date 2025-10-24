@@ -5,6 +5,8 @@ export interface WatchedValuesTypeMap {
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowRedeployApplicationModal: boolean;
 	ShowRenameFileModal: boolean;
+	ShowDeleteDatabase: boolean;
+	ShowDeleteTable: boolean;
 	'Session:{key}': unknown;
 }
 

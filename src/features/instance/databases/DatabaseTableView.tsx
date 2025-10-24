@@ -1,4 +1,3 @@
-import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
@@ -12,9 +11,10 @@ import { PickColumnsDropdown } from '@/features/instance/databases/components/Pi
 import { TableView } from '@/features/instance/databases/components/TableView';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
+import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
+import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
-import { useDeleteTableMutation } from '@/features/instance/operations/mutations/deleteTable';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
 import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
@@ -31,21 +31,23 @@ import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } f
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useToggler } from '@/hooks/useToggler';
+import { InstanceDatabaseMap } from '@/lib/api.patch';
+import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
-import { queryClient } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { useLoaderData, useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
-	Ellipsis,
+	EllipsisIcon,
 	FunnelIcon,
 	FunnelPlusIcon,
 	FunnelXIcon,
 	ImportIcon,
 	PlusIcon,
 	RefreshCwIcon,
-	Trash,
+	Trash2Icon,
+	TrashIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -78,6 +80,12 @@ export function DatabaseTableView() {
 	const attributesMap = useMemo(() => keyBy(describeTableData.attributes, 'attribute'), [describeTableData]);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+	const instanceDatabaseMap = useLoaderData({ strict: false }) as InstanceDatabaseMap;
+	const isLastTableInDatabase = useMemo(() => {
+		const tableNames = databaseName ? Object.keys(instanceDatabaseMap[databaseName] || []).sort() : [];
+		return tableNames?.length === 1;
+	}, [instanceDatabaseMap, databaseName]);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
 	const columnFiltersForm = useForm({
@@ -173,7 +181,6 @@ export function DatabaseTableView() {
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
-	const { mutate: deleteTable, isPending: isDeletingTable } = useDeleteTableMutation();
 
 	useEffect(() => {
 		setTotalRecords(describeTableData.record_count);
@@ -267,46 +274,16 @@ export function DatabaseTableView() {
 		setIsImportCSVModalOpen(true);
 	}, [setIsImportCSVModalOpen]);
 
-	const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-	const openDeleteModal = useCallback(() => setIsDeleteModalOpen(true), []);
-
-	const onDeleteTable = useCallback(
-		(targetDatabaseName: string, targetTableName: string) => {
-			deleteTable(
-				{
-					databaseName: targetDatabaseName,
-					tableName: targetTableName,
-					...instanceParams,
-					replicated: instanceParams.entityType === 'cluster',
-				},
-				{
-					onSuccess: async () => {
-						setIsDeleteModalOpen(false);
-						await queryClient.invalidateQueries({
-							queryKey: [instanceParams.entityId, 'describe_all'],
-							refetchType: 'all',
-						});
-						toast.success(`Table ${targetTableName} dropped successfully`);
-						if (targetTableName === tableName) {
-							void navigate({ to: '../' });
-						}
-					},
-				},
-			);
-		},
-		[deleteTable, instanceParams, navigate, tableName],
-	);
-
-	const onDeletionConfirmed = useCallback(() => {
-		if (databaseName && tableName) {
-			onDeleteTable(databaseName, tableName);
-		}
-	}, [databaseName, onDeleteTable, tableName]);
+	const onDeleted = useCallback((deleted: 'table' | 'database') =>
+		void navigate({ to: deleted === 'table' ? '../' : '../../' }), [navigate]);
 
 	const [columnVisibility, setColumnVisibility] = useSessionStorage(
 		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
 		{} satisfies VisibilityState,
 	);
+
+	const openDeleteTable = useSetWatchedValue('ShowDeleteTable', true);
+	const openDeleteDatabase = useSetWatchedValue('ShowDeleteDatabase', true);
 
 	return (
 		<>
@@ -379,12 +356,18 @@ export function DatabaseTableView() {
 
 					{canManageBrowseInstance && (<DropdownMenu>
 						<DropdownMenuTrigger>
-							<Ellipsis aria-label="Table options" />
+							<EllipsisIcon aria-label="Table options" />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
-							<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteModal}>
-								<Trash className="inline-block " />
-								Drop Table
+							{!isLastTableInDatabase && (
+								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteTable}>
+									<TrashIcon className="inline-block " />
+									Drop Table
+								</DropdownMenuItem>
+							)}
+							<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
+								<Trash2Icon />
+								Drop Database
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>)}
@@ -429,16 +412,10 @@ export function DatabaseTableView() {
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending}
 				isDeleteTableRecordsPending={isDeleteTableRecordsPending}
 			/>
-			<ConfirmDeletionModal
-				typeOfThingBeingDeleted="table"
-				nameOfThingBeingDeleted={tableName}
-				transitiveVerb="Drop"
-				presentParticiple="Dropping"
-				isModalOpen={isDeleteModalOpen}
-				setIsModalOpen={() => setIsDeleteModalOpen(false)}
-				deletionConfirmed={onDeletionConfirmed}
-				deletionPending={isDeletingTable}
-			/>
+
+			<DeleteDatabaseModal databaseName={databaseName} onDeleted={onDeleted} />
+			<DeleteTableModal databaseName={databaseName} tableName={tableName} onDeleted={onDeleted} />
+
 			<ImportCSVModal
 				isModalOpen={isImportCSVModalOpen}
 				setIsModalOpen={setIsImportCSVModalOpen}
