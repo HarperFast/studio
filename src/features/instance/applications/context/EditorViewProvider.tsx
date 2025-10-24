@@ -51,18 +51,17 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			'entries',
 			(node: APIFileEntry | APIDirectoryEntry, parents: APIDirectoryEntry[]) => {
 				const readMeAPIFile = isDirectory(node) && node.entries.find(e => e.name.toLowerCase() === 'readme.md');
-				const overviewEntry = readMeAPIFile && !isDirectory(readMeAPIFile) && {
-					name: readMeAPIFile.name,
-					path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
-					project: (parents[0] || node)?.name,
-					package: (parents[0] || node)?.package,
-				} || undefined;
 				return {
 					name: node.name,
 					path: [...parents.map(p => p.name), node.name].join('/'),
 					project: (parents[0] || node)?.name,
 					package: (parents[0] || node)?.package,
-					overviewEntry,
+					overviewEntry: readMeAPIFile && !isDirectory(readMeAPIFile) && {
+						name: readMeAPIFile.name,
+						path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
+						project: (parents[0] || node)?.name,
+						package: (parents[0] || node)?.package,
+					} || undefined,
 				} satisfies DirectoryEntry | FileEntry;
 			},
 		);
@@ -84,6 +83,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path) || '';
 	const projectToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
+	const loadedOverviewEntry = openedEntry && (isDirectory(openedEntry) ? !!openedEntry.overviewEntry?.path : false) || false;
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
@@ -95,15 +95,28 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	);
 	useEffect(() => {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
+		let message = getComponentFileQueryData?.message;
 		if (
-			loadedPath === pathToLoad &&
-			getComponentFileQueryData?.message
+			loadedPath === pathToLoad && message
 		) {
-			setOpenedEntryContents(getComponentFileQueryData.message || undefined);
+			const baseURL = instanceParams.instanceClient.defaults.baseURL;
+			if (loadedOverviewEntry && baseURL) {
+				// TODO: Link properly in template markdown.
+				// TODO: Open most links in blank
+				// TODO: File link handling.
+				// TODO: ./apis link handling.
+				// TODO: When running in the cloud vs local...
+				const operations9925URL = baseURL;
+				const rest9926URL = baseURL.replace(':9925', '');
+				if (operations9925URL) {
+					message = message.replace(/http:\/\/localhost:9926/g, rest9926URL);
+				}
+			}
+			setOpenedEntryContents(message || undefined);
 		} else {
 			setOpenedEntryContents(undefined);
 		}
-	}, [getComponentFileQueryData, pathToLoad]);
+	}, [getComponentFileQueryData, pathToLoad, loadedOverviewEntry, instanceParams]);
 
 	/*
 	 Save changes.

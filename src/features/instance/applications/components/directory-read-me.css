@@ -1,6 +1,10 @@
 .directoryReadMe {
 	padding: 40px 24px 6px;
 
+	> * + *	{
+		margin-bottom: 1rem;
+	}
+
 	h1 {
 		font-size: 3rem;
 	}
@@ -19,10 +23,6 @@
 
 	h5 {
 		font-size: 1.2rem;
-	}
-
-	p + p, h1 + p, h2 + p, h3 + p, h4 + p, h5 + p {
-		margin-top: 12px;
 	}
 
 	code {
