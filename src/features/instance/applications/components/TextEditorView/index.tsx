@@ -9,6 +9,7 @@ import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useState } from 'react';
 import './directory-read-me.css';
+import './monaco-customizations.css';
 
 const extensionToLanguageMap: Record<string, string> = {
 	js: 'javascript',
@@ -143,7 +144,7 @@ export function TextEditorView() {
 					automaticLayout: true,
 					minimap: { enabled: false },
 					readOnly: isSavingFile || !!openedEntry.package || !canManageBrowseInstance,
-					padding: { top: 50 },
+					padding: { top: 48 },
 				}}
 			/>
 			<ContentActions />
