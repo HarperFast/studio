@@ -3,14 +3,14 @@ import { ContentActions } from '@/features/instance/applications/components/Cont
 import { TextEditorView } from '@/features/instance/applications/components/TextEditorView';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { CreateOrImportAnApplication } from '@/features/instance/applications/modals/CreateOrImportAnApplication';
+import { NewApplication } from '@/features/instance/applications/modals/NewApplication';
 import Markdown from 'react-markdown';
 
 export function ContentViewer() {
 	const { openedEntry, openedEntryContents } = useEditorView();
 
 	if (openedEntry?.path === newApplication) {
-		return <CreateOrImportAnApplication />;
+		return <NewApplication />;
 	}
 
 	if (isDirectory(openedEntry)) {
@@ -19,5 +19,6 @@ export function ContentViewer() {
 			<Markdown>{openedEntryContents}</Markdown>
 		</div>;
 	}
+
 	return <TextEditorView />;
 }
