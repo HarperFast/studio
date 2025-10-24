@@ -17,10 +17,7 @@ import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { templates } from '@/features/instance/applications/modals/templates';
 import { useCLISteps } from '@/features/instance/applications/modals/useCLISteps';
-import {
-	CreateComponentFormData,
-	useCreateComponentMutation,
-} from '@/features/instance/operations/mutations/createComponent';
+import { useAddComponentMutation } from '@/features/instance/operations/mutations/addComponent';
 import { Cluster, Instance, Organization } from '@/lib/api.patch';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -48,8 +45,7 @@ const NewApplicationSchema = z.object({
 		.regex(/^[a-zA-Z0-9-_]*$/, { error: 'Can only contain letters, numbers, dashes and underscores.' }),
 	applicationUrl: z
 		.string()
-		.nonempty({ error: 'Please enter a Application URL.' }),
-	replicated: z.boolean(),
+		.optional(),
 });
 
 export function NewApplication() {
@@ -81,7 +77,6 @@ export function NewApplication() {
 		resolver: zodResolver(NewApplicationSchema),
 		defaultValues: {
 			applicationName: '',
-			replicated: instanceParams.entityType === 'cluster',
 		},
 	});
 
@@ -96,15 +91,19 @@ export function NewApplication() {
 	const [npmPackage, setNpmPackage] = useState('');
 	const [tarballUrl, setTarballUrl] = useState('');
 
-	const { mutate: createNewApplication, isPending: isCreateNewApplicationPending } = useCreateComponentMutation();
-	const submitForm = useCallback((formData: CreateComponentFormData) => {
-		createNewApplication({ ...formData, ...instanceParams }, {
+	const { mutate: addComponent, isPending: isAddingComponent } = useAddComponentMutation();
+	const submitForm = useCallback((formData: z.infer<typeof NewApplicationSchema>) => {
+		addComponent({
+			project: formData.applicationName || defaultApplicationName,
+			template: 'https://github.com/HarperFast/application-template/tree/fabric',
+			...instanceParams,
+		}, {
 			onSuccess: () => {
 				toast.success(`Application ${formData.applicationName} created successfully`);
 				reloadRootEntries();
 			},
 		});
-	}, [createNewApplication, instanceParams, reloadRootEntries]);
+	}, [addComponent, instanceParams, reloadRootEntries]);
 
 	// const form = useForm({
 	// 	resolver: zodResolver(ImportApplicationSchema),
@@ -276,7 +275,7 @@ export function NewApplication() {
 									<Button
 										className="w-full"
 										// TODO: Bind with form
-										disabled={!selectedTemplate || !appName.trim() || isCreateNewApplicationPending}
+										disabled={!selectedTemplate || !appName.trim() || isAddingComponent}
 									>
 										<RocketIcon className="w-4 h-4 mr-2" />
 										Create from Template
