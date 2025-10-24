@@ -8,7 +8,7 @@ async function onNewClusterSubmit(
 	const { data } = await apiClient.post(
 		'/Cluster/',
 		clusterInfo,
-		{ timeout: 120_000 },
+		{ timeout: 0 },
 	);
 	return data;
 }
