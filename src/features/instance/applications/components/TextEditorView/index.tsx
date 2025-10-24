@@ -8,7 +8,6 @@ import { currySetWatchedValue } from '@/lib/events/watcher';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useState } from 'react';
-import './directory-read-me.css';
 import './monaco-customizations.css';
 
 const extensionToLanguageMap: Record<string, string> = {

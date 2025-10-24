@@ -26,7 +26,7 @@ export function ApplicationsEditor() {
 			</button>
 
 			<aside id="file-explorer-sidebar" className={cx(
-				'pt-[calc(theme(spacing.32))] w-56 h-screen fixed top-0 left-0 z-30',
+				'pt-[calc(theme(spacing.32))] w-56 fixed top-0 left-0 bottom-0 z-30',
 				'bg-black-dark shadow shadow-black',
 				'transition-transform -translate-x-full',
 				toggled ? 'translate-x-0' : 'md:translate-x-0',
@@ -34,7 +34,8 @@ export function ApplicationsEditor() {
 				<ApplicationsSidebar />
 			</aside>
 
-			<div className={cx('relative md:ml-56 h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:ml-56')}>
+			<div className={cx('overflow-auto fixed bottom-0 right-0 left-0 md:left-56 transition-[left]' +
+				' h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:left-56')}>
 				<ContentViewer />
 			</div>
 

@@ -5,6 +5,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { NewApplication } from '@/features/instance/applications/modals/NewApplication';
 import Markdown from 'react-markdown';
+import './directory-read-me.css';
 
 export function ContentViewer() {
 	const { openedEntry, openedEntryContents } = useEditorView();
@@ -14,7 +15,7 @@ export function ContentViewer() {
 	}
 
 	if (isDirectory(openedEntry)) {
-		return <div className="directoryReadMe max-w-4xl">
+		return <div className="directoryReadMe max-w-3xl">
 			<ContentActions />
 			<Markdown>{openedEntryContents}</Markdown>
 		</div>;
