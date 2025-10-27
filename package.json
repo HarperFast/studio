@@ -84,7 +84,7 @@
 		"@vitest/coverage-v8": "^4.0.0",
 		"dotenv-cli": "^10.0.0",
 		"eslint": "^9.19.0",
-		"eslint-plugin-react-hooks": "^6.0.0",
+		"eslint-plugin-react-hooks": "^7.0.0",
 		"eslint-plugin-react-refresh": "^0.4.18",
 		"globals": "^16.0.0",
 		"harperdb": "4.7.2",

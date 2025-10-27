@@ -187,8 +187,8 @@ importers:
         specifier: ^9.19.0
         version: 9.38.0(jiti@2.6.1)
       eslint-plugin-react-hooks:
-        specifier: ^6.0.0
-        version: 6.1.1(eslint@9.38.0(jiti@2.6.1))
+        specifier: ^7.0.0
+        version: 7.0.1(eslint@9.38.0(jiti@2.6.1))
       eslint-plugin-react-refresh:
         specifier: ^0.4.18
         version: 0.4.24(eslint@9.38.0(jiti@2.6.1))
@@ -415,10 +415,6 @@ packages:
     resolution: {integrity: sha512-YsmSKC29MJwf0gF8Rjjrg5LQCmyh+j/nD8/eP7f+BeoQTKYqs9RoWbjGOdy0+1Ekr68RJZMUOPVQaQisnIo4Rw==}
     engines: {node: '>=6.9.0'}
 
-  '@babel/core@7.28.4':
-    resolution: {integrity: sha512-2BCOP7TN8M+gVDj7/ht3hsaO/B/n5oDbiAyyvnRlNOs+u1o+JWNYTQrmpuNp1/Wq2gcFrI01JAW+paEKDMx/CA==}
-    engines: {node: '>=6.9.0'}
-
   '@babel/core@7.28.5':
     resolution: {integrity: sha512-e7jT4DxYvIDLk1ZHmU/m/mB19rex9sv0c2ftBtjSBv+kVM/902eh0fINUzD7UwLLNR+jU585GxUJ8/EBfAM5fw==}
     engines: {node: '>=6.9.0'}
@@ -472,11 +468,6 @@ packages:
   '@babel/helpers@7.28.4':
     resolution: {integrity: sha512-HFN59MmQXGHVyYadKLVumYsA9dBFun/ldYxipEjzA4196jpLZd8UjEEBLkbEkvfYreDqJhZxYAWFPtrfhNpj4w==}
     engines: {node: '>=6.9.0'}
-
-  '@babel/parser@7.28.4':
-    resolution: {integrity: sha512-yZbBqeM6TkpP9du/I2pUZnJsRMGGvOuIrhjzC1AwHwW+6he4mni6Bp/m8ijn0iOuZuPI2BfkCoSRunpyjnrQKg==}
-    engines: {node: '>=6.0.0'}
-    hasBin: true
 
   '@babel/parser@7.28.5':
     resolution: {integrity: sha512-KKBU1VGYR7ORr3At5HAtUQ+TV3SzRCXmA/8OdDZiLDBIZxVyzXuztPjfLd3BV1PRAQGCMWWSHYhL0F8d5uHBDQ==}
@@ -3444,8 +3435,8 @@ packages:
     resolution: {integrity: sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==}
     engines: {node: '>=12'}
 
-  eslint-plugin-react-hooks@6.1.1:
-    resolution: {integrity: sha512-St9EKZzOAQF704nt2oJvAKZHjhrpg25ClQoaAlHmPZuajFldVLqRDW4VBNAS01NzeiQF0m0qhG1ZA807K6aVaQ==}
+  eslint-plugin-react-hooks@7.0.1:
+    resolution: {integrity: sha512-O0d0m04evaNzEPoSW+59Mezf8Qt0InfgGIBJnpC0h3NH/WjUAR7BIKUfysC6todmtiZ/A0oUVS8Gce0WhBrHsA==}
     engines: {node: '>=18'}
     peerDependencies:
       eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0 || ^9.0.0
@@ -3881,6 +3872,12 @@ packages:
 
   hdd-space@1.2.0:
     resolution: {integrity: sha512-7m3tHCNg44BIRozpqaFthaKXoPhEv9F63yjFIjhhjoNlF2uFYlu72TAUo6ynlx/JN31BRKHUnwd7Ysox2s+cgQ==}
+
+  hermes-estree@0.25.1:
+    resolution: {integrity: sha512-0wUoCcLp+5Ev5pDW2OriHC2MJCbwLwuRx+gAqMTOkGKJJiBCLjtrvy4PWUGn6MIVefecRpzoOZ/UV6iGdOr+Cw==}
+
+  hermes-parser@0.25.1:
+    resolution: {integrity: sha512-6pEjquH3rqaI6cYAXYPcz9MS4rY6R4ngRgrgfDshRptUZIc3lw0MCIJIGDj9++mfySOuPTHB4nrSW99BCvOPIA==}
 
   highlight.js@10.7.3:
     resolution: {integrity: sha512-tzcUFauisWKNHaRkN4Wjl/ZA07gENAjFl3J/c480dprkGTg5EQstgaNFqBfUqCq54kZRIEcreTsAgF/m2quD7A==}
@@ -7143,26 +7140,6 @@ snapshots:
 
   '@babel/compat-data@7.28.4': {}
 
-  '@babel/core@7.28.4':
-    dependencies:
-      '@babel/code-frame': 7.27.1
-      '@babel/generator': 7.28.3
-      '@babel/helper-compilation-targets': 7.27.2
-      '@babel/helper-module-transforms': 7.28.3(@babel/core@7.28.4)
-      '@babel/helpers': 7.28.4
-      '@babel/parser': 7.28.4
-      '@babel/template': 7.27.2
-      '@babel/traverse': 7.28.4
-      '@babel/types': 7.28.4
-      '@jridgewell/remapping': 2.3.5
-      convert-source-map: 2.0.0
-      debug: 4.4.3
-      gensync: 1.0.0-beta.2
-      json5: 2.2.3
-      semver: 6.3.1
-    transitivePeerDependencies:
-      - supports-color
-
   '@babel/core@7.28.5':
     dependencies:
       '@babel/code-frame': 7.27.1
@@ -7185,8 +7162,8 @@ snapshots:
 
   '@babel/generator@7.28.3':
     dependencies:
-      '@babel/parser': 7.28.4
-      '@babel/types': 7.28.4
+      '@babel/parser': 7.28.5
+      '@babel/types': 7.28.5
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
@@ -7216,15 +7193,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@babel/helper-module-transforms@7.28.3(@babel/core@7.28.4)':
-    dependencies:
-      '@babel/core': 7.28.4
-      '@babel/helper-module-imports': 7.27.1
-      '@babel/helper-validator-identifier': 7.27.1
-      '@babel/traverse': 7.28.4
-    transitivePeerDependencies:
-      - supports-color
-
   '@babel/helper-module-transforms@7.28.3(@babel/core@7.28.5)':
     dependencies:
       '@babel/core': 7.28.5
@@ -7247,11 +7215,7 @@ snapshots:
   '@babel/helpers@7.28.4':
     dependencies:
       '@babel/template': 7.27.2
-      '@babel/types': 7.28.4
-
-  '@babel/parser@7.28.4':
-    dependencies:
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
 
   '@babel/parser@7.28.5':
     dependencies:
@@ -7276,17 +7240,17 @@ snapshots:
   '@babel/template@7.27.2':
     dependencies:
       '@babel/code-frame': 7.27.1
-      '@babel/parser': 7.28.4
-      '@babel/types': 7.28.4
+      '@babel/parser': 7.28.5
+      '@babel/types': 7.28.5
 
   '@babel/traverse@7.28.4':
     dependencies:
       '@babel/code-frame': 7.27.1
       '@babel/generator': 7.28.3
       '@babel/helper-globals': 7.28.0
-      '@babel/parser': 7.28.4
+      '@babel/parser': 7.28.5
       '@babel/template': 7.27.2
-      '@babel/types': 7.28.4
+      '@babel/types': 7.28.5
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
@@ -7495,7 +7459,7 @@ snapshots:
   '@endo/static-module-record@1.1.2':
     dependencies:
       '@agoric/babel-generator': 7.17.6
-      '@babel/parser': 7.28.4
+      '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.4
       '@babel/types': 7.28.4
       ses: 1.13.0
@@ -10679,11 +10643,12 @@ snapshots:
 
   escape-string-regexp@5.0.0: {}
 
-  eslint-plugin-react-hooks@6.1.1(eslint@9.38.0(jiti@2.6.1)):
+  eslint-plugin-react-hooks@7.0.1(eslint@9.38.0(jiti@2.6.1)):
     dependencies:
-      '@babel/core': 7.28.4
-      '@babel/parser': 7.28.4
+      '@babel/core': 7.28.5
+      '@babel/parser': 7.28.5
       eslint: 9.38.0(jiti@2.6.1)
+      hermes-parser: 0.25.1
       zod: 4.1.12
       zod-validation-error: 4.0.2(zod@4.1.12)
     transitivePeerDependencies:
@@ -11279,6 +11244,12 @@ snapshots:
     dependencies:
       parse-columns: https://codeload.github.com/int0h/parse-columns/tar.gz/2318231da6fec1e35aca00a24d58d6b3d9552552
     optional: true
+
+  hermes-estree@0.25.1: {}
+
+  hermes-parser@0.25.1:
+    dependencies:
+      hermes-estree: 0.25.1
 
   highlight.js@10.7.3: {}
 
