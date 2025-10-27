@@ -7,7 +7,7 @@ interface GetComponentFileRequest extends InstanceClientIdConfig {
 	project: string | undefined;
 }
 
-interface GetComponentFileResponse {
+export interface GetComponentFileResponse {
 	file: string;
 	project: string;
 	birthtime: string;

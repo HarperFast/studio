@@ -22,12 +22,15 @@ interface Link {
 	icon: ReactNode;
 }
 
+const activeLinkProps = { className: 'text-white' };
+
 export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
 	const links = useMemo(() => [
 		{
 			to: buildAbsoluteLinkToPage(params),
+			activeOptions: { exact: true },
 			name: 'Applications',
 			shortName: 'Apps',
 			icon: <PackageIcon className="inline-block" />,
@@ -70,13 +73,18 @@ function DesktopInstanceNavBar({ links }: { links: Link[] }) {
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<Breadcrumbs />
-			<div className="flex space-x-2 *:hover:text-grey">
-				{links.map(link => (
-					<Link key={link.to} to={link.to} className="p-2 text-center">
+			<div className="flex space-x-2">
+				{links.map(({ shortName, ...link }) => (
+					<Link
+						key={link.to}
+						className="p-2 text-center text-gray-400 hover:text-white"
+						activeProps={activeLinkProps}
+						{...link}
+					>
 						{link.icon}
 						<span className="hidden xl:inline-block ml-1">{link.name}</span>
-						{link.shortName && (
-							<span className="visible xl:hidden ml-1"> {link.shortName}</span>
+						{shortName && (
+							<span className="visible xl:hidden ml-1"> {shortName}</span>
 						)}
 					</Link>
 				))}
@@ -102,7 +110,7 @@ function MobileInstanceNavBar({ links }: { links: Link[] }) {
 
 						{links.map(link => (
 							<DropdownMenuItem key={link.to} asChild>
-								<Link to={link.to}>{link.name}</Link>
+								<Link to={link.to} activeProps={activeLinkProps}>{link.name}</Link>
 							</DropdownMenuItem>
 						))}
 					</DropdownMenuContent>

@@ -111,7 +111,7 @@ export function NewApplication() {
 				}, {
 					onSuccess: () => {
 						toast.success(`Created successfully!`, {
-							description: `${project} is now available!`,
+							description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
 							id: toastId,
 							duration: 5_000,
 						});
@@ -137,7 +137,7 @@ export function NewApplication() {
 				}, {
 					onSuccess: () => {
 						toast.success(`Imported successfully`, {
-							description: `${project} is now available!`,
+							description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
 							id: toastId,
 							duration: 5_000,
 						});
