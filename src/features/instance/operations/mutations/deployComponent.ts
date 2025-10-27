@@ -1,26 +1,28 @@
-import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { InstanceClientConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { ReplicatedResponse } from '@/lib/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 export interface DeployComponentFormData {
 	applicationName: string;
 	applicationUrl: string;
-	replicated: boolean;
+	installCommand?: string;
 }
 
 async function onDeployComponentSubmit({
 	applicationName,
 	applicationUrl,
+	installCommand,
+	entityType,
 	instanceClient,
-	replicated,
-}: DeployComponentFormData & InstanceClientConfig): Promise<ReplicatedResponse> {
+}: DeployComponentFormData & InstanceClientConfig & InstanceTypeConfig): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post(
 		'/',
 		{
 			operation: 'deploy_component',
 			package: applicationUrl,
 			project: applicationName,
-			replicated,
+			replicated: entityType === 'cluster',
+			install_command: installCommand,
 			restart: 'rolling',
 		},
 		{ timeout: 300_000 },

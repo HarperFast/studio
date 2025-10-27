@@ -13,7 +13,7 @@ import { useDeployComponentMutation } from '@/features/instance/operations/mutat
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, RefreshCwIcon } from 'lucide-react';
-import { FormEvent, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -28,7 +28,7 @@ export function RedeployApplicationModal() {
 
 	const { mutate: reDeployApplication, isPending } = useDeployComponentMutation();
 
-	const redeployPackage = useCallback((applicationUrl: string) => {
+	const redeployPackage = useCallback((applicationUrl: string, installCommand: string | undefined) => {
 		if (!openedEntry) {
 			return;
 		}
@@ -37,7 +37,7 @@ export function RedeployApplicationModal() {
 		reDeployApplication({
 			applicationName: openedEntry.project,
 			applicationUrl,
-			replicated: instanceParams.entityType === 'cluster',
+			installCommand,
 			...instanceParams,
 		}, {
 			onSuccess: () => {
@@ -63,14 +63,18 @@ export function RedeployApplicationModal() {
 	const methods = useForm({
 		defaultValues: {
 			applicationUrl: packageUrl,
+			installCommand: '',
 		},
 	});
 
 	const { control, handleSubmit } = methods;
 
-	const submitForm = ({ applicationUrl }: { applicationUrl: string | undefined }) => {
+	const submitForm = ({ applicationUrl, installCommand }: {
+		applicationUrl: string | undefined,
+		installCommand: string | undefined
+	}) => {
 		if (applicationUrl) {
-			redeployPackage(applicationUrl);
+			redeployPackage(applicationUrl, installCommand);
 		}
 	};
 
@@ -102,12 +106,25 @@ export function RedeployApplicationModal() {
 										<FormControl>
 											<Input
 												type="text"
-												defaultValue={packageUrl}
 												autoFocus={true}
 												{...field}
-												onChange={(e: FormEvent<HTMLInputElement>) => {
-													field.onChange(e.currentTarget.value);
-												}}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={control}
+								name="installCommand"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Install Command</FormLabel>
+										<FormControl>
+											<Input
+												type="text"
+												placeholder="npm install"
+												{...field}
 											/>
 										</FormControl>
 										<FormMessage />
