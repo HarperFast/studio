@@ -1,4 +1,5 @@
 import { SetComponentFileRequest } from '@/features/instance/operations/mutations/setComponentFile';
+import { APIDirectoryEntry } from '@/features/instance/operations/queries/getComponents';
 import { createContext } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
@@ -6,7 +7,7 @@ import { FileEntry } from './fileEntry';
 
 export type EditorViewContextValue = {
 	rootEntries: Array<DirectoryEntry | FileEntry>;
-	reloadRootEntries: () => void;
+	reloadRootEntries: () => Promise<APIDirectoryEntry>;
 
 	openedEntry: DirectoryEntry | FileEntry | undefined;
 	setOpenedEntry: (entry: DirectoryEntry | FileEntry | undefined) => void;

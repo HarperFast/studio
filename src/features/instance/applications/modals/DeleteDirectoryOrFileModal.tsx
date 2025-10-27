@@ -38,7 +38,7 @@ export function DeleteDirectoryOrFileModal() {
 					const itemToFocus = !openedEntry.package && openedEntry.path.split('/').slice(0, -1).join('/');
 					setFocusedItem(itemToFocus || undefined);
 					setSelectedItems(itemToFocus ? [itemToFocus] : []);
-					reloadRootEntries();
+					void reloadRootEntries();
 				},
 			},
 		);

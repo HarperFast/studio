@@ -35,10 +35,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
 
-	const reloadRootEntries = useCallback(() => {
-		void queryClient.invalidateQueries({
+	const reloadRootEntries = useCallback(async () => {
+		// await queryClient.invalidateQueries({
+		// 	queryKey: [instanceParams.entityId, 'get_components'],
+		// 	refetchType: 'active',
+		// });
+		return queryClient.fetchQuery<APIDirectoryEntry>({
 			queryKey: [instanceParams.entityId, 'get_components'],
-			refetchType: 'active',
+			networkMode: 'online',
 		});
 	}, [queryClient, instanceParams]);
 

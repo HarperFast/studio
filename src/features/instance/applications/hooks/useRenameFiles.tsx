@@ -121,7 +121,7 @@ export function useRenameFiles() {
 			});
 		}
 
-		reloadRootEntries();
+		void reloadRootEntries();
 
 		setSelectedItems(selectedItems => {
 			const updatedSelectedItems = selectedItems.slice();

@@ -1,9 +1,15 @@
 import { z } from 'zod';
+import { templates } from './templates';
 
 export const TemplateSchema = z.object({
 	type: z.literal('template'),
 	id: z.string('Please select a template.'),
 });
+
+export const defaultTemplateOptions: z.infer<typeof TemplateSchema> = {
+	type: 'template',
+	id: templates[0].id,
+};
 
 export const ImportSchema = z.object({
 	type: z.literal('import'),
@@ -13,10 +19,21 @@ export const ImportSchema = z.object({
 	requiresAuth: z.literal(false),
 });
 
+export const defaultImportOptions: z.infer<typeof ImportSchema> = {
+	type: 'import',
+	source: 'git',
+	ref: '',
+	requiresAuth: false,
+	installCommand: '',
+};
+
 export const CLISchema = z.object({
 	type: z.literal('cli'),
-	completed: z.boolean('Please follow the steps above to create and deploy your application via the CLI.'),
 });
+
+export const defaultCLIOptions: z.infer<typeof CLISchema> = {
+	type: 'cli',
+};
 
 export const NewApplicationSchema = z.object({
 	applicationName: z

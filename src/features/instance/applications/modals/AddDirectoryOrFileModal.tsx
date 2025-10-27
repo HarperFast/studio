@@ -70,7 +70,7 @@ export function AddDirectoryOrFileModal() {
 			},
 			{
 				onSuccess: () => {
-					reloadRootEntries();
+					void reloadRootEntries();
 					hideModal();
 					form.reset();
 					const treeId = [openedEntry.project, filePath, data.name].filter(excludeFalsy).join('/');
