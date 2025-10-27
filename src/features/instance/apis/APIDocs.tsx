@@ -60,7 +60,7 @@ export function APIDocs() {
 				],
 			} : {}),
 		});
-	}, [http, onConfigUpdate]);
+	}, [corsDisabled, http?.corsAccessList, missingFromCORSList, onConfigUpdate]);
 
 	if (isLoadingConfiguration || isLoadingRegistration || isLoadingDocs) {
 		return <Loading centered={true} text="Looking up your instance configuration, one moment." />;

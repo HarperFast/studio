@@ -15,6 +15,8 @@ export function useDebounce<T>(value: T, delay: number = 300, hasher?: (value: T
 		const timer = setTimeout(() => setDebouncedValue(value), delay);
 		return () => clearTimeout(timer);
 		// We watch the hashed value, and the delay, so that we can decide when to bust the state.
+		// We don't watch value directly because "hashed" watches it for us.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [hashed, delay]);
 
 	return debouncedValue;

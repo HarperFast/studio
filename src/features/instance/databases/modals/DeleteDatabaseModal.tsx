@@ -37,7 +37,7 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 				onDeleted('database');
 			},
 		});
-	}, [databaseName, deleteDatabase, instanceParams, onDeleted, queryClient, router]);
+	}, [closeModal, databaseName, deleteDatabase, instanceParams, onDeleted, queryClient, router]);
 
 	if (!canManageBrowseInstance || !databaseName) {
 		return <></>;

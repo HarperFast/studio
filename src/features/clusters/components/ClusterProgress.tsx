@@ -22,8 +22,11 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		getClusterInfoQueryOptions(showProgress && cluster.id, 2000),
 	);
 
-	useEffect(() => {
+	useEffect(function showProgressIfPendingOrUpdating() {
 		if (isPendingUpdate(cluster.status) || isBeingUpdated(cluster.status)) {
+			// If the cluster is ever pending or updating, we want the progress bar to stick open for that card until they
+			// navigate away or refresh. So we can setShowProgress to true safely.
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setShowProgress(true);
 		}
 	}, [showProgress, cluster.status, clusterById?.instances]);

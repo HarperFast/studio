@@ -35,5 +35,5 @@ cd ${directoryName}`,
 				code: `npm run deploy`,
 			},
 		];
-	}, [appName, target]);
+	}, [appName, target, user?.username]);
 }

@@ -297,7 +297,7 @@ export function ClusterForm({
 					: 'The updates are being provisioned now.',
 			duration: 5_000,
 		});
-	}, [organizationId, navigate, queryClient, router]);
+	}, [queryClient, router, navigate, organizationId, form]);
 
 	const submitCreateCluster = useCallback(async () => {
 		const formData = form.getValues();

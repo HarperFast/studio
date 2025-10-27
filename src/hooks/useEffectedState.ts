@@ -8,6 +8,8 @@ export function useEffectedState<S>(initialState: S, deps: unknown): [S, Dispatc
 	// Use the proper React hook so we can update the state more permanently.
 	useEffect(() => {
 		if (!shallowCompareObjects(currentDeps, deps)) {
+			// We watch and decide if the deps change on our own, which lets us wipe out the old state at the same time.
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setDeps(deps);
 			setCurrentState(initialState);
 		}

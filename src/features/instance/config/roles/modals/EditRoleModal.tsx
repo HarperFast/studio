@@ -67,7 +67,7 @@ export function EditRoleModal({
 			showAttributes: showAttributes,
 		}), null, 2);
 		// We exclude updatedPermissions on purpose from the deps.
-	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes]);
+	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes, updatedPermissions]);
 
 	useEffect(() => {
 		setUpdatedPermissions(defaultValue);

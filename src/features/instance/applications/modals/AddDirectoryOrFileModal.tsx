@@ -82,7 +82,7 @@ export function AddDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [addFolderFile, setFocusedItem, setSelectedItems, setExpandedItems, instanceParams, type, openedEntry, reloadRootEntries]);
+	}, [addFolderFile, form, hideModal, instanceParams, openedEntry, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
 
 	const onCancelClick = useCallback(() => {
 		hideModal();

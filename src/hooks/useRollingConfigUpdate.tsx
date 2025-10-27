@@ -156,7 +156,7 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 				},
 			});
 		}
-	}, [operationsParams, onRestartedSuccessfully]);
+	}, [operationsParams, onRestartedSuccessfully, queryClient]);
 
 	return {
 		onConfigUpdate,

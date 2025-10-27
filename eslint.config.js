@@ -27,6 +27,7 @@ export default tseslint.config(
 		},
 		rules: {
 			...reactHooks.configs.recommended.rules,
+			'react-hooks/incompatible-library': 'off',
 			'@typescript-eslint/await-thenable': 'error',
 			'react-refresh/only-export-components': [
 				'warn',

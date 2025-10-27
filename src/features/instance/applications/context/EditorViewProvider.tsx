@@ -104,7 +104,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 
 			void navigate({ search: undefined });
 		}
-	}, [open]);
+	}, [navigate, open, setExpandedItems, setFocusedItem, setSelectedItems]);
 
 	/*
 	 Load the selected file contents.
@@ -126,7 +126,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			},
 		),
 	);
-	useEffect(() => {
+	useEffect(function setOpenedEntryContentsFromAPIResponse() {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
 		let contents = getComponentFileQueryData?.message;
 		if (
@@ -136,6 +136,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			if (loadedOverviewEntry && baseURL && getComponentFileQueryData) {
 				contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
 			}
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setOpenedEntryContents(contents || undefined);
 		} else {
 			setOpenedEntryContents(undefined);
@@ -161,7 +162,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[saveComponentFile, setUpdatedEntryContents, setOpenedEntryContents, openedEntry],
+		[fileQueryKey, getComponentFileQueryData, openedEntry?.path, queryClient, saveComponentFile, setUpdatedEntryContents],
 	);
 
 	const restrictPackageModification = useMemo(() => {
@@ -172,7 +173,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
 			|| openedEntry.path === importedApplications
 			|| openedEntry.path === newApplication;
-	}, [openedEntry?.package]);
+	}, [openedEntry]);
 
 	/*
 	 Memoize the tracked state.

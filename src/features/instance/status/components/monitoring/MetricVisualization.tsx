@@ -58,6 +58,9 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 		if (metrics && metrics.length > 0) {
 			const maxDataValue = Math.max(...metrics.map((m) => resolveMetricDataKey(m, dataKey, units)));
 			conversionUnits = determineUnits(units, maxDataValue);
+			// We set the y-axis based on the max of the metrics, and we were careful to avoid a circular dependency.
+			// So ignoring the set-state-in-render is safe, in this case.
+			// eslint-disable-next-line react-hooks/set-state-in-render
 			setYAxisUnits(conversionUnits);
 
 			for (const metric of metrics) {

@@ -30,12 +30,9 @@ export function useCloudAuth(): AuthenticatedCloudConnection {
 }
 
 export function useInstanceAuth(entityId?: EntityIds): AuthenticatedInstanceConnection {
-	if (isLocalStudio) {
-		entityId = OverallAppSignIn;
-	}
+	const key = isLocalStudio ? OverallAppSignIn : entityId;
 	const { clusterId, instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
-	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(entityId ?? instanceId ?? clusterId));
-	useEffect(() =>
-		authStore.listenToEntity(entityId, setConnection), [entityId]);
+	const [connection, setConnection] = useState<AuthenticatedConnection>(authStore.getConnectionById(key ?? instanceId ?? clusterId));
+	useEffect(() => authStore.listenToEntity(key, setConnection), [key]);
 	return connection as AuthenticatedInstanceConnection;
 }
