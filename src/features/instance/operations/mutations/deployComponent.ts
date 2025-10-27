@@ -22,7 +22,7 @@ async function onDeployComponentSubmit({
 			package: applicationUrl,
 			project: applicationName,
 			replicated: entityType === 'cluster',
-			install_command: installCommand,
+			install_command: installCommand || undefined,
 			restart: 'rolling',
 		},
 		{ timeout: 300_000 },
