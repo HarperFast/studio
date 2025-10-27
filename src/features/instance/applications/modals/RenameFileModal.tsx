@@ -54,7 +54,7 @@ export function RenameFileModal() {
 		if (openedEntry?.name) {
 			form.reset({ name: openedEntry?.name });
 		}
-	}, [openedEntry?.name]);
+	}, [form, openedEntry?.name]);
 
 	const submitForm = useCallback(async (data: z.infer<typeof RenameFileSchema>) => {
 		if (!openedEntry) {
@@ -71,7 +71,7 @@ export function RenameFileModal() {
 		hideModal();
 		form.reset();
 		setIsPending(false);
-	}, [setIsPending, openedEntry]);
+	}, [form, hideModal, openedEntry, renameFiles, setIsPending]);
 
 	const onCancelClick = useCallback(() => {
 		hideModal();

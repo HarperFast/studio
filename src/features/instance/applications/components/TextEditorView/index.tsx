@@ -32,17 +32,13 @@ export function TextEditorView() {
 
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
-	}, [openedEntryContents]);
+	}, [openedEntryContents, setContent]);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
-	const [language, setLanguage] = useState('javascript');
 
-	useEffect(() => {
-		const extension = parseFileExtension(openedEntry?.path);
-		const updatedLanguage = extensionToLanguageMap[extension] || 'plaintext';
-		setLanguage(updatedLanguage);
-	}, [openedEntry]);
+	const extension = parseFileExtension(openedEntry?.path);
+	const language = extensionToLanguageMap[extension] || 'plaintext';
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		setMounted([editor, monaco]);

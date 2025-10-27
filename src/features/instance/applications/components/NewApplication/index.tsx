@@ -2,7 +2,6 @@ import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { Cluster, Instance, Organization } from '@/lib/api.patch';
 import { findBy } from '@/lib/arrays/findBy';
@@ -23,7 +22,7 @@ import { useCreateFromTemplate } from './useCreateFromTemplate';
 import { useImportApplication } from './useImportApplication';
 
 export function NewApplication() {
-	const { reloadRootEntries, rootEntries } = useEditorView();
+	const { rootEntries } = useEditorView();
 	const { organization, instance, cluster }: {
 		organization?: Organization;
 		instance?: Instance;
@@ -43,8 +42,6 @@ export function NewApplication() {
 		}
 		return uniqueName;
 	}, [rootEntries, cluster, instance, organization]);
-
-	const instanceParams = useInstanceClientParams();
 
 	const refineZod = useCallback((data: z.infer<typeof NewApplicationSchema>, ctx: z.RefinementCtx) => {
 		if (!data.applicationName && !defaultApplicationName) {
@@ -92,7 +89,7 @@ export function NewApplication() {
 				break;
 			}
 		}
-	}, [createFromTemplate, instanceParams, reloadRootEntries]);
+	}, [checkCLI, createFromTemplate, defaultApplicationName, importApplication]);
 
 	const contentsType = watch('contents.type');
 	const setContentsType = useCallback((type: string) => {

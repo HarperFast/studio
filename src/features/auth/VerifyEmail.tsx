@@ -49,7 +49,7 @@ function SendEmailVerification() {
 				navigate({ to: '/sign-in', search: { me: email } });
 			},
 		});
-	}, [navigate, submitResendEmailVerification]);
+	}, [email, navigate, submitResendEmailVerification]);
 
 	return (
 		<Form {...methods}>

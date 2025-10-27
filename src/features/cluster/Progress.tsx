@@ -13,7 +13,10 @@ export function Progress() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2000),
 	);
-	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
+	const status = cluster?.status;
+	const isActive = useMemo(() => {
+		return status && activeClusterStatuses.includes(status);
+	}, [status]);
 
 	return (
 		<>

@@ -33,15 +33,15 @@ export function NewOrgForm() {
 			subdomain: '',
 		},
 	});
-	const { setFocus } = form;
+	const { setFocus, watch } = form;
 
 	useEffect(() => {
 		setFocus('name');
 	}, [setFocus]);
 
 	const defaultName = `${user?.firstname} ${user?.lastname} Org`;
-	const name = form.watch('name') || defaultName;
-	const subdomain = form.watch('subdomain');
+	const name = watch('name') || defaultName;
+	const subdomain = watch('subdomain');
 	const calculatedNames = useMemo(() => {
 		const suggestedSubdomain = collapseKebabsToMaxLength(
 			toKebabCase(name),
@@ -68,7 +68,7 @@ export function NewOrgForm() {
 				void navigate({ to: `/${newOrg.id}` });
 			},
 		});
-	}, [calculatedNames.suggestedSubdomain, queryClient, submitNewOrganizationData]);
+	}, [calculatedNames.suggestedSubdomain, queryClient, submitNewOrganizationData, defaultName, navigate]);
 
 	return (
 		<>

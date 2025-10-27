@@ -42,7 +42,7 @@ export function DeleteDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [deleteFolderFile, instanceParams, openedEntry]);
+	}, [deleteFolderFile, instanceParams, openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems]);
 
 	const onClickYes = useCallback((e: MouseEvent) => {
 		e.preventDefault();

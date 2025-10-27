@@ -1,16 +1,18 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
-import * as React from 'react';
+import { ComponentProps, CSSProperties, useMemo } from 'react';
 
 export function SidebarMenuSkeleton({
 	className,
 	showIcon = false,
 	...props
-}: React.ComponentProps<'div'> & {
+}: ComponentProps<'div'> & {
 	showIcon?: boolean
 }) {
 	// Random width between 50 to 90%.
-	const width = React.useMemo(() => {
+	const width = useMemo(() => {
+		// The memo has no dependencies, so the random ends up being stable.
+		// eslint-disable-next-line react-hooks/purity
 		return `${Math.floor(Math.random() * 40) + 50}%`;
 	}, []);
 
@@ -33,7 +35,7 @@ export function SidebarMenuSkeleton({
 				style={
 					{
 						'--skeleton-width': width,
-					} as React.CSSProperties
+					} as CSSProperties
 				}
 			/>
 		</div>

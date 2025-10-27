@@ -36,7 +36,7 @@ export function ApplicationsSidebar() {
 				setOpenedEntry(entry);
 			}
 		}
-	}, [openedEntry, focusedItem, items]);
+	}, [focusedItem, items, openedEntry?.path, setOpenedEntry]);
 
 	const renameFiles = useRenameFiles();
 	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
@@ -58,7 +58,7 @@ export function ApplicationsSidebar() {
 				toast.error(`${target.targetType} drop not yet supported`);
 				break;
 		}
-	}, [items]);
+	}, [items, renameFiles]);
 	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | undefined>, name: string) => {
 		if (item.data) {
 			return renameFiles([

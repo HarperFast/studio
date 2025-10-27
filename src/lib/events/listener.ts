@@ -4,20 +4,21 @@ import { useCallback, useEffect } from 'react';
 const listenersMap: Record<string, Array<(newValue: unknown) => void>> = {};
 
 export function useListener<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: K, listener: (newValue: T) => void, deps: unknown) {
-	const callback = useCallback(listener as (newValue: unknown) => void, [deps]);
+	// eslint-disable-next-line react-hooks/preserve-manual-memoization,react-hooks/exhaustive-deps
+	const callback = useCallback((newValue: T) => listener(newValue), [deps]);
 	useEffect(() => {
 		if (!listenersMap[name]) {
 			listenersMap[name] = [];
 		}
-		listenersMap[name].push(callback);
+		listenersMap[name].push(callback as (newValue: unknown) => void);
 
 		return function cleanUp() {
-			const index = listenersMap[name].indexOf(callback);
+			const index = listenersMap[name].indexOf(callback as (newValue: unknown) => void);
 			if (index >= 0) {
 				listenersMap[name].splice(index, 1);
 			}
 		};
-	}, [name, listener]);
+	}, [name, listener, callback]);
 }
 
 export function emitToListeners<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: K, value: T): void {

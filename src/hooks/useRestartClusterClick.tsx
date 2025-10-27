@@ -146,7 +146,7 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 				},
 			});
 		}
-	}, [clusterId, onRestartedSuccessfully]);
+	}, [clusterId, onRestartedSuccessfully, queryClient]);
 
 
 	return {

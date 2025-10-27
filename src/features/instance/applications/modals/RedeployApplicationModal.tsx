@@ -67,7 +67,7 @@ export function RedeployApplicationModal() {
 		},
 	});
 
-	const { control, handleSubmit } = methods;
+	const { control, handleSubmit, reset } = methods;
 
 	const submitForm = ({ applicationUrl, installCommand }: {
 		applicationUrl: string | undefined,
@@ -80,8 +80,8 @@ export function RedeployApplicationModal() {
 
 	const modalClosed = useCallback(() => {
 		setWatchedValue('ShowRedeployApplicationModal', false);
-		methods.reset({ applicationUrl: packageUrl });
-	}, [isModalOpen, methods]);
+		reset({ applicationUrl: packageUrl });
+	}, [reset, packageUrl]);
 
 	return (
 		<Dialog

@@ -12,7 +12,7 @@ export function EstimatedProgressBar({ duration, message, lateMessage }: {
 	const minPercentage = 5;
 	const [width, setWidth] = useState(`${minPercentage}%`);
 
-	const animate = useCallback((time: number) => {
+	const animate = useCallback(function animate(time: number) {
 		if (!previousTimeRef.current) {
 			previousTimeRef.current = time;
 		}
