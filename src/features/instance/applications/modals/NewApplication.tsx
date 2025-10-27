@@ -154,7 +154,7 @@ export function NewApplication() {
 				break;
 			}
 			case 'cli':
-				// TODO: Focus
+				// TODO: Focus the newly deployed item.
 				// TODO: Do I need to do reload? Or will we be looking for it automatically anyway?
 				reloadRootEntries();
 				break;
