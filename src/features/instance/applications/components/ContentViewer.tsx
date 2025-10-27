@@ -1,10 +1,10 @@
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
-import { NewApplication } from '@/features/instance/applications/modals/NewApplication';
 import Markdown from 'react-markdown';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import { ContentActions } from './ContentActions';
+import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
 
