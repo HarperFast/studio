@@ -4,6 +4,7 @@ import {
 	newApplication,
 } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
+import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
@@ -17,6 +18,7 @@ import {
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { transformNodes } from '@/lib/arrays/transformNodes';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';
@@ -25,11 +27,13 @@ import { FileEntry } from './fileEntry';
 import { isDirectory } from './isDirectory';
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
+	const navigate = useNavigate();
 	const [openedEntry, setOpenedEntry] = useState<DirectoryEntry | FileEntry | undefined>(undefined);
 	const [openedEntryContents, setOpenedEntryContents] = useState<string | undefined>(undefined);
 	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntry?.path);
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
+	const { open }: { open?: string } = useSearch({ strict: false });
 
 	const reloadRootEntries = useCallback(() => {
 		void queryClient.invalidateQueries({
@@ -79,6 +83,28 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}', defaultSelectedItem);
 
 	/*
+	 Support URL links to files.
+	 */
+	useEffect(() => {
+		if (open?.length) {
+			const parts = open.split('/');
+
+			setExpandedItems(expandedItems => {
+				const expansion = new Set(expandedItems);
+				for (let i = 1; i < parts.length; i++) {
+					expansion.add(parts.slice(0, i).join('/'));
+				}
+				return [...expansion];
+			});
+
+			setSelectedItems([open]);
+			setFocusedItem(open);
+
+			void navigate({ search: undefined });
+		}
+	}, [open]);
+
+	/*
 	 Load the selected file contents.
 	 */
 	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path) || '';
@@ -95,24 +121,15 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	);
 	useEffect(() => {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
-		let message = getComponentFileQueryData?.message;
+		let contents = getComponentFileQueryData?.message;
 		if (
-			loadedPath === pathToLoad && message
+			loadedPath === pathToLoad && contents
 		) {
 			const baseURL = instanceParams.instanceClient.defaults.baseURL;
-			if (loadedOverviewEntry && baseURL) {
-				// TODO: Link properly in template markdown.
-				// TODO: Open most links in blank
-				// TODO: File link handling.
-				// TODO: ./apis link handling.
-				// TODO: When running in the cloud vs local...
-				const operations9925URL = baseURL;
-				const rest9926URL = baseURL.replace(':9925', '');
-				if (operations9925URL) {
-					message = message.replace(/http:\/\/localhost:9926/g, rest9926URL);
-				}
+			if (loadedOverviewEntry && baseURL && getComponentFileQueryData) {
+				contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
 			}
-			setOpenedEntryContents(message || undefined);
+			setOpenedEntryContents(contents || undefined);
 		} else {
 			setOpenedEntryContents(undefined);
 		}

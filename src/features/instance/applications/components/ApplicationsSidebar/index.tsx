@@ -26,7 +26,6 @@ export function ApplicationsSidebar() {
 		selectedItems,
 		setSelectedItems,
 	} = useEditorView();
-
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
 	useEffect(function setOpenedEntryFromFocusedItem() {
