@@ -1,4 +1,3 @@
-// TODO: These aren't accurate.
 export const templates = [
 	{
 		id: 'harper',
