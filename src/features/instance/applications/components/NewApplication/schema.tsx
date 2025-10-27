@@ -4,6 +4,7 @@ export const TemplateSchema = z.object({
 	type: z.literal('template'),
 	id: z.string('Please select a template.'),
 });
+
 export const ImportSchema = z.object({
 	type: z.literal('import'),
 	source: z.enum(['git', 'npm', 'tarball']),
@@ -11,6 +12,7 @@ export const ImportSchema = z.object({
 	installCommand: z.string(),
 	requiresAuth: z.literal(false),
 });
+
 export const CLISchema = z.object({
 	type: z.literal('cli'),
 	completed: z.boolean('Please follow the steps above to create and deploy your application via the CLI.'),

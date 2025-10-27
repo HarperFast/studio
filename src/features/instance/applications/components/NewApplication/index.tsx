@@ -36,7 +36,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { CLISchema, ImportSchema, NewApplicationSchema, TemplateSchema } from './NewApplicationSchema';
+import { CLISchema, ImportSchema, NewApplicationSchema, TemplateSchema } from './schema';
 import { templates } from './templates';
 import { useCLISteps } from './useCLISteps';
 
