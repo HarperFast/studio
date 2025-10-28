@@ -1,5 +1,5 @@
 export async function getGitHubRepo(url: URL) {
-	if (url && url.pathname && url.hostname.includes('github.com')) {
+	if (url?.pathname && url.hostname.includes('github.com')) {
 		const parts = url.pathname.split('/').filter(Boolean);
 
 		try {

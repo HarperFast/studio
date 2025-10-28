@@ -38,16 +38,11 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
 
-	const reloadRootEntries = useCallback(async () => {
-		// await queryClient.invalidateQueries({
-		// 	queryKey: [instanceParams.entityId, 'get_components'],
-		// 	refetchType: 'active',
-		// });
-		return queryClient.fetchQuery<APIDirectoryEntry>({
+	const reloadRootEntries = useCallback(async () =>
+		queryClient.fetchQuery<APIDirectoryEntry>({
 			queryKey: [instanceParams.entityId, 'get_components'],
 			networkMode: 'online',
-		});
-	}, [queryClient, instanceParams]);
+		}), [queryClient, instanceParams]);
 
 	/*
 	 Create our structured view from the relational API data.

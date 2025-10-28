@@ -4,10 +4,10 @@ export function parseReadMe(contents: string, baseURL: string, response: GetComp
 	const operations9925URL = baseURL;
 	const rest9926URL = baseURL.replace(':9925', '');
 	if (operations9925URL) {
-		contents = contents.replace(/http:\/\/localhost:9926/g, rest9926URL);
+		contents = contents.replaceAll('http://localhost:9926', rest9926URL);
 	}
 	if (response.project) {
-		contents = contents.replace(/Your New Harper Fabric App/g, response.project);
+		contents = contents.replaceAll('Your New Harper Fabric App', response.project);
 	}
 	return contents;
 }

@@ -3,7 +3,7 @@ export async function getGitHubTags(user: string, repo: string) {
 
 	if (response.status < 400) {
 		const tagData = await response.json();
-		return tagData.map((tag: { ref: string }) => tag.ref.split('/').slice(-1)[0]);
+		return tagData.map((tag: { ref: string }) => tag.ref.split('/').at(1));
 	}
 
 	return [];
