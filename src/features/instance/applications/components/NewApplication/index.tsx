@@ -6,6 +6,7 @@ import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { Cluster, Instance, Organization } from '@/lib/api.patch';
 import { findBy } from '@/lib/arrays/findBy';
+import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouteContext } from '@tanstack/react-router';
 import { BoxesIcon, GitBranchIcon, TerminalIcon } from 'lucide-react';
@@ -30,7 +31,7 @@ export function NewApplication() {
 	} = useRouteContext({ strict: false });
 
 	const defaultApplicationName = useMemo(() => {
-		const defaultName = cluster?.name || instance?.name || organization?.name || '';
+		const defaultName = toKebabCase(cluster?.name || instance?.name || organization?.name || '');
 		if (defaultName === '') {
 			return defaultName;
 		}
