@@ -1,4 +1,4 @@
-import { useForgotPasswordMutation } from '@/features/auth/hooks/useForgotPassword';
+import { useResendEmailVerification } from '@/features/auth/hooks/useResendEmailVerification';
 import { Link, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -6,12 +6,12 @@ import { toast } from 'sonner';
 export function Verifying() {
 	const { email }: { email?: string; } = useSearch({ strict: false });
 
-	const { mutate: submitForgotPasswordData, isPending } = useForgotPasswordMutation();
+	const { mutate: resendEmailVerification, isPending } = useResendEmailVerification();
 
 	const resendCode = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		if (email) {
-			submitForgotPasswordData({ email }, {
+			resendEmailVerification({ email }, {
 				onSuccess: (message) => {
 					toast.success('Code Sent', {
 						description: `${message}`,
@@ -24,7 +24,7 @@ export function Verifying() {
 			});
 		}
 		return false;
-	}, []);
+	}, [email, resendEmailVerification]);
 
 	return (
 		<div className="text-white w-lg flex flex-col gap-4">
