@@ -28,12 +28,21 @@ export function useDatadog() {
 				version: import.meta.env.VITE_STUDIO_VERSION,
 
 				trackViewsManually: true,
+				trackUserInteractions: true,
 
 				sessionSampleRate: 100,
 				sessionReplaySampleRate: 0,
 				defaultPrivacyLevel: 'mask',
 
 				plugins: [reactPlugin()],
+			});
+
+			datadogRum.onReady(() => {
+				datadogRum.startView({
+					service: 'studio',
+					version: import.meta.env.VITE_STUDIO_VERSION,
+					name: window.location.pathname || 'initial',
+				});
 			});
 		}
 	}, []);
@@ -46,14 +55,20 @@ export function useOnRouteLoadTracker() {
 
 	useEffect(() => {
 		const currentMatches = router.matchRoutes(router.state.location);
-		const name = translateUrlForDatadog(location.href, currentMatches.map(m => m.params));
+		const name = translateUrlForDatadog(
+			location.href,
+			currentMatches.map((m) => m.params)
+		);
 		if (!enabled) {
 			return;
 		}
-		datadogRum.startView({
-			service: 'studio',
-			version: import.meta.env.VITE_STUDIO_VERSION,
-			name,
+
+		datadogRum.onReady(() => {
+			datadogRum.startView({
+				service: 'studio',
+				version: import.meta.env.VITE_STUDIO_VERSION,
+				name,
+			});
 		});
 	}, [location.href, router]);
 
