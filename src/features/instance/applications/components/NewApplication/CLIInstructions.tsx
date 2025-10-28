@@ -44,6 +44,7 @@ export function CLIInstructions({
 						<div className="bg-black rounded-lg p-4 flex items-center justify-between group">
 							<code className="text-sm whitespace-pre truncate">{cliStep.code}</code>
 							<Button
+								type="button"
 								variant="default"
 								size="sm"
 								onClick={() => void navigator.clipboard.writeText(cliStep.code)}
