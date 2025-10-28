@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react';
 import { FormState, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -21,6 +22,9 @@ export function CLIInstructions({
 	const instanceParams = useInstanceClientParams();
 	const applicationName = watch('applicationName') || defaultApplicationName;
 	const cliSteps = useCLISteps(applicationName, instanceParams.instanceClient.defaults.baseURL);
+	const cliCopyClicks = useCopyToClipboard(
+		...cliSteps.map(step => step.code),
+	);
 
 	return <>
 
@@ -47,7 +51,7 @@ export function CLIInstructions({
 								type="button"
 								variant="default"
 								size="sm"
-								onClick={() => void navigator.clipboard.writeText(cliStep.code)}
+								onClick={cliCopyClicks[index]}
 							>
 								<CopyIcon className="w-4 h-4" />
 							</Button>
