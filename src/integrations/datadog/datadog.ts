@@ -87,3 +87,15 @@ export function useOnRouteLoadTracker() {
 		}
 	}, [user]);
 }
+
+export function loginSuccessDatadogAction(data: { id: string; email: string; firstname: string; lastname: string }) {
+	if (!enabled) return;
+
+	datadogRum.setUser({
+		id: data.id,
+		email: data.email,
+		name: [data.firstname, data.lastname].filter(Boolean).join(' ') || undefined,
+	});
+
+	datadogRum.addAction('login_success', { userId: data.id });
+}

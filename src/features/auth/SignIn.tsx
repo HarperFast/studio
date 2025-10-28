@@ -20,7 +20,7 @@ import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router'
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { datadogRum } from '@datadog/browser-rum';
+import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 
 const SignInSchema = z.object({
 	email: zodRequireEmail,
@@ -57,13 +57,7 @@ export function SignIn() {
 				authStore.setUserForEntity(OverallAppSignIn, data);
 				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
 
-				datadogRum.setUser({
-					id: data.id,
-					email: data.email,
-					name: [data.firstname, data.lastname].filter(Boolean).join(' ') || undefined,
-				});
-				
-				datadogRum.addAction('login_success', { userId: data.id });
+				loginSuccessDatadogAction(data);
 
 				const company = parseCompanyFromEmail(data.email);
 				reoClient?.identify?.({
