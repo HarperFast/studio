@@ -9,7 +9,10 @@ import {
 	SetComponentFileRequest,
 	useSetComponentFile,
 } from '@/features/instance/operations/mutations/setComponentFile';
-import { getComponentFileQueryOptions } from '@/features/instance/operations/queries/getComponentFile';
+import {
+	getComponentFileQueryKey,
+	getComponentFileQueryOptions,
+} from '@/features/instance/operations/queries/getComponentFile';
 import {
 	APIDirectoryEntry,
 	APIFileEntry,
@@ -114,6 +117,11 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path) || '';
 	const projectToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
 	const loadedOverviewEntry = openedEntry && (isDirectory(openedEntry) ? !!openedEntry.overviewEntry?.path : false) || false;
+	const fileQueryKey = getComponentFileQueryKey({
+		file: pathToLoad?.split('/').slice(1).join('/'),
+		project: projectToLoad,
+		...instanceParams,
+	});
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
@@ -148,8 +156,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 			saveComponentFile(data, {
 				onSuccess: () => {
 					if (openedEntry?.path === filePath && data.payload !== undefined) {
-						setOpenedEntryContents(data.payload || undefined);
 						setUpdatedEntryContents(undefined);
+						setOpenedEntryContents(data.payload || undefined);
+						queryClient.setQueryData(fileQueryKey, { ...getComponentFileQueryData, message: data.payload });
 					}
 				},
 				onError: (error) => {
@@ -157,7 +166,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[saveComponentFile, setUpdatedEntryContents, openedEntry],
+		[saveComponentFile, setUpdatedEntryContents, setOpenedEntryContents, openedEntry],
 	);
 
 	const restrictPackageModification = useMemo(() => {
