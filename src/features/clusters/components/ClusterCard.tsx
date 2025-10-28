@@ -17,6 +17,7 @@ import { ClusterProgress } from '@/features/clusters/components/ClusterProgress'
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -101,15 +102,10 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		});
 	}, [terminateCluster, cluster.id, cluster.name, isSelfManaged, queryClient]);
 
-	const onCopyFQDNClick = useCallback(() => {
-		void navigator.clipboard.writeText(cluster.fqdn!);
-		toast.info('Host name copied to clipboard!');
-	}, [cluster.fqdn]);
-
-	const onCopyAPIClick = useCallback(() => {
-		void navigator.clipboard.writeText(`https://${cluster.fqdn}`);
-		toast.info('API URL copied to clipboard!');
-	}, [cluster.fqdn]);
+	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
+		`${cluster.fqdn}`,
+		`https://${cluster.fqdn}`,
+	);
 
 	const menuItems = [
 		isActive && update && (
