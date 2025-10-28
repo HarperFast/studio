@@ -33,16 +33,20 @@ export async function getComponentFile({
 	};
 }
 
-export function getComponentFileQueryOptions({ entityId, instanceClient, file, project }: GetComponentFileRequest) {
+export function getComponentFileQueryOptions(params: GetComponentFileRequest) {
 	return queryOptions({
-		queryKey: [
-			entityId,
-			queryKeys.operations.get_component_file,
-			file,
-			project,
-		] as const,
-		queryFn: () => getComponentFile({ entityId, instanceClient, file, project }),
-		enabled: !!file && !!project,
+		queryKey: getComponentFileQueryKey(params),
+		queryFn: () => getComponentFile(params),
+		enabled: !!params.file && !!params.project,
 		retry: false,
 	});
+}
+
+export function getComponentFileQueryKey(params: GetComponentFileRequest) {
+	return [
+		params.entityId,
+		queryKeys.operations.get_component_file,
+		params.file,
+		params.project,
+	] as const;
 }
