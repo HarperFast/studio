@@ -1,7 +1,7 @@
-import { ClusterLayout } from '@/features/cluster/ClusterLayout';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { clustersLayoutRoute } from '@/features/clusters/routes';
 import { createRoute } from '@tanstack/react-router';
+import { ClusterLayout } from './ClusterLayout';
+import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export const clusterLayoutRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,

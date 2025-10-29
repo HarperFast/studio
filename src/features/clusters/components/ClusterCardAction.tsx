@@ -26,7 +26,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	if (isPendingResetPassword) {
 		if (update) {
 			return <Link to={`/${cluster.organizationId}/${cluster.id}/finish-setup`} className="text-sm text-nowrap" aria-label={`Set Password on ${cluster.name}`} title={`Set Password on ${cluster.name}`}>
-				<Button variant="positive" className="py-2 hover:border-b-2 animate-bounce">
+				<Button variant="positive" className="py-2 hover:border-b-2 animate-glow-pulse">
 					Finish Setup <ArrowRight className="inline-block" />
 				</Button>
 			</Link>;

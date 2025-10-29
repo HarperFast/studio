@@ -9,7 +9,6 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
 	useInstanceResetPasswordMutation,
 } from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
@@ -26,6 +25,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function FinishSetup() {
 	const { user } = useCloudAuth();
