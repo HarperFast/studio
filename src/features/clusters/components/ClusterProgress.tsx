@@ -1,7 +1,7 @@
 import { isBeingUpdated, isPendingUpdate, isRunning } from '@/components/ui/utils/badgeStatus';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Cluster } from '@/lib/api.patch';
-import { countBy } from '@/lib/countBy';
+import { mapBy } from '@/lib/arrays/mapBy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -32,24 +32,31 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 	}, [showProgress, cluster.status, clusterById?.instances]);
 
 	const updating = useMemo(() => {
+		const activePlanIds = mapBy(clusterById?.plans ?? [], 'planId');
 		const instances = clusterById?.instances ?? [];
-		const counts = countBy(instances, 'status');
 		let pending = 0;
-		const pendingTexts: string[] = [];
+		const pendingTexts: Record<string, string> = {};
 		let updating = 0;
-		const updatingTexts: string[] = [];
+		const updatingTexts: Record<string, string> = {};
 		let running = 0;
-		const runningTexts: string[] = [];
-		for (const status in counts) {
+		const runningTexts: Record<string, string> = {};
+		for (const instance of instances) {
+			const status = instance.status;
+			if (!status || status === 'TERMINATED') {
+				continue;
+			}
 			if (isPendingUpdate(status)) {
-				pending += counts[status];
-				pendingTexts.push(counts[status] + ' ' + capitalizeWords(status));
+				pending += 1;
+				pendingTexts[status] = `${pending} ${capitalizeWords(status)}`;
 			} else if (isBeingUpdated(status)) {
-				updating += counts[status];
-				updatingTexts.push(counts[status] + ' ' + capitalizeWords(status));
+				updating += 1;
+				updatingTexts[status] = `${updating} ${capitalizeWords(status)}`;
+			} else if (!instance.planId || !activePlanIds.includes(instance.planId)) {
+				updating += 1;
+				updatingTexts['DRAINING_TRAFFIC'] = `${updating} ${capitalizeWords('Draining Traffic')}`;
 			} else if (isRunning(status)) {
-				running += counts[status];
-				runningTexts.push(counts[status] + ' ' + capitalizeWords(status));
+				running += 1;
+				runningTexts[status] = `${running} ${capitalizeWords(status)}`;
 			}
 			// We'll ignore terminated or non-updated instances from the totals.
 		}
@@ -59,12 +66,12 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			updatingWidth: `${updating === 0 ? 0 : (updating / total * 100)}%`,
 			runningWidth: `${running === 0 ? 0 : (running / total * 100)}%`,
 			text: [
-				...runningTexts.sort(),
-				...updatingTexts.sort(),
-				...pendingTexts.sort(),
+				...Object.values(runningTexts).sort(),
+				...Object.values(updatingTexts).sort(),
+				...Object.values(pendingTexts).sort(),
 			].join(' · '),
 		};
-	}, [clusterById?.instances]);
+	}, [clusterById]);
 
 	if (!showProgress) {
 		return null;

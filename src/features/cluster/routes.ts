@@ -1,10 +1,11 @@
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
-import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
-import { FinishSetup } from '@/features/cluster/FinishSetup';
-import { Instances } from '@/features/cluster/Instances';
-import { Progress } from '@/features/cluster/Progress';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { clusterLayoutRoute } from './clusterLayoutRoute';
+import { FinishSetup } from './FinishSetup';
+import { Instances } from './Instances';
+import { Scaling } from './Scaling';
+import { StartingUp } from './StartingUp';
 
 const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
@@ -12,10 +13,16 @@ const clusterInstancesRoute = createRoute({
 	component: Instances,
 });
 
-const clusterProgressRoute = createRoute({
+const clusterStartingUpRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
-	path: 'progress',
-	component: Progress,
+	path: 'starting-up',
+	component: StartingUp,
+});
+
+const clusterScalingRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'scaling',
+	component: Scaling,
 });
 
 const clusterSignInRoute = createRoute({
@@ -58,7 +65,8 @@ const clusterFinishSetupRoute = createRoute({
 
 export const clusterRoutes = [
 	clusterInstancesRoute,
-	clusterProgressRoute,
+	clusterStartingUpRoute,
+	clusterScalingRoute,
 	clusterFinishSetupRoute,
 	clusterSignInRoute,
 	instanceSignInRoute,

@@ -35,7 +35,7 @@ export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatus
 	}
 }
 
-export function isRunning(value: string | undefined): boolean {
+export function isRunning(value: string | undefined): value is 'RUNNING' | 'UPDATED' {
 	switch (value) {
 		case 'RUNNING':
 		case 'UPDATED':
@@ -45,7 +45,7 @@ export function isRunning(value: string | undefined): boolean {
 	}
 }
 
-export function isPendingUpdate(value: string | undefined): boolean {
+export function isPendingUpdate(value: string | undefined): value is 'CLONE_PENDING' {
 	switch (value) {
 		case 'CLONE_PENDING':
 			return true;
@@ -54,7 +54,7 @@ export function isPendingUpdate(value: string | undefined): boolean {
 	}
 }
 
-export function isBeingUpdated(value: string | undefined): boolean {
+export function isBeingUpdated(value: string | undefined): value is 'PROVISIONING' | 'CLONING' | 'CLONE_READY' | 'UPDATING_HDB_NODES' | 'UPDATING' {
 	switch (value) {
 		case 'PROVISIONING':
 		case 'CLONING':

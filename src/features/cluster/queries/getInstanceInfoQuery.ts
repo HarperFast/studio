@@ -1,7 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
-import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
+import { getClusterInfo } from './getClusterInfoQuery';
 
 interface GetInstanceInfoParams {
 	clusterId?: string;

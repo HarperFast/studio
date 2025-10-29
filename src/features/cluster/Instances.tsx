@@ -4,9 +4,6 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
-import { EmptyCluster } from '@/features/cluster/EmptyCluster';
-import { InstanceLogInCell } from '@/features/cluster/InstanceLogInCell';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { Instance } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -16,6 +13,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
+import { EmptyCluster } from './EmptyCluster';
+import { InstanceLogInCell } from './InstanceLogInCell';
+import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Instances() {
 	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
@@ -101,7 +101,7 @@ export function Instances() {
 	);
 	const instances = useMemo(
 		() =>
-			cluster?.instances?.filter(instance => instance.status !== 'REMOVED') ?? [],
+			cluster?.instances?.filter(instance => instance.status !== 'REMOVED' && instance.status !== 'TERMINATED') ?? [],
 		[cluster],
 	);
 	return (

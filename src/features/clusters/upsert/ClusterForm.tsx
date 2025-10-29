@@ -286,7 +286,13 @@ export function ClusterForm({
 		}
 
 		void router.invalidate();
-		void navigate({ to: `/${organizationId}/${clusterId}/${isSelfManaged ? 'instances' : 'progress'}` });
+		if (isSelfManaged) {
+			void navigate({ to: `/${organizationId}/${clusterId}/instances` });
+		} else if (creating) {
+			void navigate({ to: `/${organizationId}/${clusterId}/starting-up` });
+		} else {
+			void navigate({ to: `/${organizationId}/${clusterId}/scaling` });
+		}
 		form.reset();
 		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
 			id: toastId,
