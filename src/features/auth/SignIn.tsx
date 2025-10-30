@@ -7,13 +7,13 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
+import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { reoClient } from '@/integrations/reo/reo';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
-import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
@@ -65,7 +65,7 @@ export function SignIn() {
 					type: 'email',
 					...(company ? { company } : {}),
 				});
-				await queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
+				await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 			},

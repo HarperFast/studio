@@ -1,6 +1,5 @@
 import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/lib/api.patch';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
@@ -10,7 +9,7 @@ export async function getClusterInfo(clusterId: string) {
 
 export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?: boolean | number) {
 	return queryOptions({
-		queryKey: [queryKeys.cluster, clusterId],
+		queryKey: [clusterId],
 		queryFn: () => getClusterInfo(clusterId as string),
 		retry: false,
 		enabled: !!clusterId,

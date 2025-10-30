@@ -1,6 +1,5 @@
 import { User } from '@/lib/api.patch';
 import { apiClient } from '@/config/apiClient';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getCurrentUser(): Promise<User> {
@@ -9,9 +8,11 @@ export async function getCurrentUser(): Promise<User> {
 	return data as unknown as User;
 }
 
+export const currentUserQueryKey = ['current-user'];
+
 export function getCurrentUserQueryOptions() {
 	return queryOptions({
-		queryKey: [queryKeys.user],
+		queryKey: currentUserQueryKey,
 		queryFn: getCurrentUser,
 		retry: false,
 	});

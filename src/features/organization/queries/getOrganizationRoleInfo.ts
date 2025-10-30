@@ -1,7 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 import { apiClient } from '@/config/apiClient';
 import { SchemaRole } from '@/lib/api.gen';
-import { queryKeys } from '@/react-query/constants';
 
 export interface GetOrganizationRoleInfoResponse extends SchemaRole {
 	name: string;
@@ -16,7 +15,7 @@ export function getOrganizationRoleInfoQueryOptions({
 	roleId: string;
 }) {
 	return queryOptions({
-		queryKey: [queryKeys.organization, organizationId, queryKeys.roles, roleId] as const,
+		queryKey: [organizationId, 'roles', roleId] as const,
 		queryFn: () => getOrganizationRoleInfo(roleId),
 		refetchInterval: 10 * 1000,
 	});

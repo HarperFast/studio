@@ -7,7 +7,6 @@ import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
 import { NewOrg } from '@/features/organizations/NewOrg';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
-import { queryKeys } from '@/react-query/constants';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
@@ -58,8 +57,7 @@ export function OrganizationsIndex() {
 								onClick: () => toast.dismiss(),
 							},
 						});
-						queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'active' });
-						queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+						void queryClient.invalidateQueries({ refetchType: 'none' });
 						setIsDeleteOrgModalOpen(false);
 					},
 					onError: () => setIsDeleteOrgModalOpen(false),
