@@ -130,14 +130,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		const loadedPath = getComponentFileQueryData?.project + '/' + getComponentFileQueryData?.file;
 		let contents = getComponentFileQueryData?.message;
 		if (
-			loadedPath === pathToLoad && contents
+			loadedPath === pathToLoad && contents !== undefined
 		) {
 			const baseURL = instanceParams.instanceClient.defaults.baseURL;
 			if (loadedOverviewEntry && baseURL && getComponentFileQueryData) {
 				contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
 			}
 			// eslint-disable-next-line react-hooks/set-state-in-effect
-			setOpenedEntryContents(contents || undefined);
+			setOpenedEntryContents(contents);
 		} else {
 			setOpenedEntryContents(undefined);
 		}
