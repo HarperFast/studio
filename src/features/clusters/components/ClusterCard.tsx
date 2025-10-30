@@ -100,7 +100,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 				setIsTerminateClusterModalOpen(false);
 			},
 		});
-	}, [terminateCluster, cluster.id, cluster.name, isSelfManaged, queryClient]);
+	}, [cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
 
 	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
 		`${cluster.fqdn}`,
