@@ -6,6 +6,13 @@ export const templates = [
 		tags: ['Harper', 'ORM', 'REST', 'GraphQL'],
 		githubUrl: 'https://github.com/HarperFast/application-template/tree/fabric',
 	},
+	{
+		id: 'harper-ts',
+		name: 'TypeScript',
+		description: 'The same Web + REST ORM from the first template, but with TypeScript sprinkled in.',
+		tags: ['Harper', 'TypeScript', 'GraphQL'],
+		githubUrl: 'https://github.com/HarperFast/application-template/tree/fabric-typescript',
+	},
 	// {
 	// 	id: 'nextjs',
 	// 	name: 'Next.js',
