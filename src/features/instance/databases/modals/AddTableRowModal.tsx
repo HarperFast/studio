@@ -53,7 +53,7 @@ export function AddTableRowModal({
 			</DialogHeader>
 			{instanceTable?.hash_attribute &&
 							<div className="text-sm text-gray-500">
-								The hash_attribute for this table is <strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will
+								The primary key for this table is <strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will
 								auto-generate. You may manually add it if you want to specify its value.</div>}
 			<Editor className="w-full h-96" language="json" theme="vs-dark"
 				value={sampleJSON}
