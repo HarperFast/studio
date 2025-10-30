@@ -6,9 +6,6 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { ColumnFiltersSchema } from '@/features/instance/databases/components/ColumnFilters';
-import { PickColumnsDropdown } from '@/features/instance/databases/components/PickColumnsDropdown';
-import { TableView } from '@/features/instance/databases/components/TableView';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
@@ -36,7 +33,7 @@ import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { useLoaderData, useNavigate, useParams } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
 	EllipsisIcon,
@@ -52,8 +49,11 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ColumnFiltersSchema } from './ColumnFilters';
+import { PickColumnsDropdown } from './PickColumnsDropdown';
+import { TableView } from './TableView';
 
-export function DatabaseTableView() {
+export function DatabaseTableView({ instanceDatabaseMap }: { instanceDatabaseMap: InstanceDatabaseMap }) {
 	const allParams: {
 		clusterId?: string;
 		instanceId?: string;
@@ -81,7 +81,6 @@ export function DatabaseTableView() {
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-	const instanceDatabaseMap = useLoaderData({ strict: false }) as InstanceDatabaseMap;
 	const isLastTableInDatabase = useMemo(() => {
 		const tableNames = databaseName ? Object.keys(instanceDatabaseMap[databaseName] || []).sort() : [];
 		return tableNames?.length === 1;

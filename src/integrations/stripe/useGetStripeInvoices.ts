@@ -1,6 +1,5 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaInvoice } from '@/lib/api.gen';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getStripeInvoices(organizationId: string): Promise<SchemaInvoice[]> {
@@ -11,7 +10,7 @@ export async function getStripeInvoices(organizationId: string): Promise<SchemaI
 
 export function getStripeInvoicesQueryOptions(organizationId: string | undefined | false, refetch?: boolean) {
 	return queryOptions({
-		queryKey: [queryKeys.organization, organizationId, 'invoices'],
+		queryKey: [organizationId, 'invoices'],
 		queryFn: () => getStripeInvoices(organizationId as string),
 		retry: false,
 		enabled: !!organizationId,

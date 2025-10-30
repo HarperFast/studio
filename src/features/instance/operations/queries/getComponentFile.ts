@@ -1,5 +1,4 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetComponentFileRequest extends InstanceClientIdConfig {
@@ -45,7 +44,7 @@ export function getComponentFileQueryOptions(params: GetComponentFileRequest) {
 export function getComponentFileQueryKey(params: GetComponentFileRequest) {
 	return [
 		params.entityId,
-		queryKeys.operations.get_component_file,
+		"get_component_file",
 		params.file,
 		params.project,
 	] as const;

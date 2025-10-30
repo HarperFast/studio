@@ -23,7 +23,6 @@ import { Cluster } from '@/lib/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
-import { queryKeys } from '@/react-query/constants';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { CopyIcon, Ellipsis } from 'lucide-react';
@@ -68,6 +67,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	const onTerminateClick = useCallback(() => setIsTerminateClusterModalOpen(true), []);
 
 	const handleTerminatedCluster = useCallback(() => {
+		const organizationId = cluster.organizationId;
 		terminateCluster(cluster.id, {
 			onSuccess: () => {
 				toast.success('Success', {
@@ -81,7 +81,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 					},
 				});
 				void queryClient.invalidateQueries({
-					queryKey: [queryKeys.organization],
+					queryKey: [organizationId],
 					refetchType: 'active',
 				});
 				setIsTerminateClusterModalOpen(false);

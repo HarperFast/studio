@@ -18,7 +18,6 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
-import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -280,9 +279,9 @@ export function ClusterForm({
 		isSelfManaged: boolean;
 		toastId: string | number;
 	}) => {
-		void queryClient.invalidateQueries({ queryKey: [queryKeys.organization], refetchType: 'active' });
+		void queryClient.invalidateQueries({ queryKey: [organizationId], refetchType: 'active' });
 		if (!creating) {
-			void queryClient.invalidateQueries({ queryKey: [queryKeys.cluster, clusterId], refetchType: 'active' });
+			void queryClient.invalidateQueries({ queryKey: [clusterId], refetchType: 'active' });
 		}
 
 		void router.invalidate();

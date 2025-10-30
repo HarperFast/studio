@@ -102,10 +102,12 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
-					<Plus />
-					<span>Create a <u>T</u>able</span>
-				</Button>
+				<div className="sticky bottom-0 py-4 bg-black/70 backdrop-blur-xs">
+					<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
+						<Plus />
+						<span>Create a <u>T</u>able</span>
+					</Button>
+				</div>
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>

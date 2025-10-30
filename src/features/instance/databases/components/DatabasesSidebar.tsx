@@ -5,15 +5,14 @@ import { CreateNewTableModal } from '@/features/instance/databases/modals/Create
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/lib/api.patch';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
-import { useLoaderData, useNavigate, useParams, useRouter } from '@tanstack/react-router';
+import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
-export function DatabasesSidebar() {
+export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap: InstanceDatabaseMap }) {
 	const router = useRouter();
 
 	const params: { databaseName?: string; tableName?: string; } = useParams({ strict: false });
-	const instanceDatabaseMap = useLoaderData({ strict: false }) as InstanceDatabaseMap;
 	const navigate = useNavigate();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
@@ -54,31 +53,29 @@ export function DatabasesSidebar() {
 	return (
 		<div className="pl-3">
 			<h1 className="pt-3 pb-3 text-3xl">Databases</h1>
-			<div className="">
-				{databaseNames?.length > 0 && (<div className="flex space-x-2">
-					<Select
-						name="databaseSelect"
-						value={params.databaseName || ''}
-						onValueChange={(selectedDatabaseName) => {
-							onSelectDatabase(selectedDatabaseName);
-						}}
-					>
-						<SelectTrigger className="w-full">
-							<SelectValue placeholder="Select a Database" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{databaseNames?.map((databaseName) => (
-									<SelectItem key={databaseName} value={databaseName}>
-										{databaseName}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-				</div>)}
-			</div>
-			<ScrollArea className="border rounded-md h-80 border-grey-700 mt-4 mb-4">
+			{databaseNames?.length > 0 && (<div className="flex space-x-2">
+				<Select
+					name="databaseSelect"
+					value={params.databaseName || ''}
+					onValueChange={(selectedDatabaseName) => {
+						onSelectDatabase(selectedDatabaseName);
+					}}
+				>
+					<SelectTrigger className="w-full">
+						<SelectValue placeholder="Select a Database" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectGroup>
+							{databaseNames?.map((databaseName) => (
+								<SelectItem key={databaseName} value={databaseName}>
+									{databaseName}
+								</SelectItem>
+							))}
+						</SelectGroup>
+					</SelectContent>
+				</Select>
+			</div>)}
+			<ScrollArea className="border rounded-md min-h-80 border-grey-700 mt-4">
 				{(tableNames ?? []).length === 0 && params.databaseName?.length ? (
 					<div className="w-full h-full text-center">
 						<p className="py-6">No tables found in this database.</p>

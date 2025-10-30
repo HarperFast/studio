@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
@@ -19,7 +20,6 @@ import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
-import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
@@ -97,7 +97,7 @@ export function ClusterInstanceSignIn() {
 						}
 					}
 					authStore.setUserForEntity(instance || cluster || OverallAppSignIn, user);
-					void queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'none' });
+					void queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 					void router.invalidate();
 					await navigate({
 						to: redirect?.startsWith('/')

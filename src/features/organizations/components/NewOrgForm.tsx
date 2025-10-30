@@ -7,13 +7,13 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
 import { NewOrganizationSchema } from '@/features/organizations/mutations/newOrganizationSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
-import { queryKeys } from '@/react-query/constants';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
@@ -63,7 +63,7 @@ export function NewOrgForm() {
 			subdomain: formData.subdomain || calculatedNames.suggestedSubdomain,
 		}, {
 			onSuccess: (newOrg) => {
-				queryClient.invalidateQueries({ queryKey: [queryKeys.user], refetchType: 'active' });
+				queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'active' });
 				authStore.reloadUser(OverallAppSignIn);
 				void navigate({ to: `/${newOrg.id}` });
 			},

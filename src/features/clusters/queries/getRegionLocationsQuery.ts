@@ -1,5 +1,4 @@
 import { apiClient } from '@/config/apiClient';
-import { queryKeys } from '@/react-query/constants';
 
 export interface GetRegionLocationsParams {
 	organizationId?: string;
@@ -18,7 +17,7 @@ async function getRegionLocations({ organizationId, availableHosts }: GetRegionL
 
 export function getRegionLocationsOptions({ organizationId, availableHosts }: GetRegionLocationsParams = {}) {
 	return {
-		queryKey: [queryKeys.cluster, 'regionLocations', organizationId, availableHosts],
+		queryKey: [organizationId, 'regionLocations', availableHosts],
 		queryFn: () => getRegionLocations({ organizationId, availableHosts }),
 		retry: false,
 	};

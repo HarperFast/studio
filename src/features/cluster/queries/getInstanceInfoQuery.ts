@@ -1,5 +1,4 @@
 import { isLocalStudio } from '@/config/constants';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 import { getClusterInfo } from './getClusterInfoQuery';
 
@@ -28,7 +27,7 @@ async function getInstanceInfo({ clusterId, instanceId }: GetInstanceInfoParams)
 
 export function getInstanceInfoQueryOptions(params: GetInstanceInfoParams) {
 	return queryOptions({
-		queryKey: [queryKeys.cluster, params.clusterId, queryKeys.instance, params.instanceId] as const,
+		queryKey: [params.clusterId, params.instanceId] as const,
 		queryFn: () => getInstanceInfo(params),
 		retry: false,
 	});

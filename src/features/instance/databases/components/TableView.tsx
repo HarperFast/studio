@@ -4,7 +4,6 @@ import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
-import { ColumnFilters, ColumnFiltersSchema } from '@/features/instance/databases/components/ColumnFilters';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { cn } from '@/lib/cn';
 import {
@@ -20,6 +19,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { Dispatch, SetStateAction, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
+import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
 
 interface BrowseDataTableProps<TData, TValue> {
 	applyFilters: () => void,
@@ -100,8 +100,8 @@ export function TableView<TData, TValue>({
 						{row.getVisibleCells().map((cell) => (<TableCell key={cell.id}
 							style={{ width: `${cell.column.getSize()}px` }}
 							className="px-2 py-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap">
-							{ cell.getValue() == '[object Object]' ? JSON.stringify(cell.getValue()) :
-							flexRender(cell.column.columnDef.cell, cell.getContext())
+							{cell.getValue() == '[object Object]' ? JSON.stringify(cell.getValue()) :
+								flexRender(cell.column.columnDef.cell, cell.getContext())
 							}
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>

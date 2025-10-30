@@ -1,6 +1,5 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaOrganizationRole } from '@/lib/api.gen';
-import { queryKeys } from '@/react-query/constants';
 import { queryOptions } from '@tanstack/react-query';
 
 async function getOrganizationRoles(organizationId: string): Promise<SchemaOrganizationRole[]> {
@@ -10,7 +9,7 @@ async function getOrganizationRoles(organizationId: string): Promise<SchemaOrgan
 
 export function getOrganizationRolesQueryOptions(organizationId: string) {
 	return queryOptions({
-		queryKey: [queryKeys.organization, organizationId, queryKeys.roles],
+		queryKey: [organizationId, 'roles'],
 		queryFn: () => getOrganizationRoles(organizationId),
 		retry: false,
 		refetchInterval: 10 * 1000, // 10 seconds
