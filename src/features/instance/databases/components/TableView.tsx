@@ -1,6 +1,7 @@
 'use client';
 
-import { Loading } from '@/components/Loading';
+import { LoadingSubtle } from '@/components/LoadingSubtle';
+import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
@@ -26,7 +27,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>,
 	columns: ColumnDef<TData, TValue>[],
 	columnVisibility: VisibilityState,
-	data: TData[],
+	data?: TData[],
 	isFetching?: boolean,
 	onColumnClick?: (accessorKey: string, isDescending: boolean) => void,
 	onRowClick?: (row: Row<TData>) => void,
@@ -35,8 +36,8 @@ interface BrowseDataTableProps<TData, TValue> {
 	setPageIndex: Dispatch<SetStateAction<number>>,
 	setPageSize: Dispatch<SetStateAction<number>>,
 	filtersToggled: boolean,
-	totalPages: number,
-	totalRecords: number,
+	totalPages?: number,
+	totalRecords?: number,
 }
 
 export function TableView<TData, TValue>({
@@ -57,7 +58,7 @@ export function TableView<TData, TValue>({
 	totalRecords,
 }: BrowseDataTableProps<TData, TValue>) {
 	const table = useReactTable({
-		data,
+		data: data || [],
 		columns,
 		manualPagination: true,
 		enableColumnResizing: true,
@@ -106,7 +107,11 @@ export function TableView<TData, TValue>({
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>
 					<TableCell colSpan={columns.length} className="h-24 text-center">
-						{isFetching ? <div><Loading className="m-12" /></div> : <span>No results.</span>}
+						{
+							isFetching || data === undefined
+								? <LoadingSubtle className="opacity-50 inline-block" />
+								: <span>No results.</span>
+						}
 					</TableCell>
 				</TableRow>)}
 			</TableBody>
@@ -122,9 +127,10 @@ export function TableView<TData, TValue>({
 
 			<div className="text-center">
 				<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Records</dt>
-				<dd className="font-semibold tracking-tight">{addCommasToNumbers(totalRecords)}</dd>
+				<dd className="font-semibold tracking-tight">{totalRecords === undefined ?
+					<TextLoadingSkeleton /> : addCommasToNumbers(totalRecords)}</dd>
 			</div>
-			{totalRecords > 0 && (<>
+			{totalRecords !== undefined && totalRecords > 0 && (<>
 				<div>
 					<Select defaultValue={pageSize.toString()} onValueChange={(value) => {
 						setPageSize(Number(value));
@@ -140,7 +146,7 @@ export function TableView<TData, TValue>({
 					</Select>
 				</div>
 
-				{totalPages > 1 && (<>
+				{totalPages !== undefined && totalPages > 1 && (<>
 					<div className="text-center">
 						<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Pages</dt>
 						<dd className="font-semibold tracking-tight">{addCommasToNumbers(totalPages)}</dd>
@@ -155,7 +161,7 @@ export function TableView<TData, TValue>({
 			<div className="grow"></div>
 
 			<Button variant="defaultOutline" size="sm" onClick={nextPage} className="select-none"
-				disabled={pageIndex === totalPages - 1}>
+				disabled={totalPages === undefined || pageIndex === totalPages - 1}>
 				Next
 				<ArrowRightIcon />
 			</Button>

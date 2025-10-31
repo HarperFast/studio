@@ -11,6 +11,7 @@ export function getDescribeAllQueryOptions({ entityId, instanceClient }: Instanc
 			});
 			return data;
 		},
+		staleTime: 60 * 1000,
 		retry: false,
 	});
 }
