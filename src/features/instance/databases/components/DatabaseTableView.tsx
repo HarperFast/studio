@@ -32,7 +32,7 @@ import { InstanceDatabaseMap } from '@/lib/api.patch';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
@@ -46,7 +46,7 @@ import {
 	Trash2Icon,
 	TrashIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
@@ -54,7 +54,7 @@ import { PickColumnsDropdown } from './PickColumnsDropdown';
 import { TableView } from './TableView';
 
 export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
-	instanceDatabaseMap: InstanceDatabaseMap,
+	instanceDatabaseMap?: InstanceDatabaseMap,
 	databaseName: string,
 	tableName: string
 }) {
@@ -72,20 +72,20 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
-	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useSuspenseQuery(
+	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useQuery(
 		getDescribeTableQueryOptions({
 			...instanceParams,
 			databaseName,
 			tableName,
 		}),
 	);
-	const attributesMap = useMemo(() => keyBy(describeTableData.attributes, 'attribute'), [describeTableData]);
+	const attributesMap = useMemo(() => keyBy(describeTableData?.attributes ?? [], 'attribute'), [describeTableData]);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 	const isLastTableInDatabase = useMemo(() => {
-		const tableNames = databaseName ? Object.keys(instanceDatabaseMap[databaseName] || []).sort() : [];
-		return tableNames?.length === 1;
+		const tableNames = databaseName ? Object.keys(instanceDatabaseMap?.[databaseName] || []).sort() : [];
+		return tableNames.length === 1;
 	}, [instanceDatabaseMap, databaseName]);
 
 	const { toggled: filtersToggled, toggleOn: showFilters, toggleOff: hideFilters } = useToggler(false);
@@ -130,10 +130,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		allParams,
 	);
 
-	const [totalRecords, setTotalRecords] = useState(describeTableData.record_count);
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName]);
 	const [pageSize, setPageSize] = useState(20);
-	const [totalPages, setTotalPages] = useState(Math.ceil(describeTableData.record_count / pageSize));
+
+	const totalRecords = describeTableData?.record_count;
+	const totalPages = describeTableData?.record_count ? Math.ceil(describeTableData.record_count / pageSize) : 0;
 
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
@@ -144,8 +145,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		isFetching: tableDataFetching,
 	} = useQuery(
 		getSearchByValueOptions({
-			enabled: !useFilteredList,
 			...instanceParams,
+			enabled: !useFilteredList && !!hashAttribute,
 			databaseName,
 			tableName,
 			searchAttribute: hashAttribute,
@@ -157,8 +158,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Filtered list
 	const { data: filteredTableData } = useQuery(
 		getSearchByConditionsOptions({
-			enabled: useFilteredList,
 			...instanceParams,
+			enabled: useFilteredList,
 			databaseName,
 			tableName,
 			conditions: appliedSearchConditions,
@@ -182,11 +183,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
-
-	useEffect(() => {
-		setTotalRecords(describeTableData.record_count);
-		setTotalPages(Math.ceil(describeTableData.record_count / pageSize));
-	}, [describeTableData, pageSize]);
 
 	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
@@ -356,8 +352,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					/>
 
 					{canManageBrowseInstance && (<DropdownMenu>
-						<DropdownMenuTrigger>
-							<EllipsisIcon aria-label="Table options" />
+						<DropdownMenuTrigger disabled={!instanceDatabaseMap}>
+							<EllipsisIcon aria-label="Table options" color={!instanceDatabaseMap ? 'gray' : 'white'} />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
 							{!isLastTableInDatabase && (
@@ -376,7 +372,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			</div>
 
 			<TableView<Record<string, unknown>, unknown>
-				data={tableData?.data || []}
+				data={tableData?.data}
 				isFetching={tableDataFetching}
 				filtersToggled={filtersToggled}
 				columns={dataTableColumns}
@@ -392,7 +388,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>
-			{canAddRecords && (
+			{canAddRecords && describeTableData && (
 				<AddTableRowModal
 					instanceTable={describeTableData}
 					setIsModalOpen={setIsAddModalOpen}

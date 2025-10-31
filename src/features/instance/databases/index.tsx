@@ -1,7 +1,7 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from '@tanstack/react-router';
 import { DatabasesSidebar } from './components/DatabasesSidebar';
 import { DatabaseTableView } from './components/DatabaseTableView';
@@ -15,7 +15,7 @@ export function Databases() {
 	} = useParams({ strict: false });
 
 	const instanceParams = useInstanceClientIdParams();
-	const { data: instanceDatabaseMap } = useSuspenseQuery(getDescribeAllQueryOptions(instanceParams));
+	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceParams));
 
 	let newDatabaseName: string | undefined;
 	let newTableName: string | undefined;

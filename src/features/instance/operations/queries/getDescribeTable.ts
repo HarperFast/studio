@@ -23,7 +23,7 @@ export function getDescribeTableQueryOptions({
 			});
 			return data;
 		},
-		staleTime: 5000,
+		staleTime: 60 * 1000,
 		enabled: !!databaseName && !!tableName,
 		retry: false,
 	});

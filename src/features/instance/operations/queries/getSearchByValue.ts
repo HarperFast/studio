@@ -49,17 +49,19 @@ export function getSearchByValueOptions({
 		] as const,
 		staleTime: 5_000,
 		// refetchInterval: 10_000,
-		queryFn: () =>
-			instanceClient.post<Record<string, unknown>[]>('/', {
+		queryFn: () => {
+			const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
+			return instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_value',
 				get_attributes: ['*'],
 				database: databaseName,
 				table: tableName,
 				search_attribute: searchAttribute,
 				search_value: '*',
-				sort: sort.attribute.length ? sort : undefined,
+				sort: customizedSort ? sort : undefined,
 				offset: pageIndex * pageSize,
 				limit: pageSize,
-			} satisfies SearchByValueRequest),
+			} satisfies SearchByValueRequest);
+		},
 	});
 }
