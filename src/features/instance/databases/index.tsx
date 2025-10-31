@@ -10,8 +10,8 @@ export function Databases() {
 	const params: {
 		clusterId?: string;
 		instanceId?: string;
-		databaseName: string;
-		tableName: string;
+		databaseName?: string;
+		tableName?: string;
 	} = useParams({ strict: false });
 
 	const instanceParams = useInstanceClientIdParams();
@@ -42,7 +42,11 @@ export function Databases() {
 				<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 			</section>
 			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9 flex flex-col">
-				<DatabaseTableView instanceDatabaseMap={instanceDatabaseMap} />
+				{params.databaseName && params.tableName && <DatabaseTableView
+					instanceDatabaseMap={instanceDatabaseMap}
+					databaseName={params.databaseName}
+					tableName={params.tableName}
+				/>}
 			</section>
 		</main>
 	);

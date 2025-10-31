@@ -53,17 +53,19 @@ import { ColumnFiltersSchema } from './ColumnFilters';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
 import { TableView } from './TableView';
 
-export function DatabaseTableView({ instanceDatabaseMap }: { instanceDatabaseMap: InstanceDatabaseMap }) {
+export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
+	instanceDatabaseMap: InstanceDatabaseMap,
+	databaseName: string,
+	tableName: string
+}) {
 	const allParams: {
 		clusterId?: string;
 		instanceId?: string;
-		databaseName: string;
-		tableName: string;
 	} = useParams({ strict: false });
 
 	const navigate = useNavigate();
 	const instanceParams = useInstanceClientIdParams();
-	const { clusterId, instanceId, databaseName, tableName } = allParams;
+	const { clusterId, instanceId } = allParams;
 
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
