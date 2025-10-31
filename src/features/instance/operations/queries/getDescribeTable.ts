@@ -15,12 +15,12 @@ export function getDescribeTableQueryOptions({
 }: GetDescribeTableParams) {
 	return queryOptions({
 		queryKey: [entityId, 'describe_table', databaseName, tableName] as const,
-		queryFn: async () => {
+		queryFn: async ({ signal }) => {
 			const { data } = await instanceClient.post<InstanceTable>('/', {
 				operation: 'describe_table',
 				database: databaseName,
 				table: tableName,
-			});
+			}, { signal });
 			return data;
 		},
 		staleTime: 60 * 1000,

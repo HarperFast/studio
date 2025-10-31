@@ -70,9 +70,10 @@ export function getSearchByConditionsOptions({
 			pageIndex || 0,
 			pageSize || 0,
 		] as const,
-		staleTime: 5_000,
-		// refetchInterval: 10_000,
-		queryFn: () =>
+		staleTime: 60_000,
+
+		retry: false,
+		queryFn: ({ signal }) =>
 			instanceClient.post<Record<string, unknown>[]>('/', {
 				operation: 'search_by_conditions',
 				get_attributes: ['*'],
@@ -82,7 +83,7 @@ export function getSearchByConditionsOptions({
 				sort: sort.attribute.length ? sort : undefined,
 				offset: pageIndex * pageSize,
 				limit: pageSize,
-			} satisfies SearchByConditionsRequest),
+			} satisfies SearchByConditionsRequest, { timeout: 0, signal }),
 	});
 }
 
