@@ -12,6 +12,7 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	sort: { attribute: string; descending: boolean; };
 	pageIndex: number;
 	pageSize: number;
+	onlyIfCached: boolean;
 }
 
 type Comparator =
@@ -43,6 +44,8 @@ interface SearchByConditionsRequest {
 	offset: number;
 	limit: number;
 	get_attributes?: string[];
+	onlyIfCached: boolean;
+	noCacheStore: boolean;
 }
 
 export function getSearchByConditionsOptions({
@@ -55,6 +58,7 @@ export function getSearchByConditionsOptions({
 	sort,
 	pageIndex,
 	pageSize,
+	onlyIfCached,
 }: GetSearchByConditionsParams) {
 	// starts_with, equals, etc
 	return queryOptions({
@@ -69,6 +73,7 @@ export function getSearchByConditionsOptions({
 			sort.descending || false,
 			pageIndex || 0,
 			pageSize || 0,
+			onlyIfCached,
 		] as const,
 		staleTime: 60_000,
 
@@ -83,6 +88,8 @@ export function getSearchByConditionsOptions({
 				sort: sort.attribute.length ? sort : undefined,
 				offset: pageIndex * pageSize,
 				limit: pageSize,
+				onlyIfCached: onlyIfCached,
+				noCacheStore: onlyIfCached,
 			} satisfies SearchByConditionsRequest, { timeout: 0, signal }),
 	});
 }

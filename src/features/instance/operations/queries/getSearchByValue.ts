@@ -9,6 +9,7 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	sort: { attribute: string; descending: boolean; };
 	pageIndex: number;
 	pageSize: number;
+	onlyIfCached: boolean;
 }
 
 interface SearchByValueRequest {
@@ -21,6 +22,8 @@ interface SearchByValueRequest {
 	offset: number;
 	limit: number;
 	get_attributes?: string[];
+	onlyIfCached: boolean;
+	noCacheStore: boolean;
 }
 
 export function getSearchByValueOptions({
@@ -33,6 +36,7 @@ export function getSearchByValueOptions({
 	sort,
 	pageIndex,
 	pageSize,
+	onlyIfCached,
 }: GetSearchByValueParams) {
 	return queryOptions({
 		enabled,
@@ -46,6 +50,7 @@ export function getSearchByValueOptions({
 			sort.descending || false,
 			pageIndex || 0,
 			pageSize || 0,
+			onlyIfCached,
 		] as const,
 		retry: false,
 		staleTime: 60_000,
@@ -61,6 +66,8 @@ export function getSearchByValueOptions({
 				sort: customizedSort ? sort : undefined,
 				offset: pageIndex * pageSize,
 				limit: pageSize,
+				onlyIfCached: onlyIfCached,
+				noCacheStore: onlyIfCached,
 			} satisfies SearchByValueRequest, { timeout: 0, signal });
 		},
 	});

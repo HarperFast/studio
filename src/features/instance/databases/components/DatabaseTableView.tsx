@@ -31,12 +31,16 @@ import { useToggler } from '@/hooks/useToggler';
 import { InstanceDatabaseMap } from '@/lib/api.patch';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
+import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
+	CircleCheckBigIcon,
+	CircleIcon,
 	EllipsisIcon,
+	ExternalLinkIcon,
 	FunnelIcon,
 	FunnelPlusIcon,
 	FunnelXIcon,
@@ -66,6 +70,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const navigate = useNavigate();
 	const instanceParams = useInstanceClientIdParams();
 	const { clusterId, instanceId } = allParams;
+
+	const { toggled: onlyIfCached, toggle: toggleOnlyCached } = useToggler(true);
 
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
@@ -153,6 +159,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			sort,
 			pageSize,
 			pageIndex,
+			onlyIfCached,
 		}),
 	);
 	// Filtered list
@@ -166,6 +173,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			sort,
 			pageSize,
 			pageIndex,
+			onlyIfCached,
 		}),
 	);
 	const tableData = useFilteredList ? filteredTableData : fullTableData;
@@ -351,23 +359,35 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						setColumnVisibility={setColumnVisibility}
 					/>
 
-					{canManageBrowseInstance && (<DropdownMenu>
+					<DropdownMenu>
 						<DropdownMenuTrigger disabled={!instanceDatabaseMap}>
 							<EllipsisIcon aria-label="Table options" color={!instanceDatabaseMap ? 'gray' : 'white'} />
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
-							{!isLastTableInDatabase && (
+							<DropdownMenuItem className="focus:bg-primary/70 focus:text-white" onClick={toggleOnlyCached}>
+								{onlyIfCached ? <CircleCheckBigIcon className="text-green" /> : <CircleIcon />}
+								Only If Cached
+								<Link
+									to="https://docs.harperdb.io/docs/developers/applications/caching#cache-control-header"
+									target="_blank"
+									rel="noopener noreferrer"
+									onClick={onClickStopPropagation}>
+									<ExternalLinkIcon />
+								</Link>
+							</DropdownMenuItem>
+							{canManageBrowseInstance && !isLastTableInDatabase && (
 								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteTable}>
 									<TrashIcon className="inline-block " />
 									Drop Table
 								</DropdownMenuItem>
 							)}
-							<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
-								<Trash2Icon />
-								Drop Database
-							</DropdownMenuItem>
+							{canManageBrowseInstance &&
+								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
+									<Trash2Icon />
+									Drop Database
+								</DropdownMenuItem>}
 						</DropdownMenuContent>
-					</DropdownMenu>)}
+					</DropdownMenu>
 				</div>
 			</div>
 
