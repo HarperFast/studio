@@ -18,6 +18,7 @@ import {
 	PanelRightCloseIcon,
 	PanelRightOpenIcon,
 	PencilIcon,
+	PlusIcon,
 	SaveIcon,
 	TrashIcon,
 	Undo2Icon,
@@ -25,7 +26,10 @@ import {
 
 import './ContentActions.css';
 
-export function ContentActions({ toggledSidebar, toggleSidebar }: {
+export function ContentActions({
+	toggledSidebar,
+	toggleSidebar,
+}: {
 	toggledSidebar: boolean;
 	toggleSidebar: () => void;
 }) {
@@ -43,6 +47,7 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
+	const onAddSchemaClick = useEmitToListeners('ShowAddSchemaModal', true);
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
 
@@ -50,7 +55,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 		<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12">
 			<Button
 				variant="ghost"
-				className={(toggledSidebar ? 'toggled-sidebar-toggler' : 'hidden-sidebar-toggler') + ' inline-flex'
+				className={(toggledSidebar ? 'toggled-sidebar-toggler' : 'hidden-sidebar-toggler')
+					+ ' inline-flex'
 					+ ' text-sm md:hidden'
 					+ ' focus:outline-none'
 					+ ' focus:ring-2'
@@ -69,16 +75,15 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 							<TooltipTrigger asChild>
 								<Button variant="ghost" type="button" className="cursor-help">
 									<LockIcon width={16} height={16} />
-									<span className="hidden md:inline-block">
-										Imported applications are read-only
-									</span>
+									<span className="hidden md:inline-block">Imported applications are read-only</span>
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent>
 								{restrictPackageModification
 									? (
 										<>
-											This application is read-only, and cannot be modified.<br />
+											This application is read-only, and cannot be modified.
+											<br />
 											It helps govern clustering amongst your instances.
 										</>
 									)
@@ -98,6 +103,7 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 							className="rounded-none"
 							onClick={onSaveClick}
 							disabled={fileIsClean || isSavingFile}
+							title="Save"
 						>
 							<SaveIcon className="pointer-events-none" />
 							<span className="hidden lg:inline-block pointer-events-none">
@@ -112,6 +118,7 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 							className="rounded-none"
 							onClick={onRenameClick}
 							disabled={!fileIsClean || isSavingFile}
+							title="Rename"
 						>
 							<PencilIcon className="pointer-events-none" />
 							<span className="hidden lg:inline-block pointer-events-none">
@@ -121,29 +128,30 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 					)}
 
 					{!openedEntry.package && canManageBrowseInstance && (
-						<Button
-							variant="ghost"
-							className="rounded-none"
-							onClick={onAddFileClick}
-						>
+						<Button variant="ghost" className="rounded-none" onClick={onAddFileClick} title="New File">
 							<FileIcon className="pointer-events-none" />
-							<span className="pointer-events-none">
+							<span className="pointer-events-none hidden lg:inline-block">
 								<u>N</u>ew
-								<span className="hidden mlg:inline-block">&nbsp;File</span>
+								<span className="hidden lg:inline-block">&nbsp;File</span>
 							</span>
 						</Button>
 					)}
 
 					{!openedEntry.package && canManageBrowseInstance && (
-						<Button
-							variant="ghost"
-							className="rounded-none"
-							onClick={onAddDirectoryClick}
-						>
+						<Button variant="ghost" className="rounded-none" onClick={onAddDirectoryClick} title="Add Directory">
 							<FolderIcon className="pointer-events-none" />
-							<span className="pointer-events-none">
+							<span className="pointer-events-none hidden lg:inline-block">
 								<u>A</u>dd
 								<span className="hidden xl:inline-block">&nbsp;Directory</span>
+							</span>
+						</Button>
+					)}
+
+					{openedEntry.path.endsWith('.graphql') && canManageBrowseInstance && (
+						<Button variant="ghost" className="rounded-none" onClick={onAddSchemaClick} title="New Table">
+							<PlusIcon className="pointer-events-none" />
+							<span className="hidden lg:inline-block pointer-events-none">
+								<span className="hidden xl:inline-block">New</span> Table
 							</span>
 						</Button>
 					)}
@@ -153,28 +161,24 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 							variant="ghost"
 							className="rounded-none"
 							onClick={onDownloadApplicationClick}
+							title="Download Application"
 						>
 							<DownloadIcon className="pointer-events-none" />
 							<span className="hidden lg:inline-block pointer-events-none">
 								Download
-								<span className="hidden xl:inline-block">&nbsp;Application</span>
+								<span className="hidden 2xl:inline-block">&nbsp;Application</span>
 							</span>
 						</Button>
 					)}
 
-					{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification
-						&& (
-							<Button
-								variant="ghost"
-								className="rounded-none"
-								onClick={onRedeployClick}
-							>
-								<PackageIcon className="pointer-events-none" />
-								<span className="pointer-events-none">
-									Redeploy <u>P</u>ackage
-								</span>
-							</Button>
-						)}
+					{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification && (
+						<Button variant="ghost" className="rounded-none" onClick={onRedeployClick} title="Redeploy Package">
+							<PackageIcon className="pointer-events-none" />
+							<span className="pointer-events-none">
+								Redeploy <u>P</u>ackage
+							</span>
+						</Button>
+					)}
 
 					<div className="grow"></div>
 
@@ -195,18 +199,17 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 							className="rounded-none"
 							onClick={onRevertChangesClicked}
 							disabled={fileIsClean || isSavingFile}
+							title="Revert Changes"
 						>
 							<Undo2Icon className="pointer-events-none" />
-							<span className="hidden xl:inline-block pointer-events-none">Revert Changes</span>
+							<span className="hidden xl:inline-block pointer-events-none">
+								Revert <span className="hidden 2xl:inline-block">Changes</span>
+							</span>
 						</Button>
 					)}
 
 					{!restrictPackageModification && canManageBrowseInstance && (
-						<Button
-							variant="destructiveGhost"
-							className="rounded-none"
-							onClick={onDeleteClick}
-						>
+						<Button variant="destructiveGhost" className="rounded-none" onClick={onDeleteClick} title="Delete">
 							<TrashIcon className="pointer-events-none" />
 							<span className="hidden xl:inline-block pointer-events-none">
 								<u>D</u>elete

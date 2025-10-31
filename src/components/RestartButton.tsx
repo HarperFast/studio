@@ -26,10 +26,7 @@ export function RestartButton({
 	tooltip,
 	variant,
 }: RestartButtonParams) {
-	const {
-		onRestartClick: onRestartClusterClick,
-		isRestartPending: isRestartClusterPending,
-	} = useRestartClusterClick();
+	const { onRestartClick: onRestartClusterClick, isRestartPending: isRestartClusterPending } = useRestartClusterClick();
 	const { onRestartClick, isRestartPending } = useRestartInstanceClick({ operation, instanceClient });
 	return (
 		<Tooltip>
@@ -39,10 +36,14 @@ export function RestartButton({
 					className={cx('mx-0 md:mx-4 rounded-full', className)}
 					onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 					disabled={disabled || isRestartPending || isRestartClusterPending}
+					title={`Restart ${targetNoun}`}
 				>
 					<RotateCcwIcon className="pointer-events-none" />
-					{hideText !== true && <span className="hidden md:inline-block pointer-events-none">Restart {targetNoun}
-					</span>}
+					{hideText !== true && (
+						<span className="hidden md:inline-block pointer-events-none">
+							Restart <span className="hidden 2xl:inline-block">{targetNoun}</span>
+						</span>
+					)}
 				</Button>
 			</TooltipTrigger>
 			<TooltipContent side="bottom">
