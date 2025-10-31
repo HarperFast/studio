@@ -28,11 +28,16 @@ const extensionToLanguageMap: Record<string, string> = {
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile } = useEditorView();
-	const { content: updatedFileContent, setContent } = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
+	const { content: updatedFileContent, setContent } = useEditorFileContent(
+		!!openedEntry && !openedEntry.package && openedEntry.path
+	);
 
-	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
-		setContent(newValue !== openedEntryContents ? newValue : undefined);
-	}, [openedEntryContents, setContent]);
+	const setUpdatedFileContent = useCallback(
+		(newValue: string | undefined) => {
+			setContent(newValue !== openedEntryContents ? newValue : undefined);
+		},
+		[openedEntryContents, setContent]
+	);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
@@ -103,11 +108,11 @@ export function TextEditorView() {
 						payload: updatedFileContent,
 						project: openedEntry.project,
 					},
-					openedEntry.path,
+					openedEntry.path
 				);
 			}
 		},
-		[openedEntry, instanceParams, updatedFileContent],
+		[openedEntry, instanceParams, updatedFileContent]
 	);
 
 	useListener(
@@ -119,7 +124,7 @@ export function TextEditorView() {
 				editor.setValue(openedEntryContents);
 			}
 		},
-		[openedEntryContents, mounted],
+		[openedEntryContents, mounted]
 	);
 
 	if (!openedEntry) {
