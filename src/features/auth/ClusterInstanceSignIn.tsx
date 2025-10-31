@@ -118,7 +118,7 @@ export function ClusterInstanceSignIn() {
 		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/finish-setup`} replace={true} />;
 	}
 	if (!isActive && cluster?.resetPassword) {
-		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/progress`} replace={true} />;
+		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/starting-up`} replace={true} />;
 	}
 
 	return (
