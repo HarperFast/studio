@@ -2,6 +2,7 @@ export interface WatchedValuesTypeMap {
 	RevertChanges: true;
 	SaveFile: true;
 	ShowAddDirectoryOrFileModalType: 'file' | 'directory' | false;
+	ShowAddSchemaModal: boolean;
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowDownloadApplicationModal: boolean;
 	ShowRedeployApplicationModal: boolean;
