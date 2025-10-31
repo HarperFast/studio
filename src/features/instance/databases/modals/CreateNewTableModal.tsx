@@ -128,8 +128,8 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 										<Input
 											{...field}
 											type="text"
-											placeholder="ex. Users"
 											maxLength={CreateTableSchema.shape.tableName.maxLength!}
+											autoFocus={true}
 											autoCapitalize="off"
 											autoComplete="off"
 											autoCorrect="off"
