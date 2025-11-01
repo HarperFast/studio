@@ -46,7 +46,7 @@ export function CLIInstructions({
 					</div>
 					<div className="ml-8">
 						<div className="bg-black rounded-lg p-4 flex items-center justify-between group">
-							<code className="text-sm whitespace-pre truncate">{cliStep.code}</code>
+							<code className="text-sm whitespace-pre truncate max-w-[calc(100vw-theme(spacing.48))]">{cliStep.code}</code>
 							<Button
 								type="button"
 								variant="default"
