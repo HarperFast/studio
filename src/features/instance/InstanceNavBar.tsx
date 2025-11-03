@@ -8,10 +8,12 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { RegistrationInfoResponse } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, ServerIcon, SettingsIcon } from 'lucide-react';
 import { ReactNode, useMemo } from 'react';
 
@@ -27,6 +29,11 @@ const activeLinkProps = { className: 'text-white' };
 export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
+
+	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
+	const statusAvailable = wasAReleasedBeforeB('4.6.0', version);
+
 	const links = useMemo(() => [
 		{
 			to: buildAbsoluteLinkToPage(params),
@@ -40,12 +47,12 @@ export function InstanceNavBar() {
 			icon: <DatabaseIcon className="inline-block" />,
 			name: 'Databases',
 		},
-		canManage && {
+		canManage && apisAvailable && {
 			to: buildAbsoluteLinkToPage(params, 'apis'),
 			name: 'APIs',
 			icon: <ServerIcon className="inline-block" />,
 		},
-		canManage && {
+		canManage && statusAvailable && {
 			to: buildAbsoluteLinkToPage(params, 'status'),
 			icon: <GaugeIcon className="inline-block" />,
 			name: 'Status',
@@ -60,7 +67,7 @@ export function InstanceNavBar() {
 			icon: <SettingsIcon className="inline-block" />,
 			name: 'Config',
 		},
-	].filter(excludeFalsy) satisfies Link[], [canManage, params]);
+	].filter(excludeFalsy) satisfies Link[], [canManage, params, apisAvailable, statusAvailable]);
 	return (
 		<>
 			<DesktopInstanceNavBar links={links} />

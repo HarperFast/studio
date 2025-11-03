@@ -1,6 +1,7 @@
+import { getInstanceClientIdFromParams } from '@/config/useInstanceClient';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
-import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
+import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
@@ -11,6 +12,10 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 			getParentRoute: () => dashboardLayout,
 			id: '_instanceLayout',
 			component: InstanceLayout,
+			loader: async ({ context, params }) => {
+				const operationsParams = getInstanceClientIdFromParams(params);
+				return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
+			},
 		});
 	}
 	if (mode === 'cluster') {
@@ -24,7 +29,10 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 					const to = `/${params.organizationId}/${params.clusterId}/sign-in`;
 					throw redirect({ to, search: buildRedirectInSearch() });
 				}
-				return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
+			},
+			loader: async ({ context, params }) => {
+				const operationsParams = getInstanceClientIdFromParams(params);
+				return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
 			},
 		});
 	}
@@ -38,7 +46,10 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 				const to = `/${params.organizationId}/${params.clusterId}/instance/${params.instanceId}/sign-in`;
 				throw redirect({ to, search: buildRedirectInSearch() });
 			}
-			return await context.queryClient.ensureQueryData(getInstanceInfoQueryOptions(params));
+		},
+		loader: async ({ context, params }) => {
+			const operationsParams = getInstanceClientIdFromParams(params);
+			return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
 		},
 	});
 }
