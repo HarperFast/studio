@@ -1,3 +1,4 @@
+import { isLocalStudio } from '@/config/constants';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
@@ -30,11 +31,18 @@ interface UsageLicense {
 export function getUsageLicensesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
 		queryKey: [entityId, 'get_usage_licenses'] as const,
+		enabled: !isLocalStudio,
 		queryFn: async () => {
-			const { data } = await instanceClient.post<UsageLicense[]>('/', {
-				operation: 'get_usage_licenses',
-			});
-			return data;
+			try {
+				const { data } = await instanceClient.post<UsageLicense[]>('/', {
+					operation: 'get_usage_licenses',
+				});
+				return data;
+			}
+			catch (err) {
+				console.error(err);
+				return null;
+			}
 		},
 	});
 }
