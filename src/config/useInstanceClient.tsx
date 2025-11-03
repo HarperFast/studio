@@ -20,7 +20,23 @@ export function useInstanceClientParams(operationsUrl?: string | null, port?: nu
 }
 
 export function useInstanceClientIdParams(operationsUrl?: string | null, port?: number, secure?: boolean): InstanceClientIdConfig & InstanceTypeConfig {
-	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const params: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	return getInstanceClientIdFromParams({ ...params, operationsUrl, port, secure });
+}
+
+export function getInstanceClientIdFromParams({
+	instanceId,
+	clusterId,
+	operationsUrl,
+	port,
+	secure,
+}: {
+	instanceId?: string,
+	clusterId?: string,
+	operationsUrl?: string | null,
+	port?: number,
+	secure?: boolean,
+}): InstanceClientIdConfig & InstanceTypeConfig {
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	if (!id) {
 		throw new Error('id could not be automatically calculated in useInstanceClientIdParams');
