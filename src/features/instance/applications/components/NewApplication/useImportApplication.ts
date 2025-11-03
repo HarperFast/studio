@@ -1,6 +1,7 @@
-import { useInstanceClientParams } from '@/config/useInstanceClient';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -11,7 +12,8 @@ export function useImportApplication(
 ) {
 	const { mutate, isPending: isImportingApplication } = useDeployComponentMutation();
 
-	const instanceParams = useInstanceClientParams();
+	const queryClient = useQueryClient();
+	const instanceParams = useInstanceClientIdParams();
 	const { reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems } = useEditorView();
 	const callback = useCallback(({
 		contents,
@@ -37,6 +39,7 @@ export function useImportApplication(
 					duration: 5_000,
 				});
 				setIsReloading(true);
+				void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId] });
 				void reloadRootEntries();
 				setFocusedItem(project);
 				setSelectedItems([project]);
@@ -46,7 +49,7 @@ export function useImportApplication(
 				toast.dismiss(toastId);
 			},
 		});
-	}, [mutate, instanceParams, setIsReloading, reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems]);
+	}, [mutate, queryClient, instanceParams, setIsReloading, reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems]);
 
 	return useMemo(() => ({
 		isImportingApplication,
