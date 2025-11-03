@@ -24,12 +24,13 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 export function ClusterCard({ cluster }: { cluster: Cluster; }) {
+	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
@@ -69,7 +70,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	const handleTerminatedCluster = useCallback(() => {
 		const organizationId = cluster.organizationId;
 		terminateCluster(cluster.id, {
-			onSuccess: () => {
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({
+					queryKey: [organizationId],
+					refetchType: 'active',
+				});
+				await router.invalidate();
 				toast.success('Success', {
 					description: isSelfManaged
 						? `Cluster successfully removed.`
@@ -79,10 +85,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 						label: 'Dismiss',
 						onClick: () => toast.dismiss(),
 					},
-				});
-				void queryClient.invalidateQueries({
-					queryKey: [organizationId],
-					refetchType: 'active',
 				});
 				setIsTerminateClusterModalOpen(false);
 			},
@@ -100,7 +102,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 				setIsTerminateClusterModalOpen(false);
 			},
 		});
-	}, [cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
+	}, [router, cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
 
 	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
 		`${cluster.fqdn}`,
