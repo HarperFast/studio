@@ -10,6 +10,7 @@ import {
 } from '@/features/clusters/upsert/lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/lib/api.gen';
 import { Cluster, Organization } from '@/lib/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
@@ -22,6 +23,7 @@ import { z } from 'zod';
 
 export function UpsertCluster() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
+	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
 		cluster?: Cluster
@@ -59,7 +61,13 @@ export function UpsertCluster() {
 
 	const defaultValues = useMemo<null | z.infer<typeof UpsertClusterSchema>>(() => {
 		if (savedClusterState) {
-			return savedClusterState;
+			return {
+				...savedClusterState,
+				clusterName: savedClusterState.clusterName || '',
+				fqdn: savedClusterState.fqdn || '',
+				regionPlans: savedClusterState.regionPlans || [],
+				instances: savedClusterState.instances || [],
+			};
 		}
 		if (!planTypes || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)) {
 			return null;
@@ -129,6 +137,21 @@ export function UpsertCluster() {
 		);
 	}
 
+	if (cluster?.id ? !update : !create) {
+		return (
+			<SubNavSimpleLayout>
+				<ErrorComponent
+					title={`Not Allowed`}
+					error={{
+						message: <>
+							You do not have permission to {cluster?.id ? 'update' : 'create'} clusters in this org.
+						</>,
+					}}
+				/>
+			</SubNavSimpleLayout>
+		);
+	}
+
 	if (planTypes.length === 0) {
 		return (
 			<SubNavSimpleLayout>
@@ -157,7 +180,7 @@ export function UpsertCluster() {
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
-				startOffOnBilling={!!savedClusterState}
+				startOffOnBilling={savedClusterState?.skipToBilling === true}
 			/>
 		</SubNavSimpleLayout>
 	);

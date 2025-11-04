@@ -367,7 +367,7 @@ export function ClusterForm({
 	}, [submitCreateCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
-		setSavedClusterState(redirecting ? { clusterId, ...form.getValues() } : null);
+		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
 	}, [clusterId, form, setSavedClusterState]);
 
 	const onGoBackToDetails = useCallback(() => {

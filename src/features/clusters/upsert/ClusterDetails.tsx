@@ -98,6 +98,7 @@ export function ClusterDetails({
 						<FormLabel className="pb-1">Cluster Name</FormLabel>
 						<FormControl>
 							<Input
+								autoFocus={true}
 								type="text"
 								maxLength={UpsertClusterSchema.shape.clusterName.maxLength!}
 								autoCapitalize="words"

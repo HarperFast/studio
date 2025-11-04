@@ -4,12 +4,14 @@ import { Input } from '@/components/ui/input';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import { UpsertCluster } from '@/features/clusters/upsert';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, Navigate, useParams } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 
@@ -17,6 +19,7 @@ export function ClustersList() {
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const { create } = useOrganizationClusterPermissions(organizationId);
 	const { data: orgInfo, isSuccess } = useSuspenseQuery(getOrganizationQueryOptions(organizationId));
+	const [savedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 
@@ -33,6 +36,9 @@ export function ClustersList() {
 
 	if (!clusters.length && create) {
 		return <UpsertCluster />;
+	}
+	if (savedClusterState) {
+		return <Navigate to={`/${organizationId}/new-cluster`} />;
 	}
 
 	return (

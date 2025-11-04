@@ -1,0 +1,148 @@
+* {
+	padding: 0;
+	margin: 0;
+}
+
+#app-bg-color,
+#app-bg-grid {
+	bottom: 0;
+	left: 0;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: -2;
+}
+
+#app-bg-color {
+	background: linear-gradient(45deg, #312556, #403b8a, #7a3a87);
+}
+
+#app-bg-grid {
+	inset: 0;
+	height: 100%;
+	width: 100%;
+	opacity: 0.05;
+}
+
+.orb-container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 100vh; /* Centers the orb vertically */
+}
+
+.orb {
+	background-color: hsl(151.07, 49.12%, 55.29%);
+	border-radius: 50%;
+	animation: pulse 15s ease-in-out forwards;
+	opacity: 0.01;
+}
+
+@keyframes pulse {
+	0% {
+		opacity: 0.01;
+		transform: scale(1);
+		box-shadow: 0 0 0 hsla(151.07, 49.12%, 55.29%, 0);
+	}
+	50% {
+		opacity: 0.1;
+		transform: scale(1.2);
+		box-shadow: 0 0 30px hsla(151.07, 49.12%, 55.29%, 0.9);
+	}
+	100% {
+		opacity: 0;
+		transform: scale(1);
+		box-shadow: 0 0 0 hsla(151.07, 49.12%, 55.29%, 0);
+	}
+}
+
+#content {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	font-family: helvetica, sans-serif;
+	color: #efefef;
+	line-height: 1.5;
+	max-width: 800px;
+	margin: 0 auto;
+	padding: 5em;
+}
+
+a {
+	color: hsl(0, 0%, 80%);
+
+	&:hover {
+		color: hsl(0, 0%, 95%);
+	}
+}
+
+h1 {
+	margin-bottom: 0.5em;
+}
+
+.card {
+	background: hsl(0, 0%, 95%);
+	border-radius: 6px;
+	color: black;
+	box-shadow: 0 4px 8px hsla(0, 0%, 0%, 0.2);
+	margin: 1em 0;
+
+	padding: 1em 2em 1em 1em;
+
+	svg {
+		width: 4em;
+		height: 2em;
+		margin-top: 0.25em;
+	}
+
+	p {
+		margin: 1em 0 0.5em;
+	}
+
+	a {
+		display: inline-block;
+		color: white;
+		background-color: black;
+		border-radius: 1em;
+		padding: 0.5em 2em;
+		margin: 0.5em 0;
+		text-decoration: none;
+		box-shadow: 0 4px 8px hsla(0, 0%, 0%, 0.2);
+		transition: all 0.3s ease-in-out;
+
+		&:hover {
+			background-color: hsla(0, 0%, 0%, 0.8);
+			box-shadow: 0 4px 8px hsla(0, 0%, 0%, 0.4);
+		}
+	}
+}
+
+.badge {
+	color: hsl(232.92, 80.9%, 60.98%);
+	background: hsl(240, 100%, 88.43%);
+	border: 1px solid hsl(241.05, 100%, 77.65%);
+	border-radius: 0.5em;
+	align-self: center;
+	font-size: 0.75em;
+	padding: 0.25em 0.5em;
+}
+
+.flex-row {
+	display: flex;
+	flex-direction: row;
+	gap: 1em;
+	align-items: flex-start;
+}
+
+.code-snippet {
+	background-color: black;
+	border-radius: 0.5em;
+	padding: 0.5em 2em;
+	color: white;
+
+	code {
+		font-family: Consolas, Courier New, serif;
+		white-space: pre-wrap;
+	}
+}

@@ -8,7 +8,7 @@ import { useDeleteOrganizationMutation } from '@/features/organizations/mutation
 import { NewOrg } from '@/features/organizations/NewOrg';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, Navigate, useSearch } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -57,7 +57,7 @@ export function OrganizationsIndex() {
 								onClick: () => toast.dismiss(),
 							},
 						});
-						void queryClient.invalidateQueries({ refetchType: 'none' });
+						void queryClient.invalidateQueries({ queryKey: [] });
 						setIsDeleteOrgModalOpen(false);
 					},
 					onError: () => setIsDeleteOrgModalOpen(false),
@@ -72,7 +72,13 @@ export function OrganizationsIndex() {
 		setIsDeleteOrgModalOpen(true);
 	}, []);
 
-	if (!organizationRoles.length) {
+	const { createCluster }: { createCluster?: string } = useSearch({ strict: false });
+
+	if (organizationRoles.length === 1 && !filterByNameValue.length && createCluster) {
+		return <Navigate to={`/${organizationRoles[0].organizationId}/new-cluster`} replace={true} />;
+	}
+
+	if (!organizationRoles.length && !filterByNameValue.length) {
 		return <NewOrg />;
 	}
 
@@ -97,11 +103,13 @@ export function OrganizationsIndex() {
 					{organizationRoles.map((organizationRole) => (
 						<div
 							key={organizationRole.organizationId}
-							className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
+							className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
 						>
 							<OrgCard organizationRole={organizationRole} onDeleteOrgModal={onDeleteOrgModal} />
 						</div>
 					))}
+					{!organizationRoles.length && (
+						<div className="col-span-1 md:col-span-12 text-center">No matches found!</div>)}
 				</div>
 			</section>
 			{deleteOrgInfo && (
