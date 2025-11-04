@@ -38,7 +38,7 @@ export function Invoices() {
 		return (
 			<span>
 				Your invoices will be shown here once one is available! Want to explore your solution with Harper
-				more? <ContactUs />, we would love to talk!
+				more? <ContactUs overEmail={true} />, we would love to talk!
 			</span>
 		);
 	}
