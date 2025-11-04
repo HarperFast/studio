@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
+import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -22,7 +23,7 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
+import { Link, Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -190,6 +191,18 @@ export function ClusterInstanceSignIn() {
 									along. Firefox or Chromium based browsers should pass the cookies properly.
 								</div>
 							)}
+
+							{isLocalStudio && <div className="p-4 mt-4 text-sm rounded-lg bg-purple-950" role="alert">
+								<span className="font-medium">Did you know?</span> You can add this instance to your Harper account to
+								manage it remotely.
+								<div className="text-center pt-2">
+									<Link to={calculateCreateClusterDeepLink()} target="_blank">
+										<Button type="button" variant="positive">
+											Connect to Harper Fabric
+										</Button>
+									</Link>
+								</div>
+							</div>}
 						</form>
 					</Form>
 				</div>

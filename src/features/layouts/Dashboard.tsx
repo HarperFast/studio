@@ -1,10 +1,20 @@
-import { Outlet } from '@tanstack/react-router';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { Outlet, useSearch } from '@tanstack/react-router';
 import { Navbar } from '@/components/Navbar';
 import { Loading } from '@/components/Loading';
 import { useOverallAuth } from '@/hooks/useAuth';
+import { useEffect } from 'react';
 
 export function Dashboard() {
 	const { isLoading: isUserLoading } = useOverallAuth();
+	const { createCluster }: { createCluster?: string } = useSearch({ strict: false });
+	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
+	useEffect(() => {
+		if (createCluster) {
+			setSavedClusterState(createCluster);
+		}
+	}, [createCluster, setSavedClusterState]);
 
 	if (isUserLoading) {
 		return <Loading className="fixed z-50 translate-1/2" />;

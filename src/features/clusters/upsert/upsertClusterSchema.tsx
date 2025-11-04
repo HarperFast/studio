@@ -38,4 +38,6 @@ export const UpsertClusterSchema = z.object({
 				.optional(),
 		}),
 	).max(100, { error: 'A maximum of 100 instances can be added to each cluster.' }),
+
+	skipToBilling: z.boolean().optional(),
 });

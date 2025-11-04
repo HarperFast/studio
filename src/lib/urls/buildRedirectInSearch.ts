@@ -10,6 +10,6 @@ const ignoredUrls = [
 ];
 
 export function buildRedirectInSearch() {
-	const url = currentUrlAfterHash().split('?')[0];
+	const url = currentUrlAfterHash();
 	return !ignoredUrls.includes(url) && { redirect: url };
 }
