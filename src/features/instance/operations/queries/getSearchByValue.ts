@@ -42,9 +42,9 @@ export function getSearchByValueOptions({
 		enabled,
 		queryKey: [
 			entityId,
-			'search_by_value',
 			databaseName,
 			tableName,
+			'search_by_value',
 			searchAttribute,
 			sort.attribute || 'default',
 			sort.descending || false,
