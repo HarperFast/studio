@@ -9,7 +9,9 @@ import { harperPalette } from '@/lib/colorPalette.ts';
 type MetricValue = string | number | boolean;
 type NullableMetricValue = MetricValue | null;
 type NullableMetric = {[key: string]: NullableMetricValue};
-type CoalescedMetrics = {[id: string]: {[node: string]: MetricValue}};
+type NodeMetric = {[node: string]: number};
+type CoalescedMetrics = {[id: string]: NodeMetric};
+type FormattedMetric = {[node: string]: string};
 
 interface MetricVisualizationParams {
 	metricConfig: MetricConfig;
@@ -52,7 +54,7 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 
 	const nodeMetrics = useMemo(() => {
 		const coalescedMetrics: CoalescedMetrics = {};
-		const { dataKey, units } = metricConfig;
+		const { dataKey, aggregator, units } = metricConfig;
 		let conversionUnits = units as string;
 
 		if (metrics && metrics.length > 0) {
@@ -65,17 +67,27 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 
 			for (const metric of metrics) {
 				const coalescedTime = Math.floor(metric.id / metric.period) * metric.period;
-				const resolvedMetric = resolveMetricDataKey(metric, dataKey, units, conversionUnits).toFixed(2);
+				const resolvedMetric = resolveMetricDataKey(metric, dataKey, units, conversionUnits);
 
 				if (coalescedMetrics[coalescedTime]) {
-					coalescedMetrics[coalescedTime][metric.node] = resolvedMetric;
+					if (metric.node in coalescedMetrics[coalescedTime]) {
+						coalescedMetrics[coalescedTime][metric.node] = aggregator(coalescedMetrics[coalescedTime][metric.node], resolvedMetric);
+					} else {
+						coalescedMetrics[coalescedTime][metric.node] = resolvedMetric;
+					}
 				} else {
 					coalescedMetrics[coalescedTime] = { [metric.node]: resolvedMetric };
 				}
 			}
 
 			return Object.keys(coalescedMetrics).map((id: string) => {
-				return { id: Number.parseInt(id), ...coalescedMetrics[id] };
+				const numericalId = Number.parseInt(id);
+				const coalescedMetric = coalescedMetrics[id];
+				const formattedMetrics = Object.keys(coalescedMetrics[id]).reduce((metric, node) => {
+					metric[node] = coalescedMetric[node].toFixed(2);
+					return metric;
+				}, {} as FormattedMetric);
+				return { id: numericalId, ...formattedMetrics };
 			});
 		}
 	}, [metrics, metricConfig]);

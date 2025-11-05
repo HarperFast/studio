@@ -77,6 +77,10 @@ function metricSum(metric: Metric) {
 	return 0;
 }
 
+function aggregateSum(accumulator: number, current: number) {
+	return accumulator + current;
+}
+
 interface TimeSelectOption {
 	label: string;
 	value: number;

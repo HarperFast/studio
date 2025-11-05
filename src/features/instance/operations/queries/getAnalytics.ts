@@ -9,6 +9,7 @@ export interface MetricConfig {
 	name: string;
 	label?: string;
 	dataKey: MetricDataKey;
+	aggregator: (accumulator: number, current: number) => number;
 	units: MetricUnits;
 	path?: string;
 }
