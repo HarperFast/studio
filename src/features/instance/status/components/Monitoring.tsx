@@ -7,14 +7,67 @@ import type { Metric, MetricConfig } from '@/features/instance/operations/querie
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
 
 const metrics: MetricConfig[] = [
-	{id: 'db-read', name: 'db-read', dataKey: 'count', units: 'reads'},
-	{id: 'db-read-bytes', label: 'db-read-bytes', name: 'db-read', dataKey: metricSum, units: 'bytes'},
-	{id: 'db-write', name: 'db-write', dataKey: 'count', units: 'writes'},
-	{id: 'db-write-bytes', label: 'db-write-bytes', name: 'db-write', dataKey: metricSum, units: 'bytes'},
-	{id: 'db-message', name: 'db-message', dataKey: 'count', units: 'messages'},
-	{id: 'db-message-bytes', label: 'db-message-bytes', name: 'db-message', dataKey: metricSum, units: 'bytes'},
-	{id: 'cpu-usage-user', name: 'cpu-usage', path: 'user', dataKey: metricSum, units: 'secs'},
-	{id: 'cpu-usage-harper', name: 'cpu-usage', path: 'harper', dataKey: metricSum, units: 'secs'},
+	{
+		id: 'db-read',
+		name: 'db-read',
+		dataKey: 'count',
+		aggregator: aggregateSum,
+		units: 'reads'
+	},
+	{
+		id: 'db-read-bytes',
+		label: 'db-read-bytes',
+		name: 'db-read',
+		dataKey: metricSum,
+		aggregator: aggregateSum,
+		units: 'bytes',
+	},
+	{
+		id: 'db-write',
+		name: 'db-write',
+		dataKey: 'count',
+		aggregator: aggregateSum,
+		units: 'writes',
+	},
+	{
+		id: 'db-write-bytes',
+		label: 'db-write-bytes',
+		name: 'db-write',
+		dataKey: metricSum,
+		aggregator: aggregateSum,
+		units: 'bytes',
+	},
+	{
+		id: 'db-message',
+		name: 'db-message',
+		dataKey: 'count',
+		aggregator: aggregateSum,
+		units: 'messages',
+	},
+	{
+		id: 'db-message-bytes',
+		label: 'db-message-bytes',
+		name: 'db-message',
+		dataKey: metricSum,
+		aggregator: aggregateSum,
+		units: 'bytes',
+	},
+	{
+		id: 'cpu-usage-user',
+		name: 'cpu-usage',
+		path: 'user',
+		dataKey: metricSum,
+		aggregator: aggregateSum,
+		units: 'secs',
+	},
+	{
+		id: 'cpu-usage-harper',
+		name: 'cpu-usage',
+		path: 'harper',
+		dataKey: metricSum,
+		aggregator: aggregateSum,
+		units: 'secs',
+	},
 ];
 
 function metricSum(metric: Metric) {
@@ -130,7 +183,7 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 				</div>
 			</div>
 			<MetricVisualization
-			  metricConfig={selectedMetric}
+				metricConfig={selectedMetric}
 				startTime={startTime}
 				endTime={endTime}
 				instanceParams={instanceParams} />
