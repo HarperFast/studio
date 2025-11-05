@@ -23,7 +23,6 @@ export function useCloudSignIn() {
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
-				// TODO: Detect and fallback to session storage and basic auth if necessary.
 				authStore.setUserForEntity(OverallAppSignIn, data);
 				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
 

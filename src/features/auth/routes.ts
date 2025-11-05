@@ -3,6 +3,7 @@ import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSigned
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { AuthLayout } from './AuthLayout';
+import { CheckOAuth } from './CheckOAuth';
 import { ClusterInstanceSignIn } from './ClusterInstanceSignIn';
 import { ForgotPassword } from './ForgotPassword';
 import { ResetPassword } from './ResetPassword';
@@ -67,6 +68,13 @@ const verifyingEmailRoute = createRoute({
 	component: Verifying,
 });
 
+const checkOAuthRoute = createRoute({
+	getParentRoute: () => authLayout,
+	path: 'check-oauth',
+	component: CheckOAuth,
+});
+
+
 const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'reset-password',
@@ -77,6 +85,7 @@ export const authRouteTree =
 	authLayout.addChildren([
 		signInRoute,
 		signUpRoute,
+		checkOAuthRoute,
 		forgotPasswordRoute,
 		verifyEmailRoute,
 		verifyingEmailRoute,

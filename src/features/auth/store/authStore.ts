@@ -249,7 +249,7 @@ class AuthStore {
 		if (this.checkedAuthentication[id]) {
 			return;
 		}
-		return this.reloadUser(id);
+		await this.reloadUser(id);
 	}
 
 	public getOperationsUrl(id: EntityIds): string | undefined {
@@ -262,11 +262,15 @@ class AuthStore {
 		return this.potentiallyAuthenticated[id];
 	}
 
-	public async reloadUser(id: EntityIds): Promise<void> {
+	public async reloadUser(id: EntityIds): Promise<AuthenticatedConnection['user']> {
 		if (!this.potentiallyAuthenticated[id]) {
 			this.updateConnectionIfChanged(id, false, null);
-			return;
+			return null;
 		}
+		return this.loadUser(id);
+	}
+
+	private async loadUser(id: EntityIds): Promise<AuthenticatedConnection['user']> {
 		const key = this.potentiallyAuthenticated[id];
 		this.updateConnectionIfChanged(id, true, null);
 		let user: AuthenticatedConnection['user'] = null;
@@ -291,6 +295,7 @@ class AuthStore {
 			this.flagKeyAsSignedOut(id);
 		}
 		this.updateConnectionIfChanged(id, false, user);
+		return user;
 	}
 }
 
