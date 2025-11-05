@@ -120,6 +120,22 @@ class AuthStore {
 		this.updateConnectionIfChanged(id, false, user);
 	}
 
+	public updateUserForEntity(entity: EntityTypes, changes: Partial<AuthenticatedConnection['user']>): void {
+		const id = this.calculateIdFromEntity(entity);
+		const key = this.calculateKeyFromEntity(entity);
+		if (!id || !key) {
+			return;
+		}
+		const connection = this.getConnectionById(id);
+		if (!connection.user) {
+			return;
+		}
+		this.updateConnectionIfChanged(id, false, {
+			...connection.user,
+			...changes,
+		});
+	}
+
 	public calculateIdFromEntity(entity: EntityTypes | EntityIds | undefined): EntityIds | undefined {
 		if (isLocalStudio || entity === OverallAppSignIn) {
 			return OverallAppSignIn;
