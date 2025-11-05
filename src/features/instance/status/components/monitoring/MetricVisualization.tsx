@@ -103,7 +103,7 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 					})
 					}
 					<XAxis dataKey={(item) => formatTime(item.id)} />
-					<YAxis unit={` ${yAxisUnits}`} width={80} />
+					<YAxis unit={` ${yAxisUnits}`} width={100} />
 					<Legend />
 					<Tooltip />
 				</LineChart>
