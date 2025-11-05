@@ -14,7 +14,7 @@ export function getDescribeTableQueryOptions({
 	instanceClient,
 }: GetDescribeTableParams) {
 	return queryOptions({
-		queryKey: [entityId, 'describe_table', databaseName, tableName] as const,
+		queryKey: [entityId, databaseName, tableName, 'describe_table'] as const,
 		queryFn: async ({ signal }) => {
 			const { data } = await instanceClient.post<InstanceTable>('/', {
 				operation: 'describe_table',

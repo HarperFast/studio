@@ -65,9 +65,9 @@ export function getSearchByConditionsOptions({
 		enabled: enabled && !!conditions,
 		queryKey: [
 			entityId,
-			'search_by_conditions',
 			databaseName,
 			tableName,
+			'search_by_conditions',
 			conditions,
 			sort.attribute || 'default',
 			sort.descending || false,

@@ -33,7 +33,7 @@ import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
@@ -50,7 +50,7 @@ import {
 	Trash2Icon,
 	TrashIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
@@ -78,7 +78,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
-	const { data: describeTableData, refetch: refetchDescribeTableQueryOptions } = useQuery(
+	const { data: describeTableData } = useQuery(
 		getDescribeTableQueryOptions({
 			...instanceParams,
 			databaseName,
@@ -125,6 +125,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		hideFilters();
 	}, [hideFilters, resetFiltersForm]);
 
+	useEffect(function clearFiltersWhenParamsChange() {
+		return clearFilters();
+	}, [allParams, clearFilters]);
+
 	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
@@ -147,7 +151,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Full list
 	const {
 		data: fullTableData,
-		refetch: refetchSearchByValueOptions,
 		isFetching: tableDataFetching,
 	} = useQuery(
 		getSearchByValueOptions({
@@ -163,7 +166,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		}),
 	);
 	// Filtered list
-	const { data: filteredTableData } = useQuery(
+	const {
+		data: filteredTableData,
+		isFetching: tableConditionsDataFetching,
+	} = useQuery(
 		getSearchByConditionsOptions({
 			...instanceParams,
 			enabled: useFilteredList,
@@ -192,7 +198,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
-	const onRecordAdd = (data: Record<string, unknown>[] | Record<string, unknown>) => {
+	const queryClient = useQueryClient();
+	const refreshTable = useCallback(
+		() => queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] }),
+		[queryClient, instanceParams.entityId, databaseName, tableName],
+	);
+
+	const onRecordAdd = useCallback((data: Record<string, unknown>[] | Record<string, unknown>) => {
 		addTableRecords(
 			{
 				...instanceParams,
@@ -202,15 +214,15 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			},
 			{
 				onSuccess: () => {
-					void refetchDescribeTableQueryOptions();
-					void refetchSearchByValueOptions();
+					void refreshTable();
 					setIsAddModalOpen(false);
 					toast.success('Record added successfully');
 				},
 			},
 		);
-	};
-	const onRecordUpdate = (data: Record<string, unknown>[]) => {
+	}, [addTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+
+	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
 				...instanceParams,
@@ -220,16 +232,15 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			},
 			{
 				onSuccess: () => {
-					void refetchDescribeTableQueryOptions();
-					void refetchSearchByValueOptions();
+					void refreshTable();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
 			},
 		);
-	};
+	}, [updateTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
-	const onDeleteRecord = (hashes: unknown[]) => {
+	const onDeleteRecord = useCallback((hashes: unknown[]) => {
 		deleteTableRecords(
 			{
 				...instanceParams,
@@ -239,19 +250,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			},
 			{
 				onSuccess: () => {
-					void refetchDescribeTableQueryOptions();
-					void refetchSearchByValueOptions();
+					void refreshTable();
 					setIsEditModalOpen(false);
 					toast.success('Record deleted successfully');
 				},
 			},
 		);
-	};
-
-	const refreshTable = useCallback(async () => {
-		await refetchDescribeTableQueryOptions();
-		await refetchSearchByValueOptions();
-	}, [refetchDescribeTableQueryOptions, refetchSearchByValueOptions]);
+	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
 	const onCSVDataAdded = useCallback((message: string) => {
 		void refreshTable();
@@ -349,7 +354,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						</Button>
 					)}
 
-					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching}>
+					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching || tableConditionsDataFetching}>
 						<RefreshCwIcon />
 					</Button>
 
@@ -393,7 +398,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 			<TableView<Record<string, unknown>, unknown>
 				data={tableData?.data}
-				isFetching={tableDataFetching}
+				isFetching={tableDataFetching || tableConditionsDataFetching}
 				filtersToggled={filtersToggled}
 				columns={dataTableColumns}
 				columnVisibility={columnVisibility}
