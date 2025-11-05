@@ -15,6 +15,8 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
+import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { useSignUpMutation } from './hooks/useSignUp';
 
 const SignUpSchema = z.object({
@@ -83,6 +85,14 @@ export function SignUp() {
 	return (
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Sign up for Harper Fabric</h2>
+
+			<div className="flex flex-col gap-2 my-6">
+				<GoogleAuthenticationButton text="Sign up with Google" />
+				<GitHubAuthenticationButton text="Sign up with GitHub" />
+			</div>
+
+			<hr className="border-gray-600" />
+
 			<Form {...methods}>
 				<form onSubmit={handleSubmit(submitForm)} className="grid gap-4 my-4">
 					<FormField
@@ -183,7 +193,7 @@ export function SignUp() {
 							Terms of Service
 						</a></p>
 
-					<Button type="submit" variant="submit" className="w-full my-2 rounded-full">
+					<Button type="submit" variant="submit" className="w-full rounded-full my-4">
 						Sign Up For Free
 					</Button>
 				</form>

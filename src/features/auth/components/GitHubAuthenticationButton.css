@@ -1,0 +1,46 @@
+
+.github-signin-btn {
+	-moz-user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	-webkit-appearance: none;
+	background-color: hsl(0, 0%, 6.67%);
+	border: 1px solid #000;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+	-webkit-border-radius: 20px;
+	border-radius: 20px;
+	cursor: pointer;
+	font-family: 'Roboto', arial, sans-serif;
+	font-size: 14px;
+	height: 40px;
+	letter-spacing: 0.25px;
+	outline: none;
+	overflow: hidden;
+	padding: 0 12px;
+	position: relative;
+	text-align: center;
+	-webkit-transition: background-color .218s, border-color .218s, box-shadow .218s;
+	transition: background-color .218s, border-color .218s, box-shadow .218s;
+	vertical-align: middle;
+	white-space: nowrap;
+	width: 100%;
+	max-width: 400px;
+	min-width: min-content;
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	text-decoration: none;
+
+	&:hover {
+		background-color: hsl(0, 0%, 12.94%);
+	}
+
+	.github-icon {
+		width: 20px;
+		height: 20px;
+		margin-right: 12px;
+	}
+}

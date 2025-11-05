@@ -10,6 +10,8 @@ import { EmailSignInSchema } from '@/features/instance/operations/schemas/signIn
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
+import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
+import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { useCloudSignIn } from './hooks/useCloudSignIn';
 
 export function SignIn() {
@@ -70,15 +72,22 @@ export function SignIn() {
 					<Button type="submit" variant="submit" className="w-full my-2 rounded-full" disabled={isPending}>
 						Sign In
 					</Button>
+					<div className="flex px-4 mt-4 underline place-content-between">
+						<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
+							Sign up for free
+						</Link>
+						<Link className="text-sm hover:text-blue-300" to="/forgot-password" search={{ me: email }}>
+							Forgot password?
+						</Link>
+					</div>
 				</form>
 			</Form>
-			<div className="flex px-4 mt-4 underline place-content-between">
-				<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
-					Sign up for free
-				</Link>
-				<Link className="text-sm hover:text-blue-300" to="/forgot-password" search={{ me: email }}>
-					Forgot password?
-				</Link>
+
+			<hr className="border-gray-600 my-6" />
+
+			<div className="flex flex-col gap-2">
+				<GoogleAuthenticationButton text="Sign in with Google" />
+				<GitHubAuthenticationButton text="Sign in with GitHub" />
 			</div>
 		</div>
 	);
