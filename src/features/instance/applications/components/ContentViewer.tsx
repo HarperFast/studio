@@ -3,7 +3,6 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
 import Markdown from 'react-markdown';
 import { newApplication } from './ApplicationsSidebar/specialItems';
-import { ContentActions } from './ContentActions';
 import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
@@ -18,7 +17,6 @@ export function ContentViewer() {
 
 	if (isDirectory(openedEntry)) {
 		return <div className="directoryReadMe max-w-3xl">
-			<ContentActions />
 			<Markdown urlTransform={urlTransform}>{openedEntryContents}</Markdown>
 		</div>;
 	}

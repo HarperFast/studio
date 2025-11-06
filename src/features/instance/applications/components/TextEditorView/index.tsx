@@ -1,5 +1,4 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { ContentActions } from '@/features/instance/applications/components/ContentActions';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -28,7 +27,10 @@ const extensionToLanguageMap: Record<string, string> = {
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile } = useEditorView();
-	const { content: updatedFileContent, setContent } = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
+	const {
+		content: updatedFileContent,
+		setContent,
+	} = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
 	const setUpdatedFileContent = useCallback((newValue: string | undefined) => {
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
@@ -129,22 +131,19 @@ export function TextEditorView() {
 	const readOnly = isSavingFile || !!openedEntry.package || !canManageBrowseInstance;
 
 	return (
-		<>
-			<Editor
-				className="w-full min-h-full h-80"
-				language={language}
-				theme="vs-dark"
-				value={updatedFileContent ?? openedEntryContents}
-				onMount={handleEditorDidMount}
-				onChange={readOnly ? undefined : setUpdatedFileContent}
-				options={{
-					automaticLayout: true,
-					minimap: { enabled: false },
-					readOnly,
-					padding: { top: 48 },
-				}}
-			/>
-			<ContentActions />
-		</>
+		<Editor
+			className="w-full min-h-full h-80"
+			language={language}
+			theme="vs-dark"
+			value={updatedFileContent ?? openedEntryContents}
+			onMount={handleEditorDidMount}
+			onChange={readOnly ? undefined : setUpdatedFileContent}
+			options={{
+				automaticLayout: true,
+				minimap: { enabled: false },
+				readOnly,
+				padding: { top: 48 },
+			}}
+		/>
 	);
 }

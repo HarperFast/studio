@@ -101,7 +101,7 @@ export function NewApplication() {
 	}, [setValue, formState, trigger]);
 
 	return (
-		<div className="mx-auto max-w-4xl">
+		<div className="mx-auto max-w-4xl mt-6">
 			<div className="text-center">
 				<h1 className="text-4xl pt-4 pb-2">Bootstrap New API Application</h1>
 				<p className="text-muted-foreground">
