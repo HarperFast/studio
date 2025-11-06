@@ -23,7 +23,9 @@ export function OrganizationsIndex() {
 		organizationId: string;
 		organizationName?: string;
 	}>(null);
+
 	const [filterByNameValue, setFilterByNameValue] = useState('');
+	const clearFilterByNameValue = useCallback(() => setFilterByNameValue(''), []);
 
 	const organizationRoles = useMemo(() => {
 		const roles = user?.roles || {};
@@ -109,7 +111,10 @@ export function OrganizationsIndex() {
 						</div>
 					))}
 					{!organizationRoles.length && (
-						<div className="col-span-1 md:col-span-12 text-center">No matches found!</div>)}
+						<div className="col-span-1 md:col-span-12 text-center">
+							<h2 className="my-4 text-xl">No matches found.</h2>
+							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
+						</div>)}
 				</div>
 			</section>
 			{deleteOrgInfo && (

@@ -22,6 +22,7 @@ export function ClustersList() {
 	const [savedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const [filterByNameValue, setFilterByNameValue] = useState('');
+	const clearFilterByNameValue = useCallback(() => setFilterByNameValue(''), []);
 
 	const onFilterByNameChanged = useCallback((e: FormEvent<HTMLInputElement>) => {
 		setFilterByNameValue(e.currentTarget.value?.toLowerCase() || '');
@@ -34,7 +35,7 @@ export function ClustersList() {
 			.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
 			.sort(byClusterStatusThenName) || [], [filterByNameValue, orgInfo?.clusters]);
 
-	if (!clusters.length && create) {
+	if (orgInfo?.clusters && !orgInfo.clusters.length && create) {
 		return <UpsertCluster />;
 	}
 	if (savedClusterState) {
@@ -70,36 +71,18 @@ export function ClustersList() {
 				) : null}
 			</SubNavMenu>
 			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
-				{clusters.length ? (
-					<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
-						{clusters.map((cluster) => (
-							<div key={cluster.id} className="cols-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
-								<ClusterCard cluster={cluster} />
-							</div>
-						))}
-					</div>
-				) : (
-					<div className="flex-col space-y-5 items-center justify-center text-center">
-						<h2 className="text-2xl text-center text-white">
-							No clusters found.{!create ? ' Talk to your org admin to create one!' : ''}
-						</h2>
-
-						{create && (
-							<Link to="new-cluster">
-								<Button
-									variant="positive"
-									className="w-full rounded-full md:w-44"
-									accessKey="n"
-								>
-									<Plus />{' '}
-									<span>
-										<u>N</u>ew Cluster
-									</span>
-								</Button>
-							</Link>
-						)}
-					</div>
-				)}
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
+					{clusters.map((cluster) => (
+						<div key={cluster.id} className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
+							<ClusterCard cluster={cluster} />
+						</div>
+					))}
+					{!clusters.length && (
+						<div className="col-span-1 md:col-span-12 text-center">
+							<h2 className="my-4 text-xl">No matches found.</h2>
+							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
+						</div>)}
+				</div>
 			</section>
 		</>
 	);
