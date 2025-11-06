@@ -1,4 +1,5 @@
 export interface SessionStorageKeys {
+	'ApplicationsSidebarOpened': true;
 	'FileFocused/{entityId}': true;
 	'EditorFileContent/{entityId}/{path}': true;
 	'FolderOpened/{entityId}': true;

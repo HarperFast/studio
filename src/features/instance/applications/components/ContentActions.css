@@ -1,0 +1,5 @@
+@media (width < 40rem) {
+	.toggled-sidebar-toggler {
+		margin-left: calc(var(--spacing) * 56);
+	}
+}
