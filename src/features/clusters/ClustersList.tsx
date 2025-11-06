@@ -50,6 +50,7 @@ export function ClustersList() {
 						<Input
 							placeholder="Filter by name"
 							className="inline-block w-48 md:w-64 bg-black border"
+							value={filterByNameValue}
 							onChange={onFilterByNameChanged}
 						/>
 
