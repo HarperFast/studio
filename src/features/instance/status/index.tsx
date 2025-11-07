@@ -8,12 +8,12 @@ export function StatusIndex() {
 	const instanceParams = useInstanceClientIdParams();
 
 	return (
-		<div className="px-4 py-2">
-			<div className="">
-				<Monitoring instanceParams={instanceParams} />
-			</div>
+		<div className="px-4 py-2 flex">
 			{isLocalStudio ? <LocalStatus instanceParams={instanceParams} /> :
 				<CloudStatus instanceParams={instanceParams} />}
+			<div>
+				<Monitoring instanceParams={instanceParams} />
+			</div>
 		</div>
 	);
 }
