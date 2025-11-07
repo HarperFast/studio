@@ -28,14 +28,19 @@ export function ClustersList() {
 		setFilterByNameValue(e.currentTarget.value?.toLowerCase() || '');
 	}, []);
 
-	const clusters = useMemo(() =>
+	const runningClusters = useMemo(() =>
 		orgInfo?.clusters
 			?.slice()
 			.filter(cluster => cluster.status !== 'TERMINATED')
-			.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
-			.sort(byClusterStatusThenName) || [], [filterByNameValue, orgInfo?.clusters]);
+			.sort(byClusterStatusThenName)
+		|| [], [orgInfo?.clusters]);
 
-	if (orgInfo?.clusters && !orgInfo.clusters.length && create) {
+	const filteredClusters = useMemo(() =>
+		runningClusters
+			.filter(curryFilterByFuzzySearch<Cluster>(['id', 'name'], filterByNameValue))
+		|| [], [filterByNameValue, runningClusters]);
+
+	if (orgInfo && runningClusters.length === 0 && create) {
 		return <UpsertCluster />;
 	}
 	if (savedClusterState) {
@@ -73,12 +78,12 @@ export function ClustersList() {
 			</SubNavMenu>
 			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
-					{clusters.map((cluster) => (
+					{filteredClusters.map((cluster) => (
 						<div key={cluster.id} className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
 							<ClusterCard cluster={cluster} />
 						</div>
 					))}
-					{!clusters.length && (
+					{!filteredClusters.length && (
 						<div className="col-span-1 md:col-span-12 text-center">
 							<h2 className="my-4 text-xl">No matches found.</h2>
 							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
