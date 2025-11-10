@@ -47,7 +47,7 @@ export interface LocalRolePermissionTable {
 	insert: boolean;
 	update: boolean;
 	delete: boolean;
-	attribute_permissions: LocalRoleAttributePermissionTable[];
+	attribute_permissions: LocalRoleAttributePermissionTable[] | null;
 }
 
 export type LocalRolePermissionAction = keyof Omit<LocalRolePermissionTable, 'attribute_permissions'>;

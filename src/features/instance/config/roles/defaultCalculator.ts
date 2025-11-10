@@ -96,35 +96,36 @@ function buildCurrent(
 	attributes: string[],
 	showAttributes: boolean,
 ): LocalRolePermissionTable {
-	const attributePermissionsMap = extantTablePermissions && keyBy(extantTablePermissions.attribute_permissions, 'attribute_name');
+	const attributePermissionsMap = extantTablePermissions && keyBy(extantTablePermissions.attribute_permissions || [], 'attribute_name');
 	return {
 		read: extantTablePermissions ? extantTablePermissions.read : false,
 		insert: extantTablePermissions ? extantTablePermissions.insert : false,
 		update: extantTablePermissions ? extantTablePermissions.update : false,
 		delete: extantTablePermissions ? extantTablePermissions.delete : false,
-		attribute_permissions: attributes
-			.filter(() => showAttributes)
-			.map((a: string) => {
-				const extantAttributePermissions = attributePermissionsMap?.[a];
+		attribute_permissions: showAttributes
+			? attributes
+				.map((a: string) => {
+					const extantAttributePermissions = attributePermissionsMap?.[a];
 
-				return {
-					attribute_name: a,
-					read: extantAttributePermissions
-						? extantAttributePermissions.read
-						: extantTablePermissions?.attribute_permissions.length
-							? false
-							: extantTablePermissions?.read || false,
-					insert: extantAttributePermissions
-						? extantAttributePermissions.insert
-						: extantTablePermissions?.attribute_permissions.length
-							? false
-							: extantTablePermissions?.insert || false,
-					update: extantAttributePermissions
-						? extantAttributePermissions.update
-						: extantTablePermissions?.attribute_permissions.length
-							? false
-							: extantTablePermissions?.update || false,
-				};
-			}),
+					return {
+						attribute_name: a,
+						read: extantAttributePermissions
+							? extantAttributePermissions.read
+							: extantTablePermissions?.attribute_permissions?.length
+								? false
+								: extantTablePermissions?.read || false,
+						insert: extantAttributePermissions
+							? extantAttributePermissions.insert
+							: extantTablePermissions?.attribute_permissions?.length
+								? false
+								: extantTablePermissions?.insert || false,
+						update: extantAttributePermissions
+							? extantAttributePermissions.update
+							: extantTablePermissions?.attribute_permissions?.length
+								? false
+								: extantTablePermissions?.update || false,
+					};
+				})
+			: null,
 	};
 }
