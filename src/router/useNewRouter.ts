@@ -1,6 +1,6 @@
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { NotFoundComponent } from '@/components/NotFoundComponent';
-import { AuthenticatedConnection, EntityIds } from '@/lib/authStore';
+import { AuthenticatedConnection, EntityIds } from '@/features/auth/store/authStore';
 import { browserIsTouchBased } from '@/lib/browserIsTouchBased';
 import { queryClient } from '@/react-query/queryClient';
 import { rootRouteTree } from '@/router/rootRouteTree';

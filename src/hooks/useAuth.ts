@@ -6,7 +6,7 @@ import {
 	authStore,
 	EntityIds,
 	OverallAppSignIn,
-} from '@/lib/authStore';
+} from '@/features/auth/store/authStore';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 

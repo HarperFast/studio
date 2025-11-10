@@ -11,13 +11,11 @@ import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { SignInSchema } from '@/features/instance/operations/schemas/signInSchema';
-import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -28,6 +26,8 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { currentUserQueryKey } from './queries/getCurrentUser';
+import { authStore, OverallAppSignIn } from './store/authStore';
 
 export function ClusterInstanceSignIn() {
 	const navigate = useNavigate();

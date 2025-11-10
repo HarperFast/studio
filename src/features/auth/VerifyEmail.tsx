@@ -6,7 +6,6 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { useVerifyEmailMutation, VerifyEmailToken } from '@/features/auth/hooks/useVerifyEmail';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -15,6 +14,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
+import { useVerifyEmailMutation, VerifyEmailToken } from './hooks/useVerifyEmail';
 
 const VerifyEmailSchema = z.object({
 	email: zodRequireEmail,

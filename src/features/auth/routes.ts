@@ -1,16 +1,16 @@
 import { defaultInstanceRoute } from '@/config/constants';
-import { AuthLayout } from '@/features/auth/AuthLayout';
-import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
-import { ForgotPassword } from '@/features/auth/ForgotPassword';
-import { ResetPassword } from '@/features/auth/ResetPassword';
-import { SignIn } from '@/features/auth/SignIn';
-import { SignUp } from '@/features/auth/SignUp';
-import { VerifyEmail } from '@/features/auth/VerifyEmail';
-import { Verifying } from '@/features/auth/Verifying';
-import { OverallAppSignIn } from '@/lib/authStore';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { AuthLayout } from './AuthLayout';
+import { ClusterInstanceSignIn } from './ClusterInstanceSignIn';
+import { ForgotPassword } from './ForgotPassword';
+import { ResetPassword } from './ResetPassword';
+import { SignIn } from './SignIn';
+import { SignUp } from './SignUp';
+import { OverallAppSignIn } from './store/authStore';
+import { VerifyEmail } from './VerifyEmail';
+import { Verifying } from './Verifying';
 
 const authLayout = createRoute({
 	getParentRoute: () => rootRoute,

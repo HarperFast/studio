@@ -1,7 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientConfig, InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
-import { OverallAppSignIn } from '@/lib/authStore';
+import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useParams } from '@tanstack/react-router';
 
 export function useInstanceClient(operationsUrl?: string | null, port?: number, secure?: boolean) {
