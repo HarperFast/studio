@@ -23,7 +23,8 @@ export function ApplicationsEditor() {
 				<ApplicationsSidebar />
 			</aside>
 
-			<div className={cx('overflow-y-auto overflow-x-hidden fixed bottom-0 right-0 left-0 md:left-56' +
+			<div className={cx('applications-content overflow-y-auto overflow-x-hidden fixed bottom-0 right-0 left-0' +
+				' md:left-56' +
 				' transition-[left]' +
 				' h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:left-56')}>
 				<ContentViewer />
