@@ -8,38 +8,30 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
-import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
+import { isLocalStudio } from '@/config/constants';
 import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useClusterInstanceSignIn } from '@/features/auth/hooks/useClusterInstanceSignIn';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
+import { SchemaHdbInstance } from '@/lib/api.gen';
 import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link, Navigate, useParams } from '@tanstack/react-router';
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
-import { z } from 'zod';
-import { currentUserQueryKey } from './queries/getCurrentUser';
-import { authStore, OverallAppSignIn } from './store/authStore';
 
 export function ClusterInstanceSignIn() {
-	const navigate = useNavigate();
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const { redirect } = useSearch({ strict: false });
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
-	const instance = useMemo(
-		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId),
+	const instance: SchemaHdbInstance | undefined = useMemo(
+		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId) || undefined,
 		[cluster, instanceId]);
 	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
 
@@ -73,43 +65,13 @@ export function ClusterInstanceSignIn() {
 			password: '',
 		},
 	});
-	const { setFocus, control, handleSubmit } = methods;
+	const { control, handleSubmit } = methods;
 
-	useEffect(() => {
-		setFocus('username');
-	}, [setFocus]);
-
-	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
-
-	const submitForm = useCallback(async (formData: z.infer<typeof UsernameSignInSchema>) => {
-		submitInstanceLogin(
-			{
-				...formData,
-				...instanceParams,
-			},
-			{
-				onSuccess: async (response) => {
-					toast.success(response.message);
-					const user = await getInstanceUserInfo(instanceParams);
-					// If we sign in to the cluster, we've authenticated against all of its instances too.
-					if (cluster?.instances?.length && !instance) {
-						for (const clusterInstance of cluster.instances) {
-							authStore.setUserForEntity(clusterInstance, user);
-						}
-					}
-					authStore.setUserForEntity(instance || cluster || OverallAppSignIn, user);
-					void queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-					void router.invalidate();
-					await navigate({
-						to: redirect?.startsWith('/')
-							? redirect
-							: isLocalStudio
-								? defaultInstanceRoute
-								: defaultInstanceRouteUpOne,
-					});
-				},
-			});
-	}, [cluster, instance, instanceParams, navigate, queryClient, redirect, router, submitInstanceLogin]);
+	const { submitForm, isPending } = useClusterInstanceSignIn({
+		cluster,
+		instance,
+		instanceParams,
+	});
 
 	if (!instanceId && cluster && !cluster?.fqdn) {
 		return <Navigate to="../instances" replace={true} />;
@@ -143,6 +105,7 @@ export function ClusterInstanceSignIn() {
 										<FormControl>
 											<Input
 												autoComplete="username"
+												autoFocus={true}
 												type="text"
 												{...field}
 											/>
