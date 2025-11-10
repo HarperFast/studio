@@ -24,7 +24,7 @@ export function ProfileIndex() {
 	const navigate = useNavigate();
 	const { user } = useCloudAuth();
 
-	const form = useForm({
+	const methods = useForm({
 		resolver: zodResolver(UpdateUserSchema),
 		defaultValues: {
 			confirmNewPassword: '',
@@ -34,6 +34,7 @@ export function ProfileIndex() {
 			newPassword: '',
 		},
 	});
+	const { control, handleSubmit, reset, formState: { defaultValues, isDirty, isValid } } = methods;
 	const { mutate: updateUser, isPending: isUpdatePending } = useUpdateUserMutation();
 
 	const onSubmitClick = useCallback(
@@ -41,8 +42,8 @@ export function ProfileIndex() {
 			if (formData) {
 				updateUser(formData, {
 					onSuccess: (data) => {
-						form.reset({
-							...form.formState.defaultValues,
+						reset({
+							...defaultValues,
 							...data,
 						});
 						authStore.updateUserForEntity(OverallAppSignIn, data);
@@ -60,16 +61,16 @@ export function ProfileIndex() {
 				});
 			}
 		},
-		[form, navigate, router, updateUser],
+		[defaultValues, navigate, reset, router, updateUser],
 	);
 
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12">
 			<h2 className="text-2xl font-light">Profile</h2>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+			<Form {...methods}>
+				<form onSubmit={handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
 					<FormField
-						control={form.control}
+						control={control}
 						name="firstname"
 						render={({ field }) => (
 							<FormItem>
@@ -88,7 +89,7 @@ export function ProfileIndex() {
 					/>
 
 					<FormField
-						control={form.control}
+						control={control}
 						name="lastname"
 						render={({ field }) => (
 							<FormItem>
@@ -120,7 +121,7 @@ export function ProfileIndex() {
 					</FormControl>
 
 					<FormField
-						control={form.control}
+						control={control}
 						name="newPassword"
 						render={({ field }) => (
 							<FormItem>
@@ -141,7 +142,7 @@ export function ProfileIndex() {
 					/>
 
 					<FormField
-						control={form.control}
+						control={control}
 						name="confirmNewPassword"
 						render={({ field }) => (
 							<FormItem>
@@ -165,7 +166,7 @@ export function ProfileIndex() {
 							type="submit"
 							variant="submit"
 							className="rounded-full"
-							disabled={isUpdatePending || !form.formState.isDirty || !form.formState.isValid}
+							disabled={isUpdatePending || !isDirty || !isValid}
 						>
 							<Save /> Update Profile
 						</Button>
