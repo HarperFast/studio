@@ -43,13 +43,14 @@ class AuthStore {
 	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
 	private readonly specificListeners: Record<EntityIds, Array<(connection: AuthenticatedConnection, id: EntityIds) => void>> = {};
 
-	private readonly localStorageKey = 'Studio:PotentiallyAuthenticated';
+	private readonly potentiallyAuthenticatedKey = 'Studio:PotentiallyAuthenticated';
+	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
 
 	constructor() {
-		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}');
+		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
 	}
 
 	public getAllConnections(): Record<EntityIds, AuthenticatedConnection> {
@@ -152,6 +153,19 @@ class AuthStore {
 		return undefined;
 	}
 
+	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string; }) {
+		if (credentials === null) {
+			localStorage.removeItem(this.basicAuthKeyPrefix + id);
+		} else {
+			localStorage.setItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
+		}
+	}
+
+	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string; } {
+		const value = localStorage.getItem(this.basicAuthKeyPrefix + id);
+		return value ? JSON.parse(atob(value)) : undefined;
+	}
+
 	public async signOutFromPotentiallyAuthenticatedInstances() {
 		for (const entityId in this.potentiallyAuthenticated) {
 			this.allConnections[entityId].user = null;
@@ -162,7 +176,7 @@ class AuthStore {
 			}
 			try {
 				const instanceClient = getInstanceClient({ id: entityId });
-				await onInstanceLogoutSubmit({ instanceClient });
+				await onInstanceLogoutSubmit({ entityId, instanceClient });
 			} catch (err: unknown) {
 				console.error(`Failed to log out from ${entityId}, carrying on`, err);
 			}
@@ -202,14 +216,14 @@ class AuthStore {
 	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
 		if (this.potentiallyAuthenticated[id] !== key) {
 			this.potentiallyAuthenticated[id] = key;
-			localStorage.setItem(this.localStorageKey, JSON.stringify(this.potentiallyAuthenticated));
+			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
 		}
 	}
 
 	private flagKeyAsSignedOut(id: EntityIds) {
 		if (this.potentiallyAuthenticated[id]) {
 			delete this.potentiallyAuthenticated[id];
-			localStorage.setItem(this.localStorageKey, JSON.stringify(this.potentiallyAuthenticated));
+			localStorage.setItem(this.potentiallyAuthenticatedKey, JSON.stringify(this.potentiallyAuthenticated));
 		}
 	}
 

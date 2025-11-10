@@ -15,7 +15,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient(operationsUrl);
 	const onSignOutClick = useCallback(async () => {
-		await onInstanceLogoutSubmit({ instanceClient });
+		await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
 		authStore.setUserForEntity(instance, null);
 	}, [instance, instanceClient]);
 

@@ -3,14 +3,14 @@ import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
-import { authStore } from '@/features/auth/store/authStore';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useMutation } from '@tanstack/react-query';
 
 async function onLogoutSubmit(instanceClientConfig: InstanceClientConfig) {
 	await authStore.signOutFromPotentiallyAuthenticatedInstances();
 	if (isLocalStudio) {
-		await onInstanceLogoutSubmit(instanceClientConfig);
+		await onInstanceLogoutSubmit({ ...instanceClientConfig, entityId: OverallAppSignIn });
 	} else {
 		await apiClient.post('/Logout/');
 	}
