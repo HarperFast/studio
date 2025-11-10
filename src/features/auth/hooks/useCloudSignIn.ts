@@ -16,8 +16,9 @@ export function useCloudSignIn() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const router = useRouter();
-	const { mutate: submitLoginData, isPending } = useLoginMutation();
 	const { redirect } = useSearch({ strict: false });
+
+	const { mutate: submitLoginData, isPending } = useLoginMutation();
 
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
 		submitLoginData(formData, {
@@ -40,6 +41,7 @@ export function useCloudSignIn() {
 			},
 		});
 	}, [navigate, queryClient, redirect, router, submitLoginData]);
+
 	return {
 		isPending,
 		submitForm,

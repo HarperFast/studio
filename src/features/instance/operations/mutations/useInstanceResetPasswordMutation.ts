@@ -1,15 +1,12 @@
 import { defaultClusterUsername } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { resetPasswordUpdater } from '@/features/cluster/queries/resetPasswordUpdater';
-import { onAddUserSubmit } from '@/features/instance/operations/mutations/addUser';
-import { onAlterUser } from '@/features/instance/operations/mutations/alterUser';
-import { onDeleteUser } from '@/features/instance/operations/mutations/deleteUser';
-import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
-import {
-	LoginInfoResponse,
-	onInstanceLoginSubmit,
-} from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { useMutation } from '@tanstack/react-query';
+import { onAddUserSubmit } from './addUser';
+import { onAlterUser } from './alterUser';
+import { onDeleteUser } from './deleteUser';
+import { onInstanceLogoutSubmit } from './onInstanceLogoutSubmit';
+import { LoginInfoResponse, onInstanceLoginSubmit } from './useInstanceLoginMutation';
 
 interface InstanceResetPasswordParams extends InstanceClientConfig {
 	clusterId: string;
