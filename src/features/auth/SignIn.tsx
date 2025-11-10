@@ -6,71 +6,26 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
-import { reoClient } from '@/integrations/reo/reo';
-import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
-import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
-import { zodRequireEmail } from '@/lib/zod/email';
-import { zodRequirePassword } from '@/lib/zod/password';
+import { EmailSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { Link, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { useLoginMutation } from './hooks/useSignIn';
-import { currentUserQueryKey } from './queries/getCurrentUser';
-import { authStore, OverallAppSignIn } from './store/authStore';
-
-const SignInSchema = z.object({
-	email: zodRequireEmail,
-	password: zodRequirePassword,
-});
+import { useCloudSignIn } from './hooks/useCloudSignIn';
 
 export function SignIn() {
-	const navigate = useNavigate();
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
-	const router = useRouter();
-	const queryClient = useQueryClient();
-	const { redirect } = useSearch({ strict: false });
 
 	const methods = useForm({
-		resolver: zodResolver(SignInSchema),
+		resolver: zodResolver(EmailSignInSchema),
 		defaultValues: {
 			email: formPersistenceEmail || '',
 			password: '',
 		},
 	});
-
+	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
-	const { handleSubmit, control, setFocus } = methods;
 
-	useEffect(() => {
-		setFocus('email');
-	}, [setFocus]);
-
-	const { mutate: submitLoginData, isPending } = useLoginMutation();
-
-	const submitForm = (formData: z.infer<typeof SignInSchema>) => {
-		submitLoginData(formData, {
-			onSuccess: async (data) => {
-				authStore.setUserForEntity(OverallAppSignIn, data);
-				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
-
-				loginSuccessDatadogAction(data);
-
-				const company = parseCompanyFromEmail(data.email);
-				reoClient?.identify?.({
-					username: data.email,
-					type: 'email',
-					...(company ? { company } : {}),
-				});
-				await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-				void router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
-			},
-		});
-	};
+	const { submitForm, isPending } = useCloudSignIn();
 
 	return (
 		<div className="text-white w-xs">
@@ -86,6 +41,7 @@ export function SignIn() {
 								<FormControl>
 									<Input
 										type="email"
+										autoFocus={true}
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
