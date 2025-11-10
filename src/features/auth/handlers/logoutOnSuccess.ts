@@ -1,4 +1,4 @@
-import { authStore, OverallAppSignIn } from '@/lib/authStore';
+import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { clearLocalStorage } from '@/lib/storage/clearLocalStorage';
 import { clearSessionStorage } from '@/lib/storage/clearSessionStorage';
 import { queryClient } from '@/react-query/queryClient';

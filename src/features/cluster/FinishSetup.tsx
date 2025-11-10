@@ -9,13 +9,13 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import {
 	useInstanceResetPasswordMutation,
 } from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
-import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';

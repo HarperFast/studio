@@ -1,5 +1,5 @@
+import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { Dashboard } from '@/features/layouts/Dashboard';
-import { OverallAppSignIn } from '@/lib/authStore';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { rootRoute } from '@/router/rootRoute';
 import { createRoute, redirect } from '@tanstack/react-router';

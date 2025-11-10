@@ -1,4 +1,4 @@
-import { EntityIds } from '@/lib/authStore';
+import { EntityIds } from '@/features/auth/store/authStore';
 import type { AxiosInstance } from 'axios';
 
 export interface InstanceClientConfig {

@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { EntityIds } from '@/lib/authStore';
+import { EntityIds } from '@/features/auth/store/authStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface InstallUsageLicenseFormData extends InstanceClientConfig {

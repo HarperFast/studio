@@ -3,8 +3,8 @@ import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
+import { authStore } from '@/features/auth/store/authStore';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
-import { authStore } from '@/lib/authStore';
 import { useMutation } from '@tanstack/react-query';
 
 async function onLogoutSubmit(instanceClientConfig: InstanceClientConfig) {

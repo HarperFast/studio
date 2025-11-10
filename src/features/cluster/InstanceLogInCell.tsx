@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { Instance } from '@/lib/api.patch';
-import { authStore } from '@/lib/authStore';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { Link } from '@tanstack/react-router';
 import { LoaderCircleIcon } from 'lucide-react';

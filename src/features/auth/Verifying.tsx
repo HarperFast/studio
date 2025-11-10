@@ -1,7 +1,7 @@
-import { useResendEmailVerification } from '@/features/auth/hooks/useResendEmailVerification';
 import { Link, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
+import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 
 export function Verifying() {
 	const { email }: { email?: string; } = useSearch({ strict: false });

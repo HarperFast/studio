@@ -1,3 +1,4 @@
+import { EntityIds } from '@/features/auth/store/authStore';
 import { useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
@@ -5,7 +6,6 @@ import {
 	LocalRolePermissionAction,
 	LocalRolePermissionTable,
 } from '@/lib/api.patch';
-import { EntityIds } from '@/lib/authStore';
 import { useParams } from '@tanstack/react-router';
 
 export function useOrganizationPermissions(orgId?: string): { update: boolean; remove: boolean; } {

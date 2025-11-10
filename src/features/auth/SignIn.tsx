@@ -6,10 +6,8 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { useLoginMutation } from '@/features/auth/hooks/useSignIn';
-import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
+import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { reoClient } from '@/integrations/reo/reo';
-import { authStore, OverallAppSignIn } from '@/lib/authStore';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { zodRequireEmail } from '@/lib/zod/email';
@@ -20,7 +18,9 @@ import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router'
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
+import { useLoginMutation } from './hooks/useSignIn';
+import { currentUserQueryKey } from './queries/getCurrentUser';
+import { authStore, OverallAppSignIn } from './store/authStore';
 
 const SignInSchema = z.object({
 	email: zodRequireEmail,

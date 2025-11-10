@@ -1,6 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
+import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
-import { OverallAppSignIn } from '@/lib/authStore';
 import { useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 

@@ -6,7 +6,6 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { useSignUpMutation } from '@/features/auth/hooks/useSignUp';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { zodRequireEmail } from '@/lib/zod/email';
@@ -16,6 +15,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useSignUpMutation } from './hooks/useSignUp';
 
 const SignInSchema = z.object({
 	email: zodRequireEmail
