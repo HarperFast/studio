@@ -13,7 +13,6 @@ import { authStore } from '@/features/auth/store/authStore';
 import {
 	useInstanceResetPasswordMutation,
 } from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
@@ -73,10 +72,9 @@ export function FinishSetup() {
 			initialUsername: defaultClusterUsername,
 			desiredUsername: formData.username,
 		}, {
-			onSuccess: async (response) => {
-				toast.success(response.message);
-				const user = await getInstanceUserInfo({ instanceClient });
-				authStore.setUserForEntity(cluster || null, user);
+			onSuccess: async ({ message, user }) => {
+				toast.success(message);
+				authStore.setUserForEntity(cluster!, user);
 				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},

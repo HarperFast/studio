@@ -3,7 +3,6 @@ import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceCli
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
 import { SchemaHdbInstance } from '@/lib/api.gen';
 import { Cluster } from '@/lib/api.patch';
@@ -36,9 +35,8 @@ export function useClusterInstanceSignIn({
 				...instanceParams,
 			},
 			{
-				onSuccess: async (response) => {
-					toast.success(response.message);
-					const user = await getInstanceUserInfo(instanceParams);
+				onSuccess: async ({ message, user }) => {
+					toast.success(message);
 					// If we sign in to the cluster, we've authenticated against all of its instances too.
 					if (cluster?.instances?.length && !instance) {
 						for (const clusterInstance of cluster.instances) {

@@ -55,7 +55,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 			console.error('Failed to lookup cluster details, proceeding without checking instances.', err);
 			return null;
 		});
-		await onInstanceLogoutSubmit({ instanceClient });
+		await onInstanceLogoutSubmit({ entityId: cluster.id, instanceClient });
 		if (fullCluster?.instances?.length) {
 			// Flag all cluster instances as signed out as well.
 			for (const instance of fullCluster.instances) {

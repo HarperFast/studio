@@ -23,8 +23,10 @@ export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, 
 			baseURL = newURL.toString();
 		}
 	}
+	const auth = authStore.checkForBasicAuth(id);
 	const client = axios.create({
-		withCredentials: true,
+		auth,
+		withCredentials: !auth,
 		timeout: 15000,
 		headers: {
 			'Content-Type': 'application/json',

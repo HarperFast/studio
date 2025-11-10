@@ -34,8 +34,9 @@ async function onInstanceResetPassword({
 			username: initialUsername,
 			password: tempPassword,
 			instanceClient,
+			entityId: clusterId,
 		});
-		// then create a new user
+		// then alter or create a new user
 		if (desiredUsername === defaultClusterUsername) {
 			await onAlterUser({
 				username: desiredUsername,
@@ -58,6 +59,7 @@ async function onInstanceResetPassword({
 				username: desiredUsername,
 				password: newPassword,
 				instanceClient,
+				entityId: clusterId,
 			});
 		}
 		// and finally, tell the central manager that we changed their password.
@@ -66,6 +68,7 @@ async function onInstanceResetPassword({
 	} catch (err) {
 		// If something went wrong, logout as well.
 		await onInstanceLogoutSubmit({
+			entityId: clusterId,
 			instanceClient,
 		});
 		throw err;

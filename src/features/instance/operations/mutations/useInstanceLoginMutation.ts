@@ -1,29 +1,53 @@
-import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { authStore } from '@/features/auth/store/authStore';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
+import { LocalUser } from '@/lib/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
-interface InstanceLoginCredentials extends InstanceClientConfig {
+interface InstanceLoginCredentials extends InstanceClientIdConfig {
 	username: string;
 	password: string;
 }
 
 export interface LoginInfoResponse {
 	message: string;
+	user: LocalUser;
 }
 
 export async function onInstanceLoginSubmit({
 	username,
 	password,
 	instanceClient,
+	entityId,
 }: InstanceLoginCredentials): Promise<LoginInfoResponse> {
-	const { data } = await instanceClient.post('/', {
+	const { data: { message } } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
 		password,
 	});
-	if (data) {
-		return data;
-	} else {
-		throw new Error('Something went wrong');
+
+	// Attempt to use the login with session storage only.
+	try {
+		const user = await getInstanceUserInfo({ instanceClient });
+		return {
+			message,
+			user,
+		};
+	} catch (err) {
+		console.error('Failed to get user after login, trying basic auth', err);
+
+		const user = await getInstanceUserInfo({
+			instanceClient,
+			auth: {
+				username,
+				password,
+			},
+		});
+		authStore.flagForBasicAuth(entityId, { username, password });
+		return {
+			message,
+			user,
+		};
 	}
 }
 
