@@ -12,12 +12,12 @@ import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useSignUpMutation } from './hooks/useSignUp';
 
-const SignInSchema = z.object({
+const SignUpSchema = z.object({
 	email: zodRequireEmail
 		.max(80, { error: 'Email cannot be longer than 80 characters.' }),
 	firstname: z
@@ -43,7 +43,7 @@ export function SignUp() {
 	const navigate = useNavigate();
 	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
 	const methods = useForm({
-		resolver: zodResolver(SignInSchema),
+		resolver: zodResolver(SignUpSchema),
 		defaultValues: {
 			firstname: '',
 			lastname: '',
@@ -62,7 +62,7 @@ export function SignUp() {
 
 	const { mutate: submitSignUpData } = useSignUpMutation();
 
-	const submitForm = async (formData: z.infer<typeof SignInSchema>) => {
+	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { confirmPassword, ...userData } = formData;
 		submitSignUpData(userData, {
@@ -78,7 +78,7 @@ export function SignUp() {
 				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
 			},
 		});
-	};
+	}, [navigate, submitSignUpData]);
 
 	return (
 		<div className="text-white w-xs">

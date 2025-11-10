@@ -15,7 +15,7 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { SignInSchema } from '@/features/instance/operations/schemas/signInSchema';
+import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
 import { CrossLocalhostIssueType, detectCrossLocalhostUrls } from '@/lib/urls/detectCrossLocalhostUrls';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -67,7 +67,7 @@ export function ClusterInstanceSignIn() {
 	);
 
 	const methods = useForm({
-		resolver: zodResolver(SignInSchema),
+		resolver: zodResolver(UsernameSignInSchema),
 		defaultValues: {
 			username: '',
 			password: '',
@@ -81,7 +81,7 @@ export function ClusterInstanceSignIn() {
 
 	const { mutate: submitInstanceLogin, isPending } = useInstanceLoginMutation();
 
-	const submitForm = useCallback(async (formData: z.infer<typeof SignInSchema>) => {
+	const submitForm = useCallback(async (formData: z.infer<typeof UsernameSignInSchema>) => {
 		submitInstanceLogin(
 			{
 				...formData,
