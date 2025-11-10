@@ -87,7 +87,7 @@
 		"eslint-plugin-react-hooks": "^7.0.0",
 		"eslint-plugin-react-refresh": "^0.4.18",
 		"globals": "^16.0.0",
-		"harperdb": "4.7.2",
+		"harperdb": "4.7.3",
 		"husky": "^9.1.7",
 		"jsdom": "^27.0.0",
 		"semantic-release": "^25.0.0",
