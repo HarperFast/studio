@@ -119,7 +119,7 @@ export function MetricVisualization({ metricConfig, data }: MetricVisualizationP
 	}
 
 	return (
-		<div className="mt-8">
+		<div className="mt-8 h-[600px]">
 			<p>No {metricConfig.name} data for this time period</p>
 		</div>
 	);
