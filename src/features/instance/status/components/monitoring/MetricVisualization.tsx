@@ -1,6 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { getAnalyticsQueryOptions, type MetricConfig, type Metric, type MetricDataKey, type MetricUnits } from '@/features/instance/operations/queries/getAnalytics.ts';
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { GetAnalyticsResponse, MetricConfig, Metric, MetricDataKey, MetricUnits } from '@/features/instance/operations/queries/getAnalytics.ts';
 import { useMemo, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { scaleValueToUnits, determineUnits } from '@/lib/units';
@@ -15,9 +13,7 @@ type FormattedMetric = {[node: string]: string};
 
 interface MetricVisualizationParams {
 	metricConfig: MetricConfig;
-	startTime: number;
-	endTime: number;
-	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
+	data?: GetAnalyticsResponse;
 }
 
 function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits: MetricUnits, conversionUnits?: string) {
@@ -35,8 +31,7 @@ function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits:
 	return baseValue;
 }
 
-export function MetricVisualization({ metricConfig, startTime, endTime, instanceParams }: MetricVisualizationParams) {
-	const { data } = useQuery(getAnalyticsQueryOptions({instanceParams, metricConfig, startTime, endTime}));
+export function MetricVisualization({ metricConfig, data }: MetricVisualizationParams) {
 	const metrics = useMemo(() => {
 		return data?.reduce((ms: Metric[], m: NullableMetric) => {
 			const newMetric: Metric = {metric: '', node: '', id: 0, period: 0, count: 0, mean: 0};
@@ -111,7 +106,7 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 							metricDifferentiator += '.' + metricConfig.path;
 						}
 						const key = metricDifferentiator + '.' + node;
-						return <Line key={key} name={node} dataKey={node} stroke={Object.values(harperPalette)[i]} />
+						return <Line key={key} name={node} dataKey={node} isAnimationActive={false} stroke={Object.values(harperPalette)[i]} />
 					})
 					}
 					<XAxis dataKey={(item) => formatTime(item.id)} />

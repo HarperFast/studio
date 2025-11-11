@@ -43,7 +43,7 @@ export interface Metric {
 	[key: string]: string|number|boolean|null;
 }
 
-type GetAnalyticsResponse = Metric[];
+export type GetAnalyticsResponse = Metric[];
 
 export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, instanceParams }: GetAnalyticsParams) {
 	return queryOptions({
@@ -60,6 +60,7 @@ export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, ins
 			}
 			const { data } = await instanceParams.instanceClient.post<GetAnalyticsResponse>('/', req);
 			return data;
-		}
+		},
+		placeholderData: (previousData) => previousData,
 	});
 }

@@ -3,8 +3,10 @@ import { useMemo, useState } from 'react';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { Label } from '@/components/ui/label.tsx';
 import { useInterval } from '@/hooks/useInterval.ts';
-import type { Metric, MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
+import { getAnalyticsQueryOptions, Metric, MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
+import { LoadingSubtle } from '@/components/LoadingSubtle.tsx';
+import { useQuery } from '@tanstack/react-query';
 
 const metrics: MetricConfig[] = [
 	{
@@ -96,6 +98,7 @@ const windowOptions: TimeSelectOptions = [
 ];
 
 const intervalOptions: TimeSelectOptions = [
+	{label: '5 secs', value: 5_000},
 	{label: '15 secs', value: 15_000},
 	{label: '30 secs', value: 30_000},
 	{label: 'minute', value: 60_000, default: true},
@@ -118,6 +121,8 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 	useInterval(() => { setEndTime(Date.now); }, updateInterval.value);
 
 	const startTime = useMemo(() => endTime - timeWindow.value, [endTime, timeWindow]);
+
+	const { data, isLoading } = useQuery(getAnalyticsQueryOptions({instanceParams, metricConfig: selectedMetric, startTime, endTime}));
 
 	return (
 		<div>
@@ -183,14 +188,11 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 								</SelectGroup>
 							</SelectContent>
 						</Select>
+						{isLoading && (<LoadingSubtle/>)}
 					</div>
 				</div>
 			</div>
-			<MetricVisualization
-				metricConfig={selectedMetric}
-				startTime={startTime}
-				endTime={endTime}
-				instanceParams={instanceParams} />
+			<MetricVisualization metricConfig={selectedMetric} data={data} />
 		</div>
 	)
 }
