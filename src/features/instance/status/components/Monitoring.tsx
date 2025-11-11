@@ -98,7 +98,6 @@ const windowOptions: TimeSelectOptions = [
 ];
 
 const intervalOptions: TimeSelectOptions = [
-	{label: '5 secs', value: 5_000},
 	{label: '15 secs', value: 15_000},
 	{label: '30 secs', value: 30_000},
 	{label: 'minute', value: 60_000, default: true},
