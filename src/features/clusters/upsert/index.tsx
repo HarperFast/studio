@@ -2,13 +2,9 @@ import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
+import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
-import { ClusterForm } from '@/features/clusters/upsert/ClusterForm';
-import {
-	calculateDefaultDeploymentPerformanceAndRegionPlans,
-} from '@/features/clusters/upsert/lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/lib/api.gen';
@@ -20,6 +16,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { z } from 'zod';
+import { ClusterForm } from './ClusterForm';
+import { isUpsertClusterSchema } from './isUpsertClusterSchema';
+import {
+	calculateDefaultDeploymentPerformanceAndRegionPlans,
+} from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
+import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 export function UpsertCluster() {
 	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
@@ -30,7 +32,7 @@ export function UpsertCluster() {
 	} = useRouteContext({ strict: false });
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<null | ({
 		clusterId?: string
-	} & z.infer<typeof UpsertClusterSchema>)>(LocalStorageKeys.SavedClusterState, null);
+	} & (UpsertClusterSchemaType | Cluster))>(LocalStorageKeys.SavedClusterState, null);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
@@ -43,7 +45,8 @@ export function UpsertCluster() {
 		for (const orgCluster of organization?.clusters ?? []) {
 			if (orgCluster.id !== cluster?.id
 				&& planTypes
-				&& orgCluster.status !== 'TERMINATED'
+				&& !isTerminated(orgCluster.status)
+				&& !isFailed(orgCluster.status)
 				&& orgCluster.plans) {
 				for (const clusterPlan of orgCluster.plans) {
 					const foundPlan = planTypes.find(p => p.id === clusterPlan.planId);
@@ -59,18 +62,28 @@ export function UpsertCluster() {
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
 		groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
 
-	const defaultValues = useMemo<null | z.infer<typeof UpsertClusterSchema>>(() => {
-		if (savedClusterState) {
-			return {
-				...savedClusterState,
-				clusterName: savedClusterState.clusterName || '',
-				fqdn: savedClusterState.fqdn || '',
-				regionPlans: savedClusterState.regionPlans || [],
-				instances: savedClusterState.instances || [],
-			};
-		}
+	const defaultValues = useMemo<null | UpsertClusterSchemaType>(() => {
 		if (!planTypes || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)) {
 			return null;
+		}
+
+		let clusterToLoad = cluster;
+
+		if (savedClusterState) {
+			if (isUpsertClusterSchema(savedClusterState)) {
+				return {
+					...savedClusterState,
+					clusterName: savedClusterState.clusterName || '',
+					abbreviatedName: savedClusterState.abbreviatedName || '',
+					deploymentDescription: savedClusterState.deploymentDescription || '',
+					performanceDescription: savedClusterState.performanceDescription || '',
+					fqdn: savedClusterState.fqdn || '',
+					regionPlans: savedClusterState.regionPlans || [],
+					instances: savedClusterState.instances || [],
+				};
+			} else {
+				clusterToLoad = savedClusterState;
+			}
 		}
 
 		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
@@ -83,9 +96,9 @@ export function UpsertCluster() {
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations, alreadyUsingFree);
 
 		let isSelfManaged = false;
-		if (cluster) {
-			if (cluster.plans) {
-				for (const plan of cluster.plans) {
+		if (clusterToLoad) {
+			if (clusterToLoad.plans) {
+				for (const plan of clusterToLoad.plans) {
 					if (plan.regionId) {
 						const selectedRegion = regionLocations.find(regionLocation => regionLocation.id === plan.regionId);
 						if (selectedRegion) {
@@ -97,8 +110,8 @@ export function UpsertCluster() {
 					}
 				}
 			}
-			if (!regionPlans.length && cluster.instances) {
-				for (const instance of cluster.instances) {
+			if (!regionPlans.length && clusterToLoad.instances) {
+				for (const instance of clusterToLoad.instances) {
 					if (instance.status !== 'REMOVED') {
 						isSelfManaged = true;
 						instances.push({
@@ -117,12 +130,13 @@ export function UpsertCluster() {
 		}
 
 		return {
-			autoRenew: cluster?.plans?.[0]?.autoRenew ?? true,
-			clusterName: cluster?.name ?? '',
-			abbreviatedName: cluster?.abbreviatedName ?? '',
+			sourceClusterId: clusterToLoad?.id,
+			autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
+			clusterName: clusterToLoad?.name ?? '',
+			abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
 			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
 			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
-			fqdn: isSelfManaged ? cluster?.fqdn ?? '' : '',
+			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 			instances,
 			regionPlans,
 		};
@@ -180,7 +194,7 @@ export function UpsertCluster() {
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				setSavedClusterState={setSavedClusterState}
-				startOffOnBilling={savedClusterState?.skipToBilling === true}
+				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
 		</SubNavSimpleLayout>
 	);

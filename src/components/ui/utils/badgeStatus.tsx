@@ -8,6 +8,7 @@ export type BadgeStatusVariant =
 	| 'RUNNING'
 	| 'UPDATED'
 	| 'STOPPED'
+	| 'FAILED'
 	| 'TERMINATED'
 	| 'TERMINATING'
 	| 'ERROR'
@@ -27,6 +28,7 @@ export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatus
 			return 'secondary';
 		case 'TERMINATING':
 		case 'TERMINATED':
+		case 'FAILED':
 		case 'REMOVED':
 		case 'ERROR':
 			return 'destructive';
@@ -39,6 +41,24 @@ export function isRunning(value: string | undefined): value is 'RUNNING' | 'UPDA
 	switch (value) {
 		case 'RUNNING':
 		case 'UPDATED':
+			return true;
+		default:
+			return false;
+	}
+}
+
+export function isFailed(value: string | undefined): value is 'FAILED' {
+	switch (value) {
+		case 'FAILED':
+			return true;
+		default:
+			return false;
+	}
+}
+
+export function isTerminated(value: string | undefined): value is 'TERMINATED' {
+	switch (value) {
+		case 'TERMINATED':
 			return true;
 		default:
 			return false;
