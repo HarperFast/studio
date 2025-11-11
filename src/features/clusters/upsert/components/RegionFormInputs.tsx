@@ -4,27 +4,19 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
-import { ResourcesPerInstance } from '@/features/clusters/upsert/components/ResourcesPerInstance.tsx';
+import { ResourcesPerInstance } from './ResourcesPerInstance';
 
 type RegionFormInputsProps = {
-	control: Control<z.infer<typeof UpsertClusterSchema>>,
-	fieldArray: UseFieldArrayReturn<z.infer<typeof UpsertClusterSchema>, 'regionPlans'>,
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>,
+	control: Control<UpsertClusterSchemaType>,
+	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'regionPlans'>,
+	form: UseFormReturn<UpsertClusterSchemaType>,
 	index: number,
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>,
 	selectedPlan: SchemaPlan | undefined,

@@ -1,14 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { defaultOperationsApiPort } from '@/config/constants';
-import { InstanceFormInputs } from '@/features/clusters/upsert/components/InstanceFormInputs';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { PlusIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
+import { InstanceFormInputs } from './InstanceFormInputs';
 
 interface ClusterInstancesProps {
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
+	form: UseFormReturn<UpsertClusterSchemaType>;
 }
 
 export function ClusterInstances({

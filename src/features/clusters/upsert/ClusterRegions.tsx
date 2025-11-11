@@ -1,16 +1,15 @@
 import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Button } from '@/components/ui/button';
-import { RegionFormInputs } from '@/features/clusters/upsert/components/RegionFormInputs';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { PlusIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
+import { RegionFormInputs } from './components/RegionFormInputs';
+import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
+	form: UseFormReturn<UpsertClusterSchemaType>;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;

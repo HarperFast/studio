@@ -1,4 +1,4 @@
-import { isBeingUpdated, isPendingUpdate, isRunning } from '@/components/ui/utils/badgeStatus';
+import { isBeingUpdated, isFailed, isPendingUpdate, isRunning, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Cluster } from '@/lib/api.patch';
 import { mapBy } from '@/lib/arrays/mapBy';
@@ -40,9 +40,11 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		const updatingTexts: Record<string, string> = {};
 		let running = 0;
 		const runningTexts: Record<string, string> = {};
+		let failed = 0;
+		const failedTexts: Record<string, string> = {};
 		for (const instance of instances) {
 			const status = instance.status;
-			if (!status || status === 'TERMINATED') {
+			if (!status || isTerminated(status)) {
 				continue;
 			}
 			if (isPendingUpdate(status)) {
@@ -51,6 +53,9 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			} else if (isBeingUpdated(status)) {
 				updating += 1;
 				updatingTexts[status] = `${updating} ${capitalizeWords(status)}`;
+			} else if (isFailed(status)) {
+				failed += 1;
+				failedTexts[status] = `${failed} ${capitalizeWords(status)}`;
 			} else if (!instance.planId || !activePlanIds.includes(instance.planId)) {
 				updating += 1;
 				updatingTexts['DRAINING_TRAFFIC'] = `${updating} ${capitalizeWords('Draining Traffic')}`;
@@ -64,9 +69,11 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		return {
 			pendingWidth: `${total === 0 ? 100 : pending === 0 ? 0 : (pending / total * 100)}%`,
 			updatingWidth: `${updating === 0 ? 0 : (updating / total * 100)}%`,
+			failedWidth: `${failed === 0 ? 0 : (failed / total * 100)}%`,
 			runningWidth: `${running === 0 ? 0 : (running / total * 100)}%`,
 			text: [
 				...Object.values(runningTexts).sort(),
+				...Object.values(failedTexts).sort(),
 				...Object.values(updatingTexts).sort(),
 				...Object.values(pendingTexts).sort(),
 			].join(' · '),
@@ -80,6 +87,8 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		<div className="w-full h-2.5 rounded-full overflow-clip flex shadow">
 			{/*Running*/}
 			<div style={{ width: updating.runningWidth }} className="grow bg-green/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
+			{/*Failed*/}
+			<div style={{ width: updating.failedWidth }} className="grow bg-red/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
 			{/*Updating*/}
 			<div style={{ width: updating.updatingWidth }} className="grow animate-pulse bg-yellow/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
 			{/*Pending*/}

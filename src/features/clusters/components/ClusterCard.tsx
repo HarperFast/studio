@@ -9,6 +9,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { isFailed, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
@@ -19,9 +20,13 @@ import { useTerminateClusterMutation } from '@/features/clusters/mutations/termi
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
+import { clusterIsSelfManaged } from '@/lib/api/clusterIsSelfManaged';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
@@ -35,17 +40,22 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient(operationsUrl);
 	const auth = useInstanceAuth(cluster.id);
+	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
-	const { view, update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const { view, update, remove, create } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const { mutate: terminateCluster, isPending: isTerminateClusterPending } = useTerminateClusterMutation();
 
 	const [signingOut, setSigningOut] = useState(false);
 	const [isTerminateClusterModalOpen, setIsTerminateClusterModalOpen] = useState(false);
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
-	const isSelfManaged = useMemo(() => !!cluster?.plans?.[0]?.planId?.startsWith('self-hosted'), [cluster]);
+	const isSelfManaged = clusterIsSelfManaged(cluster);
 	const isTerminated = useMemo(
 		() => cluster.status && deletedClusterStatuses.includes(cluster.status),
+		[cluster.status],
+	);
+	const clusterHasFailed = useMemo(
+		() => cluster.status && isFailed(cluster.status),
 		[cluster.status],
 	);
 
@@ -64,6 +74,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		}
 		authStore.setUserForEntity(cluster, null);
 	}, [cluster, instanceClient]);
+
+	const onTryAgainClick = useCallback(() => {
+		setSavedClusterState(cluster);
+		void router.navigate({ to: `/${cluster.organizationId}/new-cluster` });
+	}, [cluster, router, setSavedClusterState]);
 
 	const onTerminateClick = useCallback(() => setIsTerminateClusterModalOpen(true), []);
 
@@ -135,6 +150,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 				Sign Out
 			</DropdownMenuItem>
 		),
+		clusterHasFailed && create && (
+			<DropdownMenuItem className="focus:bg-green/70 focus:text-white" onClick={onTryAgainClick}>
+				Try Again
+			</DropdownMenuItem>
+		),
 		!isTerminated && remove && (
 			<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
 				{isSelfManaged ? 'Remove' : 'Terminate'}
@@ -161,20 +181,18 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 								<Ellipsis aria-label="Cluster options" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent>
-								<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
-								{cluster.plans?.map((plan) => (
-									<DropdownMenuLabel key={plan.planId + plan.regionId}>
-										{plan.planId} / {plan.regionId}
-										<br />
-										Auto Renewal <Badge variant="success">ON</Badge>
-									</DropdownMenuLabel>
-								))}
-								{menuItems.length > 0 && (
-									<>
-										<DropdownMenuSeparator />
-										{...menuItems}
-									</>
-								)}
+								{!clusterHasFailed && (<>
+									<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
+									{cluster.plans?.map((plan) => (
+										<DropdownMenuLabel key={plan.planId + plan.regionId}>
+											{plan.planId} / {plan.regionId}
+											<br />
+											Auto Renewal <Badge variant="success">ON</Badge>
+										</DropdownMenuLabel>
+									))}
+									{menuItems.length > 0 && (<DropdownMenuSeparator />)}
+								</>)}
+								{...menuItems}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}
@@ -186,6 +204,10 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 			<CardContent className="flex items-center justify-between gap-2">
 				<ClusterProgress cluster={cluster} />
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
+				{clusterHasFailed && cluster.status && (<>
+					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+					<span className="text-xs">Click "..." to choose how to proceed.</span>
+				</>)}
 			</CardContent>
 
 			<ConfirmDeletionModal

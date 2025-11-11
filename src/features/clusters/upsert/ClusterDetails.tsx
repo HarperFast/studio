@@ -8,20 +8,19 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ClusterRegions } from '@/features/clusters/upsert/ClusterRegions';
-import { ClusterInstances } from '@/features/clusters/upsert/components/ClusterInstances';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { Suspense, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
-import { z } from 'zod';
+import { ClusterRegions } from './ClusterRegions';
+import { ClusterInstances } from './components/ClusterInstances';
+import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
 	calculatedNames: { suggestedAbbreviatedName: string; fullHostName: string };
 	clusterId?: string;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
+	form: UseFormReturn<UpsertClusterSchemaType>;
 	isPending: boolean;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
@@ -262,7 +261,7 @@ export function ClusterDetails({
 
 		</div>
 		<DialogFooter className="mt-3 mb-12">
-			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !isDirty || !isValid}>
+			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || (clusterId && !isDirty) || !isValid}>
 				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
 				<ArrowRight />
 			</Button>

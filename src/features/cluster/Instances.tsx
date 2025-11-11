@@ -4,8 +4,10 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { Instance } from '@/lib/api.patch';
+import { clusterIsSelfManaged } from '@/lib/api/clusterIsSelfManaged';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
@@ -22,7 +24,7 @@ export function Instances() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
-	const isSelfManaged = useMemo(() => !!cluster?.plans?.[0]?.planId?.startsWith('self-hosted'), [cluster]);
+	const isSelfManaged = clusterIsSelfManaged(cluster);
 
 	const columns: ColumnDef<Instance>[] = useMemo(
 		() => ([
@@ -101,7 +103,7 @@ export function Instances() {
 	);
 	const instances = useMemo(
 		() =>
-			cluster?.instances?.filter(instance => instance.status !== 'REMOVED' && instance.status !== 'TERMINATED') ?? [],
+			cluster?.instances?.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status)) ?? [],
 		[cluster],
 	);
 	return (

@@ -1,10 +1,11 @@
 import { Cluster } from '@/lib/api.patch';
 
 const statusPriority: Record<string, number> = {
-  'UPDATING': 0,
-  'PROVISIONING': 1,
-  'RUNNING': 2,
-  'TERMINATED': 3
+  'FAILED': 0,
+  'UPDATING': 1,
+  'PROVISIONING': 2,
+  'RUNNING': 3,
+  'TERMINATED': 4
 };
 
 const DEFAULT_PRIORITY = statusPriority.RUNNING;

@@ -1,6 +1,7 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { isTerminated } from '@/components/ui/utils/badgeStatus';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import { UpsertCluster } from '@/features/clusters/upsert';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
@@ -31,7 +32,7 @@ export function ClustersList() {
 	const runningClusters = useMemo(() =>
 		orgInfo?.clusters
 			?.slice()
-			.filter(cluster => cluster.status !== 'TERMINATED')
+			.filter(cluster => !isTerminated(cluster.status))
 			.sort(byClusterStatusThenName)
 		|| [], [orgInfo?.clusters]);
 
