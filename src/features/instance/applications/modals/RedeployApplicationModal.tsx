@@ -13,7 +13,7 @@ import { useDeployComponentMutation } from '@/features/instance/operations/mutat
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ban, RefreshCwIcon } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -27,6 +27,19 @@ export function RedeployApplicationModal() {
 	const packageUrl = openedEntry?.package;
 
 	const { mutate: reDeployApplication, isPending } = useDeployComponentMutation();
+
+	const methods = useForm({
+		defaultValues: {
+			applicationUrl: packageUrl,
+			installCommand: '',
+		},
+	});
+
+	const { control, handleSubmit, reset } = methods;
+
+	useEffect(() => {
+		reset({ applicationUrl: packageUrl });
+	}, [reset, packageUrl]);
 
 	const redeployPackage = useCallback((applicationUrl: string, installCommand: string | undefined) => {
 		if (!openedEntry) {
@@ -59,15 +72,6 @@ export function RedeployApplicationModal() {
 			},
 		});
 	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
-
-	const methods = useForm({
-		defaultValues: {
-			applicationUrl: packageUrl,
-			installCommand: '',
-		},
-	});
-
-	const { control, handleSubmit, reset } = methods;
 
 	const submitForm = ({ applicationUrl, installCommand }: {
 		applicationUrl: string | undefined,
