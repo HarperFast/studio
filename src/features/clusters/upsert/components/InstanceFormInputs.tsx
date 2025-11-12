@@ -7,17 +7,16 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { defaultOperationsApiPort } from '@/config/constants';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { maxPortNumber, minPortNumber } from '@/lib/types/portNumbers';
 import { TrashIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
 
 type InstanceFormInputsProps = {
-	control: Control<z.infer<typeof UpsertClusterSchema>>,
-	fieldArray: UseFieldArrayReturn<z.infer<typeof UpsertClusterSchema>, 'instances'>,
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>,
+	control: Control<UpsertClusterSchemaType>,
+	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'instances'>,
+	form: UseFormReturn<UpsertClusterSchemaType>,
 	index: number,
 };
 

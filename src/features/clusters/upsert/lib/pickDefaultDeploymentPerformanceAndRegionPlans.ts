@@ -1,13 +1,12 @@
-import {
-	calculateDefaultDeploymentPerformanceAndRegionPlans,
-} from '@/features/clusters/upsert/lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
 import { UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
+import {
+	calculateDefaultDeploymentPerformanceAndRegionPlans,
+} from './calculateDefaultDeploymentPerformanceAndRegionPlans';
 
 export function pickDefaultDeploymentPerformanceAndRegionPlans(
-	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>,
+	form: UseFormReturn<UpsertClusterSchemaType>,
 	planTypes: SchemaPlan[] | undefined,
 	regionLocations: SchemaRegion[] | undefined,
 ) {

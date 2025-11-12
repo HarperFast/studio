@@ -31,6 +31,7 @@ describe('byClusterStatusThenName', () => {
 		const clusters = [
 			{ ...clusterDefaults, status: 'PROVISIONING' },
 			{ ...clusterDefaults, status: 'TERMINATED' },
+			{ ...clusterDefaults, status: 'FAILED' },
 			{ ...clusterDefaults, status: 'UPDATING' },
 			{ ...clusterDefaults, status: 'RUNNING' },
 			{ ...clusterDefaults, status: 'PROVISIONING' },
@@ -41,6 +42,7 @@ describe('byClusterStatusThenName', () => {
 		];
 		clusters.sort(byClusterStatusThenName);
 		expect(clusters.map(c => c.status)).toEqual([
+			'FAILED',
 			'UPDATING',
 			'UPDATING',
 			'UPDATING',

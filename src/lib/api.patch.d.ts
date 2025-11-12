@@ -83,7 +83,7 @@ export interface Instance extends SchemaHdbInstance {
 
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
-	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED';
+	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 }
 
 export interface InstanceDatabaseMap {

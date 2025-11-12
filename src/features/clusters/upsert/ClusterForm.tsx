@@ -1,16 +1,11 @@
 import { EstimatedProgressBar } from '@/components/EstimatedProgressBar';
 import { Form } from '@/components/ui/form/Form';
+import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
-import { ClusterBilling } from '@/features/clusters/upsert/ClusterBilling';
-import { ClusterDetails } from '@/features/clusters/upsert/ClusterDetails';
-import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
-import {
-	pickDefaultDeploymentPerformanceAndRegionPlans,
-} from '@/features/clusters/upsert/lib/pickDefaultDeploymentPerformanceAndRegionPlans';
-import { PriceDisplay } from '@/features/clusters/upsert/PriceDisplay';
-import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
+import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/lib/api.gen';
 import { Organization } from '@/lib/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
@@ -25,18 +20,24 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { ClusterBilling } from './ClusterBilling';
+import { ClusterDetails } from './ClusterDetails';
+import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
+import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
+import { PriceDisplay } from './PriceDisplay';
+import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterFormProps {
 	alreadyUsingFree: boolean;
 	clusterId?: string;
-	defaultValues: z.infer<typeof UpsertClusterSchema>;
+	defaultValues: UpsertClusterSchemaType;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
 	organization: Organization;
 	organizationId: string;
 	planTypes: SchemaPlan[];
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
-	setSavedClusterState: (value: null | ({ clusterId?: string } & z.infer<typeof UpsertClusterSchema>)) => void;
+	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
 
@@ -67,7 +68,7 @@ export function ClusterForm({
 	const dedicatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
 		groupThenKeyBy(regionLocationsDedicated?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocationsDedicated]);
 
-	const refineZod = useCallback((data: z.infer<typeof UpsertClusterSchema>, ctx: z.RefinementCtx) => {
+	const refineZod = useCallback((data: UpsertClusterSchemaType, ctx: z.RefinementCtx) => {
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
 		const isSelfManaged = data.deploymentDescription === 'Self-Hosted';
@@ -268,17 +269,27 @@ export function ClusterForm({
 			duration: 120_000,
 		}), []);
 
-	const onClusterSavedCallback = useCallback(({
+	const onClusterSavedCallback = useCallback(async ({
 		clusterId,
+		sourceClusterId,
 		creating,
 		toastId,
 		isSelfManaged,
 	}: {
 		clusterId: string;
+		sourceClusterId: string | undefined;
 		creating: boolean;
 		isSelfManaged: boolean;
 		toastId: string | number;
 	}) => {
+		if (sourceClusterId) {
+			const existingOrg = await getOrganization(organizationId);
+			const sourceCluster = existingOrg.clusters?.find(c => c.id === sourceClusterId);
+			if (isFailed(sourceCluster?.status)) {
+				await terminateCluster(sourceClusterId);
+			}
+		}
+
 		void queryClient.invalidateQueries({ queryKey: [organizationId], refetchType: 'active' });
 		if (!creating) {
 			void queryClient.invalidateQueries({ queryKey: [clusterId], refetchType: 'active' });
@@ -338,7 +349,13 @@ export function ClusterForm({
 				id: clusterId,
 				regionPlans: plans,
 			}, {
-				onSuccess: (data) => onClusterSavedCallback({ clusterId: data.id, isSelfManaged, creating: false, toastId }),
+				onSuccess: (data) => onClusterSavedCallback({
+					clusterId: data.id,
+					sourceClusterId: formData.sourceClusterId,
+					isSelfManaged,
+					creating: false,
+					toastId,
+				}),
 				onError: clearToast,
 			});
 		} else {
@@ -352,7 +369,13 @@ export function ClusterForm({
 				organizationId,
 				regionPlans: plans,
 			}, {
-				onSuccess: (data) => onClusterSavedCallback({ clusterId: data.id, isSelfManaged, creating: true, toastId }),
+				onSuccess: (data) => onClusterSavedCallback({
+					clusterId: data.id,
+					sourceClusterId: formData.sourceClusterId,
+					isSelfManaged,
+					creating: true,
+					toastId,
+				}),
 				onError: clearToast,
 			});
 		}

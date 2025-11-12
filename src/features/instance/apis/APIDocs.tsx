@@ -96,7 +96,9 @@ export function APIDocs() {
 		<SwaggerUI
 			spec={spec}
 			persistAuthorization={true}
+			withCredentials={true}
 			requestSnippetsEnabled={true}
+			defaultModelRendering="model"
 			requestSnippets={requestSnippets}
 			plugins={plugins}
 			tryItOutEnabled={true}
