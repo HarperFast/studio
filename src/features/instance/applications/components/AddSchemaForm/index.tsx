@@ -12,7 +12,7 @@ import { Plus, TrashIcon } from 'lucide-react';
 // import { zodResolver } from '@hookform/resolvers/zod';
 import { useFieldArray, useForm } from 'react-hook-form';
 
-export function CreateTableGUI() {
+export function AddSchemaForm() {
 	const methods = useForm({
 		// resolver: zodResolver(),
 		defaultValues: {

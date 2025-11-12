@@ -8,6 +8,7 @@ import { cx } from 'class-variance-authority';
 import { PanelRightCloseIcon, PanelRightOpenIcon } from 'lucide-react';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
 import { EditorViewProvider } from './context/EditorViewProvider';
+import { AddSchemaModal } from '@/features/instance/applications/modals/AddSchemaModal';
 
 export function ApplicationsEditor() {
 	const { toggle, toggled } = useToggler(true);
@@ -38,8 +39,9 @@ export function ApplicationsEditor() {
 				' h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:left-56')}>
 				<ContentViewer />
 			</div>
-
+			
 			<AddDirectoryOrFileModal />
+			<AddSchemaModal />
 			<DeleteDirectoryOrFileModal />
 			<RedeployApplicationModal />
 			<RenameFileModal />

@@ -90,6 +90,17 @@ export function TextEditorView() {
 				run: currySetWatchedValue('ShowDeleteDirectoryOrFileModal', true),
 			}),
 		];
+		// Add this action if we navigate inside a *.graphql file
+		if (openedEntry?.path.endsWith('.graphql')) {
+			disposables.push(
+				editor.addAction({
+					id: 'add-schema',
+					label: 'Add Schema',
+					keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.NumpadAdd], // Change to Plus
+					run: curryEmitToListeners('ShowAddSchemaModal', true),
+				})
+			);
+		}
 		return () => {
 			for (const disposable of disposables) {
 				disposable?.dispose();
@@ -122,6 +133,16 @@ export function TextEditorView() {
 				const [editor] = mounted;
 				setUpdatedFileContent(undefined);
 				editor.setValue(openedEntryContents);
+			}
+		},
+		[openedEntryContents, mounted]
+	);
+	
+	useListener(
+		'ShowAddSchemaModal',
+		() => {
+			if (openedEntry && !isSavingFile) {
+				// Open the add schema modal or perform the add schema action
 			}
 		},
 		[openedEntryContents, mounted]

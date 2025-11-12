@@ -7,7 +7,7 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue } from '@/lib/events/watcher';
-import { FileIcon, FolderIcon, PackageIcon, PencilIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
+import { FileIcon, FolderIcon, PackageIcon, PencilIcon, PlusIcon, SaveIcon, TrashIcon, Undo2Icon } from 'lucide-react';
 
 export function ContentActions() {
 	const instanceParams = useInstanceClientIdParams();
@@ -23,6 +23,7 @@ export function ContentActions() {
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
+	const onAddSchemaClick = useEmitToListeners('ShowAddSchemaModal', true);
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
 
@@ -68,6 +69,15 @@ export function ContentActions() {
 		>
 			<FolderIcon />
 			<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
+		</Button>}
+		
+		{openedEntry.path.endsWith('.graphql') && canManageBrowseInstance && <Button
+			variant="ghost"
+			className="rounded-none"
+			onClick={onAddSchemaClick}
+		>
+			<PlusIcon />
+			<span className="hidden lg:inline-block"><u>A</u>dd Schema</span>
 		</Button>}
 
 		{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification &&
