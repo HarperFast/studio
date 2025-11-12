@@ -45,7 +45,8 @@ export function RedeployApplicationModal() {
 		if (!openedEntry) {
 			return;
 		}
-		const originalPackageUrl = openedEntry.package;
+		setWatchedValue('ShowRedeployApplicationModal', false);
+
 		const toastId = toast.loading('Redeploying...');
 		reDeployApplication({
 			applicationName: openedEntry.project,
@@ -64,10 +65,8 @@ export function RedeployApplicationModal() {
 					queryKey: [instanceParams.entityId, 'get_components'],
 					refetchType: 'active',
 				});
-				setWatchedValue('ShowRedeployApplicationModal', false);
 			},
 			onError: () => {
-				openedEntry.package = originalPackageUrl;
 				toast.dismiss(toastId);
 			},
 		});
