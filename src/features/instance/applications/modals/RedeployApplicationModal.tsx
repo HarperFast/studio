@@ -12,7 +12,7 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
-import { Ban, RefreshCwIcon } from 'lucide-react';
+import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -144,12 +144,12 @@ export function RedeployApplicationModal() {
 							</Button>
 							<Button
 								type="button"
-								variant="default"
+								variant="ghostOutline"
 								className="w-full rounded-full"
 								onClick={modalClosed}
 								disabled={isPending}
 							>
-								<Ban /> Cancel
+								Cancel
 							</Button>
 						</form>
 					</Form>
