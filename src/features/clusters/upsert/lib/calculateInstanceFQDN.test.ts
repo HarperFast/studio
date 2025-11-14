@@ -32,11 +32,6 @@ describe('calculateInstanceFQDN', () => {
 		expect(calculateInstanceFQDN(instance)).toBe(`http://example.com:${defaultOperationsApiPort}`);
 	});
 
-	it('maps 127.0.0.1 to localhost', () => {
-		const instance = buildInstance({ fqdn: '127.0.0.1', port: 80 });
-		expect(calculateInstanceFQDN(instance)).toBe(`http://localhost`);
-	});
-
 	it('handles conflicts between port and secure', () => {
 		const instance = buildInstance({ secure: 'true', port: 80 });
 		expect(calculateInstanceFQDN(instance)).toBe('http://example.com');

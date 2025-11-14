@@ -9,6 +9,7 @@ import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateI
 import { Instance } from '@/lib/api.patch';
 import { clusterIsSelfManaged } from '@/lib/api/clusterIsSelfManaged';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
@@ -102,8 +103,14 @@ export function Instances() {
 		[isSelfManaged],
 	);
 	const instances = useMemo(
-		() =>
-			cluster?.instances?.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status)) ?? [],
+		() => {
+			if (!cluster?.instances) {
+				return [];
+			}
+			return cluster.instances
+				.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status))
+				.sort(byInstanceFqdnThenPort);
+		},
 		[cluster],
 	);
 	return (
