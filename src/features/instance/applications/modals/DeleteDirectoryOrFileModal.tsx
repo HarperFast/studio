@@ -5,7 +5,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
 import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
-import { Ban, Trash } from 'lucide-react';
+import { Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 
 export function DeleteDirectoryOrFileModal() {
@@ -66,7 +66,7 @@ export function DeleteDirectoryOrFileModal() {
 
 				<div className="flex w-full gap-4">
 					<Button variant="ghostOutline" className="w-full rounded-full" onClick={closeModal}>
-						<Ban /> Cancel
+						Cancel
 					</Button>
 					<Button
 						variant="destructiveOutline"

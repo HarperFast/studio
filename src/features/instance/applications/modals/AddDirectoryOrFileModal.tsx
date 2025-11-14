@@ -18,10 +18,10 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
-import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Ban, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -123,8 +123,8 @@ export function AddDirectoryOrFileModal() {
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="button" variant="destructiveOutline" className="rounded-full" onClick={onCancelClick}>
-									<Ban /> Cancel
+								<Button type="button" variant="ghostOutline" className="rounded-full" onClick={onCancelClick}>
+									Cancel
 								</Button>
 								<Button
 									variant="positiveOutline"

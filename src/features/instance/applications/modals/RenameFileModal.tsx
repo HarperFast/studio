@@ -19,7 +19,7 @@ import { useRenameFiles } from '@/features/instance/applications/hooks/useRename
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Ban, PencilIcon } from 'lucide-react';
+import { PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -112,8 +112,8 @@ export function RenameFileModal() {
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="button" variant="destructiveOutline" className="rounded-full" onClick={onCancelClick}>
-									<Ban /> Cancel
+								<Button type="button" variant="ghostOutline" className="rounded-full" onClick={onCancelClick}>
+									Cancel
 								</Button>
 								<Button
 									variant="positiveOutline"
