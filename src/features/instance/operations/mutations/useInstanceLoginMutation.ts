@@ -1,3 +1,4 @@
+import { forceBasicAuth } from '@/config/constants';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { authStore } from '@/features/auth/store/authStore';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
@@ -26,29 +27,31 @@ export async function onInstanceLoginSubmit({
 		password,
 	});
 
-	// Attempt to use the login with session storage only.
-	try {
-		const user = await getInstanceUserInfo({ instanceClient });
-		return {
-			message,
-			user,
-		};
-	} catch (err) {
-		console.error('Failed to get user after login, trying basic auth', err);
-
-		const user = await getInstanceUserInfo({
-			instanceClient,
-			auth: {
-				username,
-				password,
-			},
-		});
-		authStore.flagForBasicAuth(entityId, { username, password });
-		return {
-			message,
-			user,
-		};
+	if (!forceBasicAuth) {
+		// Attempt to use the login with session storage only.
+		try {
+			const user = await getInstanceUserInfo({ instanceClient });
+			return {
+				message,
+				user,
+			};
+		} catch (err) {
+			console.error('Failed to get user after login, trying basic auth', err);
+		}
 	}
+
+	const user = await getInstanceUserInfo({
+		instanceClient,
+		auth: {
+			username,
+			password,
+		},
+	});
+	authStore.flagForBasicAuth(entityId, { username, password });
+	return {
+		message,
+		user,
+	};
 }
 
 export function useInstanceLoginMutation() {
