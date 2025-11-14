@@ -3,6 +3,7 @@ import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
+import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -10,6 +11,7 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/lib/api.gen';
 import { Cluster, Organization } from '@/lib/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
+import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
@@ -111,15 +113,16 @@ export function UpsertCluster() {
 				}
 			}
 			if (!regionPlans.length && clusterToLoad.instances) {
-				for (const instance of clusterToLoad.instances) {
-					if (instance.status !== 'REMOVED') {
-						isSelfManaged = true;
-						instances.push({
-							fqdn: instance.instanceFqdn,
-							port: instance.operationsApiPort,
-							secure: instance.operationsApiSecure ? 'true' : 'false',
-						});
-					}
+				const clusterInstances = clusterToLoad.instances
+					.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status))
+					.sort(byInstanceFqdnThenPort);
+				for (const instance of clusterInstances) {
+					isSelfManaged = true;
+					instances.push({
+						fqdn: instance.instanceFqdn,
+						port: instance.operationsApiPort,
+						secure: instance.operationsApiSecure ? 'true' : 'false',
+					});
 				}
 			}
 		} else if (defaults) {

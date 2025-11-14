@@ -3,12 +3,10 @@ import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSch
 import { z } from 'zod';
 
 export function calculateInstanceFQDN(instance: z.infer<typeof UpsertClusterSchema.shape.instances.element>) {
-	let { secure, fqdn, port } = instance;
+	const { fqdn } = instance;
+	let { secure, port } = instance;
 	if (!port) {
 		port = defaultOperationsApiPort;
-	}
-	if (fqdn === '127.0.0.1') {
-		fqdn = 'localhost';
 	}
 	if (port === 443 && secure === 'false') {
 		secure = 'true';
