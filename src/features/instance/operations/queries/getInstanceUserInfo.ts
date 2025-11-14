@@ -4,8 +4,7 @@ import type { AxiosRequestConfig } from 'axios';
 
 export async function getInstanceUserInfo({ instanceClient, ...config }: InstanceClientConfig & AxiosRequestConfig) {
 	const { data } = await instanceClient.post('/', {
-		...config,
 		operation: 'user_info',
-	});
+	}, config);
 	return data as LocalUser;
 }
