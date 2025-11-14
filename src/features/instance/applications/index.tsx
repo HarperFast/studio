@@ -2,6 +2,7 @@ import { ContentActions } from '@/features/instance/applications/components/Cont
 import { ContentViewer } from '@/features/instance/applications/components/ContentViewer';
 import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
+import { DownloadApplicationModal } from '@/features/instance/applications/modals/DownloadApplicationModal';
 import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
 import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
 import { useSessionToggler } from '@/hooks/useSessionToggler';
@@ -33,6 +34,7 @@ export function ApplicationsEditor() {
 
 			<AddDirectoryOrFileModal />
 			<DeleteDirectoryOrFileModal />
+			<DownloadApplicationModal />
 			<RedeployApplicationModal />
 			<RenameFileModal />
 		</EditorViewProvider>

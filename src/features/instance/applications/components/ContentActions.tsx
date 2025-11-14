@@ -9,6 +9,7 @@ import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import {
+	DownloadIcon,
 	FileIcon,
 	FolderIcon,
 	PackageIcon,
@@ -34,6 +35,7 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 
 	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
 	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');
+	const onDownloadApplicationClick = useSetWatchedValue('ShowDownloadApplicationModal', true);
 	const onRenameClick = useSetWatchedValue('ShowRenameFileModal', true);
 	const onDeleteClick = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', true);
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
@@ -86,7 +88,10 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				onClick={onAddFileClick}
 			>
 				<FileIcon />
-				<span className="hidden lg:inline-block"><u>N</u>ew File</span>
+				<span>
+					<u>N</u>ew
+					<span className="hidden mlg:inline-block">&nbsp;File</span>
+				</span>
 			</Button>}
 
 			{!openedEntry.package && canManageBrowseInstance && <Button
@@ -95,7 +100,22 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				onClick={onAddDirectoryClick}
 			>
 				<FolderIcon />
-				<span className="hidden lg:inline-block"><u>A</u>dd Directory</span>
+				<span>
+					<u>A</u>dd
+					<span className="hidden xl:inline-block">&nbsp;Directory</span>
+				</span>
+			</Button>}
+
+			{openedEntry.project && <Button
+				variant="ghost"
+				className="rounded-none"
+				onClick={onDownloadApplicationClick}
+			>
+				<DownloadIcon />
+				<span className="hidden lg:inline-block">
+					Download
+					<span className="hidden xl:inline-block">&nbsp;Application</span>
+				</span>
 			</Button>}
 
 			{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification &&
