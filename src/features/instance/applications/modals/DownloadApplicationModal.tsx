@@ -18,14 +18,10 @@ export function DownloadApplicationModal() {
 	const { mutate: packageComponent, isPending, isSuccess } = usePackageComponentMutation();
 	const actionStatus = isSuccess ? `Downloaded` : isPending ? `Downloading` : 'Download';
 
-	const [skipNodeModules, setSkipNodeModules] = useState(true);
-	const [skipSymlinks, setSkipSymlinks] = useState(true);
+	const [includeNodeModules, setIncludeNodeModules] = useState(false);
 
-	const skipNodeModulesChanged = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-		setSkipNodeModules(e.target.checked);
-	}, []);
-	const skipSymlinksChanged = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-		setSkipSymlinks(e.target.checked);
+	const includeNodeModulesChanged = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+		setIncludeNodeModules(e.target.checked);
 	}, []);
 
 	const closeModal = useSetWatchedValue('ShowDownloadApplicationModal', false);
@@ -40,8 +36,7 @@ export function DownloadApplicationModal() {
 			{
 				packageName: openedEntry.package,
 				project: openedEntry.project,
-				skipNodeModules,
-				skipSymlinks,
+				skipNodeModules: !includeNodeModules,
 				...instanceParams,
 			},
 			{
@@ -60,7 +55,7 @@ export function DownloadApplicationModal() {
 				},
 			},
 		);
-	}, [openedEntry, packageComponent, skipNodeModules, skipSymlinks, instanceParams]);
+	}, [openedEntry, packageComponent, includeNodeModules, instanceParams]);
 
 
 	return (
@@ -78,21 +73,10 @@ export function DownloadApplicationModal() {
 						type="checkbox"
 						className="w-6"
 						disabled={isPending}
-						checked={skipNodeModules}
-						onChange={skipNodeModulesChanged}
+						checked={includeNodeModules}
+						onChange={includeNodeModulesChanged}
 					/>
-					<span className="pl-4 pr-8 flex-1 py-2.5">Skip Node Modules</span>
-				</Label>
-
-				<Label className="flex">
-					<Input
-						type="checkbox"
-						className="w-6"
-						disabled={isPending}
-						checked={skipSymlinks}
-						onChange={skipSymlinksChanged}
-					/>
-					<span className="pl-4 pr-8 flex-1 py-2.5">Skip Symlinks</span>
+					<span className="pl-4 pr-8 flex-1 py-2.5">Include Node Modules</span>
 				</Label>
 
 				<div className="flex w-full gap-4">
