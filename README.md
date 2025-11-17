@@ -1,4 +1,4 @@
-# HDBMS
+# Fabric Studio
 
 This repository contains the React + TypeScript web application that powers Harper Fabric at https://fabric.harper.fast and Harper Studio locally.
 

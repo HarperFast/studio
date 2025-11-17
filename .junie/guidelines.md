@@ -1,4 +1,4 @@
-# Junie Guidelines for HDBMS
+# Junie Guidelines for Fabric Studio
 
 This document guides Junie (the autonomous programmer) when working on this repository. It summarizes how to operate safely, efficiently, and consistently with this codebase.
 
