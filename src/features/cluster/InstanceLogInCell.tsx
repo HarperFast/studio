@@ -4,6 +4,7 @@ import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/lib/api.patch';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { Link } from '@tanstack/react-router';
@@ -14,6 +15,8 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient(operationsUrl);
+	const { update } = useOrganizationClusterInstancePermissions();
+
 	const onSignOutClick = useCallback(async () => {
 		await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
 		authStore.setUserForEntity(instance, null);
@@ -22,16 +25,28 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	if (instanceAuthIsLoading || !['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
 		return <LoaderCircleIcon className="animate-spin" color="gray" />;
 	}
+
 	if (!instanceUser) {
-		return <Link
-			to={`../instance/${instance.id}/sign-in`}
-			className="text-sm"
-			aria-label={`Sign in to ${instance.name} instance`}
-			title={`Sign in to ${instance.name} instance`}
-		>
-			<Button variant="positiveOutline">Sign In</Button>
-		</Link>;
+		return <span className="flex gap-4">
+			{update && <Link
+				to={`../instance/${instance.id}${defaultInstanceRoute}`}
+				className="text-sm"
+				aria-label={`Connect to ${instance.name} instance`}
+				title={`Connect to ${instance.name} instance`}
+			>
+				<Button variant="positiveOutline">Fabric Connect</Button>
+			</Link>}
+			<Link
+				to={`../instance/${instance.id}/sign-in`}
+				className="text-sm"
+				aria-label={`Sign in to ${instance.name} instance`}
+				title={`Sign in to ${instance.name} instance`}
+			>
+				<Button variant={update ? 'defaultOutline' : 'positiveOutline'}>Direct Sign In</Button>
+			</Link>
+		</span>;
 	}
+
 	return <span className="flex gap-4">
 		<Link
 			to={`../instance/${instance.id}${defaultInstanceRoute}`}
@@ -39,7 +54,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 			aria-label={`Go to ${instance.name} instance`}
 			title={`Go to ${instance.name} instance`}
 		>
-			<Button variant="positiveOutline">View</Button>
+			<Button variant="positiveOutline">Direct Connect</Button>
 		</Link>
 		<Button
 			variant="destructiveOutline"
@@ -48,7 +63,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 			title={`Sign out from ${instance.name} instance`}
 			onClick={onSignOutClick}
 		>
-			Sign Out
+			Direct Sign Out
 		</Button>
 	</span>;
 }

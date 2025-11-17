@@ -125,6 +125,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	);
 
 	const menuItems = [
+		isActive && update && !auth.isLoading && !auth.user && (
+			<Link to={`${cluster.id}/sign-in`} disabled={signingOut}>
+				<DropdownMenuItem>Direct Sign In</DropdownMenuItem>
+			</Link>
+		),
 		isActive && update && (
 			<Link to={`${cluster.id}/edit`} disabled={signingOut}>
 				<DropdownMenuItem>Edit</DropdownMenuItem>
@@ -137,7 +142,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		),
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
-				Copy host name
+				Copy Host Name
 			</DropdownMenuItem>
 		),
 		isActive && view && cluster.fqdn && (
@@ -147,7 +152,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		),
 		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
 			<DropdownMenuItem onClick={onSignOutClick} disabled={signingOut}>
-				Sign Out
+				Direct Sign Out
 			</DropdownMenuItem>
 		),
 		clusterHasFailed && create && (
