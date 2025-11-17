@@ -60,12 +60,12 @@ export function useOrganizationClusterPermissions(orgId?: string, clusterId?: st
 		return { create: true, remove: true, update: true, view: true };
 	}
 	const specificRoles = role.organization.clusters.resources?.find(r => r.id === findClusterId);
-	const roles = role.organization.clusters;
+	const genericRoles = role.organization.clusters;
 	return {
-		create: roles.create,
-		remove: specificRoles ? specificRoles.delete : roles.delete,
-		update: specificRoles ? specificRoles.update : roles.update,
-		view: specificRoles ? specificRoles.view : roles.view,
+		create: genericRoles.create,
+		remove: specificRoles ? specificRoles.delete : genericRoles.delete,
+		update: specificRoles ? specificRoles.update : genericRoles.update,
+		view: specificRoles ? specificRoles.view : genericRoles.view,
 	};
 }
 
@@ -91,11 +91,12 @@ export function useOrganizationClusterInstancePermissions(orgId?: string, cluste
 	const specificRoles = role.organization.clusters
 		.resources?.find(r => r.id === findClusterId)
 		?.instances;
-	return { // TODO: Should these default to true or false when not specified?
-		create: specificRoles ? specificRoles.create : true,
-		remove: specificRoles ? specificRoles.delete : true,
-		update: specificRoles ? specificRoles.update : true,
-		view: specificRoles ? specificRoles.view : true,
+	const genericRoles = role.organization.clusters;
+	return {
+		create: specificRoles ? specificRoles.create : genericRoles.create,
+		remove: specificRoles ? specificRoles.delete : genericRoles.delete,
+		update: specificRoles ? specificRoles.update : genericRoles.update,
+		view: specificRoles ? specificRoles.view : genericRoles.view,
 	};
 }
 
