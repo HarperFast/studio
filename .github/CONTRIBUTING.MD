@@ -1,4 +1,4 @@
-# Contributing to HDBMS
+# Contributing to Fabric Studio
 
 Thank you for your interest in contributing! This document explains how to set up your environment, make changes safely, and submit high‑quality pull requests.
 
