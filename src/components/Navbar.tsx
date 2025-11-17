@@ -1,3 +1,4 @@
+import { MainLogo } from '@/components/MainLogo';
 import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
@@ -140,9 +141,9 @@ function AnonymousNav() {
 		<div className="flex items-center justify-between">
 			<div className="inline-block">
 				<Link to="/sign-in">
-					<Logo />
-					<Version />
+					<MainLogo />
 				</Link>
+				<Version />
 			</div>
 			<NavigationMenu>
 				<NavigationMenuList className="text-grey-400">
@@ -180,9 +181,9 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 			<div className="flex items-center justify-between">
 				<div className="inline-block">
 					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-						<Logo />
-						<Version />
+						<MainLogo />
 					</Link>
+					<Version />
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-grey-400">
@@ -234,9 +235,9 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 		<div className="md:hidden" id="mobile-menu">
 			<div className="flex items-center justify-between">
 				<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-					<Logo />
-					<Version />
+					<MainLogo />
 				</Link>
+				<Version />
 				<button
 					type="button"
 					className="shadow-xs text-grey-400 hover:text-white hover:bg-black-dark"
@@ -288,15 +289,3 @@ function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem, onClick: () 
 	);
 }
 
-function Logo() {
-	return (
-		<>
-			{isLocalStudio ? (
-				<img src="/harper-studio_white.png" alt="Harper Studio" className="w-64 hidden md:inline-block" />
-			) : (
-				<img src="/harper-fabric_white.png" alt="Harper Fabric" className="w-64 hidden md:inline-block" />
-			)}
-			<img src="/HDBDogOnly.svg" width="50px" height="44px" alt="Harper" className="inline-block md:hidden" />
-		</>
-	);
-}
