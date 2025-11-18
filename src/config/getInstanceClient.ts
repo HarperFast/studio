@@ -1,3 +1,4 @@
+import { apiClient } from '@/config/apiClient';
 import { authStore, EntityIds, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { rejectReplicationFailures } from '@/lib/api/replication';
 import axios from 'axios';
@@ -9,7 +10,7 @@ interface InstanceClient {
 	secure?: boolean;
 }
 
-export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, secure }: InstanceClient = {}) {
+export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, secure, forceFabricConnect }: InstanceClient & { forceFabricConnect?: boolean} = {}) {
 	let baseURL = operationsUrl || authStore.getOperationsUrl(id);
 	if (baseURL) {
 		if (port || secure !== undefined) {
@@ -23,10 +24,21 @@ export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, 
 			baseURL = newURL.toString();
 		}
 	}
-	const auth = authStore.checkForBasicAuth(id);
+
+	const fabricConnect = forceFabricConnect || authStore.checkForFabricConnect(id);
+	if (fabricConnect) {
+		if (id.startsWith('clu-')) {
+			baseURL = apiClient.defaults.baseURL + `/Cluster/${id}/operation`;
+		} else if (id.startsWith('ins-')) {
+			baseURL = apiClient.defaults.baseURL + `/HDBInstance/${id}/operation`;
+		}
+	}
+
+	const basicAuth = authStore.checkForBasicAuth(id);
+
 	const client = axios.create({
-		auth,
-		withCredentials: !auth,
+		auth: fabricConnect ? undefined : basicAuth,
+		withCredentials: fabricConnect || !basicAuth,
 		timeout: 15000,
 		headers: {
 			'Content-Type': 'application/json',

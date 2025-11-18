@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { defaultInstanceRoute } from '@/config/constants';
+import { authStore } from '@/features/auth/store/authStore';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/lib/api.patch';
@@ -10,6 +11,8 @@ import { ArrowRight } from 'lucide-react';
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	const auth = useInstanceAuth(cluster.id);
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
+	const isDirectConnect = !isFabricConnect && !!auth.user;
 
 	if (!view) {
 		return undefined;
@@ -40,7 +43,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		return undefined;
 	}
 
-	if (auth.user) {
+	if (isDirectConnect) {
 		return <Link to={`/${cluster.organizationId}/${cluster.id}${defaultInstanceRoute}`} className="text-sm text-nowrap" aria-label={`View ${cluster.name}`} title={`View ${cluster.name}`}>
 			<span className="py-2 hover:border-b-2">
 				Direct Connect <ArrowRight className="inline-block" />

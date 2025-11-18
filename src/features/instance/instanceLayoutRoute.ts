@@ -1,55 +1,103 @@
+import { getInstanceClient } from '@/config/getInstanceClient';
 import { getInstanceClientIdFromParams } from '@/config/useInstanceClient';
+import {
+	AuthenticatedCloudConnection,
+	AuthenticatedConnection,
+	authStore,
+	OverallAppSignIn,
+} from '@/features/auth/store/authStore';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
+import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
+import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { dashboardLayout } from '@/router/dashboardRoute';
+import { QueryClient } from '@tanstack/react-query';
 import { createRoute, redirect } from '@tanstack/react-router';
 
 export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance') {
-	if (mode === 'local') {
-		return createRoute({
-			getParentRoute: () => dashboardLayout,
-			id: '_instanceLayout',
-			component: InstanceLayout,
-			loader: async ({ context, params }) => {
-				const operationsParams = getInstanceClientIdFromParams(params);
-				return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
-			},
-		});
+	switch (mode) {
+		case 'local':
+			return createRoute({
+				getParentRoute: () => dashboardLayout,
+				id: '_instanceLayout',
+				component: InstanceLayout,
+				loader: registrationInfoLoader,
+			});
+		case 'cluster':
+			return createRoute({
+				getParentRoute: () => clusterLayoutRoute,
+				id: '_instanceLayout',
+				component: InstanceLayout,
+				beforeLoad: checkClusterInstanceAuthenticationBeforeLoad,
+				loader: registrationInfoLoader,
+			});
+		case 'instance':
+			return createRoute({
+				getParentRoute: () => clusterLayoutRoute,
+				path: 'instance/$instanceId',
+				component: InstanceLayout,
+				beforeLoad: checkClusterInstanceAuthenticationBeforeLoad,
+				loader: registrationInfoLoader,
+			});
 	}
-	if (mode === 'cluster') {
-		return createRoute({
-			getParentRoute: () => clusterLayoutRoute,
-			id: '_instanceLayout',
-			component: InstanceLayout,
-			beforeLoad: async ({ context, params }) => {
-				const auth = context.authentication[params.clusterId];
-				if (!auth || (!auth.isLoading && !auth.user)) {
-					const to = `/${params.organizationId}/${params.clusterId}/sign-in`;
-					throw redirect({ to, search: buildRedirectInSearch() });
-				}
-			},
-			loader: async ({ context, params }) => {
-				const operationsParams = getInstanceClientIdFromParams(params);
-				return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
-			},
-		});
+}
+
+async function checkClusterInstanceAuthenticationBeforeLoad({
+	context,
+	params,
+}: {
+	context: { authentication: Record<string, AuthenticatedConnection> },
+	params: { organizationId: string; clusterId: string, instanceId?: string }
+}) {
+	// Are we already authenticated?
+	const auth = context.authentication[params.instanceId || params.clusterId];
+	if (auth?.isLoading || auth?.user) {
+		return;
 	}
-	return createRoute({
-		getParentRoute: () => clusterLayoutRoute,
-		path: 'instance/$instanceId',
-		component: InstanceLayout,
-		beforeLoad: async ({ context, params }) => {
-			const auth = context.authentication[params.instanceId];
-			if (!auth || (!auth.isLoading && !auth.user)) {
-				const to = `/${params.organizationId}/${params.clusterId}/instance/${params.instanceId}/sign-in`;
-				throw redirect({ to, search: buildRedirectInSearch() });
-			}
-		},
-		loader: async ({ context, params }) => {
-			const operationsParams = getInstanceClientIdFromParams(params);
-			return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
-		},
-	});
+
+	// See if we can Fabric Connect.
+	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection;
+	if (overallAuth?.isLoading) {
+		return;
+	}
+	const { update } = params.instanceId
+		? getOrganizationClusterInstancePermissions(overallAuth.user, params.organizationId, params.clusterId)
+		: getOrganizationClusterPermissions(overallAuth.user, params.organizationId, params.clusterId);
+	if (update) {
+		const entityId = params.instanceId || params.clusterId;
+		const instanceClient = getInstanceClient({
+			id: entityId,
+			forceFabricConnect: true,
+		});
+		try {
+			const user = await getInstanceUserInfo({ instanceClient });
+			authStore.setUserForIdAndKey(
+				entityId,
+				instanceClient.defaults.baseURL!,
+				user,
+			);
+			authStore.flagForFabricConnect(entityId, true);
+			return;
+		} catch (err) {
+			console.error('Fabric Connect not established', err);
+		}
+	}
+
+	const to = `/${params.organizationId}/${params.clusterId}/`
+		+ (params.instanceId ? `instance/${params.instanceId}` : '')
+		+ `/sign-in`;
+	throw redirect({ to, search: buildRedirectInSearch() });
+}
+
+function registrationInfoLoader({
+	context,
+	params,
+}: {
+	context: { queryClient: QueryClient },
+	params: { organizationId?: string; clusterId?: string, instanceId?: string },
+}) {
+	const operationsParams = getInstanceClientIdFromParams(params);
+	return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
 }

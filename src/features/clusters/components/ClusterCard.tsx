@@ -50,6 +50,8 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 
 	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
 	const isSelfManaged = clusterIsSelfManaged(cluster);
+	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
+	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
 		() => cluster.status && deletedClusterStatuses.includes(cluster.status),
 		[cluster.status],
@@ -150,7 +152,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 				Copy API URL
 			</DropdownMenuItem>
 		),
-		isActive && view && !!operationsUrl && !auth.isLoading && auth.user && (
+		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
 			<DropdownMenuItem onClick={onSignOutClick} disabled={signingOut}>
 				Direct Sign Out
 			</DropdownMenuItem>
