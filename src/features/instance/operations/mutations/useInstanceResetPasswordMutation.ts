@@ -22,12 +22,13 @@ async function onInstanceResetPassword({
 	desiredUsername,
 	newPassword,
 	tempPassword,
-	instanceClient,
+	instanceClient: initialInstanceClient,
 }: InstanceResetPasswordParams): Promise<LoginInfoResponse> {
 	// Do we have a temporary password?
 	if (!tempPassword) {
 		throw new Error('You may not have permission to set the password on this cluster.');
 	}
+	let instanceClient = initialInstanceClient;
 	try {
 		// Sign in with the temporary password,
 		const loginResponse = await onInstanceLoginSubmit({
@@ -36,7 +37,10 @@ async function onInstanceResetPassword({
 			instanceClient,
 			entityId: clusterId,
 		});
-		// then alter or create a new user
+		if (loginResponse.instanceClient) {
+			instanceClient = loginResponse.instanceClient;
+		}
+		// then we can either alter...
 		if (desiredUsername === defaultClusterUsername) {
 			await onAlterUser({
 				username: desiredUsername,
@@ -44,6 +48,7 @@ async function onInstanceResetPassword({
 				instanceClient,
 			});
 		} else {
+			// ... or create a new user!
 			await onAddUserSubmit({
 				username: desiredUsername,
 				password: newPassword,
@@ -51,10 +56,12 @@ async function onInstanceResetPassword({
 				active: true,
 				instanceClient,
 			});
+			// since we created a new user, we should clean up the old one
 			await onDeleteUser({
 				username: defaultClusterUsername,
 				instanceClient,
 			});
+			/// and login with the new one.
 			await onInstanceLoginSubmit({
 				username: desiredUsername,
 				password: newPassword,
