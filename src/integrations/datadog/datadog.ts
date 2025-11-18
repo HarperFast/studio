@@ -77,47 +77,50 @@ export function useOnRouteLoadTracker() {
 			return;
 		}
 		if (user && !isLocalUser(user)) {
-	       datadogRum.setUser({
-		       id: user.id,
-		       name: [user.firstname, user.lastname].filter(excludeFalsy).join(' ') || undefined,
-		       email: user.email,
-	       });
-
-		   // First time vs return visit action
-	       if (localStorage.getItem('hasVisitedBefore')) {
-		       datadogRum.addAction('return_visit');
-	       } else {
-		       datadogRum.addAction('first_time_visit');
-		       localStorage.setItem('hasVisitedBefore', 'true');
-	       }
-
+			datadogRum.setUser({
+				id: user.id,
+				name: [user.firstname, user.lastname].filter(excludeFalsy).join(' ') || undefined,
+				email: user.email,
+			});
 		} else {
 			datadogRum.clearUser();
 		}
 	}, [user]);
 }
 
-export function loginSuccessDatadogAction(data: { id: string; email: string; firstname: string; lastname: string }) {
+export function loginSuccessDatadogAction(data: { id: string; email: string; firstname: string; lastname: string; }) {
 	if (!enabled) return;
-
-	// Time between logins
-	const lastLogin = localStorage.getItem('lastLoginTimestamp');
-	const now = Date.now();
-	
-	if (lastLogin) {
-		const seconds = Math.floor((now - Number(lastLogin)) / 1000);
-		if (!Number.isNaN(seconds) && seconds >= 0) {
-			datadogRum.addAction('login_time_gap', { seconds });
-		}
-	}
-
-	localStorage.setItem('lastLoginTimestamp', String(now));
 
 	datadogRum.setUser({
 		id: data.id,
 		email: data.email,
 		name: [data.firstname, data.lastname].filter(Boolean).join(' ') || undefined,
 	});
+
+	// First vs return login (per user)
+	const hasLoggedInKey = `hasLoggedInBefore:${data.id}`;
+	const hasLoggedInBefore = !!localStorage.getItem(hasLoggedInKey);
+
+	if (hasLoggedInBefore) {
+		datadogRum.addAction('return_login');
+	} else {
+		datadogRum.addAction('first_time_login');
+		localStorage.setItem(hasLoggedInKey, 'true');
+	}
+
+	// Time between logins (per user)
+	const lastLoginKey = `lastLoginTimestamp:${data.id}`;
+	const lastLogin = localStorage.getItem(lastLoginKey);
+	const now = Date.now();
+
+	if (lastLogin) {
+		const seconds = Math.floor((now - Number(lastLogin)) / 1000);
+		if (!Number.isNaN(seconds) && seconds >= 0) {
+			datadogRum.addAction('login_time_gap', { value: seconds });
+		}
+	}
+
+	localStorage.setItem(lastLoginKey, String(now));
 
 	datadogRum.addAction('login_success', { userId: data.id });
 }
