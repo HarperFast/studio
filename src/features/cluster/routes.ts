@@ -1,5 +1,6 @@
 import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
+import { authStore } from '@/features/auth/store/authStore';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { clusterLayoutRoute } from './clusterLayoutRoute';
 import { FinishSetup } from './FinishSetup';
@@ -30,7 +31,8 @@ const clusterSignInRoute = createRoute({
 	path: 'sign-in',
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location, params }) => {
-		if (context.authentication[params.clusterId]?.user) {
+		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
+		if (context.authentication[params.clusterId]?.user && !isFabricConnect) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({
 				to: search?.redirect?.startsWith('/')
@@ -46,7 +48,12 @@ const instanceSignInRoute = createRoute({
 	path: 'instance/$instanceId/sign-in',
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location, params }) => {
-		if (context.authentication[params.instanceId || params.clusterId]?.user) {
+		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId)
+			|| authStore.checkForFabricConnect(params.instanceId);
+		if (isFabricConnect) {
+			return;
+		}
+		if (context.authentication[params.instanceId]?.user) {
 			const search: Record<string, string> = location?.search;
 			throw redirect({
 				to: search?.redirect?.startsWith('/')

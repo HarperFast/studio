@@ -127,7 +127,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 	);
 
 	const menuItems = [
-		isActive && update && !auth.isLoading && !auth.user && (
+		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && (
 			<Link to={`${cluster.id}/sign-in`} disabled={signingOut}>
 				<DropdownMenuItem>Direct Sign In</DropdownMenuItem>
 			</Link>

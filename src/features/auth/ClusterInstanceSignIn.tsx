@@ -12,6 +12,7 @@ import { isLocalStudio } from '@/config/constants';
 import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useClusterInstanceSignIn } from '@/features/auth/hooks/useClusterInstanceSignIn';
+import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { getInstanceHealthQueryOptions } from '@/features/instance/operations/queries/getInstanceHealth';
 import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
@@ -30,6 +31,7 @@ export function ClusterInstanceSignIn() {
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
+
 	const instance: SchemaHdbInstance | undefined = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId) || undefined,
 		[cluster, instanceId]);
@@ -41,8 +43,10 @@ export function ClusterInstanceSignIn() {
 	const operationsUrl = useMemo(() => {
 		if (cluster) {
 			if (instance) {
+				authStore.flagForFabricConnect(instance.id, false);
 				return getOperationsUrlForInstance(instance);
 			} else {
+				authStore.flagForFabricConnect(cluster.id, false);
 				return getOperationsUrlForCluster(cluster);
 			}
 		}
