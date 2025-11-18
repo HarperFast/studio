@@ -2,7 +2,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react';
 import { FormState, UseFormWatch } from 'react-hook-form';
@@ -19,9 +18,8 @@ export function CLIInstructions({
 	formState: FormState<z.infer<typeof NewApplicationSchema>>,
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>,
 }) {
-	const instanceParams = useInstanceClientParams();
 	const applicationName = watch('applicationName') || defaultApplicationName;
-	const cliSteps = useCLISteps(applicationName, instanceParams.instanceClient.defaults.baseURL);
+	const cliSteps = useCLISteps(applicationName);
 	const cliCopyClicks = useCopyToClipboard(
 		...cliSteps.map(step => step.code),
 	);
