@@ -1,9 +1,23 @@
+import { isLocalStudio } from '@/config/constants';
+import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { Cluster, Instance } from '@/lib/api.patch';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
+import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
-export function useCLISteps(appName: string, target: string | undefined) {
+export function useCLISteps(appName: string) {
 	const { user } = useInstanceAuth();
+	const instanceParams = useInstanceClientParams();
+	const { instance, cluster }: { instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
+	const target = isLocalStudio
+		? instanceParams.instanceClient.defaults.baseURL
+		: instance
+			? getOperationsUrlForInstance(instance)
+			: getOperationsUrlForCluster(cluster);
+
 	return useMemo(() => {
 		const directoryName = toKebabCase(appName);
 		return [
