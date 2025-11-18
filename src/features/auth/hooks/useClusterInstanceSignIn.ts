@@ -1,12 +1,10 @@
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
-import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
 import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
 import { SchemaHdbInstance } from '@/lib/api.gen';
 import { Cluster } from '@/lib/api.patch';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -22,7 +20,6 @@ export function useClusterInstanceSignIn({
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig
 }) {
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const router = useRouter();
 	const { redirect } = useSearch({ strict: false });
 
@@ -48,7 +45,6 @@ export function useClusterInstanceSignIn({
 						throw new Error('Sign in failed due to missing cluster or instance.');
 					}
 					authStore.setUserForEntity(entity, user);
-					void queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
 					void router.invalidate();
 					await navigate({
 						to: redirect?.startsWith('/')
@@ -59,7 +55,7 @@ export function useClusterInstanceSignIn({
 					});
 				},
 			});
-	}, [cluster, instance, instanceParams, navigate, queryClient, redirect, router, submitInstanceLogin]);
+	}, [cluster, instance, instanceParams, navigate, redirect, router, submitInstanceLogin]);
 
 	return {
 		isPending,
