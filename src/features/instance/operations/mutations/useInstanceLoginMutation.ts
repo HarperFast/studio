@@ -1,9 +1,11 @@
-import { forceBasicAuth } from '@/config/constants';
+import { forceBasicAuth, isLocalStudio } from '@/config/constants';
+import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { authStore } from '@/features/auth/store/authStore';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { LocalUser } from '@/lib/api.patch';
 import { useMutation } from '@tanstack/react-query';
+import { AxiosInstance } from 'axios';
 
 interface InstanceLoginCredentials extends InstanceClientIdConfig {
 	username: string;
@@ -13,6 +15,7 @@ interface InstanceLoginCredentials extends InstanceClientIdConfig {
 export interface LoginInfoResponse {
 	message: string;
 	user: LocalUser;
+	instanceClient?: AxiosInstance;
 }
 
 export async function onInstanceLoginSubmit({
@@ -40,17 +43,38 @@ export async function onInstanceLoginSubmit({
 		}
 	}
 
-	const user = await getInstanceUserInfo({
-		instanceClient,
-		auth: {
-			username,
-			password,
-		},
+	try {
+		const user = await getInstanceUserInfo({
+			instanceClient,
+			auth: {
+				username,
+				password,
+			},
+		});
+		authStore.flagForBasicAuth(entityId, { username, password });
+		return {
+			message,
+			user,
+		};
+	} catch (err) {
+		if (isLocalStudio) {
+			throw err;
+		}
+		console.error('Failed to get user with basic auth, trying Fabric Connect', err);
+	}
+
+	const fabricInstanceClient = getInstanceClient({
+		id: entityId,
+		forceFabricConnect: true,
 	});
-	authStore.flagForBasicAuth(entityId, { username, password });
+	const user = await getInstanceUserInfo({
+		instanceClient: fabricInstanceClient,
+	});
+	authStore.flagForFabricConnect(entityId, true);
 	return {
 		message,
 		user,
+		instanceClient,
 	};
 }
 
