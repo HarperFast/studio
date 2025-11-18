@@ -72,8 +72,10 @@ export function StartingUp() {
 					<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
 					<p>
 						Let's set up your secure, browser-to-cluster connection
-						now. <span className="text-muted-foreground">Did you know you connect straight to your cluster,
-						providing a private secure connection?</span>
+						now. <span className="text-muted-foreground">Did you know during this step, you connect straight to your
+						cluster, providing a private secure connection? That's <em>Direct Connect</em>! Once you create your user,
+						you will have the option to <em>Fabric Connect</em> from your Fabric account without having to sign in
+						again.</span>
 					</p>
 					<div className="text-center">
 						<ClusterCardAction cluster={cluster} />
