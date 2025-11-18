@@ -45,6 +45,7 @@ class AuthStore {
 
 	private readonly potentiallyAuthenticatedKey = 'Studio:PotentiallyAuthenticated';
 	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
+	private readonly fabricConnectKeyPrefix = 'Studio:FabricConnect:';
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -113,6 +114,10 @@ class AuthStore {
 		if (!id || !key) {
 			return;
 		}
+		return this.setUserForIdAndKey(id, key, user);
+	}
+
+	public setUserForIdAndKey(id: EntityIds, key: AuthenticatedConnectionKey, user: AuthenticatedConnection['user']): void {
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
@@ -123,8 +128,7 @@ class AuthStore {
 
 	public updateUserForEntity(entity: EntityTypes, changes: Partial<AuthenticatedConnection['user']>): void {
 		const id = this.calculateIdFromEntity(entity);
-		const key = this.calculateKeyFromEntity(entity);
-		if (!id || !key) {
+		if (!id) {
 			return;
 		}
 		const connection = this.getConnectionById(id);
@@ -154,16 +158,28 @@ class AuthStore {
 	}
 
 	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string; }) {
-		if (credentials === null) {
-			localStorage.removeItem(this.basicAuthKeyPrefix + id);
-		} else {
+		if (credentials !== null) {
 			localStorage.setItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
+		} else {
+			localStorage.removeItem(this.basicAuthKeyPrefix + id);
+		}
+	}
+
+	public flagForFabricConnect(id: EntityIds, toggled: boolean) {
+		if (toggled) {
+			localStorage.setItem(this.fabricConnectKeyPrefix + id, 'true');
+		} else {
+			localStorage.removeItem(this.fabricConnectKeyPrefix + id);
 		}
 	}
 
 	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string; } {
 		const value = localStorage.getItem(this.basicAuthKeyPrefix + id);
 		return value ? JSON.parse(atob(value)) : undefined;
+	}
+
+	public checkForFabricConnect(id: EntityIds): boolean {
+		return localStorage.getItem(this.fabricConnectKeyPrefix + id) === 'true';
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
