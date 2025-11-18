@@ -16,6 +16,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient(operationsUrl);
 	const { update } = useOrganizationClusterInstancePermissions();
+	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const onSignOutClick = useCallback(async () => {
 		await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
@@ -26,7 +27,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 		return <LoaderCircleIcon className="animate-spin" color="gray" />;
 	}
 
-	if (!instanceUser) {
+	if (!instanceUser || isFabricConnect) {
 		return <span className="flex gap-4">
 			{update && <Link
 				to={`../instance/${instance.id}${defaultInstanceRoute}`}
