@@ -1,5 +1,6 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { getInstanceClient } from '@/config/getInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { restartInstance } from '@/features/instance/operations/mutations/restartInstance';
 import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
@@ -51,11 +52,13 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 		});
 
 		const cluster = await getClusterInfo(clusterId);
+		const clusterUsesFabricConnect = authStore.checkForFabricConnect(cluster.id);
 		const allInstances = cluster?.instances ?? [];
 		const instanceClients = allInstances
 			.filter(instance => instance.status === 'RUNNING')
 			.map(instance => getInstanceClient({
 				id: instance.id,
+				forceFabricConnect: clusterUsesFabricConnect,
 				operationsUrl: getOperationsUrlForInstance(instance),
 			}))
 			.reverse();

@@ -1,6 +1,7 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { restartInstance } from '@/features/instance/operations/mutations/restartInstance';
 import { setConfiguration } from '@/features/instance/operations/mutations/setConfiguration';
@@ -55,11 +56,13 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 		const allInstances = operationsParams.entityType === 'cluster'
 			? cluster?.instances || []
 			: [{ id: operationsParams.entityId, status: 'RUNNING' } as Instance];
+		const clusterUsesFabricConnect = !!cluster && authStore.checkForFabricConnect(cluster.id);
 		const instanceClients = operationsParams.entityType === 'cluster'
 			? allInstances
 				.filter(instance => instance.status === 'RUNNING')
 				.map(instance => getInstanceClient({
 					id: instance.id,
+					forceFabricConnect: clusterUsesFabricConnect,
 					operationsUrl: getOperationsUrlForInstance(instance),
 				}))
 				.reverse()
