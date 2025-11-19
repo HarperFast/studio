@@ -1,3 +1,4 @@
+import { DiscordLogo } from '@/components/DiscordLogo';
 import { MainLogo } from '@/components/MainLogo';
 import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
@@ -13,6 +14,7 @@ import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSigned
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import {
 	BookOpenTextIcon,
+	BugIcon,
 	BuildingIcon,
 	HandshakeIcon,
 	LogInIcon,
@@ -99,6 +101,20 @@ export function Navbar() {
 				textBreakpoint: isLocalStudio ? 'md' : 'xl',
 			},
 			{
+				to: 'https://github.com/HarperFast/studio/issues',
+				target: '_blank',
+				icon: <BugIcon />,
+				text: 'Report an Issue',
+				textBreakpoint: isLocalStudio ? 'lg' : 'xl',
+			},
+			{
+				to: 'https://discord.gg/VzZuaw3Xay',
+				target: '_blank',
+				icon: <DiscordLogo />,
+				text: 'Discord',
+				textBreakpoint: isLocalStudio ? 'lg' : 'xl',
+			},
+			{
 				onClick: handleSignOut,
 				icon: <LogOutIcon />,
 				text: 'Sign Out',
@@ -129,6 +145,7 @@ interface MenuItem {
 	onClick?: () => void;
 	icon: ReactNode;
 	text: string;
+	target?: string;
 	textBreakpoint?: string;
 }
 
@@ -213,6 +230,7 @@ function DesktopNavItem({ menuItem }: { menuItem: MenuItem }) {
 					to={menuItem.to}
 					onClick={menuItem.onClick}
 					className="flex-row items-center"
+					target={menuItem.target}
 					activeProps={menuItem.to ? activeLinkProps : undefined}
 				>
 					{menuItem.icon}
@@ -278,6 +296,7 @@ function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem, onClick: () 
 		<Link
 			to={menuItem.to}
 			onClick={linkOnClick}
+			target={menuItem.target}
 			className="flex flex-row px-3 py-2 text-base font-medium rounded-md text-gray-400 hover:text-white"
 			activeProps={menuItem.to ? activeLinkProps : undefined}
 		>
@@ -288,4 +307,3 @@ function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem, onClick: () 
 		</Link>
 	);
 }
-
