@@ -1,5 +1,6 @@
 import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
@@ -12,6 +13,7 @@ import {
 	DownloadIcon,
 	FileIcon,
 	FolderIcon,
+	LockIcon,
 	PackageIcon,
 	PanelRightCloseIcon,
 	PanelRightOpenIcon,
@@ -61,6 +63,28 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 		</Button>
 
 		{openedEntry && openedEntry?.path !== newApplication && (<>
+
+			{openedEntry.package && <Tooltip>
+				<TooltipTrigger asChild>
+					<Button variant="ghost" type="button" className="cursor-help">
+						<LockIcon width={16} height={16} />
+						<span className="hidden md:inline-block">
+							Imported applications are read-only
+						</span>
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{restrictPackageModification
+						? <>
+							This application is read-only, and cannot be modified.<br />
+							It helps govern clustering amongst your instances.
+						</>
+						: <>
+							This application is read-only, and cannot be directly modified. But you can re-deploy or remove it.
+						</>
+					}
+				</TooltipContent>
+			</Tooltip>}
 
 			{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
 				variant="default"
