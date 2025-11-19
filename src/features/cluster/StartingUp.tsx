@@ -89,9 +89,12 @@ export function StartingUp() {
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
 				<p>Your cluster is spinning up with the latest changes, including your own DNS records and private
-					connections. Please wait while we get everything going. <span className="text-muted-foreground">We will
-						let you know when we are ready for you to connect! In the meantime, may I suggest a cup of water, tea
-						or perhaps a hot bean juice? ☕</span></p>
+					connections. Please wait while we get everything going.
+					<span className="text-muted-foreground">
+						We will let you know when we are ready for you to connect! In the meantime, join us
+						on <a href="https://discord.gg/VzZuaw3Xay" target="_blank">Discord</a>! Get real-time help from our
+						engineers, see feature drops early, and connect with others building on Fabric.</span>
+				</p>
 			</div>
 		</NestedContentWithSubNavMenu>
 	);
