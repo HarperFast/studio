@@ -13,7 +13,6 @@ import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTab
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
 import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import { useInsertTableRecords } from '@/features/instance/operations/mutations/insertTableRecords';
 import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
 import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
 import {
@@ -194,7 +193,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		}),
 	);
 
-	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
 
@@ -203,24 +201,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		() => queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] }),
 		[queryClient, instanceParams.entityId, databaseName, tableName],
 	);
-
-	const onRecordAdd = useCallback((data: Record<string, unknown>[] | Record<string, unknown>) => {
-		addTableRecords(
-			{
-				...instanceParams,
-				databaseName,
-				tableName,
-				records: Array.isArray(data) ? data : [data],
-			},
-			{
-				onSuccess: () => {
-					void refreshTable();
-					setIsAddModalOpen(false);
-					toast.success('Record added successfully');
-				},
-			},
-		);
-	}, [addTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
 	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
@@ -303,7 +283,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						<Button
 							variant="positiveOutline"
 							onClick={onAddClicked}
-							disabled={isAddModalOpen || isAddTableRecordsPending}
+							disabled={isAddModalOpen}
 							accessKey="n"
 						>
 							<PlusIcon />
@@ -316,7 +296,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						<Button
 							variant="positiveOutline"
 							onClick={onImportCSVClicked}
-							disabled={isImportCSVModalOpen || isAddTableRecordsPending}
+							disabled={isImportCSVModalOpen}
 							accessKey="c"
 						>
 							<ImportIcon />
@@ -413,13 +393,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>
-			{canAddRecords && describeTableData && (
+			{canAddRecords && describeTableData && isAddModalOpen && (
 				<AddTableRowModal
 					instanceTable={describeTableData}
-					setIsModalOpen={setIsAddModalOpen}
 					isModalOpen={isAddModalOpen}
-					onSaveChanges={onRecordAdd}
-					isAddTableRecordsPending={isAddTableRecordsPending}
+					refreshTable={refreshTable}
+					setIsModalOpen={setIsAddModalOpen}
 				/>
 			)}
 			<EditTableRowModal

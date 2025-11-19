@@ -7,8 +7,14 @@ interface InsertTableRecordsData extends InstanceClientConfig {
 	records: object[];
 }
 
+interface InsertTableRecordsResponse {
+	message: string;
+	inserted_hashes: string[];
+	skipped_hashes: string[];
+}
+
 async function onInsertTableRecords({ databaseName, tableName, records, instanceClient }: InsertTableRecordsData) {
-	const { data } = await instanceClient.post('/', {
+	const { data } = await instanceClient.post<InsertTableRecordsResponse>('/', {
 		operation: 'insert',
 		database: databaseName,
 		table: tableName,
