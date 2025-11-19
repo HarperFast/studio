@@ -95,7 +95,7 @@ export function EditTableRowModal({
 									onSaveChanges(JSON.parse(updatedTableRecordData));
 								}
 							}}
-							disabled={!isValidJSON || isUpdateTableRecordsPending}
+							disabled={!updatedTableRecordData || !isValidJSON || isUpdateTableRecordsPending}
 						>
 							<Save /> <span><u>S</u>ave Changes</span>
 						</Button>)}
