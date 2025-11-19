@@ -113,7 +113,7 @@ export function AddTableRowModal({
 				<AlertTitle>
 					Skipped {skippedHashes.length === 1 ? 'Hash' : 'Hashes'} Detected
 				</AlertTitle>
-				<AlertDescription>
+				<AlertDescription className="max-h-36 overflow-auto">
 					<ol>
 						{skippedHashes.map(hash => <li key={hash}>{hash}</li>)}
 					</ol>
