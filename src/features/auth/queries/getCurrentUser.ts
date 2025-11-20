@@ -1,5 +1,5 @@
-import { User } from '@/lib/api.patch';
 import { apiClient } from '@/config/apiClient';
+import { User } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getCurrentUser(): Promise<User> {

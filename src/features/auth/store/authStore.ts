@@ -1,10 +1,10 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
-import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { SchemaCluster, SchemaHdbInstance } from '@/lib/api.gen';
-import { Cluster, Instance, LocalUser, User } from '@/lib/api.patch';
+import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
+import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
+import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
 import { isCluster } from '@/lib/types/isCluster';
 import { isInstance } from '@/lib/types/isInstance';

@@ -1,5 +1,5 @@
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
-import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 
 export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 	planTypes: SchemaPlan[],

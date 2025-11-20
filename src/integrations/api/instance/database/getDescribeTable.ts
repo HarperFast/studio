@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { InstanceTable } from '@/lib/api.patch';
+import { InstanceTable } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetDescribeTableParams extends InstanceClientIdConfig {

@@ -1,10 +1,10 @@
 import { apiClient } from '@/config/apiClient';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { EmailSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
+import { User } from '@/integrations/api/api.patch';
+import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { reoClient } from '@/integrations/reo/reo';
-import { User } from '@/lib/api.patch';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';

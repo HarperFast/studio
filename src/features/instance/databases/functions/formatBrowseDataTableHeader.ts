@@ -1,4 +1,4 @@
-import { InstanceAttribute, InstanceTable } from '@/lib/api.patch';
+import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { ColumnDef } from '@tanstack/react-table';
 
 export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {

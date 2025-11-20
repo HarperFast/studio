@@ -7,7 +7,7 @@ import { UpsertCluster } from '@/features/clusters/upsert';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';

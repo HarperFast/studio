@@ -1,6 +1,6 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { ReplicatedResponse } from '@/lib/api/replication';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
+import { ReplicatedResponse } from '@/integrations/api/replication';
 import { axiosRetry } from '@/lib/axiosRetry';
 import { sleep } from '@/lib/sleep';
 import { useMutation } from '@tanstack/react-query';

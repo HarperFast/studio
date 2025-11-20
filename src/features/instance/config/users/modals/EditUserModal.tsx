@@ -2,7 +2,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { AlterUserForm } from '@/features/instance/config/users/components/AlterUserForm';
 import { DeleteUserForm } from '@/features/instance/config/users/components/DeleteUserForm';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { LocalUser } from '@/lib/api.patch';
+import { LocalUser } from '@/integrations/api/api.patch';
 
 export function EditUserModal({
 	closeModal,

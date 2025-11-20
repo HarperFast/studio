@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { paths } from '@/integrations/api/api.gen';
 import type { Axios, AxiosRequestConfig, AxiosResponse } from 'axios';
-import type { paths } from '@/lib/api.gen';
 
 export interface TypedAxios extends Axios {
 	get<

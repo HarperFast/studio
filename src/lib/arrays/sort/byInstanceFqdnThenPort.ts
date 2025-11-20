@@ -1,4 +1,4 @@
-import { SchemaHdbInstance } from '@/lib/api.gen';
+import { SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { ipAddressToNumber } from '@/lib/numbers/ipAddressToNumber';
 import { isIpAddress } from '@/lib/string/isIpAddress';
 

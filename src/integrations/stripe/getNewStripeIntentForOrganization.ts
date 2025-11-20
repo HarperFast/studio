@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaStripeAccount } from '@/lib/api.gen';
+import { SchemaStripeAccount } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 
 interface Params {

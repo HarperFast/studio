@@ -1,7 +1,7 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { useDeleteDatabaseMutation } from '@/features/instance/operations/mutations/deleteDatabase';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useDeleteDatabaseMutation } from '@/integrations/api/instance/database/deleteDatabase';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';

@@ -2,8 +2,8 @@ import { forceBasicAuth, isLocalStudio } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { authStore } from '@/features/auth/store/authStore';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { LocalUser } from '@/lib/api.patch';
+import { LocalUser } from '@/integrations/api/api.patch';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { useMutation } from '@tanstack/react-query';
 import { AxiosInstance } from 'axios';
 

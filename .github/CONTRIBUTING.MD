@@ -93,7 +93,7 @@ If your change depends on updated Central Manager API types:
 pnpm update-sdk
 ```
 
-This fetches the OpenAPI spec into `dist/central-manager.json` and generates `src/lib/api.gen.d.ts`.
+This fetches the OpenAPI spec into `dist/central-manager.json` and generates `src/integrations/api/api.gen.d.ts`.
 
 
 ## Branching and pull requests

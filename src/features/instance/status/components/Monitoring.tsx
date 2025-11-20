@@ -1,10 +1,10 @@
-import { MetricVisualization } from '@/features/instance/status/components/monitoring/MetricVisualization.tsx';
-import { useMemo, useState } from 'react';
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { Label } from '@/components/ui/label.tsx';
-import { useInterval } from '@/hooks/useInterval.ts';
-import type { Metric, MetricConfig } from '@/features/instance/operations/queries/getAnalytics.ts';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.tsx';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import { MetricVisualization } from '@/features/instance/status/components/monitoring/MetricVisualization.tsx';
+import { useInterval } from '@/hooks/useInterval.ts';
+import type { Metric, MetricConfig } from '@/integrations/api/instance/status/getAnalytics.ts';
+import { useMemo, useState } from 'react';
 
 const metrics: MetricConfig[] = [
 	{

@@ -1,5 +1,5 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { RegistrationInfoResponse } from '@/features/instance/operations/queries/getRegistrationInfo';
+import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 
 export const HarperVersion = ({
 	loadingRegistration,

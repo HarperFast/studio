@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaInvoice } from '@/lib/api.gen';
+import { SchemaInvoice } from '@/integrations/api/api.gen';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getStripeInvoices(organizationId: string): Promise<SchemaInvoice[]> {

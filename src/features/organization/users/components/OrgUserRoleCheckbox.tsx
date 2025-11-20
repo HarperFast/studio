@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { useAddUserToOrganizationRole } from '@/features/organization/mutations/addUserToOrganizationRole';
 import { useRemoveUserFromOrganizationRole } from '@/features/organization/mutations/removeUserFromOrganizationRole';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
-import { SchemaOrganizationRole, SchemaUser } from '@/lib/api.gen';
+import { SchemaOrganizationRole, SchemaUser } from '@/integrations/api/api.gen';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 

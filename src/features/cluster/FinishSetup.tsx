@@ -10,11 +10,9 @@ import { Input } from '@/components/ui/input';
 import { defaultClusterUsername, defaultInstanceRouteUpOne } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
-import {
-	useInstanceResetPasswordMutation,
-} from '@/features/instance/operations/mutations/useInstanceResetPasswordMutation';
-import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
+import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
+import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';

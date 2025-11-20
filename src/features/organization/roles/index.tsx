@@ -8,7 +8,7 @@ import { AddOrganizationRoleModal } from '@/features/organization/roles/modals/A
 import { EditOrganizationRoleModal } from '@/features/organization/roles/modals/EditOrganizationRoleModal';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
-import { SchemaOrganizationRole } from '@/lib/api.gen';
+import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';

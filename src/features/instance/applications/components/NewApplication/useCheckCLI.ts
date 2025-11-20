@@ -1,6 +1,6 @@
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { APIDirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import { APIDirectoryEntry } from '@/integrations/api/instance/applications/getComponents';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';

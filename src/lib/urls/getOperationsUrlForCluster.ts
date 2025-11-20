@@ -1,5 +1,5 @@
-import { Cluster } from '@/lib/api.patch';
 import { defaultOperationsApiPort, defaultOperationsApiSecure } from '@/config/constants';
+import { Cluster } from '@/integrations/api/api.patch';
 
 export function getOperationsUrlForCluster(cluster: undefined | Pick<Cluster, 'fqdn'>): string | null {
 	let fqdn = cluster?.fqdn;

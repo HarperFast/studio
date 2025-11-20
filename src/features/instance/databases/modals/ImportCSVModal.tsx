@@ -14,13 +14,13 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { AddCSVDataFormData, useAddCSVDataMutation } from '@/integrations/api/instance/database/addCSVData';
+import { AddCSVDataFormSchema } from '@/integrations/api/instance/database/addCSVDataFormSchema';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { CloudUploadIcon, Save } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { AddCSVDataFormData, useAddCSVDataMutation } from '@/features/instance/operations/mutations/addCSVData';
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { AddCSVDataFormSchema } from '../../operations/schemas/addCSVDataFormSchema';
 
 export function ImportCSVModal({
 	setIsModalOpen,

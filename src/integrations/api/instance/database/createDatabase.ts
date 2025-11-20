@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { ReplicatedResponse } from '@/lib/api/replication';
+import { ReplicatedResponse } from '@/integrations/api/replication';
 import { useMutation } from '@tanstack/react-query';
 
 interface CreateDatabaseFormData extends InstanceClientConfig {

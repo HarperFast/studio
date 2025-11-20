@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
+import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 

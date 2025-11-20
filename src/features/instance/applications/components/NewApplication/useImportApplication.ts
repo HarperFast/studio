@@ -1,6 +1,6 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useDeployComponentMutation } from '@/features/instance/operations/mutations/deployComponent';
+import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';

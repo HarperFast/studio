@@ -6,7 +6,7 @@ import {
 	LocalRolePermissionAction,
 	LocalRolePermissionTable,
 	User,
-} from '@/lib/api.patch';
+} from '@/integrations/api/api.patch';
 import { useParams } from '@tanstack/react-router';
 
 interface UR {

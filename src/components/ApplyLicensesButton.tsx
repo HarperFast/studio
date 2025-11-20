@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useApplyLicensesClick } from '@/hooks/useApplyLicensesClick';
-import { SchemaLicense } from '@/lib/api.gen';
+import { SchemaLicense } from '@/integrations/api/api.gen';
 import { pluralize } from '@/lib/pluralize';
 import { RotateCcwIcon } from 'lucide-react';
 

@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { ReplicatedResponse } from '@/lib/api/replication';
+import { ReplicatedResponse } from '@/integrations/api/replication';
 
 interface SetConfigurationParams extends InstanceClientConfig {
 	[key: string]: unknown;

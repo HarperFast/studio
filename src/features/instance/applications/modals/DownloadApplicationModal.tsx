@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { usePackageComponentMutation } from '@/features/instance/operations/mutations/packageComponent';
+import { usePackageComponentMutation } from '@/integrations/api/instance/applications/packageComponent';
 import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { DownloadIcon } from 'lucide-react';
 import { ChangeEvent, MouseEvent, useCallback, useState } from 'react';

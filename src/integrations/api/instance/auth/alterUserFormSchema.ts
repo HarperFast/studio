@@ -1,4 +1,4 @@
-import { AddUserFormSchema } from '@/features/instance/operations/schemas/addUserFormSchema';
+import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { z } from 'zod';
 
 export const AlterUserFormSchema = z.object({

@@ -1,9 +1,9 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { dropComponent } from '@/features/instance/operations/mutations/dropComponent';
-import { setComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
-import { getComponentFile } from '@/features/instance/operations/queries/getComponentFile';
+import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { getComponentFile } from '@/integrations/api/instance/applications/getComponentFile';
+import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { pluralize } from '@/lib/pluralize';
 import { useCallback } from 'react';
 import { ExternalToast, toast } from 'sonner';

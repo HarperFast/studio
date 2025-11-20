@@ -8,10 +8,10 @@ import { ApplicationURL } from '@/features/instance/config/overview/components/A
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
-import { getConfigurationQueryOptions } from '@/features/instance/operations/queries/getConfiguration';
-import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
-import { getUsageLicensesQueryOptions } from '@/features/instance/operations/queries/getUsageLicenses';
-import { Instance } from '@/lib/api.patch';
+import { Instance } from '@/integrations/api/api.patch';
+import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
 import Editor from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';

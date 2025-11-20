@@ -5,20 +5,20 @@ import {
 } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
-import {
-	SetComponentFileRequest,
-	useSetComponentFile,
-} from '@/features/instance/operations/mutations/setComponentFile';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 import {
 	getComponentFileQueryKey,
 	getComponentFileQueryOptions,
-} from '@/features/instance/operations/queries/getComponentFile';
+} from '@/integrations/api/instance/applications/getComponentFile';
 import {
 	APIDirectoryEntry,
 	APIFileEntry,
 	getComponentsQueryOptions,
-} from '@/features/instance/operations/queries/getComponents';
-import { useSessionStorage } from '@/hooks/useSessionStorage';
+} from '@/integrations/api/instance/applications/getComponents';
+import {
+	SetComponentFileRequest,
+	useSetComponentFile,
+} from '@/integrations/api/instance/applications/setComponentFile';
 import { transformNodes } from '@/lib/arrays/transformNodes';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';

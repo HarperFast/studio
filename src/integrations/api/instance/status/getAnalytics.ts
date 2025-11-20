@@ -1,6 +1,6 @@
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
-import { queryOptions } from '@tanstack/react-query';
 import type { Units } from '@/lib/units';
+import { queryOptions } from '@tanstack/react-query';
 
 export type MetricDataKey = string | ((metric: Metric) => number);
 export type MetricUnits = Units | 'reads' | 'writes' | 'messages';

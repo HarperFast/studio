@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scrollArea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { InstanceDatabaseMap } from '@/lib/api.patch';
+import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';

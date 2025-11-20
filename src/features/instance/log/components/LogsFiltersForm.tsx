@@ -7,7 +7,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
+import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
 

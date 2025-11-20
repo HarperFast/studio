@@ -1,4 +1,4 @@
-import { LocalUser, User } from '@/lib/api.patch';
+import { LocalUser, User } from '@/integrations/api/api.patch';
 import { isLocalUser } from '@/lib/types/isLocalUser';
 
 export function getDefaultSignedInCloudRouteForUser(user: User | LocalUser | null): string {

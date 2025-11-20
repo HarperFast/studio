@@ -1,6 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { authStore, EntityIds, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { rejectReplicationFailures } from '@/lib/api/replication';
+import { rejectReplicationFailures } from '@/integrations/api/replication';
 import axios from 'axios';
 
 interface InstanceClient {

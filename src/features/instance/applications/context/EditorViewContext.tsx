@@ -1,5 +1,5 @@
-import { SetComponentFileRequest } from '@/features/instance/operations/mutations/setComponentFile';
-import { APIDirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import { APIDirectoryEntry } from '@/integrations/api/instance/applications/getComponents';
+import { SetComponentFileRequest } from '@/integrations/api/instance/applications/setComponentFile';
 import { createContext } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
 import { DirectoryEntry } from './directoryEntry';

@@ -18,13 +18,10 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import {
-	AlterUserRequestBody,
-	useAlterUser,
-} from '@/features/instance/operations/mutations/alterUser';
-import { getListRolesQueryOptions } from '@/features/instance/operations/queries/getListRoles';
-import { AlterUserFormSchema } from '@/features/instance/operations/schemas/alterUserFormSchema';
-import { LocalUser } from '@/lib/api.patch';
+import { LocalUser } from '@/integrations/api/api.patch';
+import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/auth/alterUser';
+import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
+import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';

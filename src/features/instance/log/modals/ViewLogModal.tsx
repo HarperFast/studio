@@ -3,11 +3,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
+import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
-import { ReadLogItem } from '@/features/instance/operations/queries/getReadLog';
-import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
 
 function isJsonString(str: string) {
 	try {

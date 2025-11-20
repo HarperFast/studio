@@ -1,10 +1,9 @@
 'use client';
 
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { cn } from '@/lib/cn';
 import { ColumnDef, flexRender, getCoreRowModel, Row, useReactTable } from '@tanstack/react-table';
-
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ReadLogItem } from '../operations/queries/getReadLog';
 
 interface DataTableProps<TData extends ReadLogItem, TValue> {
 	columns: ColumnDef<ReadLogItem, TValue>[];

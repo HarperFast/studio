@@ -9,9 +9,9 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { RegistrationInfoResponse } from '@/features/instance/operations/queries/getRegistrationInfo';
-import { getStatusQueryOptions } from '@/features/instance/operations/queries/getStatus';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
+import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getStatusQueryOptions } from '@/integrations/api/instance/status/getStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';

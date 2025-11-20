@@ -1,6 +1,6 @@
-import { queryOptions } from '@tanstack/react-query';
 import { apiClient } from '@/config/apiClient';
-import { SchemaRole } from '@/lib/api.gen';
+import { SchemaRole } from '@/integrations/api/api.gen';
+import { queryOptions } from '@tanstack/react-query';
 
 export interface GetOrganizationRoleInfoResponse extends SchemaRole {
 	name: string;

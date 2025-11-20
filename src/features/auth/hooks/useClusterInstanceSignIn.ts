@@ -1,10 +1,10 @@
 import { defaultInstanceRoute, defaultInstanceRouteUpOne, isLocalStudio } from '@/config/constants';
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { useInstanceLoginMutation } from '@/features/instance/operations/mutations/useInstanceLoginMutation';
-import { UsernameSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
-import { SchemaHdbInstance } from '@/lib/api.gen';
-import { Cluster } from '@/lib/api.patch';
+import { SchemaHdbInstance } from '@/integrations/api/api.gen';
+import { Cluster } from '@/integrations/api/api.patch';
+import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
+import { useInstanceLoginMutation } from '@/integrations/api/instance/auth/useInstanceLoginMutation';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';

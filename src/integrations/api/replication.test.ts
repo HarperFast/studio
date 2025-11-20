@@ -6,7 +6,7 @@ import {
 	type ReplicatedResponseFailure,
 	type ReplicatedResponseSuccess,
 	replicationFailed,
-} from '@/lib/api/replication';
+} from '@/integrations/api/replication';
 import { describe, expect, it } from 'vitest';
 
 describe('replication type guards', () => {

@@ -1,7 +1,7 @@
 import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Button } from '@/components/ui/button';
-import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { PlusIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';

@@ -1,4 +1,4 @@
-import { SchemaUser } from '@/lib/api.gen';
+import { SchemaUser } from '@/integrations/api/api.gen';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 
 const columnHelper = createColumnHelper<SchemaUser>();

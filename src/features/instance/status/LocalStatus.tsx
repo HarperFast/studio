@@ -1,9 +1,9 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { getSystemInformationQueryOptions } from '@/features/instance/operations/queries/getSystemInformation';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { Status } from '@/features/instance/status/Status';
+import { getSystemInformationQueryOptions } from '@/integrations/api/instance/status/getSystemInformation';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Suspense } from 'react';
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 
 interface LocalStatusParams {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
