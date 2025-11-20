@@ -3,7 +3,7 @@ import {
 	LocalLegacyRolePermissionTable,
 	LocalRolePermission,
 	LocalRolePermissionTable,
-} from '@/lib/api.patch';
+} from '@/integrations/api/api.patch';
 import { keyBy } from '@/lib/keyBy';
 
 export function calculateDefaultPermissions({

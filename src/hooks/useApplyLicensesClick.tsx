@@ -1,9 +1,9 @@
 import { ProgressBar } from '@/components/ProgressBar';
 import { useInstanceClient } from '@/config/useInstanceClient';
-import { installUsageLicense } from '@/features/instance/operations/mutations/installUsageLicense';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
-import { SchemaLicense } from '@/lib/api.gen';
+import { SchemaLicense } from '@/integrations/api/api.gen';
+import { installUsageLicense } from '@/integrations/api/instance/auth/installUsageLicense';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sleep } from '@/lib/sleep';
 import { useQueryClient } from '@tanstack/react-query';

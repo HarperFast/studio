@@ -1,27 +1,24 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Toggle } from '@/components/ui/toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
+import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
-import {
-	getReadLogQueryOptions,
-	ReadLogItem,
-} from '@/features/instance/operations/queries/getReadLog';
-import { LogFiltersFormSchema } from '@/features/instance/operations/schemas/logFiltersFormSchema';
+import { useRefreshClick } from '@/hooks/useRefreshClick';
+import { getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
+import { RefreshCwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
-import { useRefreshClick } from '@/hooks/useRefreshClick';
-import { Button } from '@/components/ui/button';
-import { RefreshCwIcon } from 'lucide-react';
-import { Toggle } from '@/components/ui/toggle';
-import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 type RowData = {
 	original: ReadLogItem;

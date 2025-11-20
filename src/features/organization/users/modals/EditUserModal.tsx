@@ -3,7 +3,7 @@ import { getOrganizationRolesQueryOptions } from '@/features/organization/querie
 import { OrgUserRoleCheckbox } from '@/features/organization/users/components/OrgUserRoleCheckbox';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
-import { SchemaUser } from '@/lib/api.gen';
+import { SchemaUser } from '@/integrations/api/api.gen';
 import { keyBy } from '@/lib/keyBy';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';

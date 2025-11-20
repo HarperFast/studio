@@ -8,8 +8,8 @@ import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuer
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
-import { SchemaPlan } from '@/lib/api.gen';
-import { Cluster, Organization } from '@/lib/api.patch';
+import { SchemaPlan } from '@/integrations/api/api.gen';
+import { Cluster, Organization } from '@/integrations/api/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';

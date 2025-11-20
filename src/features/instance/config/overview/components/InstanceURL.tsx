@@ -1,7 +1,7 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { Instance } from '@/lib/api.patch';
+import { Instance } from '@/integrations/api/api.patch';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { Link } from '@tanstack/react-router';
 import { CopyIcon } from 'lucide-react';

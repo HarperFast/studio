@@ -1,4 +1,4 @@
-import { APIFileEntry } from '@/features/instance/operations/queries/getComponents';
+import { APIFileEntry } from '@/integrations/api/instance/applications/getComponents';
 
 export interface FileEntry extends APIFileEntry {
 	path: string;

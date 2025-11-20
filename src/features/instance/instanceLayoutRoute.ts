@@ -8,9 +8,9 @@ import {
 } from '@/features/auth/store/authStore';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
-import { getInstanceUserInfo } from '@/features/instance/operations/queries/getInstanceUserInfo';
-import { getRegistrationInfoQueryOptions } from '@/features/instance/operations/queries/getRegistrationInfo';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { dashboardLayout } from '@/router/dashboardRoute';
 import { QueryClient } from '@tanstack/react-query';

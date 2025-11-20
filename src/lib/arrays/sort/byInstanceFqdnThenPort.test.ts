@@ -1,4 +1,4 @@
-import { SchemaHdbInstance } from '@/lib/api.gen';
+import { SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { describe, expect, it } from 'vitest';
 import { byInstanceFqdnThenPort } from './byInstanceFqdnThenPort';
 

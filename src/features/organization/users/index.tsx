@@ -8,7 +8,7 @@ import { AddUserModal } from '@/features/organization/users/modals/AddUserModal'
 import { EditUserModal } from '@/features/organization/users/modals/EditUserModal';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
-import { SchemaUser } from '@/lib/api.gen';
+import { SchemaUser } from '@/integrations/api/api.gen';
 import { sortByEmail } from '@/lib/arrays/sort/byEmail';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';

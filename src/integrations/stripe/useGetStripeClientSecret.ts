@@ -1,6 +1,6 @@
+import { SchemaStripeAccount } from '@/integrations/api/api.gen';
 import { useAddStripeToOrganizationAndGetIntent } from '@/integrations/stripe/addStripeToOrganizationAndGetIntent';
 import { useGetNewStripeIntentForOrganization } from '@/integrations/stripe/getNewStripeIntentForOrganization';
-import { SchemaStripeAccount } from '@/lib/api.gen';
 import { useCallback, useEffect, useState } from 'react';
 
 interface Params {

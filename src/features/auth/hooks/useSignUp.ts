@@ -1,6 +1,6 @@
 import { apiClient } from '@/config/apiClient';
+import { SchemaUser } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
-import { SchemaUser } from '@/lib/api.gen';
 
 export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 	email: string;

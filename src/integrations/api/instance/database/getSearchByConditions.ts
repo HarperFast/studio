@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { InstanceAttribute } from '@/lib/api.patch';
+import { InstanceAttribute } from '@/integrations/api/api.patch';
 import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
 import { autoCast } from '@/lib/casting/autoCast';
 import { queryOptions } from '@tanstack/react-query';

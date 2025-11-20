@@ -11,7 +11,7 @@ import {
 	AddOrganizationRoleSchema,
 	useAddOrganizationRole,
 } from '@/features/organization/mutations/addOrganizationRole';
-import { SchemaRoleOrganizationPermissions } from '@/lib/api.gen';
+import { SchemaRoleOrganizationPermissions } from '@/integrations/api/api.gen';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
 import { useParams } from '@tanstack/react-router';

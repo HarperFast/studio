@@ -1,5 +1,5 @@
 import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { LocalRole } from '@/lib/api.patch';
+import { LocalRole } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getListRolesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

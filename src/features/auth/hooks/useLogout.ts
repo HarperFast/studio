@@ -4,7 +4,7 @@ import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
-import { onInstanceLogoutSubmit } from '@/features/instance/operations/mutations/onInstanceLogoutSubmit';
+import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { useMutation } from '@tanstack/react-query';
 
 async function onLogoutSubmit(instanceClientConfig: InstanceClientConfig) {

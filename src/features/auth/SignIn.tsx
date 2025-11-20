@@ -6,7 +6,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { EmailSignInSchema } from '@/features/instance/operations/schemas/signInSchema';
+import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';

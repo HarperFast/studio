@@ -14,7 +14,7 @@
 		"build:prod": "tsc -b && vite build --mode prod",
 		"commitlint": "commitlint --edit",
 		"release": "semantic-release",
-		"update-sdk": "dotenv -e .env.local -- npm run update-sdk:fetch && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o ./src/lib/api.gen.d.ts",
+		"update-sdk": "dotenv -e .env.local -- npm run update-sdk:fetch && npx -y openapi-typescript --root-types --alphabetize --enum ./dist/central-manager.json -o src/integrations/api/api.gen.d.ts",
 		"update-sdk:fetch": "mkdir -p dist && curl --location \"$VITE_CENTRAL_MANAGER_API_URL/openapi\" -u \"$HDB_ADMIN_USERNAME_FOR_OPENAPI:$HDB_ADMIN_PASSWORD_FOR_OPENAPI\" -o ./dist/central-manager.json",
 		"lint": "eslint .",
 		"prepare": "husky",

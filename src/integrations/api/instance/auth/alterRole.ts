@@ -1,5 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { LocalRolePermission } from '@/lib/api.patch';
+import { LocalRolePermission } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
 interface AlterRoleRequestBody extends InstanceClientConfig {

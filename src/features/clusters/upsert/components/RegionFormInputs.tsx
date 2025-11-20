@@ -6,7 +6,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
-import { SchemaPlan, SchemaRegion } from '@/lib/api.gen';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';

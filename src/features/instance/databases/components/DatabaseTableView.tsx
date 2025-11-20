@@ -12,22 +12,22 @@ import { DeleteDatabaseModal } from '@/features/instance/databases/modals/Delete
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
-import { useDeleteTableRecords } from '@/features/instance/operations/mutations/deleteTableRecords';
-import { useUpdateTableRecords } from '@/features/instance/operations/mutations/updateTableRecords';
-import { getDescribeTableQueryOptions } from '@/features/instance/operations/queries/getDescribeTable';
-import {
-	getSearchByConditionsOptions,
-	SearchCondition,
-	translateColumnFilterToSearchConditions,
-} from '@/features/instance/operations/queries/getSearchByConditions';
-import { getSearchByIdOptions } from '@/features/instance/operations/queries/getSearchById';
-import { getSearchByValueOptions } from '@/features/instance/operations/queries/getSearchByValue';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useToggler } from '@/hooks/useToggler';
-import { InstanceDatabaseMap } from '@/lib/api.patch';
+import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
+import { useDeleteTableRecords } from '@/integrations/api/instance/database/deleteTableRecords';
+import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
+import {
+	getSearchByConditionsOptions,
+	SearchCondition,
+	translateColumnFilterToSearchConditions,
+} from '@/integrations/api/instance/database/getSearchByConditions';
+import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
+import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
+import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';

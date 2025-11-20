@@ -80,7 +80,7 @@ Notes:
 
 This repository can generate TypeScript definitions from the Central Manager OpenAPI schema.
 
-- `pnpm update-sdk` — fetch the OpenAPI JSON and generate `src/lib/api.gen.d.ts`
+- `pnpm update-sdk` — fetch the OpenAPI JSON and generate `src/integrations/api/api.gen.d.ts`
 
 Environment variables required (typically in `.env.local` when running the script locally):
 
@@ -92,7 +92,7 @@ HDB_ADMIN_PASSWORD_FOR_OPENAPI=<password>
 
 What the script does:
 1) Downloads `${VITE_CENTRAL_MANAGER_API_URL}/openapi` into `./dist/central-manager.json` using the admin credentials
-2) Runs `openapi-typescript` to generate `src/lib/api.gen.d.ts`
+2) Runs `openapi-typescript` to generate `src/integrations/api/api.gen.d.ts`
 
 
 ## Linting, formatting, and type-checking

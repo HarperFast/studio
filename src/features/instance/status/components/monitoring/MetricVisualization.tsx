@@ -1,10 +1,16 @@
-import { useQuery } from '@tanstack/react-query';
-import { getAnalyticsQueryOptions, type MetricConfig, type Metric, type MetricDataKey, type MetricUnits } from '@/features/instance/operations/queries/getAnalytics.ts';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import {
+	getAnalyticsQueryOptions,
+	type Metric,
+	type MetricConfig,
+	type MetricDataKey,
+	type MetricUnits,
+} from '@/integrations/api/instance/status/getAnalytics.ts';
+import { harperPalette } from '@/lib/colorPalette.ts';
+import { determineUnits, scaleValueToUnits } from '@/lib/units';
+import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { scaleValueToUnits, determineUnits } from '@/lib/units';
-import { harperPalette } from '@/lib/colorPalette.ts';
 
 type MetricValue = string | number | boolean;
 type NullableMetricValue = MetricValue | null;

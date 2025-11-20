@@ -3,7 +3,7 @@ import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { SchemaRegion, SchemaPlanLimits, SchemaResourcesPerInstance } from '@/lib/api.gen';
+import { SchemaPlanLimits, SchemaRegion, SchemaResourcesPerInstance } from '@/integrations/api/api.gen';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { humanFileSize } from '@/lib/humanFileSize';

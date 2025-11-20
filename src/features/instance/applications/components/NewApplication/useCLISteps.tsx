@@ -1,7 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useInstanceAuth } from '@/hooks/useAuth';
-import { Cluster, Instance } from '@/lib/api.patch';
+import { Cluster, Instance } from '@/integrations/api/api.patch';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';

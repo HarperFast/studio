@@ -1,9 +1,9 @@
+import type { InstanceAttribute } from '@/integrations/api/api.patch';
 import {
 	parseComparator,
 	translateColumnFilterToSearchCondition,
 	translateColumnFilterToSearchConditions,
-} from '@/features/instance/operations/queries/getSearchByConditions';
-import type { InstanceAttribute } from '@/lib/api.patch';
+} from '@/integrations/api/instance/database/getSearchByConditions';
 import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
 import { describe, expect, it } from 'vitest';
 

@@ -1,7 +1,7 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 import { CopyIcon } from 'lucide-react';
 
 export const ApplicationURL = ({

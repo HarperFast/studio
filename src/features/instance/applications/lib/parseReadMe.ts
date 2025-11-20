@@ -1,4 +1,4 @@
-import { GetComponentFileResponse } from '@/features/instance/operations/queries/getComponentFile';
+import { GetComponentFileResponse } from '@/integrations/api/instance/applications/getComponentFile';
 
 export function parseReadMe(contents: string, baseURL: string, response: Pick<GetComponentFileResponse, 'project'>): string {
 	const operations9925URL = baseURL;

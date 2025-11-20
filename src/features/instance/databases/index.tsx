@@ -1,5 +1,5 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { getDescribeAllQueryOptions } from '@/features/instance/operations/queries/getDescribeAll';
+import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from '@tanstack/react-router';

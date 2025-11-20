@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaOrganizationRole } from '@/lib/api.gen';
+import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
 import { queryOptions } from '@tanstack/react-query';
 
 async function getOrganizationRoles(organizationId: string): Promise<SchemaOrganizationRole[]> {

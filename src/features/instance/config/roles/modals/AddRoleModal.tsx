@@ -15,11 +15,8 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import {
-	AddRoleFormData,
-	useAddRoleMutation,
-} from '@/features/instance/operations/mutations/addRole';
-import { AddRoleFormSchema } from '@/features/instance/operations/schemas/addRoleFormSchema';
+import { AddRoleFormData, useAddRoleMutation } from '@/integrations/api/instance/auth/addRole';
+import { AddRoleFormSchema } from '@/integrations/api/instance/auth/addRoleFormSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save } from 'lucide-react';
 import { useCallback } from 'react';

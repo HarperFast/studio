@@ -1,4 +1,4 @@
-import { Instance } from '@/lib/api.patch';
+import { Instance } from '@/integrations/api/api.patch';
 
 export function getOperationsUrlForInstance(instance: Pick<Instance, 'instanceFqdn' | 'operationsApiSecure' | 'operationsApiPort'>): string {
 	let fqdn = instance.instanceFqdn;

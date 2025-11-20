@@ -6,8 +6,8 @@ import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreate
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
-import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/lib/api.gen';
-import { Organization } from '@/lib/api.patch';
+import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
+import { Organization } from '@/integrations/api/api.patch';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';

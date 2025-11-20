@@ -1,5 +1,5 @@
 import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { LocalUser } from '@/lib/api.patch';
+import { LocalUser } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getListUsersQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

@@ -1,4 +1,4 @@
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 import { byClusterStatusThenName } from '@/lib/arrays/sort/byClusterStatusThenName';
 import { describe, expect, it } from 'vitest';
 

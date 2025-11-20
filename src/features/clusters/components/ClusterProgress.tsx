@@ -1,6 +1,6 @@
 import { isBeingUpdated, isFailed, isPendingUpdate, isRunning, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 import { mapBy } from '@/lib/arrays/mapBy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';

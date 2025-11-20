@@ -1,6 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
-import { useRestartInstance } from '@/features/instance/operations/mutations/restartInstance';
+import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';

@@ -1,5 +1,5 @@
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
-import { APIDirectoryEntry } from '@/features/instance/operations/queries/getComponents';
+import { APIDirectoryEntry } from '@/integrations/api/instance/applications/getComponents';
 
 export interface DirectoryEntry extends APIDirectoryEntry, FileEntry {
 	entries: Array<DirectoryEntry | FileEntry>;

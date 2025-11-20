@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {

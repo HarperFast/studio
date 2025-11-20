@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
+import { SchemaInvoice, SchemaInvoiceLine } from '@/integrations/api/api.gen';
 import { translateStripeStatusToVariant } from '@/integrations/stripe/translateStripeStatusToVariant';
-import { SchemaInvoice, SchemaInvoiceLine } from '@/lib/api.gen';
 import { toUSD } from '@/lib/toUSD';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { ColumnDef } from '@tanstack/react-table';

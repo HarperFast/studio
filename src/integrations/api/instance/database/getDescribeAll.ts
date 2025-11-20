@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { InstanceDatabaseMap } from '@/lib/api.patch';
+import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getDescribeAllQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {

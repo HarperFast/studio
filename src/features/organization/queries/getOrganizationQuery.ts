@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { Organization } from '@/lib/api.patch';
+import { Organization } from '@/integrations/api/api.patch';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getOrganization(orgId: string): Promise<Organization> {

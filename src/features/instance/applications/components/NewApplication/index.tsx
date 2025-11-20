@@ -3,7 +3,7 @@ import { Form } from '@/components/ui/form/Form';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { Cluster, Instance, Organization } from '@/lib/api.patch';
+import { Cluster, Instance, Organization } from '@/integrations/api/api.patch';
 import { findBy } from '@/lib/arrays/findBy';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';

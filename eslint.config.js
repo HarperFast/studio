@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-	{ ignores: ['coverage', 'dist', 'src/lib/api.gen.d.ts', 'vitest.config.ts'] },
+	{ ignores: ['coverage', 'dist', 'src/integrations/api/api.gen.d.ts', 'vitest.config.ts'] },
 	{
 		languageOptions: {
 			parserOptions: {

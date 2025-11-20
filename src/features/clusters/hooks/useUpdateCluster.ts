@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaCluster, SchemaClusterUpsert } from '@/lib/api.gen';
+import { SchemaCluster, SchemaClusterUpsert } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 
 async function onEditClusterSubmit(

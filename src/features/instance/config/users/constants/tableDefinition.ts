@@ -1,6 +1,6 @@
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
-import { LocalUser } from '@/lib/api.patch';
+import { LocalUser } from '@/integrations/api/api.patch';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 
 const columnHelper = createColumnHelper<LocalUser>();
 

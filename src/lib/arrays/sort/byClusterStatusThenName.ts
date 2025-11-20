@@ -1,4 +1,4 @@
-import { Cluster } from '@/lib/api.patch';
+import { Cluster } from '@/integrations/api/api.patch';
 
 const statusPriority: Record<string, number> = {
   'FAILED': 0,

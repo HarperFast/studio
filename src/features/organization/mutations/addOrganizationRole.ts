@@ -1,5 +1,5 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaRole } from '@/lib/api.gen';
+import { SchemaRole } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
 

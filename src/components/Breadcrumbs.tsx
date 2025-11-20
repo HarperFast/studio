@@ -1,7 +1,7 @@
 import { RestartButton } from '@/components/RestartButton';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { Cluster, Instance, Organization } from '@/lib/api.patch';
+import { Cluster, Instance, Organization } from '@/integrations/api/api.patch';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link, useLocation, useParams, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';

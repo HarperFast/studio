@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useSetComponentFile } from '@/features/instance/operations/mutations/setComponentFile';
+import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';

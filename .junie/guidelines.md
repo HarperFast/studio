@@ -70,7 +70,7 @@ Do:
 - Use `update-sdk` only if API types are part of the change.
 
 Don’t:
-- Edit generated or build output (e.g., `web/`, `dist/`, `src/lib/api.gen.d.ts`).
+- Edit generated or build output (e.g., `web/`, `dist/`, `src/integrations/api/api.gen.d.ts`).
 - Introduce unused dependencies.
 - Commit large unrelated refactors.
 
@@ -86,7 +86,6 @@ Don’t:
 If your work depends on updated API types:
 1. Ensure env vars are set (see above).
 2. Run `pnpm update-sdk`.
-3. Commit both `dist/central-manager.json` (if intended to vendor) and `src/lib/api.gen.d.ts` only when necessary.
 
 
 ## Issue-type checklists

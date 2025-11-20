@@ -1,4 +1,10 @@
-import { SchemaCluster, SchemaHdbInstance, SchemaOrganization, SchemaRole, SchemaUser } from '@/lib/api.gen';
+import {
+	SchemaCluster,
+	SchemaHdbInstance,
+	SchemaOrganization,
+	SchemaRole,
+	SchemaUser,
+} from '@/integrations/api/api.gen';
 
 /*
  * Over time, it should be our goal to empty out this file. The types here should be described by our OpenAPI docs

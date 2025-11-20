@@ -1,7 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { UpdateUserSchema } from '@/features/profile/mutations/updateUserSchema';
-import { SchemaUser } from '@/lib/api.gen';
-import { User } from '@/lib/api.patch';
+import { SchemaUser } from '@/integrations/api/api.gen';
+import { User } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 import z from 'zod';
 

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useDropComponent } from '@/features/instance/operations/mutations/dropComponent';
+import { useDropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';

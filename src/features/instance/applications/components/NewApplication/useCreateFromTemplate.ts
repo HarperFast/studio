@@ -1,6 +1,6 @@
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useAddComponentMutation } from '@/features/instance/operations/mutations/addComponent';
+import { useAddComponentMutation } from '@/integrations/api/instance/applications/addComponent';
 import { findBy } from '@/lib/arrays/findBy';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
