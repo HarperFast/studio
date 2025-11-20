@@ -1,24 +1,12 @@
-import { RestartButton } from '@/components/RestartButton';
-import { isLocalStudio } from '@/config/constants';
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Cluster, Instance, Organization } from '@/lib/api.patch';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
-import { Link, useLocation, useParams, useRouteContext } from '@tanstack/react-router';
+import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
-export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) {
+export function Breadcrumbs() {
 	const location = useLocation();
-	const { instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
-	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
-	const instanceParams = useInstanceClientIdParams();
-
-	const { organization, instance, cluster }: {
-		organization?: Organization;
-		instance?: Instance;
-		cluster?: Cluster
-	} = useRouteContext({ strict: false });
-
+	const { organization, instance, cluster }: { organization?: Organization; instance?: Instance; cluster?: Cluster } = useRouteContext({ strict: false });
 	const breadcrumbs = useMemo(() => {
 		const routeHistory = location.pathname.split('/')
 			.filter((x) => x && x.length > 0);
@@ -79,14 +67,6 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	return (
 		<div role="list" className="flex items-center space-x-0 lg:space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
 			{...breadcrumbs}
-			{restartRequired && <RestartButton
-				className="animate-glow-pulse"
-				targetNoun={targetNoun}
-				instanceClient={instanceParams.instanceClient}
-				operation="restart"
-				hideText={true}
-				tooltip={`This ${targetNoun} is requesting a restart, when convenient, to apply your latest changes.`}
-			/>}
 		</div>
 	);
 }

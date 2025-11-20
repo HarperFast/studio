@@ -40,10 +40,6 @@ interface StatusResponse {
 export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
 		queryKey: [entityId, 'get_status'] as const,
-		staleTime: 9_000,
-		refetchInterval: 10_000,
-		retryDelay: 10_000,
-		throwOnError: false,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<StatusResponse>('/', {
 				operation: 'get_status',

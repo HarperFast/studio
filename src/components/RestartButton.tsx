@@ -8,23 +8,19 @@ import { cx, VariantProps } from 'class-variance-authority';
 import { RotateCcwIcon } from 'lucide-react';
 
 interface RestartButtonParams extends InstanceClientConfig, VariantProps<typeof buttonVariants> {
+	targetNoun: 'Instance' | 'Cluster';
+	operation: 'restart_service' | 'restart';
 	className?: string;
 	disabled?: boolean;
-	hideText?: boolean;
-	operation: 'restart_service' | 'restart';
-	targetNoun: 'Instance' | 'Cluster';
-	tooltip?: string;
 }
 
 export function RestartButton({
-	className,
-	disabled,
-	hideText,
+	targetNoun,
 	instanceClient,
 	operation,
-	targetNoun,
-	tooltip,
 	variant,
+	className,
+	disabled,
 }: RestartButtonParams) {
 	const {
 		onRestartClick: onRestartClusterClick,
@@ -40,15 +36,13 @@ export function RestartButton({
 				disabled={disabled || isRestartPending || isRestartClusterPending}
 			>
 				<RotateCcwIcon />
-				{hideText !== true && <span className="hidden md:inline-block">Restart {targetNoun}</span>}
+				<span className="hidden md:inline-block">Restart {targetNoun}</span>
 			</Button>
 		</TooltipTrigger>
 		<TooltipContent>
-			{tooltip
-				? tooltip
-				: operation === 'restart_service'
-					? 'Restarts all service threads to apply changes. No downtime expected. Performance may be briefly slower during restart.'
-					: 'This fully restarts the Harper service and causes downtime.'}
+			{operation === 'restart_service'
+				? 'Restarts all service threads to apply changes. No downtime expected. Performance may be briefly slower during restart.'
+				: 'This fully restarts the Harper service and causes downtime.'}
 		</TooltipContent>
 	</Tooltip>);
 }
