@@ -5,7 +5,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { listSSHKeysQueryOptions, SSHKeyName } from '@/integrations/api/instance/ssh/listSSHKeys';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
@@ -49,6 +49,13 @@ export function ConfigSSHKeysIndex() {
 	return (
 		<>
 			<SimpleBrowseDataTable columns={dataTableColumns} data={localSSHKeys || []} isFetching={isFetching} onRowClick={onSelectSSHKey}>
+				<Link
+					className="inline-block underline text-sm text-gray-400 hover:text-white"
+					to="https://docs.harperdb.io/docs/developers/security/certificate-management"
+					target="_blank"
+				>
+					Certificate Management Docs
+				</Link>
 				<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
 					<RefreshCwIcon />
 					<span className="hidden lg:inline-block">

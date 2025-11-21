@@ -171,9 +171,12 @@ export function ImportInstructions({
 							<Alert>
 								<AlertDescription>
 									<span>
-										Certificate management isn't supported by this website yet, but you
-										can <Link className="inline-block underline hover:text-white" to="https://docs.harperdb.io/docs/developers/security/certificate-management" target="_blank">use
-										your operations API</Link> to add them in the meantime.
+										You can manage your certificates over in <Link
+										to="config" className="underline">Config</Link> &gt; <Link
+										to="config/ssh-keys" className="underline">SSH Keys</Link>. This enables SSH based auth for private
+										repos, i.e. following the pattern of <a
+										href="https://github.com/HarperFast/Studio" target="_blank" className="underline">git@github.com:HarperFast/studio.git</a>.
+										If you have more than one key, make sure to utilize unique hostnames!
 									</span>
 								</AlertDescription>
 							</Alert>
