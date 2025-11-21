@@ -16,7 +16,7 @@ export const ImportSchema = z.object({
 	source: z.enum(['git', 'npm', 'tarball']),
 	ref: z.string().nonempty('Please enter a URL or package reference.'),
 	installCommand: z.string(),
-	requiresAuth: z.literal(false),
+	requiresAuth: z.boolean(),
 });
 
 export const defaultImportOptions: z.infer<typeof ImportSchema> = {
