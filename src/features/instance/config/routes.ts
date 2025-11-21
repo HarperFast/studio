@@ -1,9 +1,10 @@
-import { createRoute } from '@tanstack/react-router';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
+import { createRoute } from '@tanstack/react-router';
 
 export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof createInstanceLayoutRoute>) {
 	const instanceConfigRoute = createRoute({
@@ -16,6 +17,7 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: '/',
 		component: ConfigOverviewIndex,
 	});
+
 	const instanceConfigRolesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'roles',
@@ -26,6 +28,7 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		path: 'roles/$roleId',
 		component: ConfigRolesIndex,
 	});
+
 	const instanceConfigUsersRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'users',
@@ -37,11 +40,27 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigUsersIndex,
 	});
 
+	const instanceConfigSSHKeysRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ssh-keys',
+		component: ConfigSSHKeysIndex,
+	});
+	const instanceConfigSSHKeyRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'ssh-keys/$keyName',
+		component: ConfigSSHKeysIndex,
+	});
+
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
+
 		instanceConfigRolesRoute,
 		instanceConfigRoleRoute,
+
 		instanceConfigUsersRoute,
 		instanceConfigUserRoute,
+
+		instanceConfigSSHKeysRoute,
+		instanceConfigSSHKeyRoute,
 	]);
 }

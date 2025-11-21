@@ -1,7 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-interface SSHKeyName {
+export interface SSHKeyName {
 	name: string;
 }
 
@@ -16,6 +16,5 @@ export function listSSHKeysQueryOptions(params: InstanceClientIdConfig) {
 	return queryOptions({
 		queryKey: [params.entityId, 'list_ssh_keys'] as const,
 		queryFn: () => listSSHKeys(params),
-		refetchInterval: 10_000,
 	});
 }

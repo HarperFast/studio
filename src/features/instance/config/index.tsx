@@ -1,7 +1,8 @@
 import { Loading } from '@/components/Loading';
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { Handshake, PieChartIcon, Users } from 'lucide-react';
+import { HandshakeIcon, KeyIcon, PieChartIcon, UsersIcon } from 'lucide-react';
 import { Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
@@ -27,6 +28,8 @@ export function ConfigIndex() {
 
 function DesktopConfigNavBar() {
 	const params = useParams({ strict: false });
+	const canManage = useInstanceManagePermission();
+
 	return (
 		<div className="hidden md:block pl-4 pt-4">
 			<Link
@@ -39,24 +42,31 @@ function DesktopConfigNavBar() {
 				<PieChartIcon className="inline-block" /> <span className="ms-3">Overview</span>
 			</Link>
 
-			<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
+			{canManage && <ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
 				<li>
 					<Link to={buildAbsoluteLinkToPage(params, 'config/users')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-						<Users className="inline-block" /> <span className="ms-3">Users</span>
+						<UsersIcon className="inline-block" /> <span className="ms-3">Users</span>
 					</Link>
 				</li>
 				<li>
 					<Link to={buildAbsoluteLinkToPage(params, 'config/roles')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-						<Handshake className="inline-block" /> <span className="ms-3">Roles</span>
+						<HandshakeIcon className="inline-block" /> <span className="ms-3">Roles</span>
 					</Link>
 				</li>
-			</ul>
+				<li>
+					<Link to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+						<KeyIcon className="inline-block" /> <span className="ms-3">SSH Keys</span>
+					</Link>
+				</li>
+			</ul>}
 		</div>
 	);
 }
 
 function MobileConfigNavBar() {
 	const params = useParams({ strict: false });
+	const canManage = useInstanceManagePermission();
+
 	return (
 		<ul className="flex space-x-4 md:hidden py-2 px-4">
 			<li>
@@ -70,16 +80,23 @@ function MobileConfigNavBar() {
 					<PieChartIcon className="inline-block" /> <span className="ms-3">Overview</span>
 				</Link>
 			</li>
-			<li>
-				<Link to={buildAbsoluteLinkToPage(params, 'config/users')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-					<Users className="inline-block" /> <span className="ms-3">Users</span>
-				</Link>
-			</li>
-			<li>
-				<Link to={buildAbsoluteLinkToPage(params, 'config/roles')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
-					<Handshake className="inline-block" /> <span className="ms-3">Roles</span>
-				</Link>
-			</li>
+			{canManage && (<>
+				<li>
+					<Link to={buildAbsoluteLinkToPage(params, 'config/users')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+						<UsersIcon className="inline-block" /> <span className="ms-3">Users</span>
+					</Link>
+				</li>
+				<li>
+					<Link to={buildAbsoluteLinkToPage(params, 'config/roles')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+						<HandshakeIcon className="inline-block" /> <span className="ms-3">Roles</span>
+					</Link>
+				</li>
+				<li>
+					<Link to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+						<KeyIcon className="inline-block" /> <span className="ms-3">SSH Keys</span>
+					</Link>
+				</li>
+			</>)}
 		</ul>
 	);
 }
