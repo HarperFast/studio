@@ -1,5 +1,8 @@
 'use client';
 
+import { Loading } from '@/components/Loading';
+
+import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
 import {
 	ColumnDef,
@@ -11,10 +14,7 @@ import {
 	SortingState,
 	useReactTable,
 } from '@tanstack/react-table';
-
-import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
 import React, { Dispatch, SetStateAction } from 'react';
-import { Loading } from '@/components/Loading';
 
 interface BrowseDataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
@@ -75,7 +75,7 @@ export function SimpleBrowseDataTable<TData, TValue>({
 						</TableCell>))}
 					</TableRow>))) : (<TableRow>
 					<TableCell colSpan={columns.length} className="h-24 text-center">
-						{isFetching ? <div><Loading className="m-12" /></div> : <span>No results.</span>}
+						{isFetching ? <div><Loading className="p-12" /></div> : <span>No results.</span>}
 					</TableCell>
 				</TableRow>)}
 			</TableBody>

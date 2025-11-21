@@ -5,17 +5,18 @@ import { z } from 'zod';
 
 export const UpdateSSHKeySchema = z.object({
 	name: z.string().trim(),
-	key: z.string().trim(),
+	key: z.string().min(1).trim(),
 });
 
 type UpdateSSHKeyFormData = z.infer<typeof UpdateSSHKeySchema> & InstanceClientConfig & InstanceTypeConfig;
 
 async function updateSSHKey(formData: UpdateSSHKeyFormData) {
-	const { instanceClient, entityType, ...sshKey } = formData;
+	const { instanceClient, entityType, name, key } = formData;
 	const { data } = await instanceClient.post<ReplicatedResponse>('/', {
 		operation: 'update_ssh_key',
 		replicated: entityType === 'cluster',
-		...sshKey,
+		name,
+		key,
 	});
 	return data;
 }

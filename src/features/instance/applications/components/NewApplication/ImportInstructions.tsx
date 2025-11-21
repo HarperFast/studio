@@ -69,7 +69,7 @@ export function ImportInstructions({
 									<FormLabel className="pb-1">Git Repository URL</FormLabel>
 									<FormControl>
 										<Input
-											type="url"
+											type="text"
 											autoCapitalize="none"
 											autoComplete="off"
 											autoFocus={true}
