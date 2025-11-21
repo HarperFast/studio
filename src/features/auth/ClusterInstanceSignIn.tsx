@@ -54,6 +54,10 @@ export function ClusterInstanceSignIn() {
 	}, [cluster, instance]);
 
 	const instanceParams = useInstanceClientIdParams(operationsUrl);
+	const warnAboutLocalDeviceAccess = useMemo(
+		() => operationsUrl?.includes('localhost') || operationsUrl?.includes('127.0.0.1'),
+		[operationsUrl],
+	);
 	const warnAboutLoginCookieIssues = useMemo(
 		() => detectCrossLocalhostUrls(navigator.userAgent, location.hostname, operationsUrl),
 		[operationsUrl],
@@ -140,9 +144,17 @@ export function ClusterInstanceSignIn() {
 							{healthy === false && (
 								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
 									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to
-									GET {operationsUrl}health. Is the server running? Have
-									you <a href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank" className="underline">enabled
-									CORS</a> for the operations API?
+									GET <a href={`${operationsUrl}health`} className="underline" target="_blank">{operationsUrl}health</a> checks.
+									<ol className="list-decimal ml-8 mt-2">
+										<li>Is the server running?</li>
+										<li>Have you <a
+											href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank"
+											className="underline">enabled CORS</a> for the operations API?
+										</li>
+										{warnAboutLocalDeviceAccess && <li>Have you allowed <a
+											href="https://www.google.com/search?q=How+do+I+enable+local+network+access+in+my+browser%3F" className="underline" target="_blank">local
+											network access</a> in your browser?</li>}
+									</ol>
 								</div>
 							)}
 							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.MixedLoopback && (
