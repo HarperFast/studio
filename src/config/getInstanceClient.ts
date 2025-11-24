@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { authStore, EntityIds, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { rejectReplicationFailures } from '@/integrations/api/replication';
+import { curryRetryGatewayErrors } from '@/integrations/api/retryGatewayErrors';
 import axios from 'axios';
 
 interface InstanceClient {
@@ -45,6 +46,9 @@ export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, 
 		},
 		baseURL,
 	});
-	client.interceptors.response.use(rejectReplicationFailures);
+	client.interceptors.response.use(
+		rejectReplicationFailures,
+		curryRetryGatewayErrors(client),
+	);
 	return client;
 }
