@@ -2,26 +2,31 @@ import { emitToListeners, useListener } from '@/lib/events/listener';
 import { WatchedValueKeys, WatchedValuesTypeMap } from '@/lib/storage/watchedValueKeys';
 import { useCallback, useState } from 'react';
 
-export function useWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: K): T | undefined
-export function useWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K], D extends T>(name: K, defaultValue: D): T
-export function useWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K], D extends T>(name: K, defaultValue?: D): T | undefined {
-	const [value, setValue] = useState<T | undefined>(defaultValue);
+interface ValueWrapper<T> {
+	value: T,
+	trigger?: unknown
+}
+
+export function useWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K], D extends T>(name: K, defaultValue: D): ValueWrapper<T> {
+	const [value, setValue] = useState<{ value: T, trigger?: unknown }>({ value: defaultValue });
 	useListener(
 		name,
-		(newValue: T) => setValue(newValue),
+		(newValue: T, trigger) => setValue({ value: newValue, trigger }),
 		[setValue],
 	);
 	return value;
 }
 
-export function setWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T): void {
-	emitToListeners(name, value);
+export function setWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T, trigger?: unknown): void {
+	emitToListeners(name, value, trigger);
 }
 
-export function currySetWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T): () => void {
-	return () => setWatchedValue(name, value);
+export function currySetWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T, trigger?: unknown): (e?: unknown) => void {
+	return (e) => setWatchedValue(name, value, trigger ?? e);
 }
 
-export function useSetWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T): () => void {
-	return useCallback(() => setWatchedValue(name, value), [name, value]);
+export function useSetWatchedValue<K extends keyof WatchedValuesTypeMap, T extends WatchedValuesTypeMap[K]>(name: WatchedValueKeys, value: T, trigger?: unknown): () => void {
+	return useCallback((e?: unknown) => {
+		setWatchedValue(name, value, trigger ?? e);
+	}, [name, value, trigger]);
 }

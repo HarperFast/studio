@@ -5,13 +5,14 @@ import { Label } from '@/components/ui/label';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { usePackageComponentMutation } from '@/integrations/api/instance/applications/packageComponent';
-import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { DownloadIcon } from 'lucide-react';
 import { ChangeEvent, MouseEvent, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 export function DownloadApplicationModal() {
-	const isModalOpen = useWatchedValue('ShowDownloadApplicationModal', false);
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowDownloadApplicationModal', false);
 
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntry } = useEditorView();
@@ -24,13 +25,16 @@ export function DownloadApplicationModal() {
 		setIncludeNodeModules(e.target.checked);
 	}, []);
 
-	const closeModal = useSetWatchedValue('ShowDownloadApplicationModal', false);
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowDownloadApplicationModal', false);
+		attemptToRestoreFocus(trigger);
+	}, [trigger]);
 	const onClickYes = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		if (!openedEntry) {
 			return;
 		}
-		setWatchedValue('ShowDownloadApplicationModal', false);
+		closeModal();
 		const toastId = toast.loading('Packaging...');
 		packageComponent(
 			{
@@ -55,7 +59,7 @@ export function DownloadApplicationModal() {
 				},
 			},
 		);
-	}, [openedEntry, packageComponent, includeNodeModules, instanceParams]);
+	}, [openedEntry, packageComponent, includeNodeModules, instanceParams, closeModal]);
 
 
 	return (

@@ -92,8 +92,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				onClick={onSaveClick}
 				disabled={fileIsClean || isSavingFile}
 			>
-				<SaveIcon />
-				<span className="hidden lg:inline-block"><u>S</u>ave</span>
+				<SaveIcon className="pointer-events-none" />
+				<span className="hidden lg:inline-block pointer-events-none"><u>S</u>ave</span>
 			</Button>}
 
 			{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && <Button
@@ -102,8 +102,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				onClick={onRenameClick}
 				disabled={!fileIsClean || isSavingFile}
 			>
-				<PencilIcon />
-				<span className="hidden lg:inline-block"><u>R</u>ename</span>
+				<PencilIcon className="pointer-events-none" />
+				<span className="hidden lg:inline-block pointer-events-none"><u>R</u>ename</span>
 			</Button>}
 
 			{!openedEntry.package && canManageBrowseInstance && <Button
@@ -111,8 +111,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				className="rounded-none"
 				onClick={onAddFileClick}
 			>
-				<FileIcon />
-				<span>
+				<FileIcon className="pointer-events-none" />
+				<span className="pointer-events-none">
 					<u>N</u>ew
 					<span className="hidden mlg:inline-block">&nbsp;File</span>
 				</span>
@@ -123,8 +123,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				className="rounded-none"
 				onClick={onAddDirectoryClick}
 			>
-				<FolderIcon />
-				<span>
+				<FolderIcon className="pointer-events-none" />
+				<span className="pointer-events-none">
 					<u>A</u>dd
 					<span className="hidden xl:inline-block">&nbsp;Directory</span>
 				</span>
@@ -135,8 +135,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				className="rounded-none"
 				onClick={onDownloadApplicationClick}
 			>
-				<DownloadIcon />
-				<span className="hidden lg:inline-block">
+				<DownloadIcon className="pointer-events-none" />
+				<span className="hidden lg:inline-block pointer-events-none">
 					Download
 					<span className="hidden xl:inline-block">&nbsp;Application</span>
 				</span>
@@ -148,8 +148,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 					className="rounded-none"
 					onClick={onRedeployClick}
 				>
-					<PackageIcon />
-					<span>Redeploy <u>P</u>ackage</span>
+					<PackageIcon className="pointer-events-none" />
+					<span className="pointer-events-none">Redeploy <u>P</u>ackage</span>
 				</Button>}
 
 			<div className="grow"></div>
@@ -169,8 +169,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				onClick={onRevertChangesClicked}
 				disabled={fileIsClean || isSavingFile}
 			>
-				<Undo2Icon />
-				<span className="hidden xl:inline-block">Revert Changes</span>
+				<Undo2Icon className="pointer-events-none" />
+				<span className="hidden xl:inline-block pointer-events-none">Revert Changes</span>
 			</Button>}
 
 			{!restrictPackageModification && canManageBrowseInstance && <Button
@@ -178,8 +178,8 @@ export function ContentActions({ toggledSidebar, toggleSidebar }: {
 				className="rounded-none"
 				onClick={onDeleteClick}
 			>
-				<TrashIcon />
-				<span className="hidden xl:inline-block"><u>D</u>elete</span>
+				<TrashIcon className="pointer-events-none" />
+				<span className="hidden xl:inline-block pointer-events-none"><u>D</u>elete</span>
 			</Button>}
 
 		</>)}

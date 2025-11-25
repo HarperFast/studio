@@ -19,7 +19,8 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useSetComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
-import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
@@ -27,8 +28,12 @@ import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function AddDirectoryOrFileModal() {
-	const type = useWatchedValue('ShowAddDirectoryOrFileModalType', false);
-	const hideModal = useSetWatchedValue('ShowAddDirectoryOrFileModalType', false);
+	const { value: type, trigger } = useWatchedValue('ShowAddDirectoryOrFileModalType', false);
+
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowAddDirectoryOrFileModalType', false);
+		attemptToRestoreFocus(trigger);
+	}, [trigger]);
 
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
@@ -71,7 +76,7 @@ export function AddDirectoryOrFileModal() {
 			{
 				onSuccess: () => {
 					void reloadRootEntries();
-					hideModal();
+					closeModal();
 					form.reset();
 					const treeId = [openedEntry.project, filePath, data.name].filter(excludeFalsy).join('/');
 					setFocusedItem(treeId);
@@ -82,15 +87,15 @@ export function AddDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [addFolderFile, form, hideModal, instanceParams, openedEntry, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
+	}, [addFolderFile, form, closeModal, instanceParams, openedEntry, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
 
 	const onCancelClick = useCallback(() => {
-		hideModal();
+		closeModal();
 		form.reset();
-	}, [hideModal, form]);
+	}, [closeModal, form]);
 
 	return (
-		<Dialog onOpenChange={hideModal} open={!!type}>
+		<Dialog onOpenChange={closeModal} open={!!type}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)}>

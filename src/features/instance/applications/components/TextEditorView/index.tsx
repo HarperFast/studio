@@ -1,9 +1,9 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
-import { curryEmitToListeners, useListener } from '@/lib/events/listener';
-import { currySetWatchedValue } from '@/lib/events/watcher';
+import { useListener } from '@/lib/events/listener';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useState } from 'react';
@@ -47,51 +47,9 @@ export function TextEditorView() {
 	}, []);
 
 	useEffect(() => {
-		if (!mounted || !canManageBrowseInstance || !!openedEntry?.package || restrictPackageModification) {
-			return;
+		if (mounted && canManageBrowseInstance && !openedEntry?.package && !restrictPackageModification) {
+			return registerWithEditor(mounted);
 		}
-		const [editor, monaco] = mounted;
-		const disposables = [
-			editor.addAction({
-				id: 'new-file',
-				label: 'New File',
-				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyN],
-				run: currySetWatchedValue('ShowAddDirectoryOrFileModalType', 'file'),
-			}),
-			editor.addAction({
-				id: 'rename-file',
-				label: 'Rename File',
-				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyCode.KeyR],
-				run: currySetWatchedValue('ShowRenameFileModal', true),
-			}),
-			editor.addAction({
-				id: 'new-directory',
-				label: 'New Directory',
-				keybindings: [monaco.KeyMod.WinCtrl | monaco.KeyMod.Alt | monaco.KeyMod.Shift | monaco.KeyCode.KeyN],
-				run: currySetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory'),
-			}),
-			editor.addAction({
-				id: 'save-file',
-				label: 'Save Changes',
-				keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
-				run: curryEmitToListeners('SaveFile', true),
-			}),
-			editor.addAction({
-				id: 'revert-file',
-				label: 'Revert File',
-				run: curryEmitToListeners('RevertChanges', true),
-			}),
-			editor.addAction({
-				id: 'delete-file',
-				label: 'Delete File',
-				run: currySetWatchedValue('ShowDeleteDirectoryOrFileModal', true),
-			}),
-		];
-		return () => {
-			for (const disposable of disposables) {
-				disposable?.dispose();
-			}
-		};
 	}, [mounted, canManageBrowseInstance, openedEntry, restrictPackageModification]);
 
 	useListener(

@@ -2,6 +2,7 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { useGlobalShortcutKeys } from '@/features/instance/applications/shortcuts';
 import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
 import { joinPath } from '@/lib/string/paths/joinPath';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
@@ -27,6 +28,8 @@ export function ApplicationsSidebar() {
 		setSelectedItems,
 	} = useEditorView();
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
+
+	useGlobalShortcutKeys();
 
 	useEffect(function setOpenedEntryFromFocusedItem() {
 		if (openedEntry?.path !== focusedItem && focusedItem) {
@@ -59,6 +62,7 @@ export function ApplicationsSidebar() {
 				break;
 		}
 	}, [items, renameFiles]);
+
 	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | undefined>, name: string) => {
 		if (item.data) {
 			return renameFiles([
@@ -78,6 +82,7 @@ export function ApplicationsSidebar() {
 				canDropOnNonFolder={false}
 				canReorderItems={false}
 				canSearch={true}
+				canRename={false}
 				getItemTitle={getItemTitle}
 				items={items}
 				onDrop={onDrop}
