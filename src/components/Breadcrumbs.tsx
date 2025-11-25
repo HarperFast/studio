@@ -1,9 +1,8 @@
-import { RestartButton } from '@/components/RestartButton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isLocalStudio } from '@/config/constants';
-import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Cluster, Instance, Organization } from '@/integrations/api/api.patch';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
-import { Link, useLocation, useParams, useRouteContext } from '@tanstack/react-router';
+import { Link, useLocation, useRouteContext } from '@tanstack/react-router';
 import { HomeIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -15,6 +14,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 		instance?: Instance;
 		cluster?: Cluster
 	} = useRouteContext({ strict: false });
+	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
 
 	const breadcrumbs = useMemo(() => {
 		const routeHistory = location.pathname.split('/')
@@ -76,22 +76,17 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	return (
 		<div role="list" className="flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
 			{...breadcrumbs}
-			{restartRequired && <BreadcrumbsRestartButton />}
+			{restartRequired && <Tooltip>
+				<TooltipTrigger asChild>
+					<div className="text-xs italic text-muted-foreground">
+						* Restart <span className="hidden lg:inline-block">Requested</span>
+					</div>
+				</TooltipTrigger>
+				<TooltipContent side="bottom">
+					This {targetNoun} is requesting a restart, when convenient, to apply your latest changes.
+					<br />You can do this from the Apps or Config pages.
+				</TooltipContent>
+			</Tooltip>}
 		</div>
 	);
-}
-
-function BreadcrumbsRestartButton() {
-	const { instanceId }: { instanceId?: string; clusterId: string; } = useParams({ strict: false });
-	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
-	const instanceParams = useInstanceClientIdParams();
-
-	return <RestartButton
-		className="animate-glow-pulse"
-		targetNoun={targetNoun}
-		instanceClient={instanceParams.instanceClient}
-		operation="restart"
-		hideText={true}
-		tooltip={`This ${targetNoun} is requesting a restart, when convenient, to apply your latest changes.`}
-	/>;
 }
