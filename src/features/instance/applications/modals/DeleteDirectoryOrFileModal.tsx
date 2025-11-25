@@ -4,21 +4,34 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDropComponent } from '@/integrations/api/instance/applications/dropComponent';
-import { setWatchedValue, useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 
 export function DeleteDirectoryOrFileModal() {
-	const isModalOpen = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems } = useEditorView();
 	const isDirectorySelected = isDirectory(openedEntry);
+	const isApplicationSelected = isDirectorySelected && openedEntry.path === openedEntry.project;
 	const isPackageSelected = !!openedEntry?.package;
 	const action = isPackageSelected ? 'Remove' : 'Delete';
-	const thing = isPackageSelected ? 'Imported Application' : isDirectorySelected ? 'Directory' : 'File';
+	const thing = isPackageSelected
+		? 'Imported Application'
+		: isApplicationSelected
+			? 'Application'
+			: isDirectorySelected
+				? 'Directory'
+				: 'File';
 	const { mutate: deleteFolderFile, isPending, isSuccess } = useDropComponent();
 	const actionStatus = isSuccess ? `${action}d` : isPending ? `${action.slice(0, -1)}ing` : action;
+
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
+		attemptToRestoreFocus(trigger);
+	}, [trigger]);
 
 	const handleDeleteFolderOrFile = useCallback(() => {
 		if (!openedEntry) {
@@ -34,7 +47,7 @@ export function DeleteDirectoryOrFileModal() {
 			},
 			{
 				onSuccess: () => {
-					setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
+					closeModal();
 					const itemToFocus = !openedEntry.package && openedEntry.path.split('/').slice(0, -1).join('/');
 					setFocusedItem(itemToFocus || undefined);
 					setSelectedItems(itemToFocus ? [itemToFocus] : []);
@@ -42,14 +55,12 @@ export function DeleteDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [deleteFolderFile, instanceParams, openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems]);
+	}, [deleteFolderFile, instanceParams, openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, closeModal]);
 
 	const onClickYes = useCallback((e: MouseEvent) => {
 		e.preventDefault();
 		handleDeleteFolderOrFile();
 	}, [handleDeleteFolderOrFile]);
-
-	const closeModal = useSetWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>

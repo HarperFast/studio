@@ -2,7 +2,8 @@ import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useDeleteTableMutation } from '@/integrations/api/instance/database/deleteTable';
-import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -13,8 +14,12 @@ export function DeleteTableModal({ databaseName, tableName, onDeleted }: {
 	readonly tableName: string;
 	readonly onDeleted: (deleted: 'table' | 'database') => void;
 }) {
-	const isModalOpen = useWatchedValue('ShowDeleteTable', false);
-	const closeModal = useSetWatchedValue('ShowDeleteTable', false);
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteTable', false);
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowDeleteTable', false);
+		attemptToRestoreFocus(trigger);
+	}, [trigger]);
+
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();

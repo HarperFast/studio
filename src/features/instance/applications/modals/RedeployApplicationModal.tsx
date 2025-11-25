@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCwIcon } from 'lucide-react';
@@ -18,7 +19,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 export function RedeployApplicationModal() {
-	const isModalOpen = useWatchedValue('ShowRedeployApplicationModal', false);
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowRedeployApplicationModal', false);
 
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
@@ -41,11 +42,17 @@ export function RedeployApplicationModal() {
 		reset({ applicationUrl: packageUrl });
 	}, [reset, packageUrl]);
 
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowRedeployApplicationModal', false);
+		attemptToRestoreFocus(trigger);
+		reset({ applicationUrl: packageUrl });
+	}, [reset, packageUrl, trigger]);
+
 	const redeployPackage = useCallback((applicationUrl: string, installCommand: string | undefined) => {
 		if (!openedEntry) {
 			return;
 		}
-		setWatchedValue('ShowRedeployApplicationModal', false);
+		closeModal();
 
 		const toastId = toast.loading('Redeploying...');
 		reDeployApplication({
@@ -70,7 +77,7 @@ export function RedeployApplicationModal() {
 				toast.dismiss(toastId);
 			},
 		});
-	}, [reDeployApplication, openedEntry, instanceParams, queryClient]);
+	}, [reDeployApplication, openedEntry, instanceParams, queryClient, closeModal]);
 
 	const submitForm = ({ applicationUrl, installCommand }: {
 		applicationUrl: string | undefined,
@@ -81,14 +88,9 @@ export function RedeployApplicationModal() {
 		}
 	};
 
-	const modalClosed = useCallback(() => {
-		setWatchedValue('ShowRedeployApplicationModal', false);
-		reset({ applicationUrl: packageUrl });
-	}, [reset, packageUrl]);
-
 	return (
 		<Dialog
-			onOpenChange={modalClosed}
+			onOpenChange={closeModal}
 			open={isModalOpen}
 		>
 			<DialogContent aria-describedby={undefined} className="text-white">
@@ -146,7 +148,7 @@ export function RedeployApplicationModal() {
 								type="button"
 								variant="ghostOutline"
 								className="w-full rounded-full"
-								onClick={modalClosed}
+								onClick={closeModal}
 								disabled={isPending}
 							>
 								Cancel

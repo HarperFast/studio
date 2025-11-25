@@ -39,11 +39,11 @@ export function RestartButton({
 				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 				disabled={disabled || isRestartPending || isRestartClusterPending}
 			>
-				<RotateCcwIcon />
-				{hideText !== true && <span className="hidden md:inline-block">Restart {targetNoun}</span>}
+				<RotateCcwIcon className="pointer-events-none" />
+				{hideText !== true && <span className="hidden md:inline-block pointer-events-none">Restart {targetNoun}</span>}
 			</Button>
 		</TooltipTrigger>
-		<TooltipContent>
+		<TooltipContent side="bottom">
 			{tooltip
 				? tooltip
 				: operation === 'restart_service'

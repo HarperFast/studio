@@ -16,7 +16,8 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
-import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
+import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PencilIcon } from 'lucide-react';
@@ -25,8 +26,12 @@ import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function RenameFileModal() {
-	const isModalOpen = useWatchedValue('ShowRenameFileModal', false);
-	const hideModal = useSetWatchedValue('ShowRenameFileModal', false);
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowRenameFileModal', false);
+
+	const closeModal = useCallback(() => {
+		setWatchedValue('ShowRenameFileModal', false);
+		attemptToRestoreFocus(trigger);
+	}, [trigger]);
 
 	const { openedEntry } = useEditorView();
 	const RenameFileSchema = z.object({
@@ -68,18 +73,18 @@ export function RenameFileModal() {
 				to: renameFileInPath(openedEntry.path, data.name),
 			},
 		]);
-		hideModal();
+		closeModal();
 		form.reset();
 		setIsPending(false);
-	}, [form, hideModal, openedEntry, renameFiles, setIsPending]);
+	}, [form, closeModal, openedEntry, renameFiles, setIsPending]);
 
 	const onCancelClick = useCallback(() => {
-		hideModal();
+		closeModal();
 		form.reset();
-	}, [hideModal, form]);
+	}, [closeModal, form]);
 
 	return (
-		<Dialog onOpenChange={hideModal} open={isModalOpen}>
+		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(submitForm)}>
