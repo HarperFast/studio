@@ -34,7 +34,7 @@ export function Instances() {
 				size: 1,
 				minSize: 1,
 				cell: (cell) => (<div className="flex justify-end">
-					<InstanceLogInCell instance={cell.row.original} />
+					<InstanceLogInCell isSelfManaged={isSelfManaged} instance={cell.row.original} />
 				</div>),
 			},
 			isSelfManaged && {

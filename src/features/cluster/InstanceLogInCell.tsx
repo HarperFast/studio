@@ -11,7 +11,7 @@ import { Link } from '@tanstack/react-router';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
-export function InstanceLogInCell({ instance }: { readonly instance: Instance }) {
+export function InstanceLogInCell({ isSelfManaged, instance }: { readonly isSelfManaged: boolean, readonly instance: Instance }) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient(operationsUrl);
@@ -29,7 +29,7 @@ export function InstanceLogInCell({ instance }: { readonly instance: Instance })
 
 	if (!instanceUser || isFabricConnect) {
 		return <span className="flex gap-4">
-			{update && <Link
+			{update && !isSelfManaged && <Link
 				to={`../instance/${instance.id}${defaultInstanceRoute}`}
 				className="text-sm"
 				aria-label={`Connect to ${instance.name} instance`}
