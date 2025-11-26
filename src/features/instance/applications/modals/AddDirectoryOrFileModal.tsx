@@ -21,10 +21,12 @@ import { useSetComponentFile } from '@/integrations/api/instance/applications/se
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import z from 'zod';
 
 export function AddDirectoryOrFileModal() {
@@ -35,7 +37,14 @@ export function AddDirectoryOrFileModal() {
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
-	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, setExpandedItems } = useEditorView();
+	const {
+		openedEntry,
+		entryExists,
+		reloadRootEntries,
+		setFocusedItem,
+		setSelectedItems,
+		setExpandedItems,
+	} = useEditorView();
 	const instanceParams = useInstanceClientIdParams();
 	const { mutate: addFolderFile, isPending } = useSetComponentFile();
 	const NewFileFolderSchema = z.object({
@@ -57,7 +66,7 @@ export function AddDirectoryOrFileModal() {
 	});
 
 	const submitForm = useCallback((data: z.infer<typeof NewFileFolderSchema>) => {
-		if (!openedEntry) {
+		if (!openedEntry || !type) {
 			return;
 		}
 		const splitPath = openedEntry.path.split('/');
@@ -66,9 +75,16 @@ export function AddDirectoryOrFileModal() {
 				? splitPath.slice(1)
 				: splitPath.slice(1, -1)
 		).join('/');
+		const file = filePath ? `${filePath}/${data.name}` : data.name;
+		if (entryExists(openedEntry.project + '/' + file)) {
+			toast.error(`${capitalizeWords(type)} already exists!`, {
+				description: file,
+			});
+			return;
+		}
 		addFolderFile(
 			{
-				file: `${filePath}/${data.name}`,
+				file,
 				project: openedEntry.project,
 				payload: type === 'directory' ? undefined : '',
 				...instanceParams,
@@ -87,7 +103,7 @@ export function AddDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [addFolderFile, form, closeModal, instanceParams, openedEntry, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
+	}, [addFolderFile, form, closeModal, instanceParams, openedEntry, entryExists, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();

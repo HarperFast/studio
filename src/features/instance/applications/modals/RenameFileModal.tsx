@@ -14,6 +14,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
@@ -23,6 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { PencilIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import z from 'zod';
 
 export function RenameFileModal() {
@@ -33,7 +35,7 @@ export function RenameFileModal() {
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
-	const { openedEntry } = useEditorView();
+	const { openedEntry, entryExists } = useEditorView();
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
@@ -45,7 +47,6 @@ export function RenameFileModal() {
 			.trim()
 			.refine((name) => name !== openedEntry?.name, {
 				error: 'Please enter a new name.',
-				path: ['name'],
 			}),
 	});
 	const [isPending, setIsPending] = useState(false);
@@ -65,18 +66,20 @@ export function RenameFileModal() {
 		if (!openedEntry) {
 			return;
 		}
+		const to = renameFileInPath(openedEntry.path, data.name);
+		if (entryExists(to)) {
+			toast.error(`${isDirectory(openedEntry) ? 'Directory' : 'File'} already exists!`, {
+				description: to,
+			});
+			return;
+		}
 
 		setIsPending(true);
-		await renameFiles([
-			{
-				from: openedEntry.path,
-				to: renameFileInPath(openedEntry.path, data.name),
-			},
-		]);
+		await renameFiles([{ from: openedEntry.path, to }]);
 		closeModal();
 		form.reset();
 		setIsPending(false);
-	}, [form, closeModal, openedEntry, renameFiles, setIsPending]);
+	}, [closeModal, entryExists, form, openedEntry, renameFiles, setIsPending]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();

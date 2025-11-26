@@ -55,5 +55,5 @@ function keyDownHandler(e: KeyboardEvent) {
 			return;
 		}
 	}
-	console.log('unhandled key press', e.key, modifiers);
+	// console.log('unhandled key press', e.key, modifiers);
 }

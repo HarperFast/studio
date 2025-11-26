@@ -8,6 +8,7 @@ import { FileEntry } from './fileEntry';
 export type EditorViewContextValue = {
 	rootEntries: Array<DirectoryEntry | FileEntry>;
 	reloadRootEntries: () => Promise<APIDirectoryEntry>;
+	entryExists: (path: string) => boolean;
 
 	openedEntry: DirectoryEntry | FileEntry | undefined;
 	setOpenedEntry: (entry: DirectoryEntry | FileEntry | undefined) => void;

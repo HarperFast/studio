@@ -2,8 +2,8 @@ import { currySetWatchedValue, setWatchedValue } from '@/lib/events/watcher';
 import { Contract } from './contract';
 
 export const deleteShortcut = {
-	handleGlobal(key) {
-		if (key === 'Backspace') {
+	handleGlobal(key, modifiers) {
+		if ((modifiers.cmd || modifiers.ctrl) && key === 'Delete') {
 			setWatchedValue('ShowDeleteDirectoryOrFileModal', true);
 			return true;
 		}
