@@ -50,8 +50,14 @@ export function NewApplication() {
 				path: [`applicationName`],
 				message: 'Please name your application!',
 			});
+		} else if (rootEntries.find(rootEntry => rootEntry.name === data.applicationName)) {
+			ctx.addIssue({
+				code: 'custom',
+				path: [`applicationName`],
+				message: 'That application name is already in use!',
+			});
 		}
-	}, [defaultApplicationName]);
+	}, [defaultApplicationName, rootEntries]);
 
 	const methods = useForm({
 		resolver: zodResolver(NewApplicationSchema.superRefine(refineZod)),

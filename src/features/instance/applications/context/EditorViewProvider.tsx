@@ -38,28 +38,25 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
 
-	const reloadRootEntries = useCallback(async () =>
-		queryClient.fetchQuery<APIDirectoryEntry>({
-			queryKey: [instanceParams.entityId, 'get_components'],
-			networkMode: 'online',
-		}), [queryClient, instanceParams]);
-
 	/*
 	 Create our structured view from the relational API data.
 	 */
 	const { data: apiComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
-	const rootEntries: Array<DirectoryEntry | FileEntry> = useMemo(() => {
-		if (!apiComponents) {
-			return [];
-		}
-		return transformNodes(
-			apiComponents.entries,
+	const mappedData: {
+		rootEntries: Array<DirectoryEntry | FileEntry>,
+		pathsRegistry: Set<string>,
+	} = useMemo(() => {
+		const pathsRegistry = new Set<string>();
+		const rootEntries = transformNodes(
+			apiComponents.entries || [],
 			'entries',
 			(node: APIFileEntry | APIDirectoryEntry, parents: APIDirectoryEntry[]) => {
 				const readMeAPIFile = isDirectory(node) && node.entries.find(e => e.name.toLowerCase() === 'readme.md');
+				const path = [...parents.map(p => p.name), node.name].join('/');
+				pathsRegistry.add(path);
 				return {
 					name: node.name,
-					path: [...parents.map(p => p.name), node.name].join('/'),
+					path,
 					project: (parents[0] || node)?.name,
 					package: (parents[0] || node)?.package,
 					overviewEntry: readMeAPIFile && !isDirectory(readMeAPIFile) && {
@@ -71,9 +68,23 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				} satisfies DirectoryEntry | FileEntry;
 			},
 		);
+		return {
+			rootEntries,
+			pathsRegistry,
+		};
 	}, [apiComponents]);
 
-	const defaultFolderExpansions = rootEntries.filter(rootEntry => !rootEntry.package && rootEntry.path !== newApplication).map<TreeItemIndex>(rootEntry => rootEntry.name);
+	const reloadRootEntries = useCallback(async () =>
+		queryClient.fetchQuery<APIDirectoryEntry>({
+			queryKey: [instanceParams.entityId, 'get_components'],
+			networkMode: 'online',
+		}), [queryClient, instanceParams]);
+
+	const entryExists = useCallback((path: string) => {
+		return mappedData.pathsRegistry.has(path);
+	}, [mappedData.pathsRegistry]);
+
+	const defaultFolderExpansions = mappedData.rootEntries.filter(rootEntry => !rootEntry.package && rootEntry.path !== newApplication).map<TreeItemIndex>(rootEntry => rootEntry.name);
 	let defaultFocusedItem = defaultFolderExpansions[0];
 	let defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
 	if (!defaultFocusedItem) {
@@ -181,8 +192,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
 
-			rootEntries,
+			rootEntries: mappedData.rootEntries,
 			reloadRootEntries,
+			entryExists,
 
 			focusedItem,
 			setFocusedItem,
@@ -203,8 +215,9 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 
 		};
 	}, [
-		rootEntries,
+		mappedData.rootEntries,
 		reloadRootEntries,
+		entryExists,
 
 		focusedItem,
 		setFocusedItem,
