@@ -5,13 +5,13 @@ import { useRenameFiles } from '@/features/instance/applications/hooks/useRename
 import { useGlobalShortcutKeys } from '@/features/instance/applications/shortcuts';
 import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
 import { joinPath } from '@/lib/string/paths/joinPath';
-import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
 import { useCallback, useEffect, useMemo } from 'react';
 import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { DraggingPosition } from 'react-complex-tree/src/types';
 import { toast } from 'sonner';
 import { buildItems } from './buildItems';
+import { DropTarget } from './DropTarget';
 import { getItemTitle } from './getItemTitle';
 import { ItemTitle } from './ItemTitle';
 
@@ -42,7 +42,7 @@ export function ApplicationsSidebar() {
 	}, [focusedItem, items, openedEntry?.path, setOpenedEntry]);
 
 	const renameFiles = useRenameFiles();
-	const onDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
+	const onInternalDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
 		switch (target.targetType) {
 			case 'item':
 				if (items[target.targetItem]?.data?.package) {
@@ -63,19 +63,8 @@ export function ApplicationsSidebar() {
 		}
 	}, [items, renameFiles]);
 
-	const onRenameItem = useCallback((item: TreeItem<FileEntry | DirectoryEntry | undefined>, name: string) => {
-		if (item.data) {
-			return renameFiles([
-				{
-					from: item.data.path,
-					to: renameFileInPath(item.data.path, name),
-				},
-			]);
-		}
-	}, [renameFiles]);
-
 	return (
-		<div className="h-full overflow-auto pr-1.5">
+		<div className="h-full overflow-auto pr-1.5 pb-18">
 			<ControlledTreeEnvironment
 				canDragAndDrop={true}
 				canDropOnFolder={true}
@@ -85,8 +74,7 @@ export function ApplicationsSidebar() {
 				canRename={false}
 				getItemTitle={getItemTitle}
 				items={items}
-				onDrop={onDrop}
-				onRenameItem={onRenameItem}
+				onDrop={onInternalDrop}
 				renderItemTitle={ItemTitle}
 				viewState={{ applicationsTree: { focusedItem, expandedItems, selectedItems } }}
 				onFocusItem={item => setFocusedItem(item.index)}
@@ -98,6 +86,8 @@ export function ApplicationsSidebar() {
 			>
 				<Tree treeId="applicationsTree" rootItem={rootId} treeLabel="Applications file tree" />
 			</ControlledTreeEnvironment>
+
+			<DropTarget />
 		</div>
 	);
 }
