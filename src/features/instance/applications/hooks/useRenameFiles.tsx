@@ -67,6 +67,7 @@ export function useRenameFiles() {
 				...instanceParams,
 				file: oldFile,
 				project: oldProject,
+				encoding: 'base64',
 			});
 			if (canceled) {
 				break;
@@ -77,6 +78,7 @@ export function useRenameFiles() {
 				...instanceParams,
 				file: newFile,
 				project: newProject,
+				encoding: 'base64',
 				payload: fileContents.message,
 			});
 			if (canceled) {
@@ -101,7 +103,7 @@ export function useRenameFiles() {
 				description: 'All done!',
 				duration: 3000,
 				action: {
-					label: 'OK!',
+					label: 'OK',
 					onClick: () => {
 						// ;D
 					},
@@ -113,7 +115,7 @@ export function useRenameFiles() {
 				description: `${currentStep} of ${totalSteps} steps completed.`,
 				duration: 10000,
 				action: {
-					label: 'Gotcha',
+					label: 'OK',
 					onClick: () => {
 						// >_<
 					},
@@ -126,7 +128,7 @@ export function useRenameFiles() {
 		setSelectedItems(selectedItems => {
 			const updatedSelectedItems = selectedItems.slice();
 			for (const change of actualChanges) {
-				const existingIndex = selectedItems.indexOf(change.from);
+				const existingIndex = updatedSelectedItems.indexOf(change.from);
 				if (existingIndex >= 0) {
 					updatedSelectedItems.splice(existingIndex, 1, change.to);
 				} else {

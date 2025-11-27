@@ -1,5 +1,7 @@
-interface LoadingProps extends React.ComponentProps<'div'> {
-	text?: string;
+import { ComponentProps, ReactNode } from 'react';
+
+interface LoadingProps extends ComponentProps<'div'> {
+	text?: ReactNode;
 	centered?: boolean;
 }
 

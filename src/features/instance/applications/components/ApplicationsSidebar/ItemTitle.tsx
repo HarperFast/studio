@@ -27,7 +27,7 @@ export function ItemTitle({ title, item, context }: {
 						pkg={!!item.data?.package || item.data.path === importedApplications} />
 					: <FileTypeIcon extension={parseFileExtension(title)} />
 		}
-		<span className="text-nowrap">{title}{content ? '*' : ''}</span>
+		<span className="text-nowrap pointer-events-none">{title}{content ? '*' : ''}</span>
 		{item.data?.package && <LockedIcon />}
 	</>;
 }

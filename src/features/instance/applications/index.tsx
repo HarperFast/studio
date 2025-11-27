@@ -1,14 +1,14 @@
-import { ContentActions } from '@/features/instance/applications/components/ContentActions';
-import { ContentViewer } from '@/features/instance/applications/components/ContentViewer';
-import { AddDirectoryOrFileModal } from '@/features/instance/applications/modals/AddDirectoryOrFileModal';
-import { DeleteDirectoryOrFileModal } from '@/features/instance/applications/modals/DeleteDirectoryOrFileModal';
-import { DownloadApplicationModal } from '@/features/instance/applications/modals/DownloadApplicationModal';
-import { RedeployApplicationModal } from '@/features/instance/applications/modals/RedeployApplicationModal';
-import { RenameFileModal } from '@/features/instance/applications/modals/RenameFileModal';
 import { useSessionToggler } from '@/hooks/useSessionToggler';
 import { cx } from 'class-variance-authority';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
+import { ContentActions } from './components/ContentActions';
+import { ContentViewer } from './components/ContentViewer';
 import { EditorViewProvider } from './context/EditorViewProvider';
+import { AddDirectoryOrFileModal } from './modals/AddDirectoryOrFileModal';
+import { DeleteDirectoryOrFileModal } from './modals/DeleteDirectoryOrFileModal';
+import { DownloadApplicationModal } from './modals/DownloadApplicationModal';
+import { RedeployApplicationModal } from './modals/RedeployApplicationModal';
+import { RenameFileModal } from './modals/RenameFileModal';
 
 export function ApplicationsEditor() {
 	const { toggle, toggled } = useSessionToggler('ApplicationsSidebarOpened', true);

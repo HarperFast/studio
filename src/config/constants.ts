@@ -7,3 +7,6 @@ export const defaultClusterUsername = 'HDB_ADMIN';
 
 export const defaultInstanceRoute = '/';
 export const defaultInstanceRouteUpOne = '../';
+
+export const maxUploadFileSize = 1024 /* mb */ * 1024 /* kb */ * 1024 /* b */;
+export const maxFabricConnectUploadFileSize = 100 /* mb */ * 1024 /* kb */ * 1024 /* b */;
