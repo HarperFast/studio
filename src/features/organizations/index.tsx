@@ -90,18 +90,19 @@ export function OrganizationsIndex() {
 				<div className="flex w-full justify-end gap-2">
 					<Input
 						placeholder="Filter by name"
-						className="inline-block w-48 md:w-64 bg-black border"
+						className="inline-block w-full text-xs"
 						value={filterByNameValue}
 						onChange={onFilterByNameChanged}
 					/>
 					<Link to="/new-org">
-						<Button variant="positive" className="rounded-full w-44" accessKey="n">
-							<PlusIcon /> <span><u>N</u>ew Organization</span>
+						<Button variant="positive" accessKey="n">
+							<PlusIcon />
+							<span className="hidden sm:inline-block"><u>N</u>ew <span className="hidden md:inline-block">Organization</span></span>
 						</Button>
 					</Link>
 				</div>
 			</SubNavMenu>
-			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
 					{organizationRoles.map((organizationRole) => (
 						<div

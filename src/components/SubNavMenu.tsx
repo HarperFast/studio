@@ -3,8 +3,8 @@ import { ReactNode } from 'react';
 
 export function SubNavMenu({ children }: { children?: ReactNode }) {
 	return (
-		<nav className="fixed top-20 w-full md:h-12 z-39 py-2 px-4 md:px-12 bg-grey-700">
-			<div className="md:flex items-center h-full space-x-8">
+		<nav className="fixed top-20 w-full h-12 z-39 py-2 px-4 md:px-12 bg-grey-700">
+			<div className="flex items-center h-full space-x-2">
 				<Breadcrumbs />
 				{children}
 			</div>

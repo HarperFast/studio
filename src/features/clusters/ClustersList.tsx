@@ -55,7 +55,7 @@ export function ClustersList() {
 					<div className="flex w-full justify-end gap-2">
 						<Input
 							placeholder="Filter by name"
-							className="inline-block w-48 md:w-64 bg-black border"
+							className="inline-block w-full text-xs"
 							value={filterByNameValue}
 							onChange={onFilterByNameChanged}
 						/>
@@ -64,12 +64,11 @@ export function ClustersList() {
 							<Link to="new-cluster">
 								<Button
 									variant="positive"
-									className="w-full rounded-full md:w-44"
 									accessKey="n"
 								>
 									<Plus />{' '}
-									<span>
-										<u>N</u>ew Cluster
+									<span className="hidden sm:inline-block">
+										<u>N</u>ew <span className="hidden md:inline-block">Cluster</span>
 									</span>
 								</Button>
 							</Link>
@@ -77,7 +76,7 @@ export function ClustersList() {
 					</div>
 				) : null}
 			</SubNavMenu>
-			<section className="mt-40 md:mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
 					{filteredClusters.map((cluster) => (
 						<div key={cluster.id} className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
