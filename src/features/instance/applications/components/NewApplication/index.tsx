@@ -143,7 +143,9 @@ export function NewApplication() {
 									</TabsTrigger>
 								</TabsList>
 
-								<Separator className="bg-black mx-6 mt-1" />
+								<div className="mx-6 mt-1">
+									<Separator className="bg-black" />
+								</div>
 
 								<TabsContent value="template" className="space-y-4">
 									<TemplateInstructions
