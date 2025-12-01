@@ -111,7 +111,7 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[], rest
 function MobileInstanceNavBar({ links, restartRequired }: { links: Link[], restartRequired: boolean }) {
 	return (
 		<>
-			<div className="flex md:hidden items-center justify-between p-2 text-white">
+			<div className="flex md:hidden items-center justify-between h-full px-2 text-white">
 				<Breadcrumbs restartRequired={restartRequired} />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>

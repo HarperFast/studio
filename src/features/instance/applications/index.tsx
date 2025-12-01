@@ -24,10 +24,14 @@ export function ApplicationsEditor() {
 				<ApplicationsSidebar />
 			</aside>
 
-			<div className={cx('applications-content overflow-y-auto overflow-x-hidden fixed bottom-0 right-0 left-0' +
-				' md:left-56' +
-				' transition-[left]' +
-				' h-[calc(100vh-theme(spacing.32))]', toggled && 'sm:left-56')}>
+			<div className={cx(
+				'applications-content',
+				'overflow-y-auto overflow-x-hidden',
+				'fixed top-32 right-0 bottom-0 left-0',
+				'transition-[left]',
+				'md:left-56',
+				toggled && 'sm:left-56',
+			)}>
 				<ContentViewer />
 				<ContentActions toggledSidebar={toggled} toggleSidebar={toggle} />
 			</div>
