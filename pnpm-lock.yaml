@@ -196,8 +196,8 @@ importers:
         specifier: ^16.0.0
         version: 16.5.0
       harperdb:
-        specifier: 4.7.7
-        version: 4.7.7
+        specifier: 4.7.10
+        version: 4.7.10
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -3841,8 +3841,8 @@ packages:
     engines: {node: '>=0.4.7'}
     hasBin: true
 
-  harperdb@4.7.7:
-    resolution: {integrity: sha512-O/tfDiNyFxybRrDg6a+EhxSuq8kNbPUd+wfWY5zsGG0ydr5SMqW42Hl1fPodTq51gtLYQaHdN+n8908rxigBuA==}
+  harperdb@4.7.10:
+    resolution: {integrity: sha512-2VM1L7dpPAq6ylVWXpXVxtXh43HJM3rGVMDLypWw2ECcjXy3ZfDRHdqOY/c2rOz5OWzLzWdliZAKlenFSep+xQ==}
     engines: {go-lang: 1.21.7, minimum-node: 16.0.0, nats-server: 2.10.11}
     hasBin: true
 
@@ -11132,7 +11132,7 @@ snapshots:
     optionalDependencies:
       uglify-js: 3.19.3
 
-  harperdb@4.7.7:
+  harperdb@4.7.10:
     dependencies:
       '@aws-sdk/client-s3': 3.824.0
       '@aws-sdk/lib-storage': 3.824.0(@aws-sdk/client-s3@3.824.0)
