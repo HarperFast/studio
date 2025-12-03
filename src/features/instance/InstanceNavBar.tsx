@@ -34,13 +34,14 @@ export function InstanceNavBar() {
 	const params = useParams({ strict: false });
 
 
+	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const statusAvailable = wasAReleasedBeforeB('4.6.0', version);
+	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
+
 	const instanceParams = useInstanceClientIdParams();
-	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams));
+	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const restartRequired = statusData?.restartRequired ?? false;
 
-	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
-	const statusAvailable = wasAReleasedBeforeB('4.6.0', version);
 
 	const links = useMemo(() => [
 		{
