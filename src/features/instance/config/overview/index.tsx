@@ -10,12 +10,13 @@ import { InstanceNodeName } from '@/features/instance/config/overview/components
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { Instance } from '@/integrations/api/api.patch';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import { getRegistrationInfoQueryOptions, RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import Editor from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouteContext } from '@tanstack/react-router';
+import { useLoaderData, useParams, useRouteContext } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
@@ -32,11 +33,14 @@ export function ConfigOverviewIndex() {
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
+	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
+	const checkUsageLicenses = !isLocalStudio && wasAReleasedBeforeB('4.7.0-alpha.1', version);
+
 	const { data: info, isLoading: loadingInstanceInfo } = useQuery(
 		getInstanceInfoQueryOptions({ clusterId, instanceId }),
 	);
 	const { data: appliedLicenses } = useQuery(
-		getUsageLicensesQueryOptions(instanceParams),
+		getUsageLicensesQueryOptions(instanceParams, checkUsageLicenses),
 	);
 	const clusterInfo = info?.cluster;
 	const instanceInfo = info?.instance;

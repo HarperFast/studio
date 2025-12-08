@@ -4,6 +4,7 @@ import { ConfigRolesIndex } from '@/features/instance/config/roles';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
+import { registrationInfoLoader } from '@/features/instance/registrationInfoLoader';
 import { createRoute } from '@tanstack/react-router';
 
 export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof createInstanceLayoutRoute>) {
@@ -16,6 +17,7 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		getParentRoute: () => instanceConfigRoute,
 		path: '/',
 		component: ConfigOverviewIndex,
+		loader: registrationInfoLoader,
 	});
 
 	const instanceConfigRolesRoute = createRoute({

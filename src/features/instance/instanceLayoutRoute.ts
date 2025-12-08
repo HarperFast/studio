@@ -1,5 +1,4 @@
 import { getInstanceClient } from '@/config/getInstanceClient';
-import { getInstanceClientIdFromParams } from '@/config/useInstanceClient';
 import {
 	AuthenticatedCloudConnection,
 	AuthenticatedConnection,
@@ -10,11 +9,10 @@ import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { InstanceLayout } from '@/features/instance/InstanceLayout';
 import { getOrganizationClusterInstancePermissions, getOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
-import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { buildRedirectInSearch } from '@/lib/urls/buildRedirectInSearch';
 import { dashboardLayout } from '@/router/dashboardRoute';
-import { QueryClient } from '@tanstack/react-query';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { registrationInfoLoader } from './registrationInfoLoader';
 
 export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance') {
 	switch (mode) {
@@ -89,15 +87,4 @@ async function checkClusterInstanceAuthenticationBeforeLoad({
 		+ (params.instanceId ? `instance/${params.instanceId}` : '')
 		+ `/sign-in`;
 	throw redirect({ to, search: buildRedirectInSearch() });
-}
-
-function registrationInfoLoader({
-	context,
-	params,
-}: {
-	context: { queryClient: QueryClient },
-	params: { organizationId?: string; clusterId?: string, instanceId?: string },
-}) {
-	const operationsParams = getInstanceClientIdFromParams(params);
-	return context.queryClient.ensureQueryData(getRegistrationInfoQueryOptions(operationsParams));
 }

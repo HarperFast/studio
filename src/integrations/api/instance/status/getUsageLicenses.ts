@@ -1,4 +1,3 @@
-import { isLocalStudio } from '@/config/constants';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
@@ -28,10 +27,10 @@ interface UsageLicense {
 	__updatedtime__: string;
 }
 
-export function getUsageLicensesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
+export function getUsageLicensesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig, enabled: boolean) {
 	return queryOptions({
 		queryKey: [entityId, 'get_usage_licenses'] as const,
-		enabled: !isLocalStudio,
+		enabled,
 		queryFn: async () => {
 			try {
 				const { data } = await instanceClient.post<UsageLicense[]>('/', {
