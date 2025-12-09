@@ -15,7 +15,9 @@ export type EditorViewContextValue = {
 
 	restrictPackageModification: boolean;
 	openedEntryContents: string | undefined;
-	setOpenedEntryContents: (contents: string | undefined) => void;
+	setOpenedEntryContents: (
+		contents: (string | undefined) | ((existingContents: string | undefined) => string | undefined),
+	) => void;
 
 	focusedItem: TreeItemIndex | undefined;
 	setFocusedItem: (

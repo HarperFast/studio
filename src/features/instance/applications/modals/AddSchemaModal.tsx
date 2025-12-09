@@ -1,9 +1,7 @@
-import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AddSchemaForm } from '@/features/instance/applications/components/AddSchemaForm';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
-import { Ban, PlusIcon } from 'lucide-react';
 import { useCallback } from 'react';
 
 export function AddSchemaModal() {
@@ -26,15 +24,6 @@ export function AddSchemaModal() {
 				</DialogHeader>
 
 				<AddSchemaForm />
-
-				<div className="flex w-full gap-4">
-					<Button variant="ghost" className="w-full rounded-full" onClick={closeModal}>
-						<Ban /> Cancel
-					</Button>
-					<Button variant="positive" type="button" className="w-full rounded-full">
-						<PlusIcon /> Add Schema
-					</Button>
-				</div>
 			</DialogContent>
 		</Dialog>
 	);
