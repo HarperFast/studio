@@ -21,7 +21,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 			.filter((x) => x && x.length > 0);
 
 		const breadcrumbs = [
-			<Link to="/">
+			<Link key="home" to="/">
 				<HomeIcon aria-hidden="true" className="size-5 shrink-0" />
 				<span className="sr-only">Home</span>
 			</Link>,
@@ -35,7 +35,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 
 			let path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
-			let id: string | undefined;
+			let id: string | undefined = undefined;
 			if (route === 'databases' && routeHistory.length === index + 3) {
 				// id = routeHistory[index + 1];
 				name = routeHistory[index + 2];

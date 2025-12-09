@@ -128,42 +128,42 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 
 	const menuItems = [
 		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && (
-			<Link to={`${cluster.id}/sign-in`} disabled={signingOut}>
+			<Link key="sign-in" to={`${cluster.id}/sign-in`} disabled={signingOut}>
 				<DropdownMenuItem>Direct Sign In</DropdownMenuItem>
 			</Link>
 		),
 		isActive && update && (
-			<Link to={`${cluster.id}/edit`} disabled={signingOut}>
+			<Link key="edit" to={`${cluster.id}/edit`} disabled={signingOut}>
 				<DropdownMenuItem>Edit</DropdownMenuItem>
 			</Link>
 		),
 		isActive && view && (
-			<Link to={`${cluster.id}/instances`} disabled={signingOut}>
+			<Link key="instances" to={`${cluster.id}/instances`} disabled={signingOut}>
 				<DropdownMenuItem>Instances</DropdownMenuItem>
 			</Link>
 		),
 		isActive && view && cluster.fqdn && (
-			<DropdownMenuItem onClick={onCopyFQDNClick} disabled={signingOut}>
+			<DropdownMenuItem key="copy-host-name" onClick={onCopyFQDNClick} disabled={signingOut}>
 				Copy Host Name
 			</DropdownMenuItem>
 		),
 		isActive && view && cluster.fqdn && (
-			<DropdownMenuItem onClick={onCopyAPIClick} disabled={signingOut}>
+			<DropdownMenuItem key="copy-api-url" onClick={onCopyAPIClick} disabled={signingOut}>
 				Copy API URL
 			</DropdownMenuItem>
 		),
 		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
-			<DropdownMenuItem onClick={onSignOutClick} disabled={signingOut}>
+			<DropdownMenuItem key="direct-sign-out" onClick={onSignOutClick} disabled={signingOut}>
 				Direct Sign Out
 			</DropdownMenuItem>
 		),
 		clusterHasFailed && create && (
-			<DropdownMenuItem className="focus:bg-green/70 focus:text-white" onClick={onTryAgainClick}>
+			<DropdownMenuItem key="try-again" className="focus:bg-green/70 focus:text-white" onClick={onTryAgainClick}>
 				Try Again
 			</DropdownMenuItem>
 		),
 		!isTerminated && remove && (
-			<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
+			<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
 				{isSelfManaged ? 'Remove' : 'Terminate'}
 			</DropdownMenuItem>
 		),
