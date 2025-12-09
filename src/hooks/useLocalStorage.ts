@@ -9,7 +9,10 @@ import { useEffect, useState } from 'react';
  * @param key
  * @param defaultValue
  */
-export function useLocalStorage<T>(key: LocalStorageKeys, defaultValue: T): [T, (value: (((prevState: T) => T) | T)) => void] {
+export function useLocalStorage<T>(
+	key: LocalStorageKeys,
+	defaultValue: T,
+): [T, (value: ((prevState: T) => T) | T) => void] {
 	const state = useState<T>(getLocalStorage(key, defaultValue));
 	const [current] = state;
 	useEffect(() => setLocalStorage(key, current), [key, current]);

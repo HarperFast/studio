@@ -22,8 +22,10 @@ interface RestartClusterClickResponse {
 	isRestartPending: boolean;
 }
 
-export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClusterClickParams = {}): RestartClusterClickResponse {
-	const { clusterId }: { clusterId?: string; } = useParams({ strict: false });
+export function useRestartClusterClick(
+	{ onRestartedSuccessfully }: RestartClusterClickParams = {},
+): RestartClusterClickResponse {
+	const { clusterId }: { clusterId?: string } = useParams({ strict: false });
 	const queryClient = useQueryClient();
 	const [isRestartPending, setIsRestartPending] = useState(false);
 	const onRestartClick = useCallback(async () => {
@@ -45,10 +47,12 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 
 		const toastId = toast.loading('Restarting', {
 			...toastConfig,
-			description: <ProgressBar
-				animated={true}
-				width="0%"
-			/>,
+			description: (
+				<ProgressBar
+					animated={true}
+					width="0%"
+				/>
+			),
 		});
 
 		const cluster = await getClusterInfo(clusterId);
@@ -56,11 +60,13 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 		const allInstances = cluster?.instances ?? [];
 		const instanceClients = allInstances
 			.filter(instance => instance.status === 'RUNNING')
-			.map(instance => getInstanceClient({
-				id: instance.id,
-				forceFabricConnect: clusterUsesFabricConnect,
-				operationsUrl: getOperationsUrlForInstance(instance),
-			}))
+			.map(instance =>
+				getInstanceClient({
+					id: instance.id,
+					forceFabricConnect: clusterUsesFabricConnect,
+					operationsUrl: getOperationsUrlForInstance(instance),
+				})
+			)
 			.reverse();
 		let instancesRestarted = 0;
 
@@ -71,10 +77,12 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 					toast.loading(`Restarting Instance ${i + 1} of ${instanceClients.length}`, {
 						...toastConfig,
 						id: toastId,
-						description: <ProgressBar
-							animated={true}
-							width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
-						/>,
+						description: (
+							<ProgressBar
+								animated={true}
+								width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
+							/>
+						),
 					});
 					try {
 						// Make sure the instance is responding.
@@ -140,7 +148,8 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 					+ ([
 						allInstances.length === 0 && 'No instances were found within the cluster to restart.',
 						instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
-						allInstances.length !== instancesRestarted && `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
+						allInstances.length !== instancesRestarted
+						&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 					].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {
@@ -150,7 +159,6 @@ export function useRestartClusterClick({ onRestartedSuccessfully }: RestartClust
 			});
 		}
 	}, [clusterId, onRestartedSuccessfully, queryClient]);
-
 
 	return {
 		onRestartClick,

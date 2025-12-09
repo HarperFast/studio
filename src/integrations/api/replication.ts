@@ -26,11 +26,15 @@ export function replicationFailed(response: ReplicatedResponse): response is Rep
 	return response.replicated?.some(r => isReplicatedResponseFailure(r)) ?? false;
 }
 
-export function isReplicatedResponseSuccess(message: ReplicatedResponseSuccess | ReplicatedResponseFailure): message is ReplicatedResponseSuccess {
+export function isReplicatedResponseSuccess(
+	message: ReplicatedResponseSuccess | ReplicatedResponseFailure,
+): message is ReplicatedResponseSuccess {
 	return (message as ReplicatedResponseFailure).status !== 'failed';
 }
 
-export function isReplicatedResponseFailure(message: ReplicatedResponseSuccess | ReplicatedResponseFailure): message is ReplicatedResponseFailure {
+export function isReplicatedResponseFailure(
+	message: ReplicatedResponseSuccess | ReplicatedResponseFailure,
+): message is ReplicatedResponseFailure {
 	return (message as ReplicatedResponseFailure).status === 'failed';
 }
 
@@ -41,8 +45,8 @@ export function rejectReplicationFailures(response: Pick<AxiosResponse<Replicate
 		const explanation = successes.length
 			? `The operation partially succeeded, but ${pluralize(failures.length, 'node', 'nodes')} failed:`
 			: failures.length === 1
-				? `The operation failed on the single node:`
-				: `The operation failed on all ${failures.length} nodes:`;
+			? `The operation failed on the single node:`
+			: `The operation failed on all ${failures.length} nodes:`;
 		const details = failures.map(f => `${f.node}: ${f.reason}`).join('\n');
 		return Promise.reject(explanation + '\n' + details);
 	}

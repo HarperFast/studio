@@ -22,7 +22,7 @@ export function EditTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	hashAttribute: string;
-	data: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown; }[];
+	data: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
 	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
@@ -47,58 +47,67 @@ export function EditTableRowModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent
 				aria-describedby={undefined}
-				onEscapeKeyDown={canEditRecords ? (event) => {
-					if (madeChanges) {
-						event.preventDefault();
+				onEscapeKeyDown={canEditRecords
+					? (event) => {
+						if (madeChanges) {
+							event.preventDefault();
+						}
 					}
-				} : undefined}
+					: undefined}
 			>
 				<DialogHeader>
 					<DialogTitle>{canEditRecords ? 'Edit' : 'View'} Row</DialogTitle>
 				</DialogHeader>
-				{data ? (
-					<Editor
-						className="w-full h-96"
-						language="json"
-						theme="vs-dark"
-						options={canEditRecords ? undefined : { readOnly: true }}
-						value={value}
-						onValidate={onValidate}
-						onChange={(updatedValue) => {
-							setUpdatedTableRecordData(updatedValue);
-						}}
-					/>
-				) : (
-					<Loading />
-				)}
+				{data
+					? (
+						<Editor
+							className="w-full h-96"
+							language="json"
+							theme="vs-dark"
+							options={canEditRecords ? undefined : { readOnly: true }}
+							value={value}
+							onValidate={onValidate}
+							onChange={(updatedValue) => {
+								setUpdatedTableRecordData(updatedValue);
+							}}
+						/>
+					)
+					: <Loading />}
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						{canDeleteRecords && (<Button
-							variant="destructive"
-							className="rounded-full"
-							onClick={() => {
-								const hash = data[0]?.[hashAttribute];
-								if (hash) {
-									onDeleteRecord([hash]);
-								}
-							}}
-							disabled={isDeleteTableRecordsPending}
-						>
-							<Trash /> Delete Row
-						</Button>)}
-						{canEditRecords && (<Button
-							variant="submit"
-							className="rounded-full"
-							accessKey="s"
-							onClick={() => {
-								if (updatedTableRecordData && isValidJSON) {
-									onSaveChanges(JSON.parse(updatedTableRecordData));
-								}
-							}}
-							disabled={!updatedTableRecordData || !isValidJSON || isUpdateTableRecordsPending}
-						>
-							<Save /> <span><u>S</u>ave Changes</span>
-						</Button>)}
+						{canDeleteRecords && (
+							<Button
+								variant="destructive"
+								className="rounded-full"
+								onClick={() => {
+									const hash = data[0]?.[hashAttribute];
+									if (hash) {
+										onDeleteRecord([hash]);
+									}
+								}}
+								disabled={isDeleteTableRecordsPending}
+							>
+								<Trash /> Delete Row
+							</Button>
+						)}
+						{canEditRecords && (
+							<Button
+								variant="submit"
+								className="rounded-full"
+								accessKey="s"
+								onClick={() => {
+									if (updatedTableRecordData && isValidJSON) {
+										onSaveChanges(JSON.parse(updatedTableRecordData));
+									}
+								}}
+								disabled={!updatedTableRecordData || !isValidJSON || isUpdateTableRecordsPending}
+							>
+								<Save />{' '}
+								<span>
+									<u>S</u>ave Changes
+								</span>
+							</Button>
+						)}
 					</div>
 				</DialogFooter>
 			</DialogContent>

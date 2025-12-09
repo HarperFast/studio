@@ -61,7 +61,6 @@ export function DownloadApplicationModal() {
 		);
 	}, [openedEntry, packageComponent, includeNodeModules, instanceParams, closeModal]);
 
-
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
@@ -95,7 +94,8 @@ export function DownloadApplicationModal() {
 						autoFocus={true}
 						onClick={onClickYes}
 					>
-						<DownloadIcon /> {actionStatus}{isPending ? '...' : ''}
+						<DownloadIcon /> {actionStatus}
+						{isPending ? '...' : ''}
 					</Button>
 				</div>
 			</DialogContent>

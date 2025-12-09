@@ -9,9 +9,9 @@ export function SidebarMenuSubButton({
 	className,
 	...props
 }: React.ComponentProps<'a'> & {
-	asChild?: boolean
-	size?: 'sm' | 'md'
-	isActive?: boolean
+	asChild?: boolean;
+	size?: 'sm' | 'md';
+	isActive?: boolean;
 }) {
 	const Comp = asChild ? Slot : 'a';
 

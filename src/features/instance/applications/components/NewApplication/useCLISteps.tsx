@@ -15,8 +15,8 @@ export function useCLISteps(appName: string) {
 	const target = isLocalStudio
 		? instanceParams.instanceClient.defaults.baseURL
 		: instance
-			? getOperationsUrlForInstance(instance)
-			: getOperationsUrlForCluster(cluster);
+		? getOperationsUrlForInstance(instance)
+		: getOperationsUrlForCluster(cluster);
 
 	return useMemo(() => {
 		const directoryName = toKebabCase(appName);

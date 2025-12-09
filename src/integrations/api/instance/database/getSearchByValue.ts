@@ -6,19 +6,19 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	databaseName: string;
 	tableName: string;
 	searchAttribute: string;
-	sort: { attribute: string; descending: boolean; };
+	sort: { attribute: string; descending: boolean };
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
 }
 
 interface SearchByValueRequest {
-	operation: 'search_by_value',
+	operation: 'search_by_value';
 	database: string;
 	table: string;
 	search_attribute: string;
 	search_value: string;
-	sort?: { attribute: string; descending: boolean; };
+	sort?: { attribute: string; descending: boolean };
 	offset: number;
 	limit: number;
 	get_attributes?: string[];
@@ -56,19 +56,23 @@ export function getSearchByValueOptions({
 		staleTime: 60_000,
 		queryFn: ({ signal }) => {
 			const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
-			return instanceClient.post<Record<string, unknown>[]>('/', {
-				operation: 'search_by_value',
-				get_attributes: ['*'],
-				database: databaseName,
-				table: tableName,
-				search_attribute: searchAttribute,
-				search_value: '*',
-				sort: customizedSort ? sort : undefined,
-				offset: pageIndex * pageSize,
-				limit: pageSize,
-				onlyIfCached: onlyIfCached,
-				noCacheStore: onlyIfCached,
-			} satisfies SearchByValueRequest, { timeout: 0, signal });
+			return instanceClient.post<Record<string, unknown>[]>(
+				'/',
+				{
+					operation: 'search_by_value',
+					get_attributes: ['*'],
+					database: databaseName,
+					table: tableName,
+					search_attribute: searchAttribute,
+					search_value: '*',
+					sort: customizedSort ? sort : undefined,
+					offset: pageIndex * pageSize,
+					limit: pageSize,
+					onlyIfCached: onlyIfCached,
+					noCacheStore: onlyIfCached,
+				} satisfies SearchByValueRequest,
+				{ timeout: 0, signal },
+			);
 		},
 	});
 }

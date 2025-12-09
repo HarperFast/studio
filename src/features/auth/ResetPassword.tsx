@@ -66,7 +66,7 @@ export function ResetPassword() {
 					});
 					navigate({ to: '/sign-in' });
 				},
-			}
+			},
 		);
 	}, [navigate, submitResetPasswordData, token]);
 
@@ -119,5 +119,3 @@ export function ResetPassword() {
 		</div>
 	);
 }
-
-

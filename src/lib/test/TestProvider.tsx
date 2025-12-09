@@ -10,7 +10,8 @@ export function TestProvider({ children }: { children: ReactNode }) {
 		<QueryClientProvider client={queryClient}>
 			<RouterProvider
 				router={router}
-				defaultComponent={() => children} />
+				defaultComponent={() => children}
+			/>
 		</QueryClientProvider>
 	);
 }

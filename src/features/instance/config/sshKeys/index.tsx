@@ -16,7 +16,7 @@ import { EditSSHKeyModal } from './modals/EditSSHKeyModal';
 
 export function ConfigSSHKeysIndex() {
 	const navigate = useNavigate();
-	const { keyName }: { keyName?: string; } = useParams({ strict: false });
+	const { keyName }: { keyName?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const {
 		data: localSSHKeys,
@@ -48,7 +48,12 @@ export function ConfigSSHKeysIndex() {
 
 	return (
 		<>
-			<SimpleBrowseDataTable columns={dataTableColumns} data={localSSHKeys || []} isFetching={isFetching} onRowClick={onSelectSSHKey}>
+			<SimpleBrowseDataTable
+				columns={dataTableColumns}
+				data={localSSHKeys || []}
+				isFetching={isFetching}
+				onRowClick={onSelectSSHKey}
+			>
 				<Link
 					className="inline-block underline text-sm text-gray-400 hover:text-white"
 					to="https://docs.harperdb.io/docs/developers/security/certificate-management"

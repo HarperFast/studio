@@ -36,7 +36,9 @@ export function EditRoleModal({
 	onChangesSaved: () => void;
 }) {
 	const { role, permission: initialPermissions } = data;
-	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(JSON.stringify(initialPermissions, null, 2));
+	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(
+		JSON.stringify(initialPermissions, null, 2),
+	);
 
 	const instanceParams = useInstanceClientIdParams();
 	const [isValidJSON, setIsValidJSON] = useState(true);
@@ -60,12 +62,16 @@ export function EditRoleModal({
 	);
 
 	const defaultValue = useMemo(() => {
-		return JSON.stringify(instanceDatabaseMap && registrationInfo && calculateDefaultPermissions({
-			instanceDatabaseMap,
-			currentRolePermissions: updatedPermissions && safeParse(updatedPermissions) || initialPermissions,
-			version: registrationInfo.version,
-			showAttributes: showAttributes,
-		}), null, 2);
+		return JSON.stringify(
+			instanceDatabaseMap && registrationInfo && calculateDefaultPermissions({
+				instanceDatabaseMap,
+				currentRolePermissions: updatedPermissions && safeParse(updatedPermissions) || initialPermissions,
+				version: registrationInfo.version,
+				showAttributes: showAttributes,
+			}),
+			null,
+			2,
+		);
 		// We exclude updatedPermissions on purpose from the deps.
 	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes, updatedPermissions]);
 
@@ -79,7 +85,10 @@ export function EditRoleModal({
 				const parsedPermissions = JSON.parse(updatedPermissions) as LocalRolePermission;
 				if (parsedPermissions.super_user || parsedPermissions.structure_user || parsedPermissions.cluster_user) {
 					for (const parsedPermissionsKey in parsedPermissions) {
-						if (parsedPermissionsKey !== 'super_user' && parsedPermissionsKey !== 'structure_user' && parsedPermissionsKey !== 'cluster_user') {
+						if (
+							parsedPermissionsKey !== 'super_user' && parsedPermissionsKey !== 'structure_user'
+							&& parsedPermissionsKey !== 'cluster_user'
+						) {
 							// If you're a super, structure or cluster user, you don't need more specific permissions.
 							delete parsedPermissions[parsedPermissionsKey];
 						} else if (parsedPermissions[parsedPermissionsKey] === false) {
@@ -139,53 +148,59 @@ export function EditRoleModal({
 				<DialogTitle>{isSelf ? 'View' : 'Edit'} Role "{role}"</DialogTitle>
 				<DialogDescription>
 					{isSelf
-						? 'You can view your own role, but you cannot edit it. Please assign yourself a different' +
-						' role to edit this role.'
-						: 'Edit the role\'s permissions in JSON format or remove the role entirely.'}
+						? 'You can view your own role, but you cannot edit it. Please assign yourself a different'
+							+ ' role to edit this role.'
+						: "Edit the role's permissions in JSON format or remove the role entirely."}
 				</DialogDescription>
-				{defaultValue ? <Editor
-					theme="vs-dark"
-					height="400px"
-					defaultLanguage="json"
-					value={updatedPermissions}
-					options={isSelf ? { readOnly: true } : undefined}
-					onValidate={onValidate}
-					onChange={setUpdatedPermissions}
-					defaultValue={defaultValue}
-				/> : <TextLoadingSkeleton />}
+				{defaultValue
+					? (
+						<Editor
+							theme="vs-dark"
+							height="400px"
+							defaultLanguage="json"
+							value={updatedPermissions}
+							options={isSelf ? { readOnly: true } : undefined}
+							onValidate={onValidate}
+							onChange={setUpdatedPermissions}
+							defaultValue={defaultValue}
+						/>
+					)
+					: <TextLoadingSkeleton />}
 				<DialogFooter>
-					{!isSelf && (<div className="flex justify-between w-full">
-						<Button
-							type="button"
-							variant="destructiveOutline"
-							className="rounded-full"
-							onClick={onRoleDeleteClick}
-							disabled={isPending}
-						>
-							Delete Role
-						</Button>
+					{!isSelf && (
+						<div className="flex justify-between w-full">
+							<Button
+								type="button"
+								variant="destructiveOutline"
+								className="rounded-full"
+								onClick={onRoleDeleteClick}
+								disabled={isPending}
+							>
+								Delete Role
+							</Button>
 
-						<div className="grow" />
+							<div className="grow" />
 
-						<Label className="flex">
-							<Input
-								type="checkbox"
-								className="w-6"
-								checked={showAttributes}
-								onChange={onShowAttributesChanged}
-							/>
-							<span className="pl-4 pr-8 flex-1 py-2.5">Pick Attributes</span>
-						</Label>
+							<Label className="flex">
+								<Input
+									type="checkbox"
+									className="w-6"
+									checked={showAttributes}
+									onChange={onShowAttributesChanged}
+								/>
+								<span className="pl-4 pr-8 flex-1 py-2.5">Pick Attributes</span>
+							</Label>
 
-						<Button
-							variant="submit"
-							className="rounded-full"
-							onClick={onSubmitClick}
-							disabled={isPending || !isValidJSON}
-						>
-							Save Changes
-						</Button>
-					</div>)}
+							<Button
+								variant="submit"
+								className="rounded-full"
+								onClick={onSubmitClick}
+								disabled={isPending || !isValidJSON}
+							>
+								Save Changes
+							</Button>
+						</div>
+					)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

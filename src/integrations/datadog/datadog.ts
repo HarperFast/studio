@@ -57,7 +57,7 @@ export function useOnRouteLoadTracker() {
 		const currentMatches = router.matchRoutes(router.state.location);
 		const name = translateUrlForDatadog(
 			location.href,
-			currentMatches.map((m) => m.params)
+			currentMatches.map((m) => m.params),
 		);
 		if (!enabled) {
 			return;
@@ -88,8 +88,8 @@ export function useOnRouteLoadTracker() {
 	}, [user]);
 }
 
-export function loginSuccessDatadogAction(data: { id: string; email: string; firstname: string; lastname: string; }) {
-	if (!enabled) return;
+export function loginSuccessDatadogAction(data: { id: string; email: string; firstname: string; lastname: string }) {
+	if (!enabled) { return; }
 
 	datadogRum.setUser({
 		id: data.id,

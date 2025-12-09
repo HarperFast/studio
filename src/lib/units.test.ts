@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { determineUnits, scaleValueToUnits } from '@/lib/units.ts';
+import { describe, expect, it } from 'vitest';
 
 describe('determineUnits', () => {
 	it('should return unsupported base units as-is', () => {

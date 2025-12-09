@@ -26,8 +26,8 @@ export function Invoices() {
 	if (organization?.type === 'ENTERPRISE') {
 		return (
 			<span>
-				You are part of an enterprise organization! We don&rsquo;t currently show your invoices on this page.
-				Want to explore your solution with Harper more? <ContactUs />, we would love to talk!
+				You are part of an enterprise organization! We don&rsquo;t currently show your invoices on this page. Want to
+				explore your solution with Harper more? <ContactUs />, we would love to talk!
 			</span>
 		);
 	}
@@ -37,17 +37,19 @@ export function Invoices() {
 	if (!data || !data.length) {
 		return (
 			<span>
-				Your invoices will be shown here once one is available! Want to explore your solution with Harper
-				more? <ContactUs overEmail={true} />, we would love to talk!
+				Your invoices will be shown here once one is available! Want to explore your solution with Harper more?{' '}
+				<ContactUs overEmail={true} />, we would love to talk!
 			</span>
 		);
 	}
-	return (<SimpleBrowseDataTable data={data} columns={dataTableColumns}>
-		<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
-			<RefreshCwIcon />
-			<span className="hidden lg:inline-block">
-				<u>R</u>efresh
-			</span>
-		</Button>
-	</SimpleBrowseDataTable>);
+	return (
+		<SimpleBrowseDataTable data={data} columns={dataTableColumns}>
+			<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
+				<RefreshCwIcon />
+				<span className="hidden lg:inline-block">
+					<u>R</u>efresh
+				</span>
+			</Button>
+		</SimpleBrowseDataTable>
+	);
 }

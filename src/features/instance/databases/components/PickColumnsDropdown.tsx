@@ -17,9 +17,9 @@ export function PickColumnsDropdown({
 	columnVisibility,
 	setColumnVisibility,
 }: {
-	columns: ReturnType<typeof formatBrowseDataTableHeader>['dataTableColumns'],
-	columnVisibility: VisibilityState,
-	setColumnVisibility: (columnVisibility: VisibilityState) => void,
+	columns: ReturnType<typeof formatBrowseDataTableHeader>['dataTableColumns'];
+	columnVisibility: VisibilityState;
+	setColumnVisibility: (columnVisibility: VisibilityState) => void;
 }) {
 	const columnHeaders = useMemo(() => {
 		return columns
@@ -35,12 +35,14 @@ export function PickColumnsDropdown({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
-				{columnHeaders.map(columnHeader => <ColumnPicker
-					key={columnHeader}
-					columnHeader={columnHeader}
-					columnVisibility={columnVisibility}
-					setColumnVisibility={setColumnVisibility}
-				/>)}
+				{columnHeaders.map(columnHeader => (
+					<ColumnPicker
+						key={columnHeader}
+						columnHeader={columnHeader}
+						columnVisibility={columnVisibility}
+						setColumnVisibility={setColumnVisibility}
+					/>
+				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
@@ -51,9 +53,9 @@ function ColumnPicker({
 	columnVisibility,
 	setColumnVisibility,
 }: {
-	columnHeader: string,
-	columnVisibility: VisibilityState,
-	setColumnVisibility: (columnVisibility: VisibilityState) => void,
+	columnHeader: string;
+	columnVisibility: VisibilityState;
+	setColumnVisibility: (columnVisibility: VisibilityState) => void;
 }) {
 	const { toggled: isChecked, toggle: onCheckedChanged } = useToggler(columnVisibility[columnHeader] ?? true);
 	useEffect(() => {

@@ -18,7 +18,6 @@ export function useInstallUsageLicenseMutation(entityId: EntityIds) {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: installUsageLicense,
-		onSuccess: () =>
-			queryClient.invalidateQueries({ queryKey: [entityId, 'get_usage_licenses'] }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: [entityId, 'get_usage_licenses'] }),
 	});
 }

@@ -12,9 +12,9 @@ export function Sidebar({
 	children,
 	...props
 }: React.ComponentProps<'div'> & {
-	side?: 'left' | 'right'
-	variant?: 'sidebar' | 'floating' | 'inset'
-	collapsible?: 'offcanvas' | 'icon' | 'none'
+	side?: 'left' | 'right';
+	variant?: 'sidebar' | 'floating' | 'inset';
+	collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
 	const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
 
@@ -41,11 +41,9 @@ export function Sidebar({
 					data-slot="sidebar"
 					data-mobile="true"
 					className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
-					style={
-						{
-							'--sidebar-width': SIDEBAR_WIDTH_MOBILE,
-						} as React.CSSProperties
-					}
+					style={{
+						'--sidebar-width': SIDEBAR_WIDTH_MOBILE,
+					} as React.CSSProperties}
 					side={side}
 				>
 					<SheetHeader className="sr-only">

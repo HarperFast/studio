@@ -9,7 +9,7 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	databaseName: string;
 	tableName: string;
 	conditions: SearchCondition[] | null;
-	sort: { attribute: string; descending: boolean; };
+	sort: { attribute: string; descending: boolean };
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
@@ -36,11 +36,11 @@ export interface SearchCondition {
 }
 
 interface SearchByConditionsRequest {
-	operation: 'search_by_conditions',
+	operation: 'search_by_conditions';
 	database: string;
 	table: string;
 	conditions: SearchCondition[];
-	sort?: { attribute: string; descending: boolean; };
+	sort?: { attribute: string; descending: boolean };
 	offset: number;
 	limit: number;
 	get_attributes?: string[];
@@ -79,27 +79,39 @@ export function getSearchByConditionsOptions({
 
 		retry: false,
 		queryFn: ({ signal }) =>
-			instanceClient.post<Record<string, unknown>[]>('/', {
-				operation: 'search_by_conditions',
-				get_attributes: ['*'],
-				database: databaseName,
-				table: tableName,
-				conditions: conditions!,
-				sort: sort.attribute.length ? sort : undefined,
-				offset: pageIndex * pageSize,
-				limit: pageSize,
-				onlyIfCached: onlyIfCached,
-				noCacheStore: onlyIfCached,
-			} satisfies SearchByConditionsRequest, { timeout: 0, signal }),
+			instanceClient.post<Record<string, unknown>[]>(
+				'/',
+				{
+					operation: 'search_by_conditions',
+					get_attributes: ['*'],
+					database: databaseName,
+					table: tableName,
+					conditions: conditions!,
+					sort: sort.attribute.length ? sort : undefined,
+					offset: pageIndex * pageSize,
+					limit: pageSize,
+					onlyIfCached: onlyIfCached,
+					noCacheStore: onlyIfCached,
+				} satisfies SearchByConditionsRequest,
+				{ timeout: 0, signal },
+			),
 	});
 }
 
-export function translateColumnFilterToSearchConditions(key: string, rawValues: string, attribute: InstanceAttribute | undefined): SearchCondition[] {
+export function translateColumnFilterToSearchConditions(
+	key: string,
+	rawValues: string,
+	attribute: InstanceAttribute | undefined,
+): SearchCondition[] {
 	const split = rawValues.split(/ & /);
 	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute));
 }
 
-export function translateColumnFilterToSearchCondition(key: string, rawValue: string, attribute: InstanceAttribute | undefined): SearchCondition {
+export function translateColumnFilterToSearchCondition(
+	key: string,
+	rawValue: string,
+	attribute: InstanceAttribute | undefined,
+): SearchCondition {
 	if (rawValue.startsWith(key)) {
 		rawValue = rawValue.substring(key.length);
 	}
@@ -211,7 +223,7 @@ const comparatorNumericalPrefixMappings: Record<string, Comparator> = {
 	'lessthanorequal': 'less_than_equal',
 };
 
-export function parseComparator(value: string): { comparator: Comparator, value: string } {
+export function parseComparator(value: string): { comparator: Comparator; value: string } {
 	const lowered = value.toLowerCase();
 
 	const numericalComparator = lowered.match(/^([>=<a-z_ ]+)([\d._TZ-]+)$/);

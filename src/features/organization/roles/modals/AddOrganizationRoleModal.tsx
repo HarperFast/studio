@@ -45,7 +45,7 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
-	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
 

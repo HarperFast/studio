@@ -15,8 +15,8 @@ export function useGTM() {
 			(function(w: any, d: any, s, l, i) {
 				w[l] = w[l] || [];
 				w[l].push({
-					'gtm.start':
-						new Date().getTime(), event: 'gtm.js',
+					'gtm.start': new Date().getTime(),
+					event: 'gtm.js',
 				});
 				const f = d.getElementsByTagName(s)[0];
 				const j = d.createElement(s);
@@ -26,5 +26,5 @@ export function useGTM() {
 				f.parentNode.insertBefore(j, f);
 			})(window, document, 'script', 'dataLayer', 'GTM-5QQX432');
 		}
-		}, []);
-	}
+	}, []);
+}

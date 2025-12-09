@@ -44,21 +44,22 @@ export function ConfirmDeletionModal({
 			<DialogContent className="sm:max-w-[750px]">
 				<DialogHeader>
 					<DialogTitle>
-						Are you sure you want
-						to {transitiveVerb.toLowerCase()} this {typeOfThingBeingDeleted}?
+						Are you sure you want to {transitiveVerb.toLowerCase()} this {typeOfThingBeingDeleted}?
 					</DialogTitle>
 					<DialogDescription>This action cannot be undone.</DialogDescription>
 				</DialogHeader>
-				{!hideDataLossWarning && (<div className="p-3 my-5 text-white rounded-md bg-amber-600">
-					<p className="flex space-x-1 font-semibold align-baseline">
-						<TriangleAlert className="inline-block size-5" /> <span>Warning</span>
-					</p>
-					<p className="pt-2 text-base">
-						By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}
-						<span className="font-semibold"> {nameOfThingBeingDeleted} </span>
-						you will lose the data stored in it permanently.
-					</p>
-				</div>)}
+				{!hideDataLossWarning && (
+					<div className="p-3 my-5 text-white rounded-md bg-amber-600">
+						<p className="flex space-x-1 font-semibold align-baseline">
+							<TriangleAlert className="inline-block size-5" /> <span>Warning</span>
+						</p>
+						<p className="pt-2 text-base">
+							By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}
+							<span className="font-semibold">{nameOfThingBeingDeleted}</span>
+							you will lose the data stored in it permanently.
+						</p>
+					</div>
+				)}
 				<DialogFooter>
 					<div className="flex justify-center space-x-5">
 						<Button className="rounded-full" onClick={() => setIsModalOpen(false)}>

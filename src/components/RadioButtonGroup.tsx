@@ -2,11 +2,11 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { cn } from '@/lib/cn';
-import { Controller, type Control, type FieldValues, type FieldPath } from 'react-hook-form';
+import { useState } from 'react';
+import { type Control, Controller, type FieldPath, type FieldValues } from 'react-hook-form';
 
 interface RadioButtonOption {
 	value: string;
@@ -17,7 +17,7 @@ interface RadioButtonOption {
 interface RadioButtonGroupProps<
 	TFieldValues extends FieldValues = FieldValues,
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	_TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+	_TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 > {
 	options: RadioButtonOption[];
 	defaultValue?: string;
@@ -29,7 +29,7 @@ interface RadioButtonGroupProps<
 
 export function RadioButtonGroup<
 	TFieldValues extends FieldValues = FieldValues,
-	TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+	TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>,
 >({ options, defaultValue, name, onChange, control, rules }: RadioButtonGroupProps<TFieldValues, TName>) {
 	const [localValue, setLocalValue] = useState(defaultValue || '');
 
@@ -46,7 +46,7 @@ export function RadioButtonGroup<
 						value={field.value}
 						onValueChange={(value) => {
 							field.onChange(value);
-							if (onChange) onChange(value);
+							if (onChange) { onChange(value); }
 						}}
 						className="flex flex-wrap gap-2"
 						name={field.name}
@@ -58,7 +58,7 @@ export function RadioButtonGroup<
 									htmlFor={`${name}-${option.value}`}
 									className={cn(
 										'flex h-10 items-center justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-grey-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-										'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
+										'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground',
 									)}
 								>
 									{option.icon && <span className="mr-2">{option.icon}</span>}
@@ -89,7 +89,7 @@ export function RadioButtonGroup<
 						htmlFor={`${name}-${option.value}`}
 						className={cn(
 							'flex h-10 items-center bg-black/30 justify-center rounded-md border border-input px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-							'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground'
+							'peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground',
 						)}
 					>
 						{option.icon && <span className="mr-2">{option.icon}</span>}

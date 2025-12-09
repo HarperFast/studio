@@ -22,7 +22,7 @@ interface ApplyLicensesClickResponse {
 
 export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): ApplyLicensesClickResponse {
 	const instanceClient = useInstanceClient();
-	const { instanceId }: { instanceId?: string; } = useParams({ strict: false });
+	const { instanceId }: { instanceId?: string } = useParams({ strict: false });
 	const queryClient = useQueryClient();
 	const { isRestartPending, onRestartClick } = useRestartInstanceClick({
 		operation: 'restart_service',
@@ -47,10 +47,12 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 
 		const toastId = toast.loading('Applying Licenses', {
 			...toastConfig,
-			description: <ProgressBar
-				animated={true}
-				width="0%"
-			/>,
+			description: (
+				<ProgressBar
+					animated={true}
+					width="0%"
+				/>
+			),
 		});
 
 		let licensesApplied = 0;
@@ -58,16 +60,21 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 		for (let i = 0; i < licenses.length; i++) {
 			const license = licenses[i];
 			if (!canceled) {
-				toast.loading(licenses.length === 1
-					? 'Applying License'
-					: `Applying License ${i + 1} of ${licenses.length}`, {
-					...toastConfig,
-					id: toastId,
-					description: <ProgressBar
-						animated={true}
-						width={(i === 0 ? 0 : (i / licenses.length * 100)) + '%'}
-					/>,
-				});
+				toast.loading(
+					licenses.length === 1
+						? 'Applying License'
+						: `Applying License ${i + 1} of ${licenses.length}`,
+					{
+						...toastConfig,
+						id: toastId,
+						description: (
+							<ProgressBar
+								animated={true}
+								width={(i === 0 ? 0 : (i / licenses.length * 100)) + '%'}
+							/>
+						),
+					},
+				);
 				try {
 					// Make sure the instance is responding.
 					await getInstanceUserInfo({
@@ -126,7 +133,8 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 				id: toastId,
 				description: `${licenseWord} not applied.\n`
 					+ ([
-						licensesApplied > 0 && licenses.length !== licensesApplied && `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
+						licensesApplied > 0 && licenses.length !== licensesApplied
+						&& `${licensesApplied} of ${licenses.length} ${licenseWord.toLowerCase()} applied.`,
 					].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {
@@ -136,7 +144,6 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 			});
 		}
 	}, [instanceClient, instanceId, licenses, onRestartClick, queryClient]);
-
 
 	return {
 		onApplyLicensesClick,

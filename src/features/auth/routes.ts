@@ -74,23 +74,21 @@ const checkOAuthRoute = createRoute({
 	component: CheckOAuth,
 });
 
-
 const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'reset-password',
 	component: ResetPassword,
 });
 
-export const authRouteTree =
-	authLayout.addChildren([
-		signInRoute,
-		signUpRoute,
-		checkOAuthRoute,
-		forgotPasswordRoute,
-		verifyEmailRoute,
-		verifyingEmailRoute,
-		resetPasswordRoute,
-	]);
+export const authRouteTree = authLayout.addChildren([
+	signInRoute,
+	signUpRoute,
+	checkOAuthRoute,
+	forgotPasswordRoute,
+	verifyEmailRoute,
+	verifyingEmailRoute,
+	resetPasswordRoute,
+]);
 
 export const localAuthRoutes = [
 	localSignInRoute,

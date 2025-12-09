@@ -6,12 +6,17 @@ export function calculateDefaultDeploymentPerformanceAndRegionPlans(
 	regionLocations: SchemaRegion[],
 	alreadyUsingFree?: boolean,
 ): null | Pick<UpsertClusterSchemaType, 'deploymentDescription' | 'performanceDescription' | 'regionPlans'> {
-	const planToSelect = planTypes.find(planType => (alreadyUsingFree ? !!planType.priceUsd : !planType.priceUsd) && planType.deploymentType === 'colocated')
+	const planToSelect =
+		planTypes.find(planType =>
+			(alreadyUsingFree ? !!planType.priceUsd : !planType.priceUsd) && planType.deploymentType === 'colocated'
+		)
 		|| planTypes.find(planType => planType.deploymentType === 'colocated')
 		|| planTypes[0];
 	const allowedRegionIds = planToSelect?.allowedRegionIds;
 	if (planToSelect) {
-		const allowedRegions = allowedRegionIds ? regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id)) : regionLocations;
+		const allowedRegions = allowedRegionIds
+			? regionLocations.filter(regionLocation => allowedRegionIds.includes(regionLocation.id))
+			: regionLocations;
 		const regionToSelect = allowedRegions.find(regionLocation => regionLocation.region === 'US') || allowedRegions[0];
 		if (regionToSelect) {
 			return {

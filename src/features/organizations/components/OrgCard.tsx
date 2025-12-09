@@ -18,8 +18,8 @@ export function OrgCard({
 	organizationRole,
 	onDeleteOrgModal,
 }: {
-	organizationRole: { organizationId: string; organizationName?: string; roleName: string; };
-	onDeleteOrgModal: (OrganizationRole: { organizationId: string; organizationName?: string; }) => void;
+	organizationRole: { organizationId: string; organizationName?: string; roleName: string };
+	onDeleteOrgModal: (OrganizationRole: { organizationId: string; organizationName?: string }) => void;
 }) {
 	const { organizationId, organizationName, roleName } = organizationRole;
 	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
@@ -35,27 +35,44 @@ export function OrgCard({
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{organizationId}</span>
-					{remove && (<DropdownMenu>
-						<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white">
-							<Ellipsis aria-label="Options" />
-						</DropdownMenuTrigger>
-						<DropdownMenuContent>
-							<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
-							<DropdownMenuSeparator />
-							<Link to={`${organizationId}`}><DropdownMenuItem>Clusters</DropdownMenuItem></Link>
-							{showOrgUsersAndRoles && (
-								<Link to={`${organizationId}/roles`}><DropdownMenuItem>Roles</DropdownMenuItem></Link>)}
-							{showOrgUsersAndRoles && (
-								<Link to={`${organizationId}/users`}><DropdownMenuItem>Users</DropdownMenuItem></Link>)}
-							{showBilling && (
-								<Link to={`${organizationId}/billing`}><DropdownMenuItem>Billing</DropdownMenuItem></Link>)}
-							<DropdownMenuSeparator />
-							{remove && (<DropdownMenuItem
-								className="focus:bg-red/70 focus:text-white"
-								onClick={onDeleteClick}>
-								Delete</DropdownMenuItem>)}
-						</DropdownMenuContent>
-					</DropdownMenu>)}
+					{remove && (
+						<DropdownMenu>
+							<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white">
+								<Ellipsis aria-label="Options" />
+							</DropdownMenuTrigger>
+							<DropdownMenuContent>
+								<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								<Link to={`${organizationId}`}>
+									<DropdownMenuItem>Clusters</DropdownMenuItem>
+								</Link>
+								{showOrgUsersAndRoles && (
+									<Link to={`${organizationId}/roles`}>
+										<DropdownMenuItem>Roles</DropdownMenuItem>
+									</Link>
+								)}
+								{showOrgUsersAndRoles && (
+									<Link to={`${organizationId}/users`}>
+										<DropdownMenuItem>Users</DropdownMenuItem>
+									</Link>
+								)}
+								{showBilling && (
+									<Link to={`${organizationId}/billing`}>
+										<DropdownMenuItem>Billing</DropdownMenuItem>
+									</Link>
+								)}
+								<DropdownMenuSeparator />
+								{remove && (
+									<DropdownMenuItem
+										className="focus:bg-red/70 focus:text-white"
+										onClick={onDeleteClick}
+									>
+										Delete
+									</DropdownMenuItem>
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 				</CardDescription>
 				<CardTitle>
 					<h2>{organizationName}</h2>

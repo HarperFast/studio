@@ -29,11 +29,16 @@ export function Databases() {
 		}
 	}
 	if (newDatabaseName || newTableName) {
-		return <Navigate to={buildAbsoluteLinkToDatabasePage({
-			...params,
-			databaseName: newDatabaseName ?? params.databaseName,
-			tableName: newTableName,
-		})} replace={true} />;
+		return (
+			<Navigate
+				to={buildAbsoluteLinkToDatabasePage({
+					...params,
+					databaseName: newDatabaseName ?? params.databaseName,
+					tableName: newTableName,
+				})}
+				replace={true}
+			/>
+		);
 	}
 
 	return (
@@ -42,11 +47,13 @@ export function Databases() {
 				<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 			</section>
 			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9 flex flex-col">
-				{params.databaseName && params.tableName && <DatabaseTableView
-					instanceDatabaseMap={instanceDatabaseMap}
-					databaseName={params.databaseName}
-					tableName={params.tableName}
-				/>}
+				{params.databaseName && params.tableName && (
+					<DatabaseTableView
+						instanceDatabaseMap={instanceDatabaseMap}
+						databaseName={params.databaseName}
+						tableName={params.tableName}
+					/>
+				)}
 			</section>
 		</main>
 	);

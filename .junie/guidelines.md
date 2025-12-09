@@ -3,18 +3,19 @@
 This document guides Junie (the autonomous programmer) when working on this repository. It summarizes how to operate safely, efficiently, and consistently with this codebase.
 
 Related docs and helpers:
+
 - Project overview and scripts: README.md
 - Contribution workflow: .github/CONTRIBUTING.MD
 - Makefile shortcuts: Makefile
 
-
 ## Objectives
+
 - Make the minimal necessary changes to satisfy the issue description.
 - Keep maintainers informed using status updates (plans, progress, next steps).
 - Prefer repository conventions and existing tooling over ad‑hoc solutions.
 
-
 ## Operating principles
+
 - Prefer specialized tools over general ones when available.
 - Do not mix special tools with shell commands in a single step.
 - Keep edits tightly scoped; avoid unrelated refactors.
@@ -22,9 +23,10 @@ Related docs and helpers:
 - Update the plan/status whenever significant progress or decisions occur.
 - When in doubt or blocked, ask concise clarifying questions.
 
-
 ## Repo quick commands
+
 Use pnpm scripts and Make targets. Examples:
+
 - Dev: `pnpm dev` or `make dev`
 - Local Studio dev: `pnpm dev:local` or `make dev-local`
 - Build: `pnpm build` or `make build`
@@ -38,8 +40,8 @@ Use pnpm scripts and Make targets. Examples:
 
 See: package.json scripts and Makefile for the complete list.
 
-
 ## Environments and configuration
+
 - Vite modes select .env files (e.g., `.env.local`, `.env.prod`).
 - Common vars:
   - `VITE_LOCAL_STUDIO`
@@ -53,42 +55,45 @@ See: package.json scripts and Makefile for the complete list.
 
 See examples in README.md and .env.prod.
 
-
 ## Coding standards
+
 - Language: TypeScript + React 19; Router/Query/Table via TanStack; Tailwind CSS 4.
 - Linting: ESLint configured in `eslint.config.js`.
 - Type-checking: `tsconfig.json`, `tsconfig.app.json`.
 - Testing: Vitest (see `vitest.config.ts`).
 - UI styles: Prefer Tailwind utilities and shared components.
 
-
 ## Do and Don’t
+
 Do:
+
 - Keep changes minimal and focused on the issue.
 - Add/adjust tests when feasible for behavior changes.
 - Run `pnpm lint`, `pnpm test`, and `pnpm exec tsc -b` before concluding.
 - Use `update-sdk` only if API types are part of the change.
 
 Don’t:
+
 - Edit generated or build output (e.g., `web/`, `dist/`, `src/integrations/api/api.gen.d.ts`).
 - Introduce unused dependencies.
 - Commit large unrelated refactors.
 
-
 ## Commit conventions and PRs
+
 - Use Conventional Commits (enforced by commitlint). Examples:
   - `feat: ...`, `fix: ...`, `chore: ...`, `docs: ...`, `refactor: ...`
 - Keep PRs small and descriptive; include screenshots for notable UI changes.
 - Releases are automated from the `stage` branch via semantic-release.
 
-
 ## OpenAPI SDK generation
+
 If your work depends on updated API types:
+
 1. Ensure env vars are set (see above).
 2. Run `pnpm update-sdk`.
 
-
 ## Issue-type checklists
+
 - Docs-only change:
   - [ ] Update markdown files.
   - [ ] Run `pnpm lint` for markdown lint if applicable (or ensure formatting is sane).
@@ -105,8 +110,8 @@ If your work depends on updated API types:
   - [ ] Verify type changes compile.
   - [ ] Update affected code paths and tests.
 
-
 ## References
+
 - README.md — project overview, scripts, envs, troubleshooting
 - .github/CONTRIBUTING.MD — contribution workflow and standards
 - Makefile — convenience Make targets

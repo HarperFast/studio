@@ -35,7 +35,7 @@ export function Navbar() {
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
 	const router = useRouter();
-	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
 	const showBilling = canUpdateOrganization;
@@ -57,70 +57,71 @@ export function Navbar() {
 	}, [signOut, router, navigate]);
 
 	const menuItems: Array<MenuGroup | MenuItem> = useMemo(
-		() => [
-			!isLocalStudio && {
-				to: '/',
-				icon: <BuildingIcon />,
-				text: 'Organizations',
-				textBreakpoint: 'xl',
-			},
-			!isLocalStudio && {
-				text: 'SubOrganizations',
-				items: [
-					showOrgUsersAndRoles && {
-						to: `/${organizationId}/roles`,
-						icon: <HandshakeIcon />,
-						text: 'Roles',
-						textBreakpoint: 'lg',
-					},
-					showOrgUsersAndRoles && {
-						to: `/${organizationId}/users`,
-						icon: <UsersIcon />,
-						text: 'Users',
-						textBreakpoint: 'lg',
-					},
-					showBilling && {
-						to: `/${organizationId}/billing`,
-						icon: <ReceiptIcon />,
-						text: 'Billing',
-						textBreakpoint: 'xl',
-					},
-				].filter(excludeFalsy),
-			},
-			!isLocalStudio && {
-				to: '/profile',
-				icon: <UserIcon />,
-				text: 'Profile',
-				textBreakpoint: 'xl',
-			},
-			{
-				to: 'https://docs.harperdb.io/docs',
-				target: '_blank',
-				icon: <BookOpenTextIcon />,
-				text: 'Docs',
-				textBreakpoint: isLocalStudio ? 'md' : 'xl',
-			},
-			{
-				to: 'https://github.com/HarperFast/studio/issues',
-				target: '_blank',
-				icon: <BugIcon />,
-				text: 'Report an Issue',
-				textBreakpoint: isLocalStudio ? 'lg' : 'xl',
-			},
-			{
-				to: 'https://discord.gg/VzZuaw3Xay',
-				target: '_blank',
-				icon: <DiscordLogo />,
-				text: 'Discord',
-				textBreakpoint: isLocalStudio ? 'lg' : 'xl',
-			},
-			{
-				onClick: handleSignOut,
-				icon: <LogOutIcon />,
-				text: 'Sign Out',
-				textBreakpoint: isLocalStudio ? 'md' : 'xl',
-			},
-		].filter(excludeFalsy) satisfies Array<MenuGroup | MenuItem>,
+		() =>
+			[
+				!isLocalStudio && {
+					to: '/',
+					icon: <BuildingIcon />,
+					text: 'Organizations',
+					textBreakpoint: 'xl',
+				},
+				!isLocalStudio && {
+					text: 'SubOrganizations',
+					items: [
+						showOrgUsersAndRoles && {
+							to: `/${organizationId}/roles`,
+							icon: <HandshakeIcon />,
+							text: 'Roles',
+							textBreakpoint: 'lg',
+						},
+						showOrgUsersAndRoles && {
+							to: `/${organizationId}/users`,
+							icon: <UsersIcon />,
+							text: 'Users',
+							textBreakpoint: 'lg',
+						},
+						showBilling && {
+							to: `/${organizationId}/billing`,
+							icon: <ReceiptIcon />,
+							text: 'Billing',
+							textBreakpoint: 'xl',
+						},
+					].filter(excludeFalsy),
+				},
+				!isLocalStudio && {
+					to: '/profile',
+					icon: <UserIcon />,
+					text: 'Profile',
+					textBreakpoint: 'xl',
+				},
+				{
+					to: 'https://docs.harperdb.io/docs',
+					target: '_blank',
+					icon: <BookOpenTextIcon />,
+					text: 'Docs',
+					textBreakpoint: isLocalStudio ? 'md' : 'xl',
+				},
+				{
+					to: 'https://github.com/HarperFast/studio/issues',
+					target: '_blank',
+					icon: <BugIcon />,
+					text: 'Report an Issue',
+					textBreakpoint: isLocalStudio ? 'lg' : 'xl',
+				},
+				{
+					to: 'https://discord.gg/VzZuaw3Xay',
+					target: '_blank',
+					icon: <DiscordLogo />,
+					text: 'Discord',
+					textBreakpoint: isLocalStudio ? 'lg' : 'xl',
+				},
+				{
+					onClick: handleSignOut,
+					icon: <LogOutIcon />,
+					text: 'Sign Out',
+					textBreakpoint: isLocalStudio ? 'md' : 'xl',
+				},
+			].filter(excludeFalsy) satisfies Array<MenuGroup | MenuItem>,
 		[organizationId, showBilling, showOrgUsersAndRoles, handleSignOut],
 	);
 
@@ -204,17 +205,17 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-grey-400">
-						{menuItems.map(menuItem => isMenuGroup(menuItem)
-							? !!menuItem.items.length && (
-							<div key={menuItem.text} className="bg-black rounded-2xl flex">
-								{menuItem.items.map(innerMenuItem => (
-									<DesktopNavItem key={innerMenuItem.text} menuItem={innerMenuItem} />
-								))}
-							</div>
-						)
-							: (
-								<DesktopNavItem key={menuItem.text} menuItem={menuItem} />
-							))}
+						{menuItems.map(menuItem =>
+							isMenuGroup(menuItem)
+								? !!menuItem.items.length && (
+									<div key={menuItem.text} className="bg-black rounded-2xl flex">
+										{menuItem.items.map(innerMenuItem => (
+											<DesktopNavItem key={innerMenuItem.text} menuItem={innerMenuItem} />
+										))}
+									</div>
+								)
+								: <DesktopNavItem key={menuItem.text} menuItem={menuItem} />
+						)}
 					</NavigationMenuList>
 				</NavigationMenu>
 			</div>
@@ -265,29 +266,33 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 					{isMenuOpen ? <X /> : <Menu />}
 				</button>
 			</div>
-			<div className={`${isMenuOpen ? 'fixed' : 'hidden'} top-40 bottom-0 left-0 right-0 bg-black-dark opacity-70`} onClick={closeMenu}></div>
+			<div
+				className={`${isMenuOpen ? 'fixed' : 'hidden'} top-40 bottom-0 left-0 right-0 bg-black-dark opacity-70`}
+				onClick={closeMenu}
+			>
+			</div>
 			<div
 				className={`${
 					isMenuOpen ? 'block' : 'hidden'
 				} md:hidden z-50 space-y-1 pb-3 bg-black-dark absolute left-0 top-full w-full rounded-b-md`}
 			>
-				{menuItems.map(menuItem => isMenuGroup(menuItem)
-					? !!menuItem.items.length && (
-					<div key={menuItem.text} className="bg-black pl-10 pr-2 py-2">
-						{menuItem.items.map(innerMenuItem => (
-							<MobileNavItem key={innerMenuItem.text} menuItem={innerMenuItem} onClick={closeMenu} />
-						))}
-					</div>
-				)
-					: (
-						<MobileNavItem key={menuItem.text} menuItem={menuItem} onClick={closeMenu} />
-					))}
+				{menuItems.map(menuItem =>
+					isMenuGroup(menuItem)
+						? !!menuItem.items.length && (
+							<div key={menuItem.text} className="bg-black pl-10 pr-2 py-2">
+								{menuItem.items.map(innerMenuItem => (
+									<MobileNavItem key={innerMenuItem.text} menuItem={innerMenuItem} onClick={closeMenu} />
+								))}
+							</div>
+						)
+						: <MobileNavItem key={menuItem.text} menuItem={menuItem} onClick={closeMenu} />
+				)}
 			</div>
 		</div>
 	);
 }
 
-function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem, onClick: () => void }) {
+function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem; onClick: () => void }) {
 	const linkOnClick = useCallback(() => {
 		menuItem.onClick?.();
 		onClick();

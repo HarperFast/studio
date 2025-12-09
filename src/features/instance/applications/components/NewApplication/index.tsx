@@ -26,7 +26,7 @@ export function NewApplication() {
 	const { organization, instance, cluster }: {
 		organization?: Organization;
 		instance?: Instance;
-		cluster?: Cluster
+		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
 
 	const defaultApplicationName = useMemo(() => {
@@ -118,7 +118,6 @@ export function NewApplication() {
 			<Form {...methods}>
 				<form onSubmit={handleSubmit(submitForm)} className="flex flex-col gap-4 p-4">
 					<fieldset disabled={isImportingApplication || isCreatingFromTemplate || isReloading}>
-
 						<Card className="bg-black-dark">
 							<CommonInstructions
 								control={control}
@@ -172,10 +171,8 @@ export function NewApplication() {
 										watch={watch}
 									/>
 								</TabsContent>
-
 							</Tabs>
 						</Card>
-
 					</fieldset>
 				</form>
 			</Form>

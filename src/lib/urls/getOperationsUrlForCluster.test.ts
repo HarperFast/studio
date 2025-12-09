@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { describe, expect, it } from 'vitest';
 
 describe('getOperationsUrlForCluster', () => {
 	it('handles a missing fqdn', () => {

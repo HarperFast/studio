@@ -2,7 +2,7 @@ export const templates = [
 	{
 		id: 'harper',
 		name: 'Web + REST ORM',
-		description: 'Define your entities in schema.graphql, add your HTML/CSS/JS in web, and you\'re cooking!',
+		description: "Define your entities in schema.graphql, add your HTML/CSS/JS in web, and you're cooking!",
 		tags: ['Harper', 'ORM', 'REST', 'GraphQL'],
 		githubUrl: 'https://github.com/HarperFast/application-template/tree/fabric',
 	},

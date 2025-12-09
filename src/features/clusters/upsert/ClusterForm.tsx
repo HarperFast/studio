@@ -63,10 +63,24 @@ export function ClusterForm({
 
 	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(startOffOnBilling);
 
-	const colocatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
-		groupThenKeyBy(regionLocationsColocated?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocationsColocated]);
-	const dedicatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(() =>
-		groupThenKeyBy(regionLocationsDedicated?.sort(sortByField('latencyDescription')) || [], 'region', 'latencyDescription'), [regionLocationsDedicated]);
+	const colocatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(
+		() =>
+			groupThenKeyBy(
+				regionLocationsColocated?.sort(sortByField('latencyDescription')) || [],
+				'region',
+				'latencyDescription',
+			),
+		[regionLocationsColocated],
+	);
+	const dedicatedRegionNameToLatencyToRegion = useMemo<Record<string, Record<string, SchemaRegion>>>(
+		() =>
+			groupThenKeyBy(
+				regionLocationsDedicated?.sort(sortByField('latencyDescription')) || [],
+				'region',
+				'latencyDescription',
+			),
+		[regionLocationsDedicated],
+	);
 
 	const refineZod = useCallback((data: UpsertClusterSchemaType, ctx: z.RefinementCtx) => {
 		const names = new Set();
@@ -135,7 +149,12 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [alreadyUsingFree, colocatedRegionNameToLatencyToRegion, dedicatedRegionNameToLatencyToRegion, deploymentToPerformanceToPlan]);
+	}, [
+		alreadyUsingFree,
+		colocatedRegionNameToLatencyToRegion,
+		dedicatedRegionNameToLatencyToRegion,
+		deploymentToPerformanceToPlan,
+	]);
 
 	const form = useForm({
 		mode: 'onChange',
@@ -207,17 +226,23 @@ export function ClusterForm({
 		);
 		return {
 			suggestedAbbreviatedName,
-			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${organization.subdomain || 'your-org'}.harperfabric.com`,
+			fullHostName: `${abbreviatedName || suggestedAbbreviatedName}.${
+				organization.subdomain || 'your-org'
+			}.harperfabric.com`,
 		};
 	}, [clusterName, abbreviatedName, organization]);
-	const selectedPlan = useMemo(() =>
-		deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
+	const selectedPlan = useMemo(() => deploymentToPerformanceToPlan?.[selectedDeployment]?.[selectedPerformance], [
+		deploymentToPerformanceToPlan,
+		selectedDeployment,
+		selectedPerformance,
+	]);
 
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
 			const firstRegion = selectedRegionPlans[0];
-			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]?.[firstRegion.latencyDescription];
+			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]
+				?.[firstRegion.latencyDescription];
 			if (!allowedRegionIds.includes(firstSelectedRegion?.id)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
 				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
@@ -245,13 +270,13 @@ export function ClusterForm({
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
 		: selectedDeployment === 'Self-Hosted'
-			? selectedInstances.length * selectedPlan.priceUsd
-			: selectedRegionPlans.reduce((total, region) => {
-				const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
-				return total + (!regionPlan
-					? 0
-					: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
-			}, 0);
+		? selectedInstances.length * selectedPlan.priceUsd
+		: selectedRegionPlans.reduce((total, region) => {
+			const regionPlan = regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!];
+			return total + (!regionPlan
+				? 0
+				: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
+		}, 0);
 
 	const onStartSaving = useCallback(({
 		creating,
@@ -261,11 +286,13 @@ export function ClusterForm({
 		deploymentDescription: string;
 	}) =>
 		toast.message(creating ? 'Creating Cluster' : 'Updating Cluster', {
-			description: <EstimatedProgressBar
-				message="This may take a little bit, hold tight!"
-				lateMessage="Still working on it... why don't you grab a coffee, and I'll let you know when it's done?"
-				duration={deploymentDescription === 'Dedicated' ? 60_000 : 5_000}
-			/>,
+			description: (
+				<EstimatedProgressBar
+					message="This may take a little bit, hold tight!"
+					lateMessage="Still working on it... why don't you grab a coffee, and I'll let you know when it's done?"
+					duration={deploymentDescription === 'Dedicated' ? 60_000 : 5_000}
+				/>
+			),
 			duration: 120_000,
 		}), []);
 
@@ -309,8 +336,8 @@ export function ClusterForm({
 			description: isSelfManaged
 				? undefined
 				: creating
-					? 'It is being provisioned now.'
-					: 'The updates are being provisioned now.',
+				? 'It is being provisioned now.'
+				: 'The updates are being provisioned now.',
 			duration: 5_000,
 		});
 	}, [queryClient, router, navigate, organizationId, form]);
@@ -349,13 +376,14 @@ export function ClusterForm({
 				id: clusterId,
 				regionPlans: plans,
 			}, {
-				onSuccess: (data) => onClusterSavedCallback({
-					clusterId: data.id,
-					sourceClusterId: formData.sourceClusterId,
-					isSelfManaged,
-					creating: false,
-					toastId,
-				}),
+				onSuccess: (data) =>
+					onClusterSavedCallback({
+						clusterId: data.id,
+						sourceClusterId: formData.sourceClusterId,
+						isSelfManaged,
+						creating: false,
+						toastId,
+					}),
 				onError: clearToast,
 			});
 		} else {
@@ -369,17 +397,30 @@ export function ClusterForm({
 				organizationId,
 				regionPlans: plans,
 			}, {
-				onSuccess: (data) => onClusterSavedCallback({
-					clusterId: data.id,
-					sourceClusterId: formData.sourceClusterId,
-					isSelfManaged,
-					creating: true,
-					toastId,
-				}),
+				onSuccess: (data) =>
+					onClusterSavedCallback({
+						clusterId: data.id,
+						sourceClusterId: formData.sourceClusterId,
+						isSelfManaged,
+						creating: true,
+						toastId,
+					}),
 				onError: clearToast,
 			});
 		}
-	}, [calculatedNames.suggestedAbbreviatedName, clusterId, deploymentToPerformanceToPlan, form, onClusterSavedCallback, onStartSaving, organizationId, regionNameToLatencyToRegion, setSavedClusterState, submitEditClusterData, submitNewClusterData]);
+	}, [
+		calculatedNames.suggestedAbbreviatedName,
+		clusterId,
+		deploymentToPerformanceToPlan,
+		form,
+		onClusterSavedCallback,
+		onStartSaving,
+		organizationId,
+		regionNameToLatencyToRegion,
+		setSavedClusterState,
+		submitEditClusterData,
+		submitNewClusterData,
+	]);
 
 	const submitClusterDetailsForm = useCallback(() => {
 		if (totalPrice > 0) {
@@ -397,50 +438,59 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	return (<>
-		<div className="absolute top-3 right-12 text-right">
-			<dt className="font-light">Total Price</dt>
-			<dd className="font-bold"><PriceDisplay price={totalPrice} /></dd>
-		</div>
-		<Form {...form}>
-			{!confirmingPaymentDetails
-				? (<>
-					<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Configuration</h1>
-					<p className="text-muted-foreground text-sm mb-6">
-						Configure your Harper cluster and define deployment plans.</p>
+	return (
+		<>
+			<div className="absolute top-3 right-12 text-right">
+				<dt className="font-light">Total Price</dt>
+				<dd className="font-bold">
+					<PriceDisplay price={totalPrice} />
+				</dd>
+			</div>
+			<Form {...form}>
+				{!confirmingPaymentDetails
+					? (
+						<>
+							<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Configuration</h1>
+							<p className="text-muted-foreground text-sm mb-6">
+								Configure your Harper cluster and define deployment plans.
+							</p>
 
-					<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
-						<ClusterDetails
-							calculatedNames={calculatedNames}
-							clusterId={clusterId}
-							deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
-							form={form}
-							isPending={isCreatePending || isEditPending}
-							regionLocations={regionLocations}
-							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-							selectedDeployment={selectedDeployment}
-							selectedPerformance={selectedPerformance}
-							selectedPlan={selectedPlan}
-							totalPrice={totalPrice}
-						/>
-					</form>
-				</>)
-				: (<>
-					<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Billing</h1>
-					<p className="text-muted-foreground text-sm mb-2">Please confirm the following billing
-						details:</p>
+							<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
+								<ClusterDetails
+									calculatedNames={calculatedNames}
+									clusterId={clusterId}
+									deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
+									form={form}
+									isPending={isCreatePending || isEditPending}
+									regionLocations={regionLocations}
+									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+									selectedDeployment={selectedDeployment}
+									selectedPerformance={selectedPerformance}
+									selectedPlan={selectedPlan}
+									totalPrice={totalPrice}
+								/>
+							</form>
+						</>
+					)
+					: (
+						<>
+							<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Billing</h1>
+							<p className="text-muted-foreground text-sm mb-2">
+								Please confirm the following billing details:
+							</p>
 
-					<ClusterBilling
-						clusterId={clusterId}
-						isPending={isCreatePending || isEditPending}
-						onGoBackToDetails={onGoBackToDetails}
-						onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-						onSubmit={submitCreateCluster}
-						organizationId={organizationId}
-						selectedPlan={selectedPlan}
-					/>
-				</>)
-			}
-		</Form>
-	</>);
+							<ClusterBilling
+								clusterId={clusterId}
+								isPending={isCreatePending || isEditPending}
+								onGoBackToDetails={onGoBackToDetails}
+								onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+								onSubmit={submitCreateCluster}
+								organizationId={organizationId}
+								selectedPlan={selectedPlan}
+							/>
+						</>
+					)}
+			</Form>
+		</>
+	);
 }

@@ -14,5 +14,6 @@ export function calculateInstanceFQDN(instance: z.infer<typeof UpsertClusterSche
 	if (port === 80 && secure === 'true') {
 		secure = 'false';
 	}
-	return `${secure === 'true' ? 'https' : 'http'}://${fqdn}${port === 443 || port === 80 ? '' : (':' + port)}`.toLowerCase();
+	return `${secure === 'true' ? 'https' : 'http'}://${fqdn}${port === 443 || port === 80 ? '' : (':' + port)}`
+		.toLowerCase();
 }

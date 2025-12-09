@@ -17,11 +17,10 @@ export function ColumnFilters<TData>({
 	columnFiltersForm,
 	headerGroups,
 }: {
-	applyFilters: () => void,
-	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>,
-	headerGroups: HeaderGroup<TData>[]
+	applyFilters: () => void;
+	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>;
+	headerGroups: HeaderGroup<TData>[];
 }) {
-
 	const handleSubmit = useCallback((e: KeyboardEvent) => {
 		if (e.key === 'Enter') {
 			e.preventDefault();
@@ -29,34 +28,40 @@ export function ColumnFilters<TData>({
 			return false;
 		}
 	}, [applyFilters]);
-	return (<TableHeader>
-		<Form {...columnFiltersForm}>
-			{headerGroups.map((headerGroup) => (
-				<TableRow key={headerGroup.id} className="border-none">
-					{headerGroup.headers.map((header) =>
-						<TableCell key={header.id} style={{ width: `${header.column.getSize()}px` }}>
-							{header.column.columnDef.enableColumnFilter && (<FormField
-								control={columnFiltersForm.control}
-								name={header.id}
-								render={({ field }) => (
-									<FormItem className="border-r-1 border-r-black">
-										<FormControl>
-											<Input
-												{...field}
-												type="text"
-												autoCapitalize="none"
-												autoComplete="off"
-												className="rounded-none"
-												onKeyDown={handleSubmit}
-												value={field.value ?? ''}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
+	return (
+		<TableHeader>
+			<Form {...columnFiltersForm}>
+				{headerGroups.map((headerGroup) => (
+					<TableRow key={headerGroup.id} className="border-none">
+						{headerGroup.headers.map((header) => (
+							<TableCell key={header.id} style={{ width: `${header.column.getSize()}px` }}>
+								{header.column.columnDef.enableColumnFilter && (
+									<FormField
+										control={columnFiltersForm.control}
+										name={header.id}
+										render={({ field }) => (
+											<FormItem className="border-r-1 border-r-black">
+												<FormControl>
+													<Input
+														{...field}
+														type="text"
+														autoCapitalize="none"
+														autoComplete="off"
+														className="rounded-none"
+														onKeyDown={handleSubmit}
+														value={field.value ?? ''}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
 								)}
-							/>)}
-						</TableCell>)}
-				</TableRow>))}
-		</Form>
-	</TableHeader>);
+							</TableCell>
+						))}
+					</TableRow>
+				))}
+			</Form>
+		</TableHeader>
+	);
 }

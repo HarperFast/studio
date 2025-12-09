@@ -18,9 +18,9 @@ export function OrgUserRoleCheckbox({
 	data: SchemaUser;
 	readOnly: boolean;
 	canRemove: boolean;
-	orgRole: SchemaOrganizationRole,
-	selectedRoles: Record<string, SchemaOrganizationRole>,
-	setChangesMade: (value: boolean) => void,
+	orgRole: SchemaOrganizationRole;
+	selectedRoles: Record<string, SchemaOrganizationRole>;
+	setChangesMade: (value: boolean) => void;
 }) {
 	const { mutate: addUser, isPending: isAddPending } = useAddUserToOrganizationRole();
 	const { mutate: removeUser, isPending: isRemovePending } = useRemoveUserFromOrganizationRole();
@@ -55,14 +55,16 @@ export function OrgUserRoleCheckbox({
 		}
 	}, [addUser, data.email, data.id, isChecked, orgRole.id, removeUser, setChangesMade, wasChecked]);
 
-	return <Label key={orgRole.id} className="flex">
-		<Input
-			type="checkbox"
-			className="w-6"
-			disabled={readOnly || isAddPending || isRemovePending || (!canRemove && isChecked)}
-			checked={isChecked}
-			onChange={onCheckedChanged}
-		/>
-		<span className="pl-4 pr-8 flex-1 py-2.5">{orgRole.roleName}</span>
-	</Label>;
+	return (
+		<Label key={orgRole.id} className="flex">
+			<Input
+				type="checkbox"
+				className="w-6"
+				disabled={readOnly || isAddPending || isRemovePending || (!canRemove && isChecked)}
+				checked={isChecked}
+				onChange={onCheckedChanged}
+			/>
+			<span className="pl-4 pr-8 flex-1 py-2.5">{orgRole.roleName}</span>
+		</Label>
+	);
 }

@@ -118,5 +118,3 @@ export function VerifyEmail() {
 		</div>
 	);
 }
-
-

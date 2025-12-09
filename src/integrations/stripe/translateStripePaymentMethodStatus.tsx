@@ -1,7 +1,9 @@
 import { BadgeStatusVariantValues } from '@/components/ui/utils/badgeStatus';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 
-export function translateStripePaymentMethodStatusToVariant(paymentMethodStatus: PaymentMethodStatus | string): BadgeStatusVariantValues {
+export function translateStripePaymentMethodStatusToVariant(
+	paymentMethodStatus: PaymentMethodStatus | string,
+): BadgeStatusVariantValues {
 	switch (paymentMethodStatus) {
 		case PaymentMethodStatus.PASS:
 			return 'success';

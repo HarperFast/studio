@@ -13,8 +13,8 @@ import { useEffect, useMemo, useState } from 'react';
  * 	3. Running (Running or Updated)
  */
 export function ClusterProgress({ cluster, forceProgressBarVisible }: {
-	cluster: Pick<Cluster, 'status' | 'id'>,
-	forceProgressBarVisible?: boolean
+	cluster: Pick<Cluster, 'status' | 'id'>;
+	forceProgressBarVisible?: boolean;
 }) {
 	const [showProgress, setShowProgress] = useState(forceProgressBarVisible || false);
 
@@ -83,17 +83,35 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 	if (!showProgress) {
 		return null;
 	}
-	return (<div className="w-full text-center">
-		<div className="w-full h-2.5 rounded-full overflow-clip flex shadow">
-			{/*Running*/}
-			<div style={{ width: updating.runningWidth }} className="grow bg-green/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
-			{/*Failed*/}
-			<div style={{ width: updating.failedWidth }} className="grow bg-red/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
-			{/*Updating*/}
-			<div style={{ width: updating.updatingWidth }} className="grow animate-pulse bg-yellow/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
-			{/*Pending*/}
-			<div style={{ width: updating.pendingWidth }} className="grow bg-gray-600 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"></div>
+	return (
+		<div className="w-full text-center">
+			<div className="w-full h-2.5 rounded-full overflow-clip flex shadow">
+				{/*Running*/}
+				<div
+					style={{ width: updating.runningWidth }}
+					className="grow bg-green/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"
+				>
+				</div>
+				{/*Failed*/}
+				<div
+					style={{ width: updating.failedWidth }}
+					className="grow bg-red/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"
+				>
+				</div>
+				{/*Updating*/}
+				<div
+					style={{ width: updating.updatingWidth }}
+					className="grow animate-pulse bg-yellow/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"
+				>
+				</div>
+				{/*Pending*/}
+				<div
+					style={{ width: updating.pendingWidth }}
+					className="grow bg-gray-600 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"
+				>
+				</div>
+			</div>
+			{updating.text && <div className="text-xs text-muted-foreground font-light mt-2">{updating.text}</div>}
 		</div>
-		{updating.text && (<div className="text-xs text-muted-foreground font-light mt-2">{updating.text}</div>)}
-	</div>);
+	);
 }

@@ -63,9 +63,9 @@ interface SystemInformationResponse {
 				loadGuest: number;
 				rawLoadSteal: number;
 				rawLoadGuest: number;
-			}>
-		}
-	},
+			}>;
+		};
+	};
 	memory: {
 		total: number;
 		free: number;
@@ -83,7 +83,7 @@ interface SystemInformationResponse {
 		heapUsed: number;
 		external: number;
 		arrayBuffers: number;
-	},
+	};
 	disk: Record<string, unknown>;
 	network: {
 		default_interface: unknown;

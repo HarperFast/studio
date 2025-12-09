@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
 import { useInterval } from '@/hooks/useInterval';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { useMemo, useState } from 'react';
 
 export function useAgo(msOrDate: number | Date | undefined | null): string {
-	const startMs = useMemo(() => !msOrDate ? null : msOrDate instanceof Date ? msOrDate.getTime() : msOrDate, [msOrDate]);
+	const startMs = useMemo(() => !msOrDate ? null : msOrDate instanceof Date ? msOrDate.getTime() : msOrDate, [
+		msOrDate,
+	]);
 	const [formattedDate, setFormattedDate] = useState('');
 
 	useInterval(() => {
@@ -21,4 +23,3 @@ export function useAgo(msOrDate: number | Date | undefined | null): string {
 
 	return formattedDate;
 }
-

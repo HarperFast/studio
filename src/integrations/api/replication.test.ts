@@ -85,8 +85,8 @@ describe('rejectReplicationFailures', () => {
 			replicated: [success('a'), failure('b', 'network error')],
 		});
 		await expect(Promise.resolve(rejectReplicationFailures(resp))).rejects.toBe(
-			'The operation partially succeeded, but 1 node failed:\n' +
-			'b: network error',
+			'The operation partially succeeded, but 1 node failed:\n'
+				+ 'b: network error',
 		);
 	});
 
@@ -96,9 +96,9 @@ describe('rejectReplicationFailures', () => {
 			replicated: [success('a'), failure('b', 'timeout'), failure('c', 'disk full')],
 		});
 		await expect(Promise.resolve(rejectReplicationFailures(resp))).rejects.toBe(
-			'The operation partially succeeded, but 2 nodes failed:\n' +
-			'b: timeout\n' +
-			'c: disk full',
+			'The operation partially succeeded, but 2 nodes failed:\n'
+				+ 'b: timeout\n'
+				+ 'c: disk full',
 		);
 	});
 
@@ -108,8 +108,8 @@ describe('rejectReplicationFailures', () => {
 			replicated: [failure('solo', 'kernel panic')],
 		});
 		await expect(Promise.resolve(rejectReplicationFailures(resp))).rejects.toBe(
-			'The operation failed on the single node:\n' +
-			'solo: kernel panic',
+			'The operation failed on the single node:\n'
+				+ 'solo: kernel panic',
 		);
 	});
 
@@ -119,10 +119,10 @@ describe('rejectReplicationFailures', () => {
 			replicated: [failure('n1', 'OOM'), failure('n2', 'quota exceeded'), failure('n3', 'permission denied')],
 		});
 		await expect(Promise.resolve(rejectReplicationFailures(resp))).rejects.toBe(
-			'The operation failed on all 3 nodes:\n' +
-			'n1: OOM\n' +
-			'n2: quota exceeded\n' +
-			'n3: permission denied',
+			'The operation failed on all 3 nodes:\n'
+				+ 'n1: OOM\n'
+				+ 'n2: quota exceeded\n'
+				+ 'n3: permission denied',
 		);
 	});
 });

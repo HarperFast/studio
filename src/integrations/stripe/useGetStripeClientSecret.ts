@@ -27,7 +27,14 @@ export function useGetStripeClientSecret(params: Params) {
 				addStripeToOrganizationAndGetIntent({ organizationId }, { onSuccess: gotClientSecret });
 			}
 		}
-	}, [addStripeToOrganizationAndGetIntent, enabled, existingStripeId, getNewStripeIntentForOrganization, gotClientSecret, organizationId]);
+	}, [
+		addStripeToOrganizationAndGetIntent,
+		enabled,
+		existingStripeId,
+		getNewStripeIntentForOrganization,
+		gotClientSecret,
+		organizationId,
+	]);
 
 	return clientSecret;
 }

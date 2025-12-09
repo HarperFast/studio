@@ -12,7 +12,7 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	const { organization, instance, cluster }: {
 		organization?: Organization;
 		instance?: Instance;
-		cluster?: Cluster
+		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
 	const targetNoun = (instance || isLocalStudio) ? 'Instance' : 'Cluster';
 
@@ -76,17 +76,19 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 	return (
 		<div role="list" className="flex items-center space-x-2 xl:space-x-4 sm:max-w-9/10 max-w-[calc(100%-56px)]">
 			{...breadcrumbs}
-			{restartRequired && <Tooltip>
-				<TooltipTrigger asChild>
-					<div className="text-xs italic text-muted-foreground">
-						* Restart <span className="hidden lg:inline-block">Requested</span>
-					</div>
-				</TooltipTrigger>
-				<TooltipContent side="bottom">
-					This {targetNoun} is requesting a restart, when convenient, to apply your latest changes.
-					<br />You can do this from the Apps or Config pages.
-				</TooltipContent>
-			</Tooltip>}
+			{restartRequired && (
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<div className="text-xs italic text-muted-foreground">
+							* Restart <span className="hidden lg:inline-block">Requested</span>
+						</div>
+					</TooltipTrigger>
+					<TooltipContent side="bottom">
+						This {targetNoun} is requesting a restart, when convenient, to apply your latest changes.
+						<br />You can do this from the Apps or Config pages.
+					</TooltipContent>
+				</Tooltip>
+			)}
 		</div>
 	);
 }

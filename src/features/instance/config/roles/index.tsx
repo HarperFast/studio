@@ -36,7 +36,7 @@ export function ConfigRolesIndex() {
 			const parts = [roleId ? '..' : '', newRole].filter(Boolean);
 			void navigate({ to: parts.join('/') });
 		},
-		[roleId, navigate]
+		[roleId, navigate],
 	);
 
 	const isEditModalOpen = !!roleId && !!selectedRole;
@@ -56,7 +56,7 @@ export function ConfigRolesIndex() {
 		(rowData: Row<LocalRole>) => {
 			onSelectRole(rowData.original.role);
 		},
-		[onSelectRole]
+		[onSelectRole],
 	);
 	const closeEditModal = useCallback(() => {
 		onSelectRole(undefined);
@@ -66,7 +66,12 @@ export function ConfigRolesIndex() {
 
 	return (
 		<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-			<SimpleBrowseDataTable columns={dataTableColumns} data={localRoles} isFetching={isFetching} onRowClick={onRowClick}>
+			<SimpleBrowseDataTable
+				columns={dataTableColumns}
+				data={localRoles}
+				isFetching={isFetching}
+				onRowClick={onRowClick}
+			>
 				<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
 					<RefreshCwIcon />
 					<span className="hidden lg:inline-block">

@@ -48,7 +48,7 @@ export function OrgConfigUsersIndex() {
 			const parts = [orgUserId ? '..' : '', newUserId].filter(Boolean);
 			void navigate({ to: parts.join('/') });
 		},
-		[orgUserId, navigate]
+		[orgUserId, navigate],
 	);
 
 	const isEditModalOpen = !!orgUserId && !!selectedUser;
@@ -65,7 +65,7 @@ export function OrgConfigUsersIndex() {
 				id: sortTableDataParams.attribute,
 			},
 		],
-		[sortTableDataParams]
+		[sortTableDataParams],
 	);
 
 	const onAddClicked = useCallback(() => {
@@ -80,7 +80,7 @@ export function OrgConfigUsersIndex() {
 		(rowData: Row<SchemaUser>) => {
 			onSelectUser(rowData.original.id);
 		},
-		[onSelectUser]
+		[onSelectUser],
 	);
 	const closeEditModal = useCallback(() => {
 		onSelectUser(undefined);

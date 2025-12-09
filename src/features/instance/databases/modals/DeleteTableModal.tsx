@@ -45,7 +45,8 @@ export function DeleteTableModal({ databaseName, tableName, onDeleted }: {
 					toast.success(`Table ${tableName} dropped successfully`);
 					onDeleted('table');
 				},
-			});
+			},
+		);
 	}, [closeModal, databaseName, deleteTable, instanceParams, onDeleted, queryClient, router, tableName]);
 
 	if (!canManageBrowseInstance || !databaseName) {

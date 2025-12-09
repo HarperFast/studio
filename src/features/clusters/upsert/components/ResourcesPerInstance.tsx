@@ -14,16 +14,17 @@ import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selectedRegion }: {
-	readonly planLimits: SchemaPlanLimits | undefined,
-	readonly resourcesPerInstance: SchemaResourcesPerInstance | undefined
-	readonly selectedRegion: SchemaRegion | undefined
+	readonly planLimits: SchemaPlanLimits | undefined;
+	readonly resourcesPerInstance: SchemaResourcesPerInstance | undefined;
+	readonly selectedRegion: SchemaRegion | undefined;
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
 		setToggled(!toggled);
 	}, [toggled, setToggled]);
 
-	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000 && planLimits.expirationMonths;
+	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000
+		&& planLimits.expirationMonths;
 	const multiplier = selectedRegion?.purchasedBlockMultiplier ?? 1;
 	const rows = useMemo(() => {
 		if (!planLimits) {
@@ -106,34 +107,53 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 		return 'This plan has no usage limits.';
 	}
 
-	return <FormItem className="basis-full">
-		<FormLabel onClick={onUsageLimitsClick}>
-			Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount) ? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & ` : ''}
-			{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount) ? 'in ' + (selectedRegion?.region ?? '') + ' region' : 'per server'},<br className="hidden sm:block" />
-			{isPositive(planLimits.writesPerMinuteCount) ? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & ` : ' '}
-			{humanNumber(planLimits.totalWriteCount)} total writes{expirationMonths && `, for ${pluralize(expirationMonths, 'month', 'months')}`}.
-			Beta pricing subject to change
-			<br className="block sm:hidden" />
-			<Button
-				type="button"
-				variant="link"
-				className="text-white"
-			>
-				Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
-			</Button>
-		</FormLabel>
-		<FormControl>
-			<dl className={cn('divide-y divide-black overflow-hidden transition-[max-height] duration-200 ease-in', toggled ? 'max-h-fit' : 'max-h-0')}>
-				This plan licenses Harper for the usage limits below, for the price listed above. The usage license
-				expires {expirationMonths && `in ${pluralize(expirationMonths, 'month', 'months')} or `}when any usage
-				limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
-				{rows.map((row, index) =>
-					<div key={row.label} className={cn('px-4 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-3', index % 2 === 0 && 'bg-gray-700')}>
-						<dt className="text-sm/6 font-medium text-gray-300">{row.label}</dt>
-						<dd className="mt-1 text-sm/6 sm:col-span-2 sm:mt-0">{row.value}</dd>
-					</div>)}
-			</dl>
-		</FormControl>
-		<FormMessage />
-	</FormItem>;
+	return (
+		<FormItem className="basis-full">
+			<FormLabel onClick={onUsageLimitsClick}>
+				Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount)
+					? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & `
+					: ''}
+				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount)
+					? 'in ' + (selectedRegion?.region ?? '') + ' region'
+					: 'per server'},<br className="hidden sm:block" />
+				{isPositive(planLimits.writesPerMinuteCount)
+					? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
+					: ' '}
+				{humanNumber(planLimits.totalWriteCount)}{' '}
+				total writes{expirationMonths && `, for ${pluralize(expirationMonths, 'month', 'months')}`}. Beta pricing
+				subject to change
+				<br className="block sm:hidden" />
+				<Button
+					type="button"
+					variant="link"
+					className="text-white"
+				>
+					Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
+				</Button>
+			</FormLabel>
+			<FormControl>
+				<dl
+					className={cn(
+						'divide-y divide-black overflow-hidden transition-[max-height] duration-200 ease-in',
+						toggled ? 'max-h-fit' : 'max-h-0',
+					)}
+				>
+					This plan licenses Harper for the usage limits below, for the price listed above. The usage license expires
+					{' '}
+					{expirationMonths && `in ${pluralize(expirationMonths, 'month', 'months')} or `}when any usage limit is
+					reached. New usage blocks are automatically purchased/billed as blocks are consumed.
+					{rows.map((row, index) => (
+						<div
+							key={row.label}
+							className={cn('px-4 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-3', index % 2 === 0 && 'bg-gray-700')}
+						>
+							<dt className="text-sm/6 font-medium text-gray-300">{row.label}</dt>
+							<dd className="mt-1 text-sm/6 sm:col-span-2 sm:mt-0">{row.value}</dd>
+						</div>
+					))}
+				</dl>
+			</FormControl>
+			<FormMessage />
+		</FormItem>
+	);
 }

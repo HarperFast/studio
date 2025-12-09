@@ -214,7 +214,12 @@ export function AddSSHKeyModal({
 								>
 									Cancel
 								</Button>
-								<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || !form.formState.isDirty || !form.formState.isValid}>
+								<Button
+									type="submit"
+									variant="submit"
+									className="rounded-full"
+									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+								>
 									<Save /> Add SSH Key
 								</Button>
 							</div>

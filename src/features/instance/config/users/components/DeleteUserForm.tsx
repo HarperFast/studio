@@ -33,7 +33,6 @@ export function DeleteUserForm({
 		},
 	});
 
-
 	const instanceParams = useInstanceClientParams();
 	const onDeleteClicked = useCallback(() => {
 		deleteUser(
@@ -42,47 +41,49 @@ export function DeleteUserForm({
 				...instanceParams,
 			},
 			{
-
 				onSuccess: () => {
 					deleteForm.reset();
 					toast.success('User deleted successfully!');
 					onUserDeleted();
 				},
-			});
+			},
+		);
 	}, [data.username, deleteForm, deleteUser, instanceParams, onUserDeleted]);
 
-	return <Form {...deleteForm}>
-		<form onSubmit={deleteForm.handleSubmit(onDeleteClicked)} className="grid gap-4 my-4">
-			<FormField
-				control={deleteForm.control}
-				name="confirmUsernameForDeletion"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel className="pb-1">Confirm Username</FormLabel>
-						<FormControl>
-							<Input
-								type="text"
-								enterKeyHint="next"
-								autoComplete="username"
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
+	return (
+		<Form {...deleteForm}>
+			<form onSubmit={deleteForm.handleSubmit(onDeleteClicked)} className="grid gap-4 my-4">
+				<FormField
+					control={deleteForm.control}
+					name="confirmUsernameForDeletion"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="pb-1">Confirm Username</FormLabel>
+							<FormControl>
+								<Input
+									type="text"
+									enterKeyHint="next"
+									autoComplete="username"
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 
-			<DialogFooter>
-				<div className="flex justify-between w-full">
-					<Button
-						variant="destructive"
-						className="rounded-full"
-						disabled={isDeleteUserPending || !deleteForm.formState.isValid}
-					>
-						<Trash /> Delete User
-					</Button>
-				</div>
-			</DialogFooter>
-		</form>
-	</Form>;
+				<DialogFooter>
+					<div className="flex justify-between w-full">
+						<Button
+							variant="destructive"
+							className="rounded-full"
+							disabled={isDeleteUserPending || !deleteForm.formState.isValid}
+						>
+							<Trash /> Delete User
+						</Button>
+					</div>
+				</DialogFooter>
+			</form>
+		</Form>
+	);
 }

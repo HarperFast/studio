@@ -42,13 +42,13 @@ describe('sortByName', () => {
 			{ name: 'John Doe' },
 			{ name: 'Jane Smith' },
 			{ name: 'John-Paul Jones' },
-			{ name: 'Jane O\'Connor' },
+			{ name: "Jane O'Connor" },
 		];
 
 		items.sort(sortByName);
 
 		expect(items.map(item => item.name)).toEqual([
-			'Jane O\'Connor',
+			"Jane O'Connor",
 			'Jane Smith',
 			'John Doe',
 			'John-Paul Jones',

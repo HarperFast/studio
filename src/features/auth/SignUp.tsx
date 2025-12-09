@@ -186,12 +186,26 @@ export function SignUp() {
 							</FormItem>
 						)}
 					/>
-					<p className="text-xs">By creating an account, you agree to
-						the <a href="https://www.harper.fast/resources/privacy-policy" target="_blank" rel="noreferrer" className="underline hover:text-blue-300">
+					<p className="text-xs">
+						By creating an account, you agree to the{' '}
+						<a
+							href="https://www.harper.fast/resources/privacy-policy"
+							target="_blank"
+							rel="noreferrer"
+							className="underline hover:text-blue-300"
+						>
 							Privacy Policy
-						</a> and <a href="https://www.harper.fast/resources/terms-of-use" target="_blank" rel="noreferrer" className="underline hover:text-blue-300">
+						</a>{' '}
+						and{' '}
+						<a
+							href="https://www.harper.fast/resources/terms-of-use"
+							target="_blank"
+							rel="noreferrer"
+							className="underline hover:text-blue-300"
+						>
 							Terms of Service
-						</a></p>
+						</a>
+					</p>
 
 					<Button type="submit" variant="submit" className="w-full rounded-full my-4">
 						Sign Up For Free

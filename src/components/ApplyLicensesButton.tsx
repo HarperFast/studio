@@ -17,19 +17,21 @@ export function ApplyLicensesButton({
 	});
 	const countNewLicenses = pluralize(newLicenses.length, 'New License', 'New Licenses');
 	const countNewLicensesAre = pluralize(newLicenses.length, 'new license is', 'new licenses are');
-	return (<Tooltip>
-		<TooltipTrigger asChild>
-			<Button
-				variant="defaultOutline"
-				className="mx-0 md:mx-4 rounded-full"
-				onClick={onApplyLicensesClick}
-				disabled={isApplyLicensesPending}
-			>
-				<RotateCcwIcon /> Apply {countNewLicenses}
-			</Button>
-		</TooltipTrigger>
-		<TooltipContent>
-			{countNewLicensesAre} available for this instance. After applying, you will want to restart the instance.
-		</TooltipContent>
-	</Tooltip>);
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant="defaultOutline"
+					className="mx-0 md:mx-4 rounded-full"
+					onClick={onApplyLicensesClick}
+					disabled={isApplyLicensesPending}
+				>
+					<RotateCcwIcon /> Apply {countNewLicenses}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>
+				{countNewLicensesAre} available for this instance. After applying, you will want to restart the instance.
+			</TooltipContent>
+		</Tooltip>
+	);
 }

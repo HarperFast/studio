@@ -15,9 +15,9 @@ export function SidebarMenuButton({
 	className,
 	...props
 }: React.ComponentProps<'button'> & {
-	asChild?: boolean
-	isActive?: boolean
-	tooltip?: string | React.ComponentProps<typeof TooltipContent>
+	asChild?: boolean;
+	isActive?: boolean;
+	tooltip?: string | React.ComponentProps<typeof TooltipContent>;
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
 	const Comp = asChild ? Slot : 'button';
 	const { isMobile, state } = useSidebar();

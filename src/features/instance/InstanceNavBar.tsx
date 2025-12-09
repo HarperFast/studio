@@ -33,7 +33,6 @@ export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
 	const params = useParams({ strict: false });
 
-
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const statusAvailable = wasAReleasedBeforeB('4.6.0', version);
 	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
@@ -42,41 +41,41 @@ export function InstanceNavBar() {
 	const { data: statusData } = useQuery(getStatusQueryOptions(instanceParams, statusAvailable));
 	const restartRequired = statusData?.restartRequired ?? false;
 
-
-	const links = useMemo(() => [
-		{
-			to: buildAbsoluteLinkToPage(params),
-			activeOptions: { exact: true },
-			name: 'Applications',
-			shortName: 'Apps',
-			icon: <PackageIcon className="inline-block" />,
-		},
-		{
-			to: buildAbsoluteLinkToPage(params, 'databases'),
-			icon: <DatabaseIcon className="inline-block" />,
-			name: 'Databases',
-		},
-		canManage && apisAvailable && {
-			to: buildAbsoluteLinkToPage(params, 'apis'),
-			name: 'APIs',
-			icon: <ServerIcon className="inline-block" />,
-		},
-		canManage && statusAvailable && {
-			to: buildAbsoluteLinkToPage(params, 'status'),
-			icon: <GaugeIcon className="inline-block" />,
-			name: 'Status',
-		},
-		canManage && {
-			to: buildAbsoluteLinkToPage(params, 'logs'),
-			icon: <NotepadTextIcon className="inline-block" />,
-			name: 'Logs',
-		},
-		canManage && {
-			to: buildAbsoluteLinkToPage(params, 'config'),
-			icon: <SettingsIcon className="inline-block" />,
-			name: 'Config',
-		},
-	].filter(excludeFalsy) satisfies Link[], [canManage, params, apisAvailable, statusAvailable]);
+	const links = useMemo(() =>
+		[
+			{
+				to: buildAbsoluteLinkToPage(params),
+				activeOptions: { exact: true },
+				name: 'Applications',
+				shortName: 'Apps',
+				icon: <PackageIcon className="inline-block" />,
+			},
+			{
+				to: buildAbsoluteLinkToPage(params, 'databases'),
+				icon: <DatabaseIcon className="inline-block" />,
+				name: 'Databases',
+			},
+			canManage && apisAvailable && {
+				to: buildAbsoluteLinkToPage(params, 'apis'),
+				name: 'APIs',
+				icon: <ServerIcon className="inline-block" />,
+			},
+			canManage && statusAvailable && {
+				to: buildAbsoluteLinkToPage(params, 'status'),
+				icon: <GaugeIcon className="inline-block" />,
+				name: 'Status',
+			},
+			canManage && {
+				to: buildAbsoluteLinkToPage(params, 'logs'),
+				icon: <NotepadTextIcon className="inline-block" />,
+				name: 'Logs',
+			},
+			canManage && {
+				to: buildAbsoluteLinkToPage(params, 'config'),
+				icon: <SettingsIcon className="inline-block" />,
+				name: 'Config',
+			},
+		].filter(excludeFalsy) satisfies Link[], [canManage, params, apisAvailable, statusAvailable]);
 	return (
 		<>
 			<DesktopInstanceNavBar links={links} restartRequired={restartRequired} />
@@ -85,7 +84,7 @@ export function InstanceNavBar() {
 	);
 }
 
-function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[], restartRequired: boolean }) {
+function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
 			<Breadcrumbs restartRequired={restartRequired} />
@@ -99,9 +98,7 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[], rest
 					>
 						{link.icon}
 						<span className="hidden xl:inline-block ml-1">{link.name}</span>
-						{shortName && (
-							<span className="visible xl:hidden ml-1"> {shortName}</span>
-						)}
+						{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
 					</Link>
 				))}
 			</div>
@@ -109,7 +106,7 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[], rest
 	);
 }
 
-function MobileInstanceNavBar({ links, restartRequired }: { links: Link[], restartRequired: boolean }) {
+function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
 		<>
 			<div className="flex md:hidden items-center justify-between h-full px-2 text-white">

@@ -44,39 +44,54 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 	if (organization?.type === 'ENTERPRISE') {
 		return (
 			<span>
-				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this
-				page. Want to explore your solution with Harper more? <ContactUs />, we would love to talk!
+				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this page.
+				Want to explore your solution with Harper more? <ContactUs />, we would love to talk!
 			</span>
 		);
 	}
 
 	if (paymentMethod && !replacingPaymentMethod) {
-		return (<>
-			<div className="mt-2">
-				{paymentMethod.brand?.toUpperCase() ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
-				{(paymentMethod.expMonth && paymentMethod.expYear) ? (
-					<> (exp {formatMonthAndYear(paymentMethod.expMonth, paymentMethod.expYear)})</>
-				) : null}
-				{paymentMethod.status ? <> — <Badge variant={translateStripePaymentMethodStatusToVariant(paymentMethod.status)}>{translateStripePaymentMethodStatusToText(paymentMethod.status)}</Badge></> : null}
-			</div>
-			{update && (<div className="mt-2 mb-6">
-				<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
-					Replace Payment Method</Button>
-			</div>)}
-		</>);
+		return (
+			<>
+				<div className="mt-2">
+					{paymentMethod.brand?.toUpperCase() ?? 'Card'} ending in {paymentMethod.last4 ?? '••••'}
+					{(paymentMethod.expMonth && paymentMethod.expYear)
+						? <>(exp {formatMonthAndYear(paymentMethod.expMonth, paymentMethod.expYear)})</>
+						: null}
+					{paymentMethod.status
+						? (
+							<>
+								—{' '}
+								<Badge variant={translateStripePaymentMethodStatusToVariant(paymentMethod.status)}>
+									{translateStripePaymentMethodStatusToText(paymentMethod.status)}
+								</Badge>
+							</>
+						)
+						: null}
+				</div>
+				{update && (
+					<div className="mt-2 mb-6">
+						<Button variant="defaultOutline" type="button" onClick={onReplacePaymentMethodClicked}>
+							Replace Payment Method
+						</Button>
+					</div>
+				)}
+			</>
+		);
 	}
 
 	if (!update) {
 		return (
 			<div>
-				This org doesn't have a payment method, and you don't have access to add one.
-				Please contact your administrator.
+				This org doesn't have a payment method, and you don't have access to add one. Please contact your administrator.
 			</div>
 		);
 	}
 
-	return <AddNewPaymentMethod
-		onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-		onPaymentAdded={onPaymentAdded}
-	/>;
+	return (
+		<AddNewPaymentMethod
+			onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+			onPaymentAdded={onPaymentAdded}
+		/>
+	);
 }

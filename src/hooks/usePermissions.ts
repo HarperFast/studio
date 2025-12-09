@@ -23,7 +23,7 @@ interface CRUV {
 
 export function useOrganizationPermissions(orgId?: string): UR {
 	const { user } = useCloudAuth();
-	const { organizationId: orgIdFromRoute }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization) {
 		return { update: false, remove: false };
@@ -36,7 +36,7 @@ export function useOrganizationPermissions(orgId?: string): UR {
 
 export function useOrganizationRolePermissions(orgId?: string): CRUV {
 	const { user } = useCloudAuth();
-	const { organizationId: orgIdFromRoute }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization?.roles) {
 		return { create: false, remove: false, update: false, view: false };
@@ -115,7 +115,7 @@ export function getOrganizationClusterInstancePermissions(user: User | null, org
 }
 
 export function useInstanceManagePermission(entityId?: EntityIds): boolean {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -127,7 +127,7 @@ export function useInstanceManagePermission(entityId?: EntityIds): boolean {
 }
 
 export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -138,8 +138,13 @@ export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean
 	return permission.super_user === true || permission.structure_user === true;
 }
 
-export function useInstanceSchemaTablePermission(entityId: EntityIds | undefined, databaseName: string, tableName: string, action: LocalRolePermissionAction): boolean {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+export function useInstanceSchemaTablePermission(
+	entityId: EntityIds | undefined,
+	databaseName: string,
+	tableName: string,
+	action: LocalRolePermissionAction,
+): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -154,8 +159,14 @@ export function useInstanceSchemaTablePermission(entityId: EntityIds | undefined
 	return specificPermission?.tables?.[tableName][action] === true;
 }
 
-export function useInstanceSchemaTableAttributePermission(entityId: EntityIds | undefined, databaseName: string, tableName: string, attributeName: string, action: LocalRoleAttributePermissionAction): boolean {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+export function useInstanceSchemaTableAttributePermission(
+	entityId: EntityIds | undefined,
+	databaseName: string,
+	tableName: string,
+	attributeName: string,
+	action: LocalRoleAttributePermissionAction,
+): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	const permission = user?.role?.permission;
 	if (!permission) {
@@ -171,6 +182,7 @@ export function useInstanceSchemaTableAttributePermission(entityId: EntityIds | 
 		return true;
 	}
 	const table = specificPermission?.tables?.[tableName];
-	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions || (table as LocalLegacyRolePermissionTable).attribute_restrictions).find(a => a.attribute_name === attributeName);
+	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions
+		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions).find(a => a.attribute_name === attributeName);
 	return attributePermission?.[action] === true;
 }

@@ -6,7 +6,7 @@ export interface AddCSVDataFormData {
 	table: string;
 	fileData: string;
 }
-export interface AddCSVDataResponse{
+export interface AddCSVDataResponse {
 	message: string;
 	job_id: string;
 }
@@ -16,12 +16,12 @@ export async function onAddCSVDataSubmit(formData: AddCSVDataFormData & Instance
 	const { data } = await instanceClient.post(
 		'/',
 		{
-			operation: "csv_data_load",
+			operation: 'csv_data_load',
 			database,
-			action: "insert",
+			action: 'insert',
 			table,
 			data: fileData,
-		}
+		},
 	);
 	return data;
 }

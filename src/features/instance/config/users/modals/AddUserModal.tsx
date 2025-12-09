@@ -76,109 +76,113 @@ export function AddUserModal({
 		}
 	}, [addUser, form, instanceParams, onChangesSaved, setIsModalOpen]);
 
-	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-		{/* NOTE - Is this okay to do for the aria describedby? */}
-		<DialogContent aria-describedby={undefined}>
-			<Form {...form}>
-				<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
-					<DialogHeader>
-						<DialogTitle>Add New User</DialogTitle>
-					</DialogHeader>
-					<FormField
-						control={form.control}
-						name="username"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Username</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										enterKeyHint="next"
-										autoComplete="username"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="password"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										enterKeyHint="next"
-										autoComplete="new-password"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="confirmPassword"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Confirm Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										enterKeyHint="next"
-										autoComplete="new-password"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="role"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Role</FormLabel>
-
-								<Suspense fallback={<TextLoadingSkeleton />}>
+	return (
+		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+			{/* NOTE - Is this okay to do for the aria describedby? */}
+			<DialogContent aria-describedby={undefined}>
+				<Form {...form}>
+					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+						<DialogHeader>
+							<DialogTitle>Add New User</DialogTitle>
+						</DialogHeader>
+						<FormField
+							control={form.control}
+							name="username"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Username</FormLabel>
 									<FormControl>
-										<Select {...field} onValueChange={(role) => field.onChange(role)}>
-											<SelectTrigger className="w-full">
-												<SelectValue placeholder="Choose Role" />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectGroup>
-													<SelectLabel>Role</SelectLabel>
-													{roles?.map((role) => (
-														<SelectItem
-															key={role.id}
-															value={role.id}
-														>{role.role}</SelectItem>
-													))}
-												</SelectGroup>
-											</SelectContent>
-										</Select>
+										<Input
+											type="text"
+											enterKeyHint="next"
+											autoComplete="username"
+											{...field}
+										/>
 									</FormControl>
-								</Suspense>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="password"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Password</FormLabel>
+									<FormControl>
+										<Input
+											type="password"
+											enterKeyHint="next"
+											autoComplete="new-password"
+											{...field}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="confirmPassword"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Confirm Password</FormLabel>
+									<FormControl>
+										<Input
+											type="password"
+											enterKeyHint="next"
+											autoComplete="new-password"
+											{...field}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="role"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="pb-1">Role</FormLabel>
 
-					<DialogFooter>
-						<div className="flex justify-between w-full">
-							<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
-								<Save /> Add User
-							</Button>
-						</div>
-					</DialogFooter>
-				</form>
-			</Form>
-		</DialogContent>
-	</Dialog>;
+									<Suspense fallback={<TextLoadingSkeleton />}>
+										<FormControl>
+											<Select {...field} onValueChange={(role) => field.onChange(role)}>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Choose Role" />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectGroup>
+														<SelectLabel>Role</SelectLabel>
+														{roles?.map((role) => (
+															<SelectItem
+																key={role.id}
+																value={role.id}
+															>
+																{role.role}
+															</SelectItem>
+														))}
+													</SelectGroup>
+												</SelectContent>
+											</Select>
+										</FormControl>
+									</Suspense>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<DialogFooter>
+							<div className="flex justify-between w-full">
+								<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
+									<Save /> Add User
+								</Button>
+							</div>
+						</DialogFooter>
+					</form>
+				</Form>
+			</DialogContent>
+		</Dialog>
+	);
 }

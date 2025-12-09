@@ -37,7 +37,12 @@ const ConfirmDeletionContent = ({
 		<DialogTitle>Confirm Role Deletion</DialogTitle>
 		<DialogDescription>Are you sure you want to delete this role? This action cannot be undone.</DialogDescription>
 		<DialogFooter>
-			<Button type="button" variant="defaultOutline" className="rounded-full" onClick={() => setIsConfirmingRoleDeletion(false)}>
+			<Button
+				type="button"
+				variant="defaultOutline"
+				className="rounded-full"
+				onClick={() => setIsConfirmingRoleDeletion(false)}
+			>
 				Cancel
 			</Button>
 			<Button
@@ -162,111 +167,139 @@ export function EditOrganizationRoleModal({
 				);
 			}
 		},
-		[update, roleInfo, data.organizationId, data.id, updatedPermissions, isValidJSON, updateOrganizationRole, closeModal],
+		[
+			update,
+			roleInfo,
+			data.organizationId,
+			data.id,
+			updatedPermissions,
+			isValidJSON,
+			updateOrganizationRole,
+			closeModal,
+		],
 	);
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent>
-				{isConfirmingRoleDeletion ? (
-					<ConfirmDeletionContent
-						onRoleDeleteClick={onRoleDeleteClick}
-						setIsConfirmingRoleDeletion={setIsConfirmingRoleDeletion}
-						isRoleDeletionPending={isRoleDeletionPending}
-					/>
-				) : (
-					<>
-						<DialogTitle>{isSelf || !update ? 'View' : 'Edit'} Organization Role
-							"{roleInfo.role}"</DialogTitle>
-						<Form {...form}>
-							<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
-								<FormField
-									control={form.control}
-									name="roleName"
-									render={({ field }) => (
-										<FormItem className="col-span-2">
-											<FormLabel className="pb-1">Role Name</FormLabel>
-											<FormControl>
-												<Input type="text" placeholder="Developer" className="" {...field} disabled={isSelf || !update} readOnly={isSelf || !update} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="updateOrganization"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="pb-1">Can Update Organization</FormLabel>
-											<FormControl>
-												<Input
-													type="checkbox"
-													className="w-6 ml-2"
-													disabled={isSelf || !update} readOnly={isSelf || !update}
-													checked={field.value}
-													onChange={(e) => field.onChange(e.target.checked)}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<FormField
-									control={form.control}
-									name="deleteOrganization"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel className="pb-1">Can Delete Organization</FormLabel>
-											<FormControl>
-												<Input
-													type="checkbox"
-													className="w-6 ml-2"
-													disabled={isSelf || !update} readOnly={isSelf || !update}
-													checked={field.value}
-													onChange={(e) => field.onChange(e.target.checked)}
-												/>
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-								<div className="col-span-2">
-									<Editor
-										theme="vs-dark"
-										height="300px"
-										defaultLanguage="json"
-										onValidate={onValidate}
-										onChange={(value) => {
-											if (value) {
-												setUpdatedPermissions(value);
-											}
-										}}
-										options={isSelf || !update ? { readOnly: true } : undefined}
-										defaultValue={updatedPermissions}
+				{isConfirmingRoleDeletion
+					? (
+						<ConfirmDeletionContent
+							onRoleDeleteClick={onRoleDeleteClick}
+							setIsConfirmingRoleDeletion={setIsConfirmingRoleDeletion}
+							isRoleDeletionPending={isRoleDeletionPending}
+						/>
+					)
+					: (
+						<>
+							<DialogTitle>{isSelf || !update ? 'View' : 'Edit'} Organization Role "{roleInfo.role}"</DialogTitle>
+							<Form {...form}>
+								<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
+									<FormField
+										control={form.control}
+										name="roleName"
+										render={({ field }) => (
+											<FormItem className="col-span-2">
+												<FormLabel className="pb-1">Role Name</FormLabel>
+												<FormControl>
+													<Input
+														type="text"
+														placeholder="Developer"
+														className=""
+														{...field}
+														disabled={isSelf || !update}
+														readOnly={isSelf || !update}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
 									/>
-								</div>
-								{(!isSelf && (remove || update)) && (<DialogFooter className="col-span-2">
-									<div className="flex justify-between w-full">
-										{remove && (<Button
-											type="button"
-											variant="destructiveOutline"
-											className="rounded-full"
-											onClick={() => setIsConfirmingRoleDeletion(true)}
-											disabled={isRoleUpdatePending}
-										>
-											Delete Role
-										</Button>)}
-										{update && (
-											<Button variant="submit" className="rounded-full" disabled={!isValidJSON || isRoleUpdatePending}>
-												Save Changes
-											</Button>)}
+									<FormField
+										control={form.control}
+										name="updateOrganization"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel className="pb-1">Can Update Organization</FormLabel>
+												<FormControl>
+													<Input
+														type="checkbox"
+														className="w-6 ml-2"
+														disabled={isSelf || !update}
+														readOnly={isSelf || !update}
+														checked={field.value}
+														onChange={(e) => field.onChange(e.target.checked)}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={form.control}
+										name="deleteOrganization"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel className="pb-1">Can Delete Organization</FormLabel>
+												<FormControl>
+													<Input
+														type="checkbox"
+														className="w-6 ml-2"
+														disabled={isSelf || !update}
+														readOnly={isSelf || !update}
+														checked={field.value}
+														onChange={(e) => field.onChange(e.target.checked)}
+													/>
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<div className="col-span-2">
+										<Editor
+											theme="vs-dark"
+											height="300px"
+											defaultLanguage="json"
+											onValidate={onValidate}
+											onChange={(value) => {
+												if (value) {
+													setUpdatedPermissions(value);
+												}
+											}}
+											options={isSelf || !update ? { readOnly: true } : undefined}
+											defaultValue={updatedPermissions}
+										/>
 									</div>
-								</DialogFooter>)}
-							</form>
-						</Form>
-					</>
-				)}
+									{(!isSelf && (remove || update)) && (
+										<DialogFooter className="col-span-2">
+											<div className="flex justify-between w-full">
+												{remove && (
+													<Button
+														type="button"
+														variant="destructiveOutline"
+														className="rounded-full"
+														onClick={() => setIsConfirmingRoleDeletion(true)}
+														disabled={isRoleUpdatePending}
+													>
+														Delete Role
+													</Button>
+												)}
+												{update && (
+													<Button
+														variant="submit"
+														className="rounded-full"
+														disabled={!isValidJSON || isRoleUpdatePending}
+													>
+														Save Changes
+													</Button>
+												)}
+											</div>
+										</DialogFooter>
+									)}
+								</form>
+							</Form>
+						</>
+					)}
 			</DialogContent>
 		</Dialog>
 	);

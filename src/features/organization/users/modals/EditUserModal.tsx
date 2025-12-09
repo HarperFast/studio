@@ -20,7 +20,7 @@ export function EditUserModal({
 	isModalOpen: boolean;
 	onUserUpdated: () => void;
 }) {
-	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const auth = useCloudAuth();
 	const { update, remove } = useOrganizationRolePermissions(organizationId);
 	const isSelf = auth.user?.email === data.email;
@@ -36,9 +36,11 @@ export function EditUserModal({
 					<DialogTitle>{update ? 'Edit ' : 'View '} {data.email} {isSelf ? '(yourself)' : ''}</DialogTitle>
 				</DialogHeader>
 
-				{update && (<DialogDescription>
-					To remove {isSelf ? 'your self' : 'this user'} from the organization, uncheck all of the boxes below.
-				</DialogDescription>)}
+				{update && (
+					<DialogDescription>
+						To remove {isSelf ? 'your self' : 'this user'} from the organization, uncheck all of the boxes below.
+					</DialogDescription>
+				)}
 
 				{orgRoles.map((orgRole) => (
 					<OrgUserRoleCheckbox
@@ -55,4 +57,3 @@ export function EditUserModal({
 		</Dialog>
 	);
 }
-

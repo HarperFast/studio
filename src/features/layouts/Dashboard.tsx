@@ -1,9 +1,9 @@
+import { Loading } from '@/components/Loading';
+import { Navbar } from '@/components/Navbar';
+import { useOverallAuth } from '@/hooks/useAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { Outlet, useSearch } from '@tanstack/react-router';
-import { Navbar } from '@/components/Navbar';
-import { Loading } from '@/components/Loading';
-import { useOverallAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
 
 export function Dashboard() {

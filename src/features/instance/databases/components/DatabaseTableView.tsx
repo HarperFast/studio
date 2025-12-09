@@ -1,10 +1,5 @@
 import { Button } from '@/components/ui/button';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdownMenu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
@@ -57,9 +52,9 @@ import { PickColumnsDropdown } from './PickColumnsDropdown';
 import { TableView } from './TableView';
 
 export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
-	instanceDatabaseMap?: InstanceDatabaseMap,
-	databaseName: string,
-	tableName: string
+	instanceDatabaseMap?: InstanceDatabaseMap;
+	databaseName: string;
+	tableName: string;
 }) {
 	const allParams: {
 		clusterId?: string;
@@ -107,7 +102,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		for (const key in columnFiltersValues) {
 			if (columnFiltersValues[key]?.length) {
 				try {
-					conditions.push(...translateColumnFilterToSearchConditions(key, columnFiltersValues[key], attributesMap[key]));
+					conditions.push(
+						...translateColumnFilterToSearchConditions(key, columnFiltersValues[key], attributesMap[key]),
+					);
 				} catch (err) {
 					toast.error(String(err));
 				}
@@ -264,8 +261,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		setIsImportCSVModalOpen(true);
 	}, [setIsImportCSVModalOpen]);
 
-	const onDeleted = useCallback((deleted: 'table' | 'database') =>
-		void navigate({ to: deleted === 'table' ? '../' : '../../' }), [navigate]);
+	const onDeleted = useCallback(
+		(deleted: 'table' | 'database') => void navigate({ to: deleted === 'table' ? '../' : '../../' }),
+		[navigate],
+	);
 
 	const [columnVisibility, setColumnVisibility] = useSessionStorage(
 		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
@@ -311,7 +310,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					{filtersToggled && appliedSearchConditions && (
 						<Button variant="ghost" onClick={clearFilters} accessKey="f">
 							<FunnelXIcon className="inline-block " />
-							<span>Clear <u>F</u>ilters</span>
+							<span>
+								Clear <u>F</u>ilters
+							</span>
 						</Button>
 					)}
 					{filtersToggled && columnFiltersForm.formState.isDirty && (
@@ -323,18 +324,26 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					{filtersToggled && !appliedSearchConditions && (
 						<Button variant="ghost" onClick={hideFilters} accessKey="f">
 							<FunnelXIcon className="inline-block " />
-							<span>Hide <u>F</u>ilters</span>
+							<span>
+								Hide <u>F</u>ilters
+							</span>
 						</Button>
 					)}
 
 					{!filtersToggled && (
 						<Button variant="ghost" onClick={showFilters} accessKey="f">
 							<FunnelIcon className="inline-block " />
-							<span>Show <u>F</u>ilters</span>
+							<span>
+								Show <u>F</u>ilters
+							</span>
 						</Button>
 					)}
 
-					<Button variant="defaultOutline" onClick={onRefreshClick} disabled={tableDataFetching || tableConditionsDataFetching}>
+					<Button
+						variant="defaultOutline"
+						onClick={onRefreshClick}
+						disabled={tableDataFetching || tableConditionsDataFetching}
+					>
 						<RefreshCwIcon />
 					</Button>
 
@@ -356,7 +365,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 									to="https://docs.harperdb.io/docs/developers/applications/caching#cache-control-header"
 									target="_blank"
 									rel="noopener noreferrer"
-									onClick={onClickStopPropagation}>
+									onClick={onClickStopPropagation}
+								>
 									<ExternalLinkIcon />
 								</Link>
 							</DropdownMenuItem>
@@ -366,11 +376,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 									Drop Table
 								</DropdownMenuItem>
 							)}
-							{canManageBrowseInstance &&
-								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
-									<Trash2Icon />
-									Drop Database
-								</DropdownMenuItem>}
+							{canManageBrowseInstance
+								&& (
+									<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
+										<Trash2Icon />
+										Drop Database
+									</DropdownMenuItem>
+								)}
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>

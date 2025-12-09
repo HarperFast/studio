@@ -40,7 +40,7 @@ export function ImportCSVModal({
 	const { mutate: addCSVData, isPending: isAddCSVDataPending } = useAddCSVDataMutation();
 
 	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		if (!e.target.files) return;
+		if (!e.target.files) { return; }
 		const file = e.target.files[0];
 		if (file) {
 			const reader = new FileReader();
@@ -78,7 +78,7 @@ export function ImportCSVModal({
 					setSelectedCSVFile(null);
 					onSaveChanges(message);
 				},
-			}
+			},
 		);
 	};
 
@@ -112,13 +112,15 @@ export function ImportCSVModal({
 													<div className="flex flex-col items-center justify-center pt-5 pb-6">
 														<CloudUploadIcon className="text-white" size={48} />
 														<p className="mb-2 text-sm text-white">
-															{selectedCSVFile ? (
-																selectedCSVFile.name
-															) : (
-																<>
-																	<span className="font-semibold">Click to upload</span> or drag and drop a CSV File
-																</>
-															)}
+															{selectedCSVFile
+																? (
+																	selectedCSVFile.name
+																)
+																: (
+																	<>
+																		<span className="font-semibold">Click to upload</span> or drag and drop a CSV File
+																	</>
+																)}
 														</p>
 													</div>
 													<Input

@@ -112,7 +112,8 @@ export function AddRoleModal({
 									</FormControl>
 									<FormLabel className="pl-4 pr-8 flex-1 py-2.5">Super User</FormLabel>
 									<FormMessage />
-								</FormItem>)}
+								</FormItem>
+							)}
 						/>
 						<FormField
 							control={form.control}
@@ -129,7 +130,8 @@ export function AddRoleModal({
 									</FormControl>
 									<FormLabel className="pl-4 pr-8 flex-1 py-2.5">Structure User</FormLabel>
 									<FormMessage />
-								</FormItem>)}
+								</FormItem>
+							)}
 						/>
 
 						<DialogFooter className="md:col-span-2">

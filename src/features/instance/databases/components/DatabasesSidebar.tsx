@@ -15,7 +15,7 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 
 	const loading = !instanceDatabaseMap;
 
-	const params: { databaseName?: string; tableName?: string; } = useParams({ strict: false });
+	const params: { databaseName?: string; tableName?: string } = useParams({ strict: false });
 	const navigate = useNavigate();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
@@ -58,67 +58,79 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 			<h1 className="pt-3 pb-3 text-3xl">Databases</h1>
 			{loading
 				? <TextLoadingSkeleton className="w-full h-9 m-0 rounded-md bg-gray-700" />
-				: (<div className="flex space-x-2">
-					<Select
-						name="databaseSelect"
-						value={params.databaseName || ''}
-						disabled={databaseNames.length === 0}
-						onValueChange={onSelectDatabase}
-					>
-						<SelectTrigger className="w-full">
-							<SelectValue placeholder="Select a Database" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{databaseNames.map((databaseName) => (
-									<SelectItem key={databaseName} value={databaseName}>
-										{databaseName}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
-				</div>)
-			}
+				: (
+					<div className="flex space-x-2">
+						<Select
+							name="databaseSelect"
+							value={params.databaseName || ''}
+							disabled={databaseNames.length === 0}
+							onValueChange={onSelectDatabase}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Select a Database" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{databaseNames.map((databaseName) => (
+										<SelectItem key={databaseName} value={databaseName}>
+											{databaseName}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+					</div>
+				)}
 			{loading
 				? <TextLoadingSkeleton className="w-full min-h-80 rounded-md bg-gray-700 mb-0" />
-				: (<ScrollArea className="border rounded-md min-h-80 border-grey-700 mt-4">
-					{tableNames.length === 0 && params.databaseName?.length ? (
-						<div className="w-full h-full text-center">
-							<p className="py-6">No tables found in this database.</p>
-							{canManageBrowseInstance && (<p>
-								Tap "Create a Table" below!
-							</p>)}
-						</div>
-					) : tableNames.length === 0 && !params.databaseName?.length ? (
-						// If no database is selected, show a message
-						<p className="pt-2 text-sm text-center">Please {databaseNames.length === 0 ? 'create' : 'select'} a
-							table.</p>
-					) : (
-						''
-					)}
-					<ul>
-						{tableNames.map((tableName) => (
-							<li key={tableName} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
-								<Button
-									onClick={() => onSelectTable(params.databaseName, tableName)}
-									size="lg"
-									className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent"
-								>
-									{tableName}
-									<span>
-										{params.tableName === tableName && <ArrowRight />}
-									</span>
-								</Button>
-							</li>
-						))}
-					</ul>
-				</ScrollArea>)
-			}
-			{canManageBrowseInstance && (<CreateNewTableModal
-				databaseName={params.databaseName}
-				onSelectTable={onSelectTable}
-			/>)}
+				: (
+					<ScrollArea className="border rounded-md min-h-80 border-grey-700 mt-4">
+						{tableNames.length === 0 && params.databaseName?.length
+							? (
+								<div className="w-full h-full text-center">
+									<p className="py-6">No tables found in this database.</p>
+									{canManageBrowseInstance && (
+										<p>
+											Tap "Create a Table" below!
+										</p>
+									)}
+								</div>
+							)
+							: tableNames.length === 0 && !params.databaseName?.length
+							? (
+								// If no database is selected, show a message
+								<p className="pt-2 text-sm text-center">
+									Please {databaseNames.length === 0 ? 'create' : 'select'} a table.
+								</p>
+							)
+							: (
+								''
+							)}
+						<ul>
+							{tableNames.map((tableName) => (
+								<li key={tableName} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
+									<Button
+										onClick={() =>
+											onSelectTable(params.databaseName, tableName)}
+										size="lg"
+										className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent"
+									>
+										{tableName}
+										<span>
+											{params.tableName === tableName && <ArrowRight />}
+										</span>
+									</Button>
+								</li>
+							))}
+						</ul>
+					</ScrollArea>
+				)}
+			{canManageBrowseInstance && (
+				<CreateNewTableModal
+					databaseName={params.databaseName}
+					onSelectTable={onSelectTable}
+				/>
+			)}
 		</div>
 	);
 }

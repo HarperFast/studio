@@ -18,8 +18,8 @@ export function useCreateFromTemplate(
 		contents,
 		project,
 	}: {
-		contents: z.infer<typeof TemplateSchema>
-		project: string,
+		contents: z.infer<typeof TemplateSchema>;
+		project: string;
 	}) => {
 		const toastId = toast.loading(`Creating from template...`, {
 			description: 'This may take a bit.',

@@ -12,7 +12,7 @@
 
 	// Remove the centered single orb if present
 	const existingCentered = container.querySelector('.orb-container');
-	if (existingCentered) existingCentered.remove();
+	if (existingCentered) { existingCentered.remove(); }
 
 	const ORB_COUNT = 6;
 	const MIN_SIZE = 120; // px

@@ -3,7 +3,10 @@ import { useToggler } from '@/hooks/useToggler';
 import { SessionStorageKeys } from '@/lib/storage/sessionStorageKeys';
 import { MouseEvent, useCallback, useMemo } from 'react';
 
-export function useSessionToggler<K extends keyof SessionStorageKeys>(key: K, defaultValue: boolean = false): ReturnType<typeof useToggler> {
+export function useSessionToggler<K extends keyof SessionStorageKeys>(
+	key: K,
+	defaultValue: boolean = false,
+): ReturnType<typeof useToggler> {
 	const [toggled, setToggled] = useSessionStorage(key, defaultValue);
 
 	const toggle = useCallback((e?: MouseEvent | unknown) => {

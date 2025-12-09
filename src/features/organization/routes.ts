@@ -10,7 +10,9 @@ export const orgLayoutRoute = createRoute({
 	path: '$organizationId',
 	beforeLoad: async (opts) => {
 		return {
-			organization: await opts.context.queryClient.ensureQueryData(getOrganizationQueryOptions(opts.params.organizationId)),
+			organization: await opts.context.queryClient.ensureQueryData(
+				getOrganizationQueryOptions(opts.params.organizationId),
+			),
 		};
 	},
 });

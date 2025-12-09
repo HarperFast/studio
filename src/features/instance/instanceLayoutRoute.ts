@@ -46,8 +46,8 @@ async function checkClusterInstanceAuthenticationBeforeLoad({
 	context,
 	params,
 }: {
-	context: { authentication: Record<string, AuthenticatedConnection> },
-	params: { organizationId: string; clusterId: string, instanceId?: string }
+	context: { authentication: Record<string, AuthenticatedConnection> };
+	params: { organizationId: string; clusterId: string; instanceId?: string };
 }) {
 	// Are we already authenticated?
 	const auth = context.authentication[params.instanceId || params.clusterId];

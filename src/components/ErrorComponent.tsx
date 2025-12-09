@@ -31,23 +31,22 @@ export function ErrorComponent({ className, error, title, showReturnToHome, chil
 			<CardContent>
 				{children}
 				{showReturnToHome !== false && (user && !isUserLoading
-						? (
-							<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-								<Button>
-									{' '}
-									<ArrowLeft /> Return to Home
-								</Button>
-							</Link>
-						)
-						: (
-							<Link to="/sign-in">
-								<Button>
-									{' '}
-									<ArrowLeft /> Go to Sign In Page
-								</Button>
-							</Link>
-						)
-				)}
+					? (
+						<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
+							<Button>
+								{' '}
+								<ArrowLeft /> Return to Home
+							</Button>
+						</Link>
+					)
+					: (
+						<Link to="/sign-in">
+							<Button>
+								{' '}
+								<ArrowLeft /> Go to Sign In Page
+							</Button>
+						</Link>
+					))}
 			</CardContent>
 		</Card>
 	);

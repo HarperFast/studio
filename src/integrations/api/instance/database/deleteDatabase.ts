@@ -7,7 +7,9 @@ interface DeleteDatabaseParams extends InstanceClientConfig {
 	replicated: boolean;
 }
 
-async function onDeleteDatabase({ databaseName, replicated, instanceClient }: DeleteDatabaseParams): Promise<ReplicatedResponse> {
+async function onDeleteDatabase(
+	{ databaseName, replicated, instanceClient }: DeleteDatabaseParams,
+): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_database',
 		database: databaseName,

@@ -20,13 +20,13 @@ const enum ComponentStatusName {
 }
 
 interface ComponentStatus {
-	name: ComponentStatusName | string,
-	componentName: ComponentStatusName | string,
-	status: 'healthy' | string,
+	name: ComponentStatusName | string;
+	componentName: ComponentStatusName | string;
+	status: 'healthy' | string;
 	lastChecked: {
-		workers: Record<string, number>,
-		main: number
-	}
+		workers: Record<string, number>;
+		main: number;
+	};
 }
 
 interface StatusResponse {

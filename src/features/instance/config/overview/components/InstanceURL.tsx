@@ -19,9 +19,10 @@ export const InstanceURL = ({
 	return (
 		<>
 			<dt className="font-bold text-sm/6">Operations URL</dt>
-			<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo
-				? (<TextLoadingSkeleton />)
-				: instanceUrl
+			<dd className="text-sm/6 sm:mt-2">
+				{loadingInstanceInfo
+					? <TextLoadingSkeleton />
+					: instanceUrl
 					? (
 						<>
 							<Link to={instanceUrl} target="_blank" className="underline hover:text-blue-300">{instanceUrl}</Link>
@@ -34,8 +35,10 @@ export const InstanceURL = ({
 							>
 								<CopyIcon className="w-4 h-4" />
 							</Button>
-						</>)
-					: 'N/A'}</dd>
+						</>
+					)
+					: 'N/A'}
+			</dd>
 		</>
 	);
 };

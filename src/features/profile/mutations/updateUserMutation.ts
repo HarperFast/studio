@@ -7,7 +7,7 @@ import z from 'zod';
 
 async function onUpdateUser(formData: z.infer<typeof UpdateUserSchema>) {
 	const { id, newPassword, confirmNewPassword, ...otherFields } = formData;
-	const userData: Partial<SchemaUser & { password: string; }> = {
+	const userData: Partial<SchemaUser & { password: string }> = {
 		...otherFields,
 	};
 	if (newPassword && newPassword === confirmNewPassword) {

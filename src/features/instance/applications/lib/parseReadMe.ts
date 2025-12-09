@@ -1,6 +1,10 @@
 import { GetComponentFileResponse } from '@/integrations/api/instance/applications/getComponentFile';
 
-export function parseReadMe(contents: string, baseURL: string, response: Pick<GetComponentFileResponse, 'project'>): string {
+export function parseReadMe(
+	contents: string,
+	baseURL: string,
+	response: Pick<GetComponentFileResponse, 'project'>,
+): string {
 	const operations9925URL = baseURL;
 	const rest9926URL = baseURL.replace(/:9925\/?/, '');
 	if (operations9925URL) {

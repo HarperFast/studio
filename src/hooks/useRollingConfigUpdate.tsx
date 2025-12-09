@@ -24,7 +24,9 @@ interface RollingConfigUpdateResponse {
 	isPending: boolean;
 }
 
-export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfigUpdateParams = {}): RollingConfigUpdateResponse {
+export function useRollingConfigUpdate(
+	{ onRestartedSuccessfully }: RollingConfigUpdateParams = {},
+): RollingConfigUpdateResponse {
 	const operationsParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const [isPending, setIsPending] = useState(false);
@@ -44,10 +46,12 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 
 		const toastId = toast.loading('Restarting', {
 			...toastConfig,
-			description: <ProgressBar
-				animated={true}
-				width="0%"
-			/>,
+			description: (
+				<ProgressBar
+					animated={true}
+					width="0%"
+				/>
+			),
 		});
 
 		const cluster = operationsParams.entityType === 'cluster'
@@ -60,11 +64,13 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 		const instanceClients = operationsParams.entityType === 'cluster'
 			? allInstances
 				.filter(instance => instance.status === 'RUNNING')
-				.map(instance => getInstanceClient({
-					id: instance.id,
-					forceFabricConnect: clusterUsesFabricConnect,
-					operationsUrl: getOperationsUrlForInstance(instance),
-				}))
+				.map(instance =>
+					getInstanceClient({
+						id: instance.id,
+						forceFabricConnect: clusterUsesFabricConnect,
+						operationsUrl: getOperationsUrlForInstance(instance),
+					})
+				)
 				.reverse()
 			: [operationsParams.instanceClient];
 		let instancesRestarted = 0;
@@ -76,10 +82,12 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 					toast.loading(`Updating Instance ${i + 1} of ${instanceClients.length}`, {
 						...toastConfig,
 						id: toastId,
-						description: <ProgressBar
-							animated={true}
-							width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
-						/>,
+						description: (
+							<ProgressBar
+								animated={true}
+								width={(i === 0 ? 0 : (i / instanceClients.length * 100)) + '%'}
+							/>
+						),
 					});
 					try {
 						// Make sure the instance is responding.
@@ -150,7 +158,8 @@ export function useRollingConfigUpdate({ onRestartedSuccessfully }: RollingConfi
 					+ ([
 						allInstances.length === 0 && 'No instances were found within the cluster to restart.',
 						instancesRestarted === 0 && `No instances were in a "RUNNING" state of ${allTheInstances}.`,
-						allInstances.length !== instancesRestarted && `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
+						allInstances.length !== instancesRestarted
+						&& `Only ${someRunningInstancesWere} restarted of ${allTheInstances}.`,
 					].filter(excludeFalsy).shift() || ''),
 				duration: 10_000,
 				action: {

@@ -13,7 +13,10 @@ export function transformNodes<Transformed, Branch, Leaf>(
 		const nestedNodes = potentialBranch[nestedPropertyName] as Array<Branch | Leaf>;
 		if (nestedNodes) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			(transformed as any)[nestedPropertyName] = transformNodes(nestedNodes, nestedPropertyName, transformer, [...parents, potentialBranch]);
+			(transformed as any)[nestedPropertyName] = transformNodes(nestedNodes, nestedPropertyName, transformer, [
+				...parents,
+				potentialBranch,
+			]);
 		}
 	}
 

@@ -53,16 +53,15 @@ export function KnownHosts() {
 	return (
 		<Form {...form}>
 			<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid my-4 md:grid-cols-2 overflow-x-auto rounded-md">
-
 				<FormField
 					control={form.control}
 					name="known_hosts"
 					render={({ field }) => (
 						<FormItem className="md:col-span-2 gap-0">
 							<FormLabel className="bg-black-dark py-3 px-2 m-0 text-left font-medium whitespace-nowrap">
-								Known Hosts</FormLabel>
+								Known Hosts
+							</FormLabel>
 							<div className="border border-grey-700 p-2 pb-3">
-
 								<FormDescription>
 									Manage your known hosts here. When you add a SSH Key with a hostname of "github.com", we'll
 									automatically attempt to resolve GitHub's known hosts for you.
@@ -78,7 +77,12 @@ export function KnownHosts() {
 								</FormControl>
 								<FormMessage />
 
-								<Button type="submit" variant="submit" className="rounded-full mt-2" disabled={isPending || !form.formState.isDirty || !form.formState.isValid}>
+								<Button
+									type="submit"
+									variant="submit"
+									className="rounded-full mt-2"
+									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+								>
 									<Save /> {isPending ? 'Saving' : 'Save'} Known Hosts{isPending ? '...' : ''}
 								</Button>
 							</div>

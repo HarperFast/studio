@@ -15,8 +15,8 @@ export function useCheckCLI(
 		// contents,
 		project,
 	}: {
-		contents: z.infer<typeof CLISchema>
-		project: string,
+		contents: z.infer<typeof CLISchema>;
+		project: string;
 	}) => {
 		const toastId = toast.loading(`Looking for application...`, {
 			description: 'This may take a bit.',
@@ -42,7 +42,8 @@ export function useCheckCLI(
 			}
 
 			toast.warning(`Deployment Not Detected`, {
-				description: `I searched for ${project} but did not find it in the ${instanceParams.entityType} yet. Do you see it on the left? Did you use a different name, perhaps?`,
+				description:
+					`I searched for ${project} but did not find it in the ${instanceParams.entityType} yet. Do you see it on the left? Did you use a different name, perhaps?`,
 				id: toastId,
 				duration: 10_000,
 			});

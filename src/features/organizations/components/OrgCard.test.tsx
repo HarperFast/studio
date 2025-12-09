@@ -16,16 +16,18 @@ afterEach(() => cleanup);
 describe('Org Card', () => {
 	it('should render', async () => {
 		const onDeleteOrgModal = () => undefined;
-		render(<TestProvider>
-			<OrgCard
-				organizationRole={{
-					organizationId: '123',
-					organizationName: 'Acme',
-					roleName: 'Developer',
-				}}
-				onDeleteOrgModal={onDeleteOrgModal}
-			/>
-		</TestProvider>);
+		render(
+			<TestProvider>
+				<OrgCard
+					organizationRole={{
+						organizationId: '123',
+						organizationName: 'Acme',
+						roleName: 'Developer',
+					}}
+					onDeleteOrgModal={onDeleteOrgModal}
+				/>
+			</TestProvider>,
+		);
 		await act(() => null);
 
 		// screen.debug();

@@ -37,7 +37,6 @@ export function AlterUserForm({
 	data: LocalUser;
 	onUserUpdated: () => void;
 }) {
-
 	const instanceParams = useInstanceClientIdParams();
 	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
@@ -68,117 +67,121 @@ export function AlterUserForm({
 					toast.success('User edited successfully!');
 					onUserUpdated();
 				},
-			});
+			},
+		);
 	}, [alterForm, alterUser, data.username, instanceParams, onUserUpdated]);
 
-	return <Form {...alterForm}>
-		<form onSubmit={alterForm.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
-			<DialogHeader>
-				<DialogTitle>Edit User</DialogTitle>
-			</DialogHeader>
+	return (
+		<Form {...alterForm}>
+			<form onSubmit={alterForm.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+				<DialogHeader>
+					<DialogTitle>Edit User</DialogTitle>
+				</DialogHeader>
 
-			<FormField
-				control={alterForm.control}
-				name="username"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel className="pb-1">Username</FormLabel>
-						<FormControl>
-							<Input
-								type="text"
-								enterKeyHint="next"
-								autoComplete="username"
-								disabled={true}
-								readOnly={true}
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			<FormField
-				control={alterForm.control}
-				name="newPassword"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel className="pb-1">Change Password</FormLabel>
-						<FormControl>
-							<Input
-								type="password"
-								enterKeyHint="next"
-								autoComplete="new-password"
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-			<FormField
-				control={alterForm.control}
-				name="confirmPassword"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel className="pb-1">Confirm Password</FormLabel>
-						<FormControl>
-							<Input
-								type="password"
-								enterKeyHint="next"
-								autoComplete="new-password"
-								{...field}
-							/>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			<FormField
-				control={alterForm.control}
-				name="role"
-				render={({ field }) => (
-					<FormItem>
-						<FormLabel className="pb-1">Role</FormLabel>
-
-						<Suspense fallback={<TextLoadingSkeleton />}>
+				<FormField
+					control={alterForm.control}
+					name="username"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="pb-1">Username</FormLabel>
 							<FormControl>
-								<Select {...field} onValueChange={(role) => field.onChange(role)}>
-									<SelectTrigger className="w-full">
-										<SelectValue placeholder="Choose Role" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											<SelectLabel>Role</SelectLabel>
-											{roles?.map((role) => (
-												<SelectItem
-													key={role.id}
-													value={role.id}
-												>{role.role}</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
+								<Input
+									type="text"
+									enterKeyHint="next"
+									autoComplete="username"
+									disabled={true}
+									readOnly={true}
+									{...field}
+								/>
 							</FormControl>
-						</Suspense>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 
-			<DialogFooter>
-				<div className="flex justify-between w-full">
-					<Button
-						variant="submit"
-						className="rounded-full"
-						disabled={isUpdateUserPending}
-					>
-						<Save /> Save Changes
-					</Button>
-				</div>
-			</DialogFooter>
+				<FormField
+					control={alterForm.control}
+					name="newPassword"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="pb-1">Change Password</FormLabel>
+							<FormControl>
+								<Input
+									type="password"
+									enterKeyHint="next"
+									autoComplete="new-password"
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<FormField
+					control={alterForm.control}
+					name="confirmPassword"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="pb-1">Confirm Password</FormLabel>
+							<FormControl>
+								<Input
+									type="password"
+									enterKeyHint="next"
+									autoComplete="new-password"
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 
-		</form>
-	</Form>;
+				<FormField
+					control={alterForm.control}
+					name="role"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="pb-1">Role</FormLabel>
+
+							<Suspense fallback={<TextLoadingSkeleton />}>
+								<FormControl>
+									<Select {...field} onValueChange={(role) => field.onChange(role)}>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Choose Role" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												<SelectLabel>Role</SelectLabel>
+												{roles?.map((role) => (
+													<SelectItem
+														key={role.id}
+														value={role.id}
+													>
+														{role.role}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+								</FormControl>
+							</Suspense>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<DialogFooter>
+					<div className="flex justify-between w-full">
+						<Button
+							variant="submit"
+							className="rounded-full"
+							disabled={isUpdateUserPending}
+						>
+							<Save /> Save Changes
+						</Button>
+					</div>
+				</DialogFooter>
+			</form>
+		</Form>
+	);
 }

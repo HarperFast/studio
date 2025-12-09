@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { curryFilterByFuzzySearch } from './filterByFuzzySearch';
 
 describe('curryFilterByFuzzySearch', () => {
@@ -96,7 +96,9 @@ describe('curryFilterByFuzzySearch', () => {
 		it('should throw error for unsupported field types', () => {
 			const testObj = { numberField: 123 };
 			const filter = curryFilterByFuzzySearch<typeof testObj>(['numberField'], '123');
-			expect(() => filter(testObj)).toThrow('curryFilterByFuzzySearch has not implemented support for number fields yet!');
+			expect(() => filter(testObj)).toThrow(
+				'curryFilterByFuzzySearch has not implemented support for number fields yet!',
+			);
 		});
 	});
 

@@ -1,5 +1,5 @@
-import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 import { dashboardLayout } from '@/router/dashboardRoute';
+import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
 
 const profileRoute = createRoute({
 	getParentRoute: () => dashboardLayout,

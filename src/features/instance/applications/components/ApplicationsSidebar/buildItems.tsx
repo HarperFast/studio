@@ -6,7 +6,7 @@ import { importedApplications, newApplication, rootId } from './specialItems';
 
 export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	items: Record<string, TreeItem<DirectoryEntry | FileEntry | undefined>>;
-	rootId: string
+	rootId: string;
 } {
 	const items: Record<string, TreeItem<DirectoryEntry | FileEntry | undefined>> = {};
 

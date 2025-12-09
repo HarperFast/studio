@@ -12,8 +12,9 @@ export function StatusIndex() {
 			<div className="mb-12">
 				<Monitoring instanceParams={instanceParams} />
 			</div>
-			{isLocalStudio ? <LocalStatus instanceParams={instanceParams} /> :
-				<CloudStatus instanceParams={instanceParams} />}
+			{isLocalStudio
+				? <LocalStatus instanceParams={instanceParams} />
+				: <CloudStatus instanceParams={instanceParams} />}
 		</div>
 	);
 }

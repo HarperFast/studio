@@ -42,26 +42,29 @@ export function ApplicationsSidebar() {
 	}, [focusedItem, items, openedEntry?.path, setOpenedEntry]);
 
 	const renameFiles = useRenameFiles();
-	const onInternalDrop = useCallback((droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
-		switch (target.targetType) {
-			case 'item':
-				if (items[target.targetItem]?.data?.package) {
-					toast.error('Read-Only Imported Application', {
-						description: 'To make changes to an application, please click the "Redeploy" button and update the' +
-							' reference.',
-					});
-				} else {
-					return renameFiles(droppedItems.map(item => ({
-						from: item.index as string,
-						to: joinPath(target.targetItem as string, extractFileNameFromPath(item.index as string)),
-					})));
-				}
-				break;
-			default:
-				toast.error(`${target.targetType} drop not yet supported`);
-				break;
-		}
-	}, [items, renameFiles]);
+	const onInternalDrop = useCallback(
+		(droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
+			switch (target.targetType) {
+				case 'item':
+					if (items[target.targetItem]?.data?.package) {
+						toast.error('Read-Only Imported Application', {
+							description: 'To make changes to an application, please click the "Redeploy" button and update the'
+								+ ' reference.',
+						});
+					} else {
+						return renameFiles(droppedItems.map(item => ({
+							from: item.index as string,
+							to: joinPath(target.targetItem as string, extractFileNameFromPath(item.index as string)),
+						})));
+					}
+					break;
+				default:
+					toast.error(`${target.targetType} drop not yet supported`);
+					break;
+			}
+		},
+		[items, renameFiles],
+	);
 
 	return (
 		<div className="h-full overflow-auto pr-1.5 pb-18">
@@ -80,8 +83,7 @@ export function ApplicationsSidebar() {
 				onFocusItem={item => setFocusedItem(item.index)}
 				onExpandItem={item => setExpandedItems([...expandedItems, item.index])}
 				onCollapseItem={item =>
-					setExpandedItems(expandedItems.filter(expandedItemIndex => expandedItemIndex !== item.index))
-				}
+					setExpandedItems(expandedItems.filter(expandedItemIndex => expandedItemIndex !== item.index))}
 				onSelectItems={items => setSelectedItems(items)}
 			>
 				<Tree treeId="applicationsTree" rootItem={rootId} treeLabel="Applications file tree" />
