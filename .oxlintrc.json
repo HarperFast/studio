@@ -1,6 +1,10 @@
 {
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"ignorePatterns": [
 		"src/integrations/api/*.gen.d.ts",
 		"src/assets/**"
-	]
+	],
+	"rules": {
+		"react/exhaustive-deps": "error"
+	}
 }
