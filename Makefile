@@ -8,7 +8,7 @@
 SHELL := /bin/bash
 PNPM  := pnpm
 
-.PHONY: help install prepare dev dev-local build build-dev build-stage build-prod build-local preview lint lint-fix typecheck test test-watch update-sdk clean
+.PHONY: help install prepare dev dev-local build build-dev build-stage build-prod build-local preview lint lint-fix format format-fix typecheck test test-watch update-sdk clean
 
 help:
 	@echo "Available targets:"
@@ -22,8 +22,10 @@ help:
 	@echo "  build-prod    - Build using --mode prod"
 	@echo "  build-local   - Build using --mode localstudio"
 	@echo "  preview       - Preview the built app from web/"
-	@echo "  lint          - Run ESLint"
-	@echo "  lint-fix      - Run ESLint with --fix"
+	@echo "  lint          - Run code linter to check files"
+	@echo "  lint-fix      - Run code linter and automatically apply fixes, where possible"
+	@echo "  format        - Check formatting of code"
+	@echo "  format-fix    - Fix formatting of code automatically"
 	@echo "  typecheck     - Run TypeScript project references build (type-check)"
 	@echo "  test          - Run tests once (Vitest)"
 	@echo "  test-watch    - Run tests in watch mode"
@@ -64,7 +66,13 @@ lint:
 	$(PNPM) lint
 
 lint-fix:
-	$(PNPM) exec eslint . --fix
+	$(PNPM) lint:fix
+
+format:
+	$(PNPM) format
+
+format-fix:
+	$(PNPM) format:fix
 
 typecheck:
 	$(PNPM) exec tsc -b

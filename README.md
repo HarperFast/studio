@@ -8,10 +8,10 @@ It is also the source for the bundled “Local Studio” UI that ships with the 
 - Tech stack: React, Vite, TypeScript, Tailwind CSS, TanStack Router/Query/Table
 - Package manager: pnpm (see package.json `packageManager`)
 
-
 ## Quick start (develop this repo)
 
 Prerequisites:
+
 - Node.js (see .nvmrc)
 - pnpm (the version in `package.json#packageManager` is recommended)
 
@@ -27,16 +27,17 @@ pnpm dev:local
 Builds are emitted to `web/` (see `vite.config.ts`). The `web/` directory is build output; don’t edit it by hand.
 
 Common scripts:
+
 - `pnpm dev` — start Vite dev server
 - `pnpm dev:local` — start in Local Studio mode
 - `pnpm build` — type-check then build for production
 - `pnpm build:dev|stage|prod|local` — build for a specific mode
 - `pnpm preview` — serve the built `web/`
 - `pnpm test` / `pnpm test:watch` — run unit tests (Vitest)
-- `pnpm lint` — run ESLint
+- `pnpm lint` — run code linting (use `pnpm lint:fix` to write changes)
+- `pnpm format` — check formatting of code (use `pnpm format:fix` to write changes)
 
 Tip: prefer using the Makefile shortcuts in `Makefile` if you like `make` (e.g. `make dev`, `make build-prod`).
-
 
 ## Using this app via Harper (Local Studio)
 
@@ -46,11 +47,10 @@ Open your harperdb-config.yaml and enable localStudio:
 
 ```yaml
 localStudio:
-	enabled: true
+  enabled: true
 ```
 
 Then visit http://localhost:9925 (or wherever you've set your operations port) to access the Local Studio. The default dev URL used by this repo is `http://localhost:9925` (see `VITE_LOCAL_STUDIO_DEV_URL`).
-
 
 ## Environments and configuration
 
@@ -72,9 +72,9 @@ VITE_ENV_NAME=dev
 ```
 
 Notes:
+
 - A production example is in `.env.prod`.
 - Building for a specific environment uses the matching mode: `pnpm build:dev`, `pnpm build:stage`, or `pnpm build:prod`.
-
 
 ## OpenAPI SDK generation
 
@@ -91,28 +91,29 @@ HDB_ADMIN_PASSWORD_FOR_OPENAPI=<password>
 ```
 
 What the script does:
-1) Downloads `${VITE_CENTRAL_MANAGER_API_URL}/openapi` into `./dist/central-manager.json` using the admin credentials
-2) Runs `openapi-typescript` to generate `src/integrations/api/api.gen.d.ts`
 
+1. Downloads `${VITE_CENTRAL_MANAGER_API_URL}/openapi` into `./dist/central-manager.json` using the admin credentials
+2. Runs `openapi-typescript` to generate `src/integrations/api/api.gen.d.ts`
 
 ## Linting, formatting, and type-checking
 
-- ESLint: configured in `eslint.config.js` with TypeScript, React Hooks, and React Refresh plugins
+- Linting: OXLint
 - TypeScript: strict project references via `tsconfig.json` and `tsconfig.app.json`
 - Tailwind CSS: configured via `@tailwindcss/vite`; styles are colocated with components
 
 Run locally:
-- `pnpm lint`
-- `pnpm exec eslint . --fix` to auto-fix
-- `pnpm exec tsc -b` to type-check
 
+- `pnpm lint` — run code linter
+- `pnpm lint:fix` — auto-fix lint issues where possible
+- `pnpm format` — check code formatting
+- `pnpm format:fix` — write code formatting changes where possible
+- `pnpm exec tsc -b` — type-check
 
 ## Testing
 
 - Test runner: Vitest (see `vitest.config.ts`)
 - Run once: `pnpm test`
 - Watch mode: `pnpm test:watch`
-
 
 ## Commit conventions and release
 
@@ -130,18 +131,15 @@ chore(ci): update workflow names
 
 Useful commit types include: feat, fix, perf, refactor, chore, docs, style, test, build, ci, revert.
 
-
 ## Contributing
 
 Please see .github/CONTRIBUTING.MD for detailed guidelines, including how to run checks locally and how to structure your pull requests.
-
 
 ## Troubleshooting
 
 - Dev server won’t start: ensure Node 20+ and pnpm installed; remove `node_modules` and reinstall.
 - API calls failing in dev: verify `VITE_CENTRAL_MANAGER_API_URL` and any required auth are correct for your environment/mode.
 - Local Studio not showing: ensure your Harper process has `localStudio: { enabled: true }` and is listening on the port you expect (default 9925).
-
 
 ## License
 

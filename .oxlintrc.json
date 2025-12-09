@@ -1,0 +1,6 @@
+{
+	"ignorePatterns": [
+		"src/integrations/api/*.gen.d.ts",
+		"src/assets/**"
+	]
+}
