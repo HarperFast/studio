@@ -175,7 +175,7 @@ export function ImportInstructions({
 										to="config" className="underline">Config</Link> &gt; <Link
 										to="config/ssh-keys" className="underline">SSH Keys</Link>. This enables SSH based auth for private
 										repos, i.e. following the pattern of <a
-										href="https://github.com/HarperFast/Studio" target="_blank" className="underline">git@github.com:HarperFast/studio.git</a>.
+										href="https://github.com/HarperFast/Studio" target="_blank" rel="noreferrer" className="underline">git@github.com:HarperFast/studio.git</a>.
 										If you have more than one key, make sure to utilize unique hostnames!
 									</span>
 								</AlertDescription>

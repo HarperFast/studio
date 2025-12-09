@@ -1,7 +1,7 @@
 import fastifyStatic from '@fastify/static';
 import { join } from 'path';
 
-export default async (fastify, { hdbCore, logger }) => {
+export default async (fastify) => {
 	fastify.register(fastifyStatic, {
 		root: join(import.meta.dirname, '../web'),
 		maxAge: '30d',

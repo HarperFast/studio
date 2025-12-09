@@ -149,10 +149,11 @@ export function ClusterInstanceSignIn() {
 										<li>Is the server running?</li>
 										<li>Have you <a
 											href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank"
+											rel="noreferrer"
 											className="underline">enabled CORS</a> for the operations API?
 										</li>
 										{warnAboutLocalDeviceAccess && <li>Have you allowed <a
-											href="https://www.google.com/search?q=How+do+I+enable+local+network+access+in+my+browser%3F" className="underline" target="_blank">local
+											href="https://www.google.com/search?q=How+do+I+enable+local+network+access+in+my+browser%3F" className="underline" target="_blank" rel="noreferrer">local
 											network access</a> in your browser?</li>}
 									</ol>
 								</div>
