@@ -21,7 +21,7 @@ export function useRestartInstanceClick({
 	instanceClient,
 	onRestartedSuccessfully,
 }: RestartInstanceClickParams): RestartInstanceClickResponse {
-	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string; } = useParams({ strict: false });
+	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string } = useParams({ strict: false });
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const { mutate: restartInstance, isPending: isRestartPending } = useRestartInstance();
 	const queryClient = useQueryClient();
@@ -63,7 +63,16 @@ export function useRestartInstanceClick({
 				});
 			},
 		});
-	}, [clusterId, instanceClient, instanceId, onRestartedSuccessfully, operation, queryClient, restartInstance, targetNoun]);
+	}, [
+		clusterId,
+		instanceClient,
+		instanceId,
+		onRestartedSuccessfully,
+		operation,
+		queryClient,
+		restartInstance,
+		targetNoun,
+	]);
 
 	return {
 		onRestartClick,

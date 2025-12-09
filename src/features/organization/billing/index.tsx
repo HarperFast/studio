@@ -60,7 +60,12 @@ function DesktopBillingNavBar() {
 					</Link>
 				</li>
 				<li>
-					<Link to={buildAbsoluteLinkToPage(params, 'billing/invoices')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'billing/invoices')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
 						<ReceiptTextIcon className="inline-block" />
 						<span className="ms-3">Invoices &amp; Payments</span>
 					</Link>
@@ -86,7 +91,12 @@ function MobileBillingNavBar() {
 				</Link>
 			</li>
 			<li>
-				<Link to={buildAbsoluteLinkToPage(params, 'billing/invoices')} className={sharedClasses} inactiveProps={inactiveProps} activeProps={activeProps}>
+				<Link
+					to={buildAbsoluteLinkToPage(params, 'billing/invoices')}
+					className={sharedClasses}
+					inactiveProps={inactiveProps}
+					activeProps={activeProps}
+				>
 					<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
 				</Link>
 			</li>

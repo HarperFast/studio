@@ -50,7 +50,7 @@ export function EditSSHKeyModal({
 	const { data: fullData } = useQuery(getSSHKeyQueryOptions({
 		...instanceParams,
 		name,
-	}))
+	}));
 
 	const { mutate: updateSSHKey, isPending } = useUpdateSSHKey();
 	const { mutate: deleteSSHKey } = useDeleteSSHKey();
@@ -98,7 +98,6 @@ export function EditSSHKeyModal({
 			<DialogContent className="sm:max-w-[750px]" aria-describedby={undefined}>
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4 md:grid-cols-2">
-
 						<DialogTitle>Edit SSH Key</DialogTitle>
 
 						<FormField
@@ -150,8 +149,8 @@ export function EditSSHKeyModal({
 							<FormLabel className="pb-1">Host</FormLabel>
 							<FormDescription>
 								A unique identifying name for the combination of this key and your hostname, i.e.
-								"your-repo.github.com". You will use this instead of the direct hostname to pick your key when
-								importing applications.
+								"your-repo.github.com". You will use this instead of the direct hostname to pick your key when importing
+								applications.
 							</FormDescription>
 							<FormControl>
 								<Input

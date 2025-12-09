@@ -28,7 +28,7 @@ interface GetAnalyticsRequest {
 	end_time: number;
 	conditions?: {
 		attribute: string;
-		value: string|number|boolean;
+		value: string | number | boolean;
 		comparator?: string;
 	}[];
 }
@@ -40,7 +40,7 @@ export interface Metric {
 	mean: number;
 	period: number;
 	node: string;
-	[key: string]: string|number|boolean|null;
+	[key: string]: string | number | boolean | null;
 }
 
 type GetAnalyticsResponse = Metric[];
@@ -54,12 +54,12 @@ export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, ins
 				metric: metricConfig.name,
 				start_time: startTime,
 				end_time: endTime,
-			}
+			};
 			if (metricConfig.path) {
 				req.conditions = [{ attribute: 'path', value: metricConfig.path }];
 			}
 			const { data } = await instanceParams.instanceClient.post<GetAnalyticsResponse>('/', req);
 			return data;
-		}
+		},
 	});
 }

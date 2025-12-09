@@ -45,10 +45,10 @@ export function ConfigUsersIndex() {
 		attribute: 'username',
 		descending: false,
 	});
-	const sortingState = useMemo(() => ([{
+	const sortingState = useMemo(() => [{
 		desc: sortTableDataParams.descending,
 		id: sortTableDataParams.attribute,
-	}]), [sortTableDataParams]);
+	}], [sortTableDataParams]);
 
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
@@ -78,7 +78,8 @@ export function ConfigUsersIndex() {
 
 	return (
 		<Suspense
-			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
+			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}
+		>
 			<SimpleBrowseDataTable<LocalUser, unknown>
 				data={localUsers}
 				isFetching={isFetching || isRefetching}
@@ -88,29 +89,37 @@ export function ConfigUsersIndex() {
 			>
 				{/*<UploadCSVModal />*/}
 				{/*disabled={tableDataFetching}*/}
-				<Button variant="defaultOutline" onClick={onRefreshClick}
-						accessKey="r"
-						disabled={isFetching || isRefetching}><RefreshCwIcon /> <span
-					className="hidden lg:inline-block"><u>R</u>efresh</span></Button>
+				<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
+					<RefreshCwIcon />{' '}
+					<span className="hidden lg:inline-block">
+						<u>R</u>efresh
+					</span>
+				</Button>
 				{/*<Button variant="defaultOutline" onClick={notYetImplemented}><SearchIcon /> <span*/}
 				{/*	className="hidden lg:inline-block">Search</span></Button>*/}
-				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a"
-						disabled={isAddModalOpen}><PlusIcon /> <span><u>A</u>dd</span></Button>
+				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a" disabled={isAddModalOpen}>
+					<PlusIcon />{' '}
+					<span>
+						<u>A</u>dd
+					</span>
+				</Button>
 			</SimpleBrowseDataTable>
 			<AddUserModal
 				isModalOpen={isAddModalOpen}
 				onChangesSaved={onUsedAdded}
 				setIsModalOpen={setIsAddModalOpen}
 			/>
-			{isEditModalOpen && (<EditUserModal
-				instanceId={instanceId}
-				clusterId={clusterId}
-				closeModal={closeEditModal}
-				data={selectedUser}
-				isModalOpen={isEditModalOpen}
-				onUserDeleted={onUserDeleted}
-				onUserUpdated={onUserUpdated}
-			/>)}
+			{isEditModalOpen && (
+				<EditUserModal
+					instanceId={instanceId}
+					clusterId={clusterId}
+					closeModal={closeEditModal}
+					data={selectedUser}
+					isModalOpen={isEditModalOpen}
+					onUserDeleted={onUserDeleted}
+					onUserUpdated={onUserUpdated}
+				/>
+			)}
 		</Suspense>
 	);
 }

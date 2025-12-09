@@ -17,12 +17,14 @@ export type EditorViewContextValue = {
 	openedEntryContents: string | undefined;
 	setOpenedEntryContents: (contents: string | undefined) => void;
 
-	focusedItem: TreeItemIndex | undefined,
-	setFocusedItem: (entry: TreeItemIndex | undefined | ((prevState: TreeItemIndex | undefined) => TreeItemIndex | undefined)) => void,
-	expandedItems: TreeItemIndex[],
-	setExpandedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void,
-	selectedItems: TreeItemIndex[],
-	setSelectedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void,
+	focusedItem: TreeItemIndex | undefined;
+	setFocusedItem: (
+		entry: TreeItemIndex | undefined | ((prevState: TreeItemIndex | undefined) => TreeItemIndex | undefined),
+	) => void;
+	expandedItems: TreeItemIndex[];
+	setExpandedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void;
+	selectedItems: TreeItemIndex[];
+	setSelectedItems: (entries: TreeItemIndex[] | ((prevState: TreeItemIndex[]) => TreeItemIndex[])) => void;
 
 	saveFile: (data: SetComponentFileRequest, filePath: string) => void;
 	isSavingFile: boolean;

@@ -1,5 +1,5 @@
 import {
-	useAttachPaymentMethodToOrganization
+	useAttachPaymentMethodToOrganization,
 } from '@/features/organization/mutations/payments/attachPaymentMethodToOrganization';
 import { PaymentMethod } from '@stripe/stripe-js/dist/api/payment-methods';
 import { useCallback } from 'react';

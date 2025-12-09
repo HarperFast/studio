@@ -37,8 +37,7 @@ export function getUsageLicensesQueryOptions({ entityId, instanceClient }: Insta
 					operation: 'get_usage_licenses',
 				});
 				return data;
-			}
-			catch (err) {
+			} catch (err) {
 				console.error(err);
 				return null;
 			}

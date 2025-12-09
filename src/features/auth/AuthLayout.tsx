@@ -21,7 +21,6 @@ export function AuthLayout() {
 					<div>
 						<h1 className="text-4xl font-bold">Harper Fabric</h1>
 						<ul className="ps-5">
-
 							<ListItem title="Free Tier">
 								<span>Try us out, no credit card required!</span>
 							</ListItem>
@@ -35,7 +34,9 @@ export function AuthLayout() {
 							</ListItem>
 
 							<ListItem title="NoSQL, Vector, & Blob">
-								<span>Store and serve modern data types with low latency, semantic search ability, and global reach.</span>
+								<span>
+									Store and serve modern data types with low latency, semantic search ability, and global reach.
+								</span>
 							</ListItem>
 
 							<ListItem title="Simplified Operations">

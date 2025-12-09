@@ -17,7 +17,7 @@ export function useRenameFiles() {
 
 	const instanceParams = useInstanceClientIdParams();
 
-	return useCallback(async (changes: { from: string, to: string }[]) => {
+	return useCallback(async (changes: { from: string; to: string }[]) => {
 		let canceled = false;
 		const actualChanges = changes.filter(change => change.from !== change.to);
 
@@ -49,11 +49,11 @@ export function useRenameFiles() {
 			currentStep += 1;
 			toast.loading(toastTitle, {
 				...toastConfig,
-				description:
-					<ProgressBar animated={true} width={(currentStep === 0 ? 0 : (currentStep / totalSteps * 100)) + '%'} />,
+				description: (
+					<ProgressBar animated={true} width={(currentStep === 0 ? 0 : (currentStep / totalSteps * 100)) + '%'} />
+				),
 			});
 		}
-
 
 		for (const change of actualChanges) {
 			const oldParts = change.from.split('/');

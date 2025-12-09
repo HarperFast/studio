@@ -41,7 +41,10 @@ type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
 class AuthStore {
 	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
-	private readonly specificListeners: Record<EntityIds, Array<(connection: AuthenticatedConnection, id: EntityIds) => void>> = {};
+	private readonly specificListeners: Record<
+		EntityIds,
+		Array<(connection: AuthenticatedConnection, id: EntityIds) => void>
+	> = {};
 
 	private readonly potentiallyAuthenticatedKey = 'Studio:PotentiallyAuthenticated';
 	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
@@ -74,7 +77,9 @@ class AuthStore {
 		return this.allConnections[id];
 	}
 
-	public listenToAllEntities(listener: (connection: AuthenticatedConnection, id: EntityIds) => void): AuthStoreListenerCleanup | undefined {
+	public listenToAllEntities(
+		listener: (connection: AuthenticatedConnection, id: EntityIds) => void,
+	): AuthStoreListenerCleanup | undefined {
 		if (!this.broadListeners.includes(listener)) {
 			this.broadListeners.push(listener);
 		}
@@ -89,7 +94,10 @@ class AuthStore {
 		};
 	}
 
-	public listenToEntity(id: EntityIds | null | undefined, listener: (connection: AuthenticatedConnection) => void): AuthStoreListenerCleanup | undefined {
+	public listenToEntity(
+		id: EntityIds | null | undefined,
+		listener: (connection: AuthenticatedConnection) => void,
+	): AuthStoreListenerCleanup | undefined {
 		if (!id) {
 			return undefined;
 		}
@@ -117,7 +125,11 @@ class AuthStore {
 		return this.setUserForIdAndKey(id, key, user);
 	}
 
-	public setUserForIdAndKey(id: EntityIds, key: AuthenticatedConnectionKey, user: AuthenticatedConnection['user']): void {
+	public setUserForIdAndKey(
+		id: EntityIds,
+		key: AuthenticatedConnectionKey,
+		user: AuthenticatedConnection['user'],
+	): void {
 		if (user) {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
@@ -157,7 +169,7 @@ class AuthStore {
 		return undefined;
 	}
 
-	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string; }) {
+	public flagForBasicAuth(id: EntityIds, credentials: null | { username: string; password: string }) {
 		if (credentials !== null) {
 			localStorage.setItem(this.basicAuthKeyPrefix + id, btoa(JSON.stringify(credentials)));
 		} else {
@@ -173,7 +185,7 @@ class AuthStore {
 		}
 	}
 
-	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string; } {
+	public checkForBasicAuth(id: EntityIds): undefined | { username: string; password: string } {
 		const value = localStorage.getItem(this.basicAuthKeyPrefix + id);
 		return value ? JSON.parse(atob(value)) : undefined;
 	}

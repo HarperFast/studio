@@ -8,7 +8,9 @@ interface DeleteTableData extends InstanceClientConfig {
 	replicated: boolean;
 }
 
-async function onDeleteTable({ databaseName, tableName, replicated, instanceClient }: DeleteTableData): Promise<ReplicatedResponse> {
+async function onDeleteTable(
+	{ databaseName, tableName, replicated, instanceClient }: DeleteTableData,
+): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'drop_table',
 		database: databaseName,

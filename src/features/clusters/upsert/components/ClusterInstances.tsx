@@ -26,27 +26,29 @@ export function ClusterInstances({
 		});
 	}, [instancesFieldArray]);
 
-	return (<>
-		{instancesFieldArray.fields.map((field, index) => (
-			<InstanceFormInputs
-				control={form.control}
-				fieldArray={instancesFieldArray}
-				form={form}
-				index={index}
-				key={field.id}
-			/>
-		))}
+	return (
+		<>
+			{instancesFieldArray.fields.map((field, index) => (
+				<InstanceFormInputs
+					control={form.control}
+					fieldArray={instancesFieldArray}
+					form={form}
+					index={index}
+					key={field.id}
+				/>
+			))}
 
-		<div className="md:col-span-6 col-span-3">
-			<Button
-				type="button"
-				variant="positiveOutline"
-				className="rounded-full"
-				onClick={onAddInstanceClick}
-			>
-				<PlusIcon />
-				Add Instance
-			</Button>
-		</div>
-	</>);
+			<div className="md:col-span-6 col-span-3">
+				<Button
+					type="button"
+					variant="positiveOutline"
+					className="rounded-full"
+					onClick={onAddInstanceClick}
+				>
+					<PlusIcon />
+					Add Instance
+				</Button>
+			</div>
+		</>
+	);
 }

@@ -1,6 +1,6 @@
+import { toast } from 'sonner';
 import { describe, expect, it, vi } from 'vitest';
 import { notYetImplemented } from './notYetImplemented';
-import { toast } from 'sonner';
 
 vi.mock('sonner', () => ({
 	toast: {

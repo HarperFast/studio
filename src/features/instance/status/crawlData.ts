@@ -35,26 +35,29 @@ function parseValue(name: string, value: unknown, depth: number, parentName?: st
 	if (value && Array.isArray(value)) {
 		const array = value;
 		return [
-			array.length > 1 && {title: name, depth},
+			array.length > 1 && { title: name, depth },
 			...value.map((item, index) =>
 				parseValue(
 					array.length > 1 ? String(index + 1) : name,
 					item,
 					depth + 1,
 					name,
-				)).flat(1),
+				)
+			).flat(1),
 		].filter(excludeFalsy);
 	}
 	if (isObject(value)) {
 		const obj = value;
 		return [
 			{ title: name, depth },
-			...Object.keys(value).map(subKey => parseValue(
-				String(subKey),
-				obj[subKey],
-				depth + 1,
-				name,
-			)).flat(1),
+			...Object.keys(value).map(subKey =>
+				parseValue(
+					String(subKey),
+					obj[subKey],
+					depth + 1,
+					name,
+				)
+			).flat(1),
 		];
 	}
 	if (name === '__updatedtime__' || name === '__createdtime__') {

@@ -58,7 +58,9 @@ export function CheckOAuth() {
 					aria-hidden="true"
 					className="text-2xl animate-flower-dance mr-4"
 					title="Loading"
-				>🌼</span>
+				>
+					🌼
+				</span>
 				Checking...
 			</h1>
 

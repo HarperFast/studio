@@ -62,7 +62,15 @@ export function AddNewPaymentMethodForm({
 			// For some payment methods, they will be redirected to an intermediate site first to authorize the
 			// payment, then redirected to the `return_url`.
 		}
-	}, [elements, onPaymentAdded, onSaveStateForBillingRedirect, organizationId, processStripePaymentMethod, stripe, stripeOptions.clientSecret]);
+	}, [
+		elements,
+		onPaymentAdded,
+		onSaveStateForBillingRedirect,
+		organizationId,
+		processStripePaymentMethod,
+		stripe,
+		stripeOptions.clientSecret,
+	]);
 
 	return (
 		<form onSubmit={onSubmitAddPaymentMethod} className="max-w-xl">
@@ -73,10 +81,12 @@ export function AddNewPaymentMethodForm({
 				<Button disabled={!stripe || !elements || loading} variant="submit" className="rounded-full">
 					<Save /> Add Payment Method
 				</Button>
-				{hasExistingBilling && (<>
-					<div className="text-xs text-gray-600">Your existing payment method will be overwritten.</div>
-					<Button variant="defaultOutline" type="button" onClick={onCancelClicked}>Cancel</Button>
-				</>)}
+				{hasExistingBilling && (
+					<>
+						<div className="text-xs text-gray-600">Your existing payment method will be overwritten.</div>
+						<Button variant="defaultOutline" type="button" onClick={onCancelClicked}>Cancel</Button>
+					</>
+				)}
 			</div>
 		</form>
 	);

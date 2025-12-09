@@ -10,7 +10,9 @@ interface RestartInstanceParams {
 	replicated: boolean;
 }
 
-export async function restartInstance({ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig): Promise<ReplicatedResponse> {
+export async function restartInstance(
+	{ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig,
+): Promise<ReplicatedResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation,
 		service: operation === 'restart_service' ? 'http' : undefined,

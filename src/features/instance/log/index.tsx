@@ -68,15 +68,18 @@ const columns: ColumnDef<ReadLogItem>[] = [
 			const variant: BadgeNodeVariantValues = memoizeNodeNames(node);
 			return (
 				<>
-				{node ? (
-						<Tooltip>
-					<TooltipTrigger asChild>
-						<Badge variant={variant}>{node.split('.')[0]}...</Badge>
-					</TooltipTrigger>
-					<TooltipContent className='bg-grey-700' arrowClassName='bg-grey-700 fill-grey-700'>{node}</TooltipContent>
-				</Tooltip>
-				) : null}
-
+					{node
+						? (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Badge variant={variant}>{node.split('.')[0]}...</Badge>
+								</TooltipTrigger>
+								<TooltipContent className="bg-grey-700" arrowClassName="bg-grey-700 fill-grey-700">
+									{node}
+								</TooltipContent>
+							</Tooltip>
+						)
+						: null}
 				</>
 			);
 		},
@@ -101,8 +104,8 @@ const columns: ColumnDef<ReadLogItem>[] = [
 ];
 
 const isValidDateRange = (startDate?: string, endDate?: string) => {
-	if (!startDate && !endDate) return true;
-	if (!startDate || !endDate) return true;
+	if (!startDate && !endDate) { return true; }
+	if (!startDate || !endDate) { return true; }
 
 	const start = new Date(startDate);
 	const end = new Date(endDate);
@@ -128,7 +131,7 @@ export function Logs() {
 			...instanceParams,
 			replicated: instanceParams.entityType === 'cluster',
 			isAutoRefreshEnabled,
-		})
+		}),
 	);
 
 	const form = useForm({
@@ -184,12 +187,9 @@ export function Logs() {
 						Auto Refresh {isAutoRefreshEnabled ? 'On' : 'Off'}
 					</Toggle>
 				</div>
-
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
-				{isLoading ? (
-					<div>Loading...</div>
-				) : (
+				{isLoading ? <div>Loading...</div> : (
 					<div>
 						<LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />
 					</div>

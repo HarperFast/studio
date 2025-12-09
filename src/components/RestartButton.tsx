@@ -31,24 +31,27 @@ export function RestartButton({
 		isRestartPending: isRestartClusterPending,
 	} = useRestartClusterClick();
 	const { onRestartClick, isRestartPending } = useRestartInstanceClick({ operation, instanceClient });
-	return (<Tooltip>
-		<TooltipTrigger asChild>
-			<Button
-				variant={variant || 'positiveOutline'}
-				className={cx('mx-0 md:mx-4 rounded-full', className)}
-				onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
-				disabled={disabled || isRestartPending || isRestartClusterPending}
-			>
-				<RotateCcwIcon className="pointer-events-none" />
-				{hideText !== true && <span className="hidden md:inline-block pointer-events-none">Restart {targetNoun}</span>}
-			</Button>
-		</TooltipTrigger>
-		<TooltipContent side="bottom">
-			{tooltip
-				? tooltip
-				: operation === 'restart_service'
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button
+					variant={variant || 'positiveOutline'}
+					className={cx('mx-0 md:mx-4 rounded-full', className)}
+					onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
+					disabled={disabled || isRestartPending || isRestartClusterPending}
+				>
+					<RotateCcwIcon className="pointer-events-none" />
+					{hideText !== true && <span className="hidden md:inline-block pointer-events-none">Restart {targetNoun}
+					</span>}
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent side="bottom">
+				{tooltip
+					? tooltip
+					: operation === 'restart_service'
 					? 'Restarts all service threads to apply changes. No downtime expected. Performance may be briefly slower during restart.'
 					: 'This fully restarts the Harper service and causes downtime.'}
-		</TooltipContent>
-	</Tooltip>);
+			</TooltipContent>
+		</Tooltip>
+	);
 }

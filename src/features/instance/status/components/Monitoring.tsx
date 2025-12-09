@@ -12,7 +12,7 @@ const metrics: MetricConfig[] = [
 		name: 'db-read',
 		dataKey: 'count',
 		aggregator: aggregateSum,
-		units: 'reads'
+		units: 'reads',
 	},
 	{
 		id: 'db-read-bytes',
@@ -89,25 +89,25 @@ interface TimeSelectOption {
 type TimeSelectOptions = TimeSelectOption[];
 
 const windowOptions: TimeSelectOptions = [
-	{label: '10 mins', value: 10 * 60_000},
-	{label: 'hour', value: 60 * 60_000, default: true},
-	{label: '6 hours', value: 6 * 60 * 60_000},
-	{label: 'day', value: 24 * 60 * 60_000},
+	{ label: '10 mins', value: 10 * 60_000 },
+	{ label: 'hour', value: 60 * 60_000, default: true },
+	{ label: '6 hours', value: 6 * 60 * 60_000 },
+	{ label: 'day', value: 24 * 60 * 60_000 },
 ];
 
 const intervalOptions: TimeSelectOptions = [
-	{label: '15 secs', value: 15_000},
-	{label: '30 secs', value: 30_000},
-	{label: 'minute', value: 60_000, default: true},
-	{label: '5 mins',  value: 5 * 60_000},
-	{label: '15 mins',  value: 15 * 60_000},
+	{ label: '15 secs', value: 15_000 },
+	{ label: '30 secs', value: 30_000 },
+	{ label: 'minute', value: 60_000, default: true },
+	{ label: '5 mins', value: 5 * 60_000 },
+	{ label: '15 mins', value: 15 * 60_000 },
 ];
 
 interface MonitoringParams {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
 
-export function Monitoring({instanceParams}: MonitoringParams) {
+export function Monitoring({ instanceParams }: MonitoringParams) {
 	const [selectedMetric, setSelectedMetric] = useState(metrics[0]);
 
 	const [updateInterval, setUpdateInterval] = useState(intervalOptions.find((o) => o.default)!);
@@ -115,7 +115,9 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 
 	const [timeWindow, setTimeWindow] = useState(windowOptions.find((o) => o.default)!);
 
-	useInterval(() => { setEndTime(Date.now); }, updateInterval.value);
+	useInterval(() => {
+		setEndTime(Date.now);
+	}, updateInterval.value);
 
 	const startTime = useMemo(() => endTime - timeWindow.value, [endTime, timeWindow]);
 
@@ -129,7 +131,8 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 							defaultValue={selectedMetric.id}
 							onValueChange={(value) => {
 								setSelectedMetric(metrics.find((m) => m.id === value) || metrics[0]);
-							}}>
+							}}
+						>
 							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
 								<SelectValue />
 							</SelectTrigger>
@@ -152,14 +155,15 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 							defaultValue={timeWindow.value.toString()}
 							onValueChange={(value) => {
 								setTimeWindow(windowOptions.find((o) => o.value === Number(value))!);
-							}}>
+							}}
+						>
 							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
 								<SelectGroup>
 									{windowOptions.map((o) => {
-										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
+										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>;
 									})}
 								</SelectGroup>
 							</SelectContent>
@@ -171,14 +175,15 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 							defaultValue={updateInterval.value.toString()}
 							onValueChange={(value) => {
 								setUpdateInterval(intervalOptions.find((o) => o.value === Number(value))!);
-							}}>
+							}}
+						>
 							<SelectTrigger className="inline-flex align-middle w-auto h-auto">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
 								<SelectGroup>
 									{intervalOptions.map((o) => {
-										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>
+										return <SelectItem key={o.value} value={o.value.toString()}>{o.label}</SelectItem>;
 									})}
 								</SelectGroup>
 							</SelectContent>
@@ -190,7 +195,8 @@ export function Monitoring({instanceParams}: MonitoringParams) {
 				metricConfig={selectedMetric}
 				startTime={startTime}
 				endTime={endTime}
-				instanceParams={instanceParams} />
+				instanceParams={instanceParams}
+			/>
 		</div>
-	)
+	);
 }

@@ -152,9 +152,7 @@ describe('translateColumnFilterToSearchCondition', () => {
 			search_value: 3.14,
 		});
 
-		expect(() =>
-			translateColumnFilterToSearchCondition('score', '<= pi', attr('Float')),
-		).toThrowError();
+		expect(() => translateColumnFilterToSearchCondition('score', '<= pi', attr('Float'))).toThrowError();
 
 		// No comparator defaults to equals
 		expect(
@@ -248,5 +246,4 @@ describe('translateColumnFilterToSearchCondition', () => {
 	function attr(type?: InstanceAttribute['type']): InstanceAttribute {
 		return { attribute: 'col', type };
 	}
-
 });

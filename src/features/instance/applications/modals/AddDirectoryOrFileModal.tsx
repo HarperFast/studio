@@ -103,7 +103,19 @@ export function AddDirectoryOrFileModal() {
 				},
 			},
 		);
-	}, [addFolderFile, form, closeModal, instanceParams, openedEntry, entryExists, reloadRootEntries, setExpandedItems, setFocusedItem, setSelectedItems, type]);
+	}, [
+		addFolderFile,
+		form,
+		closeModal,
+		instanceParams,
+		openedEntry,
+		entryExists,
+		reloadRootEntries,
+		setExpandedItems,
+		setFocusedItem,
+		setSelectedItems,
+		type,
+	]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();

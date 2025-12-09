@@ -27,14 +27,15 @@ import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 
 export function ClusterInstanceSignIn() {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string; } = useParams({ strict: false });
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
 
 	const instance: SchemaHdbInstance | undefined = useMemo(
 		() => instanceId && cluster && cluster?.instances?.find(i => i.id === instanceId) || undefined,
-		[cluster, instanceId]);
+		[cluster, instanceId],
+	);
 	const isActive = useMemo(() => cluster?.status && activeClusterStatuses.includes(cluster.status), [cluster?.status]);
 
 	const properNoun = isLocalStudio ? 'Local' : instanceId ? 'Instance' : 'Cluster';
@@ -97,11 +98,13 @@ export function ClusterInstanceSignIn() {
 			{!isLocalStudio && (
 				<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-grey-700 flex items-center">
 					<Breadcrumbs />
-				</nav>)}
+				</nav>
+			)}
 			<div className="h-screen items-center justify-center flex">
 				<div className="text-white w-xs">
 					<h2 className="text-2xl font-light">
-						Sign in to Harper {properNoun}</h2>
+						Sign in to Harper {properNoun}
+					</h2>
 					<Form {...methods}>
 						<form onSubmit={handleSubmit(submitForm)} className="my-4">
 							<FormField
@@ -142,47 +145,78 @@ export function ClusterInstanceSignIn() {
 								Sign In
 							</Button>
 							{healthy === false && (
-								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
-									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to
-									GET <a href={`${operationsUrl}health`} className="underline" target="_blank">{operationsUrl}health</a> checks.
+								<div
+									className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300"
+									role="alert"
+								>
+									<span className="font-medium">Warning!</span> This {commonNoun} is not responding to GET{' '}
+									<a href={`${operationsUrl}health`} className="underline" target="_blank">{operationsUrl}health</a>
+									{' '}
+									checks.
 									<ol className="list-decimal ml-8 mt-2">
 										<li>Is the server running?</li>
-										<li>Have you <a
-											href="https://docs.harperdb.io/docs/developers/security/configuration#cors" target="_blank"
-											rel="noreferrer"
-											className="underline">enabled CORS</a> for the operations API?
+										<li>
+											Have you{' '}
+											<a
+												href="https://docs.harperdb.io/docs/developers/security/configuration#cors"
+												target="_blank"
+												rel="noreferrer"
+												className="underline"
+											>
+												enabled CORS
+											</a>{' '}
+											for the operations API?
 										</li>
-										{warnAboutLocalDeviceAccess && <li>Have you allowed <a
-											href="https://www.google.com/search?q=How+do+I+enable+local+network+access+in+my+browser%3F" className="underline" target="_blank" rel="noreferrer">local
-											network access</a> in your browser?</li>}
+										{warnAboutLocalDeviceAccess && (
+											<li>
+												Have you allowed{' '}
+												<a
+													href="https://www.google.com/search?q=How+do+I+enable+local+network+access+in+my+browser%3F"
+													className="underline"
+													target="_blank"
+													rel="noreferrer"
+												>
+													local network access
+												</a>{' '}
+												in your browser?
+											</li>
+										)}
 									</ol>
 								</div>
 							)}
 							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.MixedLoopback && (
-								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
-									<span className="font-medium">Warning!</span> Your login might not work because
-									you're mixing 127.0.0.1 and localhost. Pick one or the other.
+								<div
+									className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300"
+									role="alert"
+								>
+									<span className="font-medium">Warning!</span>{' '}
+									Your login might not work because you're mixing 127.0.0.1 and localhost. Pick one or the other.
 								</div>
 							)}
 							{warnAboutLoginCookieIssues === CrossLocalhostIssueType.InsecureCookieOutsideChromeAndFirefox && (
-								<div className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300" role="alert">
-									<span className="font-medium">Warning!</span> Your login might not work because your
-									browser doesn't consider localhost to be secure, so it doesn't pass the cookies
-									along. Firefox or Chromium based browsers should pass the cookies properly.
+								<div
+									className="p-4 mt-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300"
+									role="alert"
+								>
+									<span className="font-medium">Warning!</span>{' '}
+									Your login might not work because your browser doesn't consider localhost to be secure, so it doesn't
+									pass the cookies along. Firefox or Chromium based browsers should pass the cookies properly.
 								</div>
 							)}
 
-							{isLocalStudio && <div className="p-4 mt-4 text-sm rounded-lg bg-purple-950" role="alert">
-								<span className="font-medium">Did you know?</span> You can add this instance to your Harper account to
-								manage it remotely.
-								<div className="text-center pt-2">
-									<Link to={calculateCreateClusterDeepLink()} target="_blank">
-										<Button type="button" variant="positive">
-											Connect to Harper Fabric
-										</Button>
-									</Link>
+							{isLocalStudio && (
+								<div className="p-4 mt-4 text-sm rounded-lg bg-purple-950" role="alert">
+									<span className="font-medium">Did you know?</span>{' '}
+									You can add this instance to your Harper account to manage it remotely.
+									<div className="text-center pt-2">
+										<Link to={calculateCreateClusterDeepLink()} target="_blank">
+											<Button type="button" variant="positive">
+												Connect to Harper Fabric
+											</Button>
+										</Link>
+									</div>
 								</div>
-							</div>}
+							)}
 						</form>
 					</Form>
 				</div>

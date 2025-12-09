@@ -30,11 +30,14 @@ export function UpsertCluster() {
 	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
-		cluster?: Cluster
+		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
-	const [savedClusterState, setSavedClusterState] = useLocalStorage<null | ({
-		clusterId?: string
-	} & (UpsertClusterSchemaType | Cluster))>(LocalStorageKeys.SavedClusterState, null);
+	const [savedClusterState, setSavedClusterState] = useLocalStorage<
+		| null
+		| ({
+			clusterId?: string;
+		} & (UpsertClusterSchemaType | Cluster))
+	>(LocalStorageKeys.SavedClusterState, null);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
@@ -45,11 +48,13 @@ export function UpsertCluster() {
 
 	const alreadyUsingFree = useMemo(() => {
 		for (const orgCluster of organization?.clusters ?? []) {
-			if (orgCluster.id !== cluster?.id
+			if (
+				orgCluster.id !== cluster?.id
 				&& planTypes
 				&& !isTerminated(orgCluster.status)
 				&& !isFailed(orgCluster.status)
-				&& orgCluster.plans) {
+				&& orgCluster.plans
+			) {
 				for (const clusterPlan of orgCluster.plans) {
 					const foundPlan = planTypes.find(p => p.id === clusterPlan.planId);
 					if (foundPlan?.priceUsd === 0 && !foundPlan.id.startsWith('self-hosted')) {
@@ -61,8 +66,11 @@ export function UpsertCluster() {
 		return false;
 	}, [cluster?.id, organization?.clusters, planTypes]);
 
-	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(() =>
-		groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'), [planTypes]);
+	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
+		() =>
+			groupThenKeyBy(planTypes?.sort(sortByField('priceUsd')) || [], 'deploymentDescription', 'performanceDescription'),
+		[planTypes],
+	);
 
 	const defaultValues = useMemo<null | UpsertClusterSchemaType>(() => {
 		if (!planTypes || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)) {
@@ -143,9 +151,18 @@ export function UpsertCluster() {
 			instances,
 			regionPlans,
 		};
-	}, [alreadyUsingFree, cluster, clusterId, planTypes, regionLocationsColocated, regionLocationsDedicated, savedClusterState]);
+	}, [
+		alreadyUsingFree,
+		cluster,
+		clusterId,
+		planTypes,
+		regionLocationsColocated,
+		regionLocationsDedicated,
+		savedClusterState,
+	]);
 
-	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated || !regionLocationsDedicated;
+	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated
+		|| !regionLocationsDedicated;
 	if (isLoading) {
 		return (
 			<SubNavSimpleLayout>
@@ -160,9 +177,11 @@ export function UpsertCluster() {
 				<ErrorComponent
 					title={`Not Allowed`}
 					error={{
-						message: <>
-							You do not have permission to {cluster?.id ? 'update' : 'create'} clusters in this org.
-						</>,
+						message: (
+							<>
+								You do not have permission to {cluster?.id ? 'update' : 'create'} clusters in this org.
+							</>
+						),
 					}}
 				/>
 			</SubNavSimpleLayout>
@@ -175,9 +194,11 @@ export function UpsertCluster() {
 				<ErrorComponent
 					title={`Cluster ${clusterId ? 'Modification' : 'Creation'} Not Currently Allowed`}
 					error={{
-						message: <>
-							There are no available deployment types right now! Please try again later, or <ContactUs />.
-						</>,
+						message: (
+							<>
+								There are no available deployment types right now! Please try again later, or <ContactUs />.
+							</>
+						),
 					}}
 				/>
 			</SubNavSimpleLayout>

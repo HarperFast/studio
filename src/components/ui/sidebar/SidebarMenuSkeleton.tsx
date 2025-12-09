@@ -7,7 +7,7 @@ export function SidebarMenuSkeleton({
 	showIcon = false,
 	...props
 }: ComponentProps<'div'> & {
-	showIcon?: boolean
+	showIcon?: boolean;
 }) {
 	// Random width between 50 to 90%.
 	const width = useMemo(() => {
@@ -32,11 +32,9 @@ export function SidebarMenuSkeleton({
 			<Skeleton
 				className="h-4 max-w-(--skeleton-width) flex-1"
 				data-sidebar="menu-skeleton-text"
-				style={
-					{
-						'--skeleton-width': width,
-					} as CSSProperties
-				}
+				style={{
+					'--skeleton-width': width,
+				} as CSSProperties}
 			/>
 		</div>
 	);

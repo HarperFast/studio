@@ -5,7 +5,9 @@ interface LogoutInfoResponse {
 	message: string;
 }
 
-export async function onInstanceLogoutSubmit({ instanceClient, entityId }: InstanceClientIdConfig): Promise<LogoutInfoResponse> {
+export async function onInstanceLogoutSubmit(
+	{ instanceClient, entityId }: InstanceClientIdConfig,
+): Promise<LogoutInfoResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'logout',
 	});

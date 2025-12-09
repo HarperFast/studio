@@ -11,9 +11,11 @@ afterEach(() => cleanup);
 
 describe(ContactUs, () => {
 	it('should render a Discord link', async () => {
-		render(<TestProvider>
-			<ContactUs />
-		</TestProvider>);
+		render(
+			<TestProvider>
+				<ContactUs />
+			</TestProvider>,
+		);
 
 		await act(() => null);
 
@@ -24,9 +26,11 @@ describe(ContactUs, () => {
 	});
 
 	it('should render an email link', async () => {
-		render(<TestProvider>
-			<ContactUs overEmail={true} />
-		</TestProvider>);
+		render(
+			<TestProvider>
+				<ContactUs overEmail={true} />
+			</TestProvider>,
+		);
 
 		await act(() => null);
 

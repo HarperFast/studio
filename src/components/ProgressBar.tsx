@@ -9,7 +9,10 @@ export function ProgressBar({ width, className, animated, placeholder }: {
 	return (
 		<div className={cx('w-full bg-gray-200 rounded-full relative', placeholder ? 'h-6' : 'h-2.5')}>
 			{placeholder && (
-				<div className="absolute top-0 h-full w-full font-bold text-xs flex flex-col items-center justify-center text-black/60 text-shadow-2xs">{placeholder}</div>)}
+				<div className="absolute top-0 h-full w-full font-bold text-xs flex flex-col items-center justify-center text-black/60 text-shadow-2xs">
+					{placeholder}
+				</div>
+			)}
 			<div
 				className={cx(
 					'rounded-full',
@@ -21,7 +24,8 @@ export function ProgressBar({ width, className, animated, placeholder }: {
 				style={{
 					width,
 				}}
-			></div>
+			>
+			</div>
 		</div>
 	);
 }

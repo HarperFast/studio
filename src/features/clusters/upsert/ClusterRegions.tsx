@@ -31,7 +31,9 @@ export function ClusterRegions({
 	});
 
 	const nextAvailableRegionToAdd = useMemo(() => {
-		const selectedRegionNames = selectedRegionPlans.map(region => regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region);
+		const selectedRegionNames = selectedRegionPlans.map(region =>
+			regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region
+		);
 		if (!totalPrice) {
 			// Free plans can only add a single region.
 			return null;
@@ -50,44 +52,52 @@ export function ClusterRegions({
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
 	if (!regionLocations?.length) {
-		return (<div className="md:col-span-6 col-span-3">
-			<ErrorComponent
-				className="mt-0 m-0"
-				title="No Regions Available"
-				showReturnToHome={false}
-				error={{
-					message: <>
-						The deployment type you selected currently has no available regions. Please try a different
-						deployment type, try again later, or <ContactUs />.
-					</>,
-				}}
-			/>
-		</div>);
+		return (
+			<div className="md:col-span-6 col-span-3">
+				<ErrorComponent
+					className="mt-0 m-0"
+					title="No Regions Available"
+					showReturnToHome={false}
+					error={{
+						message: (
+							<>
+								The deployment type you selected currently has no available regions. Please try a different deployment
+								type, try again later, or <ContactUs />.
+							</>
+						),
+					}}
+				/>
+			</div>
+		);
 	}
 
-	return (<>
-		{regionPlansFieldArray.fields.map((field, index) => (
-			<RegionFormInputs
-				control={form.control}
-				fieldArray={regionPlansFieldArray}
-				form={form}
-				index={index}
-				key={field.id}
-				regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-				selectedPlan={selectedPlan}
-			/>
-		))}
+	return (
+		<>
+			{regionPlansFieldArray.fields.map((field, index) => (
+				<RegionFormInputs
+					control={form.control}
+					fieldArray={regionPlansFieldArray}
+					form={form}
+					index={index}
+					key={field.id}
+					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+					selectedPlan={selectedPlan}
+				/>
+			))}
 
-		{nextAvailableRegionToAdd && (<div className="md:col-span-6 col-span-3">
-			<Button
-				type="button"
-				variant="positiveOutline"
-				className="rounded-full"
-				onClick={onAddARegionClick}
-			>
-				<PlusIcon />
-				Add Additional Region Usage
-			</Button>
-		</div>)}
-	</>);
+			{nextAvailableRegionToAdd && (
+				<div className="md:col-span-6 col-span-3">
+					<Button
+						type="button"
+						variant="positiveOutline"
+						className="rounded-full"
+						onClick={onAddARegionClick}
+					>
+						<PlusIcon />
+						Add Additional Region Usage
+					</Button>
+				</div>
+			)}
+		</>
+	);
 }

@@ -1,7 +1,11 @@
-import { AxiosResponse } from 'axios';
 import { sleep } from '@/lib/sleep';
+import { AxiosResponse } from 'axios';
 
-export async function axiosRetry<T = unknown, R = AxiosResponse<T>>(requestPromise: () => Promise<R>, retries = 3, msDelayBetweenAttempts = 1000): Promise<R> {
+export async function axiosRetry<T = unknown, R = AxiosResponse<T>>(
+	requestPromise: () => Promise<R>,
+	retries = 3,
+	msDelayBetweenAttempts = 1000,
+): Promise<R> {
 	let attempt = 0;
 	if (retries <= 0) {
 		throw new Error('retries must be greater than 0');

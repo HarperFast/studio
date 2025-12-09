@@ -1,6 +1,6 @@
 import { iconSharedClassName } from './constants';
 
-export function DirectoryIcon({ opened, pkg }: { readonly opened?: boolean, readonly pkg?: boolean; }) {
+export function DirectoryIcon({ opened, pkg }: { readonly opened?: boolean; readonly pkg?: boolean }) {
 	if (pkg) {
 		return opened
 			? <i className={iconSharedClassName + 'fas fa-box-open text-orange-600'} />

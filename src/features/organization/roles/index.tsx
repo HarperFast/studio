@@ -29,7 +29,7 @@ export function OrgConfigRolesIndex() {
 
 	const selectedOrgRole = useMemo(
 		() => orgRoles && orgRoles?.find((role) => role.id === orgRoleId),
-		[orgRoles, orgRoleId]
+		[orgRoles, orgRoleId],
 	);
 
 	const isEditOrgRoleModalOpen = !!orgRoleId && !!selectedOrgRole;
@@ -41,7 +41,7 @@ export function OrgConfigRolesIndex() {
 			const parts = [orgRoleId ? '..' : '', newOrgRole].filter(Boolean);
 			void navigate({ to: parts.join('/') });
 		},
-		[orgRoleId, navigate]
+		[orgRoleId, navigate],
 	);
 
 	const onRoleDeleted = useCallback(() => {
@@ -61,7 +61,7 @@ export function OrgConfigRolesIndex() {
 		(rowData: Row<SchemaOrganizationRole>) => {
 			onSelectOrgRole(rowData.original.id);
 		},
-		[onSelectOrgRole]
+		[onSelectOrgRole],
 	);
 
 	const closeEditModal = useCallback(() => {

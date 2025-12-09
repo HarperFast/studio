@@ -18,19 +18,23 @@ export function ContentViewer() {
 	}
 
 	if (isDirectory(openedEntry)) {
-		return <div className="directoryReadMe max-w-3xl">
-			<Markdown urlTransform={urlTransform}>{openedEntryContents}</Markdown>
-		</div>;
+		return (
+			<div className="directoryReadMe max-w-3xl">
+				<Markdown urlTransform={urlTransform}>{openedEntryContents}</Markdown>
+			</div>
+		);
 	}
 
 	if (hasImageFileExtension(openedEntry?.name)) {
-		return <div className="mt-9 absolute top-0 right-0 bottom-0 left-0">
-			<img
-				className="w-full h-full object-contain p-20"
-				alt={openedEntry?.name}
-				src={`data:image/${parseFileExtension(openedEntry?.name)};base64,${openedEntryContents}`}
-			/>
-		</div>;
+		return (
+			<div className="mt-9 absolute top-0 right-0 bottom-0 left-0">
+				<img
+					className="w-full h-full object-contain p-20"
+					alt={openedEntry?.name}
+					src={`data:image/${parseFileExtension(openedEntry?.name)};base64,${openedEntryContents}`}
+				/>
+			</div>
+		);
 	} else {
 		return <TextEditorView />;
 	}

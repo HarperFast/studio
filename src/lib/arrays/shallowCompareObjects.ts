@@ -1,8 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function shallowCompareObjects(a: any, b: any): boolean {
 	// Handle edge cases
-	if (a === b) return true;
-	if (!a || !b) return false;
+	if (a === b) { return true; }
+	if (!a || !b) { return false; }
 
 	const aKeys = Object.keys(a);
 	const bKeys = Object.keys(b);

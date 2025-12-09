@@ -37,7 +37,11 @@ export function TableFooter({ className, ...props }: React.ComponentProps<'tfoot
 
 export function TableRow({ className, ...props }: React.ComponentProps<'tr'>) {
 	return (
-		<tr data-slot="table-row" className={cn('border-b border-grey-700 transition-colors', className)} {...props} />
+		<tr
+			data-slot="table-row"
+			className={cn('border-b border-grey-700 transition-colors', className)}
+			{...props}
+		/>
 	);
 }
 
@@ -74,47 +78,55 @@ export function TableHeadSortable<TData extends RowData>({
 	const resetSize = useCallback(() => {
 		header.column.resetSize();
 	}, [header]);
-	return <TableHead
-		{...props}
-		style={{ width: `${header.getSize()}px` }}
-		className={enableSorting ? 'px-0' : 'px-2'}
-	>
-		<div className="flex items-center justify-between">
-			{enableSorting ? (
-				<Button
-					type="button"
-					variant="ghost"
-					className={cn('rounded-none', !header.column.getIsSorted() || header.column.getIsSorted() === 'asc' ? 'cursor-n-resize' : 'cursor-s-resize')}
-					onClick={onClickSort}>
-					{content}
-					{header.column.getIsSorted() === 'asc'
-						? <ArrowUp />
-						: header.column.getIsSorted() === 'desc'
-							? <ArrowDown />
-							: <ArrowUpDown className="text-gray-600" />}
-				</Button>
-			) : (
-				content
-			)}
-			{enableResizing && (
-				<Button
-					type="button"
-					variant="ghost"
-					className="cursor-col-resize"
-					onMouseDown={header.getResizeHandler()} // for desktop
-					onTouchStart={header.getResizeHandler()} // for mobile
-					onDoubleClick={resetSize}
-					style={{
-						transform: header.column.getIsResizing()
-							? `translateX(${header.getContext().table.getState().columnSizingInfo.deltaOffset}px)`
-							: '',
-					}}
-				>
-					<GripVerticalIcon />
-				</Button>
-			)}
-		</div>
-	</TableHead>;
+	return (
+		<TableHead
+			{...props}
+			style={{ width: `${header.getSize()}px` }}
+			className={enableSorting ? 'px-0' : 'px-2'}
+		>
+			<div className="flex items-center justify-between">
+				{enableSorting
+					? (
+						<Button
+							type="button"
+							variant="ghost"
+							className={cn(
+								'rounded-none',
+								!header.column.getIsSorted() || header.column.getIsSorted() === 'asc'
+									? 'cursor-n-resize'
+									: 'cursor-s-resize',
+							)}
+							onClick={onClickSort}
+						>
+							{content}
+							{header.column.getIsSorted() === 'asc'
+								? <ArrowUp />
+								: header.column.getIsSorted() === 'desc'
+								? <ArrowDown />
+								: <ArrowUpDown className="text-gray-600" />}
+						</Button>
+					)
+					: content}
+				{enableResizing && (
+					<Button
+						type="button"
+						variant="ghost"
+						className="cursor-col-resize"
+						onMouseDown={header.getResizeHandler()} // for desktop
+						onTouchStart={header.getResizeHandler()} // for mobile
+						onDoubleClick={resetSize}
+						style={{
+							transform: header.column.getIsResizing()
+								? `translateX(${header.getContext().table.getState().columnSizingInfo.deltaOffset}px)`
+								: '',
+						}}
+					>
+						<GripVerticalIcon />
+					</Button>
+				)}
+			</div>
+		</TableHead>
+	);
 }
 
 export function TableCell({ className, ...props }: React.ComponentProps<'td'>) {

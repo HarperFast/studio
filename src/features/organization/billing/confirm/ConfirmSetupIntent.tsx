@@ -2,5 +2,9 @@ import { ProcessSetupIntent } from '@/features/organization/billing/confirm/Proc
 import { StripeWrapper } from '@/integrations/stripe/StripeContext';
 
 export function ConfirmSetupIntent() {
-	return <StripeWrapper><ProcessSetupIntent /></StripeWrapper>;
+	return (
+		<StripeWrapper>
+			<ProcessSetupIntent />
+		</StripeWrapper>
+	);
 }

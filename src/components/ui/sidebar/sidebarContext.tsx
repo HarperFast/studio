@@ -8,13 +8,13 @@ export const SIDEBAR_WIDTH_ICON = '3rem';
 export const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
 
 export type SidebarContextProps = {
-	state: 'expanded' | 'collapsed'
-	open: boolean
-	setOpen: (open: boolean) => void
-	openMobile: boolean
-	setOpenMobile: (open: boolean) => void
-	isMobile: boolean
-	toggleSidebar: () => void
-}
+	state: 'expanded' | 'collapsed';
+	open: boolean;
+	setOpen: (open: boolean) => void;
+	openMobile: boolean;
+	setOpenMobile: (open: boolean) => void;
+	isMobile: boolean;
+	toggleSidebar: () => void;
+};
 
 export const SidebarContext = createContext<SidebarContextProps | null>(null);

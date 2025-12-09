@@ -1,102 +1,147 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-	<title>Harper is Running!</title>
-	<link rel="icon" type="image/svg+xml" href="/HDBDogOnly.svg" />
-	<link rel="icon" type="dynamic-favicon" href="/favicon_purple.png" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<link rel="stylesheet" href="./running.css" type="text/css" />
-</head>
+  <head>
+    <title>Harper is Running!</title>
+    <link rel="icon" type="image/svg+xml" href="/HDBDogOnly.svg" />
+    <link rel="icon" type="dynamic-favicon" href="/favicon_purple.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./running.css" type="text/css" />
+  </head>
 
-<body>
+  <body>
+    <div id="content">
+      <img
+        src="/HDBDogOnly.svg"
+        width="100px"
+        height="100px"
+        alt="Harper Logo"
+      />
 
-<div id="content">
+      <h1>Server is Running!</h1>
+      <p>
+        Your Harper server is up and running. Choose how you'd like to get
+        started:
+      </p>
 
-	<img src="/HDBDogOnly.svg" width="100px" height="100px" alt="Harper Logo" />
+      <div class="card flex-row">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="hsl(232.92, 80.9%, 60.98%)"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="lucide lucide-sparkles w-6 h-6 text-blue-600 flex-shrink-0 mt-1"
+          aria-hidden="true"
+        >
+          <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z">
+          </path>
+          <path d="M20 3v4"></path>
+          <path d="M22 5h-4"></path>
+          <path d="M4 17v2"></path>
+          <path d="M5 18H3"></path>
+        </svg>
 
-	<h1>Server is Running!</h1>
-	<p>
-		Your Harper server is up and running. Choose how you'd like to get started:
-	</p>
+        <div>
+          <div class="flex-row">
+            <h2>Connect to Harper Fabric</h2>
+            <span class="badge">
+              Most Popular
+            </span>
+          </div>
+          <p>
+            Connect your server to Harper Fabric for cloud management,
+            monitoring, and seamless collaboration. Access your instance from
+            anywhere with full observability.
+          </p>
+          <a
+            id="connectToHarperFabricAnchor"
+            href="https://fabric.harper.fast/"
+            target="_blank"
+          >
+            Connect to Harper Fabric
+          </a>
+        </div>
+      </div>
 
-	<div class="card flex-row">
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="hsl(232.92, 80.9%, 60.98%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles w-6 h-6 text-blue-600 flex-shrink-0 mt-1" aria-hidden="true">
-			<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path>
-			<path d="M20 3v4"></path>
-			<path d="M22 5h-4"></path>
-			<path d="M4 17v2"></path>
-			<path d="M5 18H3"></path>
-		</svg>
+      <div class="card flex-row">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="lucide lucide-terminal w-6 h-6 text-slate-600 flex-shrink-0 mt-1"
+          aria-hidden="true"
+        >
+          <path d="M12 19h8"></path>
+          <path d="m4 17 6-6-6-6"></path>
+        </svg>
 
-		<div>
-			<div class="flex-row">
-				<h2>Connect to Harper Fabric</h2>
-				<span class="badge">
-					Most Popular
-				</span>
-			</div>
-			<p>
-				Connect your server to Harper Fabric for cloud management, monitoring, and seamless collaboration.
-				Access your instance from anywhere with full observability.
-			</p>
-			<a id="connectToHarperFabricAnchor" href="https://fabric.harper.fast/" target="_blank">
-				Connect to Harper Fabric
-			</a>
-		</div>
-	</div>
+        <div>
+          <h2>Manage Harper Offline</h2>
+          <p>
+            Prefer to work locally? Enable Harper Studio to configure and manage
+            your instance directly from your development environment.
+          </p>
+          <p>
+            Turn on localStudio in your harperdb-config.yaml:
+          </p>
+          <div class="code-snippet">
+            <code content="yaml">localStudio: enabled: true</code>
+          </div>
+          <p>
+            Then refresh this page!
+          </p>
+        </div>
+      </div>
 
-	<div class="card flex-row">
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal w-6 h-6 text-slate-600 flex-shrink-0 mt-1" aria-hidden="true">
-			<path d="M12 19h8"></path>
-			<path d="m4 17 6-6-6-6"></path>
-		</svg>
+      <!--		{/* Footer */}-->
+      <div class="text-center text-slate-500">
+        <p>
+          Need help?
+          <a
+            href="https://docs.harperdb.io/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Check out our docs.
+          </a>
+        </p>
+      </div>
+    </div>
 
-		<div>
-			<h2>Manage Harper Offline</h2>
-			<p>
-				Prefer to work locally? Enable Harper Studio to configure and manage your instance
-				directly from your development environment.
-			</p>
-			<p>
-				Turn on localStudio in your harperdb-config.yaml:
-			</p>
-			<div class="code-snippet">
-				<code content="yaml">localStudio:
-	enabled: true</code>
-			</div>
-			<p>
-				Then refresh this page!
-			</p>
-		</div>
-	</div>
-
-	<!--		{/* Footer */}-->
-	<div class="text-center text-slate-500">
-		<p>
-			Need help?
-			<a href="https://docs.harperdb.io/docs" target="_blank" rel="noopener noreferrer">
-				Check out our docs.
-			</a>
-		</p>
-	</div>
-
-</div>
-
-<div id="app-bg-color">
-	<div class="orb-container">
-		<div class="orb"></div>
-	</div>
-</div>
-<svg id="app-bg-grid" xmlns="http://www.w3.org/2000/svg">
-	<defs>
-		<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-			<animateTransform attributeType="xml" attributeName="patternTransform" type="translate" from="0 0" to="-40 -40"
-				begin="0" dur="5s" repeatCount="indefinite"></animateTransform>
-			<path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" />
-		</pattern>
-	</defs>
-	<rect width="100%" height="100%" fill="url(#grid)" />
-</svg>
-<script src="./running.js" async></script>
-</body>
+    <div id="app-bg-color">
+      <div class="orb-container">
+        <div class="orb"></div>
+      </div>
+    </div>
+    <svg id="app-bg-grid" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <animateTransform
+            attributeType="xml"
+            attributeName="patternTransform"
+            type="translate"
+            from="0 0"
+            to="-40 -40"
+            begin="0"
+            dur="5s"
+            repeatCount="indefinite"
+          >
+          </animateTransform>
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+    </svg>
+    <script src="./running.js" async></script>
+  </body>
 </html>

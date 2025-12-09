@@ -13,47 +13,45 @@ export function CommonInstructions({
 	control,
 	defaultApplicationName,
 }: {
-	control: Control<z.infer<typeof NewApplicationSchema>>,
-	defaultApplicationName: string,
+	control: Control<z.infer<typeof NewApplicationSchema>>;
+	defaultApplicationName: string;
 }) {
-	return <>
+	return (
+		<>
+			<CardHeader>
+				<CardTitle>Application Name</CardTitle>
+				<CardDescription>
+					Choose a name for your new API application
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<div className="space-y-2">
+					<FormField
+						control={control}
+						name="applicationName"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel className="pb-1">Name</FormLabel>
+								<FormControl>
+									<Input
+										type="text"
+										autoCapitalize="words"
+										autoComplete="off"
+										autoFocus={true}
+										placeholder={defaultApplicationName}
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
 
-		<CardHeader>
-			<CardTitle>Application Name</CardTitle>
-			<CardDescription>
-				Choose a name for your new API application
-			</CardDescription>
-		</CardHeader>
-		<CardContent>
-			<div className="space-y-2">
-
-				<FormField
-					control={control}
-					name="applicationName"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel className="pb-1">Name</FormLabel>
-							<FormControl>
-								<Input
-									type="text"
-									autoCapitalize="words"
-									autoComplete="off"
-									autoFocus={true}
-									placeholder={defaultApplicationName}
-									{...field}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
-				<p className="text-muted-foreground text-sm">
-					Use lowercase letters, numbers, underscores, and hyphens
-				</p>
-
-			</div>
-		</CardContent>
-
-	</>;
+					<p className="text-muted-foreground text-sm">
+						Use lowercase letters, numbers, underscores, and hyphens
+					</p>
+				</div>
+			</CardContent>
+		</>
+	);
 }

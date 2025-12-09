@@ -43,8 +43,8 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	const { data: apiComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
 	const mappedData: {
-		rootEntries: Array<DirectoryEntry | FileEntry>,
-		pathsRegistry: Set<string>,
+		rootEntries: Array<DirectoryEntry | FileEntry>;
+		pathsRegistry: Set<string>;
 	} = useMemo(() => {
 		const pathsRegistry = new Set<string>();
 		const rootEntries = transformNodes(
@@ -60,11 +60,11 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 					project: (parents[0] || node)?.name,
 					package: (parents[0] || node)?.package,
 					overviewEntry: readMeAPIFile && !isDirectory(readMeAPIFile) && {
-						name: readMeAPIFile.name,
-						path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
-						project: (parents[0] || node)?.name,
-						package: (parents[0] || node)?.package,
-					} || undefined,
+								name: readMeAPIFile.name,
+								path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
+								project: (parents[0] || node)?.name,
+								package: (parents[0] || node)?.package,
+							} || undefined,
 				} satisfies DirectoryEntry | FileEntry;
 			},
 		);
@@ -84,16 +84,27 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		return mappedData.pathsRegistry.has(path);
 	}, [mappedData.pathsRegistry]);
 
-	const defaultFolderExpansions = mappedData.rootEntries.filter(rootEntry => !rootEntry.package && rootEntry.path !== newApplication).map<TreeItemIndex>(rootEntry => rootEntry.name);
+	const defaultFolderExpansions = mappedData.rootEntries.filter(rootEntry =>
+		!rootEntry.package && rootEntry.path !== newApplication
+	).map<TreeItemIndex>(rootEntry => rootEntry.name);
 	let defaultFocusedItem = defaultFolderExpansions[0];
 	let defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
 	if (!defaultFocusedItem) {
 		defaultFocusedItem = newApplication;
 		defaultSelectedItem = [newApplication];
 	}
-	const [focusedItem, setFocusedItem] = useSessionStorage(`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}', defaultFocusedItem as TreeItemIndex | undefined);
-	const [expandedItems, setExpandedItems] = useSessionStorage(`FolderOpened/${instanceParams.entityId}` as 'FolderOpened/{entityId}', defaultFolderExpansions);
-	const [selectedItems, setSelectedItems] = useSessionStorage(`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}', defaultSelectedItem);
+	const [focusedItem, setFocusedItem] = useSessionStorage(
+		`FileFocused/${instanceParams.entityId}` as 'FileFocused/{entityId}',
+		defaultFocusedItem as TreeItemIndex | undefined,
+	);
+	const [expandedItems, setExpandedItems] = useSessionStorage(
+		`FolderOpened/${instanceParams.entityId}` as 'FolderOpened/{entityId}',
+		defaultFolderExpansions,
+	);
+	const [selectedItems, setSelectedItems] = useSessionStorage(
+		`FileSelected/${instanceParams.entityId}` as 'FileSelected/{entityId}',
+		defaultSelectedItem,
+	);
 
 	/*
 	 Support URL links to files.
@@ -120,9 +131,12 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Load the selected file contents.
 	 */
-	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path) || '';
-	const projectToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
-	const loadedOverviewEntry = openedEntry && (isDirectory(openedEntry) ? !!openedEntry.overviewEntry?.path : false) || false;
+	const pathToLoad = openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.path : openedEntry.path)
+		|| '';
+	const projectToLoad =
+		openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
+	const loadedOverviewEntry = openedEntry && (isDirectory(openedEntry) ? !!openedEntry.overviewEntry?.path : false)
+		|| false;
 	const fileQueryKey = getComponentFileQueryKey({
 		file: pathToLoad?.split('/').slice(1).join('/'),
 		project: projectToLoad,
@@ -173,7 +187,14 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 				},
 			});
 		},
-		[fileQueryKey, getComponentFileQueryData, openedEntry?.path, queryClient, saveComponentFile, setUpdatedEntryContents],
+		[
+			fileQueryKey,
+			getComponentFileQueryData,
+			openedEntry?.path,
+			queryClient,
+			saveComponentFile,
+			setUpdatedEntryContents,
+		],
 	);
 
 	const restrictPackageModification = useMemo(() => {
@@ -191,7 +212,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	const value = useMemo<EditorViewContextValue>(() => {
 		return {
-
 			rootEntries: mappedData.rootEntries,
 			reloadRootEntries,
 			entryExists,
@@ -212,7 +232,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 
 			saveFile,
 			isSavingFile,
-
 		};
 	}, [
 		mappedData.rootEntries,

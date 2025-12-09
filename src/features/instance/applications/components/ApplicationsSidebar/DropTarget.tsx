@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 export function DropTarget() {
 	const [uploading, setUploading] = useState('');
-	const { clusterId }: { clusterId?: string; } = useParams({ strict: false });
+	const { clusterId }: { clusterId?: string } = useParams({ strict: false });
 	const { openedEntry, restrictPackageModification, reloadRootEntries, entryExists } = useEditorView();
 	const canUpload = !!openedEntry && !openedEntry.package && !restrictPackageModification;
 	const instanceParams = useInstanceClientIdParams();
@@ -160,9 +160,9 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 				action: toastOKAction,
 				descriptionClassName: 'whitespace-pre overflow-y-auto',
 				description: filesRejected
-						.slice(0, 5)
-						.map(r => r.errors.map(e => e.message).join('\n'))
-						.join('\n')
+					.slice(0, 5)
+					.map(r => r.errors.map(e => e.message).join('\n'))
+					.join('\n')
 					+ (filesRejected?.length > 5 ? '\nCheck the console for the full list.' : ''),
 			});
 		}
@@ -189,15 +189,22 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 					'p-2 w-full fixed bottom-0 h-16',
 					'flex flex-col items-center justify-center',
 					'bg-red-950 border-red-600',
-				)}>
-				You cannot upload into<br /><strong>{currentDirectory}</strong>
+				)}
+			>
+				You cannot upload into<br />
+				<strong>{currentDirectory}</strong>
 			</div>
 		);
 	}
 
 	return (
-		<div {...getRootProps()} className={isDraggingAnywhere ? 'fixed top-0 bottom-0 w-full' +
-			' pointer-events-none' : ''}>
+		<div
+			{...getRootProps()}
+			className={isDraggingAnywhere
+				? 'fixed top-0 bottom-0 w-full'
+					+ ' pointer-events-none'
+				: ''}
+		>
 			<input id="dropTarget" {...getInputProps()} />
 			<div
 				className={cx(
@@ -209,16 +216,29 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 					isDraggingAnywhere
 						? 'animate-glow-pulse bg-green-950 border-green-600'
 						: 'bg-purple-950 border-purple-600',
-				)}>
-				{
-					uploading
-						? uploading
-						: dragTarget
-							? <>Drop to upload into<br /><strong>{dragTargetDirectory}</strong></>
-							: isDraggingAnywhere
-								? <>Drop to upload into<br /><strong>{currentDirectory}</strong></>
-								: <>Drag and drop to upload<br />or click to select files.</>
-				}
+				)}
+			>
+				{uploading
+					? uploading
+					: dragTarget
+					? (
+						<>
+							Drop to upload into<br />
+							<strong>{dragTargetDirectory}</strong>
+						</>
+					)
+					: isDraggingAnywhere
+					? (
+						<>
+							Drop to upload into<br />
+							<strong>{currentDirectory}</strong>
+						</>
+					)
+					: (
+						<>
+							Drag and drop to upload<br />or click to select files.
+						</>
+					)}
 			</div>
 		</div>
 	);
@@ -227,6 +247,8 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 function getFilePath(intoPath: string, file: FileWithPath): string {
 	const relativePath = file.relativePath ?? file.name;
 	const firstSlashIndex = relativePath.indexOf('/');
-	const trimmedRelativePath = firstSlashIndex === 0 || firstSlashIndex === 1 ? relativePath.slice(firstSlashIndex + 1) : relativePath;
+	const trimmedRelativePath = firstSlashIndex === 0 || firstSlashIndex === 1
+		? relativePath.slice(firstSlashIndex + 1)
+		: relativePath;
 	return intoPath ? `${intoPath}/${trimmedRelativePath}` : trimmedRelativePath;
 }

@@ -34,7 +34,7 @@ import { CopyIcon, Ellipsis } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-export function ClusterCard({ cluster }: { cluster: Cluster; }) {
+export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
@@ -173,32 +173,34 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					{cluster.fqdn ? (
-						<>
-							<span className="truncate max-w-48">{cluster.fqdn}</span>
-							<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
-							<span className="grow"></span>
-						</>
-					) : (
-						<span>Self-Hosted</span>
-					)}
+					{cluster.fqdn
+						? (
+							<>
+								<span className="truncate max-w-48">{cluster.fqdn}</span>
+								<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
+								<span className="grow"></span>
+							</>
+						)
+						: <span>Self-Hosted</span>}
 					{!isTerminated && (
 						<DropdownMenu>
 							<DropdownMenuTrigger>
 								<Ellipsis aria-label="Cluster options" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent>
-								{!clusterHasFailed && (<>
-									<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
-									{cluster.plans?.map((plan) => (
-										<DropdownMenuLabel key={plan.planId + plan.regionId}>
-											{plan.planId} / {plan.regionId}
-											<br />
-											Auto Renewal <Badge variant="success">ON</Badge>
-										</DropdownMenuLabel>
-									))}
-									{menuItems.length > 0 && (<DropdownMenuSeparator />)}
-								</>)}
+								{!clusterHasFailed && (
+									<>
+										<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
+										{cluster.plans?.map((plan) => (
+											<DropdownMenuLabel key={plan.planId + plan.regionId}>
+												{plan.planId} / {plan.regionId}
+												<br />
+												Auto Renewal <Badge variant="success">ON</Badge>
+											</DropdownMenuLabel>
+										))}
+										{menuItems.length > 0 && <DropdownMenuSeparator />}
+									</>
+								)}
 								{...menuItems}
 							</DropdownMenuContent>
 						</DropdownMenu>
@@ -211,10 +213,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster; }) {
 			<CardContent className="flex items-center justify-between gap-2">
 				<ClusterProgress cluster={cluster} />
 				{isActive && view && <ClusterCardAction cluster={cluster} />}
-				{clusterHasFailed && cluster.status && (<>
-					<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
-					<span className="text-xs">Click "..." to choose how to proceed.</span>
-				</>)}
+				{clusterHasFailed && cluster.status && (
+					<>
+						<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+						<span className="text-xs">Click "..." to choose how to proceed.</span>
+					</>
+				)}
 			</CardContent>
 
 			<ConfirmDeletionModal

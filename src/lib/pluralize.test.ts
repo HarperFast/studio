@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
 import { pluralize } from '@/lib/pluralize';
+import { describe, expect, it } from 'vitest';
 
 describe('pluralize', () => {
 	it('returns singular when value is exactly number 1', () => {

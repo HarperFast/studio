@@ -48,7 +48,7 @@ export function getComponentFileQueryOptions(params: GetComponentFileRequest) {
 export function getComponentFileQueryKey(params: GetComponentFileRequest) {
 	return [
 		params.entityId,
-		"get_component_file",
+		'get_component_file',
 		params.file,
 		params.project,
 		params.encoding,

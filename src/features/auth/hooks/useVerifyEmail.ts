@@ -24,5 +24,5 @@ function useVerifyEmailMutation() {
 	});
 }
 
-export type { VerifyEmailToken, VerifyEmailResponse };
+export type { VerifyEmailResponse, VerifyEmailToken };
 export { useVerifyEmailMutation };

@@ -23,7 +23,7 @@ export function autoCast(data: unknown) {
 		return data;
 	}
 
-	//if this is already typed other than string, return data
+	// if this is already typed other than string, return data
 	if (typeof data !== 'string') {
 		return data;
 	}
@@ -37,7 +37,7 @@ export function autoCast(data: unknown) {
 		return Number(data);
 	}
 
-	if (isoDateRegex.test(data)) return new Date(data);
+	if (isoDateRegex.test(data)) { return new Date(data); }
 
 	return data;
 }

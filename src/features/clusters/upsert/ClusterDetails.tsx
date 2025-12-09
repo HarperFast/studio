@@ -75,11 +75,15 @@ export function ClusterDetails({
 			};
 		});
 	}, [deploymentToPerformanceToPlan, selectedDeployment]);
-	const availableDeploymentTypes = useMemo(() =>
-		Object.keys(deploymentToPerformanceToPlan).sort(), [deploymentToPerformanceToPlan]);
+	const availableDeploymentTypes = useMemo(() => Object.keys(deploymentToPerformanceToPlan).sort(), [
+		deploymentToPerformanceToPlan,
+	]);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
-		if (availablePerformanceDescriptions?.length && !availablePerformanceDescriptions.find(sp => sp.performanceTier === selectedPerformance)) {
+		if (
+			availablePerformanceDescriptions?.length
+			&& !availablePerformanceDescriptions.find(sp => sp.performanceTier === selectedPerformance)
+		) {
 			form.setValue('performanceDescription', availablePerformanceDescriptions[0].performanceTier);
 			void form.trigger();
 		}
@@ -87,184 +91,203 @@ export function ClusterDetails({
 
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
-	return (<>
-		<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
-			<FormField
-				control={form.control}
-				name="clusterName"
-				render={({ field }) => (
-					<FormItem className="col-span-3 md:col-span-6">
-						<FormLabel className="pb-1">Cluster Name</FormLabel>
-						<FormControl>
-							<Input
-								autoFocus={true}
-								type="text"
-								maxLength={UpsertClusterSchema.shape.clusterName.maxLength!}
-								autoCapitalize="words"
-								disabled={!!clusterId}
-								{...field} />
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			<FormField
-				control={form.control}
-				name="deploymentDescription"
-				render={({ field }) => (
-					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">Harper Deployment</FormLabel>
-
-						<Suspense fallback={<TextLoadingSkeleton />}>
+	return (
+		<>
+			<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
+				<FormField
+					control={form.control}
+					name="clusterName"
+					render={({ field }) => (
+						<FormItem className="col-span-3 md:col-span-6">
+							<FormLabel className="pb-1">Cluster Name</FormLabel>
 							<FormControl>
-								<Select
-									{...field}
+								<Input
+									autoFocus={true}
+									type="text"
+									maxLength={UpsertClusterSchema.shape.clusterName.maxLength!}
+									autoCapitalize="words"
 									disabled={!!clusterId}
-									onValueChange={(deploymentDescription) => {
-										field.onChange(deploymentDescription);
-										void form.trigger();
-									}}>
-									<SelectTrigger className="w-full h-auto">
-										<SelectValue placeholder="Choose Tier" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{availableDeploymentTypes.map((deploymentDescription) => (
-												<SelectItem
-													key={deploymentDescription}
-													value={deploymentDescription}
-												>
-													<dt className="text-left font-bold text-sm/6">{deploymentDescription}</dt>
-													{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] && (
-														<dd className="font-light">{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription]}</dd>)}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
+									{...field}
+								/>
 							</FormControl>
-						</Suspense>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
+				<FormField
+					control={form.control}
+					name="deploymentDescription"
+					render={({ field }) => (
+						<FormItem className="col-span-3">
+							<FormLabel className="pb-1">Harper Deployment</FormLabel>
 
-			<FormField
-				control={form.control}
-				name="performanceDescription"
-				render={({ field }) => (
-					<FormItem className="col-span-3">
-						<FormLabel className="pb-1">{selectedDeployment.startsWith('Self') ? 'Support' : 'Performance'} &amp; Usage</FormLabel>
-
-						<Suspense fallback={<TextLoadingSkeleton />}>
-							<FormControl>
-								<Select {...field} onValueChange={(performanceDescription) => {
-									field.onChange(performanceDescription);
-									void form.trigger();
-								}}
-									disabled={!availablePerformanceDescriptions?.length}>
-									<SelectTrigger className="w-full h-auto">
-										<SelectValue placeholder="Choose Tier" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											{availablePerformanceDescriptions.map((performanceDescription) => (
-												<SelectItem
-													key={performanceDescription.name}
-													value={performanceDescription.performanceTier}
-												>
-													<dt className="text-left font-bold text-sm/6">{performanceDescription.name}</dt>
-													{performanceDescription.description && (
-														<dd className="font-light">{performanceDescription.description}</dd>)}
-												</SelectItem>
-											))}
-										</SelectGroup>
-									</SelectContent>
-								</Select>
-							</FormControl>
-						</Suspense>
-
-						<FormMessage />
-					</FormItem>
-				)}
-			/>
-
-			{isSelfManaged
-				? (<>
-					<FormField
-						control={form.control}
-						name="fqdn"
-						render={({ field }) => (
-							<FormItem className="md:col-span-6 col-span-3">
-								<FormLabel className="pb-1">Optional Cluster Load Balancer Host Name</FormLabel>
+							<Suspense fallback={<TextLoadingSkeleton />}>
 								<FormControl>
-									<Input
+									<Select
 										{...field}
-										type="text"
-										autoCapitalize="none"
-										autoComplete="off"
-										autoCorrect="off"
-										placeholder="example.your-company.com"
 										disabled={!!clusterId}
-									/>
+										onValueChange={(deploymentDescription) => {
+											field.onChange(deploymentDescription);
+											void form.trigger();
+										}}
+									>
+										<SelectTrigger className="w-full h-auto">
+											<SelectValue placeholder="Choose Tier" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												{availableDeploymentTypes.map((deploymentDescription) => (
+													<SelectItem
+														key={deploymentDescription}
+														value={deploymentDescription}
+													>
+														<dt className="text-left font-bold text-sm/6">{deploymentDescription}</dt>
+														{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription] && (
+															<dd className="font-light">{DEPLOYMENT_FULL_DESCRIPTION[deploymentDescription]}</dd>
+														)}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+								</FormControl>
+							</Suspense>
+
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="performanceDescription"
+					render={({ field }) => (
+						<FormItem className="col-span-3">
+							<FormLabel className="pb-1">
+								{selectedDeployment.startsWith('Self') ? 'Support' : 'Performance'} &amp; Usage
+							</FormLabel>
+
+							<Suspense fallback={<TextLoadingSkeleton />}>
+								<FormControl>
+									<Select
+										{...field}
+										onValueChange={(performanceDescription) => {
+											field.onChange(performanceDescription);
+											void form.trigger();
+										}}
+										disabled={!availablePerformanceDescriptions?.length}
+									>
+										<SelectTrigger className="w-full h-auto">
+											<SelectValue placeholder="Choose Tier" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												{availablePerformanceDescriptions.map((performanceDescription) => (
+													<SelectItem
+														key={performanceDescription.name}
+														value={performanceDescription.performanceTier}
+													>
+														<dt className="text-left font-bold text-sm/6">{performanceDescription.name}</dt>
+														{performanceDescription.description && (
+															<dd className="font-light">{performanceDescription.description}</dd>
+														)}
+													</SelectItem>
+												))}
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+								</FormControl>
+							</Suspense>
+
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				{isSelfManaged
+					? (
+						<>
+							<FormField
+								control={form.control}
+								name="fqdn"
+								render={({ field }) => (
+									<FormItem className="md:col-span-6 col-span-3">
+										<FormLabel className="pb-1">Optional Cluster Load Balancer Host Name</FormLabel>
+										<FormControl>
+											<Input
+												{...field}
+												type="text"
+												autoCapitalize="none"
+												autoComplete="off"
+												autoCorrect="off"
+												placeholder="example.your-company.com"
+												disabled={!!clusterId}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</>
+					)
+					: (
+						<>
+							<FormField
+								control={form.control}
+								name="abbreviatedName"
+								render={({ field }) => (
+									<FormItem className="col-span-3">
+										<FormLabel className="pb-1">Host Name</FormLabel>
+										<FormControl>
+											<Input
+												{...field}
+												type="text"
+												maxLength={UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!}
+												autoCapitalize="none"
+												autoComplete="off"
+												autoCorrect="off"
+												placeholder={calculatedNames.suggestedAbbreviatedName}
+												disabled={!!clusterId}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormItem className="col-span-3 ">
+								<FormLabel className="pb-1">Full Host Name</FormLabel>
+								<FormControl>
+									<span>{calculatedNames.fullHostName}</span>
 								</FormControl>
 								<FormMessage />
 							</FormItem>
-						)}
-					/>
-				</>)
-				: (<>
-					<FormField
-						control={form.control}
-						name="abbreviatedName"
-						render={({ field }) => (
-							<FormItem className="col-span-3">
-								<FormLabel className="pb-1">Host Name</FormLabel>
-								<FormControl>
-									<Input
-										{...field}
-										type="text"
-										maxLength={UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!}
-										autoCapitalize="none"
-										autoComplete="off"
-										autoCorrect="off"
-										placeholder={calculatedNames.suggestedAbbreviatedName}
-										disabled={!!clusterId}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormItem className="col-span-3 ">
-						<FormLabel className="pb-1">Full Host Name</FormLabel>
-						<FormControl>
-							<span>{calculatedNames.fullHostName}</span>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-				</>)
-			}
+						</>
+					)}
 
-			{isSelfManaged
-				? (<ClusterInstances form={form} />)
-				: (<ClusterRegions
-					form={form}
-					regionLocations={regionLocations}
-					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-					selectedPlan={selectedPlan}
-					totalPrice={totalPrice}
-				/>)
-			}
-
-		</div>
-		<DialogFooter className="mt-3 mb-12">
-			<Button type="submit" variant="submit" className="rounded-full" disabled={isPending || (clusterId && !isDirty) || !isValid}>
-				{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
-				<ArrowRight />
-			</Button>
-		</DialogFooter>
-	</>);
+				{isSelfManaged
+					? <ClusterInstances form={form} />
+					: (
+						<ClusterRegions
+							form={form}
+							regionLocations={regionLocations}
+							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+							selectedPlan={selectedPlan}
+							totalPrice={totalPrice}
+						/>
+					)}
+			</div>
+			<DialogFooter className="mt-3 mb-12">
+				<Button
+					type="submit"
+					variant="submit"
+					className="rounded-full"
+					disabled={isPending || (clusterId && !isDirty) || !isValid}
+				>
+					{totalPrice > 0 ? 'Confirm Payment Details' : clusterId ? 'Edit Cluster' : 'Create New Cluster'}
+					<ArrowRight />
+				</Button>
+			</DialogFooter>
+		</>
+	);
 }

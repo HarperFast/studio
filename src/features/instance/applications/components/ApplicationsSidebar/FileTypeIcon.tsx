@@ -13,7 +13,7 @@ export function FileTypeIcon({ extension }: { readonly extension: string | null 
 		case 'css':
 			return <i className={iconSharedClassName + 'filetype-css fas fa-file text-blue'} />;
 		case 'html':
-			return <i className={iconSharedClassName + 'filetype-unknown far fa-file-alt'} />; //NOTE: Using unknown icon for HTML file due to not finding one in font awesome.
+			return <i className={iconSharedClassName + 'filetype-unknown far fa-file-alt'} />; // NOTE: Using unknown icon for HTML file due to not finding one in font awesome.
 		case 'json':
 			return <i className={iconSharedClassName + 'filetype-json fas fa-cog'} />;
 		case 'ts':

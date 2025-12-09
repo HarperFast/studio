@@ -71,9 +71,9 @@ export interface TypedAxios extends Axios {
 }
 
 type ResponseType<R extends SuccessResponse | EmptySuccessResponse | EmptyResponse | undefined> = AxiosResponse<
-	R extends SuccessResponse
-		? R['responses']['200']['content']['application/json']
-		: R extends EmptyResponse | EmptySuccessResponse ? null : unknown
+	R extends SuccessResponse ? R['responses']['200']['content']['application/json']
+		: R extends EmptyResponse | EmptySuccessResponse ? null
+		: unknown
 >;
 
 interface SuccessResponse {

@@ -3,7 +3,5 @@ import { LoaderCircleIcon } from 'lucide-react';
 import { ComponentProps } from 'react';
 
 export function LoadingSubtle({ className }: ComponentProps<'div'>) {
-	return (
-		<LoaderCircleIcon className={cx('animate-spin', className)} />
-	);
+	return <LoaderCircleIcon className={cx('animate-spin', className)} />;
 }

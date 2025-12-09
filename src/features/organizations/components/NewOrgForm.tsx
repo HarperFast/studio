@@ -23,7 +23,7 @@ import { useForm } from 'react-hook-form';
 import z from 'zod';
 
 export function NewOrgForm() {
-	const {user} = useCloudAuth();
+	const { user } = useCloudAuth();
 	const navigate = useNavigate();
 
 	const form = useForm({
@@ -74,7 +74,6 @@ export function NewOrgForm() {
 		<>
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(submitForm)} className="grid gap-6 text-white max-w-xl">
-
 					<FormField
 						control={form.control}
 						name="name"

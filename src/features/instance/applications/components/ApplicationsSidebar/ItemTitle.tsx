@@ -13,21 +13,24 @@ import { importedApplications, newApplication } from './specialItems';
 
 export function ItemTitle({ title, item, context }: {
 	title: string;
-	item: TreeItem<DirectoryEntry | FileEntry | undefined>,
-	context: TreeItemRenderContext
+	item: TreeItem<DirectoryEntry | FileEntry | undefined>;
+	context: TreeItemRenderContext;
 }) {
 	const { content } = useEditorFileContent(item.data?.path);
-	return <>
-		{
-			item.data?.path === newApplication
+	return (
+		<>
+			{item.data?.path === newApplication
 				? <NewApplicationIcon />
 				: isDirectory(item.data)
-					? <DirectoryIcon
+				? (
+					<DirectoryIcon
 						opened={context.isExpanded}
-						pkg={!!item.data?.package || item.data.path === importedApplications} />
-					: <FileTypeIcon extension={parseFileExtension(title)} />
-		}
-		<span className="text-nowrap pointer-events-none">{title}{content ? '*' : ''}</span>
-		{item.data?.package && <LockedIcon />}
-	</>;
+						pkg={!!item.data?.package || item.data.path === importedApplications}
+					/>
+				)
+				: <FileTypeIcon extension={parseFileExtension(title)} />}
+			<span className="text-nowrap pointer-events-none">{title}{content ? '*' : ''}</span>
+			{item.data?.package && <LockedIcon />}
+		</>
+	);
 }

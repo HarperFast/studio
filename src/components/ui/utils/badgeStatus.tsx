@@ -74,7 +74,9 @@ export function isPendingUpdate(value: string | undefined): value is 'CLONE_PEND
 	}
 }
 
-export function isBeingUpdated(value: string | undefined): value is 'PROVISIONING' | 'CLONING' | 'CLONE_READY' | 'UPDATING_HDB_NODES' | 'UPDATING' {
+export function isBeingUpdated(
+	value: string | undefined,
+): value is 'PROVISIONING' | 'CLONING' | 'CLONE_READY' | 'UPDATING_HDB_NODES' | 'UPDATING' {
 	switch (value) {
 		case 'PROVISIONING':
 		case 'CLONING':

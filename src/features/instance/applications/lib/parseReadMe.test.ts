@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseReadMe } from './parseReadMe';
 
-
 describe('parseReadMe', () => {
 	const resp = (project: string = 'Example') => ({ project });
 	const baseURL = 'https://example.com:9925';

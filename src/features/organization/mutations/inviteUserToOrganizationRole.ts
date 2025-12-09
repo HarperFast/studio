@@ -16,6 +16,7 @@ export async function onInviteUserToOrganizationRoleSubmit(formData: z.infer<typ
 
 export function useInviteUserToOrganizationRole() {
 	return useMutation({
-		mutationFn: (formData: z.infer<typeof InviteOrganizationRoleSchema>) => onInviteUserToOrganizationRoleSubmit(formData),
+		mutationFn: (formData: z.infer<typeof InviteOrganizationRoleSchema>) =>
+			onInviteUserToOrganizationRoleSubmit(formData),
 	});
 }

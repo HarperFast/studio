@@ -33,27 +33,29 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 					))}
 				</TableHeader>
 				<TableBody className="bg-black">
-					{table.getRowModel().rows?.length ? (
-						table.getRowModel().rows.map((row) => (
-							<TableRow
-								key={row.id}
-								data-state={row.getIsSelected() && 'selected'}
-								className="hover:bg-muted/10 data-[state=selected]:bg-muted"
-							>
-								{row.getVisibleCells().map((cell) => (
-									<TableCell key={cell.id} className="p-4" style={{ width: `${cell.column.getSize()}%` }}>
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
-									</TableCell>
-								))}
+					{table.getRowModel().rows?.length
+						? (
+							table.getRowModel().rows.map((row) => (
+								<TableRow
+									key={row.id}
+									data-state={row.getIsSelected() && 'selected'}
+									className="hover:bg-muted/10 data-[state=selected]:bg-muted"
+								>
+									{row.getVisibleCells().map((cell) => (
+										<TableCell key={cell.id} className="p-4" style={{ width: `${cell.column.getSize()}%` }}>
+											{flexRender(cell.column.columnDef.cell, cell.getContext())}
+										</TableCell>
+									))}
+								</TableRow>
+							))
+						)
+						: (
+							<TableRow>
+								<TableCell colSpan={columns.length} className="h-24 text-center">
+									No results.
+								</TableCell>
 							</TableRow>
-						))
-					) : (
-						<TableRow>
-							<TableCell colSpan={columns.length} className="h-24 text-center">
-								No results.
-							</TableCell>
-						</TableRow>
-					)}
+						)}
 				</TableBody>
 			</Table>
 		</div>

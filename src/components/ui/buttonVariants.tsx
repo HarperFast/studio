@@ -38,14 +38,10 @@ export const buttonVariants = cva(
 				positive: 'bg-green text-white shadow-xs hover:bg-green/90',
 				warning: 'bg-yellow text-white shadow-xs hover:bg-yellow/90',
 				outline: `${outlineCommon} ${hoverBounce}`,
-				ghostOutline:
-					`${outlineCommon} ${hoverBounce} border-none`,
-				positiveOutline:
-					`${outlineCommon} ${hoverBounce} border-green`,
-				destructiveOutline:
-					`${outlineCommon} ${hoverBounce} border-destructive`,
-				defaultOutline:
-					`${outlineCommon} ${hoverBounce} border-primary`,
+				ghostOutline: `${outlineCommon} ${hoverBounce} border-none`,
+				positiveOutline: `${outlineCommon} ${hoverBounce} border-green`,
+				destructiveOutline: `${outlineCommon} ${hoverBounce} border-destructive`,
+				defaultOutline: `${outlineCommon} ${hoverBounce} border-primary`,
 			},
 			size: {
 				default: 'h-9 px-4 py-2 has-[>svg]:px-3',

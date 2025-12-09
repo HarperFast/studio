@@ -26,7 +26,7 @@ import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function FinishSetup() {
 	const { user } = useCloudAuth();
-	const { clusterId }: { clusterId: string; } = useParams({ strict: false });
+	const { clusterId }: { clusterId: string } = useParams({ strict: false });
 	const { data: cluster } = useQuery(
 		getClusterInfoQueryOptions(clusterId, true),
 	);
@@ -77,7 +77,17 @@ export function FinishSetup() {
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},
 		});
-	}, [cluster, clusterId, instanceClient, navigate, operationsUrl, redirect, router, submitInstanceResetPassword, tempPassword]);
+	}, [
+		cluster,
+		clusterId,
+		instanceClient,
+		navigate,
+		operationsUrl,
+		redirect,
+		router,
+		submitInstanceResetPassword,
+		tempPassword,
+	]);
 
 	if (cluster && !cluster.resetPassword) {
 		return <Navigate to="../sign-in" replace={true} />;
@@ -155,8 +165,10 @@ export function FinishSetup() {
 
 					<p className="text-muted-foreground flex gap-2 align-middle">
 						<ActivityIcon size={36} className="flex-none" />
-						<span>These credentials will be used to sign into your cluster directly, providing you a secure connection
-							from your browser to your cluster.</span>
+						<span>
+							These credentials will be used to sign into your cluster directly, providing you a secure connection from
+							your browser to your cluster.
+						</span>
 					</p>
 				</div>
 			</div>

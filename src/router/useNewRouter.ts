@@ -8,7 +8,7 @@ import { createHashHistory, createRouter } from '@tanstack/react-router';
 
 export function useNewRouter({ routeTree = rootRouteTree, authentication }: {
 	routeTree?: typeof rootRouteTree;
-	authentication?: Record<EntityIds, AuthenticatedConnection>
+	authentication?: Record<EntityIds, AuthenticatedConnection>;
 }) {
 	const hashHistory = createHashHistory();
 	return createRouter({

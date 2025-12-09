@@ -2,9 +2,9 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 export function EstimatedProgressBar({ duration, message, lateMessage }: {
-	duration: number,
-	message: ReactNode,
-	lateMessage: ReactNode
+	duration: number;
+	message: ReactNode;
+	lateMessage: ReactNode;
 }) {
 	const animationFrameId = useRef<number>(0);
 	const previousTimeRef = useRef<number>(0);
@@ -32,8 +32,10 @@ export function EstimatedProgressBar({ duration, message, lateMessage }: {
 		return () => cancelAnimationFrame(animationFrameId.current);
 	}, [animate]);
 
-	return (<>
-		{!finished ? message : lateMessage}
-		<ProgressBar width={width} animated={false}></ProgressBar>
-	</>);
+	return (
+		<>
+			{!finished ? message : lateMessage}
+			<ProgressBar width={width} animated={false}></ProgressBar>
+		</>
+	);
 }

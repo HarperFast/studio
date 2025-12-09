@@ -28,11 +28,15 @@ describe('detectCrossLocalhostUrls', () => {
 	});
 
 	it('returns true when browser is localhost and operationsUrl is 127.0.0.1', () => {
-		expect(detectCrossLocalhostUrls(chrome, 'localhost', 'http://127.0.0.1:3000')).toBe(CrossLocalhostIssueType.MixedLoopback);
+		expect(detectCrossLocalhostUrls(chrome, 'localhost', 'http://127.0.0.1:3000')).toBe(
+			CrossLocalhostIssueType.MixedLoopback,
+		);
 	});
 
 	it('returns true when browser is 127.0.0.1 and operationsUrl is localhost', () => {
-		expect(detectCrossLocalhostUrls(chrome, '127.0.0.1', 'http://localhost:8080')).toBe(CrossLocalhostIssueType.MixedLoopback);
+		expect(detectCrossLocalhostUrls(chrome, '127.0.0.1', 'http://localhost:8080')).toBe(
+			CrossLocalhostIssueType.MixedLoopback,
+		);
 	});
 
 	it('returns null when both hostnames match (localhost)', () => {
@@ -45,7 +49,9 @@ describe('detectCrossLocalhostUrls', () => {
 
 	it('ignores port differences and only compares hostname', () => {
 		// Hostnames differ -> true
-		expect(detectCrossLocalhostUrls(chrome, 'localhost', 'http://127.0.0.1:1234')).toBe(CrossLocalhostIssueType.MixedLoopback);
+		expect(detectCrossLocalhostUrls(chrome, 'localhost', 'http://127.0.0.1:1234')).toBe(
+			CrossLocalhostIssueType.MixedLoopback,
+		);
 		// Hostnames same -> null even if ports different
 		expect(detectCrossLocalhostUrls(chrome, 'localhost', 'http://localhost:1234')).toBe(null);
 	});
@@ -53,6 +59,8 @@ describe('detectCrossLocalhostUrls', () => {
 	it('returns true when connecting from the cloud to local outside Chrome and Firefox', () => {
 		expect(detectCrossLocalhostUrls(chrome, 'prod.com', 'http://127.0.0.1:8080')).toBe(null);
 		expect(detectCrossLocalhostUrls(firefox, 'prod.com', 'http://127.0.0.1:8080')).toBe(null);
-		expect(detectCrossLocalhostUrls(safari, 'prod.com', 'http://127.0.0.1:8080')).toBe(CrossLocalhostIssueType.InsecureCookieOutsideChromeAndFirefox);
+		expect(detectCrossLocalhostUrls(safari, 'prod.com', 'http://127.0.0.1:8080')).toBe(
+			CrossLocalhostIssueType.InsecureCookieOutsideChromeAndFirefox,
+		);
 	});
 });

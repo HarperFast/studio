@@ -27,7 +27,6 @@ export function ViewLogModal({
 	isModalOpen: boolean;
 	data: ReadLogItem | undefined;
 }) {
-
 	const variant: BadgeNodeVariantValues = data ? memoizeNodeNames(data.node) : 'default';
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -36,53 +35,53 @@ export function ViewLogModal({
 				<DialogHeader>
 					<DialogTitle>Edit Row</DialogTitle>
 				</DialogHeader>
-				{data ? (
-					// <Editor className="w-full h-96" language="json" theme="vs-dark" value={JSON.stringify(data, null, 4)} />
-					<div className="flex flex-col gap-3 text-white">
-						<div>
-							<h3 className="inline-block pr-2">Level:</h3>
-							<Badge variant={renderBadgeLogLevelVariant(data.level)}>
-								{capitalizeWords(data.level)}
-							</Badge>
-						</div>
-						<div>
-							<h3>Timestamp:</h3>
-							<p className="text-sm">{data.timestamp}</p>
-						</div>
-						<div>
-							<h3>Thread:</h3>
-							<p className="text-sm">{data.thread}</p>
-						</div>
-						<div>
-							<h3>Node:</h3>
-							<Badge variant={variant}>{data.node}</Badge>
-						</div>
+				{data
+					? (
+						// <Editor className="w-full h-96" language="json" theme="vs-dark" value={JSON.stringify(data, null, 4)} />
+						<div className="flex flex-col gap-3 text-white">
+							<div>
+								<h3 className="inline-block pr-2">Level:</h3>
+								<Badge variant={renderBadgeLogLevelVariant(data.level)}>
+									{capitalizeWords(data.level)}
+								</Badge>
+							</div>
+							<div>
+								<h3>Timestamp:</h3>
+								<p className="text-sm">{data.timestamp}</p>
+							</div>
+							<div>
+								<h3>Thread:</h3>
+								<p className="text-sm">{data.thread}</p>
+							</div>
+							<div>
+								<h3>Node:</h3>
+								<Badge variant={variant}>{data.node}</Badge>
+							</div>
 
-						<div>
-							<h3>Tags:</h3>
-							<p className="text-sm">{data.tags && data.tags.length > 0 ? <span>{data.tags}</span> : 'N/A'}</p>
-						</div>
+							<div>
+								<h3>Tags:</h3>
+								<p className="text-sm">{data.tags && data.tags.length > 0 ? <span>{data.tags}</span> : 'N/A'}</p>
+							</div>
 
-						<div>
-							<h3 className="text-lg font-bold">Message</h3>
-							<Editor
-								className="w-full h-72"
-								language={isJsonString(data.message) ? 'json' : 'text'}
-								theme="vs-dark"
-								value={data.message}
-								options={{
-									readOnly: true,
-									minimap: {
-										enabled: false,
-									},
-									scrollBeyondLastLine: false,
-								}}
-							/>
+							<div>
+								<h3 className="text-lg font-bold">Message</h3>
+								<Editor
+									className="w-full h-72"
+									language={isJsonString(data.message) ? 'json' : 'text'}
+									theme="vs-dark"
+									value={data.message}
+									options={{
+										readOnly: true,
+										minimap: {
+											enabled: false,
+										},
+										scrollBeyondLastLine: false,
+									}}
+								/>
+							</div>
 						</div>
-					</div>
-				) : (
-					<Loading />
-				)}
+					)
+					: <Loading />}
 				<DialogFooter>
 					<div className="flex justify-between w-full">
 						<Button type="button" variant="destructive" className="rounded-full">

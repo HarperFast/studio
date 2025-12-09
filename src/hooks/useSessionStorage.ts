@@ -10,7 +10,10 @@ import { useEffect } from 'react';
  * @param key
  * @param defaultValue
  */
-export function useSessionStorage<T, K extends keyof SessionStorageKeys>(key: K, defaultValue: T): [T, (value: (((prevState: T) => T) | T)) => void] {
+export function useSessionStorage<T, K extends keyof SessionStorageKeys>(
+	key: K,
+	defaultValue: T,
+): [T, (value: ((prevState: T) => T) | T) => void] {
 	const state = useEffectedState<T>(getSessionStorage(key, defaultValue), [key]);
 	const [current, setCurrent] = state;
 

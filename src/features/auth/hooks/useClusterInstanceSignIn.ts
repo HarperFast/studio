@@ -15,9 +15,9 @@ export function useClusterInstanceSignIn({
 	instance,
 	instanceParams,
 }: {
-	cluster: Cluster | undefined,
-	instance: SchemaHdbInstance | undefined,
-	instanceParams: InstanceClientIdConfig & InstanceTypeConfig
+	cluster: Cluster | undefined;
+	instance: SchemaHdbInstance | undefined;
+	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }) {
 	const navigate = useNavigate();
 	const router = useRouter();
@@ -50,11 +50,12 @@ export function useClusterInstanceSignIn({
 						to: redirect?.startsWith('/')
 							? redirect
 							: isLocalStudio
-								? defaultInstanceRoute
-								: defaultInstanceRouteUpOne,
+							? defaultInstanceRoute
+							: defaultInstanceRouteUpOne,
 					});
 				},
-			});
+			},
+		);
 	}, [cluster, instance, instanceParams, navigate, redirect, router, submitInstanceLogin]);
 
 	return {

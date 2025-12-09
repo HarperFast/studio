@@ -11,7 +11,11 @@ interface InstanceClient {
 	secure?: boolean;
 }
 
-export function getInstanceClient({ id = OverallAppSignIn, operationsUrl, port, secure, forceFabricConnect }: InstanceClient & { forceFabricConnect?: boolean} = {}) {
+export function getInstanceClient(
+	{ id = OverallAppSignIn, operationsUrl, port, secure, forceFabricConnect }: InstanceClient & {
+		forceFabricConnect?: boolean;
+	} = {},
+) {
 	let baseURL = operationsUrl || authStore.getOperationsUrl(id);
 	if (baseURL) {
 		if (port || secure !== undefined) {

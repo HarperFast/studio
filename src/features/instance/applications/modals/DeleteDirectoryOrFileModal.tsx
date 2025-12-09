@@ -25,10 +25,10 @@ export function DeleteDirectoryOrFileModal() {
 	const thing = isPackageSelected
 		? 'Imported Application'
 		: isApplicationSelected
-			? 'Application'
-			: isDirectorySelected
-				? 'Directory'
-				: 'File';
+		? 'Application'
+		: isDirectorySelected
+		? 'Directory'
+		: 'File';
 
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDirectoryOrFileModal', false);
@@ -101,11 +101,15 @@ export function DeleteDirectoryOrFileModal() {
 				<DialogHeader>
 					<DialogTitle>{action} {thing}</DialogTitle>
 					<DialogDescription>
-						Are you sure you want
-						to {action.toLowerCase()} {multipleSelected ? `these ${selectedItems.length} items` : `this ${thing.toLowerCase()}`}?
+						Are you sure you want to {action.toLowerCase()}{' '}
+						{multipleSelected ? `these ${selectedItems.length} items` : `this ${thing.toLowerCase()}`}?
 					</DialogDescription>
-					{!isPackageSelected &&
-						<DialogDescription className="whitespace-pre">{multipleSelected ? selectedItems.join('\n') : openedEntry?.path}</DialogDescription>}
+					{!isPackageSelected
+						&& (
+							<DialogDescription className="whitespace-pre">
+								{multipleSelected ? selectedItems.join('\n') : openedEntry?.path}
+							</DialogDescription>
+						)}
 				</DialogHeader>
 
 				<div className="flex w-full gap-4">

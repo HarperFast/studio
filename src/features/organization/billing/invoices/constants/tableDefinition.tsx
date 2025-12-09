@@ -15,8 +15,9 @@ export const dataTableColumns: Array<ColumnDef<SchemaInvoice>> = [
 		header: 'Status',
 		accessorKey: 'status',
 		enableSorting: false,
-		cell: ({ cell }) =>
-			<Badge variant={translateStripeStatusToVariant(cell.getValue<string>())}>{cell.getValue<string>()}</Badge>,
+		cell: ({ cell }) => (
+			<Badge variant={translateStripeStatusToVariant(cell.getValue<string>())}>{cell.getValue<string>()}</Badge>
+		),
 	},
 	{
 		header: 'Date',
@@ -40,15 +41,13 @@ export const dataTableColumns: Array<ColumnDef<SchemaInvoice>> = [
 		header: 'Amount Due',
 		accessorKey: 'amountDue',
 		enableSorting: false,
-		cell: ({ cell }) =>
-			toUSD(cell.getValue<number>() ? cell.getValue<number>() / 100 : 0),
+		cell: ({ cell }) => toUSD(cell.getValue<number>() ? cell.getValue<number>() / 100 : 0),
 	},
 	{
 		header: 'Amount Paid',
 		accessorKey: 'amountPaid',
 		enableSorting: false,
-		cell: ({ cell }) =>
-			toUSD(cell.getValue<number>() ? cell.getValue<number>() / 100 : 0),
+		cell: ({ cell }) => toUSD(cell.getValue<number>() ? cell.getValue<number>() / 100 : 0),
 	},
 	{
 		header: 'Lines',
@@ -64,4 +63,3 @@ export const dataTableColumns: Array<ColumnDef<SchemaInvoice>> = [
 		},
 	},
 ];
-

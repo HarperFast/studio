@@ -49,7 +49,7 @@ export function AddUserModal({
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
-	const { organizationId }: { organizationId: string; } = useParams({ strict: false });
+	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
 	const [shouldInvite, setShouldInvite] = useState(false);
 

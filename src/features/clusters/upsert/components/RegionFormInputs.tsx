@@ -14,12 +14,12 @@ import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { ResourcesPerInstance } from './ResourcesPerInstance';
 
 type RegionFormInputsProps = {
-	control: Control<UpsertClusterSchemaType>,
-	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'regionPlans'>,
-	form: UseFormReturn<UpsertClusterSchemaType>,
-	index: number,
-	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>,
-	selectedPlan: SchemaPlan | undefined,
+	control: Control<UpsertClusterSchemaType>;
+	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'regionPlans'>;
+	form: UseFormReturn<UpsertClusterSchemaType>;
+	index: number;
+	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	selectedPlan: SchemaPlan | undefined;
 };
 
 export function RegionFormInputs({
@@ -28,20 +28,28 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
- 	selectedPlan
+	selectedPlan,
 }: RegionFormInputsProps) {
-	const availableRegionNames = useMemo(() =>
-		Object.keys(regionNameToLatencyToRegion).sort(), [regionNameToLatencyToRegion]);
+	const availableRegionNames = useMemo(() => Object.keys(regionNameToLatencyToRegion).sort(), [
+		regionNameToLatencyToRegion,
+	]);
 	const isDedicated = form.watch('deploymentDescription')?.startsWith('Dedicated');
 	const selectedRegionName = form.watch(`regionPlans.${index}.regionName`);
 	const selectedLatencyDescription = form.watch(`regionPlans.${index}.latencyDescription`);
-	const availableLatencyDescriptions = useMemo(() =>
-		Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}).sort(sortByNumberPrefix).reverse(), [regionNameToLatencyToRegion, selectedRegionName]);
+	const availableLatencyDescriptions = useMemo(
+		() => Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}).sort(sortByNumberPrefix).reverse(),
+		[regionNameToLatencyToRegion, selectedRegionName],
+	);
 
 	useEffect(function autoPickLatencyDescription() {
-		if (selectedRegionName && availableLatencyDescriptions?.length && !availableLatencyDescriptions?.includes(selectedLatencyDescription)) {
+		if (
+			selectedRegionName && availableLatencyDescriptions?.length
+			&& !availableLatencyDescriptions?.includes(selectedLatencyDescription)
+		) {
 			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
-			const newValue = availableLatencyDescriptions.find(description => !oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue) || availableLatencyDescriptions[0];
+			const newValue = availableLatencyDescriptions.find(description =>
+				!oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue
+			) || availableLatencyDescriptions[0];
 			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
 			void form.trigger();
 		}
@@ -61,7 +69,13 @@ export function RegionFormInputs({
 					<FormItem className="flex-1">
 						<FormLabel>Region {fieldArray.fields.length > 1 ? index + 1 : ''}</FormLabel>
 						<FormControl>
-							<Select onValueChange={value => { regionField.onChange(value); form.trigger(); } } {...regionField}>
+							<Select
+								onValueChange={value => {
+									regionField.onChange(value);
+									form.trigger();
+								}}
+								{...regionField}
+							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Region" />
 								</SelectTrigger>
@@ -86,7 +100,14 @@ export function RegionFormInputs({
 					<FormItem className="flex-1">
 						<FormLabel>Estimated {isDedicated ? 'P95' : 'P90'} Latency, Distribution</FormLabel>
 						<FormControl>
-							<Select onValueChange={value => { regionField.onChange(value); form.trigger(); } } {...regionField} disabled={!availableLatencyDescriptions?.length}>
+							<Select
+								onValueChange={value => {
+									regionField.onChange(value);
+									form.trigger();
+								}}
+								{...regionField}
+								disabled={!availableLatencyDescriptions?.length}
+							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Latency Tier" />
 								</SelectTrigger>
@@ -110,7 +131,8 @@ export function RegionFormInputs({
 						type="button"
 						variant="destructiveOutline"
 						size="sm"
-						onClick={onRemoveClicked}>
+						onClick={onRemoveClicked}
+					>
 						<TrashIcon /> <span className="sr-only">Remove</span>
 					</Button>
 				</div>

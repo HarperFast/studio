@@ -14,11 +14,13 @@ export function ProcessSetupIntent() {
 	const urlParams = new URLSearchParams(window.location.search);
 	const clientSecretBeforeHash = urlParams.get('setup_intent_client_secret');
 	const { setup_intent_client_secret: clientSecretAfterHash }: {
-		setup_intent_client_secret?: string
+		setup_intent_client_secret?: string;
 	} = useSearch({ strict: false });
-	const [savedClusterState] = useLocalStorage<{
-		clusterId?: string
-	} & unknown | null>(LocalStorageKeys.SavedClusterState, null);
+	const [savedClusterState] = useLocalStorage<
+		{
+			clusterId?: string;
+		} & unknown | null
+	>(LocalStorageKeys.SavedClusterState, null);
 	const clientSecret = clientSecretBeforeHash || clientSecretAfterHash;
 
 	const stripe = useStripe();
@@ -42,7 +44,6 @@ export function ProcessSetupIntent() {
 			try {
 				const { setupIntent } = await stripe.retrieveSetupIntent(clientSecret);
 				switch (setupIntent?.status) {
-
 					case 'succeeded':
 						if (setupIntent.payment_method !== null) {
 							processStripePaymentMethod(setupIntent.payment_method, navigateBack);
@@ -66,7 +67,6 @@ export function ProcessSetupIntent() {
 						toast.error('Failed to process payment method details. Please try another payment method.');
 						navigateBack();
 						break;
-
 				}
 			} catch (err) {
 				console.error(err);

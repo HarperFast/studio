@@ -19,10 +19,12 @@ export function OrganizationsIndex() {
 	const { mutate: deleteOrg, isPending: isDeletingOrgPending } = useDeleteOrganizationMutation();
 
 	const [isDeleteOrgModalOpen, setIsDeleteOrgModalOpen] = useState(false);
-	const [deleteOrgInfo, setDeleteOrgInfo] = useState<null | {
-		organizationId: string;
-		organizationName?: string;
-	}>(null);
+	const [deleteOrgInfo, setDeleteOrgInfo] = useState<
+		null | {
+			organizationId: string;
+			organizationName?: string;
+		}
+	>(null);
 
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 	const clearFilterByNameValue = useCallback(() => setFilterByNameValue(''), []);
@@ -97,7 +99,9 @@ export function OrganizationsIndex() {
 					<Link to="/new-org">
 						<Button variant="positive" accessKey="n">
 							<PlusIcon />
-							<span className="hidden sm:inline-block"><u>N</u>ew <span className="hidden md:inline-block">Organization</span></span>
+							<span className="hidden sm:inline-block">
+								<u>N</u>ew <span className="hidden md:inline-block">Organization</span>
+							</span>
 						</Button>
 					</Link>
 				</div>
@@ -116,7 +120,8 @@ export function OrganizationsIndex() {
 						<div className="col-span-1 md:col-span-12 text-center">
 							<h2 className="my-4 text-xl">No matches found.</h2>
 							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
-						</div>)}
+						</div>
+					)}
 				</div>
 			</section>
 			{deleteOrgInfo && (

@@ -25,12 +25,20 @@ export const dataTableColumns: Array<ColumnDef<LocalUser>> = [
 		header: 'Created',
 		enableSorting: false,
 		id: '__createdtime__',
-		cell: (props) => translateSecondsToAgo((Date.now() - props.row.original.__createdtime__) / 1000, props.row.original.__createdtime__),
+		cell: (props) =>
+			translateSecondsToAgo(
+				(Date.now() - props.row.original.__createdtime__) / 1000,
+				props.row.original.__createdtime__,
+			),
 	}),
 	{
 		header: 'Updated',
 		accessorKey: '__updatedtime__',
 		enableSorting: false,
-		cell: (props) => translateSecondsToAgo((Date.now() - props.row.original.__updatedtime__) / 1000, props.row.original.__updatedtime__),
+		cell: (props) =>
+			translateSecondsToAgo(
+				(Date.now() - props.row.original.__updatedtime__) / 1000,
+				props.row.original.__updatedtime__,
+			),
 	},
 ];

@@ -80,8 +80,8 @@ export function RedeployApplicationModal() {
 	}, [reDeployApplication, openedEntry, instanceParams, queryClient, closeModal]);
 
 	const submitForm = ({ applicationUrl, installCommand }: {
-		applicationUrl: string | undefined,
-		installCommand: string | undefined
+		applicationUrl: string | undefined;
+		installCommand: string | undefined;
 	}) => {
 		if (applicationUrl) {
 			redeployPackage(applicationUrl, installCommand);
@@ -96,7 +96,7 @@ export function RedeployApplicationModal() {
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<DialogHeader>
 					<DialogTitle>Redeploy Package</DialogTitle>
-					<DialogDescription> Redeploy this package?</DialogDescription>
+					<DialogDescription>Redeploy this package?</DialogDescription>
 				</DialogHeader>
 
 				<div>

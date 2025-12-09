@@ -38,17 +38,17 @@ export function capitalizeWords(name: string): string {
 		const next = i + 1 < baseTokens.length ? baseTokens[i + 1] : undefined;
 		if (
 			// Case 1: full acronym then plural 's' as separate token -> merge
-			/^[A-Z]{2,}$/.test(token) &&
-			next &&
-			/[A-Z]*s$/.test(next)
+			/^[A-Z]{2,}$/.test(token)
+			&& next
+			&& /[A-Z]*s$/.test(next)
 		) {
 			tokens.push(token + next);
 			i++; // skip the 's'
 		} else if (
 			// Case 2: single leading capital followed by capital + 's' (e.g., 'I' + 'Ds') -> merge to 'IDs'
-			/^[A-Z]$/.test(token) &&
-			next !== undefined &&
-			/^[A-Z]s$/.test(next)
+			/^[A-Z]$/.test(token)
+			&& next !== undefined
+			&& /^[A-Z]s$/.test(next)
 		) {
 			tokens.push(token + next);
 			i++; // skip merged next

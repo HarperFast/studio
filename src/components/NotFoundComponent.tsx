@@ -18,21 +18,23 @@ export function NotFoundComponent() {
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					{user && !isUserLoading ? (
-						<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
-							<Button>
-								{' '}
-								<ArrowLeft /> Return to Home
-							</Button>
-						</Link>
-					) : (
-						<Link to="/sign-in">
-							<Button>
-								{' '}
-								<ArrowLeft /> Go Sign In Page
-							</Button>
-						</Link>
-					)}
+					{user && !isUserLoading
+						? (
+							<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
+								<Button>
+									{' '}
+									<ArrowLeft /> Return to Home
+								</Button>
+							</Link>
+						)
+						: (
+							<Link to="/sign-in">
+								<Button>
+									{' '}
+									<ArrowLeft /> Go Sign In Page
+								</Button>
+							</Link>
+						)}
 				</CardContent>
 			</Card>
 		</div>

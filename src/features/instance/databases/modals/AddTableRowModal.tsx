@@ -32,7 +32,10 @@ export function AddTableRowModal({
 	const sampleJSON = useMemo(() => {
 		const sample: Record<string, unknown> = {};
 		for (const attribute of instanceTable.attributes) {
-			if (attribute.is_primary_key || attribute.attribute === '__createdtime__' || attribute.attribute === '__updatedtime__') {
+			if (
+				attribute.is_primary_key || attribute.attribute === '__createdtime__'
+				|| attribute.attribute === '__updatedtime__'
+			) {
 				continue;
 			}
 			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
@@ -68,72 +71,99 @@ export function AddTableRowModal({
 							response.skipped_hashes?.length > 0 ? 'Warning!' : 'Success!',
 							{
 								id: toastId,
-								description: <>
-									{response.inserted_hashes.length > 0 &&
-										<p>Added {pluralize(response.inserted_hashes.length, 'record', 'records')}</p>}
-									{response.skipped_hashes.length > 0 &&
-										<p>Skipped {pluralize(response.skipped_hashes.length, 'record', 'records')}</p>}
-								</>,
+								description: (
+									<>
+										{response.inserted_hashes.length > 0
+											&& <p>Added {pluralize(response.inserted_hashes.length, 'record', 'records')}</p>}
+										{response.skipped_hashes.length > 0
+											&& <p>Skipped {pluralize(response.skipped_hashes.length, 'record', 'records')}</p>}
+									</>
+								),
 							},
 						);
 					},
 				},
 			);
 		}
-	}, [addTableRecordData, addTableRecords, instanceParams, instanceTable.name, instanceTable.schema, isValidJSON, refreshTable, setIsModalOpen]);
+	}, [
+		addTableRecordData,
+		addTableRecords,
+		instanceParams,
+		instanceTable.name,
+		instanceTable.schema,
+		isValidJSON,
+		refreshTable,
+		setIsModalOpen,
+	]);
 
-	return <Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-		{/* NOTE - Is this okay to do for the aria describedby? */}
-		<DialogContent aria-describedby={undefined} onEscapeKeyDown={(event) => {
-			if (madeChanges) {
-				event.preventDefault();
-			}
-		}}>
-			<DialogHeader>
-				<DialogTitle>Add New {instanceTable.name}</DialogTitle>
-			</DialogHeader>
-			{instanceTable?.hash_attribute &&
+	return (
+		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
+			{/* NOTE - Is this okay to do for the aria describedby? */}
+			<DialogContent
+				aria-describedby={undefined}
+				onEscapeKeyDown={(event) => {
+					if (madeChanges) {
+						event.preventDefault();
+					}
+				}}
+			>
+				<DialogHeader>
+					<DialogTitle>Add New {instanceTable.name}</DialogTitle>
+				</DialogHeader>
+				{instanceTable?.hash_attribute
+					&& (
+						<div className="text-sm text-gray-500">
+							The primary key for this table is{' '}
+							<strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will auto-generate. You may manually
+							add it if you want to specify its value.
+						</div>
+					)}
+				<Editor
+					className="w-full h-96"
+					language="json"
+					theme="vs-dark"
+					value={sampleJSON}
+					onValidate={onValidate}
+					onChange={setAddTableRecordData}
+					options={{ minimap: { enabled: false } }}
+				/>
 				<div className="text-sm text-gray-500">
-					The primary key for this table is <strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will
-					auto-generate. You may manually add it if you want to specify its value.</div>
-			}
-			<Editor
-				className="w-full h-96" language="json" theme="vs-dark"
-				value={sampleJSON}
-				onValidate={onValidate}
-				onChange={setAddTableRecordData}
-				options={{ minimap: { enabled: false } }}
-			/>
-			<div className="text-sm text-gray-500">
-				<strong>Provide an [array]</strong> if you want to add more than one record at a time.
-			</div>
-
-			{skippedHashes.length > 0 && (<Alert className="mt-2">
-				<TerminalIcon className="w-4 h-4" />
-				<AlertTitle>
-					Skipped {skippedHashes.length === 1 ? 'Hash' : 'Hashes'} Detected
-				</AlertTitle>
-				<AlertDescription className="max-h-36 overflow-auto">
-					<ol>
-						{skippedHashes.map(hash => <li key={hash}>{hash}</li>)}
-					</ol>
-				</AlertDescription>
-			</Alert>)}
-
-			<DialogFooter>
-				<div className="flex justify-between w-full">
-					<Button
-						variant="submit"
-						className="rounded-full"
-						onClick={onSubmitClick}
-						accessKey="s"
-						disabled={!addTableRecordData || !isValidJSON || isAddTableRecordsPending}>
-						<Save /> <span><u>S</u>ave Changes</span>
-					</Button>
+					<strong>Provide an [array]</strong> if you want to add more than one record at a time.
 				</div>
-			</DialogFooter>
-		</DialogContent>
-	</Dialog>;
+
+				{skippedHashes.length > 0 && (
+					<Alert className="mt-2">
+						<TerminalIcon className="w-4 h-4" />
+						<AlertTitle>
+							Skipped {skippedHashes.length === 1 ? 'Hash' : 'Hashes'} Detected
+						</AlertTitle>
+						<AlertDescription className="max-h-36 overflow-auto">
+							<ol>
+								{skippedHashes.map(hash => <li key={hash}>{hash}</li>)}
+							</ol>
+						</AlertDescription>
+					</Alert>
+				)}
+
+				<DialogFooter>
+					<div className="flex justify-between w-full">
+						<Button
+							variant="submit"
+							className="rounded-full"
+							onClick={onSubmitClick}
+							accessKey="s"
+							disabled={!addTableRecordData || !isValidJSON || isAddTableRecordsPending}
+						>
+							<Save />{' '}
+							<span>
+								<u>S</u>ave Changes
+							</span>
+						</Button>
+					</div>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
 
 function defaultByAttributeType(type: InstanceAttribute['type']) {

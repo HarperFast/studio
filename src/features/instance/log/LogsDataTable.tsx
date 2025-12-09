@@ -40,28 +40,33 @@ export function LogsDataTable<TData extends ReadLogItem, TValue>({
 					))}
 				</TableHeader>
 				<TableBody className="bg-black">
-					{table.getRowModel().rows?.length ? (
-						table.getRowModel().rows.map((row) => (
-							<TableRow
-								key={row.id}
-								data-state={row.getIsSelected() && 'selected'}
-								className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted max-w-full', onRowClick && 'cursor-pointer')}
-								onClick={() => onRowClick?.(row as Row<TData>)}
-							>
-								{row.getVisibleCells().map((cell) => (
-									<TableCell key={cell.id} className="p-1">
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
-									</TableCell>
-								))}
+					{table.getRowModel().rows?.length
+						? (
+							table.getRowModel().rows.map((row) => (
+								<TableRow
+									key={row.id}
+									data-state={row.getIsSelected() && 'selected'}
+									className={cn(
+										'hover:bg-muted/10 data-[state=selected]:bg-muted max-w-full',
+										onRowClick && 'cursor-pointer',
+									)}
+									onClick={() => onRowClick?.(row as Row<TData>)}
+								>
+									{row.getVisibleCells().map((cell) => (
+										<TableCell key={cell.id} className="p-1">
+											{flexRender(cell.column.columnDef.cell, cell.getContext())}
+										</TableCell>
+									))}
+								</TableRow>
+							))
+						)
+						: (
+							<TableRow>
+								<TableCell colSpan={columns.length} className="h-24 text-center">
+									No results.
+								</TableCell>
 							</TableRow>
-						))
-					) : (
-						<TableRow>
-							<TableCell colSpan={columns.length} className="h-24 text-center">
-								No results.
-							</TableCell>
-						</TableRow>
-					)}
+						)}
 				</TableBody>
 			</Table>
 		</div>

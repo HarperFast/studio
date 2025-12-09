@@ -9,7 +9,7 @@ interface LocalStatusParams {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
 
-export function LocalStatus({instanceParams}: LocalStatusParams) {
+export function LocalStatus({ instanceParams }: LocalStatusParams) {
 	const { data } = useSuspenseQuery(getSystemInformationQueryOptions(instanceParams));
 
 	return (

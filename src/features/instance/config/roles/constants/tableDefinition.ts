@@ -17,7 +17,7 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		cell: (props) =>
 			translateSecondsToAgo(
 				(Date.now() - props.row.original.__createdtime__) / 1000,
-				props.row.original.__createdtime__
+				props.row.original.__createdtime__,
 			),
 	}),
 	columnHelper.display({
@@ -27,7 +27,7 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		cell: (props) =>
 			translateSecondsToAgo(
 				(Date.now() - props.row.original.__updatedtime__) / 1000,
-				props.row.original.__updatedtime__
+				props.row.original.__updatedtime__,
 			),
 	}),
 	columnHelper.display({

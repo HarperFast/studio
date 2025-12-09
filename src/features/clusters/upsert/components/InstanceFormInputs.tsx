@@ -14,10 +14,10 @@ import { useCallback } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 
 type InstanceFormInputsProps = {
-	control: Control<UpsertClusterSchemaType>,
-	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'instances'>,
-	form: UseFormReturn<UpsertClusterSchemaType>,
-	index: number,
+	control: Control<UpsertClusterSchemaType>;
+	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'instances'>;
+	form: UseFormReturn<UpsertClusterSchemaType>;
+	index: number;
 };
 
 export function InstanceFormInputs({
@@ -32,7 +32,6 @@ export function InstanceFormInputs({
 
 	return (
 		<div className="md:col-span-6 col-span-3 p-4 rounded-md bg-accent gap-6 flex flex-wrap items-start">
-
 			<FormField
 				control={control}
 				name={`instances.${index}.secure`}
@@ -116,7 +115,8 @@ export function InstanceFormInputs({
 						type="button"
 						variant="destructiveOutline"
 						size="sm"
-						onClick={onRemoveClicked}>
+						onClick={onRemoveClicked}
+					>
 						<TrashIcon /> <span className="sr-only">Remove</span>
 					</Button>
 				</div>

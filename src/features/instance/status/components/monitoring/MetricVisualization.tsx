@@ -14,10 +14,10 @@ import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } f
 
 type MetricValue = string | number | boolean;
 type NullableMetricValue = MetricValue | null;
-type NullableMetric = {[key: string]: NullableMetricValue};
-type NodeMetric = {[node: string]: number};
-type CoalescedMetrics = {[id: string]: NodeMetric};
-type FormattedMetric = {[node: string]: string};
+type NullableMetric = { [key: string]: NullableMetricValue };
+type NodeMetric = { [node: string]: number };
+type CoalescedMetrics = { [id: string]: NodeMetric };
+type FormattedMetric = { [node: string]: string };
 
 interface MetricVisualizationParams {
 	metricConfig: MetricConfig;
@@ -26,7 +26,12 @@ interface MetricVisualizationParams {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
 
-function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits: MetricUnits, conversionUnits?: string) {
+function resolveMetricDataKey(
+	metric: Metric,
+	dataKey: MetricDataKey,
+	baseUnits: MetricUnits,
+	conversionUnits?: string,
+) {
 	let baseValue;
 	if (typeof dataKey === 'string') {
 		baseValue = metric[dataKey] as number ?? 0;
@@ -42,10 +47,10 @@ function resolveMetricDataKey(metric: Metric, dataKey: MetricDataKey, baseUnits:
 }
 
 export function MetricVisualization({ metricConfig, startTime, endTime, instanceParams }: MetricVisualizationParams) {
-	const { data } = useQuery(getAnalyticsQueryOptions({instanceParams, metricConfig, startTime, endTime}));
+	const { data } = useQuery(getAnalyticsQueryOptions({ instanceParams, metricConfig, startTime, endTime }));
 	const metrics = useMemo(() => {
 		return data?.reduce((ms: Metric[], m: NullableMetric) => {
-			const newMetric: Metric = {metric: '', node: '', id: 0, period: 0, count: 0, mean: 0};
+			const newMetric: Metric = { metric: '', node: '', id: 0, period: 0, count: 0, mean: 0 };
 			for (const k in m) {
 				if (m[k] !== null) {
 					newMetric[k] = m[k];
@@ -53,7 +58,7 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 			}
 			ms.push(newMetric);
 			return ms;
-		}, [])
+		}, []);
 	}, [data]);
 
 	const [yAxisUnits, setYAxisUnits] = useState<string>(metricConfig.units);
@@ -77,7 +82,10 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 
 				if (coalescedMetrics[coalescedTime]) {
 					if (metric.node in coalescedMetrics[coalescedTime]) {
-						coalescedMetrics[coalescedTime][metric.node] = aggregator(coalescedMetrics[coalescedTime][metric.node], resolvedMetric);
+						coalescedMetrics[coalescedTime][metric.node] = aggregator(
+							coalescedMetrics[coalescedTime][metric.node],
+							resolvedMetric,
+						);
 					} else {
 						coalescedMetrics[coalescedTime][metric.node] = resolvedMetric;
 					}
@@ -104,8 +112,14 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 
 	const formatTime = (ts: number) => {
 		const date = new Date(ts);
-		return date.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
-	}
+		return date.toLocaleDateString(undefined, {
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false,
+		});
+	};
 
 	if (nodeMetrics && nodeMetrics.length > 0) {
 		return (
@@ -117,16 +131,15 @@ export function MetricVisualization({ metricConfig, startTime, endTime, instance
 							metricDifferentiator += '.' + metricConfig.path;
 						}
 						const key = metricDifferentiator + '.' + node;
-						return <Line key={key} name={node} dataKey={node} stroke={Object.values(harperPalette)[i]} />
-					})
-					}
+						return <Line key={key} name={node} dataKey={node} stroke={Object.values(harperPalette)[i]} />;
+					})}
 					<XAxis dataKey={(item) => formatTime(item.id)} />
 					<YAxis unit={` ${yAxisUnits}`} width={100} />
 					<Legend />
 					<Tooltip />
 				</LineChart>
 			</ResponsiveContainer>
-		)
+		);
 	}
 
 	return (

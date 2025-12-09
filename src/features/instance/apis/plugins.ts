@@ -7,7 +7,8 @@ export const SnippedGeneratorNodeJsPlugin = {
 			const headers = request.get('headers') as any;
 			if (headers && headers.size) {
 				headers.map((val: string, key: string) => {
-					isMultipartFormDataRequest = isMultipartFormDataRequest || /^content-type$/i.test(key) && /^multipart\/form-data$/i.test(val);
+					isMultipartFormDataRequest = isMultipartFormDataRequest
+						|| /^content-type$/i.test(key) && /^multipart\/form-data$/i.test(val);
 				});
 			}
 			let reqBody = request.get('body') as string | object;
@@ -25,16 +26,24 @@ export const SnippedGeneratorNodeJsPlugin = {
 			}
 
 			const stringBody = '`' + (reqBody || '')
-					.replace(/\\n/g, '\n')
-					.replace(/`/g, '\\`')
+				.replace(/\\n/g, '\n')
+				.replace(/`/g, '\\`')
 				+ '`';
 
 			return `const response = await fetch("${url.toString()}", {
-\tmethod: "${request.get('method')}",${headers && headers.size ? `
+\tmethod: "${request.get('method')}",${
+				headers && headers.size
+					? `
 \theaders: {
 \t\t${headers.map((val: string, key: string) => `"${key}": "${val}"`).valueSeq().join(',\n\t\t')}
-\t},` : ''}${reqBody ? `
-\tbody: ${stringBody},` : ''}
+\t},`
+					: ''
+			}${
+				reqBody
+					? `
+\tbody: ${stringBody},`
+					: ''
+			}
 });
 const data = await response.json();
 console.log(data);
@@ -42,7 +51,6 @@ console.log(data);
 		},
 	},
 };
-
 
 export const plugins = [
 	SnippedGeneratorNodeJsPlugin,

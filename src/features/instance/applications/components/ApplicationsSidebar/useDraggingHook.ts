@@ -10,8 +10,10 @@ export function useDraggingHook() {
 			return;
 		}
 		const newTarget = e.target;
-		if (newTarget instanceof Element
-			&& newTarget.classList.contains('rct-tree-item-button-isFolder')) {
+		if (
+			newTarget instanceof Element
+			&& newTarget.classList.contains('rct-tree-item-button-isFolder')
+		) {
 			const itemId = newTarget.getAttribute('data-rct-item-id');
 			const isLocked = newTarget.querySelector('.packageIsLocked');
 			if (!isLocked && itemId && itemId !== importedApplications && itemId !== newApplication) {
@@ -54,12 +56,14 @@ export function useDraggingHook() {
 		}
 		const dropTarget = document.getElementById('dropTarget');
 		if (dropTarget) {
-			return dropTarget.dispatchEvent(new DragEvent('drop', {
-				bubbles: true,
-				detail: 1337, // Prevent a recursive dispatch.
-				cancelable: true,
-				dataTransfer: e.dataTransfer,
-			}));
+			return dropTarget.dispatchEvent(
+				new DragEvent('drop', {
+					bubbles: true,
+					detail: 1337, // Prevent a recursive dispatch.
+					cancelable: true,
+					dataTransfer: e.dataTransfer,
+				}),
+			);
 		}
 		return false;
 	}, [dragTarget]);

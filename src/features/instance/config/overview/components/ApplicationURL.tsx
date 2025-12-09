@@ -15,22 +15,26 @@ export const ApplicationURL = ({
 	return (
 		<>
 			<dt className="font-bold text-sm/6">Application URL</dt>
-			<dd className="text-sm/6 sm:mt-2">{loadingInstanceInfo
-				? <TextLoadingSkeleton />
-				: clusterInfo?.fqdn
-					? <>
-						{clusterInfo.fqdn}
-						<Button
-							className="ml-2"
-							type="button"
-							variant="default"
-							size="sm"
-							onClick={onCopyClick}
-						>
-							<CopyIcon className="w-4 h-4" />
-						</Button>
-					</>
-					: 'N/A'}</dd>
+			<dd className="text-sm/6 sm:mt-2">
+				{loadingInstanceInfo
+					? <TextLoadingSkeleton />
+					: clusterInfo?.fqdn
+					? (
+						<>
+							{clusterInfo.fqdn}
+							<Button
+								className="ml-2"
+								type="button"
+								variant="default"
+								size="sm"
+								onClick={onCopyClick}
+							>
+								<CopyIcon className="w-4 h-4" />
+							</Button>
+						</>
+					)
+					: 'N/A'}
+			</dd>
 		</>
 	);
 };

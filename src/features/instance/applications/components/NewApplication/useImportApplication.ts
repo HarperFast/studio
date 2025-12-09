@@ -19,8 +19,8 @@ export function useImportApplication(
 		contents,
 		project,
 	}: {
-		contents: z.infer<typeof ImportSchema>
-		project: string,
+		contents: z.infer<typeof ImportSchema>;
+		project: string;
 	}) => {
 		const toastId = toast.loading(`Importing application...`, {
 			description: 'This may take a bit.',
@@ -49,7 +49,16 @@ export function useImportApplication(
 				toast.dismiss(toastId);
 			},
 		});
-	}, [mutate, queryClient, instanceParams, setIsReloading, reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems]);
+	}, [
+		mutate,
+		queryClient,
+		instanceParams,
+		setIsReloading,
+		reloadRootEntries,
+		setFocusedItem,
+		setExpandedItems,
+		setSelectedItems,
+	]);
 
 	return useMemo(() => ({
 		isImportingApplication,
