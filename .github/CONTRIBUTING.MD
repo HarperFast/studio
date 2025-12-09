@@ -2,7 +2,6 @@
 
 Thank you for your interest in contributing! This document explains how to set up your environment, make changes safely, and submit high‑quality pull requests.
 
-
 ## Prerequisites
 
 - Node.js (see .nvmrc file)
@@ -16,7 +15,6 @@ pnpm install
 pnpm prepare   # installs Husky if hooks are present
 ```
 
-
 ## Development workflow
 
 - Start the dev server: `pnpm dev`
@@ -26,7 +24,6 @@ pnpm prepare   # installs Husky if hooks are present
 - Build: `pnpm build` (or `pnpm build:dev|stage|prod|local`)
 
 Build output goes to `web/` and should not be edited directly.
-
 
 ## Environment configuration
 
@@ -41,7 +38,6 @@ Some commonly used variables:
 - `VITE_ENV_NAME` — environment label (dev/stage/prod)
 
 See `.env.prod` for a production example. For local development, create `.env.local` based on `.env.local.example`.
-
 
 ## Commit conventions
 
@@ -64,7 +60,6 @@ chore(ci): update workflow names
 
 Useful types include: feat, fix, perf, refactor, chore, docs, style, test, build, ci, revert.
 
-
 ## Testing
 
 - Framework: Vitest (see `vitest.config.ts`)
@@ -73,16 +68,13 @@ Useful types include: feat, fix, perf, refactor, chore, docs, style, test, build
 
 Where practical, add or update unit tests for your changes.
 
-
 ## Linting and style
 
-- ESLint is configured in `eslint.config.js` with TypeScript, React Hooks, and React Refresh plugins.
-- Run: `pnpm lint`
-- Auto-fix: `pnpm exec eslint . --fix`
+- Linting: OXLint (`pnpm lint`, `pnpm lint:fix`)
+- Formatting: dprint (`pnpm format`, `pnpm format:fix`)
 - Type-check: `pnpm exec tsc -b`
 
 We use Tailwind CSS; prefer utility classes and shared components for consistency.
-
 
 ## Generating the API types (SDK)
 
@@ -95,7 +87,6 @@ pnpm update-sdk
 
 This fetches the OpenAPI spec into `dist/central-manager.json` and generates `src/integrations/api/api.gen.d.ts`.
 
-
 ## Branching and pull requests
 
 - Create feature branches from the main development branch.
@@ -106,14 +97,12 @@ This fetches the OpenAPI spec into `dist/central-manager.json` and generates `sr
 
 Releases are automated from the `stage` branch via semantic-release.
 
-
 ## Code review guidelines
 
 - Prefer clear, readable code over “clever” code.
 - Add comments where intent isn’t obvious.
 - Avoid introducing unused dependencies.
 - Keep changes backward compatible when feasible.
-
 
 ## Questions
 

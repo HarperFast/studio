@@ -1,0 +1,34 @@
+{
+	"typescript": {
+		"quoteStyle": "preferSingle",
+		"jsx.quoteStyle": "preferDouble",
+		"useTabs": true,
+		"useBraces": "always"
+	},
+	"json": {
+		"useTabs": true
+	},
+	"markdown": {},
+	"markup": {},
+	"yaml": {
+		"quotes": "preferSingle"
+	},
+	"graphql": {
+		"useTabs": true
+	},
+	"excludes": [
+		"**/node_modules",
+		"**/*-lock.json",
+		"pnpm-lock.yaml",
+		"src/assets/**",
+		"src/integrations/api/api.gen.d.ts"
+	],
+	"plugins": [
+		"https://plugins.dprint.dev/typescript-0.95.13.wasm",
+		"https://plugins.dprint.dev/json-0.21.0.wasm",
+		"https://plugins.dprint.dev/markdown-0.20.0.wasm",
+		"https://plugins.dprint.dev/g-plane/markup_fmt-v0.25.1.wasm",
+		"https://plugins.dprint.dev/g-plane/pretty_yaml-v0.5.1.wasm",
+		"https://plugins.dprint.dev/g-plane/pretty_graphql-v0.2.3.wasm"
+	]
+}
