@@ -95,7 +95,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const { reset: resetFiltersForm } = columnFiltersForm;
 	const columnFiltersValues = columnFiltersForm.watch();
 
-	const [appliedSearchConditions, setAppliedSearchConditions] = useState<SearchCondition[] | null>(null);
+	const [appliedSearchConditions, setAppliedSearchConditions] = useEffectedState<SearchCondition[] | null>(null, [
+		allParams.clusterId,
+		allParams.instanceId,
+		databaseName,
+		tableName,
+	]);
 
 	const applyFilters = useCallback(() => {
 		const conditions: SearchCondition[] = [];
@@ -161,6 +166,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			onlyIfCached,
 		}),
 	);
+
 	// Filtered list
 	const {
 		data: filteredTableData,
@@ -168,7 +174,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	} = useQuery(
 		getSearchByConditionsOptions({
 			...instanceParams,
-			enabled: useFilteredList,
+			enabled: useFilteredList && !!hashAttribute,
 			databaseName,
 			tableName,
 			conditions: appliedSearchConditions,
@@ -178,7 +184,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			onlyIfCached,
 		}),
 	);
+
 	const tableData = useFilteredList ? filteredTableData : fullTableData;
+	const isFetching = tableDataFetching || tableConditionsDataFetching;
+
 	// One by id
 	const { data: searchByIdData } = useQuery(
 		getSearchByIdOptions({
@@ -342,7 +351,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
-						disabled={tableDataFetching || tableConditionsDataFetching}
+						disabled={isFetching}
 					>
 						<RefreshCwIcon />
 					</Button>
@@ -390,7 +399,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 			<TableView<Record<string, unknown>, unknown>
 				data={tableData?.data}
-				isFetching={tableDataFetching || tableConditionsDataFetching}
+				isFetching={isFetching}
 				filtersToggled={filtersToggled}
 				columns={dataTableColumns}
 				columnVisibility={columnVisibility}
