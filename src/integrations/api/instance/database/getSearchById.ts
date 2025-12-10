@@ -13,7 +13,7 @@ export function getSearchByIdOptions(
 ) {
 	return queryOptions({
 		queryKey: [entityId, 'search_by_id', databaseName, tableName, ids] as const,
-		queryFn: ({ signal }) =>
+		queryFn: () =>
 			instanceClient.post('/', {
 				get_attributes: ['*'],
 				ids,
@@ -22,7 +22,7 @@ export function getSearchByIdOptions(
 				operation: 'search_by_id',
 				database: databaseName,
 				table: tableName,
-			}, { signal }),
+			}),
 		enabled: enabled && !!ids?.length,
 		retry: false,
 	});
