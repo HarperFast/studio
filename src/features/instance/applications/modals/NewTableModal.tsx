@@ -4,11 +4,11 @@ import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useCallback } from 'react';
 
-export function AddSchemaModal() {
-	const { value: isModalOpen, trigger } = useWatchedValue('ShowAddSchemaModal', false);
+export function NewTableModal() {
+	const { value: isModalOpen, trigger } = useWatchedValue('ShowNewTableModal', false);
 
 	const closeModal = useCallback(() => {
-		setWatchedValue('ShowAddSchemaModal', false);
+		setWatchedValue('ShowNewTableModal', false);
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
@@ -16,7 +16,7 @@ export function AddSchemaModal() {
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<DialogHeader>
-					<DialogTitle>Add Schema</DialogTitle>
+					<DialogTitle>New Table</DialogTitle>
 					<DialogDescription>
 						Creating a table is the basis of a data-driven application and can immediately be used as RESTful endpoints.
 						This can also be configured as a caching table and extended and customized for specific endpoint behavior.

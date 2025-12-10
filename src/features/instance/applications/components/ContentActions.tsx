@@ -47,7 +47,7 @@ export function ContentActions({
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
-	const onAddSchemaClick = useEmitToListeners('ShowAddSchemaModal', true);
+	const onNewTableClick = useEmitToListeners('ShowNewTableModal', true);
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
 
@@ -148,7 +148,7 @@ export function ContentActions({
 					)}
 
 					{openedEntry.path.endsWith('.graphql') && canManageBrowseInstance && (
-						<Button variant="ghost" className="rounded-none" onClick={onAddSchemaClick} title="New Table">
+						<Button variant="ghost" className="rounded-none" onClick={onNewTableClick} title="New Table">
 							<PlusIcon className="pointer-events-none" />
 							<span className="hidden lg:inline-block pointer-events-none">
 								<span className="hidden xl:inline-block">New</span> Table

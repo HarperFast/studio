@@ -21,6 +21,7 @@ import {
 	useSetComponentFile,
 } from '@/integrations/api/instance/applications/setComponentFile';
 import { transformNodes } from '@/lib/arrays/transformNodes';
+import { setWatchedValue } from '@/lib/events/watcher';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
@@ -113,18 +114,29 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	useEffect(() => {
 		if (open?.length) {
-			const parts = open.split('/');
+			// ./schema.graphql?ShowNewTableModal=true
+			const openParts = open.split('?');
+			const ref = openParts[0];
+			const action = openParts[1];
+			const refParts = ref.split('/');
 
+			if (action) {
+				const actionParts = action.split('=');
+				setWatchedValue(
+					actionParts[0] as any,
+					actionParts[1] === 'true' ? true : actionParts[1] === 'false' ? false : actionParts[1],
+				);
+			}
 			setExpandedItems(expandedItems => {
 				const expansion = new Set(expandedItems);
-				for (let i = 1; i < parts.length; i++) {
-					expansion.add(parts.slice(0, i).join('/'));
+				for (let i = 1; i < refParts.length; i++) {
+					expansion.add(refParts.slice(0, i).join('/'));
 				}
 				return [...expansion];
 			});
 
-			setSelectedItems([open]);
-			setFocusedItem(open);
+			setSelectedItems([ref]);
+			setFocusedItem(ref);
 
 			void navigate({ search: undefined });
 		}
