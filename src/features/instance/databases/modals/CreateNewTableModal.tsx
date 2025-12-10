@@ -17,6 +17,8 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useCreateTableMutation } from '@/integrations/api/instance/database/createTable';
+import { databaseNameSchema } from '@/integrations/api/instance/database/databaseNameSchema';
+import { schemaRegex } from '@/integrations/api/instance/database/schemaRegex';
 import { tableNameSchema } from '@/integrations/api/instance/database/tableNameSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,15 +28,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { schemaRegex } from './schemaRegex';
 
 const CreateTableSchema = z.object({
-	databaseName: z
-		.string()
-		.regex(schemaRegex, {
-			error: 'Database name cannot include backticks or forward slashes.',
-		})
-		.max(75, { error: 'Database name cannot be longer than 75 characters.' }),
+	databaseName: databaseNameSchema,
 	tableName: tableNameSchema,
 	primaryKey: z
 		.string()

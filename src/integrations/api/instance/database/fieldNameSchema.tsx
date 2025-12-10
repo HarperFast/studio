@@ -1,5 +1,5 @@
-import { schemaRegex } from '@/features/instance/databases/modals/schemaRegex';
 import { z } from 'zod';
+import { schemaRegex } from './schemaRegex';
 
 export const fieldNameSchema = z
 	.string()
