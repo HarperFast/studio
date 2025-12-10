@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AddSchemaForm } from '@/features/instance/applications/components/AddSchemaForm';
+import { NewTableForm } from '@/features/instance/applications/components/NewTableForm';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useCallback } from 'react';
@@ -23,7 +23,7 @@ export function NewTableModal() {
 					</DialogDescription>
 				</DialogHeader>
 
-				<AddSchemaForm />
+				<NewTableForm />
 			</DialogContent>
 		</Dialog>
 	);
