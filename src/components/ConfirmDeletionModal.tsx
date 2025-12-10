@@ -54,8 +54,8 @@ export function ConfirmDeletionModal({
 							<TriangleAlert className="inline-block size-5" /> <span>Warning</span>
 						</p>
 						<p className="pt-2 text-base">
-							By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}
-							<span className="font-semibold">{nameOfThingBeingDeleted}</span>
+							By {presentParticiple.toLowerCase()} {typeOfThingBeingDeleted}{' '}
+							<span className="font-semibold">{nameOfThingBeingDeleted}</span>{' '}
 							you will lose the data stored in it permanently.
 						</p>
 					</div>
