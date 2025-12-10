@@ -1,4 +1,3 @@
-import { AddSchemaModal } from '@/features/instance/applications/modals/AddSchemaModal';
 import { useSessionToggler } from '@/hooks/useSessionToggler';
 import { cx } from 'class-variance-authority';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
@@ -8,6 +7,7 @@ import { EditorViewProvider } from './context/EditorViewProvider';
 import { AddDirectoryOrFileModal } from './modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from './modals/DeleteDirectoryOrFileModal';
 import { DownloadApplicationModal } from './modals/DownloadApplicationModal';
+import { NewTableModal } from './modals/NewTableModal';
 import { RedeployApplicationModal } from './modals/RedeployApplicationModal';
 import { RenameFileModal } from './modals/RenameFileModal';
 
@@ -44,7 +44,7 @@ export function ApplicationsEditor() {
 			</div>
 
 			<AddDirectoryOrFileModal />
-			<AddSchemaModal />
+			<NewTableModal />
 			<DeleteDirectoryOrFileModal />
 			<DownloadApplicationModal />
 			<RedeployApplicationModal />

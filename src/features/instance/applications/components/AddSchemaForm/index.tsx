@@ -37,7 +37,7 @@ const addSchema = z.object({
 });
 
 export function AddSchemaForm() {
-	const closeModal = useSetWatchedValue('ShowAddSchemaModal', false);
+	const closeModal = useSetWatchedValue('ShowNewTableModal', false);
 	const { openedEntry, openedEntryContents } = useEditorView();
 	const { setContent } = useEditorFileContent(!!openedEntry && !openedEntry.package && openedEntry.path);
 
@@ -317,6 +317,19 @@ type ${formData.tableName} @table${formData.replicate ? '' : '(replicate: false)
 					<Plus /> Add Another Field
 				</Button>
 
+				<div className="text-muted-foreground italic text-sm pb-2">
+					There are even more directives available to you when editing your schema.graphql by hand! You can read more
+					about them{' '}
+					<a
+						className="underline"
+						target="_blank"
+						rel="noreferrer"
+						href="https://docs.harperdb.io/docs/developers/applications/defining-schemas"
+					>
+						in our documentation
+					</a>.
+				</div>
+
 				<div className="flex w-full gap-4">
 					<Button variant="ghost" className="w-full rounded-full" onClick={closeModal}>
 						<Ban /> Cancel
@@ -327,7 +340,7 @@ type ${formData.tableName} @table${formData.replicate ? '' : '(replicate: false)
 						className="w-full rounded-full"
 						disabled={!formState.isValid}
 					>
-						<PlusIcon /> Add Schema
+						<PlusIcon /> New Table
 					</Button>
 				</div>
 			</form>
