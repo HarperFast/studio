@@ -76,9 +76,10 @@ export function getSearchByConditionsOptions({
 			onlyIfCached,
 		] as const,
 		staleTime: 60_000,
+		gcTime: 5_000,
 
 		retry: false,
-		queryFn: ({ signal }) =>
+		queryFn: () =>
 			instanceClient.post<Record<string, unknown>[]>(
 				'/',
 				{
@@ -93,7 +94,7 @@ export function getSearchByConditionsOptions({
 					onlyIfCached: onlyIfCached,
 					noCacheStore: onlyIfCached,
 				} satisfies SearchByConditionsRequest,
-				{ timeout: 0, signal },
+				{ timeout: 0 },
 			),
 	});
 }

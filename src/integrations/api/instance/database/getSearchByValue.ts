@@ -54,7 +54,8 @@ export function getSearchByValueOptions({
 		] as const,
 		retry: false,
 		staleTime: 60_000,
-		queryFn: ({ signal }) => {
+		gcTime: 5_000,
+		queryFn: () => {
 			const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
 			return instanceClient.post<Record<string, unknown>[]>(
 				'/',
@@ -71,7 +72,7 @@ export function getSearchByValueOptions({
 					onlyIfCached: onlyIfCached,
 					noCacheStore: onlyIfCached,
 				} satisfies SearchByValueRequest,
-				{ timeout: 0, signal },
+				{ timeout: 0 },
 			);
 		},
 	});

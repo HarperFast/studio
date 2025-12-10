@@ -3,6 +3,7 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientConfig, InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useParams } from '@tanstack/react-router';
+import { useMemo } from 'react';
 
 export function useInstanceClient(operationsUrl?: string | null, port?: number, secure?: boolean) {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
@@ -29,7 +30,12 @@ export function useInstanceClientIdParams(
 	secure?: boolean,
 ): InstanceClientIdConfig & InstanceTypeConfig {
 	const params: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	return getInstanceClientIdFromParams({ ...params, operationsUrl, port, secure });
+	return useMemo(() => getInstanceClientIdFromParams({ ...params, operationsUrl, port, secure }), [
+		params,
+		operationsUrl,
+		port,
+		secure,
+	]);
 }
 
 export function getInstanceClientIdFromParams({

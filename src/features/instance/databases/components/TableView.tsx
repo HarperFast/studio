@@ -165,7 +165,7 @@ export function TableView<TData, TValue>({
 									setPageSize(Number(value));
 								}}
 							>
-								<SelectTrigger className="h-10 w-[80px]">
+								<SelectTrigger className="h-10 w-20">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent side="top">
