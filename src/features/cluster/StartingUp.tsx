@@ -18,7 +18,7 @@ export function StartingUp() {
 	const router = useRouter();
 	const { clusterId }: { organizationId: string; clusterId: string } = useParams({ strict: false });
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
-		getClusterInfoQueryOptions(clusterId, 2000),
+		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
 
 	const status = cluster?.status;
