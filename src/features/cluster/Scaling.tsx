@@ -11,7 +11,7 @@ import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 export function Scaling() {
 	const { clusterId }: { organizationId: string; clusterId: string } = useParams({ strict: false });
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
-		getClusterInfoQueryOptions(clusterId, 2000),
+		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
 	const status = cluster?.status;
 	const clusterIsActive = useMemo(() => {

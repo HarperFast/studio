@@ -19,7 +19,7 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 	const [showProgress, setShowProgress] = useState(forceProgressBarVisible || false);
 
 	const { data: clusterById } = useQuery(
-		getClusterInfoQueryOptions(showProgress && cluster.id, 2000),
+		getClusterInfoQueryOptions(showProgress && cluster.id, 2_000),
 	);
 
 	useEffect(function showProgressIfPendingOrUpdating() {

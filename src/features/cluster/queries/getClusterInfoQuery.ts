@@ -12,10 +12,11 @@ export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?:
 		queryKey: [clusterId],
 		queryFn: () => getClusterInfo(clusterId as string),
 		retry: false,
+		staleTime: 1_900,
 		enabled: !!clusterId,
 		refetchInterval: refetch
 			? refetch === true
-				? 10000
+				? 10_000
 				: refetch
 			: undefined,
 	});
