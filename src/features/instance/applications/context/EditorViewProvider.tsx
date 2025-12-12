@@ -1,3 +1,4 @@
+import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	importedApplications,
@@ -35,6 +36,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	const [openedEntryContents, setOpenedEntryContents] = useState<string | undefined>(undefined);
 	const { setContent: setUpdatedEntryContents } = useEditorFileContent(openedEntry?.path);
 	const instanceParams = useInstanceClientIdParams();
+	const baseURL = useEntityRestURL();
 	const queryClient = useQueryClient();
 	const { open }: { open?: string } = useSearch({ strict: false });
 
@@ -157,7 +159,6 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		if (
 			loadedPath === pathToLoad && contents !== undefined
 		) {
-			const baseURL = instanceParams.instanceClient.defaults.baseURL;
 			if (loadedOverviewEntry && baseURL && getComponentFileQueryData) {
 				contents = parseReadMe(contents, baseURL, getComponentFileQueryData);
 			}

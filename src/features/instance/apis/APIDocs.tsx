@@ -1,6 +1,7 @@
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
+import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { plugins } from '@/features/instance/apis/plugins';
 import { requestSnippets } from '@/features/instance/apis/requestSnippets';
@@ -27,11 +28,15 @@ export function APIDocs() {
 	const { data: registrationInfo, isLoading: isLoadingRegistration } = useQuery(
 		getRegistrationInfoQueryOptions(operationsParams),
 	);
+	const baseURL = useEntityRestURL();
 	const {
 		data: spec,
 		isLoading: isLoadingDocs,
 		error,
 	} = useQuery(getOpenAPIQueryOptions(operationsParams));
+	if (spec?.servers?.length) {
+		spec.servers[0].url = baseURL;
+	}
 	const http = configurationInfo?.http;
 
 	let apiInaccessibleWarning: string = '';
