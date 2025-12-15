@@ -198,7 +198,7 @@ export function SignUp() {
 						</a>{' '}
 						and{' '}
 						<a
-							href="https://www.harper.fast/resources/terms-of-use"
+							href="https://www.harper.fast/resources/paas-terms-of-service"
 							target="_blank"
 							rel="noreferrer"
 							className="underline hover:text-blue-300"
