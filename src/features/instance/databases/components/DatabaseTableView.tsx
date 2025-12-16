@@ -16,12 +16,13 @@ import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { useDeleteTableRecords } from '@/integrations/api/instance/database/deleteTableRecords';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import {
+	getSearchByConditions,
 	getSearchByConditionsOptions,
 	SearchCondition,
 	translateColumnFilterToSearchConditions,
 } from '@/integrations/api/instance/database/getSearchByConditions';
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
-import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
+import { getSearchByValue, getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
@@ -33,12 +34,13 @@ import { Row, VisibilityState } from '@tanstack/react-table';
 import {
 	CircleCheckBigIcon,
 	CircleIcon,
+	CloudDownloadIcon,
+	CloudUploadIcon,
 	EllipsisIcon,
 	ExternalLinkIcon,
 	FunnelIcon,
 	FunnelPlusIcon,
 	FunnelXIcon,
-	ImportIcon,
 	PlusIcon,
 	RefreshCwIcon,
 	Trash2Icon,
@@ -150,54 +152,46 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
 	// Full list
-	const {
-		data: fullTableData,
-		isFetching: tableDataFetching,
-	} = useQuery(
-		getSearchByValueOptions({
-			...instanceParams,
-			enabled: !useFilteredList && !!hashAttribute,
-			databaseName,
-			tableName,
-			searchAttribute: hashAttribute,
-			sort,
-			pageSize,
-			pageIndex,
-			onlyIfCached,
-		}),
-	);
+	const searchByValueParams = {
+		...instanceParams,
+		enabled: !useFilteredList && !!hashAttribute,
+		databaseName,
+		tableName,
+		searchAttribute: hashAttribute,
+		sort,
+		pageSize,
+		pageIndex,
+		onlyIfCached,
+	};
+	const searchByValueOptions = getSearchByValueOptions(searchByValueParams);
+	const { data: fullTableData, isFetching: tableDataFetching } = useQuery(searchByValueOptions);
 
 	// Filtered list
-	const {
-		data: filteredTableData,
-		isFetching: tableConditionsDataFetching,
-	} = useQuery(
-		getSearchByConditionsOptions({
-			...instanceParams,
-			enabled: useFilteredList && !!hashAttribute,
-			databaseName,
-			tableName,
-			conditions: appliedSearchConditions,
-			sort,
-			pageSize,
-			pageIndex,
-			onlyIfCached,
-		}),
-	);
+	const searchByConditionsParams = {
+		...instanceParams,
+		enabled: useFilteredList && !!hashAttribute,
+		databaseName,
+		tableName,
+		conditions: appliedSearchConditions,
+		sort,
+		pageSize,
+		pageIndex,
+		onlyIfCached,
+	};
+	const searchByConditionsOptions = getSearchByConditionsOptions(searchByConditionsParams);
+	const { data: filteredTableData, isFetching: tableConditionsDataFetching } = useQuery(searchByConditionsOptions);
 
 	const tableData = useFilteredList ? filteredTableData : fullTableData;
 	const isFetching = tableDataFetching || tableConditionsDataFetching;
 
 	// One by id
-	const { data: searchByIdData } = useQuery(
-		getSearchByIdOptions({
-			...instanceParams,
-			enabled: isEditModalOpen,
-			databaseName: databaseName,
-			tableName: tableName,
-			ids: selectedIds,
-		}),
-	);
+	const { data: searchByIdData } = useQuery(getSearchByIdOptions({
+		...instanceParams,
+		enabled: isEditModalOpen,
+		databaseName: databaseName,
+		tableName: tableName,
+		ids: selectedIds,
+	}));
 
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
@@ -207,6 +201,37 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		() => queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] }),
 		[queryClient, instanceParams.entityId, databaseName, tableName],
 	);
+
+	const [isExportingCSV, setisExportingCSV] = useState(false);
+	const onExportCSVClicked = useCallback(async () => {
+		if (!hashAttribute) {
+			return;
+		}
+		const id = toast.loading('Loading CSV...');
+		setisExportingCSV(true);
+		const allResultsAsCSV = {
+			pageIndex: 0,
+			pageSize: 1_000_000,
+			headers: {
+				Accept: 'text/csv',
+			},
+		};
+		const response = await (
+			useFilteredList
+				? getSearchByConditions({ ...searchByConditionsParams, ...allResultsAsCSV })
+				: getSearchByValue({ ...searchByValueParams, ...allResultsAsCSV })
+		);
+		toast.loading('Preparing CSV...', { id });
+		const content = response.data as unknown as string;
+		const blob = new Blob([content], { type: 'text/csv' });
+		const url = URL.createObjectURL(blob);
+		const downloadLink = document.createElement('a');
+		downloadLink.href = url;
+		downloadLink.setAttribute('download', `${databaseName}.${tableName}.${new Date().toISOString()}.csv`);
+		downloadLink.click();
+		toast.success('CSV Exported!', { id });
+		setisExportingCSV(false);
+	}, [databaseName, tableName, searchByValueOptions, searchByConditionsOptions]);
 
 	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
@@ -307,12 +332,23 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 							disabled={isImportCSVModalOpen}
 							accessKey="c"
 						>
-							<ImportIcon />
+							<CloudUploadIcon />
 							<span>
 								Import <u>C</u>SV
 							</span>
 						</Button>
 					)}
+					<Button
+						variant="positiveOutline"
+						onClick={onExportCSVClicked}
+						disabled={isExportingCSV}
+						accessKey="e"
+					>
+						<CloudDownloadIcon />
+						<span>
+							<u>E</u>xport CSV
+						</span>
+					</Button>
 				</div>
 
 				<div className="flex space-x-2">
