@@ -10,6 +10,7 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
+	headers?: Record<string, any>;
 }
 
 interface SearchByValueRequest {
@@ -26,18 +27,18 @@ interface SearchByValueRequest {
 	noCacheStore: boolean;
 }
 
-export function getSearchByValueOptions({
-	enabled,
-	entityId,
-	instanceClient,
-	databaseName,
-	tableName,
-	searchAttribute,
-	sort,
-	pageIndex,
-	pageSize,
-	onlyIfCached,
-}: GetSearchByValueParams) {
+export function getSearchByValueOptions(params: GetSearchByValueParams) {
+	const {
+		enabled,
+		entityId,
+		databaseName,
+		tableName,
+		searchAttribute,
+		sort,
+		pageIndex,
+		pageSize,
+		onlyIfCached,
+	} = params;
 	return queryOptions({
 		enabled,
 		queryKey: [
@@ -55,25 +56,37 @@ export function getSearchByValueOptions({
 		retry: false,
 		staleTime: 60_000,
 		gcTime: 5_000,
-		queryFn: () => {
-			const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
-			return instanceClient.post<Record<string, unknown>[]>(
-				'/',
-				{
-					operation: 'search_by_value',
-					get_attributes: ['*'],
-					database: databaseName,
-					table: tableName,
-					search_attribute: searchAttribute,
-					search_value: '*',
-					sort: customizedSort ? sort : undefined,
-					offset: pageIndex * pageSize,
-					limit: pageSize,
-					onlyIfCached: onlyIfCached,
-					noCacheStore: onlyIfCached,
-				} satisfies SearchByValueRequest,
-				{ timeout: 0 },
-			);
-		},
+		queryFn: () => getSearchByValue(params),
 	});
+}
+
+export function getSearchByValue({
+	instanceClient,
+	databaseName,
+	tableName,
+	searchAttribute,
+	sort,
+	pageIndex,
+	pageSize,
+	onlyIfCached,
+	headers,
+}: GetSearchByValueParams) {
+	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
+	return instanceClient.post<Record<string, unknown>[]>(
+		'/',
+		{
+			operation: 'search_by_value',
+			get_attributes: ['*'],
+			database: databaseName,
+			table: tableName,
+			search_attribute: searchAttribute,
+			search_value: '*',
+			sort: customizedSort ? sort : undefined,
+			offset: pageIndex * pageSize,
+			limit: pageSize,
+			onlyIfCached: onlyIfCached,
+			noCacheStore: onlyIfCached,
+		} satisfies SearchByValueRequest,
+		{ timeout: 0, headers },
+	);
 }

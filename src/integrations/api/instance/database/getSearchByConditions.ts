@@ -13,6 +13,7 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
+	headers?: Record<string, any>;
 }
 
 type Comparator =
@@ -48,18 +49,18 @@ interface SearchByConditionsRequest {
 	noCacheStore: boolean;
 }
 
-export function getSearchByConditionsOptions({
-	enabled,
-	entityId,
-	instanceClient,
-	databaseName,
-	tableName,
-	conditions,
-	sort,
-	pageIndex,
-	pageSize,
-	onlyIfCached,
-}: GetSearchByConditionsParams) {
+export function getSearchByConditionsOptions(params: GetSearchByConditionsParams) {
+	const {
+		enabled,
+		entityId,
+		databaseName,
+		tableName,
+		conditions,
+		sort,
+		pageIndex,
+		pageSize,
+		onlyIfCached,
+	} = params;
 	// starts_with, equals, etc
 	return queryOptions({
 		enabled: enabled && !!conditions,
@@ -77,26 +78,38 @@ export function getSearchByConditionsOptions({
 		] as const,
 		staleTime: 60_000,
 		gcTime: 5_000,
-
 		retry: false,
-		queryFn: () =>
-			instanceClient.post<Record<string, unknown>[]>(
-				'/',
-				{
-					operation: 'search_by_conditions',
-					get_attributes: ['*'],
-					database: databaseName,
-					table: tableName,
-					conditions: conditions!,
-					sort: sort.attribute.length ? sort : undefined,
-					offset: pageIndex * pageSize,
-					limit: pageSize,
-					onlyIfCached: onlyIfCached,
-					noCacheStore: onlyIfCached,
-				} satisfies SearchByConditionsRequest,
-				{ timeout: 0 },
-			),
+		queryFn: () => getSearchByConditions(params),
 	});
+}
+
+export function getSearchByConditions({
+	instanceClient,
+	databaseName,
+	tableName,
+	conditions,
+	sort,
+	pageIndex,
+	pageSize,
+	onlyIfCached,
+	headers,
+}: GetSearchByConditionsParams) {
+	return instanceClient.post<Record<string, unknown>[]>(
+		'/',
+		{
+			operation: 'search_by_conditions',
+			get_attributes: ['*'],
+			database: databaseName,
+			table: tableName,
+			conditions: conditions!,
+			sort: sort.attribute.length ? sort : undefined,
+			offset: pageIndex * pageSize,
+			limit: pageSize,
+			onlyIfCached: onlyIfCached,
+			noCacheStore: onlyIfCached,
+		} satisfies SearchByConditionsRequest,
+		{ timeout: 0, headers },
+	);
 }
 
 export function translateColumnFilterToSearchConditions(
