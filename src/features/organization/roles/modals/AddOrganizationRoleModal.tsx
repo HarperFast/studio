@@ -7,20 +7,23 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useAddOrganizationRole } from '@/features/organization/mutations/addOrganizationRole';
 import {
-	AddOrganizationRoleSchema,
-	useAddOrganizationRole,
-} from '@/features/organization/mutations/addOrganizationRole';
-import { SchemaRoleOrganizationPermissions } from '@/integrations/api/api.gen';
+	OrganizationRoleOverviewSchema,
+	OrganizationRoleOverviewType,
+	OrganizationRoleSpecificPermissionsType,
+	OrganizationRoleUpdatePayloadType,
+} from '@/features/organization/mutations/OrganizationRoleFormSchema';
+import { safeParse } from '@/lib/string/safeParse';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import z from 'zod';
 
-const defaultPermissions: Pick<SchemaRoleOrganizationPermissions, 'roles' | 'clusters'> = {
+const defaultPermissions: OrganizationRoleSpecificPermissionsType = {
 	roles: {
 		create: true,
 		view: true,
@@ -38,13 +41,12 @@ const defaultPermissions: Pick<SchemaRoleOrganizationPermissions, 'roles' | 'clu
 
 export function AddOrganizationRoleModal({
 	isModalOpen,
-	onChangesSaved,
 	setIsModalOpen,
 }: {
-	onChangesSaved: () => void;
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	const queryClient = useQueryClient();
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [updatedPermissions, setUpdatedPermissions] = useState<string>(JSON.stringify(defaultPermissions, null, 2));
@@ -52,11 +54,11 @@ export function AddOrganizationRoleModal({
 	const { mutate: addOrganizationRole, isPending } = useAddOrganizationRole();
 
 	const form = useForm({
-		resolver: zodResolver(AddOrganizationRoleSchema),
+		resolver: zodResolver(OrganizationRoleOverviewSchema),
 		defaultValues: {
-			roleName: '',
-			updateOrganization: false,
-			deleteOrganization: false,
+			name: '',
+			update: false,
+			delete: false,
 		},
 	});
 
@@ -68,20 +70,26 @@ export function AddOrganizationRoleModal({
 	);
 
 	const onSubmitRoleEdits = useCallback(
-		async (formData: z.infer<typeof AddOrganizationRoleSchema>) => {
-			const updatedFormData = {
+		async (formData: OrganizationRoleOverviewType) => {
+			const parsedPermissions = safeParse<OrganizationRoleSpecificPermissionsType>(updatedPermissions);
+			if (!parsedPermissions) {
+				return;
+			}
+			const updatedFormData: OrganizationRoleUpdatePayloadType = {
+				...formData,
+				...parsedPermissions,
 				organizationId: organizationId,
-				name: formData.roleName,
-				update: formData.updateOrganization,
-				delete: formData.deleteOrganization,
-				...JSON.parse(updatedPermissions),
 			};
 			if (formData && isValidJSON) {
 				addOrganizationRole(updatedFormData, {
 					onSuccess: () => {
-						form.reset();
-						onChangesSaved();
 						toast.success('Organization role added successfully!');
+						setIsModalOpen(false);
+						void queryClient.invalidateQueries({
+							queryKey: [organizationId, 'roles'],
+							refetchType: 'active',
+						});
+						form.reset();
 					},
 					onError: (error: Error) => {
 						toast.error(`Failed to add organization role: ${error.message}`);
@@ -89,7 +97,7 @@ export function AddOrganizationRoleModal({
 				});
 			}
 		},
-		[isValidJSON, updatedPermissions, addOrganizationRole, form, onChangesSaved, organizationId],
+		[isValidJSON, updatedPermissions, addOrganizationRole, form, queryClient, setIsModalOpen, organizationId],
 	);
 
 	return (
@@ -101,12 +109,12 @@ export function AddOrganizationRoleModal({
 					<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
 						<FormField
 							control={form.control}
-							name="roleName"
+							name="name"
 							render={({ field }) => (
 								<FormItem className="col-span-2">
 									<FormLabel className="pb-1">Role Name</FormLabel>
 									<FormControl>
-										<Input type="text" placeholder="Developer" className="" {...field} />
+										<Input type="text" className="" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -114,7 +122,7 @@ export function AddOrganizationRoleModal({
 						/>
 						<FormField
 							control={form.control}
-							name="updateOrganization"
+							name="update"
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel className="pb-1">Can Update Organization</FormLabel>
@@ -132,7 +140,7 @@ export function AddOrganizationRoleModal({
 						/>
 						<FormField
 							control={form.control}
-							name="deleteOrganization"
+							name="delete"
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel className="pb-1">Can Delete Organization</FormLabel>
@@ -173,7 +181,11 @@ export function AddOrganizationRoleModal({
 								>
 									Cancel
 								</Button>
-								<Button variant="submit" className="rounded-full" disabled={isPending || !isValidJSON}>
+								<Button
+									variant="submit"
+									className="rounded-full"
+									disabled={isPending || !isValidJSON || !form.formState.isValid}
+								>
 									Save Changes
 								</Button>
 							</div>
