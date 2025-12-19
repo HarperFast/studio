@@ -22,7 +22,7 @@ import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
 import { safeParse } from '@/lib/string/safeParse';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -37,6 +37,7 @@ export function EditOrganizationRoleModal({
 	isModalOpen: boolean;
 	closeModal: (madeChanges: boolean) => void;
 }) {
+	const queryClient = useQueryClient();
 	const { data: roleInfo } = useSuspenseQuery(
 		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId }),
 	);
@@ -52,8 +53,8 @@ export function EditOrganizationRoleModal({
 		resolver: zodResolver(OrganizationRoleOverviewSchema),
 		defaultValues: {
 			name: data.roleName,
-			update: roleInfo?.organization.update || false,
-			delete: roleInfo?.organization.delete || false,
+			update: roleInfo.organization.update || false,
+			delete: roleInfo.organization.delete || false,
 		},
 	});
 
@@ -120,9 +121,12 @@ export function EditOrganizationRoleModal({
 						updatedRoleInfo: updatedFormData,
 					},
 					{
-						onSuccess: () => {
+						onSuccess: async () => {
 							toast.success('Role updated successfully!');
-							closeModal(true);
+							await queryClient.invalidateQueries({
+								queryKey: [data.organizationId, 'roles', data.id],
+							});
+							closeModal(false);
 							form.reset();
 						},
 						onError: (error: Error | unknown) => {
@@ -144,6 +148,7 @@ export function EditOrganizationRoleModal({
 			data.organizationId,
 			form,
 			isValidJSON,
+			queryClient,
 			roleInfo,
 			update,
 			updatedPermissions,
