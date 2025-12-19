@@ -3,20 +3,22 @@ import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
-import { dataTableColumns } from '@/features/organization/roles/constants/tableDefinition';
-import { AddOrganizationRoleModal } from '@/features/organization/roles/modals/AddOrganizationRoleModal';
-import { EditOrganizationRoleModal } from '@/features/organization/roles/modals/EditOrganizationRoleModal';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
+import { dataTableColumns } from './constants/tableDefinition';
+import { AddOrganizationRoleModal } from './modals/AddOrganizationRoleModal';
+import { EditOrganizationRoleModal } from './modals/EditOrganizationRoleModal';
 
 export function OrgConfigRolesIndex() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+
 	const { organizationId, orgRoleId }: { organizationId: string; orgRoleId?: string } = useParams({ strict: false });
 	const { create } = useOrganizationRolePermissions(organizationId);
 
@@ -37,35 +39,32 @@ export function OrgConfigRolesIndex() {
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
 	const onSelectOrgRole = useCallback(
-		(newOrgRole: string | undefined) => {
+		async (newOrgRole: string | undefined, madeChanges: boolean) => {
 			const parts = [orgRoleId ? '..' : '', newOrgRole].filter(Boolean);
-			void navigate({ to: parts.join('/') });
+			await navigate({ to: parts.join('/') });
+			if (madeChanges) {
+				await queryClient.invalidateQueries({
+					queryKey: [organizationId, 'roles'],
+					refetchType: 'active',
+				});
+			}
 		},
-		[orgRoleId, navigate],
+		[orgRoleId, navigate, queryClient],
 	);
-
-	const onRoleDeleted = useCallback(() => {
-		void refetch();
-		setIsAddModalOpen(false);
-	}, [refetch, setIsAddModalOpen]);
 
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
-	const onRoleAdded = useCallback(() => {
-		void refetch();
-		setIsAddModalOpen(false);
-	}, [refetch, setIsAddModalOpen]);
 
 	const onRowClick = useCallback(
 		(rowData: Row<SchemaOrganizationRole>) => {
-			onSelectOrgRole(rowData.original.id);
+			return onSelectOrgRole(rowData.original.id, false);
 		},
 		[onSelectOrgRole],
 	);
 
-	const closeEditModal = useCallback(() => {
-		onSelectOrgRole(undefined);
+	const closeEditModal = useCallback((madeChanges: boolean) => {
+		return onSelectOrgRole(undefined, madeChanges);
 	}, [onSelectOrgRole]);
 
 	const onRefreshClick = useRefreshClick(refetch);
@@ -73,7 +72,7 @@ export function OrgConfigRolesIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 					<SimpleBrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
 						<Button
@@ -99,13 +98,11 @@ export function OrgConfigRolesIndex() {
 					{create && (
 						<AddOrganizationRoleModal
 							isModalOpen={isAddModalOpen}
-							onChangesSaved={onRoleAdded}
 							setIsModalOpen={setIsAddModalOpen}
 						/>
 					)}
 					{isEditOrgRoleModalOpen && (
 						<EditOrganizationRoleModal
-							roleDeleted={onRoleDeleted}
 							data={selectedOrgRole}
 							isModalOpen={isEditOrgRoleModalOpen}
 							closeModal={closeEditModal}

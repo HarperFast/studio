@@ -1,29 +1,14 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaRole } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
-import z from 'zod';
+import { OrganizationRoleUpdatePayloadType } from './OrganizationRoleFormSchema';
 
-export const AddOrganizationRoleSchema = z.object({
-	roleName: z
-		.string()
-		.nonempty({
-			error: 'Please enter a role name.',
-		})
-		.regex(/^[a-zA-Z_]*$/, {
-			error: 'Role must contain only letters and underscores.',
-		})
-		.max(30, { error: 'Role name cannot be longer than 30 characters.' }),
-	updateOrganization: z.boolean(),
-	deleteOrganization: z.boolean(),
-});
-
-export async function onAddOrganizationRoleSubmit(formData: SchemaRole) {
+export async function onAddOrganizationRoleSubmit(formData: OrganizationRoleUpdatePayloadType) {
 	const { data } = await apiClient.post('/Role/', formData);
 	return data;
 }
 
 export function useAddOrganizationRole() {
 	return useMutation({
-		mutationFn: (formData: SchemaRole) => onAddOrganizationRoleSubmit(formData),
+		mutationFn: onAddOrganizationRoleSubmit,
 	});
 }
