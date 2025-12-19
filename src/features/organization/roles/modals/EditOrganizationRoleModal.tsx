@@ -180,8 +180,8 @@ export function EditOrganizationRoleModal({
 														type="text"
 														className=""
 														{...field}
-														disabled={isSelf || !update}
-														readOnly={isSelf || !update}
+														disabled={true}
+														readOnly={true}
 													/>
 												</FormControl>
 												<FormMessage />
