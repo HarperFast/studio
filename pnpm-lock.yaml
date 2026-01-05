@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@datadog/browser-rum':
         specifier: ^6.18.0
-        version: 6.25.0
+        version: 6.25.1
       '@datadog/browser-rum-react':
         specifier: ^6.18.0
-        version: 6.25.0(@datadog/browser-rum@6.25.0)(react@19.2.3)
+        version: 6.25.1(@datadog/browser-rum@6.25.1)(react@19.2.3)
       '@hookform/resolvers':
         specifier: ^5.0.0
         version: 5.2.2(react-hook-form@7.68.0(react@19.2.3))
@@ -639,14 +639,14 @@ packages:
     resolution: {integrity: sha512-Vd/9EVDiu6PPJt9yAh6roZP6El1xHrdvIVGjyBsHR0RYwNHgL7FJPyIIW4fANJNG6FtyZfvlRPpFI4ZM/lubvw==}
     engines: {node: '>=18'}
 
-  '@datadog/browser-core@6.25.0':
-    resolution: {integrity: sha512-LyVY1VnBH2kIsWf4ClJq1Fry1ndDTlULqPaP9ofVPxTv0WmCKElklkGA6fJ0lJeRx5u5PSx2onxV1X8S/pY2oA==}
+  '@datadog/browser-core@6.25.1':
+    resolution: {integrity: sha512-Mir/4g/EjtknQaP4QIOFNWwd6rnjvmw5SJKaFNUAQ94d59RKsbAy8hu2sfMSOaQ5TmHjf/6Qmrd0LfRK1FTt+Q==}
 
-  '@datadog/browser-rum-core@6.25.0':
-    resolution: {integrity: sha512-2e7xJSpvVgVcHQOcH8m0Cd22GEDSPJxSMa+M5KtnNb7TturZ8YIZc0p9At2Y5ZtaH5G+pbHo5voDfk/WOdiVUA==}
+  '@datadog/browser-rum-core@6.25.1':
+    resolution: {integrity: sha512-xt867A7cZTnO2DvSKUD7QrnMGfS8rXm777x//uq6PbliuPa2+/B23OhTot14riUWV2kXiJ+dzQC08Ibj9i0Xwg==}
 
-  '@datadog/browser-rum-react@6.25.0':
-    resolution: {integrity: sha512-YVCbhXMDMQQsuo1ZbyK2UAZchwLzdUJiihmYdMq8034epMKW1NHRlxntfEusOHIqL4MqQen4/Rlu5mPwldWUDw==}
+  '@datadog/browser-rum-react@6.25.1':
+    resolution: {integrity: sha512-WCNw9b+TZ3X9lc8cKbExFXKMrKOBU8DS2Z6KnazpXXx+5EU50OheVSFkkmcHmqwj2LBX1Wt7MZJyXOgIvm5i7Q==}
     peerDependencies:
       '@datadog/browser-rum': '*'
       '@datadog/browser-rum-slim': '*'
@@ -665,10 +665,10 @@ packages:
       react-router-dom:
         optional: true
 
-  '@datadog/browser-rum@6.25.0':
-    resolution: {integrity: sha512-jAr8tUK0Wg6Cxu9bVtYZ50zZ5N1TxdNsxNieYYcnMp8VZ4jNIrLk+xDTKtTDxpWR8ooYWHIWfYcbKueemYZCgQ==}
+  '@datadog/browser-rum@6.25.1':
+    resolution: {integrity: sha512-8yx8++wSZZ0RkrTT2VzF9V639veGvnStnrZRsVS2kXWht4ZLQ7fxk3RXIGEUB9fHC4B0XIn9U3uod/Z+qCrSQw==}
     peerDependencies:
-      '@datadog/browser-logs': 6.25.0
+      '@datadog/browser-logs': 6.25.1
     peerDependenciesMeta:
       '@datadog/browser-logs':
         optional: true
@@ -5628,12 +5628,22 @@ packages:
     peerDependencies:
       seroval: ^1.0
 
+  seroval-plugins@1.4.2:
+    resolution: {integrity: sha512-X7p4MEDTi+60o2sXZ4bnDBhgsUYDSkQEvzYZuJyFqWg9jcoPsHts5nrg5O956py2wyt28lUrBxk0M0/wU8URpA==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      seroval: ^1.0
+
   seroval@1.3.2:
     resolution: {integrity: sha512-RbcPH1n5cfwKrru7v7+zrZvjLurgHhGyso3HTyGtRivGWgYjbOmGuivCQaORNELjNONoK35nj28EoWul9sb1zQ==}
     engines: {node: '>=10'}
 
   seroval@1.4.0:
     resolution: {integrity: sha512-BdrNXdzlofomLTiRnwJTSEAaGKyHHZkbMXIywOh7zlzp4uZnXErEwl9XZ+N1hJSNpeTtNxWvVwN0wUzAIQ4Hpg==}
+    engines: {node: '>=10'}
+
+  seroval@1.4.2:
+    resolution: {integrity: sha512-N3HEHRCZYn3cQbsC4B5ldj9j+tHdf4JZoYPlcI4rRYu0Xy4qN8MQf1Z08EibzB0WpgRG5BGK08FTrmM66eSzKQ==}
     engines: {node: '>=10'}
 
   ses@1.13.0:
@@ -7280,24 +7290,24 @@ snapshots:
 
   '@csstools/css-tokenizer@3.0.4': {}
 
-  '@datadog/browser-core@6.25.0': {}
+  '@datadog/browser-core@6.25.1': {}
 
-  '@datadog/browser-rum-core@6.25.0':
+  '@datadog/browser-rum-core@6.25.1':
     dependencies:
-      '@datadog/browser-core': 6.25.0
+      '@datadog/browser-core': 6.25.1
 
-  '@datadog/browser-rum-react@6.25.0(@datadog/browser-rum@6.25.0)(react@19.2.3)':
+  '@datadog/browser-rum-react@6.25.1(@datadog/browser-rum@6.25.1)(react@19.2.3)':
     dependencies:
-      '@datadog/browser-core': 6.25.0
-      '@datadog/browser-rum-core': 6.25.0
+      '@datadog/browser-core': 6.25.1
+      '@datadog/browser-rum-core': 6.25.1
     optionalDependencies:
-      '@datadog/browser-rum': 6.25.0
+      '@datadog/browser-rum': 6.25.1
       react: 19.2.3
 
-  '@datadog/browser-rum@6.25.0':
+  '@datadog/browser-rum@6.25.1':
     dependencies:
-      '@datadog/browser-core': 6.25.0
-      '@datadog/browser-rum-core': 6.25.0
+      '@datadog/browser-core': 6.25.1
+      '@datadog/browser-rum-core': 6.25.1
 
   '@datadog/pprof@5.12.0':
     dependencies:
@@ -9274,8 +9284,8 @@ snapshots:
       '@tanstack/history': 1.140.0
       '@tanstack/store': 0.8.0
       cookie-es: 2.0.0
-      seroval: 1.4.0
-      seroval-plugins: 1.4.0(seroval@1.4.0)
+      seroval: 1.4.2
+      seroval-plugins: 1.4.2(seroval@1.4.2)
       tiny-invariant: 1.3.3
       tiny-warning: 1.0.3
 
@@ -12899,9 +12909,15 @@ snapshots:
     dependencies:
       seroval: 1.4.0
 
+  seroval-plugins@1.4.2(seroval@1.4.2):
+    dependencies:
+      seroval: 1.4.2
+
   seroval@1.3.2: {}
 
   seroval@1.4.0: {}
+
+  seroval@1.4.2: {}
 
   ses@1.13.0:
     dependencies:
