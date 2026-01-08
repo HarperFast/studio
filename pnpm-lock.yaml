@@ -193,8 +193,8 @@ importers:
         specifier: ^0.51.0
         version: 0.51.1
       harperdb:
-        specifier: 4.7.12
-        version: 4.7.12
+        specifier: 4.7.13
+        version: 4.7.13
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -3763,8 +3763,8 @@ packages:
     engines: {node: '>=0.4.7'}
     hasBin: true
 
-  harperdb@4.7.12:
-    resolution: {integrity: sha512-A14hTiVZG8Gkkcv7BDyDUjbwAbpdxgjQILSSYZdlRtUPWcu6gqGPrAKBXayoDjpe1ud45X858DdZT/JE86kOFQ==}
+  harperdb@4.7.13:
+    resolution: {integrity: sha512-0B2L4dI1bT72+RLW+UbFyFTMzL/ZxJ68Uj2IOTxckkXcV3Rovahsqig+5oqsObPt6hseRHooqG6wcs3fwQOuEQ==}
     engines: {go-lang: 1.21.7, minimum-node: 16.0.0, nats-server: 2.10.11}
     hasBin: true
 
@@ -4177,15 +4177,15 @@ packages:
     resolution: {integrity: sha512-POQXvpdL69+CluYsillJ7SUhKvytYjW9vG/GKpnf+xP8UWgYEM/RaMzHHofbALDiKbbP1W8UEYmgGl39WkPZsg==}
     engines: {'0': node >= 0.2.0}
 
-  jsonwebtoken@9.0.2:
-    resolution: {integrity: sha512-PRp66vJ865SSqOlgqS8hujT5U4AOgMfhrwYIuIhfKaoSCZcirrmASQr8CX7cUg+RMih+hgznrjp99o+W4pJLHQ==}
+  jsonwebtoken@9.0.3:
+    resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
     engines: {node: '>=12', npm: '>=6'}
 
-  jwa@1.4.2:
-    resolution: {integrity: sha512-eeH5JO+21J78qMvTIDdBXidBd6nG2kZjg5Ohz/1fpa28Z4CcsWUzJ1ZZyFq/3z3N17aZy+ZuBoHljASbL1WfOw==}
+  jwa@2.0.1:
+    resolution: {integrity: sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==}
 
-  jws@3.2.2:
-    resolution: {integrity: sha512-YHlZCB6lMTllWDtSPHz/ZXTsi8S00usEV6v1tjq8tOUZzw7DpSDWVXjXDre6ed1w/pd495ODpHZYSdkRTsa0HA==}
+  jws@4.0.1:
+    resolution: {integrity: sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==}
 
   knuth-shuffle@1.0.8:
     resolution: {integrity: sha512-IdC4Hpp+mx53zTt6VAGsAtbGM0g4BV9fP8tTcviCosSwocHcRDw9uG5Rnv6wLWckF4r72qeXFoK9NkvV1gUJCQ==}
@@ -4621,8 +4621,8 @@ packages:
     resolution: {integrity: sha512-P0efT1C9jIdVRefqjzOQ9Xml57zpOXnIuS+csaB4MdZbTdmGDLo8XhzBG1N7aO11gKDDkJvBLULeFTo46wwreA==}
     hasBin: true
 
-  msgpackr@1.11.4:
-    resolution: {integrity: sha512-uaff7RG9VIC4jacFW9xzL3jc0iM32DNHe4jYVycBcjUePT/Klnfj7pqtWJt9khvDFizmjN2TlYniYmSS2LIaZg==}
+  msgpackr@1.11.8:
+    resolution: {integrity: sha512-bC4UGzHhVvgDNS7kn9tV8fAucIYUBuGojcaLiz7v+P63Lmtm0Xeji8B/8tYKddALXxJLpwIeBmUN3u64C4YkRA==}
 
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
@@ -10860,7 +10860,7 @@ snapshots:
     optionalDependencies:
       uglify-js: 3.19.3
 
-  harperdb@4.7.12:
+  harperdb@4.7.13:
     dependencies:
       '@aws-sdk/client-s3': 3.824.0
       '@aws-sdk/lib-storage': 3.824.0(@aws-sdk/client-s3@3.824.0)
@@ -10902,7 +10902,7 @@ snapshots:
       json-bigint-fixes: 1.1.0
       json2csv: 5.0.7
       jsonata: 1.8.7
-      jsonwebtoken: 9.0.2
+      jsonwebtoken: 9.0.3
       lmdb: 3.4.4
       lodash: 4.17.21
       mathjs: 11.12.0
@@ -10910,7 +10910,7 @@ snapshots:
       minimist: 1.2.8
       moment: 2.30.1
       mqtt-packet: 9.0.2
-      msgpackr: 1.11.4
+      msgpackr: 1.11.8
       nats: 2.19.0
       needle: 3.3.1
       node-forge: 1.3.1
@@ -11361,9 +11361,9 @@ snapshots:
 
   jsonparse@1.3.1: {}
 
-  jsonwebtoken@9.0.2:
+  jsonwebtoken@9.0.3:
     dependencies:
-      jws: 3.2.2
+      jws: 4.0.1
       lodash.includes: 4.3.0
       lodash.isboolean: 3.0.3
       lodash.isinteger: 4.0.4
@@ -11374,15 +11374,15 @@ snapshots:
       ms: 2.1.3
       semver: 7.7.3
 
-  jwa@1.4.2:
+  jwa@2.0.1:
     dependencies:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
 
-  jws@3.2.2:
+  jws@4.0.1:
     dependencies:
-      jwa: 1.4.2
+      jwa: 2.0.1
       safe-buffer: 5.2.1
 
   knuth-shuffle@1.0.8: {}
@@ -11448,7 +11448,7 @@ snapshots:
 
   lmdb@3.4.4:
     dependencies:
-      msgpackr: 1.11.4
+      msgpackr: 1.11.8
       node-addon-api: 6.1.0
       node-gyp-build-optional-packages: 5.2.2
       ordered-binary: 1.5.3
@@ -11915,7 +11915,7 @@ snapshots:
       '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.3
     optional: true
 
-  msgpackr@1.11.4:
+  msgpackr@1.11.8:
     optionalDependencies:
       msgpackr-extract: 3.0.3
 
