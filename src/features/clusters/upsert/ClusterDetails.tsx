@@ -28,6 +28,7 @@ interface ClusterDetailsProps {
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number;
+	isEnterprise: boolean;
 }
 
 const DEPLOYMENT_FULL_DESCRIPTION: { [key: string]: string } = {
@@ -48,6 +49,7 @@ export function ClusterDetails({
 	selectedPerformance,
 	selectedPlan,
 	totalPrice,
+	isEnterprise,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
 	const availablePerformanceDescriptions = useMemo(() => {
@@ -274,6 +276,7 @@ export function ClusterDetails({
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 							selectedPlan={selectedPlan}
 							totalPrice={totalPrice}
+							isEnterprise={isEnterprise}
 						/>
 					)}
 			</div>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { AddNewPaymentMethod } from '@/features/organization/billing/paymentMethod/AddNewPaymentMethod';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
+import { ENTERPRISE } from '@/integrations/api/orgType';
 import {
 	translateStripePaymentMethodStatusToText,
 	translateStripePaymentMethodStatusToVariant,
@@ -41,7 +42,7 @@ export function PaymentMethodsDisplay(props?: PaymentMethodsDisplayProps) {
 		}
 	}, [onReplacingPaymentMethod, refetch]);
 
-	if (organization?.type === 'ENTERPRISE') {
+	if (organization?.type === ENTERPRISE) {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your payment methods on this page.

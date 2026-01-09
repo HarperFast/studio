@@ -59,7 +59,6 @@ export function NewOrgForm() {
 	const submitForm = useCallback(async (formData: z.infer<typeof NewOrganizationSchema>) => {
 		submitNewOrganizationData({
 			name: formData.name || defaultName,
-			// type: 'SELF_SERVICE',
 			subdomain: formData.subdomain || calculatedNames.suggestedSubdomain,
 		}, {
 			onSuccess: (newOrg) => {

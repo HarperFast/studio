@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
+import { ENTERPRISE } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { pluralize } from '@/lib/pluralize';
 import { isPositive } from '@/lib/types/isPositive';
@@ -32,7 +33,7 @@ export function ClusterBilling({
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const allowBypass = import.meta.env.DEV && !import.meta.env.VITE_PUBLIC_STRIPE_KEY;
-	const isEnterprise = organization?.type === 'ENTERPRISE';
+	const isEnterprise = organization?.type === ENTERPRISE;
 	const hasValidPaymentMethod = allowBypass || isEnterprise
 		|| billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
@@ -67,9 +68,9 @@ export function ClusterBilling({
 	if (isEnterprise) {
 		return (
 			<>
-				<ul className="list-disc ml-6">
+				<ul className="list-disc ml-6 max-w-lg">
 					<li>
-						Your organization&rsquo;s enterprise agreement with Harper can adjust the retail price you see on this page.
+						Reminder: you will be billed at your contracted rate for any additional infrastructure.
 					</li>
 					<li>
 						Your account representative can work with you to sort out more precise details, and to help accomplish your
