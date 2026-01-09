@@ -8,6 +8,7 @@ import { terminateCluster } from '@/features/clusters/mutations/terminateCluster
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
 import { Organization } from '@/integrations/api/api.patch';
+import { ENTERPRISE } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
@@ -56,6 +57,7 @@ export function ClusterForm({
 }: ClusterFormProps) {
 	const navigate = useNavigate();
 	const router = useRouter();
+	const isEnterprise = organization?.type === ENTERPRISE;
 
 	const queryClient = useQueryClient();
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
@@ -440,12 +442,14 @@ export function ClusterForm({
 
 	return (
 		<>
-			<div className="absolute top-3 right-12 text-right">
-				<dt className="font-light">Total Price</dt>
-				<dd className="font-bold">
-					<PriceDisplay price={totalPrice} />
-				</dd>
-			</div>
+			{!isEnterprise && (
+				<div className="absolute top-3 right-12 text-right">
+					<dt className="font-light">Total Price</dt>
+					<dd className="font-bold">
+						<PriceDisplay price={totalPrice} />
+					</dd>
+				</div>
+			)}
 			<Form {...form}>
 				{!confirmingPaymentDetails
 					? (
@@ -468,6 +472,7 @@ export function ClusterForm({
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
 									totalPrice={totalPrice}
+									isEnterprise={isEnterprise}
 								/>
 							</form>
 						</>

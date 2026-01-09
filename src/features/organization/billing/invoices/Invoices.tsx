@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { dataTableColumns } from '@/features/organization/billing/invoices/constants/tableDefinition';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
+import { ENTERPRISE } from '@/integrations/api/orgType';
 import { getStripeInvoicesQueryOptions } from '@/integrations/stripe/useGetStripeInvoices';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -19,11 +20,11 @@ export function Invoices() {
 		isLoading,
 		isFetching,
 		isRefetching,
-	} = useQuery(getStripeInvoicesQueryOptions(organization?.type !== 'ENTERPRISE' && organization?.id, false));
+	} = useQuery(getStripeInvoicesQueryOptions(organization?.type !== ENTERPRISE && organization?.id, false));
 
 	const onRefreshClick = useRefreshClick(refetch);
 
-	if (organization?.type === 'ENTERPRISE') {
+	if (organization?.type === ENTERPRISE) {
 		return (
 			<span>
 				You are part of an enterprise organization! We don&rsquo;t currently show your invoices on this page. Want to

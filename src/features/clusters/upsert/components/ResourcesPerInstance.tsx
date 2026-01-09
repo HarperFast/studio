@@ -13,10 +13,11 @@ import { isPositive } from '@/lib/types/isPositive';
 import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selectedRegion }: {
+export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selectedRegion, isEnterprise }: {
 	readonly planLimits: SchemaPlanLimits | undefined;
 	readonly resourcesPerInstance: SchemaResourcesPerInstance | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
+	readonly isEnterprise: boolean;
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
@@ -107,21 +108,33 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 		return 'This plan has no usage limits.';
 	}
 
+	const pricingSubjectToTerms = isEnterprise
+		? ' Pricing subject to contracted rate.'
+		: ' Beta pricing subject to change.';
+
+	const maybeReadsPerMinute = isPositive(planLimits.readsPerMinuteCount)
+		? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & `
+		: '';
+	const maybeWritesPerMinute = isPositive(planLimits.writesPerMinuteCount)
+		? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
+		: ' ';
+	const inRegionOrPerServer = isPositive(planLimits.readsPerMinuteCount)
+		? 'in ' + (selectedRegion?.region ?? '') + ' region'
+		: 'per server';
+	const forMonths = expirationMonths ? `, for ${pluralize(expirationMonths, 'month', 'months')}` : '';
+	const forThePriceAbove = isEnterprise
+		? 'for the contracted rate'
+		: 'for the price listed above';
+	const expiresInMonths = expirationMonths ? ` in ${pluralize(expirationMonths, 'month', 'months')} or` : '';
+
 	return (
 		<FormItem className="basis-full">
 			<FormLabel onClick={onUsageLimitsClick}>
-				Purchasing usage block for {isPositive(planLimits.readsPerMinuteCount)
-					? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & `
-					: ''}
-				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {isPositive(planLimits.readsPerMinuteCount)
-					? 'in ' + (selectedRegion?.region ?? '') + ' region'
-					: 'per server'},<br className="hidden sm:block" />
-				{isPositive(planLimits.writesPerMinuteCount)
-					? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
-					: ' '}
-				{humanNumber(planLimits.totalWriteCount)}{' '}
-				total writes{expirationMonths && `, for ${pluralize(expirationMonths, 'month', 'months')}`}. Beta pricing
-				subject to change
+				Purchasing usage block for {maybeReadsPerMinute}
+				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {inRegionOrPerServer},
+				<br className="hidden sm:block" />
+				{maybeWritesPerMinute} {humanNumber(planLimits.totalWriteCount)} total writes{forMonths}.
+				{pricingSubjectToTerms}
 				<br className="block sm:hidden" />
 				<Button
 					type="button"
@@ -138,10 +151,11 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 						toggled ? 'max-h-fit' : 'max-h-0',
 					)}
 				>
-					This plan licenses Harper for the usage limits below, for the price listed above. The usage license expires
-					{' '}
-					{expirationMonths && `in ${pluralize(expirationMonths, 'month', 'months')} or `}when any usage limit is
-					reached. New usage blocks are automatically purchased/billed as blocks are consumed.
+					<div className="text-sm mb-3 max-w-lg">
+						This plan licenses Harper for the usage limits below, {forThePriceAbove}. The usage license expires
+						{expiresInMonths}{' '}
+						when any usage limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
+					</div>
 					{rows.map((row, index) => (
 						<div
 							key={row.label}

@@ -1,10 +1,5 @@
-import {
-	SchemaCluster,
-	SchemaHdbInstance,
-	SchemaOrganization,
-	SchemaRole,
-	SchemaUser,
-} from '@/integrations/api/api.gen';
+import { SchemaCluster, SchemaHdbInstance, SchemaOrganization, SchemaRole, SchemaUser } from './api.gen';
+import { ENTERPRISE, SELF_SERVICE } from './orgType';
 
 /*
  * Over time, it should be our goal to empty out this file. The types here should be described by our OpenAPI docs
@@ -17,7 +12,7 @@ export interface User extends Omit<SchemaUser, 'roles'> {
 }
 
 export interface Organization extends SchemaOrganization {
-	type: 'ENTERPRISE' | 'SELF_SERVICE' | string | undefined;
+	type: ENTERPRISE | SELF_SERVICE | string | undefined;
 }
 
 export interface LocalUser {
