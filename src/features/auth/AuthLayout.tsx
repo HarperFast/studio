@@ -1,15 +1,6 @@
 import { Navbar } from '@/components/Navbar';
 import { Outlet } from '@tanstack/react-router';
 
-function ListItem({ title, children }: { title: string; children: React.ReactNode }) {
-	return (
-		<li className="list-image-(--checkmark-icon) mt-4">
-			<h3 className="text-xl font-bold">{title}</h3>
-			{children}
-		</li>
-	);
-}
-
 export function AuthLayout() {
 	return (
 		<>
@@ -17,35 +8,12 @@ export function AuthLayout() {
 				<Navbar />
 			</header>
 			<div className="pt-20 grid h-screen grid-cols-1 md:grid-cols-2">
-				<section className="items-center justify-center hidden text-white md:flex bg-linear-(--blue-pink-gradient) px-6">
-					<div>
-						<h1 className="text-4xl font-bold">Harper Fabric</h1>
-						<ul className="ps-5">
-							<ListItem title="Free Tier">
-								<span>Try us out, no credit card required!</span>
-							</ListItem>
-
-							<ListItem title="Global Deployments Managed as One">
-								<span>Coordinate global environments as if they were a single node.</span>
-							</ListItem>
-
-							<ListItem title="Database, App, Cache, & Messaging">
-								<span>Bring your stack together for reliable, ultra-fast performance.</span>
-							</ListItem>
-
-							<ListItem title="NoSQL, Vector, & Blob">
-								<span>
-									Store and serve modern data types with low latency, semantic search ability, and global reach.
-								</span>
-							</ListItem>
-
-							<ListItem title="Simplified Operations">
-								<span>Focus on what differentiates your app; leave infrastructure to us.</span>
-							</ListItem>
-						</ul>
-
-						<span className="opacity-5">Bravo!</span>
-					</div>
+				<section className="items-center justify-center hidden text-white md:flex px-6 fabricSignupTextContainer">
+					<img
+						className="object-scale-down max-h-[calc(100vh-80px-40px)] min-h-115"
+						src="/fabric-signup-text.png"
+						alt="One Runtime: App, database, Cache and Messaging. Distributed by design, free to deploy, and live in minutes. Deploy!"
+					/>
 				</section>
 				<section className="flex items-center justify-center px-6 bg-linear-(--purple-gradient) dark:bg-linear-(--black-dark-gradient)">
 					<Outlet />
