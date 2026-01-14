@@ -17,6 +17,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
+import { cx } from 'class-variance-authority';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -443,7 +444,7 @@ export function ClusterForm({
 	return (
 		<>
 			{!isEnterprise && (
-				<div className="absolute top-3 right-12 text-right">
+				<div className="absolute top-3 right-4 md:right-12 text-right">
 					<dt className="font-light">Total Price</dt>
 					<dd className="font-bold">
 						<PriceDisplay price={totalPrice} />
@@ -454,8 +455,10 @@ export function ClusterForm({
 				{!confirmingPaymentDetails
 					? (
 						<>
-							<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Configuration</h1>
-							<p className="text-muted-foreground text-sm mb-6">
+							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', !isEnterprise && 'mr-37.5')}>
+								Cluster Configuration
+							</h1>
+							<p className={cx('text-muted-foreground text-sm mb-6', !isEnterprise && 'mr-37.5')}>
 								Configure your Harper cluster and define deployment plans.
 							</p>
 
