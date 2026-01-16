@@ -441,6 +441,7 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
+	const pricingMarginRight = !isEnterprise && 'mr-37.5';
 	return (
 		<>
 			{!isEnterprise && (
@@ -455,10 +456,10 @@ export function ClusterForm({
 				{!confirmingPaymentDetails
 					? (
 						<>
-							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', !isEnterprise && 'mr-37.5')}>
+							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', pricingMarginRight)}>
 								Cluster Configuration
 							</h1>
-							<p className={cx('text-muted-foreground text-sm mb-6', !isEnterprise && 'mr-37.5')}>
+							<p className={cx('text-muted-foreground text-sm mb-6', pricingMarginRight)}>
 								Configure your Harper cluster and define deployment plans.
 							</p>
 
@@ -482,8 +483,10 @@ export function ClusterForm({
 					)
 					: (
 						<>
-							<h1 className="text-lg leading-none text-white font-semibold mb-4">Cluster Billing</h1>
-							<p className="text-muted-foreground text-sm mb-2">
+							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', pricingMarginRight)}>
+								Cluster Billing
+							</h1>
+							<p className={cx('text-muted-foreground text-sm mb-2', pricingMarginRight)}>
 								Please confirm the following billing details:
 							</p>
 
