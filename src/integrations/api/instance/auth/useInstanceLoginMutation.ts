@@ -44,17 +44,19 @@ export async function onInstanceLoginSubmit({
 	}
 
 	try {
+		const auth = {
+			username,
+			password,
+		};
 		const user = await getInstanceUserInfo({
 			instanceClient,
-			auth: {
-				username,
-				password,
-			},
+			auth,
 		});
-		authStore.flagForBasicAuth(entityId, { username, password });
+		authStore.flagForBasicAuth(entityId, auth);
 		return {
 			message,
 			user,
+			instanceClient: getInstanceClient({ id: entityId }),
 		};
 	} catch (err) {
 		if (isLocalStudio) {
@@ -74,7 +76,7 @@ export async function onInstanceLoginSubmit({
 	return {
 		message,
 		user,
-		instanceClient,
+		instanceClient: fabricInstanceClient,
 	};
 }
 
