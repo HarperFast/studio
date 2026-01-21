@@ -52,11 +52,12 @@ export async function onInstanceLoginSubmit({
 			instanceClient,
 			auth,
 		});
+		instanceClient.defaults.auth = auth;
+		instanceClient.defaults.withCredentials = false;
 		authStore.flagForBasicAuth(entityId, auth);
 		return {
 			message,
 			user,
-			instanceClient: getInstanceClient({ id: entityId }),
 		};
 	} catch (err) {
 		if (isLocalStudio) {
