@@ -30,7 +30,7 @@ export async function onInstanceLoginSubmit({
 		password,
 	});
 
-	if (!forceBasicAuth) {
+	if (!forceBasicAuth && !authStore.checkForBasicAuth(entityId)) {
 		// Attempt to use the login with session storage only.
 		try {
 			const user = await getInstanceUserInfo({ instanceClient });
@@ -48,6 +48,7 @@ export async function onInstanceLoginSubmit({
 			username,
 			password,
 		};
+		delete instanceClient.defaults.auth;
 		const user = await getInstanceUserInfo({
 			instanceClient,
 			auth,
