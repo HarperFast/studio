@@ -24,6 +24,15 @@ export async function onInstanceLoginSubmit({
 	instanceClient,
 	entityId,
 }: InstanceLoginCredentials): Promise<LoginInfoResponse> {
+	const auth = {
+		username,
+		password,
+	};
+	if (authStore.checkForBasicAuth(entityId)) {
+		instanceClient.defaults.auth = auth;
+		instanceClient.defaults.withCredentials = false;
+	}
+
 	const { data: { message } } = await instanceClient.post('/', {
 		operation: 'login',
 		username,
@@ -44,23 +53,20 @@ export async function onInstanceLoginSubmit({
 	}
 
 	try {
-		const auth = {
-			username,
-			password,
-		};
-		delete instanceClient.defaults.auth;
+		instanceClient.defaults.auth = auth;
+		instanceClient.defaults.withCredentials = false;
 		const user = await getInstanceUserInfo({
 			instanceClient,
 			auth,
 		});
-		instanceClient.defaults.auth = auth;
-		instanceClient.defaults.withCredentials = false;
 		authStore.flagForBasicAuth(entityId, auth);
 		return {
 			message,
 			user,
 		};
 	} catch (err) {
+		instanceClient.defaults.auth = undefined;
+		instanceClient.defaults.withCredentials = true;
 		if (isLocalStudio) {
 			throw err;
 		}

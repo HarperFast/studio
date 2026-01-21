@@ -56,17 +56,17 @@ async function onInstanceResetPassword({
 				active: true,
 				instanceClient,
 			});
-			// since we created a new user, we should clean up the old one
-			await onDeleteUser({
-				username: defaultClusterUsername,
-				instanceClient,
-			});
-			/// and login with the new one.
+			// since we created a new user, we should log in with the new one
 			await onInstanceLoginSubmit({
 				username: desiredUsername,
 				password: newPassword,
 				instanceClient,
 				entityId: clusterId,
+			});
+			// clean up the old one
+			await onDeleteUser({
+				username: defaultClusterUsername,
+				instanceClient,
 			});
 		}
 		// and finally, tell the central manager that we changed their password.
