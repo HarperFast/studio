@@ -40,7 +40,7 @@ async function onInstanceResetPassword({
 		if (loginResponse.instanceClient) {
 			instanceClient = loginResponse.instanceClient;
 		}
-		// then we can either alter...
+		// if the usernames match, we need to alter the user...
 		if (desiredUsername === defaultClusterUsername) {
 			await onAlterUser({
 				username: desiredUsername,
