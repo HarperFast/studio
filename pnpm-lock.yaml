@@ -67,10 +67,10 @@ importers:
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@stripe/react-stripe-js':
         specifier: ^5.0.0
-        version: 5.4.1(@stripe/stripe-js@8.6.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 5.4.1(@stripe/stripe-js@8.6.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@stripe/stripe-js':
         specifier: ^8.0.0
-        version: 8.6.1
+        version: 8.6.3
       '@tailwindcss/vite':
         specifier: ^4.0.9
         version: 4.1.18(vite@7.3.1(@types/node@24.10.9)(jiti@2.6.1)(lightningcss@1.30.2)(yaml@2.8.0))
@@ -2111,8 +2111,8 @@ packages:
       react: '>=16.8.0 <20.0.0'
       react-dom: '>=16.8.0 <20.0.0'
 
-  '@stripe/stripe-js@8.6.1':
-    resolution: {integrity: sha512-UJ05U2062XDgydbUcETH1AoRQLNhigQ2KmDn1BG8sC3xfzu6JKg95Qt6YozdzFpxl1Npii/02m2LEWFt1RYjVA==}
+  '@stripe/stripe-js@8.6.3':
+    resolution: {integrity: sha512-MQsPNsMMprOu+p+BWYvD69aPjD52yQNXZaENRQX7IkbWqu7lp9k04D+RPeHWJEsuyzmCCoHx3Kqqf3tcXPoNvQ==}
     engines: {node: '>=12.16'}
 
   '@swagger-api/apidom-ast@1.0.1':
@@ -8797,14 +8797,14 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@stripe/react-stripe-js@5.4.1(@stripe/stripe-js@8.6.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@stripe/react-stripe-js@5.4.1(@stripe/stripe-js@8.6.3)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
-      '@stripe/stripe-js': 8.6.1
+      '@stripe/stripe-js': 8.6.3
       prop-types: 15.8.1
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
 
-  '@stripe/stripe-js@8.6.1': {}
+  '@stripe/stripe-js@8.6.3': {}
 
   '@swagger-api/apidom-ast@1.0.1':
     dependencies:
