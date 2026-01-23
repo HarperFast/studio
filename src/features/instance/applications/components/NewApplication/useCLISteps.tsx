@@ -2,6 +2,7 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { Cluster, Instance } from '@/integrations/api/api.patch';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
@@ -20,33 +21,34 @@ export function useCLISteps(appName: string) {
 
 	return useMemo(() => {
 		const directoryName = toKebabCase(appName);
+		const createArgs = [
+			user?.username && ` --deploymentUsername="${user?.username}"`,
+			target && ` --deploymentURL="${target}"`,
+		].filter(excludeFalsy).join('');
 		return [
 			{
-				title: 'Install Harper CLI',
+				title: 'Install or update the Harper CLI',
 				code: 'npm install -g harperdb',
 			},
 			{
-				title: 'Clone Template',
-				code: `git clone https://github.com/HarperFast/application-template.git ${directoryName}
-cd ${directoryName}`,
+				title: 'Create your awesome app',
+				code: `npm create harper ${directoryName}${createArgs.length ? ' --' : ''}${createArgs}`,
+				note: 'You will be asked some easy questions to get you started. To make deployments easy, enter your'
+					+ ' password for this cluster. It will get saved into your local .env file.',
 			},
 			{
-				title: 'Start Local Harper Instance',
+				title: 'Start local Harper instance',
 				code: 'npm run dev',
-				alert: 'You will be prompted to configure your instance',
+				note: 'You will be prompted to configure Harper.',
 			},
 			{
-				title: 'Make Changes!',
-				code: `pico schema.graphql`,
+				title: 'Learn, make changes, grow!',
+				code: `cat AGENTS.md`,
 			},
 			{
-				title: 'Configure your .env file',
-				code: `npm run login ${user?.username}@${target}`,
-				note: `Your credentials are your own! Remember to exclude the .env file from source control.`,
-			},
-			{
-				title: 'Deploy Application',
+				title: 'Deploy!',
 				code: `npm run deploy`,
+				note: 'Remember that .env file? It makes this deployment easy!',
 			},
 		];
 	}, [appName, target, user?.username]);

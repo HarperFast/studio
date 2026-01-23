@@ -18,7 +18,7 @@ async function addComponent({
 		project,
 		template,
 		replicated: entityType === 'cluster',
-	});
+	}, { timeout: 300_000 });
 	return data;
 }
 

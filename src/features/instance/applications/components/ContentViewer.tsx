@@ -1,8 +1,11 @@
+import { Button } from '@/components/ui/button';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { hasImageFileExtension } from '@/lib/string/hasImageFileExtension';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
+import { CopyIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import { NewApplication } from './NewApplication';
@@ -20,7 +23,7 @@ export function ContentViewer() {
 	if (isDirectory(openedEntry)) {
 		return (
 			<div className="directoryReadMe max-w-3xl">
-				<Markdown urlTransform={urlTransform}>{openedEntryContents}</Markdown>
+				<Markdown urlTransform={urlTransform} components={{ code: MarkdownCode }}>{openedEntryContents}</Markdown>
 			</div>
 		);
 	}
@@ -38,4 +41,29 @@ export function ContentViewer() {
 	} else {
 		return <TextEditorView />;
 	}
+}
+
+function MarkdownCode({
+	inline,
+	className,
+	children,
+}: {
+	inline?: boolean;
+	className?: string;
+	children?: unknown;
+}) {
+	const code = String(children ?? '');
+	const [copy] = useCopyToClipboard(code);
+
+	if (inline || !code.includes('\n')) {
+		return <code className={className}>{children as any}</code>;
+	}
+	return (
+		<code className="relative">
+			<Button className="absolute top-2 right-2" type="button" variant="default" size="sm" onClick={copy}>
+				<CopyIcon className="w-4 h-4" />
+			</Button>
+			{code}
+		</code>
+	);
 }
