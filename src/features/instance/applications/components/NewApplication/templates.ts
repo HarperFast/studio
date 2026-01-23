@@ -4,14 +4,16 @@ export const templates = [
 		name: 'Web + REST ORM',
 		description: "Define your entities in schema.graphql, add your HTML/CSS/JS in web, and you're cooking!",
 		tags: ['Harper', 'ORM', 'REST', 'GraphQL'],
-		githubUrl: 'https://github.com/HarperFast/application-template/tree/fabric',
+		npm: '@harperfast/template-vanilla-studio',
+		githubUrl: 'https://github.com/HarperFast/create-harper/tree/main/template-vanilla',
 	},
 	{
 		id: 'harper-ts',
 		name: 'TypeScript',
 		description: 'The same Web + REST ORM from the first template, but with TypeScript sprinkled in.',
 		tags: ['Harper', 'TypeScript', 'GraphQL'],
-		githubUrl: 'https://github.com/HarperFast/application-template/tree/fabric-typescript',
+		npm: '@harperfast/template-vanilla-ts-studio',
+		githubUrl: 'https://github.com/HarperFast/create-harper/tree/main/template-vanilla-ts',
 	},
 	// {
 	// 	id: 'nextjs',
