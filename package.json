@@ -20,7 +20,7 @@
 		"lint:fix": "oxlint . --fix",
 		"format": "dprint check",
 		"format:fix": "dprint fmt",
-		"format:staged": "dprint check --staged",
+		"format:staged": "dprint check --staged --allow-no-files",
 		"prepare": "husky",
 		"test": "vitest run",
 		"test:watch": "vitest",
