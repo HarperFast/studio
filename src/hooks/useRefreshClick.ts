@@ -4,13 +4,12 @@ import { toast } from 'sonner';
 
 export function useRefreshClick(refetch: () => Promise<unknown>) {
 	return useCallback(async () => {
-		const toastId = toast.loading('Refreshing...');
+		toast.loading('Refreshing...', { id: 'refreshing' });
 		const startedAt = Date.now();
 		await refetch();
 		if (Date.now() - startedAt < 500) {
 			await sleep(500);
 		}
-		toast.dismiss(toastId);
-		toast.success('Refreshed!');
+		toast.success('Refreshed!', { id: 'refreshing' });
 	}, [refetch]);
 }
