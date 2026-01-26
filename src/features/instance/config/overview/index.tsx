@@ -5,6 +5,7 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
 import { ApplicationURL } from '@/features/instance/config/overview/components/ApplicationURL';
+import { ClusterDomainsList } from '@/features/instance/config/overview/components/ClusterDomainsList';
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
@@ -106,6 +107,11 @@ export function ConfigOverviewIndex() {
 							<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
 								<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 							</div>
+							{clusterInfo?.domains?.length && (
+								<div className="px-4 pb-4 sm:col-span-3 sm:px-0">
+									<ClusterDomainsList loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
+								</div>
+							)}
 						</dl>
 					</CloudStudioOverview>
 				)}

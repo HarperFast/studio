@@ -82,6 +82,7 @@ export function SimpleBrowseDataTable<TData, TValue>({
 									<TableCell
 										key={cell.id}
 										className="py-2 px-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap"
+										style={{ width: `${cell.column.getSize()}px` }}
 									>
 										{flexRender(cell.column.columnDef.cell, cell.getContext())}
 									</TableCell>

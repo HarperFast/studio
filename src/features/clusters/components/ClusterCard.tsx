@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { isFailed, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
+import { isLocalStudio } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -30,7 +31,7 @@ import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
-import { CopyIcon, Ellipsis } from 'lucide-react';
+import { ClipboardIcon, CopyIcon, Ellipsis, GlobeIcon, KeyIcon, ScaleIcon, ServerIcon, TrashIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -121,37 +122,53 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		});
 	}, [router, cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
 
+	const clusterFQDN = cluster.domains?.[0]?.domain || cluster.fqdn;
 	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
-		`${cluster.fqdn}`,
-		`https://${cluster.fqdn}`,
+		`${clusterFQDN}`,
+		`https://${clusterFQDN}`,
 	);
 
 	const menuItems = [
 		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && (
 			<Link key="sign-in" to={`${cluster.id}/sign-in`} disabled={signingOut}>
-				<DropdownMenuItem>Direct Sign In</DropdownMenuItem>
+				<DropdownMenuItem>
+					<KeyIcon className="text-green" /> Direct Sign In
+				</DropdownMenuItem>
 			</Link>
 		),
 		isActive && update && (
 			<Link key="edit" to={`${cluster.id}/edit`} disabled={signingOut}>
-				<DropdownMenuItem>Edit</DropdownMenuItem>
+				<DropdownMenuItem>
+					<ScaleIcon className="text-purple-600" /> Edit Scaling
+				</DropdownMenuItem>
+			</Link>
+		),
+		isActive && update && !isLocalStudio && !clusterIsSelfManaged(cluster) && (
+			<Link key="domains" to={`${cluster.id}/domains`} disabled={signingOut}>
+				<DropdownMenuItem>
+					<GlobeIcon className="text-cyan-400" /> Domains
+				</DropdownMenuItem>
 			</Link>
 		),
 		isActive && view && (
 			<Link key="instances" to={`${cluster.id}/instances`} disabled={signingOut}>
-				<DropdownMenuItem>Instances</DropdownMenuItem>
+				<DropdownMenuItem>
+					<ServerIcon className="text-orange-300" /> Instances
+				</DropdownMenuItem>
 			</Link>
 		),
+
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem key="copy-host-name" onClick={onCopyFQDNClick} disabled={signingOut}>
-				Copy Host Name
+				<ClipboardIcon /> Copy Host Name
 			</DropdownMenuItem>
 		),
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem key="copy-api-url" onClick={onCopyAPIClick} disabled={signingOut}>
-				Copy API URL
+				<ClipboardIcon /> Copy API URL
 			</DropdownMenuItem>
 		),
+
 		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
 			<DropdownMenuItem key="direct-sign-out" onClick={onSignOutClick} disabled={signingOut}>
 				Direct Sign Out
@@ -163,20 +180,25 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			</DropdownMenuItem>
 		),
 		!isTerminated && remove && (
-			<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
-				{isSelfManaged ? 'Remove' : 'Terminate'}
-			</DropdownMenuItem>
+			<>
+				{isActive && <DropdownMenuSeparator />}
+				<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
+					<TrashIcon className="text-red-300" /> {isSelfManaged ? 'Remove' : 'Terminate'}
+				</DropdownMenuItem>
+			</>
 		),
 	].filter(excludeFalsy);
+
+	const maxPlansToShow = 5;
 
 	return (
 		<Card className="relative h-full justify-between">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
-					{cluster.fqdn
+					{clusterFQDN
 						? (
 							<>
-								<span className="truncate max-w-48">{cluster.fqdn}</span>
+								<span className="truncate max-w-48">{clusterFQDN}</span>
 								<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
 								<span className="grow"></span>
 							</>
@@ -188,20 +210,26 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 								<Ellipsis aria-label="Cluster options" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent>
+								{...menuItems}
+
 								{!clusterHasFailed && (
 									<>
+										{menuItems.length > 0 && <DropdownMenuSeparator />}
 										<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
-										{cluster.plans?.map((plan) => (
+										{cluster.plans?.slice(0, maxPlansToShow)?.map((plan) => (
 											<DropdownMenuLabel key={plan.planId + plan.regionId}>
 												{plan.planId} / {plan.regionId}
 												<br />
 												Auto Renewal <Badge variant="success">ON</Badge>
 											</DropdownMenuLabel>
 										))}
-										{menuItems.length > 0 && <DropdownMenuSeparator />}
+										{!!cluster.plans?.length && cluster.plans?.length > maxPlansToShow && (
+											<DropdownMenuLabel className="italic text-muted-foreground">
+												{cluster.plans.length - maxPlansToShow} additional plans
+											</DropdownMenuLabel>
+										)}
 									</>
 								)}
-								{...menuItems}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}
