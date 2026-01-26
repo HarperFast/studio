@@ -1,4 +1,5 @@
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
+import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
@@ -13,6 +14,7 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		getParentRoute: () => instanceLayoutRoute,
 		path: 'config',
 		component: ConfigIndex,
+		loader: registrationInfoLoader,
 	});
 	const instanceOverviewRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
@@ -41,6 +43,12 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		getParentRoute: () => instanceConfigRoute,
 		path: 'users/$username',
 		component: ConfigUsersIndex,
+	});
+
+	const instanceConfigDomainsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'domains',
+		component: ConfigDomainsIndex,
 	});
 
 	const instanceConfigSSHKeysRoute = createRoute({
@@ -73,6 +81,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigUsersRoute,
 		instanceConfigUserRoute,
+
+		instanceConfigDomainsRoute,
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,

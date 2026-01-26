@@ -12,6 +12,7 @@ export function getRegistrationInfoQueryOptions({ entityId, instanceClient }: In
 	return queryOptions({
 		queryKey: [entityId, 'registration_info'] as const,
 		staleTime: 60_000,
+		gcTime: 5_000,
 		queryFn: async () => {
 			const { data } = await instanceClient.post('/', {
 				operation: 'registration_info',

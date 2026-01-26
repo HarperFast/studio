@@ -3,6 +3,7 @@ import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
 import { createRoute, redirect } from '@tanstack/react-router';
 import { clusterLayoutRoute } from './clusterLayoutRoute';
+import { DomainsPage } from './domains/Page';
 import { FinishSetup } from './FinishSetup';
 import { Instances } from './Instances';
 import { Scaling } from './Scaling';
@@ -24,6 +25,12 @@ const clusterScalingRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'scaling',
 	component: Scaling,
+});
+
+const clusterDomainsRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'domains',
+	component: DomainsPage,
 });
 
 const clusterSignInRoute = createRoute({
@@ -74,6 +81,7 @@ export const clusterRoutes = [
 	clusterInstancesRoute,
 	clusterStartingUpRoute,
 	clusterScalingRoute,
+	clusterDomainsRoute,
 	clusterFinishSetupRoute,
 	clusterSignInRoute,
 	instanceSignInRoute,
