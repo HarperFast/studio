@@ -14,7 +14,7 @@ export function useEntityRestURL(): string | null {
 
 	const isFabricConnect = (!!clusterId && authStore.checkForFabricConnect(clusterId))
 		|| !!instanceId && authStore.checkForFabricConnect(instanceId);
-	if (isFabricConnect) {
+	if (isFabricConnect || (cluster && !instanceId)) {
 		return getRestUrlForCluster(cluster);
 	} else if (instanceClient.defaults.baseURL) {
 		return instanceClient.defaults.baseURL.replace(/:9925\/?/, '');

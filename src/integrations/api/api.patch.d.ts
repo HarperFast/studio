@@ -15,6 +15,16 @@ export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
 }
 
+export interface SchemaOrganizationDomain {
+	id: string;
+	organizationId: string;
+	clusterId: string;
+	domain: string;
+	status: string;
+	challengeToken: string;
+	challengeTxtRecord: string;
+}
+
 export interface LocalUser {
 	active: boolean;
 	username: string;
@@ -85,6 +95,8 @@ export interface Instance extends SchemaHdbInstance {
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
+	domainIds?: string[];
+	domains?: Array<{ id: string; domain: string }>;
 }
 
 export interface InstanceDatabaseMap {
