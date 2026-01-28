@@ -1,3 +1,4 @@
+import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
@@ -53,6 +54,17 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigSSHKeysIndex,
 	});
 
+	const instanceConfigCertificatesRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'certificates',
+		component: ConfigCertificatesIndex,
+	});
+	const instanceConfigCertificateRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'certificates/$certName',
+		component: ConfigCertificatesIndex,
+	});
+
 	return instanceConfigRoute.addChildren([
 		instanceOverviewRoute,
 
@@ -64,5 +76,8 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigCertificatesRoute,
+		instanceConfigCertificateRoute,
 	]);
 }

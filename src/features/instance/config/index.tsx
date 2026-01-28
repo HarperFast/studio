@@ -2,7 +2,7 @@ import { Loading } from '@/components/Loading';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { HandshakeIcon, KeyIcon, PieChartIcon, UsersIcon } from 'lucide-react';
+import { HandshakeIcon, KeyIcon, PieChartIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
@@ -61,6 +61,16 @@ function DesktopConfigNavBar() {
 							activeProps={activeProps}
 						>
 							<HandshakeIcon className="inline-block" /> <span className="ms-3">Roles</span>
+						</Link>
+					</li>
+					<li>
+						<Link
+							to={buildAbsoluteLinkToPage(params, 'config/certificates')}
+							className={sharedClasses}
+							inactiveProps={inactiveProps}
+							activeProps={activeProps}
+						>
+							<ShieldCheckIcon className="inline-block" /> <span className="ms-3">Certificates</span>
 						</Link>
 					</li>
 					<li>
@@ -126,6 +136,16 @@ function MobileConfigNavBar() {
 							activeProps={activeProps}
 						>
 							<KeyIcon className="inline-block" /> <span className="ms-3">SSH Keys</span>
+						</Link>
+					</li>
+					<li>
+						<Link
+							to={buildAbsoluteLinkToPage(params, 'config/certificates')}
+							className={sharedClasses}
+							inactiveProps={inactiveProps}
+							activeProps={activeProps}
+						>
+							<ShieldCheckIcon className="inline-block" /> <span className="ms-3">Certificates</span>
 						</Link>
 					</li>
 				</>
