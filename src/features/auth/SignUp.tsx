@@ -8,6 +8,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
+import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,11 +27,19 @@ const SignUpSchema = z.object({
 		.string()
 		.trim()
 		.min(2, { error: 'Please enter your first name.' })
+		.regex(
+			personNameRegex,
+			{ error: 'First name can only contain letters, spaces, and hyphens.' },
+		)
 		.max(40, { error: 'First name cannot be longer than 40 characters.' }),
 	lastname: z
 		.string()
 		.trim()
 		.min(2, { error: 'Please enter your last name.' })
+		.regex(
+			personNameRegex,
+			{ error: 'Last name can only contain letters, spaces, and hyphens.' },
+		)
 		.max(80, { error: 'Last name cannot be longer than 80 characters.' }),
 	password: zodRequirePassword
 		.min(8, { error: 'Password must be at least 8 characters long.' }),
