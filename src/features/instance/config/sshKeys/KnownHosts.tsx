@@ -62,7 +62,7 @@ export function KnownHosts() {
 								Known Hosts
 							</FormLabel>
 							<div className="border border-grey-700 p-2 pb-3">
-								<FormDescription>
+								<FormDescription className="pb-2">
 									Manage your known hosts here. When you add a SSH Key with a hostname of "github.com", we'll
 									automatically attempt to resolve GitHub's known hosts for you.
 								</FormDescription>
