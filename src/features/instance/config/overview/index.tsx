@@ -31,7 +31,7 @@ const CloudStudioOverview = ({ children }: { children: ReactNode }) => {
 
 export function ConfigOverviewIndex() {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	const { data: cloudInstance } = useQuery(
+	const { data: info, isLoading: loadingInstanceInfo } = useQuery(
 		getInstanceInfoQueryOptions({ clusterId, instanceId }),
 	);
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
@@ -40,9 +40,6 @@ export function ConfigOverviewIndex() {
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const checkUsageLicenses = !isLocalStudio && wasAReleasedBeforeB('4.7.0-alpha.1', version);
 
-	const { data: info, isLoading: loadingInstanceInfo } = useQuery(
-		getInstanceInfoQueryOptions({ clusterId, instanceId }),
-	);
 	const { data: appliedLicenses } = useQuery(
 		getUsageLicensesQueryOptions(instanceParams, checkUsageLicenses),
 	);
@@ -59,13 +56,13 @@ export function ConfigOverviewIndex() {
 		if (isLocalStudio) {
 			return [];
 		}
-		const cloudLicenses = cloudInstance?.instance?.licenses;
+		const cloudLicenses = instanceInfo?.licenses;
 		if (appliedLicenses && cloudLicenses) {
 			const appliedLicensesById = keyBy(appliedLicenses, 'id');
 			return cloudLicenses.filter(cloudLicense => !appliedLicensesById[cloudLicense.id]);
 		}
 		return [];
-	}, [clusterId, instanceId, appliedLicenses, cloudInstance]);
+	}, [clusterId, instanceId, appliedLicenses, instanceInfo]);
 
 	return (
 		<div className="h-full flex flex-col">
