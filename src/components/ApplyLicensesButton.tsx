@@ -30,7 +30,7 @@ export function ApplyLicensesButton({
 				</Button>
 			</TooltipTrigger>
 			<TooltipContent>
-				{countNewLicensesAre} available for this instance. After applying, you will want to restart the instance.
+				{countNewLicensesAre} available for this instance.
 			</TooltipContent>
 		</Tooltip>
 	);

@@ -8,7 +8,6 @@ import { ApplicationURL } from '@/features/instance/config/overview/components/A
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
-import { Instance } from '@/integrations/api/api.patch';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import {
 	getRegistrationInfoQueryOptions,
@@ -19,7 +18,7 @@ import { keyBy } from '@/lib/keyBy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import Editor from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
-import { useLoaderData, useParams, useRouteContext } from '@tanstack/react-router';
+import { useLoaderData, useParams } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
@@ -31,8 +30,10 @@ const CloudStudioOverview = ({ children }: { children: ReactNode }) => {
 };
 
 export function ConfigOverviewIndex() {
-	const { clusterId, instanceId }: { instanceId?: string; clusterId: string } = useParams({ strict: false });
-	const { instance: cloudInstance }: { instance?: Instance } = useRouteContext({ strict: false });
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { data: cloudInstance } = useQuery(
+		getInstanceInfoQueryOptions({ clusterId, instanceId }),
+	);
 	const targetNoun = (instanceId || isLocalStudio) ? 'Instance' : 'Cluster';
 	const instanceParams = useInstanceClientIdParams();
 
@@ -55,13 +56,13 @@ export function ConfigOverviewIndex() {
 	);
 
 	const newLicenses = useMemo(() => {
-		if (clusterId && !instanceId) {
-			// We won't check the licenses when running through a load balancer.
+		if (isLocalStudio) {
 			return [];
 		}
-		if (appliedLicenses && cloudInstance?.licenses) {
+		const cloudLicenses = cloudInstance?.instance?.licenses;
+		if (appliedLicenses && cloudLicenses) {
 			const appliedLicensesById = keyBy(appliedLicenses, 'id');
-			return cloudInstance.licenses.filter(cloudLicense => !appliedLicensesById[cloudLicense.id]);
+			return cloudLicenses.filter(cloudLicense => !appliedLicensesById[cloudLicense.id]);
 		}
 		return [];
 	}, [clusterId, instanceId, appliedLicenses, cloudInstance]);

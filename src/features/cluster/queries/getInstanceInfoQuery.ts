@@ -29,6 +29,7 @@ export function getInstanceInfoQueryOptions(params: GetInstanceInfoParams) {
 	return queryOptions({
 		queryKey: [params.clusterId, params.instanceId] as const,
 		queryFn: () => getInstanceInfo(params),
+		enabled: !!params.clusterId && !!params.instanceId,
 		retry: false,
 	});
 }
