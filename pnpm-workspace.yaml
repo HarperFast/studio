@@ -3,3 +3,4 @@ onlyBuiltDependencies:
   - dprint
   - esbuild
   - harperdb
+  - lmdb
