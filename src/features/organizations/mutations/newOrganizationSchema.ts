@@ -12,6 +12,7 @@ export const NewOrganizationSchema = z.object({
 			error: 'The subdomain cannot be longer than 62 characters.',
 		})
 		.regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, {
-			error: 'Please only use lowercase letters, digits and dashes (-) in the subdomain. Must not start or end with a dash.',
+			error:
+				'Please only use lowercase letters, digits and dashes (-) in the subdomain. Must not start or end with a dash.',
 		}),
 });
