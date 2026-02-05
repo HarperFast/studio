@@ -9,7 +9,7 @@ export const UpsertClusterSchema = z.object({
 	abbreviatedName: z
 		.string()
 		.max(20, 'Must be at most 20 characters long.')
-		.regex(/^[a-z0-9-]*$/, 'Can only contain lowercase letters, numbers and dashes')
+		.regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Can only contain lowercase letters, numbers and dashes. Must not start or end with a dash.')
 		.optional(),
 	fqdn: z
 		.string()
