@@ -6,5 +6,15 @@
 	"prConcurrentLimit": 2,
 	"semanticCommits": "enabled",
 	"minimumReleaseAge": "3 days",
-	"internalChecksFilter": "strict"
+	"internalChecksFilter": "strict",
+	"packageRules": [
+		{
+			"matchPackageNames": [
+				"@fastify/static",
+				"@tanstack/react-router",
+				"@tanstack/react-router-devtools"
+			],
+			"enabled": false
+		}
+	]
 }
