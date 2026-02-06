@@ -14,7 +14,7 @@ import { Suspense, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
-import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
+import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
 	calculatedNames: { suggestedAbbreviatedName: string; fullHostName: string };
@@ -245,7 +245,7 @@ export function ClusterDetails({
 											<Input
 												{...field}
 												type="text"
-												maxLength={UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!}
+												maxLength={specifiedAbbreviatedName.maxLength!}
 												autoCapitalize="none"
 												autoComplete="off"
 												autoCorrect="off"

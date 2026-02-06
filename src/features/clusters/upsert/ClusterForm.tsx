@@ -27,7 +27,7 @@ import { ClusterDetails } from './ClusterDetails';
 import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
 import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
 import { PriceDisplay } from './PriceDisplay';
-import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
+import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterFormProps {
 	alreadyUsingFree: boolean;
@@ -225,7 +225,7 @@ export function ClusterForm({
 	const calculatedNames = useMemo(() => {
 		const suggestedAbbreviatedName = collapseKebabsToMaxLength(
 			toKebabCase(clusterName),
-			UpsertClusterSchema.shape.abbreviatedName.unwrap().maxLength!,
+			specifiedAbbreviatedName.maxLength!,
 		);
 		return {
 			suggestedAbbreviatedName,

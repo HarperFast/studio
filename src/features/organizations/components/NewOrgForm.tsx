@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useCreateNewOrganizationMutation } from '@/features/organizations/hooks/useCreateNewOrganization';
-import { NewOrganizationSchema } from '@/features/organizations/mutations/newOrganizationSchema';
+import { NewOrganizationSchema, specifiedSubdomain } from '@/features/organizations/mutations/newOrganizationSchema';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
@@ -45,7 +45,7 @@ export function NewOrgForm() {
 	const calculatedNames = useMemo(() => {
 		const suggestedSubdomain = collapseKebabsToMaxLength(
 			toKebabCase(name),
-			NewOrganizationSchema.shape.subdomain.maxLength!,
+			specifiedSubdomain.maxLength!,
 		);
 		return {
 			suggestedSubdomain,
@@ -102,7 +102,7 @@ export function NewOrgForm() {
 								<FormControl>
 									<Input
 										type="text"
-										maxLength={NewOrganizationSchema.shape.subdomain.maxLength!}
+										maxLength={specifiedSubdomain.maxLength!}
 										autoCapitalize="none"
 										placeholder={calculatedNames.suggestedSubdomain}
 										{...field}

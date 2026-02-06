@@ -2,18 +2,23 @@ import { hostNameRegex } from '@/lib/string/regex/hostNameRegex';
 import { maxPortNumber, minPortNumber } from '@/lib/types/portNumbers';
 import { z } from 'zod';
 
+export const specifiedAbbreviatedName = z
+	.string()
+	.max(20, 'Must be at most 20 characters long.')
+	.regex(
+		/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
+		'Can only contain lowercase letters, numbers and dashes. Must not start or end with a dash.',
+	);
+
 export const UpsertClusterSchema = z.object({
 	clusterName: z.string()
 		.nonempty('Please enter a cluster name.')
 		.max(255, 'Cluster name cannot be longer than 255 characters long.'),
-	abbreviatedName: z
-		.string()
-		.max(20, 'Must be at most 20 characters long.')
-		.regex(
-			/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
-			'Can only contain lowercase letters, numbers and dashes. Must not start or end with a dash.',
-		)
-		.optional(),
+	abbreviatedName: z.union([
+		z.literal(''),
+		z.undefined(),
+		specifiedAbbreviatedName,
+	]),
 	fqdn: z
 		.string()
 		.regex(hostNameRegex, 'Please enter a valid host name without the port or any path.')

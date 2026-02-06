@@ -75,18 +75,18 @@ describe('NewOrganizationSchema', () => {
 			const result = validateSubdomain('a'.repeat(63));
 			expect(result.success).toBe(false);
 			if (!result.success) {
-				expect(result.error.issues[0].message).toBe('The subdomain cannot be longer than 62 characters.');
+				expect(result.error.issues[0].message).toBe('Must be at most 62 characters long.');
 			}
 		});
 
-		it('is required', () => {
+		it('can be left blank (undefined)', () => {
 			const result = validateSubdomain(undefined);
-			expect(result.success).toBe(false);
+			expect(result.success).toBe(true);
 		});
 
-		it('invalidates empty string (must match regex)', () => {
+		it('can be left blank (empty string)', () => {
 			const result = validateSubdomain('');
-			expect(result.success).toBe(false);
+			expect(result.success).toBe(true);
 		});
 	});
 });

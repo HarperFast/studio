@@ -92,9 +92,9 @@ describe('UpsertClusterSchema', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('invalidates empty string (must match regex if provided)', () => {
+		it('allows it to be optional (empty string)', () => {
 			const result = validateAbbreviated('');
-			expect(result.success).toBe(false);
+			expect(result.success).toBe(true);
 		});
 	});
 
