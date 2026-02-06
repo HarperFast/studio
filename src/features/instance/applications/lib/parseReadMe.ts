@@ -11,9 +11,7 @@ export function parseReadMe(
 		contents = contents.replaceAll(/https?:\/\/localhost:9926/g, rest9926URL);
 	}
 	if (response.project) {
-		contents = contents
-			.replaceAll('Your New Harper Fabric App', response.project)
-			.replaceAll('your-project-name-here', response.project);
+		contents = contents.replaceAll('Your New Harper Fabric App', response.project);
 	}
 	return contents;
 }

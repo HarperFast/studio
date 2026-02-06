@@ -35,7 +35,7 @@ export function useCreateFromTemplate(
 		}
 		mutate({
 			project,
-			template: template.npm || template.githubUrl,
+			template: template.githubUrl,
 			...instanceParams,
 		}, {
 			onSuccess: () => {

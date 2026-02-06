@@ -1,8 +1,9 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { CheckIcon, CopyIcon } from 'lucide-react';
+import { CheckIcon, CopyIcon, TerminalIcon } from 'lucide-react';
 import { FormState, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { NewApplicationSchema } from './schema';
@@ -53,6 +54,13 @@ export function CLIInstructions({
 								</Button>
 							</div>
 							{cliStep.note && <p className="text-muted-foreground text-sm mt-2">{cliStep.note}</p>}
+
+							{cliStep.alert && (
+								<Alert className="mt-2">
+									<TerminalIcon className="w-4 h-4" />
+									<AlertDescription>{cliStep.alert}</AlertDescription>
+								</Alert>
+							)}
 						</div>
 
 						<Separator className="bg-black" />
