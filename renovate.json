@@ -3,11 +3,23 @@
 	"extends": [
 		"config:recommended"
 	],
-	"prConcurrentLimit": 2,
+	"timezone": "America/New_York",
+	"schedule": [
+		"before 9am on Monday"
+	],
 	"semanticCommits": "enabled",
 	"minimumReleaseAge": "3 days",
 	"internalChecksFilter": "strict",
+	"lockFileMaintenance": { "enabled": false },
 	"packageRules": [
+		{
+			"groupName": "pin digests",
+			"groupSlug": "all-digests",
+			"matchDepTypes": [
+				"action"
+			],
+			"pinDigests": true
+		},
 		{
 			"matchPackageNames": [
 				"@fastify/static",
@@ -15,6 +27,15 @@
 				"@tanstack/react-router-devtools"
 			],
 			"enabled": false
+		},
+		{
+			"groupName": "all non-major dependencies",
+			"groupSlug": "all-minor-patch",
+			"matchUpdateTypes": [
+				"minor",
+				"patch"
+			],
+			"matchCurrentVersion": "!/^0/"
 		}
 	]
 }
