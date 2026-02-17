@@ -10,6 +10,7 @@ describe('parseReadMe', () => {
 			'Visit http://localhost:9926',
 			'API: http://localhost:9926/api',
 			'Secure: https://localhost:9926/docs',
+			'curl: http://localhost:9926/Greeting',
 		].join('\n');
 
 		const output = parseReadMe(input, baseURL, resp());
@@ -17,12 +18,29 @@ describe('parseReadMe', () => {
 		expect(output).toContain('Visit https://example.com');
 		expect(output).toContain('API: https://example.com/api');
 		expect(output).toContain('Secure: https://example.com/docs');
+		expect(output).toContain('curl: https://example.com/Greeting');
 	});
 
 	it('replaces localhost:9926 links when base 9925 URL ends with a trailing slash', () => {
 		const input = 'Go to http://localhost:9926/path';
 
 		const output = parseReadMe(input, baseURL, resp());
+
+		expect(output).toBe('Go to https://example.com/path');
+	});
+
+	it('builds the url properly when the base ends with a trailing slash', () => {
+		const input = 'Go to http://localhost:9926/path';
+
+		const output = parseReadMe(input, baseURL + '/', resp());
+
+		expect(output).toBe('Go to https://example.com/path');
+	});
+
+	it('builds the url properly when the base is a full domain', () => {
+		const input = 'Go to http://localhost:9926/path';
+
+		const output = parseReadMe(input, 'https://example.com/', resp());
 
 		expect(output).toBe('Go to https://example.com/path');
 	});
