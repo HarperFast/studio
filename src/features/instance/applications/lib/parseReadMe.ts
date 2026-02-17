@@ -6,10 +6,15 @@ export function parseReadMe(
 	response: Pick<GetComponentFileResponse, 'project'>,
 ): string {
 	const operations9925URL = baseURL;
-	const rest9926URL = baseURL.replace(/:9925\/?/, '');
+	const rest9926URL = baseURL
+		.replace(/:9925/, '')
+		.replace(/\/?$/, '');
 	if (operations9925URL) {
 		contents = contents.replaceAll(/https?:\/\/localhost:9926/g, rest9926URL);
 	}
+	console.log('baseURL', baseURL);
+	console.log('operations9925URL', operations9925URL);
+	console.log('rest9926URL', rest9926URL);
 	if (response.project) {
 		contents = contents
 			.replaceAll('Your New Harper Fabric App', response.project)
