@@ -130,7 +130,7 @@ export function AddDirectoryOrFileModal() {
 						<DialogHeader>
 							<DialogTitle>Add {type}</DialogTitle>
 							<DialogDescription>
-								Enter the name of the {type} you want to add:
+								Enter the name of the {type} you want to add{type === 'file' ? ", don't forget the extension" : ''}!
 							</DialogDescription>
 						</DialogHeader>
 
