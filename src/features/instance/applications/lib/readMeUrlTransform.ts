@@ -22,7 +22,7 @@ export function useReadMeUrlTransformer(project?: string) {
 				case './status':
 					return `${urlSansSearch}/${url.slice(2)}`;
 			}
-			return `${urlSansSearch}?open=${project}/${url.slice(2)}`;
+			return `${urlSansSearch}?open=${project}/${url.slice(url.startsWith('../') ? 3 : 2)}`;
 		}
 	}, [project]);
 }
