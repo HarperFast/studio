@@ -2,9 +2,6 @@ import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
 export interface RegistrationInfoResponse {
-	license_expiration_date: string;
-	ram_allocation: number;
-	registered: boolean;
 	version: string;
 }
 
