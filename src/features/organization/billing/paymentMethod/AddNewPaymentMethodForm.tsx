@@ -74,8 +74,8 @@ export function AddNewPaymentMethodForm({
 
 	return (
 		<form
-			id="billing-create-payment-method-form"
-			name="billing-create-payment-method-form"
+			id="billing-add-payment-method-form"
+			name="billing-add-payment-method-form"
 			onSubmit={onSubmitAddPaymentMethod}
 			className="max-w-xl"
 		>

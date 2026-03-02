@@ -73,8 +73,8 @@ export function NewOrgForm() {
 		<>
 			<Form {...form}>
 				<form
-					id="org-create-form"
-					name="org-create-form"
+					id="org-add-form"
+					name="org-add-form"
 					onSubmit={form.handleSubmit(submitForm)}
 					className="grid gap-6 text-white max-w-xl"
 				>

@@ -131,8 +131,8 @@ export function DomainsManagement() {
 				{update && (
 					<Form {...form}>
 						<form
-							id="cluster-create-domain-form"
-							name="cluster-create-domain-form"
+							id="cluster-add-domain-form"
+							name="cluster-add-domain-form"
 							onSubmit={form.handleSubmit(onSubmitClick)}
 							className="flex gap-1 flex-col md:flex-row"
 						>

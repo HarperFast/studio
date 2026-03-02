@@ -106,8 +106,8 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 				</DialogHeader>
 				<Form {...form}>
 					<form
-						id="instance-create-table-form"
-						name="instance-create-table-form"
+						id="instance-new-table-form"
+						name="instance-new-table-form"
 						onSubmit={form.handleSubmit(submitForm)}
 						className="grid gap-6 text-white"
 					>

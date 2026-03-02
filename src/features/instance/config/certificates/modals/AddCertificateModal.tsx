@@ -99,8 +99,8 @@ export function AddCertificateModal({
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
 					<form
-						id="instance-create-certificate-form"
-						name="instance-create-certificate-form"
+						id="instance-add-certificate-form"
+						name="instance-add-certificate-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
 						className="grid gap-4 my-4"
 					>

@@ -78,8 +78,8 @@ export function AddRoleModal({
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
 					<form
-						id="instance-create-role-form"
-						name="instance-create-role-form"
+						id="instance-add-role-form"
+						name="instance-add-role-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
 						className="grid gap-4 my-4 md:grid-cols-2"
 					>

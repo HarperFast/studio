@@ -107,8 +107,8 @@ export function AddOrganizationRoleModal({
 				<DialogDescription>Set the new organization role permissions.</DialogDescription>
 				<Form {...form}>
 					<form
-						id="org-create-role-form"
-						name="org-create-role-form"
+						id="org-add-role-form"
+						name="org-add-role-form"
 						className="grid grid-cols-2 gap-4 my-4"
 						onSubmit={form.handleSubmit(onSubmitRoleEdits)}
 					>
