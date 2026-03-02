@@ -44,6 +44,9 @@ const SignUpSchema = z.object({
 	password: zodRequirePassword
 		.min(8, { error: 'Password must be at least 8 characters long.' }),
 	confirmPassword: z.string(),
+	acceptTerms: z.boolean().refine(val => val === true, {
+		message: 'You must accept the Privacy Policy and Terms of Service.',
+	}),
 })
 	.refine((data) => data.password === data.confirmPassword, {
 		error: 'Passwords do not match.',
@@ -61,6 +64,7 @@ export function SignUp() {
 			email: formPersistenceEmail || searchEmail || '',
 			password: '',
 			confirmPassword: '',
+			acceptTerms: false,
 		},
 	});
 
@@ -75,7 +79,7 @@ export function SignUp() {
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		const { confirmPassword, ...userData } = formData;
+		const { confirmPassword, acceptTerms, ...userData } = formData;
 		submitSignUpData(userData, {
 			onSuccess: () => {
 				const company = parseCompanyFromEmail(userData.email);
@@ -202,26 +206,45 @@ export function SignUp() {
 							</FormItem>
 						)}
 					/>
-					<p className="text-xs">
-						By creating an account, you agree to the{' '}
-						<a
-							href="https://www.harper.fast/resources/privacy-policy"
-							target="_blank"
-							rel="noreferrer"
-							className="underline hover:text-blue-300"
-						>
-							Privacy Policy
-						</a>{' '}
-						and{' '}
-						<a
-							href="https://www.harper.fast/resources/paas-terms-of-service"
-							target="_blank"
-							rel="noreferrer"
-							className="underline hover:text-blue-300"
-						>
-							Terms of Service
-						</a>
-					</p>
+					<FormField
+						control={control}
+						name="acceptTerms"
+						render={({ field }) => (
+							<FormItem className="flex flex-row items-start space-x-3 space-y-0 p-1">
+								<FormControl>
+									<Input
+										type="checkbox"
+										className="size-4 rounded border-gray-300 bg-white text-purple-600 focus:ring-purple-500"
+										checked={field.value}
+										onChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel className="text-xs font-normal">
+										I accept the{' '}
+										<a
+											href="https://www.harper.fast/resources/privacy-policy"
+											target="_blank"
+											rel="noreferrer"
+											className="underline hover:text-blue-300"
+										>
+											Privacy Policy
+										</a>{' '}
+										and{' '}
+										<a
+											href="https://www.harper.fast/resources/paas-terms-of-service"
+											target="_blank"
+											rel="noreferrer"
+											className="underline hover:text-blue-300"
+										>
+											Terms of Service
+										</a>
+									</FormLabel>
+									<FormMessage />
+								</div>
+							</FormItem>
+						)}
+					/>
 
 					<Button type="submit" variant="submit" className="w-full rounded-full my-4">
 						Sign Up For Free
