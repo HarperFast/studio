@@ -13,7 +13,7 @@ import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect } from 'react';
+import { MouseEvent, useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
@@ -56,6 +56,8 @@ const SignUpSchema = z.object({
 export function SignUp() {
 	const navigate = useNavigate();
 	const { email: searchEmail, me: formPersistenceEmail } = useSearch({ strict: false });
+	const [flashTerms, setFlashTerms] = useState(false);
+
 	const methods = useForm({
 		resolver: zodResolver(SignUpSchema),
 		defaultValues: {
@@ -69,6 +71,7 @@ export function SignUp() {
 	});
 
 	const email = methods.watch('email');
+	const acceptTerms = methods.watch('acceptTerms');
 	const { setFocus, control, handleSubmit } = methods;
 
 	useEffect(() => {
@@ -95,18 +98,82 @@ export function SignUp() {
 		});
 	}, [navigate, submitSignUpData]);
 
+	const onOAuthClick = useCallback((e: MouseEvent) => {
+		if (!acceptTerms) {
+			setFlashTerms(true);
+			setTimeout(() => setFlashTerms(false), 1000);
+			e.preventDefault();
+			return false;
+		}
+	}, [acceptTerms]);
+
+	const termsCheckbox = (
+		<FormField
+			control={control}
+			name="acceptTerms"
+			render={({ field }) => (
+				<FormItem
+					className={`flex flex-row items-start space-x-3 space-y-0 p-1 transition-colors duration-300 ${
+						flashTerms ? 'bg-red-500/20 animate-pulse rounded' : ''
+					}`}
+				>
+					<FormControl>
+						<Input
+							type="checkbox"
+							className="size-4 rounded border-gray-300 bg-white text-purple-600 focus:ring-purple-500"
+							checked={field.value}
+							onChange={field.onChange}
+						/>
+					</FormControl>
+					<div className="space-y-1 leading-none">
+						<FormLabel className="text-xs font-normal">
+							I accept the{' '}
+							<a
+								href="https://www.harper.fast/resources/privacy-policy"
+								target="_blank"
+								rel="noreferrer"
+								className="underline hover:text-blue-300"
+							>
+								Privacy Policy
+							</a>{' '}
+							and{' '}
+							<a
+								href="https://www.harper.fast/resources/paas-terms-of-service"
+								target="_blank"
+								rel="noreferrer"
+								className="underline hover:text-blue-300"
+							>
+								Terms of Service
+							</a>
+						</FormLabel>
+						<FormMessage />
+					</div>
+				</FormItem>
+			)}
+		/>
+	);
+
 	return (
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Sign up for Harper Fabric</h2>
 
-			<div className="flex flex-col gap-2 my-6">
-				<GoogleAuthenticationButton text="Sign up with Google" />
-				<GitHubAuthenticationButton text="Sign up with GitHub" />
-			</div>
-
-			<hr className="border-gray-600" />
-
 			<Form {...methods}>
+				<div className="flex flex-col gap-2 my-6">
+					{termsCheckbox}
+					<GoogleAuthenticationButton
+						text="Sign up with Google"
+						disabled={!acceptTerms}
+						onClick={onOAuthClick}
+					/>
+					<GitHubAuthenticationButton
+						text="Sign up with GitHub"
+						disabled={!acceptTerms}
+						onClick={onOAuthClick}
+					/>
+				</div>
+
+				<hr className="border-gray-600" />
+
 				<form
 					id="auth-signup-form"
 					name="auth-signup-form"
@@ -206,45 +273,7 @@ export function SignUp() {
 							</FormItem>
 						)}
 					/>
-					<FormField
-						control={control}
-						name="acceptTerms"
-						render={({ field }) => (
-							<FormItem className="flex flex-row items-start space-x-3 space-y-0 p-1">
-								<FormControl>
-									<Input
-										type="checkbox"
-										className="size-4 rounded border-gray-300 bg-white text-purple-600 focus:ring-purple-500"
-										checked={field.value}
-										onChange={field.onChange}
-									/>
-								</FormControl>
-								<div className="space-y-1 leading-none">
-									<FormLabel className="text-xs font-normal">
-										I accept the{' '}
-										<a
-											href="https://www.harper.fast/resources/privacy-policy"
-											target="_blank"
-											rel="noreferrer"
-											className="underline hover:text-blue-300"
-										>
-											Privacy Policy
-										</a>{' '}
-										and{' '}
-										<a
-											href="https://www.harper.fast/resources/paas-terms-of-service"
-											target="_blank"
-											rel="noreferrer"
-											className="underline hover:text-blue-300"
-										>
-											Terms of Service
-										</a>
-									</FormLabel>
-									<FormMessage />
-								</div>
-							</FormItem>
-						)}
-					/>
+					{termsCheckbox}
 
 					<Button type="submit" variant="submit" className="w-full rounded-full my-4">
 						Sign Up For Free

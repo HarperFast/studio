@@ -1,9 +1,22 @@
 import './GoogleAuthenticationButton.css';
+import { cx } from 'class-variance-authority';
+import { MouseEventHandler } from 'react';
 
-export function GoogleAuthenticationButton({ text }: { text: 'Sign in with Google' | 'Sign up with Google' }) {
+export function GoogleAuthenticationButton({
+	text,
+	disabled,
+	onClick,
+}: {
+	text: 'Sign in with Google' | 'Sign up with Google';
+	disabled?: boolean;
+	onClick?: MouseEventHandler<HTMLAnchorElement>;
+}) {
 	return (
-		<a href="/oauth/google/login?redirect=%2F%23%2Fcheck-oauth">
-			<button className="gsi-material-button">
+		<a href="/oauth/google/login?redirect=%2F%23%2Fcheck-oauth" onClick={onClick}>
+			<button
+				className={cx('gsi-material-button', disabled && 'opacity-50')}
+				type="button"
+			>
 				<div className="gsi-material-button-state"></div>
 				<div className="gsi-material-button-content-wrapper">
 					<div className="gsi-material-button-icon">
