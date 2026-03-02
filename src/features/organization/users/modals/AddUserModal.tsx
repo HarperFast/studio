@@ -100,8 +100,8 @@ export function AddUserModal({
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
 					<form
-						id="org-create-user-form"
-						name="org-create-user-form"
+						id="org-add-user-form"
+						name="org-add-user-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
 						className="grid gap-4 my-4"
 					>

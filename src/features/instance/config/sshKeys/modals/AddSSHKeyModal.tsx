@@ -84,8 +84,8 @@ export function AddSSHKeyModal({
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
 					<form
-						id="instance-create-ssh-key-form"
-						name="instance-create-ssh-key-form"
+						id="instance-add-ssh-key-form"
+						name="instance-add-ssh-key-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
 						className="grid gap-4 my-4 md:grid-cols-2"
 					>

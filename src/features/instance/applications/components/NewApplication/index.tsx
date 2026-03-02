@@ -117,8 +117,8 @@ export function NewApplication() {
 
 			<Form {...methods}>
 				<form
-					id="instance-create-application-form"
-					name="instance-create-application-form"
+					id="instance-add-application-form"
+					name="instance-add-application-form"
 					onSubmit={handleSubmit(submitForm)}
 					className="flex flex-col gap-4 p-4"
 				>
