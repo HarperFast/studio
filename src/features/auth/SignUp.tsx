@@ -175,6 +175,7 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="password"
+										autoComplete="new-password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
@@ -192,6 +193,7 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="password"
+										autoComplete="new-password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>

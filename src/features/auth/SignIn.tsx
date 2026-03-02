@@ -49,6 +49,7 @@ export function SignIn() {
 									<Input
 										type="email"
 										autoFocus={true}
+										autoComplete="email"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
@@ -66,6 +67,7 @@ export function SignIn() {
 								<FormControl>
 									<Input
 										type="password"
+										autoComplete="current-password"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										{...field}
 									/>
