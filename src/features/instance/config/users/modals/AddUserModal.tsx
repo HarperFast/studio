@@ -81,7 +81,12 @@ export function AddUserModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+					<form
+						id="instance-create-user-form"
+						name="instance-create-user-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4"
+					>
 						<DialogHeader>
 							<DialogTitle>Add New User</DialogTitle>
 						</DialogHeader>

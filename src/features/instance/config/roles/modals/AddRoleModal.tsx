@@ -77,7 +77,12 @@ export function AddRoleModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4 md:grid-cols-2">
+					<form
+						id="instance-create-role-form"
+						name="instance-create-role-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4 md:grid-cols-2"
+					>
 						<DialogHeader className="md:col-span-2">
 							<DialogTitle>Add New Role</DialogTitle>
 							<DialogDescription>

@@ -126,7 +126,11 @@ export function AddDirectoryOrFileModal() {
 		<Dialog onOpenChange={closeModal} open={!!type}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(submitForm)}>
+					<form
+						id={`instance-add-app-${type}-form`}
+						name={`instance-add-app-${type}-form`}
+						onSubmit={form.handleSubmit(submitForm)}
+					>
 						<DialogHeader>
 							<DialogTitle>Add {type}</DialogTitle>
 							<DialogDescription>

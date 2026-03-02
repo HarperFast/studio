@@ -52,7 +52,12 @@ export function KnownHosts() {
 
 	return (
 		<Form {...form}>
-			<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid my-4 md:grid-cols-2 overflow-x-auto rounded-md">
+			<form
+				id="instance-edit-known-hosts-form"
+				name="instance-edit-known-hosts-form"
+				onSubmit={form.handleSubmit(onSubmitClick)}
+				className="grid my-4 md:grid-cols-2 overflow-x-auto rounded-md"
+			>
 				<FormField
 					control={form.control}
 					name="known_hosts"

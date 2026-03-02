@@ -90,7 +90,11 @@ export function RenameFileModal() {
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined} className="text-white">
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(submitForm)}>
+					<form
+						id="instance-rename-app-file-form"
+						name="instance-rename-app-file-form"
+						onSubmit={form.handleSubmit(submitForm)}
+					>
 						<DialogHeader>
 							<DialogTitle>Rename File</DialogTitle>
 							<DialogDescription>

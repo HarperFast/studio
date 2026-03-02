@@ -68,7 +68,12 @@ export function ProfileIndex() {
 		<div className="mt-20 px-4 pt-4 md:px-12">
 			<h2 className="text-2xl font-light">Profile</h2>
 			<Form {...methods}>
-				<form onSubmit={handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+				<form
+					id="profile-edit-form"
+					name="profile-edit-form"
+					onSubmit={handleSubmit(onSubmitClick)}
+					className="grid gap-4 my-4"
+				>
 					<FormField
 						control={control}
 						name="firstname"

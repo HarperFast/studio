@@ -73,7 +73,12 @@ export function AddNewPaymentMethodForm({
 	]);
 
 	return (
-		<form onSubmit={onSubmitAddPaymentMethod} className="max-w-xl">
+		<form
+			id="billing-create-payment-method-form"
+			name="billing-create-payment-method-form"
+			onSubmit={onSubmitAddPaymentMethod}
+			className="max-w-xl"
+		>
 			<PaymentElement />
 			<AddressElement options={{ mode: 'billing' }} />
 

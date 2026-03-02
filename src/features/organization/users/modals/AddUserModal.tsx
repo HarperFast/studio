@@ -99,7 +99,12 @@ export function AddUserModal({
 		>
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+					<form
+						id="org-create-user-form"
+						name="org-create-user-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4"
+					>
 						<DialogHeader>
 							<DialogTitle>{shouldInvite ? 'Invite User' : 'Add User'}</DialogTitle>
 						</DialogHeader>

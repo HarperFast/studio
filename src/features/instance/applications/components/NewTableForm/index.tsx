@@ -90,7 +90,11 @@ export function NewTableForm() {
 
 	return (
 		<Form {...methods}>
-			<form onSubmit={handleSubmit(submitForm)}>
+			<form
+				id="instance-new-app-table-form"
+				name="instance-new-app-table-form"
+				onSubmit={handleSubmit(submitForm)}
+			>
 				<FormField
 					control={control}
 					name="tableName"

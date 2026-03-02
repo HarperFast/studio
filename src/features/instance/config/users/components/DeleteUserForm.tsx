@@ -52,7 +52,12 @@ export function DeleteUserForm({
 
 	return (
 		<Form {...deleteForm}>
-			<form onSubmit={deleteForm.handleSubmit(onDeleteClicked)} className="grid gap-4 my-4">
+			<form
+				id="instance-delete-user-form"
+				name="instance-delete-user-form"
+				onSubmit={deleteForm.handleSubmit(onDeleteClicked)}
+				className="grid gap-4 my-4"
+			>
 				<FormField
 					control={deleteForm.control}
 					name="confirmUsernameForDeletion"

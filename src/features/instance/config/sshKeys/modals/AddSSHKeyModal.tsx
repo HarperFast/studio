@@ -83,7 +83,12 @@ export function AddSSHKeyModal({
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4 md:grid-cols-2">
+					<form
+						id="instance-create-ssh-key-form"
+						name="instance-create-ssh-key-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4 md:grid-cols-2"
+					>
 						<DialogHeader className="md:col-span-2">
 							<DialogTitle>Add New SSH Key</DialogTitle>
 							<DialogDescription>

@@ -74,7 +74,12 @@ export function ResetPassword() {
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Reset Password</h2>
 			<Form {...methods}>
-				<form className="my-4" onSubmit={handleSubmit(submitForm)}>
+				<form
+					id="auth-reset-password-form"
+					name="auth-reset-password-form"
+					className="my-4"
+					onSubmit={handleSubmit(submitForm)}
+				>
 					<FormField
 						control={control}
 						name="password"

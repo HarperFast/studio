@@ -98,7 +98,12 @@ export function AddCertificateModal({
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			<DialogContent aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+					<form
+						id="instance-create-certificate-form"
+						name="instance-create-certificate-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4"
+					>
 						<DialogHeader>
 							<DialogTitle>Add New Certificate</DialogTitle>
 							<DialogDescription>

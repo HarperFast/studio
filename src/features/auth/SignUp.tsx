@@ -103,7 +103,12 @@ export function SignUp() {
 			<hr className="border-gray-600" />
 
 			<Form {...methods}>
-				<form onSubmit={handleSubmit(submitForm)} className="grid gap-4 my-4">
+				<form
+					id="auth-signup-form"
+					name="auth-signup-form"
+					onSubmit={handleSubmit(submitForm)}
+					className="grid gap-4 my-4"
+				>
 					<FormField
 						control={control}
 						name="firstname"

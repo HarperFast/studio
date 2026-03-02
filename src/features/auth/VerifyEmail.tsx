@@ -54,7 +54,12 @@ function SendEmailVerification() {
 	return (
 		<Form {...methods}>
 			<p className="text-sm py-2">Please Enter an Email</p>
-			<form onSubmit={handleSubmit(submitForm)} className="my-4">
+			<form
+				id="auth-verify-email-form"
+				name="auth-verify-email-form"
+				onSubmit={handleSubmit(submitForm)}
+				className="my-4"
+			>
 				<FormField
 					control={control}
 					name="email"

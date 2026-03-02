@@ -101,7 +101,12 @@ export function RedeployApplicationModal() {
 
 				<div>
 					<Form {...methods}>
-						<form className="flex flex-col w-full gap-4" onSubmit={handleSubmit(submitForm)}>
+						<form
+							id="instance-redeploy-app-form"
+							name="instance-redeploy-app-form"
+							className="flex flex-col w-full gap-4"
+							onSubmit={handleSubmit(submitForm)}
+						>
 							<FormField
 								control={control}
 								name="applicationUrl"

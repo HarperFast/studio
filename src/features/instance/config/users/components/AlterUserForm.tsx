@@ -73,7 +73,12 @@ export function AlterUserForm({
 
 	return (
 		<Form {...alterForm}>
-			<form onSubmit={alterForm.handleSubmit(onSubmitClick)} className="grid gap-4 my-4">
+			<form
+				id="instance-edit-user-form"
+				name="instance-edit-user-form"
+				onSubmit={alterForm.handleSubmit(onSubmitClick)}
+				className="grid gap-4 my-4"
+			>
 				<DialogHeader>
 					<DialogTitle>Edit User</DialogTitle>
 				</DialogHeader>
