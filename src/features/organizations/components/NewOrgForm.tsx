@@ -72,7 +72,12 @@ export function NewOrgForm() {
 	return (
 		<>
 			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitForm)} className="grid gap-6 text-white max-w-xl">
+				<form
+					id="org-create-form"
+					name="org-create-form"
+					onSubmit={form.handleSubmit(submitForm)}
+					className="grid gap-6 text-white max-w-xl"
+				>
 					<FormField
 						control={form.control}
 						name="name"

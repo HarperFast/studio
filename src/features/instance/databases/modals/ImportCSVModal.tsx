@@ -96,7 +96,11 @@ export function ImportCSVModal({
 					<DialogDescription>Upload a CSV file to import data into the table.</DialogDescription>
 				</DialogHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(submitForm)}>
+					<form
+						id="instance-import-csv-form"
+						name="instance-import-csv-form"
+						onSubmit={form.handleSubmit(submitForm)}
+					>
 						<div className="w-full">
 							<FormField
 								control={form.control}

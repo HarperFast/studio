@@ -33,7 +33,12 @@ export function SignIn() {
 		<div className="text-white w-xs">
 			<h2 className="text-2xl font-light">Sign in to Harper Fabric</h2>
 			<Form {...methods}>
-				<form onSubmit={handleSubmit(submitForm)} className="my-4">
+				<form
+					id="auth-signin-form"
+					name="auth-signin-form"
+					onSubmit={handleSubmit(submitForm)}
+					className="my-4"
+				>
 					<FormField
 						control={control}
 						name="email"

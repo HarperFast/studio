@@ -106,7 +106,12 @@ export function ClusterInstanceSignIn() {
 						Sign in to Harper {properNoun}
 					</h2>
 					<Form {...methods}>
-						<form onSubmit={handleSubmit(submitForm)} className="my-4">
+						<form
+							id={`auth-${commonNoun}-signin-form`}
+							name={`auth-${commonNoun}-signin-form`}
+							onSubmit={handleSubmit(submitForm)}
+							className="my-4"
+						>
 							<FormField
 								control={control}
 								name="username"

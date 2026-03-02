@@ -57,7 +57,12 @@ export function ForgotPassword() {
 			<h2 className="text-2xl font-light">Enter your account email</h2>
 			<p className="text-sm pt-1">If a matching account exists, we'll send you a password reset link.</p>
 			<Form {...methods}>
-				<form onSubmit={handleSubmit(submitForm)} className="my-4">
+				<form
+					id="auth-forgot-password-form"
+					name="auth-forgot-password-form"
+					onSubmit={handleSubmit(submitForm)}
+					className="my-4"
+				>
 					<FormField
 						control={control}
 						name="email"

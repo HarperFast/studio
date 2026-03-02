@@ -23,7 +23,12 @@ export function LogsFiltersForm({
 	return (
 		<div>
 			<Form {...form}>
-				<form onSubmit={form.handleSubmit(submitFilters)} className="flex-col space-y-5">
+				<form
+					id="instance-edit-log-filters-form"
+					name="instance-edit-log-filters-form"
+					onSubmit={form.handleSubmit(submitFilters)}
+					className="flex-col space-y-5"
+				>
 					<FormField
 						control={form.control}
 						name="limit"

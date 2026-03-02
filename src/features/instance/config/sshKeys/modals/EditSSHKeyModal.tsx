@@ -97,7 +97,12 @@ export function EditSSHKeyModal({
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
 			<DialogContent className="sm:max-w-[750px]" aria-describedby={undefined}>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmitClick)} className="grid gap-4 my-4 md:grid-cols-2">
+					<form
+						id="instance-edit-ssh-key-form"
+						name="instance-edit-ssh-key-form"
+						onSubmit={form.handleSubmit(onSubmitClick)}
+						className="grid gap-4 my-4 md:grid-cols-2"
+					>
 						<DialogTitle>Edit SSH Key</DialogTitle>
 
 						<FormField

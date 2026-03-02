@@ -463,7 +463,11 @@ export function ClusterForm({
 								Configure your Harper cluster and define deployment plans.
 							</p>
 
-							<form onSubmit={form.handleSubmit(submitClusterDetailsForm)}>
+							<form
+								id="cluster-upsert-form"
+								name="cluster-upsert-form"
+								onSubmit={form.handleSubmit(submitClusterDetailsForm)}
+							>
 								<ClusterDetails
 									calculatedNames={calculatedNames}
 									clusterId={clusterId}

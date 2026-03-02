@@ -173,7 +173,12 @@ export function EditOrganizationRoleModal({
 						<>
 							<DialogTitle>{isSelf || !update ? 'View' : 'Edit'} Organization Role "{data.roleName}"</DialogTitle>
 							<Form {...form}>
-								<form className="grid grid-cols-2 gap-4 my-4" onSubmit={form.handleSubmit(onSubmitRoleEdits)}>
+								<form
+									id="org-edit-role-form"
+									name="org-edit-role-form"
+									className="grid grid-cols-2 gap-4 my-4"
+									onSubmit={form.handleSubmit(onSubmitRoleEdits)}
+								>
 									<FormField
 										control={form.control}
 										name="name"

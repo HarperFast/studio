@@ -116,7 +116,12 @@ export function NewApplication() {
 			</div>
 
 			<Form {...methods}>
-				<form onSubmit={handleSubmit(submitForm)} className="flex flex-col gap-4 p-4">
+				<form
+					id="instance-create-application-form"
+					name="instance-create-application-form"
+					onSubmit={handleSubmit(submitForm)}
+					className="flex flex-col gap-4 p-4"
+				>
 					<fieldset disabled={isImportingApplication || isCreatingFromTemplate || isReloading}>
 						<Card className="bg-black-dark">
 							<CommonInstructions
