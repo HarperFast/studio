@@ -140,8 +140,7 @@ export function RegionFormInputs({
 				</div>
 			)}
 			<ResourcesPerInstance
-				planLimits={selectedPlan?.planLimits}
-				resourcesPerInstance={selectedPlan?.resourcesPerInstance}
+				selectedPlan={selectedPlan}
 				selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription]}
 				isEnterprise={isEnterprise}
 			/>

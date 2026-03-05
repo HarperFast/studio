@@ -3,7 +3,7 @@ import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { SchemaPlanLimits, SchemaRegion, SchemaResourcesPerInstance } from '@/integrations/api/api.gen';
+import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { humanFileSize } from '@/lib/humanFileSize';
@@ -13,9 +13,8 @@ import { isPositive } from '@/lib/types/isPositive';
 import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selectedRegion, isEnterprise }: {
-	readonly planLimits: SchemaPlanLimits | undefined;
-	readonly resourcesPerInstance: SchemaResourcesPerInstance | undefined;
+export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise }: {
+	readonly selectedPlan: SchemaPlan | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
 	readonly isEnterprise: boolean;
 }) {
@@ -23,15 +22,17 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 	const onUsageLimitsClick = useCallback(() => {
 		setToggled(!toggled);
 	}, [toggled, setToggled]);
+	const planLimits = selectedPlan?.planLimits;
+	const resourcesPerInstance = selectedPlan?.resourcesPerInstance;
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000
 		&& planLimits.expirationMonths;
 	const multiplier = selectedRegion?.purchasedBlockMultiplier ?? 1;
-	const rows = useMemo(() => {
+	const rows = useMemo<{ label: string; value: string }[]>(() => {
 		if (!planLimits) {
 			return [];
 		}
-		return [
+		return ([
 			isPositive(planLimits.totalReadCount) && {
 				label: 'Total Reads',
 				value: `${humanNumber(planLimits.totalReadCount * multiplier)} reads`,
@@ -88,16 +89,24 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 				label: 'Application Compute Hours',
 				value: `${humanNumber(planLimits.applicationComputeHours * 60 * multiplier)}`,
 			},
-			resourcesPerInstance && isPositive(resourcesPerInstance.storageGb) && {
+			!!resourcesPerInstance && isPositive(resourcesPerInstance.storageGb) && {
 				label: 'Storage',
 				value: `${humanFileSize(resourcesPerInstance.storageGb * 1000_000_000)}`,
 			},
-			expirationMonths && {
+			!!expirationMonths && {
 				label: 'Expiration',
 				value: pluralize(expirationMonths, 'month', 'months'),
 			},
-		].filter(excludeFalsy);
-	}, [expirationMonths, planLimits, resourcesPerInstance, multiplier]);
+			!!selectedRegion?.id && {
+				label: 'Region ID',
+				value: selectedRegion.id,
+			},
+			!!selectedPlan?.id && {
+				label: 'Plan ID',
+				value: selectedPlan.id,
+			},
+		] satisfies Array<boolean | { label: string; value: string }>).filter(excludeFalsy);
+	}, [expirationMonths, selectedRegion, selectedPlan, multiplier]);
 
 	if (!planLimits) {
 		// The user hasn't selected a plan yet. so let's not show anything for the ResourcesPerInstance space yet.
@@ -119,7 +128,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 		? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
 		: ' ';
 	const inRegionOrPerServer = isPositive(planLimits.readsPerMinuteCount)
-		? 'in ' + (selectedRegion?.region ?? '') + ' region'
+		? `in ${selectedRegion?.region ?? ''} region${selectedRegion ? ` (${selectedRegion?.id})` : ''}`
 		: 'per server';
 	const forMonths = expirationMonths ? `, for ${pluralize(expirationMonths, 'month', 'months')}` : '';
 	const forThePriceAbove = isEnterprise
@@ -130,7 +139,7 @@ export function ResourcesPerInstance({ planLimits, resourcesPerInstance, selecte
 	return (
 		<FormItem className="basis-full">
 			<FormLabel onClick={onUsageLimitsClick}>
-				Purchasing usage block for {maybeReadsPerMinute}
+				<em className="text-muted-foreground">{selectedPlan?.id}</em> Purchasing usage block for {maybeReadsPerMinute}
 				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {inRegionOrPerServer},
 				<br className="hidden sm:block" />
 				{maybeWritesPerMinute} {humanNumber(planLimits.totalWriteCount)} total writes{forMonths}.
