@@ -90,7 +90,7 @@
 		"@vitest/coverage-v8": "^4.0.0",
 		"dotenv-cli": "^11.0.0",
 		"dprint": "^0.52.0",
-		"harperdb": "4.7.19",
+		"harperdb": "4.7.21",
 		"husky": "^9.1.7",
 		"jsdom": "^28.0.0",
 		"oxlint": "^1.32.0",
