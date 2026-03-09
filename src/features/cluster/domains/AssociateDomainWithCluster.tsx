@@ -25,7 +25,7 @@ export function AssociateDomainWithCluster({ cluster: { fqdn }, disabled, domain
 			</div>
 
 			<div className="col-span-1">Type:</div>
-			<div className="col-span-1">CNAME or ALIAS</div>
+			<div className="col-span-1">CNAME</div>
 
 			<div className="col-span-1">Name:</div>
 			<div className="col-span-1 flex gap-2">
