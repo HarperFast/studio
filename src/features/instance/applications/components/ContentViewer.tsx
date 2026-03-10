@@ -7,6 +7,7 @@ import { hasImageFileExtension } from '@/lib/string/hasImageFileExtension';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { CopyIcon } from 'lucide-react';
 import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
@@ -23,7 +24,13 @@ export function ContentViewer() {
 	if (isDirectory(openedEntry)) {
 		return (
 			<div className="directoryReadMe max-w-3xl">
-				<Markdown urlTransform={urlTransform} components={{ code: MarkdownCode }}>{openedEntryContents}</Markdown>
+				<Markdown
+					urlTransform={urlTransform}
+					remarkPlugins={[remarkGfm]}
+					components={{ code: MarkdownCode }}
+				>
+					{openedEntryContents}
+				</Markdown>
 			</div>
 		);
 	}
@@ -52,15 +59,22 @@ function MarkdownCode({
 	className?: string;
 	children?: unknown;
 }) {
-	const code = String(children ?? '');
+	const code = String(children ?? '').replace(/\n$/, '');
 	const [copy] = useCopyToClipboard(code);
 
 	if (inline || !code.includes('\n')) {
 		return <code className={className}>{children as any}</code>;
 	}
+
 	return (
 		<code className="relative">
-			<Button className="absolute top-2 right-2" type="button" variant="default" size="sm" onClick={copy}>
+			<Button
+				className="absolute top-2 right-2"
+				type="button"
+				variant="default"
+				size="sm"
+				onClick={copy}
+			>
 				<CopyIcon className="w-4 h-4" />
 			</Button>
 			{code}
