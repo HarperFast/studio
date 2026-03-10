@@ -70,3 +70,26 @@
 		}
 	}
 }
+
+.directoryReadMe table {
+	border-collapse: collapse;
+	width: 100%;
+	margin: 1rem 0;
+	font-size: 0.875rem;
+}
+
+.directoryReadMe th,
+.directoryReadMe td {
+	border: 1px solid var(--card);
+	padding: 0.5rem 0.75rem;
+	text-align: left;
+}
+
+.directoryReadMe th {
+	background-color: var(--background);
+	font-weight: 600;
+}
+
+.directoryReadMe tr:nth-child(even) {
+	background-color: var(--black-dark);
+}
