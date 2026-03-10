@@ -6,6 +6,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { hasImageFileExtension } from '@/lib/string/hasImageFileExtension';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { CopyIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { newApplication } from './ApplicationsSidebar/specialItems';
@@ -50,6 +51,56 @@ export function ContentViewer() {
 	}
 }
 
+function MermaidDiagram({ chart }: { chart: string }) {
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [svg, setSvg] = useState('');
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+		let cancelled = false;
+
+		import('mermaid').then(({ default: mermaid }) => {
+			if (cancelled) { return; }
+			mermaid.initialize({ startOnLoad: false, theme: 'default' });
+			mermaid
+				.render(id, chart)
+				.then(({ svg }) => {
+					if (!cancelled) {
+						setSvg(svg);
+						setError(null);
+					}
+				})
+				.catch((err) => {
+					if (!cancelled) {
+						console.error('Mermaid render error:', err);
+						setError(String(err));
+					}
+				});
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	}, [chart]);
+
+	if (error) {
+		return (
+			<pre className="text-red-500 bg-red-50 p-3 rounded text-sm overflow-auto">
+				<code>{chart}</code>
+			</pre>
+		);
+	}
+
+	return (
+		<div
+			ref={containerRef}
+			className="my-4 flex justify-center overflow-auto"
+			dangerouslySetInnerHTML={{ __html: svg }}
+		/>
+	);
+}
+
 function MarkdownCode({
 	inline,
 	className,
@@ -61,9 +112,14 @@ function MarkdownCode({
 }) {
 	const code = String(children ?? '').replace(/\n$/, '');
 	const [copy] = useCopyToClipboard(code);
+	const language = className?.replace('language-', '');
 
 	if (inline || !code.includes('\n')) {
 		return <code className={className}>{children as any}</code>;
+	}
+
+	if (language === 'mermaid') {
+		return <MermaidDiagram chart={code} />;
 	}
 
 	return (
