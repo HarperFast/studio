@@ -36,7 +36,6 @@ jobs:
       - name: Verify stage can build
         run: pnpm build:stage
       - name: Determine version tag for build
-        if: ${{ github.event_name == 'push' }}
         run: |
           VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
           if [ -z "$VERSION_TAG" ]; then
@@ -44,10 +43,16 @@ jobs:
           fi
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build stage for release
-        if: ${{ github.event_name == 'push' }}
         run: pnpm build:stage
+      - name: Upload sourcemaps to Datadog
+        run: |
+          pnpm datadog-ci sourcemaps upload web/assets \
+            --service "studio" \
+            --release-version "$VITE_STUDIO_VERSION" \
+            --minified-path-prefix "https://stage.studio.harperfabric.com/assets"
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
       - name: Deploy to stage
-        if: ${{ github.event_name == 'push' }}
         run: |
           mkdir deploy
           mv web deploy/

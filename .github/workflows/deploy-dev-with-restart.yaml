@@ -40,6 +40,14 @@ jobs:
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build dev
         run: pnpm build:dev
+      - name: Upload sourcemaps to Datadog
+        run: |
+          pnpm datadog-ci sourcemaps upload web/assets \
+            --service "studio" \
+            --release-version "$VITE_STUDIO_VERSION" \
+            --minified-path-prefix "https://dev.studio.harperfabric.com/assets"
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
       - name: Deploy to dev
         run: |
           mkdir deploy

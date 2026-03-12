@@ -57,6 +57,15 @@ jobs:
       - name: Build stage for release
         if: ${{ github.event_name == 'push' }}
         run: pnpm build:stage
+      - name: Upload sourcemaps to Datadog
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          pnpm datadog-ci sourcemaps upload web/assets \
+            --service "studio" \
+            --release-version "$VITE_STUDIO_VERSION" \
+            --minified-path-prefix "https://stage.studio.harperfabric.com/assets"
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
       - name: Deploy to stage
         if: ${{ github.event_name == 'push' }}
         run: |
