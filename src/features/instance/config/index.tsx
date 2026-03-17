@@ -53,18 +53,6 @@ export function ConfigIndex() {
 					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
 				</Link>
 			</li>
-			{!isLocalStudio && !isSelfManaged && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/domains')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<GlobeIcon className="hidden md:inline-block" /> <span className="ms-3">Domains</span>
-					</Link>
-				</li>
-			)}
 			{certsAvailable && (
 				<li>
 					<Link
@@ -74,6 +62,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<ShieldCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Certificates</span>
+					</Link>
+				</li>
+			)}
+			{!isLocalStudio && !isSelfManaged && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/domains')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<GlobeIcon className="hidden md:inline-block" /> <span className="ms-3">Domains</span>
 					</Link>
 				</li>
 			)}

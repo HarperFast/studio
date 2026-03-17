@@ -60,7 +60,7 @@ export function getSearchByValueOptions(params: GetSearchByValueParams) {
 	});
 }
 
-export function getSearchByValue({
+export function getSearchByValue<T = Record<string, unknown>>({
 	instanceClient,
 	databaseName,
 	tableName,
@@ -72,7 +72,7 @@ export function getSearchByValue({
 	headers,
 }: GetSearchByValueParams) {
 	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
-	return instanceClient.post<Record<string, unknown>[]>(
+	return instanceClient.post<T[]>(
 		'/',
 		{
 			operation: 'search_by_value',
