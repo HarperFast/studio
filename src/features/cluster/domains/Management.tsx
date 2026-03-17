@@ -7,8 +7,10 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { isRunning } from '@/components/ui/utils/badgeStatus';
 import { useDataTableColumns } from '@/features/cluster/domains/constants/tableDefinition';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import {
 	AddOrganizationDomainSchema,
 	useAddDomainToOrganization,
@@ -18,11 +20,13 @@ import { getOrganizationDomainsQueryOptions } from '@/features/organization/quer
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationDomain } from '@/integrations/api/api.patch';
+import { unique } from '@/lib/arrays/unique';
 import { pluralize } from '@/lib/pluralize';
+import { queryClient } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { ListTodoIcon, PlusIcon, RefreshCwIcon } from 'lucide-react';
+import { ListTodoIcon, PlusIcon, RefreshCwIcon, Save } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -63,7 +67,35 @@ export function DomainsManagement() {
 
 	const onRefreshClick = useRefreshClick(refetch);
 
-	const { mutate: addDomain, isPending: isAddPending } = useAddDomainToOrganization();
+	const [selectedDomainIds, setSelectedDomainIds] = useState<string[]>([]);
+	const onToggleDomainSelection = useCallback((domainId: string) => {
+		setSelectedDomainIds((prev) =>
+			prev.includes(domainId) ? prev.filter((id) => id !== domainId) : [...prev, domainId]
+		);
+	}, []);
+
+	const { mutate: setDomainIds, isPending: isBindPending } = useSetDomainIdsOnCluster();
+
+	const onBindClick = useCallback(() => {
+		if (!isRunning(cluster.status)) {
+			toast.error('Cluster is currently ' + cluster.status, { description: 'To bind a domain, it must be running.' });
+			return;
+		}
+
+		setDomainIds({
+			clusterId: cluster.id,
+			domainIds: unique((cluster.domainIds?.slice() || []).concat(selectedDomainIds)),
+			generateDomainCerts: true,
+		}, {
+			onSuccess: () => {
+				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId], refetchType: 'active' });
+				toast.success('Domain(s) bound! Certificates are being generated in the background now.');
+				setSelectedDomainIds([]);
+			},
+		});
+	}, [cluster, selectedDomainIds, setDomainIds]);
+
+	const { mutateAsync: addDomain, isPending: isAddPending } = useAddDomainToOrganization();
 	const form = useForm({
 		resolver: zodResolver(AddOrganizationDomainSchema),
 		defaultValues: {
@@ -75,13 +107,17 @@ export function DomainsManagement() {
 	const onSubmitClick = useCallback(
 		async (formData: z.infer<typeof AddOrganizationDomainSchema>) => {
 			if (formData) {
-				addDomain(formData, {
-					onSuccess: () => {
-						form.reset();
-						refetch();
-						toast.success('Domain added! Please add the txt record above to your domain registrar.');
-					},
-				});
+				const domains = formData.domain.split(/[,\s]+/).map((d: string) => d.trim()).filter(Boolean);
+				for (const domain of domains) {
+					await addDomain({ ...formData, domain });
+				}
+				form.reset();
+				await refetch();
+				toast.success(
+					`${
+						pluralize(domains.length, 'Domain', 'Domains')
+					} added! Please add the txt record above to your domain registrar.`,
+				);
 			}
 		},
 		[addDomain, form, refetch],
@@ -118,7 +154,20 @@ export function DomainsManagement() {
 		}
 	}, [pendingDomains]);
 
-	const dataTableColumns = useDataTableColumns(cluster);
+	const dataTableColumns = useDataTableColumns(cluster, selectedDomainIds, onToggleDomainSelection);
+
+	const domainValue = form.watch('domain');
+	const isApex = useMemo(() => {
+		if (typeof domainValue !== 'string') { return false; }
+		const parts = domainValue.trim().split('.');
+		return parts.length === 2;
+	}, [domainValue]);
+
+	const suggestWww = useCallback(() => {
+		if (typeof domainValue === 'string') {
+			form.setValue('domain', `${domainValue.trim()}, www.${domainValue.trim()}`);
+		}
+	}, [domainValue, form]);
 
 	return (
 		<SimpleBrowseDataTable<SchemaOrganizationDomain, unknown>
@@ -127,7 +176,7 @@ export function DomainsManagement() {
 			columns={dataTableColumns}
 			sortingState={sortingState}
 		>
-			<div className="w-full flex flex-col md:flex-row justify-between md:items-center md:space-x-2 space-y-2 md:space-y-0">
+			<div className="w-full flex flex-col md:flex-row items-center md:justify-between md:space-x-2 space-y-2 md:space-y-0">
 				{update && (
 					<Form {...form}>
 						<form
@@ -145,6 +194,14 @@ export function DomainsManagement() {
 										<FormControl>
 											<Input type="text" enterKeyHint="done" autoComplete="off" {...field} />
 										</FormControl>
+										{isApex && (
+											<div className="mt-1 flex gap-4">
+												Adding an apex domain?
+												<Button variant="positiveOutline" type="button" onClick={suggestWww}>
+													Add www as well
+												</Button>
+											</div>
+										)}
 										<FormMessage>
 											<span className="text-muted-foreground italic">
 												Type in a domain like example.com or your.example.com, and you'll be guided through validating
@@ -154,7 +211,7 @@ export function DomainsManagement() {
 									</FormItem>
 								)}
 							/>
-							<div className="flex-0 self-start md:pt-6.5">
+							<div className="flex-0 self-start flex gap-1 md:pt-6.5">
 								<Button
 									type="submit"
 									variant="submit"
@@ -162,35 +219,49 @@ export function DomainsManagement() {
 								>
 									<PlusIcon /> Add
 								</Button>
+
+								{pendingDomains.length > 0 && (
+									<Button
+										variant="positiveOutline"
+										onClick={onValidateClick}
+										accessKey="r"
+										type="button"
+										disabled={isFetching || isRefetching}
+									>
+										<ListTodoIcon />{' '}
+										<span>
+											<u>V</u>alidate
+										</span>
+									</Button>
+								)}
+								<Button
+									variant="defaultOutline"
+									onClick={onRefreshClick}
+									accessKey="r"
+									type="button"
+									disabled={isFetching || isRefetching}
+								>
+									<RefreshCwIcon />{' '}
+									<span className="hidden lg:inline-block">
+										<u>R</u>efresh
+									</span>
+								</Button>
 							</div>
 						</form>
 					</Form>
 				)}
 
-				{pendingDomains.length > 0 && (
-					<Button
-						variant="positiveOutline"
-						onClick={onValidateClick}
-						accessKey="r"
-						disabled={isFetching || isRefetching}
-					>
-						<ListTodoIcon />{' '}
-						<span>
-							<u>V</u>alidate
-						</span>
-					</Button>
+				{selectedDomainIds.length > 0 && (
+					<div className="flex-0 self-start md:pt-6.5">
+						<Button
+							variant="submit"
+							onClick={onBindClick}
+							disabled={isBindPending}
+						>
+							<Save /> Bind {pluralize(selectedDomainIds.length, 'Domain', 'Domains')}
+						</Button>
+					</div>
 				)}
-				<Button
-					variant="defaultOutline"
-					onClick={onRefreshClick}
-					accessKey="r"
-					disabled={isFetching || isRefetching}
-				>
-					<RefreshCwIcon />{' '}
-					<span className="hidden lg:inline-block">
-						<u>R</u>efresh
-					</span>
-				</Button>
 			</div>
 		</SimpleBrowseDataTable>
 	);

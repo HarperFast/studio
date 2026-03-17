@@ -2,6 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { isRunning } from '@/components/ui/utils/badgeStatus';
 import { AssociateDomainWithCluster } from '@/features/cluster/domains/AssociateDomainWithCluster';
+import { CertificateProgress } from '@/features/cluster/domains/components/CertificateProgress';
+import { useChallengeCertificates } from '@/features/cluster/domains/queries/getChallengeCertificates';
 import { VerifyDomainOwnership } from '@/features/cluster/domains/VerifyDomainOwnership';
 import { useSetDomainIdsOnCluster } from '@/features/clusters/mutations/setDomainIdsOnCluster';
 import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain';
@@ -15,7 +17,17 @@ import { toast } from 'sonner';
 
 const columnHelper = createColumnHelper<SchemaOrganizationDomain>();
 
-export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrganizationDomain>> {
+export function useDataTableColumns(
+	cluster: Cluster,
+	selectedDomainIds: string[],
+	onToggleDomainSelection: (domainId: string) => void,
+): Array<ColumnDef<SchemaOrganizationDomain>> {
+	const { data: challengeCertificates } = useChallengeCertificates(cluster.id);
+	const isGeneratingCert = useMemo(
+		() => !!challengeCertificates?.some((cert) => !cert.issueDate || cert.inProgress),
+		[challengeCertificates],
+	);
+
 	const { mutate: setDomainIds, isPending: addPending } = useSetDomainIdsOnCluster();
 	const { mutate: deleteDomain, isPending: deletePending } = useDeleteDomain();
 	const isPending = addPending || deletePending;
@@ -67,6 +79,28 @@ export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrg
 
 	return useMemo(() => [
 		columnHelper.display({
+			id: 'select',
+			header: 'Bind',
+			size: 50,
+			cell: (props) => {
+				const domain = props.row.original;
+				const canBind = domain.status === 'ACTIVE' && !domain.clusterId && !clusterIsSelfManaged(cluster);
+				if (!canBind) {
+					return null;
+				}
+				return (
+					<label className="p-10 -m-10">
+						<input
+							type="checkbox"
+							checked={selectedDomainIds.includes(domain.id)}
+							onChange={() => onToggleDomainSelection(domain.id)}
+							disabled={isPending || isGeneratingCert}
+						/>
+					</label>
+				);
+			},
+		}),
+		columnHelper.display({
 			header: 'Domains',
 			id: 'domain',
 			enableSorting: false,
@@ -108,11 +142,18 @@ export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrg
 			cell: (props) => {
 				const domain = props.row.original;
 
+				const certForDomain = challengeCertificates?.find((c) => c.domain === domain.domain);
+
 				if (domain.status === 'ACTIVE' && domain.clusterId) {
 					if (cluster.id === domain.clusterId) {
 						return (
 							<>
 								<div>Bound to this cluster</div>
+								{certForDomain && (!certForDomain.issueDate || certForDomain.inProgress) && (
+									<div className="py-2">
+										<CertificateProgress certificate={certForDomain} domain={domain} cluster={cluster} />
+									</div>
+								)}
 								<Button
 									variant="destructiveGhost"
 									className="text-muted-foreground text-xs"
@@ -129,7 +170,7 @@ export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrg
 				}
 
 				if (domain.status === 'PENDING_VALIDATION') {
-					return <VerifyDomainOwnership domain={domain} />;
+					return <VerifyDomainOwnership domain={domain} cluster={cluster} />;
 				}
 
 				if (clusterIsSelfManaged(cluster)) {
@@ -141,8 +182,6 @@ export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrg
 						<AssociateDomainWithCluster
 							cluster={cluster}
 							domain={domain}
-							bindDomain={(generateDomainCerts) => bindDomainToThisCluster(domain.id, generateDomainCerts)}
-							disabled={isPending}
 						/>
 					);
 				}
@@ -151,5 +190,13 @@ export function useDataTableColumns(cluster: Cluster): Array<ColumnDef<SchemaOrg
 				return domain.status;
 			},
 		}),
-	], [cluster, bindDomainToThisCluster, isPending]);
+	], [
+		cluster,
+		bindDomainToThisCluster,
+		isPending,
+		challengeCertificates,
+		isGeneratingCert,
+		selectedDomainIds,
+		onToggleDomainSelection,
+	]);
 }

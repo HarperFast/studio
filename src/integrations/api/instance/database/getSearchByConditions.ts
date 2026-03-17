@@ -83,7 +83,7 @@ export function getSearchByConditionsOptions(params: GetSearchByConditionsParams
 	});
 }
 
-export function getSearchByConditions({
+export function getSearchByConditions<T = Record<string, unknown>>({
 	instanceClient,
 	databaseName,
 	tableName,
@@ -94,7 +94,7 @@ export function getSearchByConditions({
 	onlyIfCached,
 	headers,
 }: GetSearchByConditionsParams) {
-	return instanceClient.post<Record<string, unknown>[]>(
+	return instanceClient.post<T[]>(
 		'/',
 		{
 			operation: 'search_by_conditions',
