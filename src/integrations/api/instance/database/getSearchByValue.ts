@@ -60,7 +60,7 @@ export function getSearchByValueOptions(params: GetSearchByValueParams) {
 	});
 }
 
-export function getSearchByValue<T = Record<string, unknown>>({
+export async function getSearchByValue<T = Record<string, unknown>>({
 	instanceClient,
 	databaseName,
 	tableName,
@@ -72,7 +72,7 @@ export function getSearchByValue<T = Record<string, unknown>>({
 	headers,
 }: GetSearchByValueParams) {
 	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
-	return instanceClient.post<T[]>(
+	const response = await instanceClient.post<T[]>(
 		'/',
 		{
 			operation: 'search_by_value',
@@ -87,6 +87,10 @@ export function getSearchByValue<T = Record<string, unknown>>({
 			onlyIfCached: onlyIfCached,
 			noCacheStore: onlyIfCached,
 		} satisfies SearchByValueRequest,
-		{ timeout: 0, headers },
+		{ timeout: 0, headers, validateStatus: (status) => status >= 200 && status < 400 || status === 404 },
 	);
+	if (response.status === 404) {
+		return { data: [] };
+	}
+	return response;
 }
