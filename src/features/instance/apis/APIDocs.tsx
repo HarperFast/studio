@@ -13,8 +13,9 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { useCallback } from 'react';
-import SwaggerUI from 'swagger-ui-react';
+import { lazy, Suspense, useCallback } from 'react';
+
+const SwaggerUI = lazy(() => import('swagger-ui-react'));
 import 'swagger-ui-react/swagger-ui.css';
 import './swagger.css';
 
@@ -113,16 +114,18 @@ export function APIDocs() {
 					</Button>
 				</ErrorComponent>
 			)}
-			<SwaggerUI
-				spec={spec}
-				persistAuthorization={true}
-				withCredentials={true}
-				requestSnippetsEnabled={true}
-				defaultModelRendering="model"
-				requestSnippets={requestSnippets}
-				plugins={plugins}
-				tryItOutEnabled={true}
-			/>
+			<Suspense fallback={<Loading centered={true} text="Loading API documentation..." />}>
+				<SwaggerUI
+					spec={spec}
+					persistAuthorization={true}
+					withCredentials={true}
+					requestSnippetsEnabled={true}
+					defaultModelRendering="model"
+					requestSnippets={requestSnippets}
+					plugins={plugins}
+					tryItOutEnabled={true}
+				/>
+			</Suspense>
 		</>
 	);
 }

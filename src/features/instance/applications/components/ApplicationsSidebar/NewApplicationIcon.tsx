@@ -1,5 +1,6 @@
+import { PlusIcon } from 'lucide-react';
 import { iconSharedClassName } from './constants';
 
 export function NewApplicationIcon() {
-	return <i className={iconSharedClassName + 'fas fa-plus text-green'} />;
+	return <PlusIcon className={iconSharedClassName + 'w-4 h-4 shrink-0 text-green-500'} />;
 }
