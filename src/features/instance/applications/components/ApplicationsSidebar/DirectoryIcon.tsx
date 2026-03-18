@@ -1,12 +1,15 @@
+import { FolderIcon, FolderOpenIcon, PackageIcon, PackageOpenIcon } from 'lucide-react';
 import { iconSharedClassName } from './constants';
 
 export function DirectoryIcon({ opened, pkg }: { readonly opened?: boolean; readonly pkg?: boolean }) {
+	const iconClassName = iconSharedClassName + 'w-4 h-4 shrink-0';
+
 	if (pkg) {
 		return opened
-			? <i className={iconSharedClassName + 'fas fa-box-open text-orange-600'} />
-			: <i className={iconSharedClassName + 'fas fa-box text-orange-600'} />;
+			? <PackageOpenIcon className={`${iconClassName} text-orange-600`} />
+			: <PackageIcon className={`${iconClassName} text-orange-600`} />;
 	}
 	return opened
-		? <i className={iconSharedClassName + 'fas fa-folder-open text-orange-400'} />
-		: <i className={iconSharedClassName + 'fas fa-folder text-orange-400'} />;
+		? <FolderOpenIcon className={`${iconClassName} text-orange-400`} />
+		: <FolderIcon className={`${iconClassName} text-orange-400`} />;
 }
