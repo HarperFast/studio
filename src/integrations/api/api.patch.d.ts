@@ -9,6 +9,7 @@ import { ENTERPRISE, SELF_SERVICE } from './orgType';
 
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole>;
+	fabricRole: 'fabric_admin' | 'super_user' | 'least_privileged';
 }
 
 export interface Organization extends SchemaOrganization {
