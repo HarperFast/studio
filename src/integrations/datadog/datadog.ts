@@ -22,6 +22,8 @@ export function useDatadog() {
 				applicationId: 'f590deee-4bac-49b4-a202-3b6963d9721d',
 				clientToken: 'pub27aa29cea521492f4fef73032f86a023',
 
+				proxy: ({ path, parameters }) => `/Drink/?pour=${btoa(`${path}?${parameters}`)}`,
+
 				site: 'datadoghq.com',
 				service: 'studio',
 				env: import.meta.env.VITE_ENV_NAME,
