@@ -30,6 +30,11 @@ export function useCloudAuth(): AuthenticatedCloudConnection {
 	return useOverallAuth() as AuthenticatedCloudConnection;
 }
 
+export function useAdminMode(): boolean {
+	const { user } = useCloudAuth();
+	return user?.fabricRole === 'fabric_admin' || user?.fabricRole === 'super_user';
+}
+
 export function useInstanceAuth(entityId?: EntityIds): AuthenticatedInstanceConnection {
 	const key = isLocalStudio ? OverallAppSignIn : entityId;
 	const { clusterId, instanceId }: { instanceId?: string; clusterId: string } = useParams({ strict: false });

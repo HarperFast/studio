@@ -7,12 +7,14 @@ import { DeleteDatabaseModal } from '@/features/instance/databases/modals/Delete
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
+import { useAdminMode } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useToggler } from '@/hooks/useToggler';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
+import { useCleanupOrphanBlobsMutation } from '@/integrations/api/instance/database/cleanupOrphanBlobs';
 import { useDeleteTableRecords } from '@/integrations/api/instance/database/deleteTableRecords';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import {
@@ -32,6 +34,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
+	BrushCleaningIcon,
 	CircleCheckBigIcon,
 	CircleIcon,
 	CloudDownloadIcon,
@@ -69,6 +72,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { toggled: onlyIfCached, toggle: toggleOnlyCached } = useToggler(true);
 
+	const adminMode = useAdminMode();
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
@@ -195,12 +199,32 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
+	const { mutate: cleanupOrphanBlobs, isPending: isCleanupOrphanBlobsPending } = useCleanupOrphanBlobsMutation();
 
 	const queryClient = useQueryClient();
 	const refreshTable = useCallback(
 		() => queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] }),
 		[queryClient, instanceParams.entityId, databaseName, tableName],
 	);
+
+	const onCleanupOrphanBlobs = useCallback(async () => {
+		if (!confirm(`Are you sure you want to cleanup orphan blobs for database "${databaseName}"?`)) {
+			return;
+		}
+
+		cleanupOrphanBlobs({
+			...instanceParams,
+			databaseName,
+		}, {
+			onSuccess: (data) => {
+				toast.success(data.message || 'Orphan blobs cleanup started successfully');
+				refreshTable();
+			},
+			onError: (error) => {
+				toast.error(error instanceof Error ? error.message : 'Failed to cleanup orphan blobs');
+			},
+		});
+	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);
 
 	const [isExportingCSV, setisExportingCSV] = useState(false);
 	const onExportCSVClicked = useCallback(async () => {
@@ -415,6 +439,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 									<ExternalLinkIcon />
 								</Link>
 							</DropdownMenuItem>
+							{canManageBrowseInstance
+								&& adminMode
+								&& !!instanceId && (
+								<DropdownMenuItem
+									className="focus:bg-yellow/70 focus:text-white"
+									onClick={onCleanupOrphanBlobs}
+									disabled={isCleanupOrphanBlobsPending}
+								>
+									<BrushCleaningIcon className="text-yellow " />
+									Cleanup Orphan Blobs
+								</DropdownMenuItem>
+							)}
 							{canManageBrowseInstance && !isLastTableInDatabase && (
 								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteTable}>
 									<TrashIcon className="inline-block " />
