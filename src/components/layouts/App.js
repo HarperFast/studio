@@ -30,7 +30,6 @@ import getAkamaiRegions from '../../functions/api/lms/getAkamaiRegions';
 import AuthLayout from '../auth/AuthLayout';
 
 const TopNav = lazy(() => import(/* webpackChunkName: "topnav" */ '../TopNav'));
-const SignUp = lazy(() => import(/* webpackChunkName: "signUp" */ '../auth/SignUp'));
 const SignIn = lazy(() => import(/* webpackChunkName: "signIn" */ '../auth/SignIn'));
 const ResetPassword = lazy(() => import(/* webpackChunkName: "resetPassword" */ '../auth/ResetPassword'));
 const UpdatePassword = lazy(() => import(/* webpackChunkName: "updatePassword" */ '../auth/UpdatePassword'));
@@ -160,7 +159,7 @@ function App() {
 								) : (
 									<Route element={<AuthLayout />}>
 										<Route element={<SignIn />} path="/" />
-										<Route element={config.maintenance ? <Maintenance /> : <SignUp />} path="/sign-up" />
+										<Route element={<Maintenance />} path="/sign-up" />
 										<Route element={isMaintenance ? <Maintenance /> : <ResetPassword />} path="/reset-password" />
 										<Route path="*" element={<Navigate to={`/?redirect=${pathname}${search}`} replace />} />
 									</Route>

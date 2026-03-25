@@ -15,17 +15,6 @@
 		&.new {
 			color: $color-purple;
 			font-size: 95%;
-
-			.new-org-plus {
-				transform: rotate(-90deg);
-				transition: transform 500ms ease-in-out;
-			}
-
-			&:hover {
-				.new-org-plus {
-					transform: rotate(90deg);
-				}
-			}
 		}
 
 		.org-name {

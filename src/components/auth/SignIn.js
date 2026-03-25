@@ -122,9 +122,6 @@ function SignIn() {
 						</Button>
 					</Form>
 					<div className="px-4 mt-3 d-flex justify-content-between">
-						<NavLink to="/sign-up" className="login-nav-link d-inline-block">
-							Sign Up for Free
-						</NavLink>
 						<NavLink to="/reset-password" className="login-nav-link d-inline-block">
 							Reset Password
 						</NavLink>

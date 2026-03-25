@@ -3,19 +3,14 @@ import { Row } from 'reactstrap';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStoreState } from 'pullstate';
 
-import { ErrorBoundary } from 'react-error-boundary';
 import appState from '../../functions/state/appState';
 
 import SubNav from './SubNav';
 import OrgList from './list/OrgList';
-import NewOrgCard from './list/NewOrgCard';
-import NewOrgModal from './new';
 import Loader from '../shared/Loader';
-import addError from '../../functions/api/lms/addError';
-import ErrorFallbackCard from '../shared/ErrorFallbackCard';
 
 function OrganizationsIndex() {
-	const { list, action } = useParams();
+	const { list } = useParams();
 	const navigate = useNavigate();
 	const auth = useStoreState(appState, (s) => s.auth);
 
@@ -41,18 +36,11 @@ function OrganizationsIndex() {
 			<SubNav />
 			{auth?.orgs ? (
 				<Row>
-					<ErrorBoundary
-						onError={(error, componentStack) => addError({ error: { message: error.message, componentStack } })}
-						FallbackComponent={ErrorFallbackCard}
-					>
-						<NewOrgCard />
-					</ErrorBoundary>
 					<OrgList />
 				</Row>
 			) : (
 				<Loader header="loading organizations" spinner />
 			)}
-			{action === 'new' && <NewOrgModal />}
 		</div>
 	);
 }
