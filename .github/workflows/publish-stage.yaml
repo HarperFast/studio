@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-      - 'stage'
+      - 'archive/stage'
   workflow_dispatch:
 name: Publish Stage
 jobs:
