@@ -95,7 +95,7 @@ function ResetPassword() {
 						<NavLink to="/" className="login-nav-link d-inline-block">
 							Back to Sign In
 						</NavLink>
-						<NavLink to="/sign-up" className="login-nav-link d-inline-block">
+						<NavLink to="https://fabric.harper.fast/#/sign-up" className="login-nav-link d-inline-block">
 							Sign Up for Free
 						</NavLink>
 					</div>
