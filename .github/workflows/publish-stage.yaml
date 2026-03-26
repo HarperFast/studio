@@ -3,7 +3,7 @@ on:
     branches:
       - 'archive/stage'
   workflow_dispatch:
-name: Publish Stage
+name: Publish Archived Stage
 jobs:
   publishStageStudio:
     runs-on: ubuntu-latest
