@@ -3,7 +3,7 @@ on:
     branches:
       - 'archive/prod'
   workflow_dispatch:
-name: Publish Archived Production
+name: Archived - Publish Production
 jobs:
   publishProductionStudio:
     runs-on: ubuntu-latest
