@@ -1,9 +1,9 @@
 on:
   push:
     branches:
-      - 'stage'
+      - 'archive/stage'
   workflow_dispatch:
-name: Publish Stage
+name: Archived - Publish Stage
 jobs:
   publishStageStudio:
     runs-on: ubuntu-latest

@@ -1,9 +1,9 @@
 on:
   push:
     branches:
-      - 'master'
+      - 'archive/prod'
   workflow_dispatch:
-name: Publish Production
+name: Archived - Publish Production
 jobs:
   publishProductionStudio:
     runs-on: ubuntu-latest
