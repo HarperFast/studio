@@ -1,6 +1,8 @@
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
+  - core-js-pure
   - dprint
   - esbuild
   - harperdb
   - lmdb
+  - reo-census
