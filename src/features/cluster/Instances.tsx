@@ -88,8 +88,8 @@ export function Instances() {
 					minSize: 1,
 					header: 'Used Storage GB',
 					cell: (cell) => {
-						const value = cell.getValue() as number;
-						return `${value} GB`;
+						const value = cell.getValue();
+						return value === undefined ? '-' : `${value} GB`;
 					},
 				},
 				!isSelfManaged && {
@@ -134,8 +134,8 @@ export function Instances() {
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
 							: instances.length
-								? <DataTable data={instances} columns={columns} />
-								: <EmptyCluster />}
+							? <DataTable data={instances} columns={columns} />
+							: <EmptyCluster />}
 					</CardContent>
 				</Card>
 			</div>
