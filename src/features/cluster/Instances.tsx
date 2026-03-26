@@ -10,7 +10,6 @@ import { Instance } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
-import { humanFileSize } from '@/lib/humanFileSize';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -80,7 +79,17 @@ export function Instances() {
 					header: 'Storage',
 					cell: (cell) => {
 						const value = cell.getValue() as number;
-						return humanFileSize(value, Math.pow(1024, 3));
+						return `${value} GB`; // This is already in GB
+					},
+				},
+				!isSelfManaged && {
+					accessorKey: 'usedStorageGb',
+					size: 1,
+					minSize: 1,
+					header: 'Used Storage GB',
+					cell: (cell) => {
+						const value = cell.getValue() as number;
+						return `${value} GB`;
 					},
 				},
 				!isSelfManaged && {
@@ -99,7 +108,7 @@ export function Instances() {
 					header: 'Memory',
 					cell: (cell) => {
 						const value = cell.getValue() as number;
-						return humanFileSize(value, Math.pow(1024, 2));
+						return `${value / 1024} GB`; // The value is in MiB since that's how memory is sold, but alwayas says MB or GB instead of MiB or GiB
 					},
 				},
 			] satisfies Array<ColumnDef<Instance> | false>).filter(excludeFalsy),
@@ -125,8 +134,8 @@ export function Instances() {
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
 							: instances.length
-							? <DataTable data={instances} columns={columns} />
-							: <EmptyCluster />}
+								? <DataTable data={instances} columns={columns} />
+								: <EmptyCluster />}
 					</CardContent>
 				</Card>
 			</div>
