@@ -1,6 +1,8 @@
 import { ApplyLicensesButton } from '@/components/ApplyLicensesButton';
 import { RestartButton } from '@/components/RestartButton';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getInstanceInfoQueryOptions } from '@/features/cluster/queries/getInstanceInfoQuery';
@@ -9,6 +11,7 @@ import { ClusterDomainsList } from '@/features/instance/config/overview/componen
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
+import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import {
 	getRegistrationInfoQueryOptions,
@@ -20,7 +23,9 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import Editor from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { useLoaderData, useParams } from '@tanstack/react-router';
-import { ReactNode, useMemo } from 'react';
+import { AlertCircleIcon, EditIcon, SaveIcon, XIcon } from 'lucide-react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { flattenConfig, getChangedFields, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -53,6 +58,82 @@ export function ConfigOverviewIndex() {
 		getConfigurationQueryOptions(instanceParams),
 	);
 
+	const sanitizedConfigInfo = useMemo(() => {
+		if (!configurationInfo) { return null; }
+		return omitRestrictedFields(configurationInfo);
+	}, [configurationInfo]);
+
+	const [isEditing, setIsEditing] = useState(false);
+	const [editedConfig, setEditedConfig] = useState<string>('');
+	const [jsonError, setJsonError] = useState<string | null>(null);
+	const [restrictedError, setRestrictedError] = useState<string[]>([]);
+
+	const { onConfigUpdate, isPending: isSaving } = useRollingConfigUpdate();
+
+	useEffect(() => {
+		if (sanitizedConfigInfo && !isEditing) {
+			setEditedConfig(JSON.stringify(sanitizedConfigInfo, null, 4));
+			setJsonError(null);
+			setRestrictedError([]);
+		}
+	}, [sanitizedConfigInfo, isEditing]);
+
+	const handleEditorChange = useCallback((value: string | undefined) => {
+		setEditedConfig(value || '');
+		if (value) {
+			try {
+				const parsed = JSON.parse(value);
+				setJsonError(null);
+
+				const blockedFields: string[] = [];
+				const checkBlocked = (obj: any, orig: any, path = '') => {
+					for (const key in obj) {
+						const currentPath = path ? `${path}.${key}` : key;
+						const val = obj[key];
+						const origVal = orig?.[key];
+
+						if (isRestrictedConfigPath(currentPath, val, origVal)) {
+							blockedFields.push(currentPath);
+						} else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+							checkBlocked(val, origVal, currentPath);
+						}
+					}
+					// Also check for deleted keys if they were blocked
+					for (const key in orig) {
+						const currentPath = path ? `${path}.${key}` : key;
+						if (!(key in obj)) {
+							if (isRestrictedConfigPath(currentPath, undefined, orig[key])) {
+								blockedFields.push(currentPath);
+							}
+						}
+					}
+				};
+
+				if (sanitizedConfigInfo) {
+					checkBlocked(parsed, sanitizedConfigInfo);
+				}
+				setRestrictedError(blockedFields);
+			} catch (e: any) {
+				setJsonError(e.message);
+				setRestrictedError([]);
+			}
+		}
+	}, [configurationInfo]);
+
+	const handleSave = useCallback(() => {
+		if (jsonError || restrictedError.length > 0) { return; }
+		try {
+			const parsed = JSON.parse(editedConfig);
+			const changedFields = getChangedFields(sanitizedConfigInfo, parsed);
+			const flattened = flattenConfig(changedFields);
+
+			onConfigUpdate(flattened);
+			setIsEditing(false);
+		} catch (e: any) {
+			setJsonError(e.message);
+		}
+	}, [editedConfig, jsonError, onConfigUpdate, sanitizedConfigInfo, restrictedError.length]);
+
 	const newLicenses = useMemo(() => {
 		if (isLocalStudio) {
 			return [];
@@ -63,7 +144,7 @@ export function ConfigOverviewIndex() {
 			return cloudLicenses.filter(cloudLicense => !appliedLicensesById[cloudLicense.id]);
 		}
 		return [];
-	}, [clusterId, instanceId, appliedLicenses, instanceInfo]);
+	}, [appliedLicenses, instanceInfo]);
 
 	return (
 		<div className="h-full flex flex-col">
@@ -116,12 +197,65 @@ export function ConfigOverviewIndex() {
 					</CloudStudioOverview>
 				)}
 
-			<h3 className="flex-none font-bold text-sm/6">Instance Config (read only)</h3>
-			{!instanceId && (
-				<p className="text-muted-foreground italic text-sm mb-2">
-					You are viewing the config for one instance in your cluster, based on what the load balancer selected for you.
-				</p>
+			<div className="flex-none flex items-center justify-between mb-2">
+				<div>
+					<h3 className="font-bold text-sm/6">Instance Config {isEditing ? '(editing)' : '(read only)'}</h3>
+					{!instanceId && !isLocalStudio && (
+						<p className="text-muted-foreground italic text-sm">
+							You are viewing the config for one instance in your cluster, based on what the load balancer selected for
+							you.
+						</p>
+					)}
+				</div>
+				<div className="flex items-center gap-2 pr-4">
+					{!isEditing
+						? (
+							<Button size="sm" onClick={() => setIsEditing(true)}>
+								<EditIcon className="w-4 h-4 mr-1" /> Edit
+							</Button>
+						)
+						: (
+							<>
+								<Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+									<XIcon className="w-4 h-4 mr-1" /> Cancel
+								</Button>
+								<Button
+									size="sm"
+									disabled={!!jsonError || restrictedError.length > 0 || isSaving}
+									onClick={handleSave}
+								>
+									<SaveIcon className="w-4 h-4 mr-1" /> {isSaving ? 'Saving...' : 'Save & Restart'}
+								</Button>
+							</>
+						)}
+				</div>
+			</div>
+
+			{jsonError && (
+				<Alert variant="destructive" className="mb-4">
+					<AlertCircleIcon className="h-4 w-4" />
+					<AlertTitle>Invalid JSON</AlertTitle>
+					<AlertDescription>{jsonError}</AlertDescription>
+				</Alert>
 			)}
+
+			{restrictedError.length > 0 && (
+				<Alert variant="destructive" className="mb-4">
+					<AlertCircleIcon className="h-4 w-4" />
+					<AlertTitle>Restricted Configuration</AlertTitle>
+					<AlertDescription>
+						The following fields cannot be modified via Studio:
+						<ul className="list-disc ml-4 mt-2">
+							{restrictedError.map(field => (
+								<li key={field}>
+									<code>{field}</code>
+								</li>
+							))}
+						</ul>
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<div className="grow">
 				{!loadingConfig
 					? (
@@ -129,8 +263,9 @@ export function ConfigOverviewIndex() {
 							className="w-full min-h-full h-96"
 							language="json"
 							theme="vs-dark"
-							options={{ readOnly: true, scrollBeyondLastLine: false }}
-							value={JSON.stringify(configurationInfo, null, 4)}
+							options={{ readOnly: !isEditing, scrollBeyondLastLine: false }}
+							value={isEditing ? editedConfig : JSON.stringify(sanitizedConfigInfo, null, 4)}
+							onChange={handleEditorChange}
 						/>
 					)
 					: (
