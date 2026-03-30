@@ -87,7 +87,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 			},
 			isPositive(planLimits.applicationComputeHours) && {
 				label: 'Application Compute Hours',
-				value: `${humanNumber(planLimits.applicationComputeHours * 60 * multiplier)}`,
+				value: `${humanNumber(planLimits.applicationComputeHours * multiplier)}`,
 			},
 			!!resourcesPerInstance && isPositive(resourcesPerInstance.storageGb) && {
 				label: 'Storage',
