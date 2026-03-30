@@ -86,7 +86,7 @@ export function Instances() {
 					accessorKey: 'usedStorageGb',
 					size: 1,
 					minSize: 1,
-					header: 'Used Storage GB',
+					header: 'Used Storage',
 					cell: (cell) => {
 						const value = cell.getValue();
 						return value === undefined ? '-' : `${value} GB`;
