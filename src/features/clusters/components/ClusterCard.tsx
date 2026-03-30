@@ -5,7 +5,6 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
@@ -31,7 +30,17 @@ import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
-import { ClipboardIcon, CopyIcon, Ellipsis, GlobeIcon, KeyIcon, ScaleIcon, ServerIcon, TrashIcon } from 'lucide-react';
+import {
+	ClipboardIcon,
+	CopyIcon,
+	Ellipsis,
+	GitGraphIcon,
+	GlobeIcon,
+	KeyIcon,
+	ScaleIcon,
+	ServerIcon,
+	TrashIcon,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -143,6 +152,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				</DropdownMenuItem>
 			</Link>
 		),
+		isActive && update && (
+			<Link key="edit" to={`${cluster.id}/edit/version`} disabled={signingOut}>
+				<DropdownMenuItem>
+					<GitGraphIcon className="text-fuchsia-300" /> Edit Version
+				</DropdownMenuItem>
+			</Link>
+		),
 		isActive && update && !isLocalStudio && !clusterIsSelfManaged(cluster) && (
 			<Link key="domains" to={`${cluster.id}/domains`} disabled={signingOut}>
 				<DropdownMenuItem>
@@ -158,6 +174,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			</Link>
 		),
 
+		isActive && view && cluster.fqdn && <DropdownMenuSeparator key="copy-separator" />,
 		isActive && view && cluster.fqdn && (
 			<DropdownMenuItem key="copy-host-name" onClick={onCopyFQDNClick} disabled={signingOut}>
 				<ClipboardIcon /> Copy Host Name
@@ -179,17 +196,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				Try Again
 			</DropdownMenuItem>
 		),
+		!isTerminated && remove && isActive && <DropdownMenuSeparator key="remove-separator" />,
 		!isTerminated && remove && (
-			<>
-				{isActive && <DropdownMenuSeparator />}
-				<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
-					<TrashIcon className="text-red-300" /> {isSelfManaged ? 'Remove' : 'Terminate'}
-				</DropdownMenuItem>
-			</>
+			<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
+				<TrashIcon className="text-red-300" /> {isSelfManaged ? 'Remove' : 'Terminate'}
+			</DropdownMenuItem>
 		),
 	].filter(excludeFalsy);
-
-	const maxPlansToShow = 5;
 
 	return (
 		<Card className="relative h-full justify-between">
@@ -211,25 +224,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 							</DropdownMenuTrigger>
 							<DropdownMenuContent>
 								{...menuItems}
-
-								{!clusterHasFailed && (
-									<>
-										{menuItems.length > 0 && <DropdownMenuSeparator />}
-										<DropdownMenuLabel className="text-gray-600 text-xs">Plans</DropdownMenuLabel>
-										{cluster.plans?.slice(0, maxPlansToShow)?.map((plan) => (
-											<DropdownMenuLabel key={plan.planId + plan.regionId}>
-												{plan.planId} / {plan.regionId}
-												<br />
-												Auto Renewal <Badge variant="success">ON</Badge>
-											</DropdownMenuLabel>
-										))}
-										{!!cluster.plans?.length && cluster.plans?.length > maxPlansToShow && (
-											<DropdownMenuLabel className="italic text-muted-foreground">
-												{cluster.plans.length - maxPlansToShow} additional plans
-											</DropdownMenuLabel>
-										)}
-									</>
-								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}

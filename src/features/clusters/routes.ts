@@ -27,8 +27,15 @@ const editClusterRoute = createRoute({
 	component: UpsertCluster,
 });
 
+const editClusterVersionRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: '/edit/$mode',
+	component: UpsertCluster,
+});
+
 export const clustersRoutes = [
 	clustersIndexRoute,
 	newClusterRoute,
 	editClusterRoute,
+	editClusterVersionRoute,
 ];

@@ -78,7 +78,7 @@ export function ClustersList() {
 					)
 					: null}
 			</SubNavMenu>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
 					{filteredClusters.map((cluster) => (
 						<div key={cluster.id} className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">

@@ -5,6 +5,7 @@ import { defaultOperationsApiPort } from '@/config/constants';
 import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreateNewCluster';
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
+import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
 import { Organization } from '@/integrations/api/api.patch';
@@ -34,6 +35,8 @@ interface ClusterFormProps {
 	clusterId?: string;
 	defaultValues: UpsertClusterSchemaType;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
+	harperVersions: HarperVersionsResponse | undefined;
+	mode: 'version' | undefined;
 	organization: Organization;
 	organizationId: string;
 	planTypes: SchemaPlan[];
@@ -48,6 +51,8 @@ export function ClusterForm({
 	clusterId,
 	defaultValues,
 	deploymentToPerformanceToPlan,
+	harperVersions,
+	mode,
 	organization,
 	organizationId,
 	planTypes,
@@ -345,7 +350,7 @@ export function ClusterForm({
 		});
 	}, [queryClient, router, navigate, organizationId, form]);
 
-	const submitCreateCluster = useCallback(async () => {
+	const executeChangesToCluster = useCallback(async () => {
 		const formData = form.getValues();
 		const plans: SchemaRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
@@ -375,20 +380,22 @@ export function ClusterForm({
 		const toastId = onStartSaving({ creating: !clusterId, deploymentDescription: formData.deploymentDescription });
 		const clearToast = () => toast.dismiss(toastId);
 		if (clusterId) {
-			submitEditClusterData({
-				id: clusterId,
-				regionPlans: plans,
-			}, {
-				onSuccess: (data) =>
-					onClusterSavedCallback({
-						clusterId: data.id,
-						sourceClusterId: formData.sourceClusterId,
-						isSelfManaged,
-						creating: false,
-						toastId,
-					}),
-				onError: clearToast,
-			});
+			submitEditClusterData(
+				mode === 'version'
+					? { id: clusterId, version: formData.version }
+					: { id: clusterId, regionPlans: plans },
+				{
+					onSuccess: (data) =>
+						onClusterSavedCallback({
+							clusterId: data.id,
+							sourceClusterId: formData.sourceClusterId,
+							isSelfManaged,
+							creating: false,
+							toastId,
+						}),
+					onError: clearToast,
+				},
+			);
 		} else {
 			submitNewClusterData({
 				abbreviatedName: isSelfManaged
@@ -397,6 +404,7 @@ export function ClusterForm({
 				autoRenew: true,
 				fqdn: isSelfManaged && formData.fqdn || undefined,
 				name: formData.clusterName,
+				version: formData.version,
 				organizationId,
 				regionPlans: plans,
 			}, {
@@ -426,12 +434,12 @@ export function ClusterForm({
 	]);
 
 	const submitClusterDetailsForm = useCallback(() => {
-		if (totalPrice > 0) {
+		if (mode !== 'version' && totalPrice > 0) {
 			setConfirmingPaymentDetails(true);
 			return;
 		}
-		return submitCreateCluster();
-	}, [submitCreateCluster, totalPrice]);
+		return executeChangesToCluster();
+	}, [mode, executeChangesToCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
 		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
@@ -444,7 +452,7 @@ export function ClusterForm({
 	const pricingMarginRight = !isEnterprise && 'mr-37.5';
 	return (
 		<>
-			{!isEnterprise && (
+			{!isEnterprise && mode !== 'version' && (
 				<div className="absolute top-3 right-4 md:right-12 text-right">
 					<dt className="font-light">Total Price</dt>
 					<dd className="font-bold">
@@ -474,6 +482,8 @@ export function ClusterForm({
 									deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
 									form={form}
 									isPending={isCreatePending || isEditPending}
+									harperVersions={harperVersions}
+									mode={mode}
 									regionLocations={regionLocations}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									selectedDeployment={selectedDeployment}
@@ -499,7 +509,7 @@ export function ClusterForm({
 								isPending={isCreatePending || isEditPending}
 								onGoBackToDetails={onGoBackToDetails}
 								onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-								onSubmit={submitCreateCluster}
+								onSubmit={executeChangesToCluster}
 								organizationId={organizationId}
 								selectedPlan={selectedPlan}
 							/>

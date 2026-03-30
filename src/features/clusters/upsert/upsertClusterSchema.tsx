@@ -24,6 +24,7 @@ export const UpsertClusterSchema = z.object({
 		.regex(hostNameRegex, 'Please enter a valid host name without the port or any path.')
 		.optional(),
 
+	version: z.string().optional(),
 	deploymentDescription: z.string().nonempty('Please select a deployment tier.'),
 	performanceDescription: z.string().nonempty('Please select a performance tier.'),
 

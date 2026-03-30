@@ -5,13 +5,16 @@ import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
+import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { Cluster, Organization } from '@/integrations/api/api.patch';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
+import { unique } from '@/lib/arrays/unique';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
@@ -26,7 +29,8 @@ import {
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 export function UpsertCluster() {
-	const { organizationId, clusterId }: { organizationId: string; clusterId?: string } = useParams({ strict: false });
+	const { organizationId, clusterId, mode }: { organizationId: string; clusterId?: string; mode?: 'version' } =
+		useParams({ strict: false });
 	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
@@ -45,6 +49,27 @@ export function UpsertCluster() {
 		organizationId,
 	}));
 	const { data: regionLocationsDedicated } = useQuery(getRegionLocationsOptions({ organizationId }));
+
+	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions());
+	const harperVersions = useMemo(() => {
+		if (cluster) {
+			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
+			if (newHarperVersions && clusterVersions) {
+				const uniqueVersions = unique(clusterVersions);
+				return {
+					...newHarperVersions,
+					value: [
+						...uniqueVersions.map(version => ({
+							name: 'current',
+							version: version,
+						} as const)),
+						...newHarperVersions?.value || [],
+					],
+				} satisfies HarperVersionsResponse;
+			}
+		}
+		return newHarperVersions;
+	}, [newHarperVersions, cluster]);
 
 	const alreadyUsingFree = useMemo(() => {
 		for (const orgCluster of organization?.clusters ?? []) {
@@ -73,7 +98,9 @@ export function UpsertCluster() {
 	);
 
 	const defaultValues = useMemo<null | UpsertClusterSchemaType>(() => {
-		if (!planTypes || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)) {
+		if (
+			!planTypes || !harperVersions || !regionLocationsColocated || !regionLocationsDedicated || (clusterId && !cluster)
+		) {
 			return null;
 		}
 
@@ -85,6 +112,7 @@ export function UpsertCluster() {
 					...savedClusterState,
 					clusterName: savedClusterState.clusterName || '',
 					abbreviatedName: savedClusterState.abbreviatedName || '',
+					version: savedClusterState.version,
 					deploymentDescription: savedClusterState.deploymentDescription || '',
 					performanceDescription: savedClusterState.performanceDescription || '',
 					fqdn: savedClusterState.fqdn || '',
@@ -140,11 +168,15 @@ export function UpsertCluster() {
 			regionPlans.push({ regionName: '', latencyDescription: '' });
 		}
 
+		const version = harperVersions.value?.find(v => v.name === 'current')?.version
+			?? harperVersions.value?.find(v => v.name === 'stable')?.version;
+
 		return {
 			sourceClusterId: clusterToLoad?.id,
 			autoRenew: clusterToLoad?.plans?.[0]?.autoRenew ?? true,
 			clusterName: clusterToLoad?.name ?? '',
 			abbreviatedName: clusterToLoad?.abbreviatedName ?? '',
+			version,
 			deploymentDescription: selectedPlan?.deploymentDescription ?? defaults?.deploymentDescription ?? '',
 			performanceDescription: selectedPlan?.performanceDescription ?? defaults?.performanceDescription ?? '',
 			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
@@ -156,6 +188,7 @@ export function UpsertCluster() {
 		cluster,
 		clusterId,
 		planTypes,
+		harperVersions,
 		regionLocationsColocated,
 		regionLocationsDedicated,
 		savedClusterState,
@@ -206,12 +239,14 @@ export function UpsertCluster() {
 	}
 
 	return (
-		<SubNavSimpleLayout>
+		<SubNavSimpleLayout className="max-w-4xl mx-auto">
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
 				defaultValues={defaultValues}
 				deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
+				harperVersions={harperVersions}
+				mode={mode}
 				organization={organization}
 				organizationId={organizationId}
 				planTypes={planTypes}

@@ -4532,6 +4532,7 @@ export interface components {
             autoRenew: boolean;
             fqdn?: string;
             name: string;
+            version?: string;
             /** Format: ID */
             organizationId: string;
             regionPlans: components["schemas"]["ClusterUpsertRegionPlan"][];
