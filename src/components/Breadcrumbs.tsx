@@ -35,37 +35,38 @@ export function Breadcrumbs({ restartRequired }: { restartRequired?: boolean }) 
 
 			let path = `/${routeHistory.slice(0, index + 1).join('/')}`;
 			let name = capitalizeWords(route);
-			let id: string | undefined = undefined;
 			if (route === 'databases' && routeHistory.length === index + 3) {
-				// id = routeHistory[index + 1];
 				name = routeHistory[index + 2];
 				index += 2;
 			} else if (name.startsWith('Org ')) {
-				// id = route.split('org-').pop();
 				name = organization?.name || 'Org';
 			} else if (name.startsWith('Clu ')) {
-				// id = route.split('clu-').pop();
 				name = cluster?.name || 'Cluster';
 				if (routeHistory[index + 1] === 'instance') {
 					path += '/instances';
 				}
 			} else if (name.startsWith('Ins ')) {
-				// id = route.split('ins-').pop();
 				name = instance?.name?.split('.')?.shift() || 'Instance';
 			} else if (name === 'Apis') {
 				name = 'APIs';
 			}
 
 			breadcrumbs.push(
-				<svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" className="size-5 shrink-0 text-grey">
+				<svg
+					key={breadcrumbs.length + '-dash'}
+					fill="currentColor"
+					viewBox="0 0 20 20"
+					aria-hidden="true"
+					className="size-5 shrink-0 text-grey"
+				>
 					<path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
 				</svg>,
 				<Link
+					key={path}
 					to={path}
 					className="text-xs md:text-sm font-medium hover:text-grey truncate max-w-48"
 				>
 					{name}
-					{id && <div className="text-gray-500 text-xs hidden md:block">{id}</div>}
 				</Link>,
 			);
 		}
