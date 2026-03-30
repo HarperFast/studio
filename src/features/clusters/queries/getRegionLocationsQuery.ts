@@ -1,4 +1,5 @@
 import { apiClient } from '@/config/apiClient';
+import { queryOptions } from '@tanstack/react-query';
 
 export interface GetRegionLocationsParams {
 	organizationId?: string;
@@ -16,9 +17,9 @@ async function getRegionLocations({ organizationId, availableHosts }: GetRegionL
 }
 
 export function getRegionLocationsOptions({ organizationId, availableHosts }: GetRegionLocationsParams = {}) {
-	return {
+	return queryOptions({
 		queryKey: [organizationId, 'regionLocations', availableHosts],
 		queryFn: () => getRegionLocations({ organizationId, availableHosts }),
 		retry: false,
-	};
+	});
 }

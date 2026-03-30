@@ -12,9 +12,6 @@ export function parseReadMe(
 	if (operations9925URL) {
 		contents = contents.replaceAll(/https?:\/\/localhost:9926/g, rest9926URL);
 	}
-	console.log('baseURL', baseURL);
-	console.log('operations9925URL', operations9925URL);
-	console.log('rest9926URL', rest9926URL);
 	if (response.project) {
 		contents = contents
 			.replaceAll('Your New Harper Fabric App', response.project)
