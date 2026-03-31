@@ -6,6 +6,7 @@ import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/
 import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
+import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ArrowRight } from 'lucide-react';
@@ -122,6 +123,7 @@ export function ClusterDetails({
 						form={form}
 						harperVersions={harperVersions}
 					/>
+					<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
 				</div>
 				{footer}
 			</>
@@ -167,6 +169,7 @@ export function ClusterDetails({
 							isEnterprise={isEnterprise}
 						/>
 					)}
+				{clusterId && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 			</div>
 			{footer}
 		</>

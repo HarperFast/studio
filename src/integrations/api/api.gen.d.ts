@@ -4533,6 +4533,7 @@ export interface components {
             fqdn?: string;
             name: string;
             version?: string;
+            skipGtmWait?: boolean;
             /** Format: ID */
             organizationId: string;
             regionPlans: components["schemas"]["ClusterUpsertRegionPlan"][];
