@@ -44,3 +44,31 @@ describe('wasAReleasedBeforeB (b >= a)', () => {
 		expect(wasAReleasedBeforeB('3.4.5-beta.2', '3.4.5-beta.2')).toBe(true);
 	});
 });
+
+import { compareVersions } from './wasAReleasedBeforeB';
+
+describe('compareVersions', () => {
+	it('should sort an array of version strings', () => {
+		const versions = [
+			'1.2.3',
+			'1.0.0',
+			'2.0.0',
+			'1.2.3-beta.1',
+			'1.2.3-alpha',
+		];
+		const sorted = [...versions].sort(compareVersions);
+		expect(sorted).toEqual([
+			'1.0.0',
+			'1.2.3-alpha',
+			'1.2.3-beta.1',
+			'1.2.3',
+			'2.0.0',
+		]);
+	});
+
+	it('should handle invalid versions by putting them at the beginning', () => {
+		const versions = ['1.0.0', 'invalid', '2.0.0'];
+		const sorted = [...versions].sort(compareVersions);
+		expect(sorted[0]).toBe('invalid');
+	});
+});

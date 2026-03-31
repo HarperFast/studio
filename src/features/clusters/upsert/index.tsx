@@ -14,9 +14,9 @@ import { Cluster, Organization } from '@/integrations/api/api.patch';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
-import { unique } from '@/lib/arrays/unique';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { compareVersions, wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
 import { useMemo } from 'react';
@@ -55,16 +55,24 @@ export function UpsertCluster() {
 		if (cluster) {
 			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
 			if (newHarperVersions && clusterVersions) {
-				const uniqueVersions = unique(clusterVersions);
+				const latestClusterVersion = clusterVersions.sort(compareVersions).pop();
 				return {
 					...newHarperVersions,
 					value: [
-						...uniqueVersions.map(version => ({
+						!!latestClusterVersion && {
 							name: 'current',
-							version: version,
-						} as const)),
-						...newHarperVersions?.value || [],
-					],
+							version: latestClusterVersion,
+						} as const,
+						...(newHarperVersions?.value || []).filter(v => {
+							// Is our version unique from the latest cluster version?
+							return latestClusterVersion !== v.version
+								// Do we have a cluster version?
+								&& (!latestClusterVersion
+									// Or if we do, have we updated to a higher version already?
+									// This can prevent upgrading to, say, "next" v5, and then downgrading to the "latest" v4.
+									|| wasAReleasedBeforeB(latestClusterVersion, v.version));
+						}),
+					].filter(excludeFalsy),
 				} satisfies HarperVersionsResponse;
 			}
 		}
