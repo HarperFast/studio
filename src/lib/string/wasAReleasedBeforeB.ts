@@ -17,6 +17,21 @@ export function wasAReleasedBeforeB(a: string, b: string): boolean {
 	return semverCompare(pb, pa) >= 0; // is b >= a ?
 }
 
+/**
+ * Compare two semver strings according to SemVer 2.0.0 rules.
+ * Returns -1 if a < b, 0 if a == b, 1 if a > b.
+ */
+export function compareVersions(a: string, b: string): number {
+	const pa = parseSemVer(a);
+	const pb = parseSemVer(b);
+
+	if (!pa && !pb) { return 0; }
+	if (!pa) { return -1; }
+	if (!pb) { return 1; }
+
+	return semverCompare(pa, pb);
+}
+
 // Internal representation of a semver
 interface SemVerParts {
 	major: number;
