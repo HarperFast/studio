@@ -2,8 +2,8 @@ import { apiClient } from '@/config/apiClient';
 import { SchemaCluster, SchemaClusterUpsert } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 
-type EditRegionPlan = Pick<SchemaCluster, 'id'> & Pick<SchemaClusterUpsert, 'regionPlans'>;
-type EditVersion = Pick<SchemaCluster, 'id'> & Pick<SchemaClusterUpsert, 'version'>;
+type EditRegionPlan = Pick<SchemaCluster, 'id'> & Pick<SchemaClusterUpsert, 'regionPlans' | 'skipGtmWait'>;
+type EditVersion = Pick<SchemaCluster, 'id'> & Pick<SchemaClusterUpsert, 'version' | 'skipGtmWait'>;
 
 async function onEditClusterSubmit(
 	clusterInfo: EditRegionPlan | EditVersion,

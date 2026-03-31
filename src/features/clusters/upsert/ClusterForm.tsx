@@ -382,8 +382,8 @@ export function ClusterForm({
 		if (clusterId) {
 			submitEditClusterData(
 				mode === 'version'
-					? { id: clusterId, version: formData.version }
-					: { id: clusterId, regionPlans: plans },
+					? { id: clusterId, version: formData.version, skipGtmWait: formData.skipGtmWait }
+					: { id: clusterId, regionPlans: plans, skipGtmWait: formData.skipGtmWait },
 				{
 					onSuccess: (data) =>
 						onClusterSavedCallback({
