@@ -11,7 +11,8 @@ export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
 			hashAttribute: '',
 		};
 	}
-	const { hash_attribute: hashAttribute, attributes } = instanceTable;
+	const hashAttribute = instanceTable.primary_key ?? instanceTable.hash_attribute ?? '';
+	const { attributes } = instanceTable;
 	const primaryKeyColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];
