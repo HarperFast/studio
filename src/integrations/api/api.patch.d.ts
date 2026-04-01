@@ -111,7 +111,8 @@ export interface InstanceDatabaseTableMap {
 export interface InstanceTable {
 	schema: string;
 	name: string;
-	hash_attribute: string;
+	hash_attribute?: string;
+	primary_key?: string;
 	audit: boolean;
 	schema_defined: boolean;
 	db_size: number;

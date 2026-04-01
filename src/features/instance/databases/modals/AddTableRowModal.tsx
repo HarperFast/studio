@@ -110,11 +110,11 @@ export function AddTableRowModal({
 				<DialogHeader>
 					<DialogTitle>Add New {instanceTable.name}</DialogTitle>
 				</DialogHeader>
-				{instanceTable?.hash_attribute
+				{(instanceTable?.primary_key ?? instanceTable?.hash_attribute)
 					&& (
 						<div className="text-sm text-gray-500">
 							The primary key for this table is{' '}
-							<strong>&ldquo;{instanceTable.hash_attribute}&rdquo;</strong>, and will auto-generate. You may manually
+							<strong>&ldquo;{instanceTable.primary_key ?? instanceTable.hash_attribute}&rdquo;</strong>, and will auto-generate. You may manually
 							add it if you want to specify its value.
 						</div>
 					)}
