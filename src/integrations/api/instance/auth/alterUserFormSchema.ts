@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const AlterUserFormSchema = z.object({
 	username: AddUserFormSchema.shape.username,
 	role: AddUserFormSchema.shape.role,
-	newPassword: AddUserFormSchema.shape.password.or(z.undefined()).optional(),
+	newPassword: AddUserFormSchema.shape.password.or(z.literal('')).optional(),
 	confirmPassword: AddUserFormSchema.shape.confirmPassword,
 })
 	.refine((data) => !data.newPassword || data.newPassword.length >= 8, {
