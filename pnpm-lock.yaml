@@ -202,8 +202,8 @@ importers:
         specifier: ^0.53.0
         version: 0.53.1
       harperdb:
-        specifier: 4.7.24
-        version: 4.7.24
+        specifier: 4.7.25
+        version: 4.7.25
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -4446,8 +4446,8 @@ packages:
     engines: {node: '>=0.4.7'}
     hasBin: true
 
-  harperdb@4.7.24:
-    resolution: {integrity: sha512-NfBDpsORd37+rbghz0Nfm4X2ArxJclGONaoisk4JhQJcI36FmuTI4fm8n/n5XNwqOKVatFgm9SYLwn4PqNh5oA==}
+  harperdb@4.7.25:
+    resolution: {integrity: sha512-xu6duEFcsC+29P3mLA8rswWI/oimqevHRw2e3/s5kZSSSFuWj5jNx6JYQUrZYtL5N4VoWTYaAJZusPXrX5n9ZQ==}
     engines: {go-lang: 1.21.7, minimum-node: 16.0.0, nats-server: 2.10.11}
     hasBin: true
 
@@ -11098,7 +11098,7 @@ snapshots:
 
   async@2.6.4:
     dependencies:
-      lodash: 4.17.21
+      lodash: 4.17.23
 
   async@3.2.3: {}
 
@@ -12417,7 +12417,7 @@ snapshots:
     optionalDependencies:
       uglify-js: 3.19.3
 
-  harperdb@4.7.24:
+  harperdb@4.7.25:
     dependencies:
       '@aws-sdk/client-s3': 3.824.0
       '@aws-sdk/lib-storage': 3.824.0(@aws-sdk/client-s3@3.824.0)
@@ -12682,7 +12682,7 @@ snapshots:
       cli-width: 3.0.0
       external-editor: 3.1.0
       figures: 3.2.0
-      lodash: 4.17.21
+      lodash: 4.17.23
       mute-stream: 0.0.8
       ora: 5.4.1
       run-async: 2.4.1
