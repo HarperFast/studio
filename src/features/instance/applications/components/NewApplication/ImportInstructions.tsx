@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link } from '@tanstack/react-router';
-import { GithubIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
+import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
@@ -46,7 +46,7 @@ export function ImportInstructions({
 				<Tabs value={importSource} onValueChange={setImportSource}>
 					<TabsList className="grid w-full grid-cols-3">
 						<TabsTrigger value="git">
-							<GithubIcon className="w-4 h-4 mr-2" />
+							<GitMergeIcon className="w-4 h-4 mr-2" />
 							Git
 						</TabsTrigger>
 						<TabsTrigger value="npm">
