@@ -1,6 +1,5 @@
 import './GitHubAuthenticationButton.css';
 import { cx } from 'class-variance-authority';
-import { GithubIcon } from 'lucide-react';
 import { MouseEventHandler } from 'react';
 
 export function GitHubAuthenticationButton({
@@ -18,7 +17,7 @@ export function GitHubAuthenticationButton({
 				className={cx('github-signin-btn', disabled && 'opacity-50')}
 				type="button"
 			>
-				<GithubIcon className="github-icon" />
+				<img src="/github/GitHub_Invertocat_White.svg" alt="GitHub Logo" className="github-icon" />
 				{text}
 			</button>
 		</a>

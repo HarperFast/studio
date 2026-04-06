@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
 import { Separator } from '@/components/ui/separator';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
-import { GithubIcon, RocketIcon } from 'lucide-react';
+import { RocketIcon } from 'lucide-react';
 import { Control, FormState } from 'react-hook-form';
 import { z } from 'zod';
 import { NewApplicationSchema } from './schema';
@@ -48,16 +48,20 @@ export function TemplateInstructions({
 											className="flex flex-col gap-3 p-4 border-2 rounded-lg cursor-pointer hover:bg-accent peer-data-[state=checked]:border-green peer-data-[state=checked]:bg-primary/5"
 										>
 											<div>
-												<div className="mb-1 flex items-center gap-2">
-													<span>{template.name}</span>
+												<div className="mb-1 flex items-center gap-2 justify-between">
+													<div>{template.name}</div>
 													<a
 														href={template.githubUrl}
 														target="_blank"
 														rel="noopener noreferrer"
 														onClick={onClickStopPropagation}
-														className="text-muted-foreground hover:text-white transition-colors -m-4 p-4"
+														className="opacity-70 hover:opacity-100 transition-colors -m-4 p-4"
 													>
-														<GithubIcon className="w-4 h-4" />
+														<img
+															src="/github/GitHub_Lockup_White.svg"
+															alt="GitHub"
+															className="h-4"
+														/>
 													</a>
 												</div>
 												<p className="text-muted-foreground text-sm">
