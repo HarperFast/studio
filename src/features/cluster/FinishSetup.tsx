@@ -33,7 +33,7 @@ export function FinishSetup() {
 
 	const navigate = useNavigate();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
-	const instanceClient = useInstanceClient(operationsUrl);
+	const instanceClient = useInstanceClient({ operationsUrl });
 
 	const { redirect } = useSearch({ strict: false });
 	const router = useRouter();

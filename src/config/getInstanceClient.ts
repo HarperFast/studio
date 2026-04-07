@@ -12,8 +12,16 @@ interface InstanceClient {
 }
 
 export function getInstanceClient(
-	{ id = OverallAppSignIn, operationsUrl, port, secure, forceFabricConnect }: InstanceClient & {
+	{
+		id = OverallAppSignIn,
+		operationsUrl,
+		port,
+		secure,
+		forceFabricConnect,
+		disableFabricConnect,
+	}: InstanceClient & {
 		forceFabricConnect?: boolean;
+		disableFabricConnect?: boolean;
 	} = {},
 ) {
 	let baseURL = operationsUrl || authStore.getOperationsUrl(id);
@@ -30,7 +38,7 @@ export function getInstanceClient(
 		}
 	}
 
-	const fabricConnect = forceFabricConnect || authStore.checkForFabricConnect(id);
+	const fabricConnect = !disableFabricConnect && (forceFabricConnect || authStore.checkForFabricConnect(id));
 	if (fabricConnect) {
 		if (id.startsWith('clu-')) {
 			baseURL = apiClient.defaults.baseURL + `/Cluster/${id}/operation`;

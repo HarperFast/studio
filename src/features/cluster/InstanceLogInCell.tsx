@@ -16,7 +16,7 @@ export function InstanceLogInCell(
 ) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
-	const instanceClient = useInstanceClient(operationsUrl);
+	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update } = useOrganizationClusterInstancePermissions();
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
