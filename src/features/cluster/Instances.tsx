@@ -17,6 +17,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { EmptyCluster } from './EmptyCluster';
 import { InstanceLogInCell } from './InstanceLogInCell';
+import { InstanceStatusCell } from './InstanceStatusCell';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Instances() {
@@ -34,7 +35,7 @@ export function Instances() {
 					size: 1,
 					minSize: 1,
 					cell: (cell) => (
-						<div className="flex justify-end">
+						<div className="flex justify-end gap-2 items-center">
 							<InstanceLogInCell isSelfManaged={isSelfManaged} instance={cell.row.original} />
 						</div>
 					),
@@ -56,14 +57,19 @@ export function Instances() {
 					size: 90,
 					header: 'Name',
 				},
-				!isSelfManaged && {
+				{
 					accessorKey: 'status',
 					header: 'Status',
 					size: 1,
 					minSize: 1,
 					cell: (cell) => {
 						const status = cell.getValue() as string;
-						return <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge>;
+						return (
+							<div className="flex items-center gap-2">
+								<InstanceStatusCell instance={cell.row.original} />
+								{status ? <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge> : null}
+							</div>
+						);
 					},
 				},
 				!isSelfManaged && {
@@ -128,7 +134,7 @@ export function Instances() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 				<Card className="p-0 mt-4 min-h-96">
 					<CardContent className="p-0 min-h-96">
 						{clusterIsLoading

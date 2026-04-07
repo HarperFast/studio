@@ -1,7 +1,7 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { queryOptions } from '@tanstack/react-query';
 
-interface SystemStatus {
+export interface SystemStatus {
 	id: 'availability' | 'maintenance' | 'primary' | string;
 	status: 'Available' | 'Unavailable' | string;
 	__updatedtime__: number;
@@ -52,4 +52,12 @@ export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClie
 			return data;
 		},
 	});
+}
+
+export function getSystemStatusById(
+	statusResponse: StatusResponse | undefined,
+	id: SystemStatus['id'],
+): SystemStatus['status'] | undefined {
+	const systemStatus = statusResponse?.systemStatus?.find(s => s.id === id);
+	return systemStatus?.status;
 }
