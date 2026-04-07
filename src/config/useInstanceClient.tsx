@@ -5,37 +5,49 @@ import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
-export function useInstanceClient(operationsUrl?: string | null, port?: number, secure?: boolean) {
+interface UseParams {
+	operationsUrl?: string | null;
+	port?: number;
+	secure?: boolean;
+	disableFabricConnect?: boolean;
+	instanceId?: string;
+	clusterId?: string;
+}
+
+export function useInstanceClient(
+	params: UseParams = {},
+) {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
-	return getInstanceClient({ id, operationsUrl, port, secure });
+	const id = isLocalStudio ? OverallAppSignIn : params.instanceId ?? instanceId ?? params.clusterId ?? clusterId;
+	return getInstanceClient({ id, ...params });
 }
 
 export function useInstanceClientParams(
-	operationsUrl?: string | null,
-	port?: number,
-	secure?: boolean,
+	params: UseParams = {},
 ): InstanceClientConfig & InstanceTypeConfig {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
+	const id = isLocalStudio ? OverallAppSignIn : params.instanceId ?? instanceId ?? params.clusterId ?? clusterId;
 	return {
-		instanceClient: getInstanceClient({ id, operationsUrl, port, secure }),
+		instanceClient: getInstanceClient({ id, ...params }),
 		entityType: (isLocalStudio || instanceId) ? 'instance' : 'cluster',
 	};
 }
 
 export function useInstanceClientIdParams(
-	operationsUrl?: string | null,
-	port?: number,
-	secure?: boolean,
+	params: UseParams = {},
 ): InstanceClientIdConfig & InstanceTypeConfig {
-	const params: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
-	return useMemo(() => getInstanceClientIdFromParams({ ...params, operationsUrl, port, secure }), [
-		params,
-		operationsUrl,
-		port,
-		secure,
-	]);
+	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	return useMemo(
+		() => getInstanceClientIdFromParams({ instanceId, clusterId, ...params }),
+		[
+			params.instanceId ?? instanceId,
+			params.clusterId ?? clusterId,
+			params.operationsUrl,
+			params.port,
+			params.secure,
+			params.disableFabricConnect,
+		],
+	);
 }
 
 export function getInstanceClientIdFromParams({
@@ -44,19 +56,21 @@ export function getInstanceClientIdFromParams({
 	operationsUrl,
 	port,
 	secure,
+	disableFabricConnect,
 }: {
 	instanceId?: string;
 	clusterId?: string;
 	operationsUrl?: string | null;
 	port?: number;
 	secure?: boolean;
+	disableFabricConnect?: boolean;
 }): InstanceClientIdConfig & InstanceTypeConfig {
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	if (!id) {
 		throw new Error('id could not be automatically calculated in useInstanceClientIdParams');
 	}
 	return {
-		instanceClient: getInstanceClient({ id, operationsUrl, port, secure }),
+		instanceClient: getInstanceClient({ id, operationsUrl, port, secure, disableFabricConnect }),
 		entityId: id,
 		entityType: (isLocalStudio || instanceId) ? 'instance' : 'cluster',
 	};

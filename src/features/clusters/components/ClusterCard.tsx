@@ -48,7 +48,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
-	const instanceClient = useInstanceClient(operationsUrl);
+	const instanceClient = useInstanceClient({ operationsUrl });
 	const auth = useInstanceAuth(cluster.id);
 	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 

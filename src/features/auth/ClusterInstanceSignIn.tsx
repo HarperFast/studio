@@ -54,7 +54,7 @@ export function ClusterInstanceSignIn() {
 		return null;
 	}, [cluster, instance]);
 
-	const instanceParams = useInstanceClientIdParams(operationsUrl);
+	const instanceParams = useInstanceClientIdParams({ operationsUrl });
 	const warnAboutLocalDeviceAccess = useMemo(
 		() => operationsUrl?.includes('localhost') || operationsUrl?.includes('127.0.0.1'),
 		[operationsUrl],
