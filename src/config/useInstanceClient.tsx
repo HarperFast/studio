@@ -6,12 +6,13 @@ import { useParams } from '@tanstack/react-router';
 import { useMemo } from 'react';
 
 interface UseParams {
+	clusterId?: string;
+	disableFabricConnect?: boolean;
+	forceFabricConnect?: boolean;
+	instanceId?: string;
 	operationsUrl?: string | null;
 	port?: number;
 	secure?: boolean;
-	disableFabricConnect?: boolean;
-	instanceId?: string;
-	clusterId?: string;
 }
 
 export function useInstanceClient(
@@ -46,6 +47,7 @@ export function useInstanceClientIdParams(
 			params.port,
 			params.secure,
 			params.disableFabricConnect,
+			params.forceFabricConnect,
 		],
 	);
 }
@@ -53,24 +55,14 @@ export function useInstanceClientIdParams(
 export function getInstanceClientIdFromParams({
 	instanceId,
 	clusterId,
-	operationsUrl,
-	port,
-	secure,
-	disableFabricConnect,
-}: {
-	instanceId?: string;
-	clusterId?: string;
-	operationsUrl?: string | null;
-	port?: number;
-	secure?: boolean;
-	disableFabricConnect?: boolean;
-}): InstanceClientIdConfig & InstanceTypeConfig {
+	...params
+}: UseParams): InstanceClientIdConfig & InstanceTypeConfig {
 	const id = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
 	if (!id) {
 		throw new Error('id could not be automatically calculated in useInstanceClientIdParams');
 	}
 	return {
-		instanceClient: getInstanceClient({ id, operationsUrl, port, secure, disableFabricConnect }),
+		instanceClient: getInstanceClient({ id, ...params }),
 		entityId: id,
 		entityType: (isLocalStudio || instanceId) ? 'instance' : 'cluster',
 	};

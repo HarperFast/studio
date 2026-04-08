@@ -12,27 +12,36 @@ import { LoaderCircleIcon, ShieldCheckIcon, ShieldXIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 export function InstanceStatusCell(
-	{ instance }: { readonly instance: Instance },
+	{ instance, index }: { readonly instance: Instance; index: number },
 ) {
-	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
-	const instanceParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id });
 	const { update: canManage } = useOrganizationClusterInstancePermissions();
+	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
+	const instanceParams = useInstanceClientIdParams({
+		operationsUrl,
+		instanceId: instance.id,
+		forceFabricConnect: true,
+	});
 	const { mutate: setStatus, isPending: isSettingStatus } = useSetStatus();
 
-	// We want to spread the initial requests across 5 seconds.
-	const [randomOffset] = useState(() => Math.floor(Math.random() * 5_000));
 	const [ready, setReady] = useState(false);
 
+	// Spread the status requests out.
 	useEffect(() => {
-		const timer = setTimeout(() => setReady(true), randomOffset);
+		const timer = setTimeout(() => setReady(true), index * 500);
 		return () => clearTimeout(timer);
-	}, [randomOffset]);
+	}, [index]);
 
-	const { data: statusResponse, isLoading, isFetching } = useQuery(getStatusQueryOptions(instanceParams, ready));
+	const { data: statusResponse, isLoading, isFetching } = useQuery(
+		getStatusQueryOptions(instanceParams, ready && canManage),
+	);
 
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';
 	const isUnavailable = systemStatus === 'Unavailable';
+
+	if (!canManage) {
+		return null;
+	}
 
 	return (
 		<div className="flex items-center gap-2">

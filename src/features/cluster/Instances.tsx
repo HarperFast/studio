@@ -66,7 +66,7 @@ export function Instances() {
 						const status = cell.getValue() as string;
 						return (
 							<div className="flex items-center gap-2">
-								<InstanceStatusCell instance={cell.row.original} />
+								<InstanceStatusCell instance={cell.row.original} index={cell.row.index} />
 								{status ? <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge> : null}
 							</div>
 						);
