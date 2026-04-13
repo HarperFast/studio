@@ -92,7 +92,7 @@
 		"@vitejs/plugin-react": "^6.0.0",
 		"@vitest/coverage-v8": "^4.0.0",
 		"dotenv-cli": "^11.0.0",
-		"dprint": "^0.53.0",
+		"dprint": "^0.54.0",
 		"harperdb": "4.7.26",
 		"husky": "^9.1.7",
 		"jsdom": "^29.0.0",
