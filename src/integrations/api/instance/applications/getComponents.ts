@@ -10,15 +10,17 @@ export interface APIFileEntry {
 	name: string;
 }
 
-export function getComponentsQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
+export async function getComponents({ instanceClient }: InstanceClientIdConfig) {
+	const { data }: { data: APIDirectoryEntry } = await instanceClient.post('/', {
+		operation: 'get_components',
+	});
+	return data;
+}
+
+export function getComponentsQueryOptions(params: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [entityId, 'get_components'] as const,
-		queryFn: async () => {
-			const { data }: { data: APIDirectoryEntry } = await instanceClient.post('/', {
-				operation: 'get_components',
-			});
-			return data;
-		},
+		queryKey: [params.entityId, 'get_components'] as const,
+		queryFn: () => getComponents(params),
 		retry: false,
 	});
 }

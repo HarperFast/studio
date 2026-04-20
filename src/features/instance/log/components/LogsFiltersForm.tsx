@@ -35,7 +35,7 @@ export function LogsFiltersForm({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>Log Limit:</FormLabel>
-								<Select onValueChange={field.onChange} value={field.value}>
+								<Select onValueChange={field.onChange} value={field.value ?? undefined}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Select log limit" />
 									</SelectTrigger>
@@ -59,7 +59,7 @@ export function LogsFiltersForm({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>Log Level:</FormLabel>
-								<Select onValueChange={field.onChange} value={field.value}>
+								<Select onValueChange={field.onChange} value={field.value ?? undefined}>
 									<SelectTrigger className="w-full">
 										<SelectValue placeholder="Select log level" />
 									</SelectTrigger>
@@ -86,7 +86,7 @@ export function LogsFiltersForm({
 							<FormItem>
 								<FormLabel>Start Date:</FormLabel>
 								<FormControl>
-									<Input type="datetime-local" value={field.value} onChange={field.onChange} />
+									<Input type="datetime-local" value={field.value ?? undefined} onChange={field.onChange} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
@@ -99,7 +99,7 @@ export function LogsFiltersForm({
 							<FormItem>
 								<FormLabel>End Date:</FormLabel>
 								<FormControl>
-									<Input type="datetime-local" value={field.value} onChange={field.onChange} />
+									<Input type="datetime-local" value={field.value ?? undefined} onChange={field.onChange} />
 								</FormControl>
 								<FormMessage />
 							</FormItem>
@@ -110,7 +110,7 @@ export function LogsFiltersForm({
 						<Button type="submit" variant="positiveOutline" className="grow">
 							Apply Filters
 						</Button>
-						<Button type="reset" variant="destructiveOutline" onClick={() => resetFilters()}>
+						<Button type="reset" variant="destructiveOutline" onClick={resetFilters}>
 							Clear Filters
 						</Button>
 					</div>

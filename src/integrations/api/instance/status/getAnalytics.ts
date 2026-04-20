@@ -2,11 +2,11 @@ import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instan
 import type { Units } from '@/lib/units';
 import { queryOptions } from '@tanstack/react-query';
 
-export type MetricDataKey = string | ((metric: Metric) => number);
+export type MetricDataKey = 'count' | ((metric: Metric) => number);
 export type MetricUnits = Units | 'reads' | 'writes' | 'messages';
 export interface MetricConfig {
 	id: string;
-	name: string;
+	name: 'db-read' | 'db-write' | 'db-message' | 'cpu-usage';
 	label?: string;
 	dataKey: MetricDataKey;
 	aggregator: (accumulator: number, current: number) => number;
@@ -45,21 +45,24 @@ export interface Metric {
 
 type GetAnalyticsResponse = Metric[];
 
-export function getAnalyticsQueryOptions({ metricConfig, startTime, endTime, instanceParams }: GetAnalyticsParams) {
+export function getAnalyticsQueryOptions(params: GetAnalyticsParams) {
+	const { metricConfig, startTime, endTime } = params;
 	return queryOptions({
 		queryKey: ['get_analytics', metricConfig.name, metricConfig.path, startTime, endTime] as const,
-		queryFn: async () => {
-			const req: GetAnalyticsRequest = {
-				operation: 'get_analytics',
-				metric: metricConfig.name,
-				start_time: startTime,
-				end_time: endTime,
-			};
-			if (metricConfig.path) {
-				req.conditions = [{ attribute: 'path', value: metricConfig.path }];
-			}
-			const { data } = await instanceParams.instanceClient.post<GetAnalyticsResponse>('/', req);
-			return data;
-		},
+		queryFn: () => getAnalytics(params),
 	});
+}
+
+export async function getAnalytics({ metricConfig, startTime, endTime, instanceParams }: GetAnalyticsParams) {
+	const req: GetAnalyticsRequest = {
+		operation: 'get_analytics',
+		metric: metricConfig.name,
+		start_time: startTime,
+		end_time: endTime,
+	};
+	if (metricConfig.path) {
+		req.conditions = [{ attribute: 'path', value: metricConfig.path }];
+	}
+	const { data } = await instanceParams.instanceClient.post<GetAnalyticsResponse>('/', req);
+	return data;
 }

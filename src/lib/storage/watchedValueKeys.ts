@@ -10,6 +10,7 @@ export interface WatchedValuesTypeMap {
 	ShowDeleteDatabase: boolean;
 	ShowDeleteTable: boolean;
 	'Session:{key}': unknown;
+	ReloadApplicationRootEntries: true;
 }
 
 export type WatchedValueKeys = keyof WatchedValuesTypeMap;

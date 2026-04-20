@@ -2,7 +2,6 @@ import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -23,6 +22,7 @@ import {
 	TrashIcon,
 	Undo2Icon,
 } from 'lucide-react';
+import { newApplication } from './ApplicationsSidebar/specialItems';
 
 import './ContentActions.css';
 

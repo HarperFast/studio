@@ -3,14 +3,14 @@ import { hasImageFileExtension } from '@/lib/string/hasImageFileExtension';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetComponentFileRequest extends InstanceClientIdConfig {
-	file: string | undefined;
 	project: string | undefined;
+	file: string | undefined;
 	encoding?: 'utf8' | 'ASCII' | 'binary' | 'hex' | 'base64' | 'utf16le' | 'latin1' | 'ucs2';
 }
 
 export interface GetComponentFileResponse {
-	file: string;
 	project: string;
+	file: string;
 	birthtime: string;
 	message: string;
 	mtime: string;
@@ -25,13 +25,13 @@ export async function getComponentFile({
 }: GetComponentFileRequest): Promise<GetComponentFileResponse> {
 	const { data } = await instanceClient.post('/', {
 		operation: 'get_component_file',
-		file,
 		project,
+		file,
 		encoding: encoding ?? (hasImageFileExtension(file) ? 'base64' : 'utf8'),
 	});
 	return {
-		file,
 		project,
+		file,
 		...data,
 	};
 }
@@ -49,8 +49,8 @@ export function getComponentFileQueryKey(params: GetComponentFileRequest) {
 	return [
 		params.entityId,
 		'get_component_file',
-		params.file,
 		params.project,
+		params.file,
 		params.encoding,
 	] as const;
 }

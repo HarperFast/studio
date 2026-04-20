@@ -7,7 +7,7 @@ interface UpdateTableRecordsParams extends InstanceClientConfig {
 	records: object[];
 }
 
-async function onUpdateTableRecords(recordsData: UpdateTableRecordsParams) {
+export async function updateTableRecords(recordsData: UpdateTableRecordsParams) {
 	const { databaseName, tableName, records, instanceClient } = recordsData;
 	const { data } = await instanceClient.post('/', {
 		operation: 'update',
@@ -20,6 +20,6 @@ async function onUpdateTableRecords(recordsData: UpdateTableRecordsParams) {
 
 export function useUpdateTableRecords() {
 	return useMutation({
-		mutationFn: onUpdateTableRecords,
+		mutationFn: updateTableRecords,
 	});
 }

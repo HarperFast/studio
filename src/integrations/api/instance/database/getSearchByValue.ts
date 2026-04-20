@@ -70,7 +70,7 @@ export async function getSearchByValue<T = Record<string, unknown>>({
 	pageSize,
 	onlyIfCached,
 	headers,
-}: GetSearchByValueParams) {
+}: Omit<GetSearchByValueParams, 'enabled'>) {
 	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
 	const response = await instanceClient.post<T[]>(
 		'/',
