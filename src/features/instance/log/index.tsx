@@ -103,7 +103,7 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	},
 ];
 
-const isValidDateRange = (startDate?: string, endDate?: string) => {
+const isValidDateRange = (startDate?: string | null, endDate?: string | null) => {
 	if (!startDate && !endDate) { return true; }
 	if (!startDate || !endDate) { return true; }
 

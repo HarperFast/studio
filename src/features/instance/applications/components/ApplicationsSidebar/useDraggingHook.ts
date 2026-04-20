@@ -16,7 +16,9 @@ export function useDraggingHook() {
 		) {
 			const itemId = newTarget.getAttribute('data-rct-item-id');
 			const isLocked = newTarget.querySelector('.packageIsLocked');
-			if (!isLocked && itemId && itemId !== importedApplications && itemId !== newApplication) {
+			if (
+				!isLocked && itemId && itemId !== importedApplications && itemId !== newApplication
+			) {
 				setDragTarget(currentTarget => {
 					if (currentTarget !== newTarget) {
 						currentTarget?.classList?.remove?.('rct-tree-item-title-container-dragging-over');

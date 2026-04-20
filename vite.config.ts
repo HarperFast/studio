@@ -11,6 +11,11 @@ export default defineConfig({
 			'@': path.resolve(__dirname, './src'),
 		},
 	},
+	server: {
+		proxy: {
+			'/Chat': 'http://localhost:9926',
+		},
+	},
 	build: {
 		outDir: 'web',
 		emptyOutDir: true,

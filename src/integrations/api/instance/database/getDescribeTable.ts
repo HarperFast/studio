@@ -7,25 +7,22 @@ interface GetDescribeTableParams extends InstanceClientIdConfig {
 	tableName: string;
 }
 
-export function getDescribeTableQueryOptions({
-	databaseName,
-	tableName,
-	entityId,
-	instanceClient,
-}: GetDescribeTableParams) {
+export async function getDescribeTable({ databaseName, tableName, instanceClient }: GetDescribeTableParams) {
+	const { data } = await instanceClient.post<InstanceTable>('/', {
+		operation: 'describe_table',
+		database: databaseName,
+		table: tableName,
+	});
+	return data;
+}
+
+export function getDescribeTableQueryOptions(params: GetDescribeTableParams) {
 	return queryOptions({
-		queryKey: [entityId, databaseName, tableName, 'describe_table'] as const,
-		queryFn: async () => {
-			const { data } = await instanceClient.post<InstanceTable>('/', {
-				operation: 'describe_table',
-				database: databaseName,
-				table: tableName,
-			});
-			return data;
-		},
+		queryKey: [params.entityId, params.databaseName, params.tableName, 'describe_table'] as const,
+		queryFn: () => getDescribeTable(params),
 		staleTime: 60_000,
 		gcTime: 5_000,
-		enabled: !!databaseName && !!tableName,
+		enabled: !!params.databaseName && !!params.tableName,
 		retry: false,
 	});
 }

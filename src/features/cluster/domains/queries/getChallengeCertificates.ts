@@ -23,7 +23,6 @@ export function getChallengeCertificatesQueryOptions(clusterId?: string) {
 				databaseName: 'data',
 				tableName: 'ChallengeCertificate',
 				sort: { attribute: 'domain', descending: true },
-				enabled: true,
 				instanceClient,
 				onlyIfCached: false,
 				pageIndex: 0,

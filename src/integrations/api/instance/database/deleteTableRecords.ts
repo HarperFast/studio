@@ -7,7 +7,9 @@ interface DeleteTableRecordsData extends InstanceClientConfig {
 	hashValues: unknown[];
 }
 
-async function onDeleteTableRecords({ databaseName, tableName, hashValues, instanceClient }: DeleteTableRecordsData) {
+export async function deleteTableRecords(
+	{ databaseName, tableName, hashValues, instanceClient }: DeleteTableRecordsData,
+) {
 	const { data } = await instanceClient.post('/', {
 		operation: 'delete',
 		database: databaseName,
@@ -19,6 +21,6 @@ async function onDeleteTableRecords({ databaseName, tableName, hashValues, insta
 
 export function useDeleteTableRecords() {
 	return useMutation({
-		mutationFn: onDeleteTableRecords,
+		mutationFn: deleteTableRecords,
 	});
 }

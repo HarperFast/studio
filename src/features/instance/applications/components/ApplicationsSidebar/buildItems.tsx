@@ -1,6 +1,7 @@
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import type { TreeItem } from 'react-complex-tree';
 import { importedApplications, newApplication, rootId } from './specialItems';
 
@@ -29,7 +30,14 @@ export function buildItems(rootEntries: Array<DirectoryEntry | FileEntry>): {
 	items[rootId] = {
 		index: rootId,
 		isFolder: true,
-		children: [newApplication, importedApplications, ...directoryIds, ...fileIds],
+		children: [
+			newApplication,
+			importedApplications,
+			...directoryIds,
+			...fileIds,
+		].filter(
+			excludeFalsy,
+		),
 		data: undefined,
 		canMove: false,
 		canRename: false,

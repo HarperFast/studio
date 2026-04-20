@@ -1,6 +1,6 @@
 export const templates = [
 	{
-		id: 'harper',
+		id: 'vanilla-js',
 		name: 'Web + REST ORM',
 		description: "Define your entities in schema.graphql, add your HTML/CSS/JS in web, and you're cooking!",
 		tags: ['Harper', 'ORM', 'REST', 'GraphQL'],
@@ -8,7 +8,7 @@ export const templates = [
 		githubUrl: 'https://github.com/HarperFast/create-harper/tree/main/template-vanilla',
 	},
 	{
-		id: 'harper-ts',
+		id: 'vanilla-ts',
 		name: 'TypeScript',
 		description: 'The same Web + REST ORM from the first template, but with TypeScript sprinkled in.',
 		tags: ['Harper', 'TypeScript', 'GraphQL'],

@@ -7,7 +7,7 @@ export interface CreateComponentFormData {
 	template: string;
 }
 
-async function addComponent({
+export async function addComponent({
 	instanceClient,
 	project,
 	template,

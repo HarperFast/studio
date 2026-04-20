@@ -93,7 +93,7 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	pageSize,
 	onlyIfCached,
 	headers,
-}: GetSearchByConditionsParams) {
+}: Omit<GetSearchByConditionsParams, 'enabled'>) {
 	return instanceClient.post<T[]>(
 		'/',
 		{

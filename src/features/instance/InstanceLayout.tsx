@@ -1,5 +1,7 @@
+import { isLocalStudio } from '@/config/constants';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { Outlet } from '@tanstack/react-router';
+import { FloatingChat } from './applications/components/Chat/FloatingChat';
 
 export function InstanceLayout() {
 	return (
@@ -7,9 +9,10 @@ export function InstanceLayout() {
 			<nav className="fixed top-20 w-full z-39 h-12 md:px-12 bg-grey-700">
 				<InstanceNavBar />
 			</nav>
-			<div className="mt-32 min-h-[calc(100vh-theme(spacing.32))]">
+			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">
 				<Outlet />
 			</div>
+			{!isLocalStudio && <FloatingChat />}
 		</>
 	);
 }

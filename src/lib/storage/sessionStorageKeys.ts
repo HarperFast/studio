@@ -1,4 +1,8 @@
 export interface SessionStorageKeys {
+	'ApplicationChat': true;
+	'ApplicationChatOpen': true;
+	'ApplicationChatPosition': true;
+	'ApplicationChatWidth': true;
 	'ApplicationsSidebarOpened': true;
 	'FileFocused/{entityId}': true;
 	'EditorFileContent/{entityId}/{path}': true;

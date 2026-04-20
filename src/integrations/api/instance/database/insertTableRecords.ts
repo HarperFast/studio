@@ -7,13 +7,13 @@ interface InsertTableRecordsData extends InstanceClientConfig {
 	records: object[];
 }
 
-interface InsertTableRecordsResponse {
+export interface InsertTableRecordsResponse {
 	message: string;
 	inserted_hashes: string[];
 	skipped_hashes: string[];
 }
 
-async function onInsertTableRecords({ databaseName, tableName, records, instanceClient }: InsertTableRecordsData) {
+export async function insertTableRecords({ databaseName, tableName, records, instanceClient }: InsertTableRecordsData) {
 	const { data } = await instanceClient.post<InsertTableRecordsResponse>('/', {
 		operation: 'insert',
 		database: databaseName,
@@ -25,6 +25,6 @@ async function onInsertTableRecords({ databaseName, tableName, records, instance
 
 export function useInsertTableRecords() {
 	return useMutation({
-		mutationFn: onInsertTableRecords,
+		mutationFn: insertTableRecords,
 	});
 }

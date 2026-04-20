@@ -1,6 +1,9 @@
 import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
+	calculateRootEntries,
+} from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
+import {
 	importedApplications,
 	newApplication,
 } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
@@ -11,16 +14,12 @@ import {
 	getComponentFileQueryKey,
 	getComponentFileQueryOptions,
 } from '@/integrations/api/instance/applications/getComponentFile';
-import {
-	APIDirectoryEntry,
-	APIFileEntry,
-	getComponentsQueryOptions,
-} from '@/integrations/api/instance/applications/getComponents';
+import { APIDirectoryEntry, getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
 	SetComponentFileRequest,
 	useSetComponentFile,
 } from '@/integrations/api/instance/applications/setComponentFile';
-import { transformNodes } from '@/lib/arrays/transformNodes';
+import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -45,43 +44,15 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 Create our structured view from the relational API data.
 	 */
 	const { data: apiComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
-	const mappedData: {
-		rootEntries: Array<DirectoryEntry | FileEntry>;
-		pathsRegistry: Set<string>;
-	} = useMemo(() => {
-		const pathsRegistry = new Set<string>();
-		const rootEntries = transformNodes(
-			apiComponents.entries || [],
-			'entries',
-			(node: APIFileEntry | APIDirectoryEntry, parents: APIDirectoryEntry[]) => {
-				const readMeAPIFile = isDirectory(node) && node.entries.find(e => e.name.toLowerCase() === 'readme.md');
-				const path = [...parents.map(p => p.name), node.name].join('/');
-				pathsRegistry.add(path);
-				return {
-					name: node.name,
-					path,
-					project: (parents[0] || node)?.name,
-					package: (parents[0] || node)?.package,
-					overviewEntry: readMeAPIFile && !isDirectory(readMeAPIFile) && {
-								name: readMeAPIFile.name,
-								path: [...parents.map(p => p.name), node.name, readMeAPIFile.name].join('/'),
-								project: (parents[0] || node)?.name,
-								package: (parents[0] || node)?.package,
-							} || undefined,
-				} satisfies DirectoryEntry | FileEntry;
-			},
-		);
-		return {
-			rootEntries,
-			pathsRegistry,
-		};
-	}, [apiComponents]);
+	const mappedData = useMemo(() => calculateRootEntries(apiComponents.entries), [apiComponents]);
 
 	const reloadRootEntries = useCallback(async () =>
 		queryClient.fetchQuery<APIDirectoryEntry>({
 			queryKey: [instanceParams.entityId, 'get_components'],
 			networkMode: 'online',
 		}), [queryClient, instanceParams]);
+
+	useListener('ReloadApplicationRootEntries', reloadRootEntries, [reloadRootEntries]);
 
 	const entryExists = useCallback((path: string) => {
 		return mappedData.pathsRegistry.has(path);
