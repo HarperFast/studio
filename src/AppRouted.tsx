@@ -9,7 +9,7 @@ export function AppRouted() {
 	return (
 		<>
 			<RouterProvider router={router} context={{ authentication }} />
-			{import.meta.env.DEV && <TanStackRouterDevtools router={router} position="bottom-right" />}
+			{!import.meta.env.VITE_DISABLE_DEVTOOLS && <TanStackRouterDevtools router={router} position="bottom-right" />}
 		</>
 	);
 }
