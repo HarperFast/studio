@@ -15,7 +15,7 @@ export function App() {
 		<>
 			<QueryClientProvider client={queryClient}>
 				<AppRouted />
-				<ReactQueryDevtools buttonPosition="bottom-right" />
+				{!import.meta.env.VITE_DISABLE_DEVTOOLS && <ReactQueryDevtools buttonPosition="bottom-right" />}
 			</QueryClientProvider>
 			<Toaster richColors />
 		</>

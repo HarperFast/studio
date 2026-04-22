@@ -10,6 +10,7 @@ interface ImportMetaEnv {
 	readonly VITE_LOCAL_STUDIO_DEV_URL: string;
 	readonly VITE_REO_DEV_CLIENT_ID: string;
 	readonly VITE_CENTRAL_MANAGER_API_URL: string;
+	readonly VITE_DISABLE_DEVTOOLS: string;
 	// more env variables...
 }
 
