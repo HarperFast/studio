@@ -5,7 +5,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { useInsertTableRecords } from '@/integrations/api/instance/database/insertTableRecords';
 import { pluralize } from '@/lib/pluralize';
-import Editor from '@monaco-editor/react';
+import Editor, { EditorProps, OnMount } from '@monaco-editor/react';
 import { Save, TerminalIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -96,6 +96,10 @@ export function AddTableRowModal({
 		setIsModalOpen,
 	]);
 
+	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor) => {
+		editor?.focus();
+	}, []);
+
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
@@ -126,6 +130,7 @@ export function AddTableRowModal({
 					onValidate={onValidate}
 					onChange={setAddTableRecordData}
 					options={{ minimap: { enabled: false } }}
+					onMount={handleEditorDidMount}
 				/>
 				<div className="text-sm text-gray-500">
 					<strong>Provide an [array]</strong> if you want to add more than one record at a time.
