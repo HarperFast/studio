@@ -65,7 +65,7 @@ export function ProfileIndex() {
 	);
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12">
+		<div className="mt-20 px-4 pt-4 md:px-12 max-w-2xl">
 			<h2 className="text-2xl font-light">Profile</h2>
 			<Form {...methods}>
 				<form
@@ -85,6 +85,7 @@ export function ProfileIndex() {
 										type="text"
 										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
 										autoCapitalize="words"
+										autoFocus
 										{...field}
 									/>
 								</FormControl>
