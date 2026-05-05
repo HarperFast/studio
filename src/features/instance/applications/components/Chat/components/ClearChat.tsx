@@ -1,3 +1,4 @@
+import { clearChatMessages } from '@/integrations/api/chat/clearChatMessages';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
@@ -11,15 +12,8 @@ export function ClearChat({ setMessages }: { setMessages: (messages: []) => void
 
 		setIsClearing(true);
 		try {
-			const response = await fetch('/Chat/Messages/', {
-				method: 'DELETE',
-			});
-
-			if (response.ok) {
-				setMessages([]);
-			} else {
-				console.error('Failed to clear chat:', response.statusText);
-			}
+			await clearChatMessages();
+			setMessages([]);
 		} catch (error) {
 			console.error('Failed to clear chat:', error);
 		} finally {

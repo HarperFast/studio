@@ -1,3 +1,4 @@
+import { apiClient } from '@/config/apiClient';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 
@@ -13,11 +14,8 @@ function getChatUsageQueryOptions(orgId: string) {
 	return queryOptions({
 		queryKey: ['getMyUsage', orgId],
 		queryFn: async (): Promise<ChatUsage> => {
-			const response = await fetch(`/Chat/Usage/${orgId}`);
-			if (!response.ok) {
-				throw new Error('Failed to fetch usage data');
-			}
-			return response.json();
+			const { data } = await apiClient.get(`/Chat/Usage/${orgId}` as any);
+			return data;
 		},
 	});
 }

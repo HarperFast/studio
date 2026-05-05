@@ -10,8 +10,8 @@ describe('renameFileInPath', () => {
 		expect(renameFileInPath('/a/b', 'c')).toBe('/a/c');
 	});
 
-	it('keeps double slashes in directories as-is', () => {
-		expect(renameFileInPath('a//b', 'c')).toBe('a//c');
+	it('removes double slashes', () => {
+		expect(renameFileInPath('a//b', 'c')).toBe('a/c');
 	});
 
 	it('if original path has trailing slash, it is removed before appending new file name', () => {

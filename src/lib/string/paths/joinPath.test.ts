@@ -16,22 +16,23 @@ describe('joinPath', () => {
 	});
 
 	it('does a shallow (1-level) flatten only', () => {
-		// Note: nested arrays are not part of the function type, but
-		// this test documents current behavior of Array#flat(1) + join.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const result = (joinPath as any)(['a', ['b']], 'c');
 		expect(result).toBe('a/b/c');
 	});
 
-	it('preserves empty segments (does not normalize)', () => {
+	it('deduplicates adjacent slashes', () => {
 		expect(joinPath('a', '', 'c')).toBe('a//c');
+		expect(joinPath('a/', 'b')).toBe('a/b');
+		expect(joinPath('/a/', '/b/')).toBe('/a/b/');
 	});
 
-	it('preserves leading/trailing slashes in segments', () => {
+	it('preserves boundary slashes', () => {
 		expect(joinPath('/a', 'b')).toBe('/a/b');
-		expect(joinPath('a/', 'b')).toBe('a//b');
 		expect(joinPath('a', 'b/')).toBe('a/b/');
-		expect(joinPath('/a/', '/b/')).toBe('/a///b/');
+	});
+
+	it('preserves :// in URLs', () => {
+		expect(joinPath('https://example.com/', '/foo/', '/bar/')).toBe('https://example.com/foo/bar/');
 	});
 
 	it('returns empty string when called with no arguments', () => {

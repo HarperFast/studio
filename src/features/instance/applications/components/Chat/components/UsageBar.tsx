@@ -1,4 +1,4 @@
-import { useChatUsage } from '@/integrations/api/instance/status/getChatUsage';
+import { useChatUsage } from '@/integrations/api/chat/getChatUsage';
 
 export function UsageBar() {
 	const { data, isLoading, error } = useChatUsage();
