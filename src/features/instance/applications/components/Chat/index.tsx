@@ -3,17 +3,14 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ClearChat } from '@/features/instance/applications/components/Chat/components/ClearChat';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { getChatMessages } from '@/integrations/api/chat/getChatMessages';
+import { getChatTransport } from '@/integrations/api/chat/getChatTransport';
 import { unique } from '@/lib/arrays/unique';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useChat } from '@ai-sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import {
-	createIdGenerator,
-	DefaultChatTransport,
-	lastAssistantMessageIsCompleteWithToolCalls,
-	type ToolCallPart,
-} from 'ai';
+import { createIdGenerator, lastAssistantMessageIsCompleteWithToolCalls, type ToolCallPart } from 'ai';
 import { Bot, X } from 'lucide-react';
 import { SubmitEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ChatInput } from './components/ChatInput';
@@ -39,10 +36,7 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 	const instanceClientParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
 	const { messages, sendMessage, status, addToolOutput, setMessages } = useChat({
-		transport: new DefaultChatTransport({
-			api: '/Chat/Messages/',
-			body: { orgId: organizationId },
-		}),
+		transport: getChatTransport(organizationId),
 		generateId: createIdGenerator(),
 		sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
 		onFinish() {
@@ -153,12 +147,9 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 	useEffect(() => {
 		const fetchInitialMessages = async () => {
 			try {
-				const response = await fetch('/Chat/Messages/');
-				if (response.ok) {
-					const data = await response.json();
-					if (Array.isArray(data)) {
-						setMessages(data);
-					}
+				const data = await getChatMessages();
+				if (Array.isArray(data)) {
+					setMessages(data);
 				}
 			} catch (error) {
 				console.error('Failed to fetch initial messages:', error);
