@@ -7,10 +7,13 @@ interface MessageBubbleProps {
 	message: UIMessage;
 	onApprove?: (toolCallId: string) => void;
 	onDeny?: (toolCallId: string) => void;
+	onAlwaysApprove?: (toolCallId: string) => void;
 	approvingToolCallIds?: Set<string>;
 }
 
-export function MessageBubble({ message: m, onApprove, onDeny, approvingToolCallIds }: MessageBubbleProps) {
+export function MessageBubble(
+	{ message: m, onApprove, onDeny, onAlwaysApprove, approvingToolCallIds }: MessageBubbleProps,
+) {
 	return (
 		<motion.div
 			key={m.id}
@@ -34,6 +37,7 @@ export function MessageBubble({ message: m, onApprove, onDeny, approvingToolCall
 								part={part}
 								onApprove={onApprove}
 								onDeny={onDeny}
+								onAlwaysApprove={onAlwaysApprove}
 								isApproving={approvingToolCallIds?.has(part.toolCallId)}
 							/>
 						);

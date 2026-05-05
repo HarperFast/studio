@@ -1,7 +1,10 @@
 import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ClearChat } from '@/features/instance/applications/components/Chat/components/ClearChat';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { unique } from '@/lib/arrays/unique';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useChat } from '@ai-sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -27,6 +30,11 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 	const [isLoadingInitial, setIsLoadingInitial] = useState(true);
 	const [pendingToolCalls, setPendingToolCalls] = useState<Record<string, ToolCallPart>>({});
 	const [approvingToolCallIds, setApprovingToolCallIds] = useState<Set<string>>(new Set());
+	const [alwaysApprovedToolsList, setAlwaysApprovedToolsList] = useLocalStorage<string[]>(
+		LocalStorageKeys.ChatAlwaysApprovedTools,
+		[],
+	);
+	const alwaysApprovedTools = new Set(alwaysApprovedToolsList);
 	const baseURL = useEntityRestURL();
 	const instanceClientParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -48,7 +56,7 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 
 			const tool = getTool(toolCall.toolName);
 			if (tool) {
-				if (tool.requiresApproval) {
+				if (tool.requiresApproval && !alwaysApprovedTools.has(toolCall.toolName)) {
 					const toolCallPart: ToolCallPart = {
 						type: 'tool-call',
 						toolCallId: toolCall.toolCallId,
@@ -129,6 +137,19 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 		[pendingToolCalls, addToolOutput],
 	);
 
+	const handleAlwaysApprove = useCallback(
+		async (toolCallId: string) => {
+			const toolCall = pendingToolCalls[toolCallId];
+			if (!toolCall) {
+				return;
+			}
+
+			setAlwaysApprovedToolsList(prev => unique([...prev, toolCall.toolName]));
+			await handleApprove(toolCallId);
+		},
+		[pendingToolCalls, setAlwaysApprovedToolsList, handleApprove],
+	);
+
 	useEffect(() => {
 		const fetchInitialMessages = async () => {
 			try {
@@ -198,6 +219,7 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 								message={m}
 								onApprove={handleApprove}
 								onDeny={handleDeny}
+								onAlwaysApprove={handleAlwaysApprove}
 								approvingToolCallIds={approvingToolCallIds}
 							/>
 						))}
