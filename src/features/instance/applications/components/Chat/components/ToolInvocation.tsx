@@ -9,10 +9,11 @@ interface ToolInvocationProps {
 	part: ToolUIPart | DynamicToolUIPart;
 	onApprove?: (toolCallId: string) => void;
 	onDeny?: (toolCallId: string) => void;
+	onAlwaysApprove?: (toolCallId: string) => void;
 	isApproving?: boolean;
 }
 
-export function ToolInvocation({ part, onApprove, onDeny, isApproving }: ToolInvocationProps) {
+export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApproving }: ToolInvocationProps) {
 	const [isInputExpanded, setIsInputExpanded] = useState(false);
 	const [isOutputExpanded, setIsOutputExpanded] = useState(false);
 	const toolName = getToolName(part) as ToolNames;
@@ -96,6 +97,15 @@ export function ToolInvocation({ part, onApprove, onDeny, isApproving }: ToolInv
 							>
 								{isApproving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : null}
 								Approve
+							</Button>
+							<Button
+								size="sm"
+								variant="outline"
+								className="h-8 text-xs"
+								onClick={() => onAlwaysApprove?.(part.toolCallId)}
+								disabled={isApproving}
+							>
+								Always Approve
 							</Button>
 							<Button
 								size="sm"
