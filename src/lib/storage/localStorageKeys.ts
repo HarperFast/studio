@@ -1,4 +1,6 @@
 export const enum LocalStorageKeys {
-	'SavedClusterState' = 'SavedClusterState',
+	'ApplicationChatPosition' = 'ApplicationChatPosition',
+	'ApplicationChatWidth' = 'ApplicationChatWidth',
 	'ChatAlwaysApprovedTools' = 'ChatAlwaysApprovedTools',
+	'SavedClusterState' = 'SavedClusterState',
 }

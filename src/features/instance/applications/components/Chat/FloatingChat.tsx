@@ -1,4 +1,6 @@
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bot } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,8 +14,8 @@ export function FloatingChat() {
 	const [isDragging, setIsDragging] = useState(false);
 	const [isResizing, setIsResizing] = useState(false);
 	const [isOpen, setIsOpen] = useSessionStorage('ApplicationChatOpen', false);
-	const [position, setPosition] = useSessionStorage('ApplicationChatPosition', { x: 0, y: 0 });
-	const [width, setWidth] = useSessionStorage('ApplicationChatWidth', 400);
+	const [position, setPosition] = useLocalStorage(LocalStorageKeys.ApplicationChatPosition, { x: -40, y: -40 });
+	const [width, setWidth] = useLocalStorage(LocalStorageKeys.ApplicationChatWidth, 600);
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
