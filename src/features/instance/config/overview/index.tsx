@@ -216,7 +216,7 @@ export function ConfigOverviewIndex() {
 						)
 						: (
 							<>
-								<Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+								<Button type="button" size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
 									<XIcon className="w-4 h-4 mr-1" /> Cancel
 								</Button>
 								<Button

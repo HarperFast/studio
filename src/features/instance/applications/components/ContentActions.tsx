@@ -54,6 +54,7 @@ export function ContentActions({
 	return (
 		<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12">
 			<Button
+				type="button"
 				variant="ghost"
 				className={(toggledSidebar ? 'toggled-sidebar-toggler' : 'hidden-sidebar-toggler')
 					+ ' inline-flex'
@@ -195,6 +196,7 @@ export function ContentActions({
 
 					{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && (
 						<Button
+							type="button"
 							variant="ghost"
 							className="rounded-none"
 							onClick={onRevertChangesClicked}
@@ -209,7 +211,13 @@ export function ContentActions({
 					)}
 
 					{!restrictPackageModification && canManageBrowseInstance && (
-						<Button variant="destructiveGhost" className="rounded-none" onClick={onDeleteClick} title="Delete">
+						<Button
+							type="button"
+							variant="destructiveGhost"
+							className="rounded-none"
+							onClick={onDeleteClick}
+							title="Delete"
+						>
 							<TrashIcon className="pointer-events-none" />
 							<span className="hidden xl:inline-block pointer-events-none">
 								<u>D</u>elete

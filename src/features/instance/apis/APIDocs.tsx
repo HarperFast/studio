@@ -108,7 +108,13 @@ export function APIDocs() {
 					error={{ message: apiInaccessibleWarning }}
 					showReturnToHome={false}
 				>
-					<Button disabled={isSettingConfiguration} variant="warning" className="rounded-full" onClick={enableCORS}>
+					<Button
+						type="button"
+						disabled={isSettingConfiguration}
+						variant="warning"
+						className="rounded-full"
+						onClick={enableCORS}
+					>
 						<Plus />
 						{isSettingConfiguration ? 'Enabling CORS...' : `Enable CORS for ${window.location.origin}`}
 					</Button>

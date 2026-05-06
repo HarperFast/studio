@@ -33,7 +33,6 @@ export function EditTableRowModal({
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
 
 	const value = useMemo(() => {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => rowWithoutTime);
 		return JSON.stringify(dataWithoutTimes, null, 4);
 	}, [data]);
@@ -47,6 +46,7 @@ export function EditTableRowModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent
 				aria-describedby={undefined}
+				autoFocus={canEditRecords}
 				onEscapeKeyDown={canEditRecords
 					? (event) => {
 						if (madeChanges) {
@@ -79,6 +79,8 @@ export function EditTableRowModal({
 							<Button
 								variant="destructive"
 								className="rounded-full"
+								type="button"
+								autoFocus={false}
 								onClick={() => {
 									const primaryKeyValue = data[0]?.[primaryKey];
 									if (primaryKeyValue) {
@@ -94,13 +96,16 @@ export function EditTableRowModal({
 							<Button
 								variant="submit"
 								className="rounded-full"
+								autoFocus={true}
 								accessKey="s"
 								onClick={() => {
 									if (updatedTableRecordData && isValidJSON) {
 										onSaveChanges(JSON.parse(updatedTableRecordData));
+									} else {
+										setIsModalOpen(false);
 									}
 								}}
-								disabled={!updatedTableRecordData || !isValidJSON || isUpdateTableRecordsPending}
+								disabled={!isValidJSON || isUpdateTableRecordsPending}
 							>
 								<Save />{' '}
 								<span>

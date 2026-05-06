@@ -32,6 +32,7 @@ export function RestartButton({
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Button
+					type="button"
 					variant={variant || 'positiveOutline'}
 					className={cx('mx-0 md:mx-4 rounded-full', className)}
 					onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}

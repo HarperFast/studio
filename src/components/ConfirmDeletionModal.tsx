@@ -62,7 +62,7 @@ export function ConfirmDeletionModal({
 				)}
 				<DialogFooter>
 					<div className="flex justify-center space-x-5">
-						<Button className="rounded-full" onClick={() => setIsModalOpen(false)}>
+						<Button type="button" className="rounded-full" onClick={() => setIsModalOpen(false)}>
 							<ArrowLeft /> Cancel
 						</Button>
 						<Button

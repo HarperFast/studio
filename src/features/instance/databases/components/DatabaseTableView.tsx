@@ -377,7 +377,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 				<div className="flex space-x-2">
 					{filtersToggled && appliedSearchConditions && (
-						<Button variant="ghost" onClick={clearFilters} accessKey="f">
+						<Button type="button" variant="ghost" onClick={clearFilters} accessKey="f">
 							<FunnelXIcon className="inline-block " />
 							<span>
 								Clear <u>F</u>ilters

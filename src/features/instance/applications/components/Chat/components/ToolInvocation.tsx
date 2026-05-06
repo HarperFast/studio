@@ -58,6 +58,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 								<strong>Input:</strong>
 								{input.lines > 3 && (
 									<Button
+										type="button"
 										variant="ghost"
 										size="sm"
 										className="h-6 px-2 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
@@ -99,6 +100,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 								Approve
 							</Button>
 							<Button
+								type="button"
 								size="sm"
 								variant="outline"
 								className="h-8 text-xs"
@@ -108,6 +110,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 								Always Approve
 							</Button>
 							<Button
+								type="button"
 								size="sm"
 								variant="outline"
 								className="h-8 text-xs"
@@ -131,6 +134,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 											<strong>Result:</strong>
 											{output.lines > 3 && (
 												<Button
+													type="button"
 													variant="ghost"
 													size="sm"
 													className="h-6 px-2 text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"

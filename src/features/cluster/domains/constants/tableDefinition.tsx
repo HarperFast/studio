@@ -113,6 +113,7 @@ export function useDataTableColumns(
 							<>
 								<div>{domain.domain}</div>
 								<Button
+									type="button"
 									variant="destructiveGhost"
 									className="text-muted-foreground text-xs"
 									disabled={isPending || !!domain.clusterId}
@@ -155,6 +156,7 @@ export function useDataTableColumns(
 									</div>
 								)}
 								<Button
+									type="button"
 									variant="destructiveGhost"
 									className="text-muted-foreground text-xs"
 									disabled={isPending}

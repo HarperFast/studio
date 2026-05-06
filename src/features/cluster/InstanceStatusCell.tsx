@@ -72,6 +72,7 @@ export function InstanceStatusCell(
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Button
+									type="button"
 									variant="destructiveGhost"
 									size="icon"
 									onClick={() => setStatus({ ...instanceParams, id: 'availability', status: 'Unavailable' })}
@@ -89,6 +90,7 @@ export function InstanceStatusCell(
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Button
+									type="button"
 									variant="ghost"
 									size="icon"
 									onClick={() => setStatus({ ...instanceParams, id: 'availability', status: 'Available' })}

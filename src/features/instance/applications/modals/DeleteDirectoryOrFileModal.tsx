@@ -113,7 +113,7 @@ export function DeleteDirectoryOrFileModal() {
 				</DialogHeader>
 
 				<div className="flex w-full gap-4">
-					<Button variant="ghostOutline" className="w-full rounded-full" onClick={closeModal}>
+					<Button type="button" variant="ghostOutline" className="w-full rounded-full" onClick={closeModal}>
 						Cancel
 					</Button>
 					<Button

@@ -88,7 +88,7 @@ export function ClustersList() {
 					{!filteredClusters.length && (
 						<div className="col-span-1 md:col-span-12 text-center">
 							<h2 className="my-4 text-xl">No matches found.</h2>
-							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
+							<Button type="button" variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
 						</div>
 					)}
 				</div>
