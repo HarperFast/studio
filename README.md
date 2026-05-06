@@ -2,7 +2,7 @@
 
 This repository contains the React + TypeScript web application that powers Harper Fabric at https://fabric.harper.fast and Harper Studio locally.
 
-It is also the source for the bundled “Local Studio” UI that ships with the `harperdb` Node package. If you enable `localStudio` in your Harper config YAML, this app is served directly from your local Harper instance.
+It is also the source for the bundled “Local Studio” UI that ships with the `harper` Node package. If you enable `localStudio` in your Harper config YAML, this app is served directly from your local Harper instance.
 
 - Live site: https://fabric.harper.fast
 - Tech stack: React, Vite, TypeScript, Tailwind CSS, TanStack Router/Query/Table

@@ -28,7 +28,7 @@ export function useCLISteps(appName: string) {
 		return [
 			{
 				title: 'Install or update the Harper CLI',
-				code: 'npm install -g harperdb',
+				code: 'npm install -g harper',
 			},
 			{
 				title: 'Create your awesome app',

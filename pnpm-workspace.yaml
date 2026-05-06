@@ -3,5 +3,4 @@ onlyBuiltDependencies:
   - core-js-pure
   - dprint
   - esbuild
-  - lmdb
   - reo-census
