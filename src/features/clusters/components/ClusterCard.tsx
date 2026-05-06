@@ -148,12 +148,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		isActive && update && (
 			<Link key="edit" to={`${cluster.id}/edit`} disabled={signingOut}>
 				<DropdownMenuItem>
-					<ScaleIcon className="text-purple-600" /> Edit Scaling
+					<ScaleIcon className="text-purple-600" /> {isSelfManaged ? 'Edit' : 'Edit Scaling'}
 				</DropdownMenuItem>
 			</Link>
 		),
-		isActive && update && (
-			<Link key="edit" to={`${cluster.id}/edit/version`} disabled={signingOut}>
+		isActive && update && !isSelfManaged && (
+			<Link key="edit-version" to={`${cluster.id}/edit/version`} disabled={signingOut}>
 				<DropdownMenuItem>
 					<GitGraphIcon className="text-fuchsia-300" /> Edit Version
 				</DropdownMenuItem>

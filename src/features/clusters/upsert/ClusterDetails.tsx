@@ -169,7 +169,7 @@ export function ClusterDetails({
 							isEnterprise={isEnterprise}
 						/>
 					)}
-				{clusterId && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
+				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 			</div>
 			{footer}
 		</>
