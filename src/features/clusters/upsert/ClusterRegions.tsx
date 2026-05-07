@@ -15,7 +15,7 @@ interface ClusterRegionsProps {
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number | undefined;
 	isEnterprise: boolean;
-	cloudProvider: keyof SchemaCloudInstanceTypes;
+	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 }
 
 export function ClusterRegions({

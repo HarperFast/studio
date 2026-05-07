@@ -21,7 +21,7 @@ type RegionFormInputsProps = {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
-	cloudProvider: keyof SchemaCloudInstanceTypes;
+	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 };
 
 export function RegionFormInputs({
