@@ -23,6 +23,7 @@ interface ClusterDetailsProps {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	harperVersions: HarperVersionsResponse | undefined;
 	isEnterprise: boolean;
+	isAkamai: boolean;
 	isPending: boolean;
 	mode: 'version' | undefined;
 	regionLocations: SchemaRegion[] | undefined;
@@ -40,6 +41,7 @@ export function ClusterDetails({
 	form,
 	harperVersions,
 	isEnterprise,
+	isAkamai,
 	isPending,
 	mode,
 	regionLocations,
@@ -167,6 +169,7 @@ export function ClusterDetails({
 							selectedPlan={selectedPlan}
 							totalPrice={totalPrice}
 							isEnterprise={isEnterprise}
+							isAkamai={isAkamai}
 						/>
 					)}
 				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}

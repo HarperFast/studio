@@ -13,10 +13,11 @@ import { isPositive } from '@/lib/types/isPositive';
 import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise }: {
+export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise, isAkamai }: {
 	readonly selectedPlan: SchemaPlan | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
 	readonly isEnterprise: boolean;
+	readonly isAkamai: boolean;
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
@@ -24,6 +25,9 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 	}, [toggled, setToggled]);
 	const planLimits = selectedPlan?.planLimits;
 	const resourcesPerInstance = selectedPlan?.resourcesPerInstance;
+	const cloudInstanceType = isAkamai
+		? selectedPlan?.cloudInstanceTypes?.linode
+		: selectedPlan?.cloudInstanceTypes?.gcp;
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000
 		&& planLimits.expirationMonths;
@@ -92,6 +96,22 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 			!!resourcesPerInstance && isPositive(resourcesPerInstance.storageGb) && {
 				label: 'Storage',
 				value: `${humanFileSize(resourcesPerInstance.storageGb * 1000_000_000)}`,
+			},
+			!!resourcesPerInstance && isPositive(resourcesPerInstance.cpuCores) && {
+				label: 'CPU Cores',
+				value: `${humanNumber(resourcesPerInstance.cpuCores)}`,
+			},
+			!!resourcesPerInstance && isPositive(resourcesPerInstance.threads) && {
+				label: 'Threads',
+				value: `${humanNumber(resourcesPerInstance.threads)}`,
+			},
+			!!resourcesPerInstance && isPositive(resourcesPerInstance.memoryMb) && {
+				label: 'Memory',
+				value: `${resourcesPerInstance.memoryMb / 1024} GB`,
+			},
+			!!cloudInstanceType && {
+				label: 'Cloud Instance Type',
+				value: cloudInstanceType,
 			},
 			!!expirationMonths && {
 				label: 'Expiration',
