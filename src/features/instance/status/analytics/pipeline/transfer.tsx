@@ -1,0 +1,37 @@
+import { DimensionSelectorRenderer } from '../primitives/DimensionSelectorRenderer.tsx';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../types/analytics.ts';
+import { QUANTILE_DEFAULT, QUANTILE_FIELDS } from './quantileFields.ts';
+
+export const transferSpec: MetricSpec = {
+	title: 'Transfer duration (p95)',
+	description: 'Per-path transfer p95 (count-weighted-mean) — top 10 paths + Other.',
+	tab: 'requests',
+	primaryDimension: 'path',
+	subDimension: 'method',
+	series: {
+		kind: 'groupBy',
+		dimension: 'path',
+		field: { field: 'p95', label: 'p95 transfer (ms)' },
+		topN: 10,
+		otherBucket: true,
+	},
+	timestamp: 'time',
+	bucket: { source: 'period-field', fallbackMs: 60000 },
+	aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
+	confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+	primitive: 'line',
+	yAxis: { unit: '', formatter: 'ms' },
+	quantileSelector: { fields: QUANTILE_FIELDS, default: QUANTILE_DEFAULT },
+};
+
+interface RendererProps {
+	records: AnalyticsDataPoint[];
+	timeRange: TimeRange;
+	nodes: string[];
+	theme: 'light' | 'dark';
+	viewMode?: 'per-node' | 'aggregate';
+}
+
+export function TransferRenderer(props: RendererProps) {
+	return <DimensionSelectorRenderer spec={transferSpec} {...props} ariaLabel="Path" />;
+}
