@@ -98,12 +98,8 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 				value: `${humanFileSize(resourcesPerInstance.storageGb * 1000_000_000)}`,
 			},
 			!!resourcesPerInstance && isPositive(resourcesPerInstance.cpuCores) && {
-				label: 'CPU Cores',
+				label: 'Maximum CPU Cores',
 				value: `${humanNumber(resourcesPerInstance.cpuCores)}`,
-			},
-			!!resourcesPerInstance && isPositive(resourcesPerInstance.threads) && {
-				label: 'Threads',
-				value: `${humanNumber(resourcesPerInstance.threads)}`,
 			},
 			!!resourcesPerInstance && isPositive(resourcesPerInstance.memoryMb) && {
 				label: 'Memory',
