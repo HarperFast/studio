@@ -136,12 +136,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return clearFilters();
 	}, [allParams, clearFilters]);
 
-	const { dataTableColumns, hashAttribute } = formatBrowseDataTableHeader(describeTableData);
+	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(describeTableData);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
 		{
-			attribute: hashAttribute,
+			attribute: primaryKey,
 			descending: false,
 		},
 		allParams,
@@ -158,10 +158,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Full list
 	const searchByValueParams = {
 		...instanceParams,
-		enabled: !useFilteredList && !!hashAttribute,
+		enabled: !useFilteredList && !!primaryKey,
 		databaseName,
 		tableName,
-		searchAttribute: hashAttribute,
+		searchAttribute: primaryKey,
 		sort,
 		pageSize,
 		pageIndex,
@@ -173,7 +173,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Filtered list
 	const searchByConditionsParams = {
 		...instanceParams,
-		enabled: useFilteredList && !!hashAttribute,
+		enabled: useFilteredList && !!primaryKey,
 		databaseName,
 		tableName,
 		conditions: appliedSearchConditions,
@@ -228,7 +228,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const [isExportingCSV, setisExportingCSV] = useState(false);
 	const onExportCSVClicked = useCallback(async () => {
-		if (!hashAttribute) {
+		if (!primaryKey) {
 			return;
 		}
 		const id = toast.loading('Loading CSV...');
@@ -300,7 +300,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [refreshTable]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-		setSelectedIds([rowData.original[hashAttribute]]);
+		setSelectedIds([rowData.original[primaryKey]]);
 		setIsEditModalOpen(!isEditModalOpen);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
@@ -470,6 +470,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			</div>
 
 			<TableView<Record<string, unknown>, unknown>
+				primaryKey={primaryKey}
 				data={tableData?.data}
 				isFetching={isFetching}
 				filtersToggled={filtersToggled}
@@ -499,7 +500,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				canDeleteRecords={canDeleteRecords}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
-				hashAttribute={hashAttribute}
+				primaryKey={primaryKey}
 				data={searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}

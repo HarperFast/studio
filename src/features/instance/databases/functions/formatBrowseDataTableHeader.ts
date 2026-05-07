@@ -3,15 +3,15 @@ import { ColumnDef } from '@tanstack/react-table';
 
 export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
-	hashAttribute: string;
+	primaryKey: string;
 } {
 	if (!instanceTable) {
 		return {
 			dataTableColumns: [],
-			hashAttribute: '',
+			primaryKey: '',
 		};
 	}
-	const hashAttribute = instanceTable.primary_key ?? instanceTable.hash_attribute ?? '';
+	const primaryKey = instanceTable.primary_key ?? instanceTable.hash_attribute ?? '';
 	const { attributes } = instanceTable;
 	const primaryKeyColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
@@ -40,7 +40,7 @@ export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
 	}
 	return {
 		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...timeColumns],
-		hashAttribute,
+		primaryKey,
 	};
 }
 
