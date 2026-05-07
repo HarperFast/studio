@@ -64,7 +64,7 @@ export function ClusterForm({
 	const navigate = useNavigate();
 	const router = useRouter();
 	const isEnterprise = organization?.type === ENTERPRISE;
-	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : 'gcp';
+	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
 
 	const queryClient = useQueryClient();
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();

@@ -23,7 +23,7 @@ interface ClusterDetailsProps {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	harperVersions: HarperVersionsResponse | undefined;
 	isEnterprise: boolean;
-	cloudProvider: keyof SchemaCloudInstanceTypes;
+	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 	isPending: boolean;
 	mode: 'version' | undefined;
 	regionLocations: SchemaRegion[] | undefined;

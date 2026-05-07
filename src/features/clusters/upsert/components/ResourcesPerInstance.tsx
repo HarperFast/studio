@@ -17,7 +17,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 	readonly selectedPlan: SchemaPlan | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
 	readonly isEnterprise: boolean;
-	readonly cloudProvider: keyof SchemaCloudInstanceTypes;
+	readonly cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
@@ -25,7 +25,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 	}, [toggled, setToggled]);
 	const planLimits = selectedPlan?.planLimits;
 	const resourcesPerInstance = selectedPlan?.resourcesPerInstance;
-	const cloudInstanceType = selectedPlan?.cloudInstanceTypes?.[cloudProvider];
+	const cloudInstanceType = cloudProvider && selectedPlan?.cloudInstanceTypes?.[cloudProvider];
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000
 		&& planLimits.expirationMonths;
