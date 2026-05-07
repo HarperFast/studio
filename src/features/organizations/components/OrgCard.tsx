@@ -8,11 +8,22 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { AddCouponModal } from '@/features/organization/modals/AddCouponModal';
+import { useAdminMode } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link } from '@tanstack/react-router';
-import { ArrowRight, Ellipsis } from 'lucide-react';
-import { useCallback } from 'react';
+import {
+	ArrowRight,
+	CreditCardIcon,
+	Ellipsis,
+	ServerIcon,
+	ShieldCheckIcon,
+	TicketIcon,
+	Trash2Icon,
+	UsersIcon,
+} from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 export function OrgCard({
 	organizationRole,
@@ -25,6 +36,9 @@ export function OrgCard({
 	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const showBilling = canUpdateOrganization;
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
+	const isAdminMode = useAdminMode();
+
+	const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
 
 	const onDeleteClick = useCallback(() => {
 		onDeleteOrgModal(organizationRole);
@@ -44,22 +58,40 @@ export function OrgCard({
 								<DropdownMenuLabel className="text-gray-600 text-xs">Options</DropdownMenuLabel>
 								<DropdownMenuSeparator />
 								<Link to={`${organizationId}`}>
-									<DropdownMenuItem>Clusters</DropdownMenuItem>
+									<DropdownMenuItem>
+										<ServerIcon className="size-4 mr-2 text-blue-500" />
+										Clusters
+									</DropdownMenuItem>
 								</Link>
 								{showOrgUsersAndRoles && (
 									<Link to={`${organizationId}/roles`}>
-										<DropdownMenuItem>Roles</DropdownMenuItem>
+										<DropdownMenuItem>
+											<ShieldCheckIcon className="size-4 mr-2 text-purple" />
+											Roles
+										</DropdownMenuItem>
 									</Link>
 								)}
 								{showOrgUsersAndRoles && (
 									<Link to={`${organizationId}/users`}>
-										<DropdownMenuItem>Users</DropdownMenuItem>
+										<DropdownMenuItem>
+											<UsersIcon className="size-4 mr-2 text-orange-500" />
+											Users
+										</DropdownMenuItem>
 									</Link>
 								)}
 								{showBilling && (
 									<Link to={`${organizationId}/billing`}>
-										<DropdownMenuItem>Billing</DropdownMenuItem>
+										<DropdownMenuItem>
+											<CreditCardIcon className="size-4 mr-2 text-green-500" />
+											Billing
+										</DropdownMenuItem>
 									</Link>
+								)}
+								{isAdminMode && (
+									<DropdownMenuItem onClick={() => setIsCouponModalOpen(true)}>
+										<TicketIcon className="size-4 mr-2 text-pink-500" />
+										Add Coupon
+									</DropdownMenuItem>
 								)}
 								<DropdownMenuSeparator />
 								{remove && (
@@ -67,6 +99,7 @@ export function OrgCard({
 										className="focus:bg-red/70 focus:text-white"
 										onClick={onDeleteClick}
 									>
+										<Trash2Icon className="size-4 mr-2 text-red-500" />
 										Delete
 									</DropdownMenuItem>
 								)}
@@ -91,6 +124,12 @@ export function OrgCard({
 					</span>
 				</Link>
 			</CardContent>
+			<AddCouponModal
+				organizationId={organizationId}
+				organizationName={organizationName}
+				isOpen={isCouponModalOpen}
+				onClose={() => setIsCouponModalOpen(false)}
+			/>
 		</Card>
 	);
 }
