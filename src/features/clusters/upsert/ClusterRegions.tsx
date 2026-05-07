@@ -1,7 +1,7 @@
 import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Button } from '@/components/ui/button';
-import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { PlusIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
@@ -15,7 +15,7 @@ interface ClusterRegionsProps {
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number | undefined;
 	isEnterprise: boolean;
-	isAkamai: boolean;
+	cloudProvider: keyof SchemaCloudInstanceTypes;
 }
 
 export function ClusterRegions({
@@ -25,7 +25,7 @@ export function ClusterRegions({
 	selectedPlan,
 	totalPrice,
 	isEnterprise,
-	isAkamai,
+	cloudProvider,
 }: ClusterRegionsProps) {
 	const selectedRegionPlans = form.watch('regionPlans');
 
@@ -87,7 +87,7 @@ export function ClusterRegions({
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 					selectedPlan={selectedPlan}
 					isEnterprise={isEnterprise}
-					isAkamai={isAkamai}
+					cloudProvider={cloudProvider}
 				/>
 			))}
 
