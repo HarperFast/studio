@@ -1,0 +1,6 @@
+[
+	{ "metric": "table-size", "database": "d", "table": "t1", "node": "n1", "id": 1700000000000, "size": 4096 },
+	{ "metric": "table-size", "database": "d", "table": "t2", "node": "n1", "id": 1700000000000, "size": 4096 },
+	{ "metric": "table-size", "database": "d", "table": "t3", "node": "n1", "id": 1700000000000, "size": 0 },
+	{ "metric": "table-size", "database": "d", "table": "t4", "node": "n1", "id": 1700000000000, "size": 4096 }
+]

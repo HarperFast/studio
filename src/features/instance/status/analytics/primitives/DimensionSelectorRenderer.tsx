@@ -1,0 +1,210 @@
+// Shared chip-row + filtered LineChart pattern. Used by duration, success,
+// transfer, response_200, db-{read,write,message}.
+//
+// Two ways to slice the data:
+//   1. Pipeline runs once with `perNode: true` so series come back as
+//      one-per-(dim, node). The chip selector still picks one DIMENSION
+//      value (path/table/path·method) — filtering keeps every node line
+//      for that dimension. Operator immediately sees which node is hot
+//      for the selected path/table.
+//   2. When spec.quantileSelector is set, the user can swap the underlying
+//      percentile field (p50/p95/p99) via a small button group above the
+//      chart. The pipeline re-runs with the chosen field substituted.
+
+import { useMemo, useState } from 'react';
+import { NodeLegend } from '../charts/NodeLegend.tsx';
+import { useNodeSelection } from '../hooks/useNodeSelection.ts';
+import { getNodeColor } from '../lib/nodeColors.ts';
+import { runPipeline } from '../pipeline/pipeline.ts';
+import type { AnalyticsDataPoint, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
+import { DimensionChipRow } from './DimensionChipRow.tsx';
+import { DimensionCombobox } from './DimensionCombobox.tsx';
+import { LineChart } from './LineChart.tsx';
+
+const OTHER_KEY = 'Other';
+const CHIP_LIMIT = 12;
+
+interface Props {
+	spec: MetricSpec;
+	records: AnalyticsDataPoint[];
+	timeRange: TimeRange;
+	nodes: string[];
+	theme: 'light' | 'dark';
+	ariaLabel?: string;
+	/** 'per-node' (default) breaks each chip-selected dimension into one
+	 *  line per node; 'aggregate' folds nodes into one cluster series per
+	 *  dim. */
+	viewMode?: 'per-node' | 'aggregate';
+	/** When true, the chart inside this renderer fills its parent's
+	 *  vertical space — used by the expand-to-fullscreen dialog. */
+	fillParent?: boolean;
+}
+
+/** Last segment of an FQDN as a stable short label.
+ *  e.g. 'xb6-us-west-1.prod.ibm.harperfabric.com' → 'xb6-us-west-1'.
+ *  Falls back to the full string if there's no dot. */
+function shortenNodeLabel(node: string): string {
+	const dot = node.indexOf('.');
+	return dot === -1 ? node : node.slice(0, dot);
+}
+
+export function DimensionSelectorRenderer({
+	spec,
+	records,
+	timeRange,
+	nodes,
+	theme,
+	ariaLabel = 'Dimension',
+	viewMode = 'per-node',
+	fillParent,
+}: Props) {
+	const perNode = viewMode === 'per-node';
+	// ── Quantile selector state (when spec opts in) ─────────────────────
+	const quantileFields = spec.quantileSelector?.fields;
+	const [quantile, setQuantile] = useState<string>(
+		spec.quantileSelector?.default ?? '',
+	);
+	const effectiveQuantile = quantileFields?.some((q) => q.field === quantile)
+		? quantile
+		: (spec.quantileSelector?.default ?? '');
+
+	// Build the runtime spec — substitute the chosen percentile field if a
+	// quantile selector is active. groupBy specs only.
+	const runtimeSpec = useMemo<MetricSpec>(() => {
+		if (!quantileFields || effectiveQuantile === '' || spec.series.kind !== 'groupBy') { return spec; }
+		const chosen = quantileFields.find((q) => q.field === effectiveQuantile);
+		if (!chosen) { return spec; }
+		return {
+			...spec,
+			series: {
+				...spec.series,
+				field: { ...spec.series.field, field: chosen.field, label: chosen.label },
+			},
+		};
+	}, [spec, quantileFields, effectiveQuantile]);
+
+	const fullData = useMemo<SeriesData>(
+		() => runPipeline(runtimeSpec, records, timeRange, nodes, { perNode, snapToPeriod: true }),
+		[runtimeSpec, records, timeRange, nodes, perNode],
+	);
+
+	// In perNode mode series keys are `${dim}|${node}`. Build the dimension
+	// list (the chip-row values) by collecting the prefix part of each key,
+	// excluding the special OTHER aggregate.
+	const dimValues = useMemo(() => {
+		const seen = new Set<string>();
+		for (const s of fullData.series) {
+			if (s.key === OTHER_KEY) { continue; }
+			const sep = s.key.indexOf('|');
+			seen.add(sep === -1 ? s.key : s.key.slice(0, sep));
+		}
+		return [...seen];
+	}, [fullData.series]);
+
+	const hasOther = fullData.series.some((s) => s.key === OTHER_KEY);
+	const [selectedDim, setSelectedDim] = useState<string>(() => dimValues[0] ?? '');
+	const effectiveDim = dimValues.includes(selectedDim) ? selectedDim : (dimValues[0] ?? '');
+
+	// Per-node legend filter — shared across this panel's lines so the
+	// per-Recharts <Legend> can be hidden and the chart area gets full
+	// vertical real estate.
+	const { isActive, handleLegendClick } = useNodeSelection(nodes);
+
+	// Filter to (dim|*) prefix; apply per-node coloring so the same node
+	// keeps the same hue across panels. Then filter by the active-node set.
+	const filteredData: SeriesData = useMemo(() => {
+		const prefix = `${effectiveDim}|`;
+		const filtered = fullData.series
+			.filter((s) => s.key === effectiveDim || s.key.startsWith(prefix))
+			.map((s) => {
+				const sep = s.key.indexOf('|');
+				const node = sep === -1 ? '' : s.key.slice(sep + 1);
+				if (!node) { return s; }
+				return {
+					...s,
+					label: shortenNodeLabel(node),
+					color: getNodeColor(node, nodes),
+				};
+			})
+			.filter((s) => {
+				const sep = s.key.indexOf('|');
+				const node = sep === -1 ? '' : s.key.slice(sep + 1);
+				return node === '' || isActive(node);
+			});
+		return { ...fullData, series: filtered };
+	}, [fullData, effectiveDim, nodes, isActive]);
+
+	return (
+		<div className="flex h-full flex-col">
+			{
+				/* Selectors live above the chart (consistent with TrafficByTypeRenderer):
+			    quantile (when the spec exposes one) on top, then the dimension
+			    selector (chip row when ≤ CHIP_LIMIT values, combobox above it).
+			    The chart fills the remaining space below; the per-node legend
+			    stays at the bottom because it's a color key, not a selector. */
+			}
+			{spec.quantileSelector && quantileFields && quantileFields.length > 1 && (
+				<div
+					role="radiogroup"
+					aria-label="Quantile"
+					className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[11px]"
+				>
+					{quantileFields.map((q) => {
+						const active = q.field === effectiveQuantile;
+						return (
+							<button
+								key={q.field}
+								type="button"
+								role="radio"
+								aria-checked={active}
+								data-testid="quantile-button"
+								data-value={q.field}
+								onClick={() => setQuantile(q.field)}
+								className="inline-flex items-center cursor-pointer border-none bg-transparent p-0 text-(--color-text-secondary)"
+								style={{ opacity: active ? 1 : 0.3 }}
+							>
+								{q.label}
+							</button>
+						);
+					})}
+				</div>
+			)}
+			{dimValues.length > CHIP_LIMIT
+				? (
+					<DimensionCombobox
+						dimensionValues={dimValues}
+						selected={effectiveDim}
+						onSelect={setSelectedDim}
+						otherKey={hasOther ? OTHER_KEY : undefined}
+						ariaLabel={ariaLabel}
+					/>
+				)
+				: (
+					<DimensionChipRow
+						dimensionValues={dimValues}
+						selected={effectiveDim}
+						onSelect={setSelectedDim}
+						otherKey={hasOther ? OTHER_KEY : undefined}
+						ariaLabel={ariaLabel}
+					/>
+				)}
+			<div className="min-h-0 flex-1" style={{ marginTop: 8 }}>
+				<LineChart
+					data={filteredData}
+					theme={theme}
+					yAxis={spec.yAxis}
+					xDomain={[timeRange.startTime, timeRange.endTime]}
+					fillParent={fillParent}
+					hideLegend={perNode}
+				/>
+			</div>
+			{perNode && nodes.length > 0 && (
+				<NodeLegend
+					nodeIds={nodes}
+					isActive={isActive}
+					onClickNode={handleLegendClick}
+				/>
+			)}
+		</div>
+	);
+}

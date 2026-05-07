@@ -1,0 +1,8 @@
+[
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n1", "id": 1700000000000, "size": 100000 },
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n1", "id": 1700000060000, "size": 110000 },
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n1", "id": 1700000120000, "size": 120000 },
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n1", "id": 1700000180000, "size": 130000 },
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n2", "id": 1700000000000, "size": 200000 },
+	{ "metric": "table-size", "database": "d", "table": "T", "node": "n2", "id": 1700000060000, "size": 210000 }
+]

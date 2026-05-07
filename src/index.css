@@ -91,6 +91,15 @@
 	--sidebar-border: hsl(220 13% 91%);
 	--sidebar-ring: hsl(217.2 91.2% 59.8%);
 
+	/* Chart surface tokens — analytics charts render on a neutral surface
+	 * (the Card), not the brand-purple background. Axis/grid/tooltip tokens
+	 * resolve against `--card` so WCAG AA contrast is preserved. */
+	--chart-bg: var(--card);
+	--chart-grid: hsl(0 0% 89.8%);
+	--chart-axis: hsl(0 0% 40%);
+	--chart-tooltip-bg: var(--popover);
+	--chart-tooltip-fg: var(--popover-foreground);
+
 }
 
 .dark {
@@ -126,6 +135,12 @@
 	--sidebar-accent-foreground: hsl(240 4.8% 95.9%);
 	--sidebar-border: hsl(240 3.7% 15.9%);
 	--sidebar-ring: hsl(217.2 91.2% 59.8%);
+
+	--chart-bg: var(--card);
+	--chart-grid: hsl(0 0% 22%);
+	--chart-axis: hsl(0 0% 70%);
+	--chart-tooltip-bg: var(--popover);
+	--chart-tooltip-fg: var(--popover-foreground);
 }
 
 @theme inline {

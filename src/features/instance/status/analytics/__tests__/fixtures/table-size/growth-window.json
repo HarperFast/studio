@@ -1,0 +1,35 @@
+[
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n1", "id": 1700000000000, "size": 1000000 },
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n1", "id": 1700000060000, "size": 1500000 },
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n1", "id": 1700000120000, "size": 2000000 },
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n2", "id": 1700000000000, "size": 1000000 },
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n2", "id": 1700000060000, "size": 1500000 },
+	{ "metric": "table-size", "database": "d", "table": "grower", "node": "n2", "id": 1700000120000, "size": 2000000 },
+	{ "metric": "table-size", "database": "d", "table": "flat", "node": "n1", "id": 1700000000000, "size": 10000000 },
+	{ "metric": "table-size", "database": "d", "table": "flat", "node": "n1", "id": 1700000060000, "size": 10000000 },
+	{ "metric": "table-size", "database": "d", "table": "flat", "node": "n1", "id": 1700000120000, "size": 10000000 },
+	{
+		"metric": "table-size",
+		"database": "d",
+		"table": "fastPctGrower",
+		"node": "n1",
+		"id": 1700000000000,
+		"size": 1024
+	},
+	{
+		"metric": "table-size",
+		"database": "d",
+		"table": "fastPctGrower",
+		"node": "n1",
+		"id": 1700000060000,
+		"size": 50000
+	},
+	{
+		"metric": "table-size",
+		"database": "d",
+		"table": "fastPctGrower",
+		"node": "n1",
+		"id": 1700000120000,
+		"size": 102400
+	}
+]
