@@ -21,6 +21,7 @@ type RegionFormInputsProps = {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
+	isAkamai: boolean;
 };
 
 export function RegionFormInputs({
@@ -31,6 +32,7 @@ export function RegionFormInputs({
 	regionNameToLatencyToRegion,
 	selectedPlan,
 	isEnterprise,
+	isAkamai,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() => Object.keys(regionNameToLatencyToRegion).sort(), [
 		regionNameToLatencyToRegion,
@@ -143,6 +145,7 @@ export function RegionFormInputs({
 				selectedPlan={selectedPlan}
 				selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription]}
 				isEnterprise={isEnterprise}
+				isAkamai={isAkamai}
 			/>
 		</div>
 	);

@@ -15,6 +15,7 @@ interface ClusterRegionsProps {
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number | undefined;
 	isEnterprise: boolean;
+	isAkamai: boolean;
 }
 
 export function ClusterRegions({
@@ -24,6 +25,7 @@ export function ClusterRegions({
 	selectedPlan,
 	totalPrice,
 	isEnterprise,
+	isAkamai,
 }: ClusterRegionsProps) {
 	const selectedRegionPlans = form.watch('regionPlans');
 
@@ -85,6 +87,7 @@ export function ClusterRegions({
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 					selectedPlan={selectedPlan}
 					isEnterprise={isEnterprise}
+					isAkamai={isAkamai}
 				/>
 			))}
 

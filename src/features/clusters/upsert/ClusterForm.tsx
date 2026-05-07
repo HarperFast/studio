@@ -64,6 +64,7 @@ export function ClusterForm({
 	const navigate = useNavigate();
 	const router = useRouter();
 	const isEnterprise = organization?.type === ENTERPRISE;
+	const isAkamai = organization?.channel === 'Akamai';
 
 	const queryClient = useQueryClient();
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
@@ -491,6 +492,7 @@ export function ClusterForm({
 									selectedPlan={selectedPlan}
 									totalPrice={totalPrice}
 									isEnterprise={isEnterprise}
+									isAkamai={isAkamai}
 								/>
 							</form>
 						</>
