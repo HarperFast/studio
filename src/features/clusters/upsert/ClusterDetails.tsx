@@ -8,7 +8,7 @@ import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
-import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
@@ -23,7 +23,7 @@ interface ClusterDetailsProps {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	harperVersions: HarperVersionsResponse | undefined;
 	isEnterprise: boolean;
-	isAkamai: boolean;
+	cloudProvider: keyof SchemaCloudInstanceTypes;
 	isPending: boolean;
 	mode: 'version' | undefined;
 	regionLocations: SchemaRegion[] | undefined;
@@ -41,7 +41,7 @@ export function ClusterDetails({
 	form,
 	harperVersions,
 	isEnterprise,
-	isAkamai,
+	cloudProvider,
 	isPending,
 	mode,
 	regionLocations,
@@ -169,7 +169,7 @@ export function ClusterDetails({
 							selectedPlan={selectedPlan}
 							totalPrice={totalPrice}
 							isEnterprise={isEnterprise}
-							isAkamai={isAkamai}
+							cloudProvider={cloudProvider}
 						/>
 					)}
 				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}

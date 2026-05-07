@@ -6,7 +6,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
-import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -21,7 +21,7 @@ type RegionFormInputsProps = {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
-	isAkamai: boolean;
+	cloudProvider: keyof SchemaCloudInstanceTypes;
 };
 
 export function RegionFormInputs({
@@ -32,7 +32,7 @@ export function RegionFormInputs({
 	regionNameToLatencyToRegion,
 	selectedPlan,
 	isEnterprise,
-	isAkamai,
+	cloudProvider,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() => Object.keys(regionNameToLatencyToRegion).sort(), [
 		regionNameToLatencyToRegion,
@@ -145,7 +145,7 @@ export function RegionFormInputs({
 				selectedPlan={selectedPlan}
 				selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription]}
 				isEnterprise={isEnterprise}
-				isAkamai={isAkamai}
+				cloudProvider={cloudProvider}
 			/>
 		</div>
 	);

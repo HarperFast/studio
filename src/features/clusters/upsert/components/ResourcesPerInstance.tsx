@@ -3,7 +3,7 @@ import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { humanFileSize } from '@/lib/humanFileSize';
@@ -13,11 +13,11 @@ import { isPositive } from '@/lib/types/isPositive';
 import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
-export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise, isAkamai }: {
+export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise, cloudProvider }: {
 	readonly selectedPlan: SchemaPlan | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
 	readonly isEnterprise: boolean;
-	readonly isAkamai: boolean;
+	readonly cloudProvider: keyof SchemaCloudInstanceTypes;
 }) {
 	const [toggled, setToggled] = useState(false);
 	const onUsageLimitsClick = useCallback(() => {
@@ -25,9 +25,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 	}, [toggled, setToggled]);
 	const planLimits = selectedPlan?.planLimits;
 	const resourcesPerInstance = selectedPlan?.resourcesPerInstance;
-	const cloudInstanceType = isAkamai
-		? selectedPlan?.cloudInstanceTypes?.linode
-		: selectedPlan?.cloudInstanceTypes?.gcp;
+	const cloudInstanceType = selectedPlan?.cloudInstanceTypes?.[cloudProvider];
 
 	const expirationMonths = isPositive(planLimits?.expirationMonths) && planLimits.expirationMonths < 1000
 		&& planLimits.expirationMonths;
