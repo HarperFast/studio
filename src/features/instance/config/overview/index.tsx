@@ -11,7 +11,13 @@ import { ClusterDomainsList } from '@/features/instance/config/overview/componen
 import { HarperVersion } from '@/features/instance/config/overview/components/HarperVersion';
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
+import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
+import {
+	APIDirectoryEntry,
+	APIFileEntry,
+	getComponentsQueryOptions,
+} from '@/integrations/api/instance/applications/getComponents';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import {
 	getRegistrationInfoQueryOptions,
@@ -57,6 +63,26 @@ export function ConfigOverviewIndex() {
 	const { data: configurationInfo, isLoading: loadingConfig } = useQuery(
 		getConfigurationQueryOptions(instanceParams),
 	);
+	const { data: components, isLoading: loadingComponents } = useQuery(
+		getComponentsQueryOptions(instanceParams),
+	);
+
+	const lastDeployedTimestamp = useMemo(() => {
+		if (!components) { return null; }
+
+		let maxMtime = 0;
+		const traverse = (entry: APIDirectoryEntry | APIFileEntry) => {
+			if (entry.mtime) {
+				maxMtime = Math.max(maxMtime, new Date(entry.mtime).getTime());
+			}
+			if ('entries' in entry && entry.entries) {
+				entry.entries.forEach(traverse);
+			}
+		};
+
+		traverse(components);
+		return maxMtime || null;
+	}, [components]);
 
 	const sanitizedConfigInfo = useMemo(() => {
 		if (!configurationInfo) { return null; }
@@ -152,8 +178,11 @@ export function ConfigOverviewIndex() {
 				? (
 					<LocalStudioOverview>
 						<dl className="grid grid-cols-1 sm:grid-cols-3">
-							<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
+							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 								<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
+							</div>
+							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
+								<LastDeployedTimestamp loading={loadingComponents} timestamp={lastDeployedTimestamp} />
 							</div>
 							<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0">
 								<RestartButton
@@ -169,10 +198,13 @@ export function ConfigOverviewIndex() {
 					<CloudStudioOverview>
 						<dl className="flex-none grid grid-cols-1 sm:grid-cols-4">
 							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
+								<InstanceNodeName loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
+							</div>
+							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
 								<HarperVersion loadingRegistration={loadingRegistration} registrationInfo={registrationInfo} />
 							</div>
-							<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
-								<InstanceURL loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
+							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
+								<LastDeployedTimestamp loading={loadingComponents} timestamp={lastDeployedTimestamp} />
 							</div>
 							<div className="px-4 pb-4 text-right sm:col-span-1 sm:px-0 grid gap-1">
 								{newLicenses?.length > 0 && <ApplyLicensesButton newLicenses={newLicenses} />}
@@ -182,10 +214,10 @@ export function ConfigOverviewIndex() {
 									operation="restart"
 								/>
 							</div>
-							<div className="px-4 pb-4 sm:col-span-1 sm:px-0">
-								<InstanceNodeName loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
+							<div className="px-4 pb-4 sm:col-span-3 sm:px-0">
+								<InstanceURL loadingInstanceInfo={loadingInstanceInfo} instanceInfo={instanceInfo} />
 							</div>
-							<div className="px-4 pb-4 sm:col-span-2 sm:px-0">
+							<div className="px-4 pb-4 sm:col-span-3 sm:px-0">
 								<ApplicationURL loadingInstanceInfo={loadingInstanceInfo} clusterInfo={clusterInfo} />
 							</div>
 							{clusterInfo?.domains?.length && (

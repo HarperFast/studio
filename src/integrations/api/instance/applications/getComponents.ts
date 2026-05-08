@@ -8,6 +8,7 @@ export interface APIDirectoryEntry extends APIFileEntry {
 
 export interface APIFileEntry {
 	name: string;
+	mtime?: number;
 }
 
 export async function getComponents({ instanceClient }: InstanceClientIdConfig) {
