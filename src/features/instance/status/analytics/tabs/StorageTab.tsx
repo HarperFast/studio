@@ -124,7 +124,11 @@ function TableSizePanels() {
 		);
 	}
 
-	const renderSnapshot = () => (
+	// renderSnapshot/renderTrend accept the opts shape ChartExpandButton passes,
+	// but TableSizeSnapshot/Trend don't yet support fillParent — they render at
+	// their native size in both inline and dialog views. Wiring fillParent into
+	// those charts is a follow-up.
+	const renderSnapshot = (_opts?: { fillParent: boolean }) => (
 		<TableSizeSnapshot
 			snapshot={derived.snapshot}
 			viewMode="per-node"
@@ -135,7 +139,7 @@ function TableSizePanels() {
 			allOtherHint={derived.emptyCause === 'all-other'}
 		/>
 	);
-	const renderTrend = () => (
+	const renderTrend = (_opts?: { fillParent: boolean }) => (
 		effectiveSelection
 			? (
 				<TableSizeTrend

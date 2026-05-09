@@ -86,7 +86,7 @@ export function TypeFilterChipRow({
 						title="Click to solo · Ctrl-click to toggle"
 						onClick={(e) => onClick(v, e.ctrlKey || e.metaKey)}
 						className="inline-flex items-center gap-1.5 cursor-pointer border-none bg-transparent p-0"
-						style={{ color, opacity: active ? 1 : 0.3 }}
+						style={{ color, opacity: active ? 1 : 0.55 }}
 					>
 						<span
 							className="inline-block h-[3px] w-3 rounded"

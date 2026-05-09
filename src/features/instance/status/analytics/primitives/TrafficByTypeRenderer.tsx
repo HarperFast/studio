@@ -185,6 +185,16 @@ const STACK_BY_OPTIONS: ReadonlyArray<{ value: StackBy; label: string }> = [
 ];
 
 function StackByToggle({ stackBy, onChange }: StackByToggleProps) {
+	// Roving tabindex pattern: only the active radio is in the tab order; arrow
+	// keys move selection within the group. Matches DimensionChipRow.
+	const activeIdx = Math.max(0, STACK_BY_OPTIONS.findIndex((o) => o.value === stackBy));
+	const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+		if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') { return; }
+		e.preventDefault();
+		const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1;
+		const next = (activeIdx + dir + STACK_BY_OPTIONS.length) % STACK_BY_OPTIONS.length;
+		onChange(STACK_BY_OPTIONS[next].value);
+	};
 	return (
 		<div
 			role="radiogroup"
@@ -192,7 +202,7 @@ function StackByToggle({ stackBy, onChange }: StackByToggleProps) {
 			className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-[11px]"
 		>
 			<span className="text-muted-foreground">Stack by:</span>
-			{STACK_BY_OPTIONS.map((opt) => {
+			{STACK_BY_OPTIONS.map((opt, idx) => {
 				const active = stackBy === opt.value;
 				return (
 					<button
@@ -200,11 +210,13 @@ function StackByToggle({ stackBy, onChange }: StackByToggleProps) {
 						type="button"
 						role="radio"
 						aria-checked={active}
+						tabIndex={idx === activeIdx ? 0 : -1}
+						onKeyDown={onKeyDown}
 						data-testid="stack-by-button"
 						data-value={opt.value}
 						onClick={() => onChange(opt.value)}
 						className="inline-flex items-center cursor-pointer border-none bg-transparent p-0 text-(--color-text-secondary)"
-						style={{ opacity: active ? 1 : 0.3 }}
+						style={{ opacity: active ? 1 : 0.55 }}
 					>
 						{opt.label}
 					</button>

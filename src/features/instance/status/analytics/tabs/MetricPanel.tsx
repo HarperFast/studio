@@ -52,13 +52,14 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	const chartRef = useRef<HTMLDivElement>(null);
 	const canExport = !isLoading && !isError && !isEmpty;
 
-	const renderChart = () => (
+	const renderChart = (opts: { fillParent: boolean } = { fillParent: false }) => (
 		<MetricRenderer
 			metric={metric}
 			records={data}
 			window={timeRange}
 			nodes={nodes}
 			theme={theme}
+			fillParent={opts.fillParent}
 		/>
 	);
 

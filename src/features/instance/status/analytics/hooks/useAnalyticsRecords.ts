@@ -40,6 +40,11 @@ export interface UseAnalyticsRecordsResult {
 
 const RESERVED = new Set(['time', 'node']);
 
+// Stable empty array so downstream memos keyed on `data` keep referential
+// identity while React Query's response is still undefined. Using a fresh `[]`
+// each render churned every dependent useMemo on every render.
+const EMPTY: readonly AnalyticsDataPoint[] = Object.freeze([]);
+
 /** Adapter from studio's `get_analytics` operation to the analytics-viz spec
  *  pipeline. Passes rows through verbatim, exposes a schema-drift signal so
  *  callers can render an explicit "field unavailable" state, and applies
@@ -85,7 +90,7 @@ export function useAnalyticsRecords({
 	// every alt-tab into a synchronized N-panel POST burst on the customer's
 	// Harper, bypassing staleTime entirely.
 
-	const data = query.data ?? [];
+	const data = (query.data ?? EMPTY) as AnalyticsDataPoint[];
 
 	const { fieldKeys, missingFields } = useMemo(() => {
 		const keys = new Set<string>();

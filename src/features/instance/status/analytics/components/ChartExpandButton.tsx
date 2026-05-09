@@ -17,8 +17,9 @@ interface Props {
 	 *  practice — once inline by the parent panel, and once inside the
 	 *  expanded dialog. We use a render function (not children) so the
 	 *  inner ResponsiveContainer remeasures against the dialog's tall
-	 *  parent and grows the chart. */
-	renderChart: () => ReactNode;
+	 *  parent and grows the chart. The `fillParent` arg lets primitives
+	 *  switch from a fixed `height` to filling the dialog's `h-[90vh]`. */
+	renderChart: (opts: { fillParent: boolean }) => ReactNode;
 }
 
 /** Adds an "Expand" icon next to other panel-header actions. Click opens
@@ -66,8 +67,8 @@ export function ChartExpandButton({ exportSlug, title, description, renderChart 
 					    everything inside (including the chart's surrounding
 					    chips/legend) so the export PNG matches the on-screen view. */
 					}
-					<div ref={expandedRef} className="flex-1 min-h-0 overflow-hidden">
-						{renderChart()}
+					<div ref={expandedRef} className="flex-1 min-h-0 overflow-hidden flex flex-col">
+						{renderChart({ fillParent: true })}
 					</div>
 				</DialogContent>
 			</Dialog>
