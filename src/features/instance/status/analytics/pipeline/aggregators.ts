@@ -23,10 +23,24 @@ export function aggregate(op: Aggregator, items: AggInput[]): number | null {
 			return vals.reduce((a, b) => a + b, 0);
 		case 'mean':
 			return vals.reduce((a, b) => a + b, 0) / vals.length;
-		case 'max':
-			return Math.max(...vals);
-		case 'min':
-			return Math.min(...vals);
+		case 'max': {
+			// Reducer instead of Math.max(...vals) — argument-spread blows the
+			// V8 stack around ~125k elements, and a single (time, dim) bucket
+			// can collect tens of thousands of values when many nodes report
+			// at high frequency.
+			let m = vals[0];
+			for (let i = 1; i < vals.length; i++) {
+				if (vals[i] > m) { m = vals[i]; }
+			}
+			return m;
+		}
+		case 'min': {
+			let m = vals[0];
+			for (let i = 1; i < vals.length; i++) {
+				if (vals[i] < m) { m = vals[i]; }
+			}
+			return m;
+		}
 		case 'last':
 			return vals[vals.length - 1];
 		case 'p50':

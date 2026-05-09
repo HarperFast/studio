@@ -30,7 +30,9 @@ export function ConnectionsPanel() {
 
 function ConnectionsPanelInner() {
 	const { timeRange, bucketMs, refreshIntervalMs, theme, instanceParams } = useAnalyticsContext();
-	const cardRef = useRef<HTMLDivElement>(null);
+	// Chart-only ref; capturing the whole Card would include the action buttons
+	// in the exported PNG.
+	const chartRef = useRef<HTMLDivElement>(null);
 
 	const mqtt = useAnalyticsRecords({
 		metric: 'mqtt-connections',
@@ -81,7 +83,7 @@ function ConnectionsPanelInner() {
 	);
 
 	return (
-		<Card ref={cardRef}>
+		<Card>
 			<CardHeader className="flex flex-row items-start justify-between gap-2">
 				<div className="flex-1 min-w-0">
 					<CardTitle>Connections</CardTitle>
@@ -95,27 +97,29 @@ function ConnectionsPanelInner() {
 							description="Active MQTT + WebSocket sessions."
 							renderChart={renderChart}
 						/>
-						<ChartCopyButton captureRef={cardRef} exportSlug="connections" />
-						<ChartExportButton captureRef={cardRef} exportSlug="connections" />
+						<ChartCopyButton captureRef={chartRef} exportSlug="connections" />
+						<ChartExportButton captureRef={chartRef} exportSlug="connections" />
 					</div>
 				)}
 			</CardHeader>
 			<CardContent>
-				{isLoading
-					? <div className="h-64 rounded-md bg-muted/30 animate-pulse" aria-label="Loading" />
-					: isError
-					? (
-						<div className="h-64 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-							{`Failed to load: ${error?.message ?? 'unknown error'}`}
-						</div>
-					)
-					: isEmpty
-					? (
-						<div className="h-64 rounded-md border border-border bg-muted/20 p-4 text-sm text-muted-foreground flex items-center justify-center">
-							No active sessions in the selected time range.
-						</div>
-					)
-					: renderChart()}
+				<div ref={chartRef}>
+					{isLoading
+						? <div className="h-64 rounded-md bg-muted/30 animate-pulse" aria-label="Loading" />
+						: isError
+						? (
+							<div className="h-64 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+								{`Failed to load: ${error?.message ?? 'unknown error'}`}
+							</div>
+						)
+						: isEmpty
+						? (
+							<div className="h-64 rounded-md border border-border bg-muted/20 p-4 text-sm text-muted-foreground flex items-center justify-center">
+								No active sessions in the selected time range.
+							</div>
+						)
+						: renderChart()}
+				</div>
 			</CardContent>
 		</Card>
 	);

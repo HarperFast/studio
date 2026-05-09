@@ -47,7 +47,9 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	const title = titleOverride ?? specEntry?.spec?.title ?? derivedEntry?.title ?? metric;
 	const description = specEntry?.spec?.description ?? derivedEntry?.subtitle;
 	const nodes = collectNodes(data);
-	const cardRef = useRef<HTMLDivElement>(null);
+	// Capture only the chart body, not the whole Card. Otherwise the exported
+	// PNG includes the title bar's Expand/Copy/Download icons.
+	const chartRef = useRef<HTMLDivElement>(null);
 	const canExport = !isLoading && !isError && !isEmpty;
 
 	const renderChart = () => (
@@ -61,7 +63,7 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	);
 
 	return (
-		<Card ref={cardRef}>
+		<Card>
 			<CardHeader className="flex flex-row items-start justify-between gap-2">
 				<div className="flex-1 min-w-0">
 					<CardTitle>{title}</CardTitle>
@@ -75,22 +77,24 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 							description={description}
 							renderChart={renderChart}
 						/>
-						<ChartCopyButton captureRef={cardRef} exportSlug={metric} />
-						<ChartExportButton captureRef={cardRef} exportSlug={metric} />
+						<ChartCopyButton captureRef={chartRef} exportSlug={metric} />
+						<ChartExportButton captureRef={chartRef} exportSlug={metric} />
 					</div>
 				)}
 			</CardHeader>
 			<CardContent>
-				<PanelStateOrChart
-					isLoading={isLoading}
-					isError={isError}
-					error={error}
-					isEmpty={isEmpty}
-					missingFields={missingFields}
-					onRetry={refetch}
-				>
-					{renderChart()}
-				</PanelStateOrChart>
+				<div ref={chartRef}>
+					<PanelStateOrChart
+						isLoading={isLoading}
+						isError={isError}
+						error={error}
+						isEmpty={isEmpty}
+						missingFields={missingFields}
+						onRetry={refetch}
+					>
+						{renderChart()}
+					</PanelStateOrChart>
+				</div>
 			</CardContent>
 		</Card>
 	);

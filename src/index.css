@@ -212,6 +212,19 @@
 	--color-purple-gradient: var(--purple-gradient);
 	--color-purple-dark-to-light-gradient: var(--purple-dark-to-light-gradient);
 
+	/* Aliases used by ported analytics primitives. Map analytics-viz semantic
+	 * names onto Studio's existing token surfaces so the new charts inherit
+	 * theming for free. */
+	--color-text-primary: var(--foreground);
+	--color-text-secondary: var(--muted-foreground);
+	--color-surface: var(--card);
+	--color-surface-alt: var(--accent);
+	--color-bg-secondary: var(--secondary);
+	--color-bg-tertiary: var(--muted);
+	--color-error: var(--destructive);
+	--color-success: var(--green);
+	--color-warning: var(--yellow);
+
 	--shadow-deep: 1px 2px 4px 0px var(--black-dark);
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);

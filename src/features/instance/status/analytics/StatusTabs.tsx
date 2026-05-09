@@ -19,10 +19,6 @@ import { TrafficTab } from './tabs/TrafficTab.tsx';
 interface Props {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 	isLocalStudio: boolean;
-	/** Rendered when the get_analytics capability probe fails. The parent
-	 *  passes its legacy view here so we can fall back without round-
-	 *  tripping through the URL. */
-	renderFallback?: () => React.ReactNode;
 }
 
 const TAB_DEFS = [
@@ -37,13 +33,27 @@ const TAB_DEFS = [
 
 type TabId = (typeof TAB_DEFS)[number]['id'];
 
-export function StatusTabs({ instanceParams, isLocalStudio, renderFallback }: Props) {
+export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 	const capability = useAnalyticsCapability(instanceParams);
-	// Probe failed (after retries): fall back to the legacy view rather than
-	// rendering empty panels. The user can still try again via the legacy
-	// view's own controls or by reloading.
-	if (capability.error && renderFallback) {
-		return <>{renderFallback()}</>;
+
+	if (capability.isLoading) {
+		return (
+			<div role="status" aria-live="polite" className="px-4 py-8 text-sm text-muted-foreground">
+				Checking analytics availability…
+			</div>
+		);
+	}
+
+	if (capability.error) {
+		return (
+			<div role="alert" className="px-4 py-8 text-sm text-muted-foreground">
+				<p className="mb-1 font-medium text-foreground">Analytics unavailable on this instance.</p>
+				<p>
+					The Harper instance returned an error from{' '}
+					<code>get_analytics</code>. Check that the instance is reachable and that analytics is enabled, then reload.
+				</p>
+			</div>
+		);
 	}
 
 	return (
@@ -54,7 +64,7 @@ export function StatusTabs({ instanceParams, isLocalStudio, renderFallback }: Pr
 	);
 }
 
-function StatusTabsInner({ instanceParams, isLocalStudio }: Omit<Props, 'renderFallback'>) {
+function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 	const initial = readSearchParams();
 	const [tab, setTab] = useState<TabId>(initial.tab);
 	const [presetId, setPresetId] = useState<TimePresetId>(initial.presetId);
