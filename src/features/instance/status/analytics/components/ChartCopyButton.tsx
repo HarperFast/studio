@@ -24,6 +24,7 @@ export function ChartCopyButton({ captureRef, exportSlug }: Props) {
 	const [busy, setBusy] = useState(false);
 
 	const onClick = async () => {
+		if (busy) { return; }
 		const el = captureRef.current;
 		if (!el) { return; }
 		setBusy(true);
@@ -53,7 +54,8 @@ export function ChartCopyButton({ captureRef, exportSlug }: Props) {
 					variant="ghost"
 					size="icon"
 					onClick={onClick}
-					disabled={busy}
+					aria-disabled={busy}
+					aria-busy={busy}
 					aria-label={`Copy ${exportSlug} chart to clipboard`}
 				>
 					<ClipboardCopy className="h-4 w-4" />

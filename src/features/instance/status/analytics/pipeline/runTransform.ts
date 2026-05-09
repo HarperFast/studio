@@ -32,5 +32,11 @@ export function runTransform(
 			if (!fn) { throw new Error(`unknown named transform: ${transform.name}`); }
 			return fn(value);
 		}
+		default: {
+			// Exhaustiveness check — adding a new Transform kind without handling
+			// it here will fail typechecking on this assignment.
+			const _exhaustive: never = transform;
+			throw new Error(`unknown transform kind: ${(_exhaustive as { kind: string }).kind}`);
+		}
 	}
 }

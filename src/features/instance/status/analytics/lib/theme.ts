@@ -3,13 +3,23 @@ export type Theme = 'light' | 'dark';
 const STORAGE_KEY = 'analytics-viz-theme';
 
 export function getStoredTheme(): Theme {
-	const stored = localStorage.getItem(STORAGE_KEY);
-	if (stored === 'light' || stored === 'dark') { return stored; }
+	// Safari private mode + sandboxed iframes throw on localStorage access.
+	// Fall back to the OS preference rather than blowing up the whole tab.
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored === 'light' || stored === 'dark') { return stored; }
+	} catch {
+		// fall through to media-query fallback
+	}
 	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function setStoredTheme(theme: Theme): void {
-	localStorage.setItem(STORAGE_KEY, theme);
+	try {
+		localStorage.setItem(STORAGE_KEY, theme);
+	} catch {
+		// best-effort; silently drop in restricted-storage environments
+	}
 }
 
 export function applyTheme(theme: Theme): void {

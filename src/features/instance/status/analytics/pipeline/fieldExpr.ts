@@ -24,7 +24,15 @@ export function evalFieldExpr(
 					return l * r;
 				case '/':
 					return r === 0 ? null : l / r;
+				default: {
+					const _exhaustive: never = expr.op;
+					throw new Error(`unknown op: ${String(_exhaustive)}`);
+				}
 			}
+		}
+		default: {
+			const _exhaustive: never = expr;
+			throw new Error(`unknown FieldExpr kind: ${(_exhaustive as { kind: string }).kind}`);
 		}
 	}
 }
