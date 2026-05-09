@@ -4,6 +4,7 @@ import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
 import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics.ts';
 import { formatValue } from './formatValue.ts';
 import { sortByMagnitude } from './sortByMagnitude.ts';
+import { tooltipContentStyle, tooltipLabelStyle } from './tooltipStyle.ts';
 
 interface Props {
 	data: SeriesData;
@@ -56,8 +57,8 @@ export function StackedAreaTooltip({ active, payload, label, formatter, unitSuff
 	// count-si rounds at tick level; use raw 'count' for tooltip total to preserve precision.
 	const totalFormatter: AxisFormatter | undefined = formatter === 'count-si' ? 'count' : formatter;
 	return (
-		<div style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', padding: 8 }}>
-			<div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>
+		<div style={tooltipContentStyle}>
+			<div style={tooltipLabelStyle}>
 				{label !== undefined ? formatTooltipTime(Number(label)) : ''}
 			</div>
 			{payload.map((p) => (
@@ -75,7 +76,7 @@ export function StackedAreaTooltip({ active, payload, label, formatter, unitSuff
 							gap: 12,
 							marginTop: 4,
 							paddingTop: 4,
-							borderTop: '1px solid var(--color-border)',
+							borderTop: '1px solid var(--border)',
 							fontWeight: 600,
 						}}
 					>
