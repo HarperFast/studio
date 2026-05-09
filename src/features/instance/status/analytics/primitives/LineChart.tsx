@@ -12,6 +12,7 @@ import {
 import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics.ts';
 import { formatValue } from './formatValue.ts';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle.ts';
 
 interface Props {
 	data: SeriesData;
@@ -138,6 +139,9 @@ export function LineChart(
 								const axisSpec = series?.axis === 'right' ? rightAxis : leftAxis;
 								return [formatValue(Number(val), axisSpec?.formatter, axisSpec?.unit), nameStr];
 							}}
+							contentStyle={tooltipContentStyle}
+							labelStyle={tooltipLabelStyle}
+							itemStyle={tooltipItemStyle}
 						/>
 						{!hideLegend && <Legend />}
 						{data.thresholds?.map((t: Threshold, i: number) => {
