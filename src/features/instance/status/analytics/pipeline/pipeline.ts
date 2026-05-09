@@ -165,15 +165,15 @@ function runGroupBy(
 			perTime = new Map();
 			buckets.set(dimVal, perTime);
 		}
-		let perNode = perTime.get(time);
-		if (!perNode) {
-			perNode = new Map();
-			perTime.set(time, perNode);
+		let perNodeBucket = perTime.get(time);
+		if (!perNodeBucket) {
+			perNodeBucket = new Map();
+			perTime.set(time, perNodeBucket);
 		}
-		let nodeBucket = perNode.get(node);
+		let nodeBucket = perNodeBucket.get(node);
 		if (!nodeBucket) {
 			nodeBucket = { items: [], totalCount: 0 };
-			perNode.set(node, nodeBucket);
+			perNodeBucket.set(node, nodeBucket);
 		}
 		nodeBucket.items.push({ value: v, count: recordCount });
 		nodeBucket.totalCount += recordCount;
@@ -278,13 +278,13 @@ function runGroupBy(
 			for (const [key] of rest) {
 				const perTime = buckets.get(key);
 				if (!perTime) { continue; }
-				for (const [time, perNode] of perTime) {
+				for (const [time, perNodeBucket] of perTime) {
 					let mergedPerNode = otherPerTime.get(time);
 					if (!mergedPerNode) {
 						mergedPerNode = new Map();
 						otherPerTime.set(time, mergedPerNode);
 					}
-					for (const [node, nb] of perNode) {
+					for (const [node, nb] of perNodeBucket) {
 						let merged = mergedPerNode.get(node);
 						if (!merged) {
 							merged = { items: [], totalCount: 0 };
@@ -298,8 +298,8 @@ function runGroupBy(
 			const otherPoints: SeriesPoint[] = [];
 			const sortedTimes = [...otherPerTime.keys()].sort((a, b) => a - b);
 			for (const time of sortedTimes) {
-				const perNode = otherPerTime.get(time)!;
-				const { y, count } = aggregateTwoPass(tempAgg, crossAgg, perNode);
+				const byNode = otherPerTime.get(time)!;
+				const { y, count } = aggregateTwoPass(tempAgg, crossAgg, byNode);
 				otherPoints.push({ x: time, y, count });
 			}
 			series.push({
