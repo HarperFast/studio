@@ -31,12 +31,39 @@ export function DimensionCombobox({
 	const optionIdPrefix = useId();
 	const triggerRef = useRef<HTMLButtonElement | null>(null);
 	const searchRef = useRef<HTMLInputElement | null>(null);
+	const popoverRef = useRef<HTMLDivElement | null>(null);
 
 	const filtered = dimensionValues.filter((v) => v.toLowerCase().includes(query.toLowerCase()));
 
 	useEffect(() => {
 		if (open) { searchRef.current?.focus(); }
 		else { setQuery(''); }
+	}, [open]);
+
+	// Outside-click / Escape-anywhere dismissal. Without these the popover
+	// stayed pinned open after clicking elsewhere on the page; clicking the
+	// trigger itself is allowed to fall through to its own onClick toggle.
+	useEffect(() => {
+		if (!open) { return; }
+		const onPointerDown = (e: PointerEvent) => {
+			const target = e.target as Node | null;
+			if (!target) { return; }
+			if (popoverRef.current?.contains(target)) { return; }
+			if (triggerRef.current?.contains(target)) { return; }
+			setOpen(false);
+		};
+		const onKeyDown = (e: globalThis.KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				setOpen(false);
+				triggerRef.current?.focus();
+			}
+		};
+		document.addEventListener('pointerdown', onPointerDown);
+		document.addEventListener('keydown', onKeyDown);
+		return () => {
+			document.removeEventListener('pointerdown', onPointerDown);
+			document.removeEventListener('keydown', onKeyDown);
+		};
 	}, [open]);
 
 	useEffect(() => {
@@ -95,7 +122,10 @@ export function DimensionCombobox({
 				<span aria-hidden>▾</span>
 			</button>
 			{open && (
-				<div className="absolute z-10 mt-1 w-72 rounded-md border border-(--color-border) bg-(--color-surface) p-2 shadow-lg">
+				<div
+					ref={popoverRef}
+					className="absolute z-10 mt-1 w-72 rounded-md border border-(--color-border) bg-(--color-surface) p-2 shadow-lg"
+				>
 					<input
 						ref={searchRef}
 						// WAI-ARIA APG combobox+listbox INPUT pattern: input is

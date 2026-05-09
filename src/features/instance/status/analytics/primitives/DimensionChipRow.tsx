@@ -94,7 +94,7 @@ export function DimensionChipRow({
 						onKeyDown={(e) => handleKeyDown(e, idx)}
 						onClick={() => onSelect(value)}
 						className="inline-flex items-center gap-1.5 cursor-pointer border-none bg-transparent p-0"
-						style={{ color, opacity: isSelected ? 1 : 0.3 }}
+						style={{ color, opacity: isSelected ? 1 : 0.55 }}
 					>
 						<span
 							className="inline-block h-[3px] w-3 rounded"

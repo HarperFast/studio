@@ -42,11 +42,14 @@ export async function captureChartAsBlob(
 export async function downloadChart(chartContainer: HTMLElement, filename: string): Promise<void> {
 	const blob = await captureChartAsBlob(chartContainer);
 	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
-	a.download = filename;
-	a.click();
-	URL.revokeObjectURL(url);
+	try {
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename;
+		a.click();
+	} finally {
+		URL.revokeObjectURL(url);
+	}
 }
 
 /** Capture the chart and write it to the clipboard as a PNG ClipboardItem.

@@ -56,6 +56,14 @@ export function recomputeTransactionLogGrowth(
 		samples.push({ time, logBytes });
 	}
 
+	// Snap the rate's output timestamp to a 60s bucket *only* when rolling per-node
+	// rates into the cluster sum, so two nodes sampling around the same minute
+	// boundary (e.g. 1:59:43 + 2:00:03) fold into one point instead of staggering
+	// across two. Deltas themselves use the raw per-node intervals so accuracy
+	// is preserved. Sub-bucket sample spacing (test fixtures, in-development
+	// Harper builds) bypasses snapping so adjacent samples don't collapse to
+	// the same x and lose their dt.
+	const OUTPUT_BUCKET_MS = 60_000;
 	const series: Series[] = [];
 	for (const [database, perNode] of byDatabase.entries()) {
 		const ratesByTime = new Map<number, number>();
@@ -70,7 +78,10 @@ export function recomputeTransactionLogGrowth(
 				if (!Number.isFinite(dBytes) || dBytes < 0) { continue; }
 				const rate = (dBytes * 1000) / dtMs;
 				if (!Number.isFinite(rate)) { continue; }
-				ratesByTime.set(cur.time, (ratesByTime.get(cur.time) ?? 0) + rate);
+				const bucketed = dtMs >= OUTPUT_BUCKET_MS
+					? Math.round(cur.time / OUTPUT_BUCKET_MS) * OUTPUT_BUCKET_MS
+					: cur.time;
+				ratesByTime.set(bucketed, (ratesByTime.get(bucketed) ?? 0) + rate);
 			}
 		}
 		const sortedTimes = [...ratesByTime.keys()].sort((a, b) => a - b);
