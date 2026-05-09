@@ -363,8 +363,8 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 							marginBottom: 8,
 							padding: '4px 8px',
 							fontSize: 12,
-							borderLeft: '3px solid var(--color-warning, #f59e0b)',
-							background: theme === 'dark' ? '#1f2937' : '#fffbeb',
+							borderLeft: '3px solid var(--color-warning)',
+							background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
 							color: 'currentColor',
 						}}
 					>

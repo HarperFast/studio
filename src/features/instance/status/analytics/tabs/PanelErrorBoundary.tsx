@@ -2,19 +2,31 @@ import { Component, type ReactNode } from 'react';
 
 interface Props {
 	metric: string;
+	/** When this changes, the boundary clears its caught-error state so the
+	 *  child gets a fresh render attempt. Wire to the time-range stamp so a
+	 *  user changing the window retries the panel without a page reload. */
+	resetKey?: string | number;
 	children: ReactNode;
 }
 
 interface State {
 	failed: boolean;
 	message?: string;
+	lastResetKey?: string | number;
 }
 
 export class PanelErrorBoundary extends Component<Props, State> {
 	state: State = { failed: false };
 
-	static getDerivedStateFromError(error: unknown): State {
+	static getDerivedStateFromError(error: unknown): Partial<State> {
 		return { failed: true, message: error instanceof Error ? error.message : String(error) };
+	}
+
+	static getDerivedStateFromProps(nextProps: Props, prevState: State): Partial<State> | null {
+		if (prevState.lastResetKey !== nextProps.resetKey) {
+			return { failed: false, message: undefined, lastResetKey: nextProps.resetKey };
+		}
+		return null;
 	}
 
 	componentDidCatch(error: Error) {

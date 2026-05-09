@@ -21,8 +21,9 @@ import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
  *  multi-source merge). It's why this panel doesn't go through the
  *  generic MetricPanel — that path is single-metric-per-card. */
 export function ConnectionsPanel() {
+	const { timeRange } = useAnalyticsContext();
 	return (
-		<PanelErrorBoundary metric="connections">
+		<PanelErrorBoundary metric="connections" resetKey={`${timeRange.startTime}-${timeRange.endTime}`}>
 			<ConnectionsPanelInner />
 		</PanelErrorBoundary>
 	);

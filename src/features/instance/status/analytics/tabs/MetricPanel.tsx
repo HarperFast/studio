@@ -21,8 +21,9 @@ interface Props {
  *  the adapter. Used by every analytics tab except Storage's table-size
  *  panels (which compose their own custom charts). */
 export function MetricPanel({ metric, titleOverride }: Props) {
+	const { timeRange } = useAnalyticsContext();
 	return (
-		<PanelErrorBoundary metric={metric}>
+		<PanelErrorBoundary metric={metric} resetKey={`${timeRange.startTime}-${timeRange.endTime}`}>
 			<MetricPanelInner metric={metric} titleOverride={titleOverride} />
 		</PanelErrorBoundary>
 	);
@@ -119,7 +120,14 @@ function PanelStateOrChart({
 	children: ReactNode;
 }) {
 	if (isLoading) {
-		return <div className="h-64 rounded-md bg-muted/30 animate-pulse" aria-label="Loading" />;
+		return (
+			<div
+				role="status"
+				aria-live="polite"
+				className="h-64 rounded-md bg-muted/30 animate-pulse"
+				aria-label="Loading"
+			/>
+		);
 	}
 	if (isError) {
 		return (
