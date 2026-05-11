@@ -1,3 +1,20 @@
+allowBuilds:
+  '@datadog/pprof': true
+  '@scarf/scarf': true
+  '@tree-sitter-grammars/tree-sitter-yaml': true
+  argon2: true
+  bufferutil: true
+  cbor-extract: true
+  core-js-pure: true
+  dprint: true
+  esbuild: true
+  lmdb: false
+  msgpackr-extract: true
+  reo-census: true
+  segfault-handler: true
+  tree-sitter: true
+  tree-sitter-json: true
+  utf-8-validate: true
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - core-js-pure
