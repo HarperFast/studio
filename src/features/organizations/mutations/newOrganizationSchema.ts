@@ -18,5 +18,5 @@ export const NewOrganizationSchema = z.object({
 		z.literal(''),
 		z.undefined(),
 		specifiedSubdomain,
-	]),
+	]).optional(),
 });
