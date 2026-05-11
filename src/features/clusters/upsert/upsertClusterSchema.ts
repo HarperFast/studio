@@ -18,7 +18,7 @@ export const UpsertClusterSchema = z.object({
 		z.literal(''),
 		z.undefined(),
 		specifiedAbbreviatedName,
-	]),
+	]).optional(),
 	fqdn: z
 		.string()
 		.regex(hostNameRegex, 'Please enter a valid host name without the port or any path.')
