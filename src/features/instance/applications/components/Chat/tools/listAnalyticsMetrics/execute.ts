@@ -1,5 +1,5 @@
-import { getRawAnalytics } from '@/integrations/api/instance/status/getAnalytics';
-import { inputSchema } from '@harperfast/agent-tools/tools/getAnalytics/inputSchema';
+import { listAnalyticsMetrics } from '@/integrations/api/instance/status/listAnalyticsMetrics';
+import { inputSchema } from '@harperfast/agent-tools/tools/listAnalyticsMetrics/inputSchema';
 import { z } from 'zod';
 import { ExecuteParams } from '../../types/executeParams';
 import { Output } from './output';
@@ -8,18 +8,17 @@ export async function execute(
 	{ input, instanceClientParams }: ExecuteParams<z.infer<typeof inputSchema>>,
 ): Promise<Output> {
 	try {
-		const { metricName, startTime, endTime } = input;
+		const { metricTypes, customWindowMS } = input;
 
-		const data = await getRawAnalytics({
-			metric: metricName,
-			startTime,
-			endTime,
+		const data = await listAnalyticsMetrics({
+			metricTypes,
+			customWindowMS,
 			instanceParams: instanceClientParams,
 		});
 
 		return {
 			success: true,
-			data,
+			metricNames: data,
 		};
 	} catch (err) {
 		return {
