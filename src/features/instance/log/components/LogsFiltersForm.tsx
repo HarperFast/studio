@@ -15,10 +15,12 @@ export function LogsFiltersForm({
 	form,
 	resetFilters,
 	submitFilters,
+	showLogName,
 }: {
 	form: UseFormReturn<z.infer<typeof LogFiltersFormSchema>>;
 	resetFilters: () => void;
 	submitFilters: (data: z.infer<typeof LogFiltersFormSchema>) => void;
+	showLogName?: boolean;
 }) {
 	return (
 		<div>
@@ -29,6 +31,29 @@ export function LogsFiltersForm({
 					onSubmit={form.handleSubmit(submitFilters)}
 					className="flex-col space-y-5"
 				>
+					{showLogName && (
+						<FormField
+							control={form.control}
+							name="log_name"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Log File:</FormLabel>
+									<Select onValueChange={field.onChange} value={field.value ?? undefined}>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select log file" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectGroup>
+												<SelectItem value="hdb.log">Application (hdb.log)</SelectItem>
+												<SelectItem value="system.log">System (system.log)</SelectItem>
+											</SelectGroup>
+										</SelectContent>
+									</Select>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					)}
 					<FormField
 						control={form.control}
 						name="limit"
