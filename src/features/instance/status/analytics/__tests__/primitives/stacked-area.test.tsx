@@ -74,7 +74,7 @@ describe('StackedAreaChart primitive', () => {
 			const tickEls = container.querySelectorAll('.recharts-cartesian-axis-tick-value, .recharts-yAxis text');
 			const labels = Array.from(tickEls).map((t) => t.textContent ?? '');
 			expect(
-				labels.some((l) => /\/s$/.test(l)),
+				labels.some((l) => l.endsWith('/s')),
 				`Expected at least one tick to end with '/s'; got: ${JSON.stringify(labels)}`,
 			).toBeTruthy();
 		});

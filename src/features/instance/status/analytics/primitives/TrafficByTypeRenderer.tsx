@@ -73,7 +73,7 @@ export function TrafficByTypeRenderer({
 	// "All active" = default state where no chip / node has been soloed.
 	// Filled bands when summary; bare stacked lines when narrowed.
 	const allTypesActive = types.length > 0 && types.every(isActive);
-	const allNodesActive = nodes.length === 0 || nodes.every((n) => isNodeActive(n));
+	const allNodesActive = nodes.every((n) => isNodeActive(n));
 	const lineOnly = !(allTypesActive && allNodesActive);
 
 	const filteredRecords = useMemo(
