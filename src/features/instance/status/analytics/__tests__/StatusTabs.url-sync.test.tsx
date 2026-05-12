@@ -25,8 +25,25 @@ vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
 	useAnalyticsCapability: () => ({ supported: true, isLoading: false, retry: vi.fn() }),
 }));
 
-// next-themes uses matchMedia which jsdom doesn't have.
+// Stub the TanStack Router hooks so we can drive search state in tests
+// without spinning up a full RouterProvider.
+let currentSearch: Record<string, unknown> = {};
+const navigateMock = vi.fn(async (opts: { search?: unknown }) => {
+	if (opts.search === undefined) {
+		currentSearch = {};
+	} else if (typeof opts.search === 'object' && opts.search !== null) {
+		currentSearch = { ...(opts.search as Record<string, unknown>) };
+	}
+});
+vi.mock('@tanstack/react-router', () => ({
+	useSearch: () => currentSearch,
+	useNavigate: () => navigateMock,
+}));
+
+// next-themes uses matchMedia which happy-dom doesn't fully implement.
 beforeEach(() => {
+	currentSearch = {};
+	navigateMock.mockClear();
 	if (!window.matchMedia) {
 		Object.defineProperty(window, 'matchMedia', {
 			writable: true,
@@ -67,15 +84,12 @@ function mount() {
 
 afterEach(() => {
 	cleanup();
-	window.history.replaceState(null, '', '/');
 });
 
 describe('StatusTabs URL sync', () => {
-	it('reads the initial tab from the URL search param', async () => {
-		window.history.replaceState(null, '', '/?tab=traffic&range=6h');
+	it('reads the initial tab from the router search', async () => {
+		currentSearch = { tab: 'traffic', range: '6h' };
 		mount();
-		// The Traffic tab's TabsContent is rendered. Other tabs are mounted but
-		// data-state=inactive. Look for the trigger marked active.
 		await waitFor(() => {
 			const trafficTrigger = screen.getAllByText('Traffic').find((el) =>
 				el.getAttribute('data-state') === 'active'
@@ -86,7 +100,7 @@ describe('StatusTabs URL sync', () => {
 	});
 
 	it('falls back to the default tab + range when params are missing or invalid', async () => {
-		window.history.replaceState(null, '', '/?tab=garbage&range=999y');
+		currentSearch = { tab: 'garbage', range: '999y' };
 		mount();
 		await waitFor(() => {
 			const healthTrigger = screen.getAllByText('Health').find((el) =>
@@ -97,11 +111,8 @@ describe('StatusTabs URL sync', () => {
 		});
 	});
 
-	it('writes ?tab= and ?range= to the URL when the user changes tabs', async () => {
-		window.history.replaceState(null, '', '/');
+	it('navigates with new search when the user changes tabs', async () => {
 		mount();
-		// Radix exposes triggers with role=tab. Native click + pointerDown is
-		// what Radix actually listens for in pointerEvent-aware builds.
 		const databaseTrigger = screen.getByRole('tab', { name: 'Database' });
 		await act(async () => {
 			fireEvent.pointerDown(databaseTrigger, { button: 0 });
@@ -109,15 +120,15 @@ describe('StatusTabs URL sync', () => {
 			fireEvent.click(databaseTrigger);
 		});
 		await waitFor(() => {
-			const sp = new URLSearchParams(window.location.search);
-			expect(sp.get('tab')).toBe('database');
-			expect(sp.get('range')).toBe('1h');
+			expect(navigateMock).toHaveBeenCalled();
+			const lastCall = navigateMock.mock.calls.at(-1)?.[0] as { search?: Record<string, unknown> };
+			expect(lastCall?.search).toMatchObject({ tab: 'database', range: '1h' });
 		}, { timeout: 2000 });
 	});
 
-	it('responds to popstate so back-button navigation re-syncs state', async () => {
-		window.history.replaceState(null, '', '/?tab=requests&range=24h');
-		mount();
+	it('clears search params on unmount so sibling routes do not inherit them', async () => {
+		currentSearch = { tab: 'requests', range: '24h' };
+		const { unmount } = mount();
 		await waitFor(() => {
 			const requestsTrigger = screen.getAllByText('Requests').find((el) =>
 				el.getAttribute('data-state') === 'active'
@@ -125,18 +136,10 @@ describe('StatusTabs URL sync', () => {
 			);
 			expect(requestsTrigger).toBeTruthy();
 		});
-		// Simulate the user pressing the browser back button: replace the URL
-		// then dispatch popstate.
-		await act(async () => {
-			window.history.replaceState(null, '', '/?tab=storage&range=7d');
-			window.dispatchEvent(new PopStateEvent('popstate'));
-		});
-		await waitFor(() => {
-			const storageTrigger = screen.getAllByText('Storage').find((el) =>
-				el.getAttribute('data-state') === 'active'
-				|| el.closest('[data-state="active"]') !== null
-			);
-			expect(storageTrigger).toBeTruthy();
-		});
+		navigateMock.mockClear();
+		unmount();
+		expect(navigateMock).toHaveBeenCalledWith(
+			expect.objectContaining({ search: undefined, replace: true }),
+		);
 	});
 });

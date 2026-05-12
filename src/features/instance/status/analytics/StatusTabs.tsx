@@ -1,6 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint.tsx';
@@ -65,10 +66,16 @@ export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 }
 
 function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
-	const initial = readSearchParams();
-	const [tab, setTab] = useState<TabId>(initial.tab);
-	const [presetId, setPresetId] = useState<TimePresetId>(initial.presetId);
-	const [refreshMs, setRefreshMs] = useState<number>(initial.refreshMs);
+	const navigate = useNavigate();
+	const raw: { tab?: string; range?: string; refresh?: string | number } = useSearch({ strict: false });
+	const tab: TabId = TAB_DEFS.some((t) => t.id === raw.tab) ? (raw.tab as TabId) : 'health';
+	const presetId: TimePresetId = raw.range && VALID_PRESETS.includes(raw.range)
+		? (raw.range as TimePresetId)
+		: DEFAULT_PRESET_ID;
+	const refreshMs: number = raw.refresh !== undefined && VALID_REFRESH.includes(Number(raw.refresh))
+		? Number(raw.refresh)
+		: DEFAULT_REFRESH_MS;
+
 	// Manual refresh ticks bump this to force a fresh window when the user
 	// clicks the refresh button.
 	const [tick, setTick] = useState(0);
@@ -77,32 +84,25 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 	const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
 
 	const updatePreset = useCallback((id: TimePresetId) => {
-		setPresetId(id);
-		writeSearchParams({ tab, presetId: id, refreshMs });
-	}, [tab, refreshMs]);
+		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs } });
+	}, [navigate, tab, refreshMs]);
 
 	const updateTab = useCallback((id: TabId) => {
-		setTab(id);
-		writeSearchParams({ tab: id, presetId, refreshMs });
-	}, [presetId, refreshMs]);
+		void navigate({ to: '.', search: { tab: id, range: presetId, refresh: refreshMs } });
+	}, [navigate, presetId, refreshMs]);
 
 	const updateRefreshMs = useCallback((ms: number) => {
-		setRefreshMs(ms);
-		writeSearchParams({ tab, presetId, refreshMs: ms });
-	}, [tab, presetId]);
+		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms } });
+	}, [navigate, tab, presetId]);
 
-	// Keep state in sync when the user uses the back/forward buttons —
-	// otherwise the URL says one tab and the page renders a different one.
+	// Strip our query params on unmount so they don't bleed into sibling
+	// routes (e.g. navigating from /status to /databases shouldn't carry
+	// tab/range/refresh forward).
 	useEffect(() => {
-		const onPop = () => {
-			const next = readSearchParams();
-			setTab(next.tab);
-			setPresetId(next.presetId);
-			setRefreshMs(next.refreshMs);
+		return () => {
+			void navigate({ search: undefined, replace: true });
 		};
-		window.addEventListener('popstate', onPop);
-		return () => window.removeEventListener('popstate', onPop);
-	}, []);
+	}, [navigate]);
 
 	const ctxValue = useMemo<AnalyticsContextValue>(() => {
 		const preset = getPreset(presetId);
@@ -222,43 +222,5 @@ function TabBody({ picker, children }: { picker: React.ReactNode; children: Reac
 	);
 }
 
-interface SearchState {
-	tab: TabId;
-	presetId: TimePresetId;
-	refreshMs: number;
-}
-
 const VALID_PRESETS: readonly string[] = ['1h', '6h', '24h', '7d', '30d'];
 const VALID_REFRESH: readonly number[] = [0, 30_000, 60_000, 300_000];
-
-function readSearchParams(): SearchState {
-	if (typeof window === 'undefined') {
-		return { tab: 'health', presetId: DEFAULT_PRESET_ID, refreshMs: DEFAULT_REFRESH_MS };
-	}
-	const sp = new URLSearchParams(window.location.search);
-	const tab = sp.get('tab') as TabId | null;
-	const presetId = sp.get('range') as TimePresetId | null;
-	const refreshRaw = sp.get('refresh');
-	const refreshMs = refreshRaw !== null && VALID_REFRESH.includes(Number(refreshRaw))
-		? Number(refreshRaw)
-		: DEFAULT_REFRESH_MS;
-	return {
-		tab: TAB_DEFS.some((t) => t.id === tab) ? (tab as TabId) : 'health',
-		presetId: presetId && VALID_PRESETS.includes(presetId)
-			? presetId
-			: DEFAULT_PRESET_ID,
-		refreshMs,
-	};
-}
-
-function writeSearchParams(state: SearchState) {
-	if (typeof window === 'undefined') { return; }
-	const sp = new URLSearchParams(window.location.search);
-	sp.set('tab', state.tab);
-	sp.set('range', state.presetId);
-	sp.set('refresh', String(state.refreshMs));
-	const next = `${window.location.pathname}?${sp.toString()}${window.location.hash}`;
-	// pushState (not replace) so users can back-button between tabs and
-	// shared-state ranges without losing their place in browser history.
-	window.history.pushState(null, '', next);
-}
