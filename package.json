@@ -30,7 +30,7 @@
 		"@ai-sdk/react": "^3.0.171",
 		"@datadog/browser-rum": "^7.0.0",
 		"@datadog/browser-rum-react": "^7.0.0",
-		"@harperfast/agent-tools": "^1.1.5",
+		"@harperfast/agent-tools": "^1.1.6",
 		"@harperfast/skills": "^1.4.1",
 		"@hookform/resolvers": "^5.0.0",
 		"@monaco-editor/react": "^4.7.0",

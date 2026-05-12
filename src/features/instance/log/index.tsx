@@ -9,8 +9,10 @@ import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
+import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
@@ -25,6 +27,7 @@ type RowData = {
 };
 
 const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
+	log_name: 'hdb.log',
 	limit: '100',
 	level: 'undefined',
 	from: '',
@@ -120,6 +123,11 @@ export function Logs() {
 	const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
 
 	const instanceParams = useInstanceClientIdParams();
+
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const version = registrationInfo?.version;
+	const isVersion5OrGreater = !!version && wasAReleasedBeforeB('5.0.0', version);
+
 	const {
 		data: instanceLogs,
 		isLoading,
@@ -170,7 +178,12 @@ export function Logs() {
 	return (
 		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
 			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pt-4 md:pt-12">
-				<LogsFiltersForm form={form} resetFilters={resetFilters} submitFilters={submitFilters} />
+				<LogsFiltersForm
+					form={form}
+					resetFilters={resetFilters}
+					submitFilters={submitFilters}
+					showLogName={isVersion5OrGreater}
+				/>
 
 				<div className="flex items-center justify-between space-x-2 mt-2">
 					<Button
