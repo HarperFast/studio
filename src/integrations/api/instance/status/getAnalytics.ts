@@ -43,14 +43,15 @@ const MAX_ROWS = 50_000;
 
 export const ANALYTICS_QUERY_KEY_PREFIX = 'get_analytics_raw' as const;
 
-export function getRawAnalyticsQueryOptions({
-	metric,
-	startTime,
-	endTime,
-	conditions,
-	instanceParams,
-	bucketMs,
-}: GetRawAnalyticsParams) {
+export function getRawAnalyticsQueryOptions(params: GetRawAnalyticsParams) {
+	const {
+		metric,
+		startTime,
+		endTime,
+		conditions,
+		instanceParams,
+		bucketMs,
+	} = params;
 	const instanceId = instanceParams.entityId;
 	return queryOptions({
 		queryKey: [
@@ -62,33 +63,42 @@ export function getRawAnalyticsQueryOptions({
 			bucketMs ?? null,
 			conditions ?? null,
 		] as const,
-		queryFn: async () => {
-			const req: GetRawAnalyticsRequest = {
-				operation: 'get_analytics',
-				metric,
-				start_time: startTime,
-				end_time: endTime,
-			};
-			if (conditions && conditions.length > 0) {
-				req.conditions = conditions;
-			}
-			if (bucketMs && bucketMs > 0) {
-				req.bucket_ms = bucketMs;
-			}
-			const { data } = await instanceParams.instanceClient.post<AnalyticsDataPoint[]>('/', req);
-			if (data.length > MAX_ROWS) {
-				// Tail-keep: Harper returns ascending-time, so trimming the head
-				// preserves the most-recent buckets the user actually cares
-				// about and drops the oldest.
-				console.warn('[analytics] response exceeded row cap; truncating oldest', {
-					metric,
-					rows: data.length,
-					cap: MAX_ROWS,
-					dropped: data.length - MAX_ROWS,
-				});
-				return data.slice(-MAX_ROWS);
-			}
-			return data;
-		},
+		queryFn: () => getRawAnalytics(params),
 	});
+}
+
+export async function getRawAnalytics({
+	metric,
+	startTime,
+	endTime,
+	conditions,
+	instanceParams,
+	bucketMs,
+}: GetRawAnalyticsParams) {
+	const req: GetRawAnalyticsRequest = {
+		operation: 'get_analytics',
+		metric,
+		start_time: startTime,
+		end_time: endTime,
+	};
+	if (conditions && conditions.length > 0) {
+		req.conditions = conditions;
+	}
+	if (bucketMs && bucketMs > 0) {
+		req.bucket_ms = bucketMs;
+	}
+	const { data } = await instanceParams.instanceClient.post<AnalyticsDataPoint[]>('/', req);
+	if (data.length > MAX_ROWS) {
+		// Tail-keep: Harper returns ascending-time, so trimming the head
+		// preserves the most-recent buckets the user actually cares
+		// about and drops the oldest.
+		console.warn('[analytics] response exceeded row cap; truncating oldest', {
+			metric,
+			rows: data.length,
+			cap: MAX_ROWS,
+			dropped: data.length - MAX_ROWS,
+		});
+		return data.slice(-MAX_ROWS);
+	}
+	return data;
 }

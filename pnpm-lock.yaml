@@ -18,8 +18,8 @@ importers:
         specifier: ^7.0.0
         version: 7.0.0(@datadog/browser-rum@7.0.0)(@tanstack/react-router@1.133.20(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
       '@harperfast/agent-tools':
-        specifier: ^1.1.3
-        version: 1.1.3(@harperfast/skills@1.4.2)
+        specifier: ^1.1.5
+        version: 1.1.5(@harperfast/skills@1.4.2)
       '@harperfast/skills':
         specifier: ^1.4.1
         version: 1.4.2
@@ -1058,8 +1058,8 @@ packages:
   '@hapi/topo@5.1.0':
     resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
 
-  '@harperfast/agent-tools@1.1.3':
-    resolution: {integrity: sha512-jJr9Zvip3zEOtUeUiMvFyKBXa7kVY3LRkKzw6lGh5xF5jA0NYmRqWCWSd4i9/S9dZCH84VDX6O4h5L3XzaiaAw==}
+  '@harperfast/agent-tools@1.1.5':
+    resolution: {integrity: sha512-AjA3if62G3JnZRoXfPg3+aZoF/geuPkb6auOouM87HGFVLP9gagragLEsw0+3m8DPdMhZHIKiU/da8n9AJvumQ==}
     peerDependencies:
       '@harperfast/skills': ^1.3.0
 
@@ -8241,7 +8241,7 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@harperfast/agent-tools@1.1.3(@harperfast/skills@1.4.2)':
+  '@harperfast/agent-tools@1.1.5(@harperfast/skills@1.4.2)':
     dependencies:
       '@harperfast/skills': 1.4.2
       zod: 4.4.3

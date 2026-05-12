@@ -11,6 +11,7 @@ import { getDescribeAll } from './getDescribeAll/clientTool';
 import { getDescribeTable } from './getDescribeTable/clientTool';
 import { getUserContext } from './getUserContext/clientTool';
 import { insertTableRecords } from './insertTableRecords/clientTool';
+import { listAnalyticsMetrics } from './listAnalyticsMetrics/clientTool';
 import { readHarperSkill } from './readHarperSkill/clientTool';
 import { readLogs } from './readLogs/clientTool';
 import { readTableRecords } from './readTableRecords/clientTool';
@@ -24,6 +25,7 @@ const clientTools: Record<ToolNames, ClientSideTool> = {
 	createApp,
 	readLogs,
 	getAnalytics,
+	listAnalyticsMetrics,
 	restartHTTPService,
 	collectFeedback,
 	getUserContext,

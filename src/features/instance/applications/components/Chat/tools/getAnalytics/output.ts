@@ -1,7 +1,7 @@
-import type { Metric } from '@/integrations/api/instance/status/getAnalytics';
+import type { AnalyticsDataPoint } from '@/features/instance/status/analytics/types/analytics';
 
 export interface Output {
 	success: boolean;
 	message?: string;
-	data?: Metric[];
+	data?: AnalyticsDataPoint[];
 }
