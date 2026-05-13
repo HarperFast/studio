@@ -5,6 +5,7 @@ on:
     branches: [dev, stage, prod]
 jobs:
   verifyPR:
+    name: Verify PR
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

@@ -6,6 +6,7 @@ on:
     branches: [dev, stage, prod]
 jobs:
   commitlint:
+    name: Verify Commits
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

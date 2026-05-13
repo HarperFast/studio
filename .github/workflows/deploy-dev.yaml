@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   deployToDev:
+    name: Deploy to Dev
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

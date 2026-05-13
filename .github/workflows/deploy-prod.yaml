@@ -10,6 +10,7 @@ concurrency:
 
 jobs:
   deployToProd:
+    name: Deploy to Prod
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   deployToStage:
+    name: Deploy to Stage
     runs-on: ubuntu-latest
     permissions:
       contents: write
