@@ -1,8 +1,8 @@
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Bot } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Chat } from './index';
 

@@ -1,6 +1,6 @@
 import { isTextUIPart, isToolUIPart, type UIMessage } from 'ai';
-import { motion } from 'framer-motion';
 import { Bot, User } from 'lucide-react';
+import { motion } from 'motion/react';
 import { ToolInvocation } from './ToolInvocation';
 
 interface MessageBubbleProps {

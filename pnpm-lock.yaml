@@ -113,9 +113,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      framer-motion:
-        specifier: ^12.38.0
-        version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
@@ -125,6 +122,9 @@ importers:
       mermaid:
         specifier: ^11.13.0
         version: 11.15.0
+      motion:
+        specifier: ^12.38.0
+        version: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       next-themes:
         specifier: ^0.4.4
         version: 0.4.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -5230,6 +5230,20 @@ packages:
 
   motion-utils@12.36.0:
     resolution: {integrity: sha512-eHWisygbiwVvf6PZ1vhaHCLamvkSbPIeAYxWUuL3a2PD/TROgE7FvfHWTIH4vMl798QLfMw15nRqIaRDXTlYRg==}
+
+  motion@12.38.0:
+    resolution: {integrity: sha512-uYfXzeHlgThchzwz5Te47dlv5JOUC7OB4rjJ/7XTUgtBZD8CchMN8qEJ4ZVsUmTyYA44zjV0fBwsiktRuFnn+w==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   mqtt-packet@9.0.2:
     resolution: {integrity: sha512-MvIY0B8/qjq7bKxdN1eD+nrljoeaai+qjLJgfRn3TiMuz0pamsIWY2bFODPZMSNmabsLANXsLl4EMoWvlaTZWA==}
@@ -13050,6 +13064,14 @@ snapshots:
       motion-utils: 12.36.0
 
   motion-utils@12.36.0: {}
+
+  motion@12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      framer-motion: 12.38.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
 
   mqtt-packet@9.0.2:
     dependencies:
