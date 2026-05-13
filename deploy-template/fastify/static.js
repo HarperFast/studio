@@ -9,6 +9,11 @@ export default async (fastify) => {
 	});
 
 	fastify.get('/', function(req, reply) {
-		reply.sendFile('index.html', { maxAge: '1m', immutable: false });
+		reply.header('Content-Security-Policy', "frame-ancestors 'none'");
+		reply.header('X-Frame-Options', 'DENY');
+		reply.sendFile('index.html', {
+			maxAge: '1m',
+			immutable: false,
+		});
 	});
 };
