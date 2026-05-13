@@ -4,6 +4,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
+import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
@@ -126,7 +127,7 @@ export function Logs() {
 
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	const version = registrationInfo?.version;
-	const isVersion5OrGreater = !!version && wasAReleasedBeforeB('5.0.0', version);
+	const showLogName = !isLocalStudio && !!version && wasAReleasedBeforeB('5.0.13', version);
 
 	const {
 		data: instanceLogs,
@@ -182,7 +183,7 @@ export function Logs() {
 					form={form}
 					resetFilters={resetFilters}
 					submitFilters={submitFilters}
-					showLogName={isVersion5OrGreater}
+					showLogName={showLogName}
 				/>
 
 				<div className="flex items-center justify-between space-x-2 mt-2">
