@@ -1,4 +1,5 @@
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { authStore } from '@/features/auth/store/authStore';
 import { AlterUserForm } from '@/features/instance/config/users/components/AlterUserForm';
 import { DeleteUserForm } from '@/features/instance/config/users/components/DeleteUserForm';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -21,8 +22,9 @@ export function EditUserModal({
 	onUserDeleted: () => void;
 	onUserUpdated: () => void;
 }) {
+	const isFabricConnect = authStore.checkForFabricConnect(instanceId ?? clusterId);
 	const auth = useInstanceAuth(instanceId ?? clusterId);
-	const isSelf = auth.user?.username === data.username;
+	const isSelf = !isFabricConnect && auth.user?.username === data.username;
 	const canDelete = !isSelf;
 
 	return (

@@ -190,7 +190,7 @@ class AuthStore {
 		return value ? JSON.parse(atob(value)) : undefined;
 	}
 
-	public checkForFabricConnect(id: EntityIds): boolean {
+	public checkForFabricConnect(id: EntityIds | undefined): boolean {
 		return localStorage.getItem(this.fabricConnectKeyPrefix + id) === 'true';
 	}
 

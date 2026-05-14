@@ -1,4 +1,7 @@
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useSessionToggler } from '@/hooks/useSessionToggler';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
+import { Navigate, useParams } from '@tanstack/react-router';
 import { cx } from 'class-variance-authority';
 import { ApplicationsSidebar } from './components/ApplicationsSidebar';
 import { ContentActions } from './components/ContentActions';
@@ -12,7 +15,13 @@ import { RedeployApplicationModal } from './modals/RedeployApplicationModal';
 import { RenameFileModal } from './modals/RenameFileModal';
 
 export function ApplicationsEditor() {
+	const canManage = useInstanceManagePermission();
+	const params = useParams({ strict: false });
 	const { toggle, toggled } = useSessionToggler('ApplicationsSidebarOpened', true);
+
+	if (!canManage) {
+		return <Navigate to={buildAbsoluteLinkToPage(params, 'databases')} />;
+	}
 
 	return (
 		<EditorViewProvider>

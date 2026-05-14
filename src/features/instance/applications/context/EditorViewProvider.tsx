@@ -21,7 +21,7 @@ import {
 } from '@/integrations/api/instance/applications/setComponentFile';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
 import { TreeItemIndex } from 'react-complex-tree/src/types';
@@ -43,8 +43,17 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	/*
 	 Create our structured view from the relational API data.
 	 */
-	const { data: apiComponents } = useSuspenseQuery(getComponentsQueryOptions(instanceParams));
-	const mappedData = useMemo(() => calculateRootEntries(apiComponents.entries), [apiComponents]);
+	const { data: apiComponents } = useQuery(getComponentsQueryOptions(instanceParams));
+	const mappedData = useMemo(() => {
+		if (!apiComponents) {
+			return {
+				rootEntries: [],
+				pathsRegistry: new Map(),
+				allEntries: new Map(),
+			};
+		}
+		return calculateRootEntries(apiComponents.entries);
+	}, [apiComponents]);
 
 	const reloadRootEntries = useCallback(async () =>
 		queryClient.fetchQuery<APIDirectoryEntry>({
@@ -63,7 +72,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	).map<TreeItemIndex>(rootEntry => rootEntry.name);
 	let defaultFocusedItem = defaultFolderExpansions[0];
 	let defaultSelectedItem = defaultFolderExpansions.slice(0, 1);
-	if (!defaultFocusedItem) {
+	if (!defaultFocusedItem && apiComponents) {
 		defaultFocusedItem = newApplication;
 		defaultSelectedItem = [newApplication];
 	}
