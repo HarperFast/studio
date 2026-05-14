@@ -12,6 +12,7 @@ import { HarperVersion } from '@/features/instance/config/overview/components/Ha
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import {
 	APIDirectoryEntry,
@@ -63,8 +64,9 @@ export function ConfigOverviewIndex() {
 	const { data: configurationInfo, isLoading: loadingConfig } = useQuery(
 		getConfigurationQueryOptions(instanceParams),
 	);
+	const canManage = useInstanceManagePermission();
 	const { data: components, isLoading: loadingComponents } = useQuery(
-		getComponentsQueryOptions(instanceParams),
+		getComponentsQueryOptions({ ...instanceParams, enabled: canManage }),
 	);
 
 	const lastDeployedTimestamp = useMemo(() => {

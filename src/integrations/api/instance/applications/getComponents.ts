@@ -18,10 +18,11 @@ export async function getComponents({ instanceClient }: InstanceClientIdConfig) 
 	return data;
 }
 
-export function getComponentsQueryOptions(params: InstanceClientIdConfig) {
+export function getComponentsQueryOptions(params: InstanceClientIdConfig & { enabled?: boolean }) {
 	return queryOptions({
 		queryKey: [params.entityId, 'get_components'] as const,
 		queryFn: () => getComponents(params),
 		retry: false,
+		enabled: params.enabled !== false,
 	});
 }

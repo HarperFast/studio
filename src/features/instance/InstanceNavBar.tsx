@@ -34,7 +34,7 @@ export function InstanceNavBar() {
 	const params = useParams({ strict: false });
 
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
-	const statusAvailable = wasAReleasedBeforeB('4.6.0', version);
+	const statusAvailable = wasAReleasedBeforeB('4.6.0', version) && canManage;
 	const apisAvailable = wasAReleasedBeforeB('4.7.0-beta.7', version);
 
 	const instanceParams = useInstanceClientIdParams();
@@ -43,7 +43,7 @@ export function InstanceNavBar() {
 
 	const links = useMemo(() =>
 		[
-			{
+			canManage && {
 				to: buildAbsoluteLinkToPage(params),
 				activeOptions: { exact: true },
 				name: 'Applications',

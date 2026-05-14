@@ -97,12 +97,17 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 								</div>
 							)
 							: tableNames.length === 0 && !params.databaseName?.length
-							? (
-								// If no database is selected, show a message
-								<p className="pt-2 text-sm text-center">
-									Please {databaseNames.length === 0 ? 'create' : 'select'} a table.
-								</p>
-							)
+							? canManageBrowseInstance
+								? (
+									<p className="pt-2 text-sm text-center">
+										Please {databaseNames.length === 0 ? 'create' : 'select'} a table.
+									</p>
+								)
+								: (
+									<p className="pt-2 text-sm text-center">
+										Please {databaseNames.length === 0 ? 'ask your admin to create' : 'select'} a table.
+									</p>
+								)
 							: (
 								''
 							)}
