@@ -23,6 +23,7 @@ import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInsta
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from '@tanstack/react-router';
+import { cx } from 'class-variance-authority';
 import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -100,8 +101,13 @@ export function ClusterInstanceSignIn() {
 					<Breadcrumbs />
 				</nav>
 			)}
-			<div className="h-screen items-center justify-center flex">
-				<div className="text-white w-xs">
+			<div
+				className={cx(
+					isLocalStudio ? 'min-h-screen' : 'mt-32 min-h-[calc(100vh-(--spacing(32)))]',
+					'items-center justify-center flex',
+				)}
+			>
+				<div className="text-white w-xs py-8">
 					<h2 className="text-2xl font-light">
 						Sign in to Harper {properNoun}
 					</h2>
