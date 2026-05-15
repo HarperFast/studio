@@ -145,6 +145,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				</DropdownMenuItem>
 			</Link>
 		),
+		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
+			<DropdownMenuItem key="direct-sign-out" onClick={onSignOutClick} disabled={signingOut}>
+				Direct Sign Out
+			</DropdownMenuItem>
+		),
 		isActive && update && (
 			<Link key="edit" to={`${cluster.id}/edit`} disabled={signingOut}>
 				<DropdownMenuItem>
@@ -186,11 +191,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			</DropdownMenuItem>
 		),
 
-		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
-			<DropdownMenuItem key="direct-sign-out" onClick={onSignOutClick} disabled={signingOut}>
-				Direct Sign Out
-			</DropdownMenuItem>
-		),
 		clusterHasFailed && create && (
 			<DropdownMenuItem key="try-again" className="focus:bg-green/70 focus:text-white" onClick={onTryAgainClick}>
 				Try Again
