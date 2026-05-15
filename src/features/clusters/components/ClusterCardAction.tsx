@@ -7,12 +7,17 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
+import { useCallback } from 'react';
 
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	const auth = useInstanceAuth(cluster.id);
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
+	const prepareForDirectSignIn = useCallback(() => {
+		authStore.setUserForEntity(cluster, null);
+		authStore.flagForFabricConnect(cluster.id, false);
+	}, [cluster]);
 
 	if (!view) {
 		return undefined;
@@ -95,6 +100,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 			className="text-sm text-nowrap"
 			aria-label={`Sign In to ${cluster.name}`}
 			title={`Sign In to ${cluster.name}`}
+			onClick={prepareForDirectSignIn}
 		>
 			<span className="py-2 hover:border-b-2">
 				Direct Sign In <ArrowRight className="inline-block" />
