@@ -75,6 +75,16 @@ export function InstanceFormInputs({
 								autoCapitalize="none"
 								autoComplete="off"
 								autoCorrect="off"
+								onChange={e => {
+									field.onChange(e);
+									const value = e.target.value;
+									const isLocalhost = value === 'localhost' || value === '127.0.0.1';
+									const secureFieldState = form.getFieldState(`instances.${index}.secure`);
+
+									if (isLocalhost && !secureFieldState.isDirty) {
+										form.setValue(`instances.${index}.secure`, 'false');
+									}
+								}}
 							/>
 						</FormControl>
 						<FormMessage />
