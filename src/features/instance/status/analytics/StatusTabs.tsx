@@ -1,8 +1,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import { useSystemTheme } from '@/hooks/useSystemTheme';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useTheme } from 'next-themes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint.tsx';
 import { TimeRangePicker } from './components/TimeRangePicker.tsx';
@@ -80,8 +80,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 	// clicks the refresh button.
 	const [tick, setTick] = useState(0);
 
-	const { resolvedTheme } = useTheme();
-	const theme = resolvedTheme === 'dark' ? 'dark' : 'light';
+	const theme = useSystemTheme();
 
 	const updatePreset = useCallback((id: TimePresetId) => {
 		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs } });

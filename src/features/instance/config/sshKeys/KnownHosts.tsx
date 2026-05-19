@@ -63,7 +63,7 @@ export function KnownHosts() {
 					name="known_hosts"
 					render={({ field }) => (
 						<FormItem className="md:col-span-2 gap-0">
-							<FormLabel className="bg-black-dark py-3 px-2 m-0 text-left font-medium whitespace-nowrap">
+							<FormLabel className="bg-muted dark:bg-black-dark py-3 px-2 m-0 text-left font-medium whitespace-nowrap">
 								Known Hosts
 							</FormLabel>
 							<div className="border border-grey-700 p-2 pb-3">

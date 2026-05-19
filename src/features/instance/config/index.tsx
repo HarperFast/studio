@@ -12,7 +12,7 @@ import { GlobeIcon, HandshakeIcon, KeyIcon, PieChartIcon, ShieldCheckIcon, Users
 import { ReactNode, Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
-const inactiveProps = { className: 'text-white hover:bg-gray-700' };
+const inactiveProps = { className: 'text-foreground hover:bg-accent dark:text-white dark:hover:bg-gray-700' };
 const activeProps = { className: 'text-black bg-white pointer-events-none cursor-default' };
 
 export function ConfigIndex() {
@@ -94,11 +94,11 @@ export function ConfigIndex() {
 
 	return (
 		<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36)))]">
-			<section className="col-span-1 text-white md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
+			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r border-b md:border-b-0 md:pr-4 border-gray-700">
 				<DesktopConfigNavBar params={params}>{children}</DesktopConfigNavBar>
 				<MobileConfigNavBar params={params}>{children}</MobileConfigNavBar>
 			</section>
-			<section className="col-span-1 text-white md:col-span-8 lg:col-span-9 md:pt-4">
+			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 md:pt-4">
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 					<Outlet />
 				</Suspense>

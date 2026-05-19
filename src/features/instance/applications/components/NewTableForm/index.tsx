@@ -317,7 +317,7 @@ export function NewTableForm() {
 					</a>.
 				</div>
 
-				<div className="flex w-full gap-4 sticky -bottom-6 pb-6 pt-4 bg-black">
+				<div className="flex w-full gap-4 sticky -bottom-6 pb-6 pt-4 bg-background dark:bg-black">
 					<Button type="button" variant="ghost" className="w-full rounded-full" onClick={closeModal}>
 						<Ban /> Cancel
 					</Button>

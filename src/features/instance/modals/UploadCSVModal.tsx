@@ -14,7 +14,7 @@ export function UploadCSVModal() {
 				</Button>
 			</DialogTrigger>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<DialogHeader>
 					<DialogTitle>Upload A CSV File</DialogTitle>
 				</DialogHeader>

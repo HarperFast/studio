@@ -123,14 +123,14 @@ export function NewApplication() {
 					className="flex flex-col gap-4 p-4"
 				>
 					<fieldset disabled={isImportingApplication || isCreatingFromTemplate || isReloading}>
-						<Card className="bg-black-dark">
+						<Card className="dark:bg-black-dark">
 							<CommonInstructions
 								control={control}
 								defaultApplicationName={defaultApplicationName}
 							/>
 						</Card>
 
-						<Card className="bg-black-dark mt-4 pt-0">
+						<Card className="dark:bg-black-dark mt-4 pt-0">
 							<Tabs defaultValue={contentsType} onValueChange={setContentsType}>
 								<TabsList className="w-full grid grid-cols-3 mt-0">
 									<TabsTrigger value="template">
@@ -148,7 +148,7 @@ export function NewApplication() {
 								</TabsList>
 
 								<div className="mx-6 mt-1">
-									<Separator className="bg-black" />
+									<Separator className="bg-border" />
 								</div>
 
 								<TabsContent value="template" className="space-y-4">

@@ -88,7 +88,7 @@ export function RenameFileModal() {
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<Form {...form}>
 					<form
 						id="instance-rename-app-file-form"

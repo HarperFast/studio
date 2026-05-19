@@ -88,7 +88,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<div className="sticky bottom-0 py-4 bg-black/70 backdrop-blur-xs">
+				<div className="sticky bottom-0 py-4 bg-background/80 backdrop-blur-xs dark:bg-black/70">
 					<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
 						<Plus />
 						<span>
@@ -109,7 +109,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 						id="instance-new-table-form"
 						name="instance-new-table-form"
 						onSubmit={form.handleSubmit(submitForm)}
-						className="grid gap-6 text-white"
+						className="grid gap-6 text-popover-foreground"
 					>
 						<FormField
 							control={form.control}

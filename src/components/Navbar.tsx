@@ -28,7 +28,7 @@ import {
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-const activeLinkProps = { className: 'text-white' };
+const activeLinkProps = { className: 'text-foreground dark:text-white font-semibold' };
 
 export function Navbar() {
 	const { mutate: signOut } = useLogoutMutation();
@@ -164,7 +164,7 @@ function AnonymousNav() {
 				<Version />
 			</div>
 			<NavigationMenu>
-				<NavigationMenuList className="text-grey-400">
+				<NavigationMenuList className="text-muted-foreground dark:text-grey-400">
 					<NavigationMenuItem>
 						<NavigationMenuLink asChild>
 							<Link
@@ -204,11 +204,11 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 					<Version />
 				</div>
 				<NavigationMenu>
-					<NavigationMenuList className="text-grey-400">
+					<NavigationMenuList className="text-muted-foreground dark:text-grey-400">
 						{menuItems.map(menuItem =>
 							isMenuGroup(menuItem)
 								? !!menuItem.items.length && (
-									<div key={menuItem.text} className="bg-black rounded-2xl flex">
+									<div key={menuItem.text} className="bg-muted dark:bg-black rounded-2xl flex">
 										{menuItem.items.map(innerMenuItem => (
 											<DesktopNavItem key={innerMenuItem.text} menuItem={innerMenuItem} />
 										))}
@@ -225,7 +225,7 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 
 function DesktopNavItem({ menuItem }: { menuItem: MenuItem }) {
 	return (
-		<NavigationMenuItem className="text-gray-400 hover:text-white">
+		<NavigationMenuItem className="text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white">
 			<NavigationMenuLink asChild>
 				<Link
 					to={menuItem.to}
@@ -259,7 +259,7 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				<Version />
 				<button
 					type="button"
-					className="shadow-xs text-grey-400 hover:text-white hover:bg-black-dark"
+					className="shadow-xs text-muted-foreground dark:text-grey-400 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-black-dark"
 					onClick={toggleMenu}
 				>
 					<span className="sr-only">{isMenuOpen ? 'Close menu' : 'Open menu'}</span>
@@ -267,19 +267,21 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				</button>
 			</div>
 			<div
-				className={`${isMenuOpen ? 'fixed' : 'hidden'} top-40 bottom-0 left-0 right-0 bg-black-dark opacity-70`}
+				className={`${
+					isMenuOpen ? 'fixed' : 'hidden'
+				} top-40 bottom-0 left-0 right-0 bg-foreground/20 dark:bg-black-dark dark:opacity-70`}
 				onClick={closeMenu}
 			>
 			</div>
 			<div
 				className={`${
 					isMenuOpen ? 'block' : 'hidden'
-				} md:hidden z-50 space-y-1 pb-3 bg-black-dark absolute left-0 top-full w-full rounded-b-md`}
+				} md:hidden z-50 space-y-1 pb-3 bg-card border-b border-border dark:bg-black-dark dark:border-none absolute left-0 top-full w-full rounded-b-md`}
 			>
 				{menuItems.map(menuItem =>
 					isMenuGroup(menuItem)
 						? !!menuItem.items.length && (
-							<div key={menuItem.text} className="bg-black pl-10 pr-2 py-2">
+							<div key={menuItem.text} className="bg-muted dark:bg-black pl-10 pr-2 py-2">
 								{menuItem.items.map(innerMenuItem => (
 									<MobileNavItem key={innerMenuItem.text} menuItem={innerMenuItem} onClick={closeMenu} />
 								))}
@@ -302,7 +304,7 @@ function MobileNavItem({ menuItem, onClick }: { menuItem: MenuItem; onClick: () 
 			to={menuItem.to}
 			onClick={linkOnClick}
 			target={menuItem.target}
-			className="flex flex-row px-3 py-2 text-base font-medium rounded-md text-gray-400 hover:text-white"
+			className="flex flex-row px-3 py-2 text-base font-medium rounded-md text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white"
 			activeProps={menuItem.to ? activeLinkProps : undefined}
 		>
 			{menuItem.icon}

@@ -56,7 +56,7 @@ export function ConfigCertificatesIndex() {
 				onRowClick={onSelectCertificate}
 			>
 				<Link
-					className="inline-block underline text-sm text-gray-400 hover:text-white"
+					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
 					to="https://docs.harperdb.io/docs/developers/operations-api/certificate-management"
 					target="_blank"
 				>

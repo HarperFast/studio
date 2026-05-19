@@ -61,8 +61,8 @@ export function ContentActions({
 					+ ' text-sm md:hidden'
 					+ ' focus:outline-none'
 					+ ' focus:ring-2'
-					+ ' text-white'
-					+ ' hover:text-grey focus:ring-gray-600 rounded-none'}
+					+ ' text-foreground'
+					+ ' hover:text-muted-foreground focus:ring-gray-600 rounded-none'}
 				onClick={toggleSidebar}
 			>
 				<span className="sr-only">{toggledSidebar ? 'Close' : 'Open'} sidebar</span>

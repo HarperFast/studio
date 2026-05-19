@@ -55,7 +55,7 @@ export function ConfigSSHKeysIndex() {
 				onRowClick={onSelectSSHKey}
 			>
 				<Link
-					className="inline-block underline text-sm text-gray-400 hover:text-white"
+					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
 					to="https://docs.harperdb.io/docs/developers/security/certificate-management"
 					target="_blank"
 				>

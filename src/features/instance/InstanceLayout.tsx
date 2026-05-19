@@ -6,7 +6,7 @@ import { FloatingChat } from './applications/components/Chat/FloatingChat';
 export function InstanceLayout() {
 	return (
 		<>
-			<nav className="fixed top-20 w-full z-39 h-12 md:px-12 bg-grey-700">
+			<nav className="fixed top-20 w-full z-39 h-12 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none">
 				<InstanceNavBar />
 			</nav>
 			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">

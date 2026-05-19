@@ -83,7 +83,7 @@ export function ProfileIndex() {
 								<FormControl>
 									<Input
 										type="text"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										autoFocus
 										{...field}
@@ -103,7 +103,7 @@ export function ProfileIndex() {
 								<FormControl>
 									<Input
 										type="text"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
 									/>
@@ -136,7 +136,7 @@ export function ProfileIndex() {
 									<Input
 										type="password"
 										placeholder="Optional"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoComplete="new-password"
 										autoCapitalize="none"
 										{...field}
@@ -156,7 +156,7 @@ export function ProfileIndex() {
 								<FormControl>
 									<Input
 										type="password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoComplete="new-password"
 										autoCapitalize="none"
 										{...field}

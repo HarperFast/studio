@@ -78,7 +78,10 @@ const columns: ColumnDef<ReadLogItem>[] = [
 								<TooltipTrigger asChild>
 									<Badge variant={variant}>{node.split('.')[0]}...</Badge>
 								</TooltipTrigger>
-								<TooltipContent className="bg-grey-700" arrowClassName="bg-grey-700 fill-grey-700">
+								<TooltipContent
+									className="bg-popover text-popover-foreground border border-border"
+									arrowClassName="bg-popover fill-popover"
+								>
 									{node}
 								</TooltipContent>
 							</Tooltip>
@@ -177,7 +180,7 @@ export function Logs() {
 	const onRefreshClick = useRefreshClick(refetchReadLogQueryOptions);
 
 	return (
-		<div className="grid grid-cols-1 gap-4 text-white md:grid-cols-12">
+		<div className="grid grid-cols-1 gap-4 text-foreground md:grid-cols-12">
 			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pt-4 md:pt-12">
 				<LogsFiltersForm
 					form={form}

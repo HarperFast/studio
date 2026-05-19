@@ -465,7 +465,7 @@ export function ClusterForm({
 				{!confirmingPaymentDetails
 					? (
 						<>
-							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', pricingMarginRight)}>
+							<h1 className={cx('text-lg leading-none text-foreground font-semibold mb-4', pricingMarginRight)}>
 								Cluster Configuration
 							</h1>
 							<p className={cx('text-muted-foreground text-sm mb-6', pricingMarginRight)}>
@@ -499,7 +499,7 @@ export function ClusterForm({
 					)
 					: (
 						<>
-							<h1 className={cx('text-lg leading-none text-white font-semibold mb-4', pricingMarginRight)}>
+							<h1 className={cx('text-lg leading-none text-foreground font-semibold mb-4', pricingMarginRight)}>
 								Cluster Billing
 							</h1>
 							<p className={cx('text-muted-foreground text-sm mb-2', pricingMarginRight)}>

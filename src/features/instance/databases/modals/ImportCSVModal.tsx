@@ -109,13 +109,13 @@ export function ImportCSVModal({
 									<FormItem className="relative">
 										<FormLabel
 											htmlFor="dropzone-file"
-											className="flex flex-col items-center justify-center w-full h-64 border-2 border-grey border-dashed rounded-lg cursor-pointer bg-grey-700 hover:bg-grey-700/80"
+											className="flex flex-col items-center justify-center w-full h-64 border-2 border-border border-dashed rounded-lg cursor-pointer bg-muted dark:bg-grey-700 hover:bg-muted/80 dark:hover:bg-grey-700/80"
 										>
 											<FormControl>
 												<div>
 													<div className="flex flex-col items-center justify-center pt-5 pb-6">
-														<CloudUploadIcon className="text-white" size={48} />
-														<p className="mb-2 text-sm text-white">
+														<CloudUploadIcon className="text-muted-foreground" size={48} />
+														<p className="mb-2 text-sm text-muted-foreground">
 															{selectedCSVFile
 																? (
 																	selectedCSVFile.name

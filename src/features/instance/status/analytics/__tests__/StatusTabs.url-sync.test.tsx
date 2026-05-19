@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ThemeProvider } from 'next-themes';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAnalyticsRecords so we don't need a real Harper. Each tab still
@@ -40,25 +39,24 @@ vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigateMock,
 }));
 
-// next-themes uses matchMedia which happy-dom doesn't fully implement.
+// useSystemTheme uses matchMedia which happy-dom doesn't fully implement.
 beforeEach(() => {
 	currentSearch = {};
 	navigateMock.mockClear();
-	if (!window.matchMedia) {
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: vi.fn().mockImplementation((query: string) => ({
-				matches: false,
-				media: query,
-				onchange: null,
-				addEventListener: vi.fn(),
-				removeEventListener: vi.fn(),
-				addListener: vi.fn(),
-				removeListener: vi.fn(),
-				dispatchEvent: vi.fn(),
-			})),
-		});
-	}
+	Object.defineProperty(window, 'matchMedia', {
+		writable: true,
+		configurable: true,
+		value: vi.fn().mockImplementation((query: string) => ({
+			matches: false,
+			media: query,
+			onchange: null,
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+			addListener: vi.fn(),
+			removeListener: vi.fn(),
+			dispatchEvent: vi.fn(),
+		})),
+	});
 });
 
 import { StatusTabs } from '../StatusTabs.tsx';
@@ -75,9 +73,7 @@ function mount() {
 	});
 	return render(
 		<QueryClientProvider client={client}>
-			<ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-				<StatusTabs instanceParams={instanceParams} isLocalStudio={false} />
-			</ThemeProvider>
+			<StatusTabs instanceParams={instanceParams} isLocalStudio={false} />
 		</QueryClientProvider>,
 	);
 }

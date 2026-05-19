@@ -205,7 +205,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	].filter(excludeFalsy);
 
 	return (
-		<Card className="relative h-full justify-between">
+		<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					{clusterFQDN

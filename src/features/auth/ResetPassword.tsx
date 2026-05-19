@@ -71,7 +71,7 @@ export function ResetPassword() {
 	}, [navigate, submitResetPasswordData, token]);
 
 	return (
-		<div className="text-white w-xs">
+		<div className="text-foreground dark:text-white w-xs">
 			<h2 className="text-2xl font-light">Reset Password</h2>
 			<Form {...methods}>
 				<form
@@ -90,7 +90,7 @@ export function ResetPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>
@@ -108,7 +108,7 @@ export function ResetPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>

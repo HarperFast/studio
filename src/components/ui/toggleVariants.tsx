@@ -27,7 +27,7 @@ export const toggleVariants = cva(
 			variant: {
 				default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
 				outline:
-					'border bg-default border-primary border-2 text-white shadow-xs hover:-translate-y-1 transition duration-200 hover:bg-grey-700/40',
+					'border bg-default border-primary border-2 text-foreground shadow-xs hover:-translate-y-1 transition duration-200 hover:bg-accent/60 dark:text-white dark:hover:bg-grey-700/40',
 			},
 			size: {
 				default: 'h-9 px-4 py-2 has-[>svg]:px-3',

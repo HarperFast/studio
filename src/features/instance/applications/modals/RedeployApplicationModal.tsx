@@ -93,7 +93,7 @@ export function RedeployApplicationModal() {
 			onOpenChange={closeModal}
 			open={isModalOpen}
 		>
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<DialogHeader>
 					<DialogTitle>Redeploy Package</DialogTitle>
 					<DialogDescription>Redeploy this package?</DialogDescription>

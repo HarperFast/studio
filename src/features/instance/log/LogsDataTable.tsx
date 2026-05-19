@@ -24,7 +24,7 @@ export function LogsDataTable<TData extends ReadLogItem, TValue>({
 	});
 
 	return (
-		<div className="rounded-md bg-black-dark logsTable">
+		<div className="rounded-md bg-card dark:bg-black-dark logsTable">
 			<Table className="text-xs">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -39,7 +39,7 @@ export function LogsDataTable<TData extends ReadLogItem, TValue>({
 						</TableRow>
 					))}
 				</TableHeader>
-				<TableBody className="bg-black">
+				<TableBody className="bg-background dark:bg-black">
 					{table.getRowModel().rows?.length
 						? (
 							table.getRowModel().rows.map((row) => (

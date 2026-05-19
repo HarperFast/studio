@@ -70,7 +70,7 @@ function SendEmailVerification() {
 								<Input
 									disabled={isPending}
 									type="email"
-									className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+									className="dark:bg-black dark:border-black"
 									{...field}
 								/>
 							</FormControl>
@@ -117,7 +117,7 @@ export function VerifyEmail() {
 	}, [submitEmailToken, token]);
 
 	return (
-		<div className="text-white w-xs">
+		<div className="text-foreground dark:text-white w-xs">
 			<h1 className="text-3xl font-light">Verify Email</h1>
 			{!isPending ? <SendEmailVerification /> : <p className="text-sm pt-1">Verifying email...</p>}
 		</div>

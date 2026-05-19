@@ -59,7 +59,7 @@ export function SimpleBrowseDataTable<TData, TValue>({
 				{children}
 				<div className="grow hidden lg:visible"></div>
 			</div>
-			<Table containerClassName="rounded-md bg-black-dark">
+			<Table containerClassName="rounded-md bg-card dark:bg-black-dark">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
@@ -69,7 +69,7 @@ export function SimpleBrowseDataTable<TData, TValue>({
 						</TableRow>
 					))}
 				</TableHeader>
-				<TableBody className="bg-black border border-grey-700">
+				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
 					{table.getRowModel().rows?.length
 						? (table.getRowModel().rows.map((row) => (
 							<TableRow

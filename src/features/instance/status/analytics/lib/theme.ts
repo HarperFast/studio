@@ -1,31 +1,5 @@
 export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'analytics-viz-theme';
-
-export function getStoredTheme(): Theme {
-	// Safari private mode + sandboxed iframes throw on localStorage access.
-	// Fall back to the OS preference rather than blowing up the whole tab.
-	try {
-		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored === 'light' || stored === 'dark') { return stored; }
-	} catch {
-		// fall through to media-query fallback
-	}
-	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-export function setStoredTheme(theme: Theme): void {
-	try {
-		localStorage.setItem(STORAGE_KEY, theme);
-	} catch {
-		// best-effort; silently drop in restricted-storage environments
-	}
-}
-
-export function applyTheme(theme: Theme): void {
-	document.documentElement.classList.toggle('dark', theme === 'dark');
-}
-
 /** Reads the studio chart-surface CSS tokens defined in src/index.css.
  *  All charts render inside a `Card`, so axis/grid/tooltip colors resolve
  *  against `--card`, not the brand-purple `--background`. The hex defaults
