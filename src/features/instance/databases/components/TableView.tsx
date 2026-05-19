@@ -87,7 +87,7 @@ export function TableView<TData, TValue>({
 
 	return (
 		<>
-			<Table containerClassName="rounded-md bg-black-dark grow max-h-[calc(100vh-128px-16px-112px-80px)]">
+			<Table containerClassName="rounded-md bg-card dark:bg-black-dark grow max-h-[calc(100vh-128px-16px-112px-80px)]">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
@@ -104,7 +104,7 @@ export function TableView<TData, TValue>({
 						headerGroups={table.getHeaderGroups()}
 					/>
 				)}
-				<TableBody className="bg-black border border-grey-700">
+				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
 					{table.getRowModel().rows?.length
 						? (table.getRowModel().rows.map((row) => (
 							<TableBodyRow key={row.id} row={row} onRowClick={onRowClick} primaryKey={primaryKey} />

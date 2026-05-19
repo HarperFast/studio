@@ -16,7 +16,7 @@ export function BrowseSettingsModal() {
 				</Button>
 			</DialogTrigger>
 			{/* NOTE - Is this okay to do for the aria describedby? */}
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<DialogHeader>
 					<DialogTitle>Edit Row</DialogTitle>
 				</DialogHeader>

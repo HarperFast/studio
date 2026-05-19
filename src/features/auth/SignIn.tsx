@@ -30,8 +30,8 @@ export function SignIn() {
 	const { submitForm, isPending } = useCloudSignIn();
 
 	return (
-		<div className="text-white w-xs">
-			<h2 className="text-2xl font-light">Sign in to Harper Fabric</h2>
+		<div className="text-foreground dark:text-white w-xs">
+			<h2 className="text-2xl font-light text-center">Sign in to Harper Fabric</h2>
 			<Form {...methods}>
 				<form
 					id="auth-signin-form"
@@ -50,7 +50,7 @@ export function SignIn() {
 										type="email"
 										autoFocus={true}
 										autoComplete="email"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>
@@ -68,7 +68,7 @@ export function SignIn() {
 									<Input
 										type="password"
 										autoComplete="current-password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>
@@ -80,17 +80,25 @@ export function SignIn() {
 						Sign In
 					</Button>
 					<div className="flex px-4 mt-4 underline place-content-between">
-						<Link className="text-sm hover:text-blue-300" to="/sign-up" search={{ me: email }}>
+						<Link
+							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
+							to="/sign-up"
+							search={{ me: email }}
+						>
 							Sign up for free
 						</Link>
-						<Link className="text-sm hover:text-blue-300" to="/forgot-password" search={{ me: email }}>
+						<Link
+							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
+							to="/forgot-password"
+							search={{ me: email }}
+						>
 							Forgot password?
 						</Link>
 					</div>
 				</form>
 			</Form>
 
-			<hr className="border-gray-600 my-6" />
+			<hr className="border-border dark:border-gray-600 my-6" />
 
 			<div className="flex flex-col gap-2">
 				<GoogleAuthenticationButton text="Sign in with Google" />

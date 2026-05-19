@@ -162,7 +162,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 				<Button
 					type="button"
 					variant="link"
-					className="text-white"
+					className="text-foreground"
 				>
 					Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 				</Button>

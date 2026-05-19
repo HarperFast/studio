@@ -17,7 +17,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 	});
 
 	return (
-		<div className="bg-black-dark rounded-md">
+		<div className="bg-card dark:bg-black-dark rounded-md">
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -32,7 +32,7 @@ export function DataTable<TData, TValue>({ columns, data }: DataTableProps<TData
 						</TableRow>
 					))}
 				</TableHeader>
-				<TableBody className="bg-black">
+				<TableBody className="bg-background dark:bg-black">
 					{table.getRowModel().rows?.length
 						? (
 							table.getRowModel().rows.map((row) => (

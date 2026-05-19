@@ -27,7 +27,9 @@ interface Link {
 	icon: ReactNode;
 }
 
-const activeLinkProps = { className: 'text-white' };
+const activeLinkProps = {
+	className: 'text-primary font-semibold bg-primary/10 rounded-md dark:text-white dark:bg-white/10',
+};
 
 export function InstanceNavBar() {
 	const canManage = useInstanceManagePermission();
@@ -86,13 +88,13 @@ export function InstanceNavBar() {
 
 function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
-		<div className="hidden md:flex items-center justify-between h-full text-sm text-white">
+		<div className="hidden md:flex items-center justify-between h-full text-sm text-foreground">
 			<Breadcrumbs restartRequired={restartRequired} />
 			<div className="flex space-x-2">
 				{links.map(({ shortName, ...link }) => (
 					<Link
 						key={link.to}
-						className="p-2 text-center text-gray-400 hover:text-white"
+						className="p-2 text-center text-muted-foreground hover:text-foreground"
 						activeProps={activeLinkProps}
 						{...link}
 					>
@@ -109,7 +111,7 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
 		<>
-			<div className="flex md:hidden items-center justify-between h-full px-2 text-white">
+			<div className="flex md:hidden items-center justify-between h-full px-2 text-foreground">
 				<Breadcrumbs restartRequired={restartRequired} />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>

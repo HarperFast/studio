@@ -114,7 +114,7 @@ export function ClusterDetails({
 	if (mode === 'version') {
 		return (
 			<>
-				<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
+				<div className="grid grid-cols-3 gap-6 text-foreground md:grid-cols-6">
 					<ClusterName
 						className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
 						disabled={true}
@@ -134,7 +134,7 @@ export function ClusterDetails({
 
 	return (
 		<>
-			<div className="grid grid-cols-3 gap-6 text-white md:grid-cols-6">
+			<div className="grid grid-cols-3 gap-6 text-foreground md:grid-cols-6">
 				<ClusterName
 					className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
 					disabled={!!clusterId}

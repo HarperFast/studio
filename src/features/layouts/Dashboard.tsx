@@ -22,7 +22,7 @@ export function Dashboard() {
 
 	return (
 		<>
-			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-black-dark dark:bg-black-dark dark:border-b dark:border-black md:px-12">
+			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-white border-b border-border dark:bg-black-dark dark:border-black md:px-12">
 				<Navbar />
 			</header>
 			<main>

@@ -38,7 +38,7 @@ export function ViewLogModal({
 				{data
 					? (
 						// <Editor className="w-full h-96" language="json" theme="vs-dark" value={JSON.stringify(data, null, 4)} />
-						<div className="flex flex-col gap-3 text-white">
+						<div className="flex flex-col gap-3 text-popover-foreground">
 							<div>
 								<h3 className="inline-block pr-2">Level:</h3>
 								<Badge variant={renderBadgeLogLevelVariant(data.level)}>

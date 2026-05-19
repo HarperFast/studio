@@ -63,7 +63,7 @@ export function DownloadApplicationModal() {
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<DialogHeader>
 					<DialogTitle>Download Application</DialogTitle>
 					<DialogDescription>

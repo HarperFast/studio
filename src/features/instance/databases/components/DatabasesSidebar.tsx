@@ -113,12 +113,14 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 							)}
 						<ul>
 							{tableNames.map((tableName) => (
-								<li key={tableName} className="flex items-center p-2 border-b hover:bg-grey-700/80 border-grey-700">
+								<li
+									key={tableName}
+									className="flex items-center p-2 border-b hover:bg-accent border-border dark:hover:bg-grey-700/80 dark:border-grey-700"
+								>
 									<Button
-										onClick={() =>
-											onSelectTable(params.databaseName, tableName)}
+										onClick={() => onSelectTable(params.databaseName, tableName)}
 										size="lg"
-										className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent"
+										className="items-center justify-between w-full bg-transparent border-none shadow-none hover:bg-transparent text-foreground"
 									>
 										{tableName}
 										<span>

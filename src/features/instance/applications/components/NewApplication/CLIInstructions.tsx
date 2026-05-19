@@ -41,7 +41,7 @@ export function CLIInstructions({
 							<h3>{cliStep.title}</h3>
 						</div>
 						<div className="ml-8">
-							<div className="bg-black rounded-lg p-4 flex items-center justify-between group">
+							<div className="bg-muted dark:bg-black rounded-lg p-4 flex items-center justify-between group">
 								<code className="text-sm overflow-auto pl-8 -indent-8 wrap-anywhere">{cliStep.code}</code>
 								<Button
 									type="button"
@@ -55,7 +55,7 @@ export function CLIInstructions({
 							{cliStep.note && <p className="text-muted-foreground text-sm mt-2">{cliStep.note}</p>}
 						</div>
 
-						<Separator className="bg-black" />
+						<Separator className="bg-border" />
 					</div>
 				))}
 

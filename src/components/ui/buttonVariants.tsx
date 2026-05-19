@@ -1,7 +1,8 @@
 import { cva } from 'class-variance-authority';
 
 const hoverBounce = 'hover:-translate-y-1 transition duration-200';
-const outlineCommon = 'border bg-transparent border-2 text-white shadow-xs hover:bg-grey-700/40';
+const outlineCommon =
+	'border bg-transparent border-2 text-foreground shadow-xs hover:bg-accent/60 dark:text-white dark:hover:bg-grey-700/40';
 export const buttonVariants = cva(
 	`inline-flex
   items-center

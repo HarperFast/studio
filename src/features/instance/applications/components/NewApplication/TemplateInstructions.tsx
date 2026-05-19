@@ -83,7 +83,7 @@ export function TemplateInstructions({
 					)}
 				/>
 
-				<Separator className="my-6 bg-black" />
+				<Separator className="my-6 bg-border" />
 				<Button
 					className="w-full"
 					disabled={!formState.isValid || isCreatingFromTemplate}

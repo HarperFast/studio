@@ -154,8 +154,8 @@ export function SignUp() {
 	);
 
 	return (
-		<div className="text-white w-xs">
-			<h2 className="text-2xl font-light">Sign up for Harper Fabric</h2>
+		<div className="text-foreground dark:text-white w-xs">
+			<h2 className="text-2xl font-light text-center">Sign up for Harper Fabric</h2>
 
 			<Form {...methods}>
 				<div className="flex flex-col gap-2 my-6">
@@ -189,7 +189,7 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="text"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
 									/>
@@ -207,7 +207,7 @@ export function SignUp() {
 								<FormControl>
 									<Input
 										type="text"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoCapitalize="words"
 										{...field}
 									/>
@@ -227,7 +227,7 @@ export function SignUp() {
 										type="email"
 										readOnly={!!searchEmail}
 										disabled={!!searchEmail}
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										autoComplete="email"
 										autoCapitalize="none"
 										{...field}
@@ -247,7 +247,7 @@ export function SignUp() {
 									<Input
 										type="password"
 										autoComplete="new-password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>
@@ -265,7 +265,7 @@ export function SignUp() {
 									<Input
 										type="password"
 										autoComplete="new-password"
-										className="bg-purple-400 border-purple-400 dark:bg-black dark:border-black"
+										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
 								</FormControl>

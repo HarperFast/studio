@@ -209,7 +209,7 @@ export function ImportInstructions({
 					)}
 				/>
 
-				<Separator className="bg-black" />
+				<Separator className="bg-border" />
 
 				<Button
 					className="w-full"

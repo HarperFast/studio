@@ -45,13 +45,13 @@ export function OrgCard({
 	}, [onDeleteOrgModal, organizationRole]);
 
 	return (
-		<Card className="relative h-full justify-between">
+		<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
 			<CardHeader>
 				<CardDescription className="flex items-center justify-between">
 					<span className="truncate">{organizationId}</span>
 					{remove && (
 						<DropdownMenu>
-							<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-white">
+							<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-foreground">
 								<Ellipsis aria-label="Options" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent>

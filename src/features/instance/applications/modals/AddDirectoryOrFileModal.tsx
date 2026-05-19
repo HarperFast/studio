@@ -124,7 +124,7 @@ export function AddDirectoryOrFileModal() {
 
 	return (
 		<Dialog onOpenChange={closeModal} open={!!type}>
-			<DialogContent aria-describedby={undefined} className="text-white">
+			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
 				<Form {...form}>
 					<form
 						id={`instance-add-app-${type}-form`}

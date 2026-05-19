@@ -1,5 +1,6 @@
 import { Loading } from '@/components/Loading';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
+import { useSystemTheme } from '@/hooks/useSystemTheme';
 import { stripePromise } from '@/integrations/stripe/stripePromise';
 import { useGetStripeClientSecret } from '@/integrations/stripe/useGetStripeClientSecret';
 import { StripeContext } from '@/integrations/stripe/useStripeOptions';
@@ -16,14 +17,15 @@ export function StripeWrapper({ children }: { children: ReactNode }) {
 		enabled: !!organization,
 		existingStripeId: organization?.stripeId,
 	});
+	const systemTheme = useSystemTheme();
 	const options = useMemo(() => {
 		return {
 			clientSecret: clientSecret || '',
 			appearance: {
-				theme: 'night' as const,
+				theme: systemTheme === 'dark' ? 'night' as const : 'stripe' as const,
 			},
 		};
-	}, [clientSecret]);
+	}, [clientSecret, systemTheme]);
 
 	if (!import.meta.env.VITE_PUBLIC_STRIPE_KEY) {
 		console.error('No VITE_PUBLIC_STRIPE_KEY is configured for this environment.');
