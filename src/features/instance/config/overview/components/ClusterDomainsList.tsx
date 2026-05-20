@@ -23,7 +23,7 @@ export const ClusterDomainsList = ({
 	);
 };
 
-function ClusterDomainUrl({ domain }: { domain: string }) {
+function ClusterDomainUrl({ domain }: { domain: string | undefined }) {
 	const [onCopyClick] = useCopyToClipboard(domain || '');
 	return (
 		<div key={domain}>

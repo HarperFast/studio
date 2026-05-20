@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
+import { OAuthLockedOrgCard } from '@/features/organizations/components/OAuthLockedOrgCard';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
 import { NewOrg } from '@/features/organizations/NewOrg';
@@ -56,20 +57,29 @@ export function OrganizationsIndex() {
 		enabled: showAll,
 	});
 
-	const organizationRoles = useMemo(() => {
+	const { organizationRoles, oauthLockedOrgs } = useMemo(() => {
 		const roles = user?.roles || {};
-		const organizations = Object.values(roles);
-		const organizationIds = Object.keys(roles).map((organizationId, index) => ({
-			organizationId,
-			organizationName: organizations[index].organizationName,
-			roleName: organizations[index].role,
-		}));
-		return (
-			organizationIds
-				.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue))
-				.sort((a, b) => ((a.organizationName || '') > (b.organizationName || '') ? 1 : -1)) || []
-		);
-	}, [filterByNameValue, user?.roles]);
+		const normal: Array<{ organizationId: string; organizationName?: string; roleName: string }> = [];
+		const locked: Array<
+			{ organizationId: string; organizationName?: string; providers: Array<{ name: string; oauthConfigId: string }> }
+		> = [];
+
+		for (const [organizationId, role] of Object.entries(roles)) {
+			// Fabric admins / super users bypass an org's OAuth requirement, so never
+			// lock their cards — render the org normally even when it requires OAuth.
+			if ('oauthProviders' in role && !isAdminMode) {
+				locked.push({ organizationId, organizationName: role.organizationName, providers: role.oauthProviders! });
+			} else {
+				normal.push({ organizationId, organizationName: role.organizationName, roleName: role.role ?? 'fabric admin' });
+			}
+		}
+
+		const filteredNormal = normal
+			.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue))
+			.sort((a, b) => ((a.organizationName || '') > (b.organizationName || '') ? 1 : -1));
+
+		return { organizationRoles: filteredNormal, oauthLockedOrgs: locked };
+	}, [filterByNameValue, user?.roles, isAdminMode]);
 
 	// Roles for organizations the fabric admin is fetching server-side. Falls
 	// back to "fabric admin" for organizations the user has no role in.
@@ -125,7 +135,7 @@ export function OrganizationsIndex() {
 		return <Navigate to={`/${organizationRoles[0].organizationId}/new-cluster`} replace={true} />;
 	}
 
-	if (!showAll && !organizationRoles.length && !filterByNameValue.length) {
+	if (!showAll && !organizationRoles.length && !oauthLockedOrgs.length && !filterByNameValue.length) {
 		return <NewOrg />;
 	}
 
@@ -161,6 +171,19 @@ export function OrganizationsIndex() {
 			</SubNavMenu>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
+					{/* OAuth-locked orgs only apply to the user's own orgs, not the admin show-all listing. */}
+					{!showAll && oauthLockedOrgs.map((lockedOrg) => (
+						<div
+							key={lockedOrg.organizationId}
+							className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
+						>
+							<OAuthLockedOrgCard
+								organizationId={lockedOrg.organizationId}
+								organizationName={lockedOrg.organizationName}
+								providers={lockedOrg.providers}
+							/>
+						</div>
+					))}
 					{showAll && isAllOrgsPending
 						? Array.from({ length: ALL_ORGANIZATIONS_PAGE_SIZE }, (_, index) => (
 							<Skeleton
@@ -176,12 +199,13 @@ export function OrganizationsIndex() {
 								<OrgCard organizationRole={organizationRole} onDeleteOrgModal={onDeleteOrgModal} />
 							</div>
 						))}
-					{!displayedOrganizationRoles.length && !(showAll && isAllOrgsPending) && (
-						<div className="col-span-1 md:col-span-12 text-center">
-							<h2 className="my-4 text-xl">No matches found.</h2>
-							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
-						</div>
-					)}
+					{!displayedOrganizationRoles.length && !(showAll && isAllOrgsPending) && (showAll || !oauthLockedOrgs.length)
+						&& (
+							<div className="col-span-1 md:col-span-12 text-center">
+								<h2 className="my-4 text-xl">No matches found.</h2>
+								<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
+							</div>
+						)}
 				</div>
 				{showAll && (pageIndex > 0 || allOrgsPage?.hasNextPage) && (
 					<div className="flex items-center justify-center gap-4 py-6">

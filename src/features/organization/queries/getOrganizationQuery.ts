@@ -18,7 +18,7 @@ export async function getOrganization(orgId: string): Promise<Organization> {
 		throw new Error(`getOrganization called without a valid organization id (got: ${orgId})`);
 	}
 	const { data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
-	return data;
+	return data as Organization;
 }
 
 export function getOrganizationQueryOptions(orgId: string | undefined) {

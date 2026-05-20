@@ -64,81 +64,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/AdminUser/": {
+    "/Acme/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** @description search for records by the specified property name and value pairs */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AdminUser"][];
-                    };
-                };
-            };
-        };
+        get?: never;
         put?: never;
-        /** @description create a new record auto-assigning a primary key */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["AdminUser"];
-                };
-            };
-            responses: {
-                /** @description successful operation */
-                200: {
-                    headers: {
-                        /** @description primary key of new record */
-                        Location?: string;
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["AdminUser"];
-                    };
-                };
-            };
-        };
-        /** @description delete all the records that match the provided query */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description successfully processed request, no content returned to client */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        post?: never;
+        delete?: never;
         /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
         options: {
             parameters: {
@@ -162,7 +98,347 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/AdminUser/{id}": {
+    "/Admin/Configuration/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    description?: string;
+                    name?: string;
+                    value?: unknown;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Configuration"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Configuration"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Configuration"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    description?: string;
+                    name?: string;
+                    value?: unknown;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    description?: string;
+                    name?: string;
+                    value?: unknown;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Configuration/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Configuration"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Configuration"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Configuration"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    description?: string;
+                    name?: string;
+                    value?: unknown;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Configuration"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Configuration"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Admin/Configuration/{name}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    name: string;
+                    property: PathsAdminConfigurationNamePropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsAdminConfigurationNamePropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/LinodeReporting/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LinodeReporting"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/LinodeReporting/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -188,12 +464,359 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["AdminUser"];
+                        "application/json": components["schemas"]["LinodeReporting"];
                     };
                 };
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Metrics"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Metrics/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Metrics"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Organization/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    billing?: components["schemas"]["Billing"];
+                    channel?: string;
+                    clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    id?: string;
+                    metadata?: unknown;
+                    name?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
+                    status?: string;
+                    stripeId?: string;
+                    subdomain?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Organization"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Organization"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    billing?: components["schemas"]["Billing"];
+                    channel?: string;
+                    clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    id?: string;
+                    metadata?: unknown;
+                    name?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
+                    status?: string;
+                    stripeId?: string;
+                    subdomain?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    billing?: components["schemas"]["Billing"];
+                    channel?: string;
+                    clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    id?: string;
+                    metadata?: unknown;
+                    name?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
+                    status?: string;
+                    stripeId?: string;
+                    subdomain?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Organization/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Organization"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Organization"];
+                    };
+                };
+            };
+        };
         post?: never;
         /** @description delete a record with the given primary key */
         delete: {
@@ -217,7 +840,2142 @@ export interface paths {
                 };
             };
         };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    billing?: components["schemas"]["Billing"];
+                    channel?: string;
+                    clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    id?: string;
+                    metadata?: unknown;
+                    name?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
+                    status?: string;
+                    stripeId?: string;
+                    subdomain?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Organization"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Admin/Organization/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsAdminOrganizationIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsAdminOrganizationIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Plan/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    allowedRegionIds?: string[];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
+                    id?: string;
+                    name?: string;
+                    organizationIds?: string[];
+                    performanceDescription?: string;
+                    planLevel?: number;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
+                    priceUsd?: number;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    allowedRegionIds?: string[];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
+                    id?: string;
+                    name?: string;
+                    organizationIds?: string[];
+                    performanceDescription?: string;
+                    planLevel?: number;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
+                    priceUsd?: number;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    allowedRegionIds?: string[];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
+                    id?: string;
+                    name?: string;
+                    organizationIds?: string[];
+                    performanceDescription?: string;
+                    planLevel?: number;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
+                    priceUsd?: number;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Plan/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    allowedRegionIds?: string[];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
+                    id?: string;
+                    name?: string;
+                    organizationIds?: string[];
+                    performanceDescription?: string;
+                    planLevel?: number;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
+                    priceUsd?: number;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Plan"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Plan"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Admin/Plan/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsAdminPlanIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsAdminPlanIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Region/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
+                    gcpPreferredLocations?: string[];
+                    id?: string;
+                    instanceCount?: number;
+                    latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    organizationIds?: string[];
+                    purchasedBlockMultiplier?: number;
+                    region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Region"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
+                    gcpPreferredLocations?: string[];
+                    id?: string;
+                    instanceCount?: number;
+                    latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    organizationIds?: string[];
+                    purchasedBlockMultiplier?: number;
+                    region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
+                    gcpPreferredLocations?: string[];
+                    id?: string;
+                    instanceCount?: number;
+                    latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    organizationIds?: string[];
+                    purchasedBlockMultiplier?: number;
+                    region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/Region/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Region"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
+                    gcpPreferredLocations?: string[];
+                    id?: string;
+                    instanceCount?: number;
+                    latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    organizationIds?: string[];
+                    purchasedBlockMultiplier?: number;
+                    region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Region"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Region"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Admin/Region/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsAdminRegionIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsAdminRegionIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/UpdateClusters/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateClusters"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateClusters"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/UpdateClusters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/UpdateMonitors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["UpdateMonitors"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UpdateMonitors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/UpdateMonitors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/User/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
+                    email?: string;
+                    firstname?: string;
+                    id?: string;
+                    isVerified?: boolean;
+                    lastAccessedAt?: string;
+                    lastLoginDate?: string;
+                    lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    salesforceId?: string;
+                    status?: string;
+                    terminatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
+                    email?: string;
+                    firstname?: string;
+                    id?: string;
+                    isVerified?: boolean;
+                    lastAccessedAt?: string;
+                    lastLoginDate?: string;
+                    lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    salesforceId?: string;
+                    status?: string;
+                    terminatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
+                    email?: string;
+                    firstname?: string;
+                    id?: string;
+                    isVerified?: boolean;
+                    lastAccessedAt?: string;
+                    lastLoginDate?: string;
+                    lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    salesforceId?: string;
+                    status?: string;
+                    terminatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Admin/User/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
+                    email?: string;
+                    firstname?: string;
+                    id?: string;
+                    isVerified?: boolean;
+                    lastAccessedAt?: string;
+                    lastLoginDate?: string;
+                    lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    salesforceId?: string;
+                    status?: string;
+                    terminatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Admin/User/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsAdminUserIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsAdminUserIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    compacted?: boolean;
+                    createdAt?: number;
+                    id?: string;
+                    parts?: unknown;
+                    role?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Messages"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Messages"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Messages"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    compacted?: boolean;
+                    createdAt?: number;
+                    id?: string;
+                    parts?: unknown;
+                    role?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    compacted?: boolean;
+                    createdAt?: number;
+                    id?: string;
+                    parts?: unknown;
+                    role?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Messages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Messages"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Messages"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Messages"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    compacted?: boolean;
+                    createdAt?: number;
+                    id?: string;
+                    parts?: unknown;
+                    role?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Messages"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Messages"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Chat/Messages/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsChatMessagesIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsChatMessagesIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Pricing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    cacheRead?: number;
+                    cacheWrite?: number;
+                    id?: string;
+                    input?: number;
+                    model?: string;
+                    output?: number;
+                    provider?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pricing"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Pricing"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pricing"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    cacheRead?: number;
+                    cacheWrite?: number;
+                    id?: string;
+                    input?: number;
+                    model?: string;
+                    output?: number;
+                    provider?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    cacheRead?: number;
+                    cacheWrite?: number;
+                    id?: string;
+                    input?: number;
+                    model?: string;
+                    output?: number;
+                    provider?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Pricing/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pricing"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Pricing"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pricing"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    cacheRead?: number;
+                    cacheWrite?: number;
+                    id?: string;
+                    input?: number;
+                    model?: string;
+                    output?: number;
+                    provider?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Pricing"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Pricing"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Chat/Pricing/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsChatPricingIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsChatPricingIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/PricingSource/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingSource"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/PricingSource/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PricingSource"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Usage/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Usage"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Chat/Usage/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Usage"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -234,8 +2992,13 @@ export interface paths {
             parameters: {
                 query?: {
                     abbreviatedName?: string;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    domainIds?: string[];
+                    domains?: components["schemas"]["Domain"][];
                     enableGtm?: boolean;
                     fqdn?: string;
+                    generateDomainCerts?: boolean;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
                     name?: string;
@@ -246,6 +3009,7 @@ export interface paths {
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    updatedAt?: string;
                 };
                 header?: never;
                 path?: never;
@@ -297,8 +3061,13 @@ export interface paths {
             parameters: {
                 query?: {
                     abbreviatedName?: string;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    domainIds?: string[];
+                    domains?: components["schemas"]["Domain"][];
                     enableGtm?: boolean;
                     fqdn?: string;
+                    generateDomainCerts?: boolean;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
                     name?: string;
@@ -309,6 +3078,7 @@ export interface paths {
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    updatedAt?: string;
                 };
                 header?: never;
                 path?: never;
@@ -330,8 +3100,13 @@ export interface paths {
             parameters: {
                 query?: {
                     abbreviatedName?: string;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    domainIds?: string[];
+                    domains?: components["schemas"]["Domain"][];
                     enableGtm?: boolean;
                     fqdn?: string;
+                    generateDomainCerts?: boolean;
                     id?: string;
                     instances?: components["schemas"]["HDBInstance"][];
                     name?: string;
@@ -342,6 +3117,7 @@ export interface paths {
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    updatedAt?: string;
                 };
                 header?: never;
                 path?: never;
@@ -444,7 +3220,45 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    abbreviatedName?: string;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    domainIds?: string[];
+                    domains?: components["schemas"]["Domain"][];
+                    enableGtm?: boolean;
+                    fqdn?: string;
+                    generateDomainCerts?: boolean;
+                    id?: string;
+                    instances?: components["schemas"]["HDBInstance"][];
+                    name?: string;
+                    organizationId?: string;
+                    plans?: components["schemas"]["RegionPlan"][];
+                    purchasedBlocks?: components["schemas"]["PurchasedBlock"][];
+                    resetPassword?: boolean;
+                    status?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    updatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -516,6 +3330,506 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/Coupon/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Coupon"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Coupon"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    clusterId?: string;
+                    dateRedeemed?: string;
+                    id?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Coupon/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    clusterId?: string;
+                    dateRedeemed?: string;
+                    id?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Domain/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: {
+                    challengeToken?: string;
+                    challengeTxtRecord?: string;
+                    clusterId?: string;
+                    domain?: string;
+                    id?: string;
+                    organizationId?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Domain"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Domain"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Domain"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: {
+                    challengeToken?: string;
+                    challengeTxtRecord?: string;
+                    clusterId?: string;
+                    domain?: string;
+                    id?: string;
+                    organizationId?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    challengeToken?: string;
+                    challengeTxtRecord?: string;
+                    clusterId?: string;
+                    domain?: string;
+                    id?: string;
+                    organizationId?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Domain/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Domain"];
+                    };
+                };
+            };
+        };
+        /** @description create or update the record with the URL path that maps to the record's primary key */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Domain"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Domain"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    challengeToken?: string;
+                    challengeTxtRecord?: string;
+                    clusterId?: string;
+                    domain?: string;
+                    id?: string;
+                    organizationId?: string;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        /** @description patch the record with the URL path that maps to the record's primary key */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Domain"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Domain"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/Domain/{id}.{property}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description used to retrieve the specified property of the specified record */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                    property: PathsDomainIdPropertyGetParametersPathProperty;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": PathsDomainIdPropertyGetResponses200ContentApplicationJson;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Drink/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["Drink"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Drink"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/Drink/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ForgotPassword/": {
         parameters: {
             query?: never;
@@ -576,6 +3890,151 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ForgotPassword/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/HarperVersions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HarperVersions"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/HarperVersions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HarperVersions"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/HDBInstance/": {
         parameters: {
             query?: never;
@@ -587,13 +4046,17 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    cloneToken?: string;
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
                     clusterName?: string;
                     cpuCores?: number;
+                    createdAt?: string;
                     createdByUserId?: string;
+                    domains?: string[];
                     dynamicallyAllocated?: boolean;
+                    generateDomainCerts?: boolean;
                     host?: components["schemas"]["Host"];
                     hostId?: string;
                     id?: string;
@@ -618,6 +4081,7 @@ export interface paths {
                     terminatedAt?: string;
                     terminatedByUserId?: string;
                     threads?: number;
+                    updatedAt?: string;
                     useSharedProcess?: boolean;
                     version?: string;
                     writeIopsLimit?: number;
@@ -671,13 +4135,17 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
+                    cloneToken?: string;
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
                     clusterName?: string;
                     cpuCores?: number;
+                    createdAt?: string;
                     createdByUserId?: string;
+                    domains?: string[];
                     dynamicallyAllocated?: boolean;
+                    generateDomainCerts?: boolean;
                     host?: components["schemas"]["Host"];
                     hostId?: string;
                     id?: string;
@@ -702,6 +4170,7 @@ export interface paths {
                     terminatedAt?: string;
                     terminatedByUserId?: string;
                     threads?: number;
+                    updatedAt?: string;
                     useSharedProcess?: boolean;
                     version?: string;
                     writeIopsLimit?: number;
@@ -725,13 +4194,17 @@ export interface paths {
         options: {
             parameters: {
                 query?: {
+                    cloneToken?: string;
                     cluster?: components["schemas"]["Cluster"];
                     clusterFqdn?: string;
                     clusterId?: string;
                     clusterName?: string;
                     cpuCores?: number;
+                    createdAt?: string;
                     createdByUserId?: string;
+                    domains?: string[];
                     dynamicallyAllocated?: boolean;
+                    generateDomainCerts?: boolean;
                     host?: components["schemas"]["Host"];
                     hostId?: string;
                     id?: string;
@@ -756,6 +4229,7 @@ export interface paths {
                     terminatedAt?: string;
                     terminatedByUserId?: string;
                     threads?: number;
+                    updatedAt?: string;
                     useSharedProcess?: boolean;
                     version?: string;
                     writeIopsLimit?: number;
@@ -861,7 +4335,65 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    cloneToken?: string;
+                    cluster?: components["schemas"]["Cluster"];
+                    clusterFqdn?: string;
+                    clusterId?: string;
+                    clusterName?: string;
+                    cpuCores?: number;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    domains?: string[];
+                    dynamicallyAllocated?: boolean;
+                    generateDomainCerts?: boolean;
+                    host?: components["schemas"]["Host"];
+                    hostId?: string;
+                    id?: string;
+                    instanceFqdn?: string;
+                    leaderFqdn?: string;
+                    licenses?: components["schemas"]["License"][];
+                    memoryMb?: number;
+                    name?: string;
+                    operationsApiPort?: number;
+                    operationsApiSecure?: boolean;
+                    organizationName?: string;
+                    plan?: components["schemas"]["Plan"];
+                    planId?: string;
+                    readIopsLimit?: number;
+                    region?: string;
+                    regionId?: string;
+                    replicationFqdn?: string;
+                    replicationHosts?: string[];
+                    status?: string;
+                    storageGb?: number;
+                    tempPassword?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    threads?: number;
+                    updatedAt?: string;
+                    useSharedProcess?: boolean;
+                    version?: string;
+                    writeIopsLimit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -963,10 +4495,15 @@ export interface paths {
                     maxStorageGb?: number;
                     name?: string;
                     organizationIds?: string[];
+                    overAllocatedCpuMultiplier?: number;
+                    overAllocatedMemoryMultiplier?: number;
+                    overAllocatedStorageMultiplier?: number;
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    underMaintenance?: boolean;
                     updated?: number;
+                    updatedByUserId?: string;
                     usedCPUCores?: number;
                     usedMemoryMb?: number;
                     usedStorageGb?: number;
@@ -1039,10 +4576,15 @@ export interface paths {
                     maxStorageGb?: number;
                     name?: string;
                     organizationIds?: string[];
+                    overAllocatedCpuMultiplier?: number;
+                    overAllocatedMemoryMultiplier?: number;
+                    overAllocatedStorageMultiplier?: number;
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    underMaintenance?: boolean;
                     updated?: number;
+                    updatedByUserId?: string;
                     usedCPUCores?: number;
                     usedMemoryMb?: number;
                     usedStorageGb?: number;
@@ -1085,10 +4627,15 @@ export interface paths {
                     maxStorageGb?: number;
                     name?: string;
                     organizationIds?: string[];
+                    overAllocatedCpuMultiplier?: number;
+                    overAllocatedMemoryMultiplier?: number;
+                    overAllocatedStorageMultiplier?: number;
                     status?: string;
                     terminatedAt?: string;
                     terminatedByUserId?: string;
+                    underMaintenance?: boolean;
                     updated?: number;
+                    updatedByUserId?: string;
                     usedCPUCores?: number;
                     usedMemoryMb?: number;
                     usedStorageGb?: number;
@@ -1194,7 +4741,57 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    accountId?: string;
+                    cloudFirewallId?: string;
+                    cloudInstanceId?: string;
+                    cloudInstanceType?: string;
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    dynamicallyAssignable?: boolean;
+                    encryptVolumes?: boolean;
+                    fqdn?: string;
+                    id?: string;
+                    instances?: components["schemas"]["HDBInstance"][];
+                    ipAddress?: string;
+                    location?: components["schemas"]["Location"];
+                    locationId?: string;
+                    maxCPUCores?: number;
+                    maxMemoryMb?: number;
+                    maxStorageGb?: number;
+                    name?: string;
+                    organizationIds?: string[];
+                    overAllocatedCpuMultiplier?: number;
+                    overAllocatedMemoryMultiplier?: number;
+                    overAllocatedStorageMultiplier?: number;
+                    status?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    underMaintenance?: boolean;
+                    updated?: number;
+                    updatedByUserId?: string;
+                    usedCPUCores?: number;
+                    usedMemoryMb?: number;
+                    usedStorageGb?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -1380,7 +4977,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    amountDue?: number;
+                    amountPaid?: number;
+                    clusterId?: string;
+                    clusterName?: string;
+                    created?: number;
+                    currency?: string;
+                    id?: string;
+                    lines?: components["schemas"]["InvoiceLine"][];
+                    number?: string;
+                    periodEnd?: number;
+                    periodStart?: number;
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -1635,7 +5263,35 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    active?: boolean;
+                    cloudProvider?: string;
+                    id?: string;
+                    lat?: number;
+                    linodeMetadata?: components["schemas"]["LinodeMetadata"];
+                    location?: string;
+                    locationName?: string;
+                    lon?: number;
+                    regions?: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -1767,6 +5423,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/Login/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/Logout/": {
         parameters: {
             query?: never;
@@ -1827,6 +5517,177 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/Logout/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["oauth"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["oauth"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["oauth"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["oauth"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/Organization/": {
         parameters: {
             query?: never;
@@ -1841,10 +5702,14 @@ export interface paths {
                     billing?: components["schemas"]["Billing"];
                     channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
                     createdByUserId?: string;
                     id?: string;
+                    metadata?: unknown;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
                     status?: string;
                     stripeId?: string;
                     subdomain?: string;
@@ -1904,10 +5769,14 @@ export interface paths {
                     billing?: components["schemas"]["Billing"];
                     channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
                     createdByUserId?: string;
                     id?: string;
+                    metadata?: unknown;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
                     status?: string;
                     stripeId?: string;
                     subdomain?: string;
@@ -1937,10 +5806,14 @@ export interface paths {
                     billing?: components["schemas"]["Billing"];
                     channel?: string;
                     clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
                     createdByUserId?: string;
                     id?: string;
+                    metadata?: unknown;
                     name?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
                     status?: string;
                     stripeId?: string;
                     subdomain?: string;
@@ -2049,7 +5922,43 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    billing?: components["schemas"]["Billing"];
+                    channel?: string;
+                    clusters?: components["schemas"]["Cluster"][];
+                    coupons?: components["schemas"]["Coupon"][];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    id?: string;
+                    metadata?: unknown;
+                    name?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    settings?: components["schemas"]["OrganizationSettings"];
+                    status?: string;
+                    stripeId?: string;
+                    subdomain?: string;
+                    terminatedAt?: string;
+                    terminatedByUserId?: string;
+                    type?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -2322,7 +6231,32 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    id?: string;
+                    organizationId?: string;
+                    organizationName?: string;
+                    roleName?: string;
+                    userIds?: string[];
+                    users?: components["schemas"]["User"][];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -2492,7 +6426,25 @@ export interface paths {
         };
         post?: never;
         delete?: never;
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -2511,12 +6463,15 @@ export interface paths {
                     allowedRegionIds?: string[];
                     channel?: string;
                     cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
                     id?: string;
-                    locationsPerPlan?: number;
                     name?: string;
+                    organizationIds?: string[];
                     performanceDescription?: string;
                     planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
@@ -2525,6 +6480,8 @@ export interface paths {
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2578,12 +6535,15 @@ export interface paths {
                     allowedRegionIds?: string[];
                     channel?: string;
                     cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
                     id?: string;
-                    locationsPerPlan?: number;
                     name?: string;
+                    organizationIds?: string[];
                     performanceDescription?: string;
                     planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
@@ -2592,6 +6552,8 @@ export interface paths {
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2615,12 +6577,15 @@ export interface paths {
                     allowedRegionIds?: string[];
                     channel?: string;
                     cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
                     defaultCloudInstanceProvider?: string;
                     deploymentDescription?: string;
                     deploymentType?: string;
                     id?: string;
-                    locationsPerPlan?: number;
                     name?: string;
+                    organizationIds?: string[];
                     performanceDescription?: string;
                     planLevel?: number;
                     planLimits?: components["schemas"]["PlanLimits"];
@@ -2629,6 +6594,8 @@ export interface paths {
                     resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
                     status?: string;
                     stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2731,7 +6698,48 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    allowedRegionIds?: string[];
+                    channel?: string;
+                    cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+                    cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    defaultCloudInstanceProvider?: string;
+                    deploymentDescription?: string;
+                    deploymentType?: string;
+                    id?: string;
+                    name?: string;
+                    organizationIds?: string[];
+                    performanceDescription?: string;
+                    planLevel?: number;
+                    planLimits?: components["schemas"]["PlanLimits"];
+                    platformPriceUsd?: number;
+                    priceUsd?: number;
+                    resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
+                    status?: string;
+                    stripePriceId?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -2814,13 +6822,19 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
                     gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
                     linodePreferredLocations?: string[];
+                    organizationIds?: string[];
                     purchasedBlockMultiplier?: number;
                     region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2871,13 +6885,19 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
                     gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
                     linodePreferredLocations?: string[];
+                    organizationIds?: string[];
                     purchasedBlockMultiplier?: number;
                     region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2898,13 +6918,19 @@ export interface paths {
         options: {
             parameters: {
                 query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
                     gcpPreferredLocations?: string[];
                     id?: string;
                     instanceCount?: number;
                     latencyDescription?: string;
                     linodePreferredLocations?: string[];
+                    organizationIds?: string[];
                     purchasedBlockMultiplier?: number;
                     region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
                 };
                 header?: never;
                 path?: never;
@@ -3007,7 +7033,39 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    createdAt?: string;
+                    createdByUserId?: string;
+                    forceLocations?: boolean;
+                    gcpPreferredLocations?: string[];
+                    id?: string;
+                    instanceCount?: number;
+                    latencyDescription?: string;
+                    linodePreferredLocations?: string[];
+                    organizationIds?: string[];
+                    purchasedBlockMultiplier?: number;
+                    region?: string;
+                    updatedAt?: string;
+                    updatedByUserId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -3139,6 +7197,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ResendVerificationEmail/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ResetPassword/": {
         parameters: {
             query?: never;
@@ -3211,7 +7303,25 @@ export interface paths {
         };
         post?: never;
         delete?: never;
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -3261,7 +7371,25 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -3491,7 +7619,31 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    id?: string;
+                    organization?: components["schemas"]["RoleOrganizationPermissions"];
+                    organizationName?: string;
+                    permission?: components["schemas"]["RolePermission"];
+                    role?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -3532,6 +7684,182 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description search for records by the specified property name and value pairs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["status"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["status"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["status"];
+                    };
+                };
+            };
+        };
+        /** @description delete all the records that match the provided query */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/status/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description retrieve a record by its primary key */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["status"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        /** @description delete a record with the given primary key */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description primary key of record */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successfully processed request, no content returned to client */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -3656,7 +7984,30 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    clientSecret?: string;
+                    organizationId?: string;
+                    stripeCustomerId?: string;
+                    userId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -3697,6 +8048,40 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/SyncStripe/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         delete?: never;
         /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
         options: {
@@ -3922,7 +8307,32 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    endAt?: string;
+                    id?: string;
+                    message?: string;
+                    startAt?: string;
+                    type?: string;
+                    url?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -3994,6 +8404,100 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/test/TriggerMonitors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description create a new record auto-assigning a primary key */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["TriggerMonitors"];
+                };
+            };
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        /** @description primary key of new record */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TriggerMonitors"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test/TriggerMonitors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/User/": {
         parameters: {
             query?: never;
@@ -4006,12 +8510,16 @@ export interface paths {
             parameters: {
                 query?: {
                     acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
                     email?: string;
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastAccessedAt?: string;
                     lastLoginDate?: string;
                     lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
                     status?: string;
@@ -4067,12 +8575,16 @@ export interface paths {
             parameters: {
                 query?: {
                     acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
                     email?: string;
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastAccessedAt?: string;
                     lastLoginDate?: string;
                     lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
                     status?: string;
@@ -4098,12 +8610,16 @@ export interface paths {
             parameters: {
                 query?: {
                     acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
                     email?: string;
                     firstname?: string;
                     id?: string;
                     isVerified?: boolean;
+                    lastAccessedAt?: string;
                     lastLoginDate?: string;
                     lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
                     roles?: components["schemas"]["OrganizationRole"][];
                     salesforceId?: string;
                     status?: string;
@@ -4210,7 +8726,41 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: {
+                    acceptedTermsAndConditionsDate?: string;
+                    createdAt?: string;
+                    email?: string;
+                    firstname?: string;
+                    id?: string;
+                    isVerified?: boolean;
+                    lastAccessedAt?: string;
+                    lastLoginDate?: string;
+                    lastname?: string;
+                    lifecycleStage?: string;
+                    lifecycleStageUpdatedAt?: string;
+                    roles?: components["schemas"]["OrganizationRole"][];
+                    salesforceId?: string;
+                    status?: string;
+                    terminatedAt?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         /** @description patch the record with the URL path that maps to the record's primary key */
         patch: {
@@ -4392,7 +8942,25 @@ export interface paths {
                 };
             };
         };
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -4469,7 +9037,25 @@ export interface paths {
         };
         post?: never;
         delete?: never;
-        options?: never;
+        /** @description retrieve information about the communication options available for a target resource or the server as a whole, without performing any resource action */
+        options: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description successful operation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         head?: never;
         patch?: never;
         trace?: never;
@@ -4479,9 +9065,6 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         Acme: {
-            [key: string]: unknown;
-        };
-        AdminUser: {
             [key: string]: unknown;
         };
         Alert: {
@@ -4504,14 +9087,76 @@ export interface components {
             postalCode?: string;
             state?: string;
         };
+        ChatMessage: {
+            compacted?: boolean;
+            /** Format: Float */
+            createdAt?: number;
+            /** Format: ID */
+            id?: string;
+            role?: string;
+            userId?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ChatPricing: {
+            /** Format: Float */
+            cacheRead?: number;
+            /** Format: Float */
+            cacheWrite?: number;
+            /** Format: ID */
+            id?: string;
+            /** Format: Float */
+            input?: number;
+            model?: string;
+            /** Format: Float */
+            output?: number;
+            provider?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        ChatUsage: {
+            /** Format: Int */
+            cacheReadTokens?: number;
+            /** Format: Int */
+            cacheWriteTokens?: number;
+            /** Format: Float */
+            cost?: number;
+            /** Format: ID */
+            id?: string;
+            /** Format: Int */
+            inputTokens?: number;
+            modelId?: string;
+            orgId?: string;
+            /** Format: Int */
+            outputTokens?: number;
+            provider?: string;
+            /** Format: Float */
+            timestamp?: number;
+            /** Format: Int */
+            totalTokens?: number;
+            userId?: string;
+            yearMonth?: string;
+        } & {
+            [key: string]: unknown;
+        };
         CloudInstanceTypes: {
             gcp?: string;
             linode?: string;
         };
+        CloudStorageGb: {
+            /** Format: Int */
+            gcp?: number;
+        };
         Cluster: {
             abbreviatedName?: string;
+            createdAt?: string;
+            /** Format: ID */
+            createdByUserId?: string;
+            domainIds?: string[];
+            domains?: components["schemas"]["Domain"][];
             enableGtm?: boolean;
             fqdn?: string;
+            generateDomainCerts?: boolean;
             /** Format: ID */
             id: string;
             instances?: components["schemas"]["HDBInstance"][];
@@ -4526,14 +9171,14 @@ export interface components {
             terminatedAt?: string;
             /** Format: ID */
             terminatedByUserId?: string;
+            /** Format: Date */
+            updatedAt?: string;
         };
         ClusterUpsert: {
             abbreviatedName?: string;
             autoRenew: boolean;
             fqdn?: string;
             name: string;
-            version?: string;
-            skipGtmWait?: boolean;
             /** Format: ID */
             organizationId: string;
             regionPlans: components["schemas"]["ClusterUpsertRegionPlan"][];
@@ -4551,6 +9196,41 @@ export interface components {
         Configuration: {
             description?: string;
             name: string;
+            /** Format: Any */
+            value?: unknown;
+        };
+        Coupon: {
+            /** Format: ID */
+            clusterId?: string;
+            /** Format: Date */
+            dateRedeemed?: string;
+            /** Format: ID */
+            id: string;
+            status: string;
+        };
+        csrf_tokens: {
+            /** Format: Float */
+            created_at?: number;
+            data?: string;
+            /** Format: ID */
+            token_id?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        Domain: {
+            challengeToken?: string;
+            challengeTxtRecord?: string;
+            /** Format: ID */
+            clusterId?: string;
+            domain?: string;
+            /** Format: ID */
+            id?: string;
+            /** Format: ID */
+            organizationId?: string;
+            status?: string;
+        };
+        Drink: {
+            [key: string]: unknown;
         };
         ExternalMonitor: {
             /** Format: ID */
@@ -4570,7 +9250,19 @@ export interface components {
         ForgotPassword: {
             [key: string]: unknown;
         };
+        HarperVersions: {
+            [key: string]: unknown;
+        };
+        hdb_status: {
+            /** Format: Int */
+            id?: number;
+            /** Format: Int */
+            status?: number;
+        } & {
+            [key: string]: unknown;
+        };
         HDBInstance: {
+            cloneToken?: string;
             cluster: components["schemas"]["Cluster"];
             clusterFqdn?: string;
             /** Format: ID */
@@ -4578,9 +9270,12 @@ export interface components {
             clusterName?: string;
             /** Format: Float */
             cpuCores?: number;
+            createdAt?: string;
             /** Format: ID */
             createdByUserId?: string;
+            domains?: string[];
             dynamicallyAllocated?: boolean;
+            generateDomainCerts?: boolean;
             host?: components["schemas"]["Host"];
             hostId?: string;
             /** Format: ID */
@@ -4614,6 +9309,8 @@ export interface components {
             terminatedByUserId?: string;
             /** Format: Int */
             threads?: number;
+            /** Format: Date */
+            updatedAt?: string;
             useSharedProcess?: boolean;
             version?: string;
             /** Format: Int */
@@ -4624,7 +9321,6 @@ export interface components {
             cloudFirewallId?: string;
             cloudInstanceId?: string;
             cloudInstanceType?: string;
-            /** Format: Date */
             createdAt?: string;
             /** Format: ID */
             createdByUserId?: string;
@@ -4641,17 +9337,26 @@ export interface components {
             maxCPUCores?: number;
             /** Format: Int */
             maxMemoryMb?: number;
-            /** Format: Int */
+            /** Format: Float */
             maxStorageGb?: number;
             name: string;
             organizationIds?: string[];
+            /** Format: Float */
+            overAllocatedCpuMultiplier?: number;
+            /** Format: Float */
+            overAllocatedMemoryMultiplier?: number;
+            /** Format: Float */
+            overAllocatedStorageMultiplier?: number;
             status?: string;
             /** Format: Date */
             terminatedAt?: string;
             /** Format: ID */
             terminatedByUserId?: string;
+            underMaintenance?: boolean;
             /** Format: Float */
             updated?: number;
+            /** Format: ID */
+            updatedByUserId?: string;
             /** Format: Float */
             usedCPUCores?: number;
             /** Format: Float */
@@ -4720,10 +9425,23 @@ export interface components {
             id: string;
             license: string;
         };
+        LifecycleEvent: {
+            /** Format: Date */
+            createdAt?: string;
+            /** Format: ID */
+            id: string;
+            newStage?: string;
+            previousStage?: string;
+            /** Format: ID */
+            userId: string;
+        };
         LinodeMetadata: {
             /** Format: Int */
             datacenterId: number;
         } & {
+            [key: string]: unknown;
+        };
+        LinodeReporting: {
             [key: string]: unknown;
         };
         Location: {
@@ -4746,16 +9464,40 @@ export interface components {
         Logout: {
             [key: string]: unknown;
         };
+        Messages: {
+            compacted?: boolean;
+            /** Format: Float */
+            createdAt?: number;
+            /** Format: ID */
+            id?: string;
+            /** Format: Any */
+            parts?: unknown;
+            role?: string;
+            userId?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        Metrics: {
+            [key: string]: unknown;
+        };
+        oauth: {
+            [key: string]: unknown;
+        };
         Organization: {
             billing?: components["schemas"]["Billing"];
             channel?: string;
             clusters?: components["schemas"]["Cluster"][];
+            coupons?: components["schemas"]["Coupon"][];
+            createdAt?: string;
             /** Format: ID */
             createdByUserId?: string;
             /** Format: ID */
             id: string;
+            /** Format: Any */
+            metadata?: unknown;
             name: string;
             roles?: components["schemas"]["OrganizationRole"][];
+            settings?: components["schemas"]["OrganizationSettings"];
             status?: string;
             stripeId?: string;
             subdomain: string;
@@ -4764,6 +9506,24 @@ export interface components {
             /** Format: ID */
             terminatedByUserId?: string;
             type: string;
+        };
+        OrganizationOAuthConfig: {
+            clientId: string;
+            clientSecret: string;
+            /** Format: Date */
+            configuredAt?: string;
+            /** Format: ID */
+            configuredByUserId?: string;
+            domain?: string;
+            enabled: boolean;
+            /** Format: ID */
+            id: string;
+            organizationSettings?: components["schemas"]["OrganizationSettings"];
+            /** Format: ID */
+            organizationSettingsId: string;
+            provider: string;
+            required: boolean;
+            scope?: string;
         };
         OrganizationRole: {
             /** Format: ID */
@@ -4774,6 +9534,12 @@ export interface components {
             roleName: string;
             userIds: string[];
             users?: components["schemas"]["User"][];
+        };
+        OrganizationSettings: {
+            /** Format: ID */
+            id: string;
+            oauthConfigs?: components["schemas"]["OrganizationOAuthConfig"][];
+            organization?: components["schemas"]["Organization"];
         };
         Payment: {
             [key: string]: unknown;
@@ -4791,14 +9557,17 @@ export interface components {
             allowedRegionIds?: string[];
             channel?: string;
             cloudInstanceTypes?: components["schemas"]["CloudInstanceTypes"];
+            cloudStorageGb?: components["schemas"]["CloudStorageGb"];
+            createdAt?: string;
+            /** Format: ID */
+            createdByUserId?: string;
             defaultCloudInstanceProvider?: string;
             deploymentDescription: string;
             deploymentType: string;
             /** Format: ID */
             id: string;
-            /** Format: Int */
-            locationsPerPlan?: number;
             name: string;
+            organizationIds?: string[];
             performanceDescription: string;
             /** Format: Int */
             planLevel: number;
@@ -4810,6 +9579,9 @@ export interface components {
             resourcesPerInstance?: components["schemas"]["ResourcesPerInstance"];
             status?: string;
             stripePriceId?: string;
+            updatedAt?: string;
+            /** Format: ID */
+            updatedByUserId?: string;
         };
         PlanLimits: {
             /** Format: Int */
@@ -4845,8 +9617,42 @@ export interface components {
             /** Format: Int */
             writesPerMinuteCount?: number;
         };
+        Pricing: {
+            /** Format: Float */
+            cacheRead?: number;
+            /** Format: Float */
+            cacheWrite?: number;
+            /** Format: ID */
+            id?: string;
+            /** Format: Float */
+            input?: number;
+            model?: string;
+            /** Format: Float */
+            output?: number;
+            provider?: string;
+        } & {
+            [key: string]: unknown;
+        };
+        PricingSource: {
+            [key: string]: unknown;
+        };
+        ProxiedRequestLog: {
+            /** Format: ID */
+            clusterId?: string;
+            /** Format: Long */
+            id: number;
+            /** Format: ID */
+            instanceId?: string;
+            method?: string;
+            path?: string;
+            /** Format: Date */
+            timestamp?: string;
+            /** Format: ID */
+            userId?: string;
+        } & {
+            [key: string]: unknown;
+        };
         PurchasedBlock: {
-            billingCycle?: string;
             /** Format: ID */
             clusterId: string;
             /** Format: Date */
@@ -4859,6 +9665,8 @@ export interface components {
             expiresAt?: string;
             /** Format: ID */
             id: string;
+            /** Format: Date */
+            lastSignificantActivityAt?: string;
             license?: components["schemas"]["License"];
             plan?: components["schemas"]["Plan"];
             /** Format: ID */
@@ -4866,24 +9674,28 @@ export interface components {
             region?: components["schemas"]["Region"];
             regionId?: string;
             stripeInvoiceId?: string;
-            /** Format: Long */
+            /** Format: Float */
             usedCpuTime?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedReadBytes?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedReads?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedRealTimeBytes?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedRealTimeMessages?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedStorage?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedWriteBytes?: number;
-            /** Format: Long */
+            /** Format: Float */
             usedWrites?: number;
         };
         Region: {
+            createdAt?: string;
+            /** Format: ID */
+            createdByUserId?: string;
+            forceLocations?: boolean;
             gcpPreferredLocations?: string[];
             /** Format: ID */
             id: string;
@@ -4891,9 +9703,13 @@ export interface components {
             instanceCount: number;
             latencyDescription: string;
             linodePreferredLocations?: string[];
+            organizationIds?: string[];
             /** Format: Int */
             purchasedBlockMultiplier: number;
             region: string;
+            updatedAt?: string;
+            /** Format: ID */
+            updatedByUserId?: string;
         };
         RegionPlan: {
             autoRenew?: boolean;
@@ -4986,6 +9802,9 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        status: {
+            [key: string]: unknown;
+        };
         StripeAccount: {
             /** Format: ID */
             clientSecret: string;
@@ -5010,17 +9829,35 @@ export interface components {
             type: string;
             url?: string;
         };
+        TriggerMonitors: {
+            [key: string]: unknown;
+        };
+        UpdateClusters: {
+            [key: string]: unknown;
+        };
+        UpdateMonitors: {
+            [key: string]: unknown;
+        };
+        Usage: {
+            [key: string]: unknown;
+        };
         User: {
             /** Format: Date */
             acceptedTermsAndConditionsDate?: string;
+            createdAt?: string;
             email: string;
             firstname: string;
             /** Format: ID */
             id: string;
             isVerified?: boolean;
             /** Format: Date */
+            lastAccessedAt?: string;
+            /** Format: Date */
             lastLoginDate?: string;
             lastname: string;
+            lifecycleStage?: string;
+            /** Format: Date */
+            lifecycleStageUpdatedAt?: string;
             roles?: components["schemas"]["OrganizationRole"][];
             /** Format: ID */
             salesforceId?: string;
@@ -5042,17 +9879,26 @@ export interface components {
     pathItems: never;
 }
 export type SchemaAcme = components['schemas']['Acme'];
-export type SchemaAdminUser = components['schemas']['AdminUser'];
 export type SchemaAlert = components['schemas']['Alert'];
 export type SchemaBilling = components['schemas']['Billing'];
 export type SchemaBillingAddress = components['schemas']['BillingAddress'];
+export type SchemaChatMessage = components['schemas']['ChatMessage'];
+export type SchemaChatPricing = components['schemas']['ChatPricing'];
+export type SchemaChatUsage = components['schemas']['ChatUsage'];
 export type SchemaCloudInstanceTypes = components['schemas']['CloudInstanceTypes'];
+export type SchemaCloudStorageGb = components['schemas']['CloudStorageGb'];
 export type SchemaCluster = components['schemas']['Cluster'];
 export type SchemaClusterUpsert = components['schemas']['ClusterUpsert'];
 export type SchemaClusterUpsertRegionPlan = components['schemas']['ClusterUpsertRegionPlan'];
 export type SchemaConfiguration = components['schemas']['Configuration'];
+export type SchemaCoupon = components['schemas']['Coupon'];
+export type SchemaCsrfTokens = components['schemas']['csrf_tokens'];
+export type SchemaDomain = components['schemas']['Domain'];
+export type SchemaDrink = components['schemas']['Drink'];
 export type SchemaExternalMonitor = components['schemas']['ExternalMonitor'];
 export type SchemaForgotPassword = components['schemas']['ForgotPassword'];
+export type SchemaHarperVersions = components['schemas']['HarperVersions'];
+export type SchemaHdbStatus = components['schemas']['hdb_status'];
 export type SchemaHdbInstance = components['schemas']['HDBInstance'];
 export type SchemaHost = components['schemas']['Host'];
 export type SchemaHostManagerCertificate = components['schemas']['HostManagerCertificate'];
@@ -5061,16 +9907,26 @@ export type SchemaInvoice = components['schemas']['Invoice'];
 export type SchemaInvoiceLine = components['schemas']['InvoiceLine'];
 export type SchemaInvoicePeriod = components['schemas']['InvoicePeriod'];
 export type SchemaLicense = components['schemas']['License'];
+export type SchemaLifecycleEvent = components['schemas']['LifecycleEvent'];
 export type SchemaLinodeMetadata = components['schemas']['LinodeMetadata'];
+export type SchemaLinodeReporting = components['schemas']['LinodeReporting'];
 export type SchemaLocation = components['schemas']['Location'];
 export type SchemaLogin = components['schemas']['Login'];
 export type SchemaLogout = components['schemas']['Logout'];
+export type SchemaMessages = components['schemas']['Messages'];
+export type SchemaMetrics = components['schemas']['Metrics'];
+export type SchemaOauth = components['schemas']['oauth'];
 export type SchemaOrganization = components['schemas']['Organization'];
+export type SchemaOrganizationOAuthConfig = components['schemas']['OrganizationOAuthConfig'];
 export type SchemaOrganizationRole = components['schemas']['OrganizationRole'];
+export type SchemaOrganizationSettings = components['schemas']['OrganizationSettings'];
 export type SchemaPayment = components['schemas']['Payment'];
 export type SchemaPaymentMethod = components['schemas']['PaymentMethod'];
 export type SchemaPlan = components['schemas']['Plan'];
 export type SchemaPlanLimits = components['schemas']['PlanLimits'];
+export type SchemaPricing = components['schemas']['Pricing'];
+export type SchemaPricingSource = components['schemas']['PricingSource'];
+export type SchemaProxiedRequestLog = components['schemas']['ProxiedRequestLog'];
 export type SchemaPurchasedBlock = components['schemas']['PurchasedBlock'];
 export type SchemaRegion = components['schemas']['Region'];
 export type SchemaRegionPlan = components['schemas']['RegionPlan'];
@@ -5086,13 +9942,212 @@ export type SchemaRoleOrganizationPermissions = components['schemas']['RoleOrgan
 export type SchemaRoleOrganizationRolesPermissions = components['schemas']['RoleOrganizationRolesPermissions'];
 export type SchemaRolePermission = components['schemas']['RolePermission'];
 export type SchemaStateStore = components['schemas']['StateStore'];
+export type SchemaStatus = components['schemas']['status'];
 export type SchemaStripeAccount = components['schemas']['StripeAccount'];
 export type SchemaSyncStripe = components['schemas']['SyncStripe'];
 export type SchemaSystemStatus = components['schemas']['SystemStatus'];
+export type SchemaTriggerMonitors = components['schemas']['TriggerMonitors'];
+export type SchemaUpdateClusters = components['schemas']['UpdateClusters'];
+export type SchemaUpdateMonitors = components['schemas']['UpdateMonitors'];
+export type SchemaUsage = components['schemas']['Usage'];
 export type SchemaUser = components['schemas']['User'];
 export type SchemaUserInvite = components['schemas']['UserInvite'];
 export type SchemaVerifyEmail = components['schemas']['VerifyEmail'];
 export type $defs = Record<string, never>;
+export enum PathsAdminConfigurationNamePropertyGetParametersPathProperty {
+    name = "name",
+    description = "description",
+    value = "value"
+}
+export enum PathsAdminConfigurationNamePropertyGetResponses200ContentApplicationJson {
+    name = "name",
+    description = "description",
+    value = "value"
+}
+export enum PathsAdminOrganizationIdPropertyGetParametersPathProperty {
+    id = "id",
+    name = "name",
+    channel = "channel",
+    createdByUserId = "createdByUserId",
+    subdomain = "subdomain",
+    status = "status",
+    roles = "roles",
+    clusters = "clusters",
+    type = "type",
+    createdAt = "createdAt",
+    terminatedAt = "terminatedAt",
+    terminatedByUserId = "terminatedByUserId",
+    stripeId = "stripeId",
+    billing = "billing",
+    coupons = "coupons",
+    settings = "settings",
+    metadata = "metadata"
+}
+export enum PathsAdminOrganizationIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    name = "name",
+    channel = "channel",
+    createdByUserId = "createdByUserId",
+    subdomain = "subdomain",
+    status = "status",
+    roles = "roles",
+    clusters = "clusters",
+    type = "type",
+    createdAt = "createdAt",
+    terminatedAt = "terminatedAt",
+    terminatedByUserId = "terminatedByUserId",
+    stripeId = "stripeId",
+    billing = "billing",
+    coupons = "coupons",
+    settings = "settings",
+    metadata = "metadata"
+}
+export enum PathsAdminPlanIdPropertyGetParametersPathProperty {
+    id = "id",
+    name = "name",
+    status = "status",
+    planLevel = "planLevel",
+    resourcesPerInstance = "resourcesPerInstance",
+    priceUsd = "priceUsd",
+    platformPriceUsd = "platformPriceUsd",
+    channel = "channel",
+    stripePriceId = "stripePriceId",
+    planLimits = "planLimits",
+    deploymentType = "deploymentType",
+    deploymentDescription = "deploymentDescription",
+    performanceDescription = "performanceDescription",
+    allowedRegionIds = "allowedRegionIds",
+    defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
+    cloudInstanceTypes = "cloudInstanceTypes",
+    cloudStorageGb = "cloudStorageGb",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
+}
+export enum PathsAdminPlanIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    name = "name",
+    status = "status",
+    planLevel = "planLevel",
+    resourcesPerInstance = "resourcesPerInstance",
+    priceUsd = "priceUsd",
+    platformPriceUsd = "platformPriceUsd",
+    channel = "channel",
+    stripePriceId = "stripePriceId",
+    planLimits = "planLimits",
+    deploymentType = "deploymentType",
+    deploymentDescription = "deploymentDescription",
+    performanceDescription = "performanceDescription",
+    allowedRegionIds = "allowedRegionIds",
+    defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
+    cloudInstanceTypes = "cloudInstanceTypes",
+    cloudStorageGb = "cloudStorageGb",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
+}
+export enum PathsAdminRegionIdPropertyGetParametersPathProperty {
+    id = "id",
+    region = "region",
+    instanceCount = "instanceCount",
+    purchasedBlockMultiplier = "purchasedBlockMultiplier",
+    latencyDescription = "latencyDescription",
+    linodePreferredLocations = "linodePreferredLocations",
+    gcpPreferredLocations = "gcpPreferredLocations",
+    forceLocations = "forceLocations",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
+}
+export enum PathsAdminRegionIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    region = "region",
+    instanceCount = "instanceCount",
+    purchasedBlockMultiplier = "purchasedBlockMultiplier",
+    latencyDescription = "latencyDescription",
+    linodePreferredLocations = "linodePreferredLocations",
+    gcpPreferredLocations = "gcpPreferredLocations",
+    forceLocations = "forceLocations",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
+}
+export enum PathsAdminUserIdPropertyGetParametersPathProperty {
+    id = "id",
+    email = "email",
+    isVerified = "isVerified",
+    firstname = "firstname",
+    lastname = "lastname",
+    salesforceId = "salesforceId",
+    status = "status",
+    createdAt = "createdAt",
+    terminatedAt = "terminatedAt",
+    roles = "roles",
+    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
+    lastLoginDate = "lastLoginDate",
+    lastAccessedAt = "lastAccessedAt",
+    lifecycleStage = "lifecycleStage",
+    lifecycleStageUpdatedAt = "lifecycleStageUpdatedAt"
+}
+export enum PathsAdminUserIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    email = "email",
+    isVerified = "isVerified",
+    firstname = "firstname",
+    lastname = "lastname",
+    salesforceId = "salesforceId",
+    status = "status",
+    createdAt = "createdAt",
+    terminatedAt = "terminatedAt",
+    roles = "roles",
+    acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
+    lastLoginDate = "lastLoginDate",
+    lastAccessedAt = "lastAccessedAt",
+    lifecycleStage = "lifecycleStage",
+    lifecycleStageUpdatedAt = "lifecycleStageUpdatedAt"
+}
+export enum PathsChatMessagesIdPropertyGetParametersPathProperty {
+    id = "id",
+    userId = "userId",
+    role = "role",
+    parts = "parts",
+    compacted = "compacted",
+    createdAt = "createdAt"
+}
+export enum PathsChatMessagesIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    userId = "userId",
+    role = "role",
+    parts = "parts",
+    compacted = "compacted",
+    createdAt = "createdAt"
+}
+export enum PathsChatPricingIdPropertyGetParametersPathProperty {
+    id = "id",
+    provider = "provider",
+    model = "model",
+    input = "input",
+    output = "output",
+    cacheWrite = "cacheWrite",
+    cacheRead = "cacheRead"
+}
+export enum PathsChatPricingIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    provider = "provider",
+    model = "model",
+    input = "input",
+    output = "output",
+    cacheWrite = "cacheWrite",
+    cacheRead = "cacheRead"
+}
 export enum PathsClusterIdPropertyGetParametersPathProperty {
     id = "id",
     organizationId = "organizationId",
@@ -5101,12 +10156,18 @@ export enum PathsClusterIdPropertyGetParametersPathProperty {
     status = "status",
     resetPassword = "resetPassword",
     instances = "instances",
+    createdAt = "createdAt",
+    createdByUserId = "createdByUserId",
+    updatedAt = "updatedAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     fqdn = "fqdn",
     enableGtm = "enableGtm",
     plans = "plans",
-    purchasedBlocks = "purchasedBlocks"
+    purchasedBlocks = "purchasedBlocks",
+    domainIds = "domainIds",
+    domains = "domains",
+    generateDomainCerts = "generateDomainCerts"
 }
 export enum PathsClusterIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5116,12 +10177,36 @@ export enum PathsClusterIdPropertyGetResponses200ContentApplicationJson {
     status = "status",
     resetPassword = "resetPassword",
     instances = "instances",
+    createdAt = "createdAt",
+    createdByUserId = "createdByUserId",
+    updatedAt = "updatedAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     fqdn = "fqdn",
     enableGtm = "enableGtm",
     plans = "plans",
-    purchasedBlocks = "purchasedBlocks"
+    purchasedBlocks = "purchasedBlocks",
+    domainIds = "domainIds",
+    domains = "domains",
+    generateDomainCerts = "generateDomainCerts"
+}
+export enum PathsDomainIdPropertyGetParametersPathProperty {
+    id = "id",
+    organizationId = "organizationId",
+    clusterId = "clusterId",
+    domain = "domain",
+    status = "status",
+    challengeToken = "challengeToken",
+    challengeTxtRecord = "challengeTxtRecord"
+}
+export enum PathsDomainIdPropertyGetResponses200ContentApplicationJson {
+    id = "id",
+    organizationId = "organizationId",
+    clusterId = "clusterId",
+    domain = "domain",
+    status = "status",
+    challengeToken = "challengeToken",
+    challengeTxtRecord = "challengeTxtRecord"
 }
 export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5150,6 +10235,8 @@ export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     version = "version",
     replicationHosts = "replicationHosts",
     tempPassword = "tempPassword",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
@@ -5157,7 +10244,10 @@ export enum PathsHDBInstanceIdPropertyGetParametersPathProperty {
     dynamicallyAllocated = "dynamicallyAllocated",
     licenses = "licenses",
     clusterName = "clusterName",
-    organizationName = "organizationName"
+    organizationName = "organizationName",
+    domains = "domains",
+    generateDomainCerts = "generateDomainCerts",
+    cloneToken = "cloneToken"
 }
 export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5186,6 +10276,8 @@ export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     version = "version",
     replicationHosts = "replicationHosts",
     tempPassword = "tempPassword",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     operationsApiPort = "operationsApiPort",
@@ -5193,7 +10285,10 @@ export enum PathsHDBInstanceIdPropertyGetResponses200ContentApplicationJson {
     dynamicallyAllocated = "dynamicallyAllocated",
     licenses = "licenses",
     clusterName = "clusterName",
-    organizationName = "organizationName"
+    organizationName = "organizationName",
+    domains = "domains",
+    generateDomainCerts = "generateDomainCerts",
+    cloneToken = "cloneToken"
 }
 export enum PathsHostIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5218,10 +10313,15 @@ export enum PathsHostIdPropertyGetParametersPathProperty {
     instances = "instances",
     dynamicallyAssignable = "dynamicallyAssignable",
     encryptVolumes = "encryptVolumes",
+    overAllocatedMemoryMultiplier = "overAllocatedMemoryMultiplier",
+    overAllocatedCpuMultiplier = "overAllocatedCpuMultiplier",
+    overAllocatedStorageMultiplier = "overAllocatedStorageMultiplier",
     createdAt = "createdAt",
     createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
     terminatedAt = "terminatedAt",
-    terminatedByUserId = "terminatedByUserId"
+    terminatedByUserId = "terminatedByUserId",
+    underMaintenance = "underMaintenance"
 }
 export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5246,10 +10346,15 @@ export enum PathsHostIdPropertyGetResponses200ContentApplicationJson {
     instances = "instances",
     dynamicallyAssignable = "dynamicallyAssignable",
     encryptVolumes = "encryptVolumes",
+    overAllocatedMemoryMultiplier = "overAllocatedMemoryMultiplier",
+    overAllocatedCpuMultiplier = "overAllocatedCpuMultiplier",
+    overAllocatedStorageMultiplier = "overAllocatedStorageMultiplier",
     createdAt = "createdAt",
     createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
     terminatedAt = "terminatedAt",
-    terminatedByUserId = "terminatedByUserId"
+    terminatedByUserId = "terminatedByUserId",
+    underMaintenance = "underMaintenance"
 }
 export enum PathsInvoiceIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5311,10 +10416,14 @@ export enum PathsOrganizationIdPropertyGetParametersPathProperty {
     roles = "roles",
     clusters = "clusters",
     type = "type",
+    createdAt = "createdAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     stripeId = "stripeId",
-    billing = "billing"
+    billing = "billing",
+    coupons = "coupons",
+    settings = "settings",
+    metadata = "metadata"
 }
 export enum PathsOrganizationIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5326,10 +10435,14 @@ export enum PathsOrganizationIdPropertyGetResponses200ContentApplicationJson {
     roles = "roles",
     clusters = "clusters",
     type = "type",
+    createdAt = "createdAt",
     terminatedAt = "terminatedAt",
     terminatedByUserId = "terminatedByUserId",
     stripeId = "stripeId",
-    billing = "billing"
+    billing = "billing",
+    coupons = "coupons",
+    settings = "settings",
+    metadata = "metadata"
 }
 export enum PathsOrganizationRoleIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5352,7 +10465,6 @@ export enum PathsPlanIdPropertyGetParametersPathProperty {
     name = "name",
     status = "status",
     planLevel = "planLevel",
-    locationsPerPlan = "locationsPerPlan",
     resourcesPerInstance = "resourcesPerInstance",
     priceUsd = "priceUsd",
     platformPriceUsd = "platformPriceUsd",
@@ -5364,14 +10476,19 @@ export enum PathsPlanIdPropertyGetParametersPathProperty {
     performanceDescription = "performanceDescription",
     allowedRegionIds = "allowedRegionIds",
     defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
-    cloudInstanceTypes = "cloudInstanceTypes"
+    cloudInstanceTypes = "cloudInstanceTypes",
+    cloudStorageGb = "cloudStorageGb",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
 }
 export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
     name = "name",
     status = "status",
     planLevel = "planLevel",
-    locationsPerPlan = "locationsPerPlan",
     resourcesPerInstance = "resourcesPerInstance",
     priceUsd = "priceUsd",
     platformPriceUsd = "platformPriceUsd",
@@ -5383,7 +10500,13 @@ export enum PathsPlanIdPropertyGetResponses200ContentApplicationJson {
     performanceDescription = "performanceDescription",
     allowedRegionIds = "allowedRegionIds",
     defaultCloudInstanceProvider = "defaultCloudInstanceProvider",
-    cloudInstanceTypes = "cloudInstanceTypes"
+    cloudInstanceTypes = "cloudInstanceTypes",
+    cloudStorageGb = "cloudStorageGb",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
 }
 export enum PathsRegionIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5392,7 +10515,13 @@ export enum PathsRegionIdPropertyGetParametersPathProperty {
     purchasedBlockMultiplier = "purchasedBlockMultiplier",
     latencyDescription = "latencyDescription",
     linodePreferredLocations = "linodePreferredLocations",
-    gcpPreferredLocations = "gcpPreferredLocations"
+    gcpPreferredLocations = "gcpPreferredLocations",
+    forceLocations = "forceLocations",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
 }
 export enum PathsRegionIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5401,7 +10530,13 @@ export enum PathsRegionIdPropertyGetResponses200ContentApplicationJson {
     purchasedBlockMultiplier = "purchasedBlockMultiplier",
     latencyDescription = "latencyDescription",
     linodePreferredLocations = "linodePreferredLocations",
-    gcpPreferredLocations = "gcpPreferredLocations"
+    gcpPreferredLocations = "gcpPreferredLocations",
+    forceLocations = "forceLocations",
+    organizationIds = "organizationIds",
+    createdByUserId = "createdByUserId",
+    updatedByUserId = "updatedByUserId",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
 }
 export enum PathsRoleIdPropertyGetParametersPathProperty {
     id = "id",
@@ -5441,10 +10576,14 @@ export enum PathsUserIdPropertyGetParametersPathProperty {
     lastname = "lastname",
     salesforceId = "salesforceId",
     status = "status",
+    createdAt = "createdAt",
     terminatedAt = "terminatedAt",
     roles = "roles",
     acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
-    lastLoginDate = "lastLoginDate"
+    lastLoginDate = "lastLoginDate",
+    lastAccessedAt = "lastAccessedAt",
+    lifecycleStage = "lifecycleStage",
+    lifecycleStageUpdatedAt = "lifecycleStageUpdatedAt"
 }
 export enum PathsUserIdPropertyGetResponses200ContentApplicationJson {
     id = "id",
@@ -5454,9 +10593,13 @@ export enum PathsUserIdPropertyGetResponses200ContentApplicationJson {
     lastname = "lastname",
     salesforceId = "salesforceId",
     status = "status",
+    createdAt = "createdAt",
     terminatedAt = "terminatedAt",
     roles = "roles",
     acceptedTermsAndConditionsDate = "acceptedTermsAndConditionsDate",
-    lastLoginDate = "lastLoginDate"
+    lastLoginDate = "lastLoginDate",
+    lastAccessedAt = "lastAccessedAt",
+    lifecycleStage = "lifecycleStage",
+    lifecycleStageUpdatedAt = "lifecycleStageUpdatedAt"
 }
 export type operations = Record<string, never>;

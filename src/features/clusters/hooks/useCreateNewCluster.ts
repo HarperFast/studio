@@ -1,9 +1,10 @@
 import { apiClient } from '@/config/apiClient';
-import { SchemaCluster, SchemaClusterUpsert } from '@/integrations/api/api.gen';
+import { SchemaCluster } from '@/integrations/api/api.gen';
+import { ClusterUpsert } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
 async function onNewClusterSubmit(
-	clusterInfo: SchemaClusterUpsert,
+	clusterInfo: ClusterUpsert,
 ): Promise<SchemaCluster> {
 	const { data } = await apiClient.post(
 		'/Cluster/',
@@ -14,7 +15,7 @@ async function onNewClusterSubmit(
 }
 
 export function useCreateNewClusterMutation() {
-	return useMutation<SchemaCluster, Error, SchemaClusterUpsert>({
+	return useMutation<SchemaCluster, Error, ClusterUpsert>({
 		mutationFn: (clusterInfo) => onNewClusterSubmit(clusterInfo),
 	});
 }

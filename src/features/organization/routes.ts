@@ -4,6 +4,7 @@ import {
 	isValidOrganizationId,
 } from '@/features/organization/queries/getOrganizationQuery';
 import { OrgConfigRolesIndex } from '@/features/organization/roles';
+import { OrgSettingsIndex } from '@/features/organization/settings';
 import { OrgConfigUsersIndex } from '@/features/organization/users';
 import { orgsLayoutRoute } from '@/features/organizations/routes';
 import { createRoute, redirect } from '@tanstack/react-router';
@@ -55,10 +56,17 @@ const orgUserRoute = createRoute({
 	component: OrgConfigUsersIndex,
 });
 
+const orgSettingsRoute = createRoute({
+	getParentRoute: () => orgLayoutRoute,
+	path: '/settings',
+	component: OrgSettingsIndex,
+});
+
 export const orgRoutes = [
 	createBillingRouteTree(orgLayoutRoute),
 	orgRolesRoute,
 	orgRoleRoute,
 	orgUsersRoute,
 	orgUserRoute,
+	orgSettingsRoute,
 ];

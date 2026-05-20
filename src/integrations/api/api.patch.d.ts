@@ -1,4 +1,11 @@
-import { SchemaCluster, SchemaHdbInstance, SchemaOrganization, SchemaRole, SchemaUser } from './api.gen';
+import {
+	SchemaCluster,
+	SchemaClusterUpsert,
+	SchemaHdbInstance,
+	SchemaOrganization,
+	SchemaRole,
+	SchemaUser,
+} from './api.gen';
 import { ENTERPRISE, SELF_SERVICE } from './orgType';
 
 /*
@@ -7,13 +14,38 @@ import { ENTERPRISE, SELF_SERVICE } from './orgType';
  * not updated the client side yet to reflect the reality of the API.
  */
 
+export interface OAuthConfig {
+	id?: string; // oac-… — omit on create, required on update
+	provider: 'okta' | string; // required on every call (even updates — send existing value)
+	domain?: string; // <tenant>.okta.com — optional on read (API may omit), required by the add/edit forms
+	clientId: string; // masked to '****' on read; omit/blank on update = keep existing
+	clientSecret?: string; // masked to '****' on read; omit/blank on update = keep existing
+	scope?: string; // e.g. "openid email profile"
+	enabled?: boolean; // defaults true on create
+	required?: boolean; // defaults false on create; true = force SSO for the org
+	configuredAt?: string;
+	configuredByUserId?: string;
+}
+
+export interface OAuthLockedRole {
+	organizationName?: string;
+	// Present when the org requires OAuth and the current session isn't authenticated via it.
+	// The frontend uses this to render sign-in buttons instead of org content.
+	oauthProviders?: Array<{ name: string; oauthConfigId: string }>;
+}
+
 export interface User extends Omit<SchemaUser, 'roles'> {
-	roles: Record<SchemaOrganization['id'], SchemaRole>;
+	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
 	fabricRole: 'fabric_admin' | 'super_user' | 'least_privileged';
+	/** The oac-… config ID used to authenticate this session, or null if password/global OAuth. */
+	oauthConfigId: string | null;
 }
 
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
+	settings?: {
+		oauthConfigs?: OAuthConfig[];
+	};
 }
 
 export interface SchemaOrganizationDomain {
@@ -96,8 +128,11 @@ export interface Instance extends SchemaHdbInstance {
 export interface Cluster extends SchemaCluster {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
-	domainIds?: string[];
-	domains?: Array<{ id: string; domain: string }>;
+}
+
+export interface ClusterUpsert extends SchemaClusterUpsert {
+	skipGtmWait?: boolean;
+	version?: string;
 }
 
 export interface InstanceDatabaseMap {

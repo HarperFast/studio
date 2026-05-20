@@ -30,7 +30,10 @@ export function useOrganizationPermissions(orgId?: string): UR {
 	}
 
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
-	if (!role?.permission && !role?.organization) {
+	if (!role || 'oauthProviders' in role) {
+		return { update: false, remove: false };
+	}
+	if (!role.permission && !role.organization) {
 		return { update: false, remove: false };
 	}
 	if (role.permission?.super_user) {
@@ -48,7 +51,10 @@ export function useOrganizationRolePermissions(orgId?: string): CRUV {
 	}
 
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
-	if (!role?.permission && !role?.organization?.roles) {
+	if (!role || 'oauthProviders' in role) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (!role.permission && !role.organization?.roles) {
 		return { create: false, remove: false, update: false, view: false };
 	}
 	if (role.permission?.super_user) {
@@ -78,7 +84,10 @@ export function getOrganizationClusterPermissions(user: User | null, orgId: stri
 	}
 
 	const role = user?.roles?.[orgId];
-	if (!role?.permission && !role?.organization?.clusters) {
+	if (!role || 'oauthProviders' in role) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (!role.permission && !role.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
 	if (role.permission?.super_user) {
@@ -114,7 +123,10 @@ export function getOrganizationClusterInstancePermissions(user: User | null, org
 	}
 
 	const role = user?.roles?.[orgId];
-	if (!role?.permission && !role?.organization?.clusters) {
+	if (!role || 'oauthProviders' in role) {
+		return { create: false, remove: false, update: false, view: false };
+	}
+	if (!role.permission && !role.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
 	}
 	if (role.permission?.super_user) {
