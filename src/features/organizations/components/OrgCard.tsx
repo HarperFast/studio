@@ -17,6 +17,7 @@ import {
 	ArrowRight,
 	CreditCardIcon,
 	Ellipsis,
+	KeyRoundIcon,
 	ServerIcon,
 	ShieldCheckIcon,
 	TicketIcon,
@@ -84,6 +85,14 @@ export function OrgCard({
 										<DropdownMenuItem>
 											<CreditCardIcon className="size-4 mr-2 text-green-500" />
 											Billing
+										</DropdownMenuItem>
+									</Link>
+								)}
+								{canUpdateOrganization && (
+									<Link to={`${organizationId}/settings`}>
+										<DropdownMenuItem>
+											<KeyRoundIcon className="size-4 mr-2 text-yellow-500" />
+											Settings
 										</DropdownMenuItem>
 									</Link>
 								)}

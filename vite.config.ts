@@ -20,6 +20,11 @@ export default defineConfig({
 			'path-browserify': path.resolve(__dirname, './src/lib/monaco/path-browserify-esm.js'),
 		},
 	},
+	server: {
+		proxy: {
+			'/oauth': { target: 'http://localhost:9926/oauth', changeOrigin: true },
+		},
+	},
 	build: {
 		outDir: 'web',
 		emptyOutDir: true,
