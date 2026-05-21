@@ -54,7 +54,7 @@
 	--purple-gradient: 90deg, var(--purple-500) 100%, var(--purple-500) 100%;
 	--purple-dark-to-light-gradient: 45deg, var(--purple-200) 0%, var(--purple-100) 100%;
 
-	--background: hsl(0 0% 97%);      /* Light grey page background */
+	--background: hsl(250 30% 97%);    /* Very light lavender page background */
 	--foreground: hsl(0 0% 9%);       /* Near-black text */
 	--card: hsl(0 0% 100%);           /* White cards */
 	--card-foreground: hsl(0 0% 9%);
@@ -101,7 +101,7 @@
 }
 
 .dark {
-	--background: var(--color-black-dark); /* Dark Black: #111111 */
+	--background: hsl(250 20% 8%);     /* Deep purple-tinted dark background */
 		--foreground: hsl(0 0% 98%);
 		--card: var(--color-grey-700);
 		--card-foreground: var(--color-white);

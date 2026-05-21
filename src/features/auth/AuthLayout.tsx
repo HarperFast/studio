@@ -4,7 +4,7 @@ import { Outlet } from '@tanstack/react-router';
 export function AuthLayout() {
 	return (
 		<>
-			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-white border-b border-border dark:bg-black-dark dark:border-black md:px-12">
+			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-gradient-to-r from-violet-100 to-white border-b border-violet-200 dark:from-purple-950 dark:to-zinc-900 dark:border-purple-950 md:px-12">
 				<Navbar />
 			</header>
 			<div className="pt-20 h-screen grid grid-cols-1 md:grid-cols-2">
