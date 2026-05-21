@@ -1,5 +1,6 @@
 import { AppRouted } from '@/AppRouted';
 import { Toaster } from '@/components/ui/sonner';
+import { ThemeProvider } from '@/hooks/useTheme';
 import { useDatadog } from '@/integrations/datadog/datadog';
 import { useGTM } from '@/integrations/google/gtm';
 import { useReo } from '@/integrations/reo/reo';
@@ -12,12 +13,12 @@ export function App() {
 	useDatadog();
 	useGTM();
 	return (
-		<>
+		<ThemeProvider>
 			<QueryClientProvider client={queryClient}>
 				<AppRouted />
 				{!import.meta.env.VITE_DISABLE_DEVTOOLS && <ReactQueryDevtools buttonPosition="bottom-right" />}
 			</QueryClientProvider>
 			<Toaster richColors />
-		</>
+		</ThemeProvider>
 	);
 }

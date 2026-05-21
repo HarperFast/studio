@@ -3,4 +3,5 @@ export const enum LocalStorageKeys {
 	'ApplicationChatWidth' = 'ApplicationChatWidth',
 	'ChatAlwaysApprovedTools' = 'ChatAlwaysApprovedTools',
 	'SavedClusterState' = 'SavedClusterState',
+	'Theme' = 'Theme',
 }
