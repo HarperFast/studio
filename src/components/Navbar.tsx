@@ -1,5 +1,6 @@
 import { DiscordLogo } from '@/components/DiscordLogo';
 import { MainLogo } from '@/components/MainLogo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
@@ -178,6 +179,9 @@ function AnonymousNav() {
 						</NavigationMenuLink>
 					</NavigationMenuItem>
 					<NavigationMenuItem>
+						<ThemeToggle />
+					</NavigationMenuItem>
+					<NavigationMenuItem>
 						<NavigationMenuLink asChild>
 							<Link to="/sign-in" className="flex-row items-center" activeProps={activeLinkProps}>
 								<LogInIcon /> Sign In
@@ -216,6 +220,9 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 								)
 								: <DesktopNavItem key={menuItem.text} menuItem={menuItem} />
 						)}
+						<NavigationMenuItem>
+							<ThemeToggle />
+						</NavigationMenuItem>
 					</NavigationMenuList>
 				</NavigationMenu>
 			</div>
@@ -278,6 +285,9 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 					isMenuOpen ? 'block' : 'hidden'
 				} md:hidden z-50 space-y-1 pb-3 bg-card border-b border-border dark:bg-black-dark dark:border-none absolute left-0 top-full w-full rounded-b-md`}
 			>
+				<div className="flex justify-end px-3 pt-2">
+					<ThemeToggle />
+				</div>
 				{menuItems.map(menuItem =>
 					isMenuGroup(menuItem)
 						? !!menuItem.items.length && (
