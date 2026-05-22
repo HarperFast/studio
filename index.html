@@ -10,7 +10,7 @@
     <script>
     (function() {
 			try {
-				var t = JSON.parse(localStorage.getItem('Theme') || '"system"');
+				const t = JSON.parse(localStorage.getItem('Theme') || '"system"');
 				if (
 					t === 'dark'
 					|| (t === 'system'
