@@ -52,7 +52,7 @@ export function CheckOAuth() {
 	}, []);
 
 	return (
-		<div className="text-white w-lg flex flex-col gap-4">
+		<div className="text-foreground dark:text-white w-lg flex flex-col gap-4">
 			<h1 className="text-3xl font-light">
 				<span
 					aria-hidden="true"
@@ -65,7 +65,10 @@ export function CheckOAuth() {
 			</h1>
 
 			<div className="underline flex gap-4">
-				<Link className="text-sm opacity-50 hover:text-blue-300" to="/sign-in">
+				<Link
+					className="text-sm opacity-50 text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
+					to="/sign-in"
+				>
 					Try signing in again
 				</Link>
 			</div>
