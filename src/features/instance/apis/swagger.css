@@ -1,9 +1,153 @@
+/* ─── Swagger UI theme overrides ────────────────────────────────────────────
+ * Swagger UI ships with hardcoded colours. These overrides replace the most
+ * jarring ones with Studio's CSS custom-property tokens so the explorer
+ * automatically adapts when the user switches between light and dark mode.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
 .swagger-ui {
+	/* Give the whole explorer a card surface so it sits on the page correctly
+	 * instead of showing straight through to the dark page background. */
+	background-color: var(--card);
+	color: var(--foreground);
+	border-radius: var(--radius-lg);
+	padding: 8px 0;
+
 	.info {
 		display: none;
 	}
 
+	/* ── Servers / Authorize bar ─────────────────────────────────────────── */
 	.scheme-container {
+		background: var(--card);
 		box-shadow: none;
+		padding: 12px 20px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	/* ── Typography ──────────────────────────────────────────────────────── */
+	.opblock-tag,
+	.opblock-tag small,
+	.opblock-summary-path,
+	.opblock-summary-path__deprecated,
+	.opblock-summary-description,
+	.opblock-summary-operation-id,
+	.model-title,
+	.parameter__name,
+	.parameter__type,
+	.response-col_status,
+	.response-col_description,
+	label,
+	h4,
+	h5,
+	p,
+	span,
+	table thead tr th,
+	.servers > label span {
+		color: var(--foreground);
+	}
+
+	.opblock-tag {
+		border-bottom: 1px solid var(--border);
+	}
+
+	/* ── Inputs & selects ────────────────────────────────────────────────── */
+	select,
+	input[type="text"],
+	input[type="password"],
+	input[type="search"],
+	textarea {
+		background-color: var(--input);
+		color: var(--foreground);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+	}
+
+	/* ── Operation blocks ────────────────────────────────────────────────── */
+	.opblock {
+		border-radius: var(--radius-md);
+		margin-bottom: 6px;
+
+		.opblock-summary {
+			border-color: inherit;
+		}
+
+		.opblock-summary-description {
+			color: var(--foreground);
+		}
+
+		.opblock-body {
+			background-color: var(--card);
+			color: var(--foreground);
+		}
+
+		.tab-header .tab-item.active h4 span::after {
+			background: var(--primary);
+		}
+	}
+
+	/* Response / body section inside open operations */
+	.responses-wrapper,
+	.request-snippet-container,
+	.opblock-section,
+	.parameters-container,
+	.try-out__btn {
+		background-color: var(--card);
+	}
+
+	.response-col_status,
+	.response-col_description,
+	.response-col_links,
+	.responses-inner h4,
+	.responses-inner h5 {
+		color: var(--foreground);
+	}
+
+	/* ── Models / Schemas section ────────────────────────────────────────── */
+	.models {
+		background-color: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+	}
+
+	.models-control,
+	.model-container,
+	.model-box {
+		background-color: var(--card);
+		color: var(--foreground);
+	}
+
+	.model {
+		color: var(--foreground);
+	}
+
+	/* ── Table ───────────────────────────────────────────────────────────── */
+	table thead tr td,
+	table thead tr th {
+		border-bottom: 1px solid var(--border);
+	}
+
+	table tbody tr td {
+		border-bottom: 1px solid var(--border);
+		color: var(--foreground);
+	}
+
+	/* ── Links ───────────────────────────────────────────────────────────── */
+	a {
+		color: var(--color-blue);
+	}
+
+	/* ── Authorize button ────────────────────────────────────────────────── */
+	.auth-wrapper .authorize {
+		border-color: var(--color-green);
+		color: var(--color-green);
+
+		svg {
+			fill: var(--color-green);
+		}
+	}
+
+	/* ── Response code chips ─────────────────────────────────────────────── */
+	.response-control-media-type__accept-message {
+		color: var(--muted-foreground);
 	}
 }

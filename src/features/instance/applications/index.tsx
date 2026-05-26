@@ -29,7 +29,8 @@ export function ApplicationsEditor() {
 				id="file-explorer-sidebar"
 				className={cx(
 					'pt-[calc(--spacing(32))] w-56 fixed top-0 left-0 bottom-0 z-30',
-					'bg-sidebar shadow shadow-black/20 dark:bg-black-dark dark:shadow-black',
+					'bg-violet-50 border-r border-violet-200 shadow shadow-black/10',
+					'dark:bg-grey-700 dark:border-grey-600 dark:shadow-black',
 					'transition-transform -translate-x-full',
 					toggled ? 'translate-x-0' : 'md:translate-x-0',
 				)}
