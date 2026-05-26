@@ -22,9 +22,7 @@
 		},
 		{
 			"matchPackageNames": [
-				"@fastify/static",
-				"@tanstack/react-router",
-				"@tanstack/react-router-devtools"
+				"@fastify/static"
 			],
 			"enabled": false
 		},
