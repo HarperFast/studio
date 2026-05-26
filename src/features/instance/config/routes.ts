@@ -13,12 +13,14 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceConfigRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: 'config',
+		head: () => ({ meta: [{ title: 'Config — Harper Fabric' }] }),
 		component: ConfigIndex,
 		loader: registrationInfoLoader,
 	});
 	const instanceOverviewRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: '/',
+		head: () => ({ meta: [{ title: 'Overview — Harper Fabric' }] }),
 		component: ConfigOverviewIndex,
 		loader: registrationInfoLoader,
 	});
@@ -26,50 +28,59 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceConfigRolesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'roles',
+		head: () => ({ meta: [{ title: 'Instance Roles — Harper Fabric' }] }),
 		component: ConfigRolesIndex,
 	});
 	const instanceConfigRoleRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'roles/$roleId',
+		head: () => ({ meta: [{ title: 'Instance Roles — Harper Fabric' }] }),
 		component: ConfigRolesIndex,
 	});
 
 	const instanceConfigUsersRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'users',
+		head: () => ({ meta: [{ title: 'Instance Users — Harper Fabric' }] }),
 		component: ConfigUsersIndex,
 	});
 	const instanceConfigUserRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'users/$username',
+		head: () => ({ meta: [{ title: 'Instance Users — Harper Fabric' }] }),
 		component: ConfigUsersIndex,
 	});
 
 	const instanceConfigDomainsRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'domains',
+		head: () => ({ meta: [{ title: 'Instance Domains — Harper Fabric' }] }),
 		component: ConfigDomainsIndex,
 	});
 
 	const instanceConfigSSHKeysRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'ssh-keys',
+		head: () => ({ meta: [{ title: 'SSH Keys — Harper Fabric' }] }),
 		component: ConfigSSHKeysIndex,
 	});
 	const instanceConfigSSHKeyRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'ssh-keys/$keyName',
+		head: () => ({ meta: [{ title: 'SSH Keys — Harper Fabric' }] }),
 		component: ConfigSSHKeysIndex,
 	});
 
 	const instanceConfigCertificatesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'certificates',
+		head: () => ({ meta: [{ title: 'Certificates — Harper Fabric' }] }),
 		component: ConfigCertificatesIndex,
 	});
 	const instanceConfigCertificateRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'certificates/$certName',
+		head: () => ({ meta: [{ title: 'Certificates — Harper Fabric' }] }),
 		component: ConfigCertificatesIndex,
 	});
 

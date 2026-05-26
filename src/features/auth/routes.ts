@@ -22,6 +22,7 @@ const authLayout = createRoute({
 const signInRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'sign-in',
+	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: SignIn,
 	beforeLoad: ({ context, location }) => {
 		const user = context.authentication[OverallAppSignIn]?.user;
@@ -36,6 +37,7 @@ const signInRoute = createRoute({
 const localSignInRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: 'sign-in',
+	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location }) => {
 		if (context.authentication[OverallAppSignIn]?.user) {
@@ -48,35 +50,41 @@ const localSignInRoute = createRoute({
 const signUpRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'sign-up',
+	head: () => ({ meta: [{ title: 'Sign Up — Harper Fabric' }] }),
 	component: SignUp,
 });
 const forgotPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'forgot-password',
+	head: () => ({ meta: [{ title: 'Forgot Password — Harper Fabric' }] }),
 	component: ForgotPassword,
 });
 
 const verifyEmailRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'verify-email',
+	head: () => ({ meta: [{ title: 'Verify Email — Harper Fabric' }] }),
 	component: VerifyEmail,
 });
 
 const verifyingEmailRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'verifying',
+	head: () => ({ meta: [{ title: 'Check Your Email — Harper Fabric' }] }),
 	component: Verifying,
 });
 
 const checkOAuthRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'check-oauth',
+	head: () => ({ meta: [{ title: 'Signing In — Harper Fabric' }] }),
 	component: CheckOAuth,
 });
 
 const resetPasswordRoute = createRoute({
 	getParentRoute: () => authLayout,
 	path: 'reset-password',
+	head: () => ({ meta: [{ title: 'Reset Password — Harper Fabric' }] }),
 	component: ResetPassword,
 });
 

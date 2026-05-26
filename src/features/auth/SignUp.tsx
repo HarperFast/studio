@@ -133,6 +133,7 @@ export function SignUp() {
 								target="_blank"
 								rel="noreferrer"
 								className="underline hover:text-blue-300"
+								aria-label="Privacy Policy (opens in new tab)"
 							>
 								Privacy Policy
 							</a>{' '}
@@ -142,6 +143,7 @@ export function SignUp() {
 								target="_blank"
 								rel="noreferrer"
 								className="underline hover:text-blue-300"
+								aria-label="Terms of Service (opens in new tab)"
 							>
 								Terms of Service
 							</a>
@@ -155,7 +157,7 @@ export function SignUp() {
 
 	return (
 		<div className="text-foreground dark:text-white w-xs">
-			<h2 className="text-2xl font-light text-center">Sign up for Harper Fabric</h2>
+			<h1 className="text-2xl font-light text-center">Sign up for Harper Fabric</h1>
 
 			<Form {...methods}>
 				<div className="flex flex-col gap-2 my-6">

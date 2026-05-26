@@ -97,7 +97,10 @@ export function ClusterInstanceSignIn() {
 	return (
 		<>
 			{!isLocalStudio && (
-				<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center">
+				<nav
+					aria-label="Breadcrumb"
+					className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center"
+				>
 					<Breadcrumbs />
 				</nav>
 			)}
@@ -108,9 +111,9 @@ export function ClusterInstanceSignIn() {
 				)}
 			>
 				<div className="text-foreground w-xs py-8">
-					<h2 className="text-2xl font-light">
+					<h1 className="text-2xl font-light">
 						Sign in to Harper {properNoun}
-					</h2>
+					</h1>
 					<Form {...methods}>
 						<form
 							id={`auth-${commonNoun}-signin-form`}

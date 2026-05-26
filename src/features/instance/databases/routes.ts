@@ -6,6 +6,7 @@ export function createBrowseRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	return createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: '/databases/{-$databaseName}/{-$tableName}',
+		head: () => ({ meta: [{ title: 'Databases — Harper Fabric' }] }),
 		component: Databases,
 	});
 }

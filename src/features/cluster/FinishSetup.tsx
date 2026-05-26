@@ -95,12 +95,15 @@ export function FinishSetup() {
 
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center">
+			<nav
+				aria-label="Breadcrumb"
+				className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center"
+			>
 				<Breadcrumbs />
 			</nav>
 			<div className="items-center justify-center flex mt-32 py-4 min-h-[calc(100vh-(--spacing(32)))]">
 				<div className="text-foreground w-xs">
-					<h2 className="text-2xl font-light">Create Admin User</h2>
+					<h1 className="text-2xl font-light">Create Admin User</h1>
 					<p className="text-muted-foreground">
 						You are ready to create your first user in your new cluster. These credentials belong to you alone, and you
 						can create more users and roles once you create this first one.
@@ -138,6 +141,7 @@ export function FinishSetup() {
 										<FormControl>
 											<Input
 												type="password"
+												autoComplete="new-password"
 												{...field}
 											/>
 										</FormControl>
@@ -154,6 +158,7 @@ export function FinishSetup() {
 										<FormControl>
 											<Input
 												type="password"
+												autoComplete="new-password"
 												{...field}
 											/>
 										</FormControl>

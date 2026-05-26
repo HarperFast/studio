@@ -66,7 +66,7 @@ export function ProfileIndex() {
 
 	return (
 		<div className="mt-20 px-4 pt-4 md:px-12 max-w-2xl">
-			<h2 className="text-2xl font-light">Profile</h2>
+			<h1 className="text-2xl font-light">Profile</h1>
 			<Form {...methods}>
 				<form
 					id="profile-edit-form"
@@ -113,18 +113,21 @@ export function ProfileIndex() {
 						)}
 					/>
 
-					<FormLabel className="pb-1">Email</FormLabel>
-					<FormControl>
-						<Input
-							type="email"
-							enterKeyHint="next"
-							autoComplete="email"
-							autoCapitalize="none"
-							value={user?.email || ''}
-							disabled={true}
-							readOnly={true}
-						/>
-					</FormControl>
+					<FormItem>
+						<FormLabel htmlFor="profile-email" className="pb-1">Email</FormLabel>
+						<FormControl>
+							<Input
+								id="profile-email"
+								type="email"
+								enterKeyHint="next"
+								autoComplete="email"
+								autoCapitalize="none"
+								value={user?.email || ''}
+								disabled={true}
+								readOnly={true}
+							/>
+						</FormControl>
+					</FormItem>
 
 					<FormField
 						control={control}
