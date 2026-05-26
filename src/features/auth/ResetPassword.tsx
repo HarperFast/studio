@@ -72,7 +72,7 @@ export function ResetPassword() {
 
 	return (
 		<div className="text-foreground dark:text-white w-xs">
-			<h2 className="text-2xl font-light">Reset Password</h2>
+			<h1 className="text-2xl font-light">Reset Password</h1>
 			<Form {...methods}>
 				<form
 					id="auth-reset-password-form"
@@ -90,6 +90,7 @@ export function ResetPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
+										autoComplete="new-password"
 										className="dark:bg-black dark:border-black"
 										{...field}
 									/>
@@ -108,6 +109,7 @@ export function ResetPassword() {
 									<Input
 										disabled={isPending}
 										type="password"
+										autoComplete="new-password"
 										className="dark:bg-black dark:border-black"
 										{...field}
 									/>

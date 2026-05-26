@@ -6,6 +6,7 @@ export function createApplicationsRoutes(instanceLayoutRoute: ReturnType<typeof 
 	const instanceApplicationsIndexRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: '/',
+		head: () => ({ meta: [{ title: 'Applications — Harper Fabric' }] }),
 		component: ApplicationsEditor,
 	});
 

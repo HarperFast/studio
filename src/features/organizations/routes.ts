@@ -11,12 +11,14 @@ export const orgsLayoutRoute = createRoute({
 const orgsIndexRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '/',
+	head: () => ({ meta: [{ title: 'Organizations — Harper Fabric' }] }),
 	component: OrganizationsIndex,
 });
 
 const newOrgRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '/new-org',
+	head: () => ({ meta: [{ title: 'New Organization — Harper Fabric' }] }),
 	component: NewOrg,
 });
 

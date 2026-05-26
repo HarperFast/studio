@@ -31,7 +31,7 @@ export function SignIn() {
 
 	return (
 		<div className="text-foreground dark:text-white w-xs">
-			<h2 className="text-2xl font-light text-center">Sign in to Harper Fabric</h2>
+			<h1 className="text-2xl font-light text-center">Sign in to Harper Fabric</h1>
 			<Form {...methods}>
 				<form
 					id="auth-signin-form"
@@ -98,7 +98,7 @@ export function SignIn() {
 				</form>
 			</Form>
 
-			<hr className="border-border dark:border-gray-600 my-6" />
+			<hr aria-hidden="true" className="border-border dark:border-gray-600 my-6" />
 
 			<div className="flex flex-col gap-2">
 				<GoogleAuthenticationButton text="Sign in with Google" />

@@ -6,6 +6,7 @@ export function createLogRouteTree(instanceLayoutRoute: ReturnType<typeof create
 	return createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: 'logs',
+		head: () => ({ meta: [{ title: 'Logs — Harper Fabric' }] }),
 		component: Logs,
 	});
 }

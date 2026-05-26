@@ -12,24 +12,28 @@ export const clustersLayoutRoute = createRoute({
 const clustersIndexRoute = createRoute({
 	getParentRoute: () => clustersLayoutRoute,
 	path: '/',
+	head: () => ({ meta: [{ title: 'Clusters — Harper Fabric' }] }),
 	component: ClusterList,
 });
 
 const newClusterRoute = createRoute({
 	getParentRoute: () => orgLayoutRoute,
 	path: '/new-cluster',
+	head: () => ({ meta: [{ title: 'New Cluster — Harper Fabric' }] }),
 	component: UpsertCluster,
 });
 
 const editClusterRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/edit',
+	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
 	component: UpsertCluster,
 });
 
 const editClusterVersionRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: '/edit/$mode',
+	head: () => ({ meta: [{ title: 'Edit Cluster — Harper Fabric' }] }),
 	component: UpsertCluster,
 });
 

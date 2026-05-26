@@ -5,5 +5,6 @@ export function createAPIsRouteTree(instanceLayoutRoute: ReturnType<typeof creat
 	return createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: 'apis',
+		head: () => ({ meta: [{ title: 'APIs — Harper Fabric' }] }),
 	}).lazy(() => import('./index.lazy').then((d) => d.route));
 }

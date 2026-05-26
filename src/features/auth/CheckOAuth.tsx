@@ -52,7 +52,7 @@ export function CheckOAuth() {
 	}, []);
 
 	return (
-		<div className="text-foreground dark:text-white w-lg flex flex-col gap-4">
+		<div role="status" aria-live="polite" className="text-foreground dark:text-white w-lg flex flex-col gap-4">
 			<h1 className="text-3xl font-light">
 				<span
 					aria-hidden="true"

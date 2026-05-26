@@ -12,14 +12,14 @@ export function GitHubAuthenticationButton({
 	onClick?: MouseEventHandler<HTMLAnchorElement>;
 }) {
 	return (
-		<a href="/oauth/github/login?redirect=%2F%23%2Fcheck-oauth" onClick={onClick}>
-			<button
-				className={cx('github-signin-btn', disabled && 'opacity-50')}
-				type="button"
-			>
-				<img src="/github/GitHub_Invertocat_White.svg" alt="GitHub Logo" className="github-icon" />
-				{text}
-			</button>
+		<a
+			href="/oauth/github/login?redirect=%2F%23%2Fcheck-oauth"
+			onClick={onClick}
+			aria-disabled={disabled || undefined}
+			className={cx('github-signin-btn', disabled && 'opacity-50 cursor-default')}
+		>
+			<img src="/github/GitHub_Invertocat_White.svg" alt="" className="github-icon" />
+			{text}
 		</a>
 	);
 }

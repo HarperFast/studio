@@ -9,21 +9,25 @@ export function createBillingRouteTree(parentRoute: typeof orgLayoutRoute) {
 	const rootRoute = createRoute({
 		getParentRoute: () => parentRoute,
 		path: 'billing',
+		head: () => ({ meta: [{ title: 'Billing — Harper Fabric' }] }),
 		component: OrgBillingIndex,
 	});
 	const paymentMethodsRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: '/',
+		head: () => ({ meta: [{ title: 'Payment Methods — Harper Fabric' }] }),
 		component: PaymentMethodsDisplay,
 	});
 	const invoicesRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: 'invoices',
+		head: () => ({ meta: [{ title: 'Invoices — Harper Fabric' }] }),
 		component: Invoices,
 	});
 	const confirmRoute = createRoute({
 		getParentRoute: () => rootRoute,
 		path: 'confirm',
+		head: () => ({ meta: [{ title: 'Confirm Payment — Harper Fabric' }] }),
 		component: ConfirmSetupIntent,
 	});
 

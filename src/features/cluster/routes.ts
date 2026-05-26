@@ -12,30 +12,35 @@ import { StartingUp } from './StartingUp';
 const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instances',
+	head: () => ({ meta: [{ title: 'Instances — Harper Fabric' }] }),
 	component: Instances,
 });
 
 const clusterStartingUpRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'starting-up',
+	head: () => ({ meta: [{ title: 'Starting Up — Harper Fabric' }] }),
 	component: StartingUp,
 });
 
 const clusterScalingRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'scaling',
+	head: () => ({ meta: [{ title: 'Scaling — Harper Fabric' }] }),
 	component: Scaling,
 });
 
 const clusterDomainsRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'domains',
+	head: () => ({ meta: [{ title: 'Domains — Harper Fabric' }] }),
 	component: DomainsPage,
 });
 
 const clusterSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'sign-in',
+	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location, params }) => {
 		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
@@ -53,6 +58,7 @@ const clusterSignInRoute = createRoute({
 const instanceSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'instance/$instanceId/sign-in',
+	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
 	beforeLoad: ({ context, location, params }) => {
 		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId)
@@ -74,6 +80,7 @@ const instanceSignInRoute = createRoute({
 const clusterFinishSetupRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'finish-setup',
+	head: () => ({ meta: [{ title: 'Create Admin User — Harper Fabric' }] }),
 	component: FinishSetup,
 });
 

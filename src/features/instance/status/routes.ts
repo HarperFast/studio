@@ -5,6 +5,7 @@ export function createStatusRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 	const instanceConfigRoute = createRoute({
 		getParentRoute: () => instanceLayoutRoute,
 		path: 'status',
+		head: () => ({ meta: [{ title: 'Status — Harper Fabric' }] }),
 		component: lazyRouteComponent(async () => import('@/features/instance/status/index'), 'StatusIndex'),
 	});
 	return instanceConfigRoute;
