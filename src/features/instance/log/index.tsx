@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Toggle } from '@/components/ui/toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
@@ -17,7 +18,16 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
-import { RefreshCwIcon } from 'lucide-react';
+import {
+	ActivityIcon,
+	AlertCircleIcon,
+	AlertTriangleIcon,
+	BellIcon,
+	BugIcon,
+	InfoIcon,
+	RefreshCwIcon,
+	TerminalIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -35,34 +45,64 @@ const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	until: '',
 };
 
+const levelIcons: Record<ReadLogItem['level'], React.ReactNode> = {
+	error: <AlertCircleIcon className="size-3" />,
+	stderr: <AlertCircleIcon className="size-3" />,
+	warn: <AlertTriangleIcon className="size-3" />,
+	notify: <BellIcon className="size-3" />,
+	info: <InfoIcon className="size-3" />,
+	debug: <BugIcon className="size-3" />,
+	trace: <ActivityIcon className="size-3" />,
+	stdout: <TerminalIcon className="size-3" />,
+};
+
 const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'level',
-		header: 'Status',
+		header: 'Level',
 		cell: ({ row }) => {
 			const { level } = row.original;
-			return <Badge variant={renderBadgeLogLevelVariant(level)}>{capitalizeWords(level)}</Badge>;
+			return (
+				<Badge variant={renderBadgeLogLevelVariant(level)}>
+					{levelIcons[level]}
+					{capitalizeWords(level)}
+				</Badge>
+			);
 		},
 	},
 	{
 		accessorKey: 'timestamp',
-		header: 'Date',
+		header: 'Timestamp',
 		cell: ({ row }) => {
 			const { timestamp } = row.original;
-			return <span>{new Date(timestamp).toLocaleDateString()}</span>;
+			const date = new Date(timestamp);
+			const sameYear = date.getFullYear() === new Date().getFullYear();
+			const dateStr = sameYear
+				? date.toLocaleDateString(undefined, { month: 'numeric', day: '2-digit' })
+				: date.toLocaleDateString();
+			return (
+				<span className="tabular-nums whitespace-nowrap text-muted-foreground">
+					{dateStr} {date.toLocaleTimeString()}
+				</span>
+			);
 		},
 	},
 	{
-		accessorKey: 'time',
-		header: 'Time',
+		accessorKey: 'message',
+		header: 'Message',
 		cell: ({ row }) => {
-			const { timestamp } = row.original;
-			return <span>{new Date(timestamp).toLocaleTimeString()}</span>;
+			const { message } = row.original;
+			return (
+				<span className="block max-w-xl truncate font-mono text-xs">
+					{message}
+				</span>
+			);
 		},
 	},
 	{
 		accessorKey: 'thread',
 		header: 'Thread',
+		cell: ({ row }) => <span className="text-muted-foreground tabular-nums">{row.original.thread}</span>,
 	},
 	{
 		accessorKey: 'node',
@@ -94,18 +134,11 @@ const columns: ColumnDef<ReadLogItem>[] = [
 	{
 		accessorKey: 'tags',
 		header: 'Tags',
-	},
-	{
-		accessorKey: 'message',
-		header: 'Message',
 		cell: ({ row }) => {
-			const { message } = row.original;
-			row.getIsSelected();
-			return (
-				<pre>
-					<code>{message}</code>
-				</pre>
-			);
+			const { tags } = row.original;
+			return tags && tags.length > 0
+				? <span className="text-muted-foreground text-xs">{tags}</span>
+				: null;
 		},
 	},
 ];
@@ -118,6 +151,26 @@ const isValidDateRange = (startDate?: string | null, endDate?: string | null) =>
 	const end = new Date(endDate);
 	return start <= end;
 };
+
+function LogsTableSkeleton() {
+	return (
+		<div className="rounded-md bg-card dark:bg-black-dark overflow-hidden">
+			<div className="flex gap-4 p-4 border-b border-border">
+				{['w-14', 'w-32', 'w-14', 'w-24', 'w-16', 'flex-1'].map((w, i) => <Skeleton key={i} className={`h-4 ${w}`} />)}
+			</div>
+			{Array.from({ length: 12 }).map((_, i) => (
+				<div key={i} className="flex gap-4 p-3 border-b border-border/40 border-l-2 border-l-transparent">
+					<Skeleton className="h-5 w-14" />
+					<Skeleton className="h-5 w-32" />
+					<Skeleton className="h-5 w-10" />
+					<Skeleton className="h-5 w-20" />
+					<Skeleton className="h-5 w-12" />
+					<Skeleton className="h-5 flex-1 max-w-xs" />
+				</div>
+			))}
+		</div>
+	);
+}
 
 export function Logs() {
 	const [logFilters, setLogFilters] = useState<z.infer<typeof LogFiltersFormSchema>>(defaultFormValues);
@@ -189,7 +242,7 @@ export function Logs() {
 					showLogName={showLogName}
 				/>
 
-				<div className="flex items-center justify-between space-x-2 mt-2">
+				<div className="flex items-center gap-2 mt-5">
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
@@ -199,18 +252,29 @@ export function Logs() {
 						<RefreshCwIcon />
 						Refresh
 					</Button>
-					<Toggle variant="outline" aria-label="Toggle Auto Refresh" onPressedChange={setIsAutoRefreshEnabled}>
-						<RefreshCwIcon />
-						Auto Refresh {isAutoRefreshEnabled ? 'On' : 'Off'}
-					</Toggle>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Toggle
+								variant="outline"
+								aria-label="Toggle Auto Refresh"
+								pressed={isAutoRefreshEnabled}
+								onPressedChange={setIsAutoRefreshEnabled}
+								className="shrink-0"
+							>
+								<RefreshCwIcon className={isAutoRefreshEnabled ? 'animate-spin' : ''} />
+								Auto
+							</Toggle>
+						</TooltipTrigger>
+						<TooltipContent>
+							{isAutoRefreshEnabled ? 'Auto refresh on — click to disable' : 'Enable auto refresh (every 5s)'}
+						</TooltipContent>
+					</Tooltip>
 				</div>
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
-				{isLoading ? <div>Loading...</div> : (
-					<div>
-						<LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />
-					</div>
-				)}
+				{isLoading
+					? <LogsTableSkeleton />
+					: <LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />}
 			</section>
 			<ViewLogModal isModalOpen={isViewLogModalOpen} setIsModalOpen={setIsViewLogModalOpen} data={selectedLogData} />
 		</div>
