@@ -131,7 +131,7 @@ export function LogsFiltersForm({
 						)}
 					/>
 
-					<div className="flex items-center justify-between space-x-2 mt-2">
+					<div className="flex items-center justify-between space-x-2 mt-5">
 						<Button type="submit" variant="positiveOutline" className="grow">
 							Apply Filters
 						</Button>
