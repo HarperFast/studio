@@ -170,11 +170,11 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 			<FormControl>
 				<dl
 					className={cn(
-						'divide-y divide-black overflow-hidden transition-[max-height] duration-200 ease-in',
+						'divide-y divide-border border border-border rounded-md overflow-hidden transition-[max-height] duration-200 ease-in',
 						toggled ? 'max-h-fit' : 'max-h-0',
 					)}
 				>
-					<div className="text-sm mb-3 max-w-lg">
+					<div className="text-sm mb-3 max-w-lg px-3 pt-3 text-muted-foreground">
 						This plan licenses Harper for the usage limits below, {forThePriceAbove}. The usage license expires
 						{expiresInMonths}{' '}
 						when any usage limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
@@ -182,10 +182,13 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 					{rows.map((row, index) => (
 						<div
 							key={row.label}
-							className={cn('px-4 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-3', index % 2 === 0 && 'bg-gray-700')}
+							className={cn(
+								'px-4 py-1 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-3',
+								index % 2 === 0 && 'bg-muted dark:bg-grey-700',
+							)}
 						>
-							<dt className="text-sm/6 font-medium text-gray-300">{row.label}</dt>
-							<dd className="mt-1 text-sm/6 sm:col-span-2 sm:mt-0">{row.value}</dd>
+							<dt className="text-sm/6 font-medium text-foreground">{row.label}</dt>
+							<dd className="mt-1 text-sm/6 text-muted-foreground sm:col-span-2 sm:mt-0">{row.value}</dd>
 						</div>
 					))}
 				</dl>
