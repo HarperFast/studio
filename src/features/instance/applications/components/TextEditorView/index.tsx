@@ -2,6 +2,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useListener } from '@/lib/events/listener';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
@@ -36,6 +37,7 @@ export function TextEditorView() {
 		setContent(newValue !== openedEntryContents ? newValue : undefined);
 	}, [openedEntryContents, setContent]);
 
+	const monacoTheme = useMonacoTheme();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
 
@@ -92,7 +94,7 @@ export function TextEditorView() {
 		<Editor
 			className="w-full min-h-full h-80"
 			language={language}
-			theme="vs-dark"
+			theme={monacoTheme}
 			value={updatedFileContent ?? openedEntryContents}
 			onMount={handleEditorDidMount}
 			onChange={readOnly ? undefined : setUpdatedFileContent}

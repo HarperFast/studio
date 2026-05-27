@@ -12,6 +12,7 @@ import { HarperVersion } from '@/features/instance/config/overview/components/Ha
 import { InstanceNodeName } from '@/features/instance/config/overview/components/InstanceNodeName';
 import { InstanceURL } from '@/features/instance/config/overview/components/InstanceURL';
 import { LastDeployedTimestamp } from '@/features/instance/config/overview/components/LastDeployedTimestamp';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import {
@@ -91,6 +92,7 @@ export function ConfigOverviewIndex() {
 		return omitRestrictedFields(configurationInfo);
 	}, [configurationInfo]);
 
+	const monacoTheme = useMonacoTheme();
 	const [isEditing, setIsEditing] = useState(false);
 	const [editedConfig, setEditedConfig] = useState<string>('');
 	const [jsonError, setJsonError] = useState<string | null>(null);
@@ -296,7 +298,7 @@ export function ConfigOverviewIndex() {
 						<Editor
 							className="w-full min-h-full h-96"
 							language="json"
-							theme="vs-dark"
+							theme={monacoTheme}
 							options={{ readOnly: !isEditing, scrollBeyondLastLine: false }}
 							value={isEditing ? editedConfig : JSON.stringify(sanitizedConfigInfo, null, 4)}
 							onChange={handleEditorChange}

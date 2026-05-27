@@ -17,6 +17,7 @@ import {
 import { useUpdateOrganizationRole } from '@/features/organization/mutations/updateOrganizationRole';
 import { getOrganizationRoleInfoQueryOptions } from '@/features/organization/queries/getOrganizationRoleInfo';
 import { useCloudAuth } from '@/hooks/useAuth';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
 import { safeParse } from '@/lib/string/safeParse';
@@ -47,6 +48,7 @@ export function EditOrganizationRoleModal({
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
 
+	const monacoTheme = useMonacoTheme();
 	const [isConfirmingRoleDeletion, setIsConfirmingRoleDeletion] = useState(false);
 
 	const form = useForm({
@@ -240,7 +242,7 @@ export function EditOrganizationRoleModal({
 									/>
 									<div className="col-span-2">
 										<Editor
-											theme="vs-dark"
+											theme={monacoTheme}
 											height="300px"
 											defaultLanguage="json"
 											onValidate={onValidate}

@@ -7,6 +7,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { calculateDefaultPermissions } from '@/features/instance/config/roles/defaultCalculator';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { LocalRole, LocalRolePermission } from '@/integrations/api/api.patch';
 import { useAlterRole } from '@/integrations/api/instance/auth/alterRole';
 import { useDeleteRoleMutation } from '@/integrations/api/instance/auth/deleteRole';
@@ -35,6 +36,7 @@ export function EditRoleModal({
 	onSelectRole: (role?: string) => void;
 	onChangesSaved: () => void;
 }) {
+	const monacoTheme = useMonacoTheme();
 	const { role, permission: initialPermissions } = data;
 	const [updatedPermissions, setUpdatedPermissions] = useState<string | undefined>(
 		JSON.stringify(initialPermissions, null, 2),
@@ -155,7 +157,7 @@ export function EditRoleModal({
 				{defaultValue
 					? (
 						<Editor
-							theme="vs-dark"
+							theme={monacoTheme}
 							height="400px"
 							defaultLanguage="json"
 							value={updatedPermissions}
