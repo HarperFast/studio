@@ -43,6 +43,7 @@ const defaultFormValues: z.infer<typeof LogFiltersFormSchema> = {
 	level: 'undefined',
 	from: '',
 	until: '',
+	filter: '',
 };
 
 const levelIcons: Record<ReadLogItem['level'], React.ReactNode> = {
@@ -184,6 +185,7 @@ export function Logs() {
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	const version = registrationInfo?.version;
 	const showLogName = !isLocalStudio && !!version && wasAReleasedBeforeB('5.0.13', version);
+	const showFilter = !!version && wasAReleasedBeforeB('4.7.16', version);
 
 	const {
 		data: instanceLogs,
@@ -234,15 +236,16 @@ export function Logs() {
 
 	return (
 		<div className="grid grid-cols-1 gap-4 text-foreground md:grid-cols-12">
-			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pt-4 md:pt-12">
+			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2">
 				<LogsFiltersForm
 					form={form}
 					resetFilters={resetFilters}
 					submitFilters={submitFilters}
 					showLogName={showLogName}
+					showFilter={showFilter}
 				/>
 
-				<div className="flex items-center gap-2 mt-5">
+				<div className="flex items-center gap-2 mt-3">
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}

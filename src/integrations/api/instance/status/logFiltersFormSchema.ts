@@ -7,4 +7,5 @@ export const LogFiltersFormSchema = z.object({
 	from: z.string().or(z.undefined()).or(z.null()).optional(),
 	until: z.string().or(z.undefined()).or(z.null()).optional(),
 	log_name: z.enum(['hdb.log', 'system.log']).or(z.undefined()).or(z.null()).optional(),
+	filter: z.string().or(z.undefined()).or(z.null()).optional(),
 });
