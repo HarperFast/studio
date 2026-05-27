@@ -74,8 +74,11 @@ export function EditRoleModal({
 			null,
 			2,
 		);
-		// We exclude updatedPermissions on purpose from the deps.
-	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes, updatedPermissions]);
+		// We exclude updatedPermissions on purpose from the deps: defaultValue must only recompute on
+		// load and when showAttributes toggles, otherwise the useEffect below overwrites the editor's
+		// value on every keystroke and Monaco jumps the cursor to the end of the input.
+		// eslint-disable-next-line react/exhaustive-deps
+	}, [initialPermissions, instanceDatabaseMap, registrationInfo, showAttributes]);
 
 	useEffect(() => {
 		setUpdatedPermissions(defaultValue);
