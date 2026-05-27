@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import Editor from '@monaco-editor/react';
@@ -27,6 +28,7 @@ export function ViewLogModal({
 	isModalOpen: boolean;
 	data: ReadLogItem | undefined;
 }) {
+	const monacoTheme = useMonacoTheme();
 	const variant: BadgeNodeVariantValues = data ? memoizeNodeNames(data.node) : 'default';
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -68,7 +70,7 @@ export function ViewLogModal({
 								<Editor
 									className="w-full h-72"
 									language={isJsonString(data.message) ? 'json' : 'text'}
-									theme="vs-dark"
+									theme={monacoTheme}
 									value={data.message}
 									options={{
 										readOnly: true,

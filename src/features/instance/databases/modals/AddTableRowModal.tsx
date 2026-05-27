@@ -2,6 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { useInsertTableRecords } from '@/integrations/api/instance/database/insertTableRecords';
 import { pluralize } from '@/lib/pluralize';
@@ -21,6 +22,7 @@ export function AddTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	refreshTable: () => void;
 }) {
+	const monacoTheme = useMonacoTheme();
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const instanceParams = useInstanceClientIdParams();
 
@@ -125,7 +127,7 @@ export function AddTableRowModal({
 				<Editor
 					className="w-full h-96"
 					language="json"
-					theme="vs-dark"
+					theme={monacoTheme}
 					value={sampleJSON}
 					onValidate={onValidate}
 					onChange={setAddTableRecordData}

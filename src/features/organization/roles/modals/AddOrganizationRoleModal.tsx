@@ -14,6 +14,7 @@ import {
 	OrganizationRoleSpecificPermissionsType,
 	OrganizationRoleUpdatePayloadType,
 } from '@/features/organization/mutations/OrganizationRoleFormSchema';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { safeParse } from '@/lib/string/safeParse';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Editor } from '@monaco-editor/react';
@@ -46,6 +47,7 @@ export function AddOrganizationRoleModal({
 	isModalOpen: boolean;
 	setIsModalOpen: (isOpen: boolean) => void;
 }) {
+	const monacoTheme = useMonacoTheme();
 	const queryClient = useQueryClient();
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
 	const [isValidJSON, setIsValidJSON] = useState(true);
@@ -163,7 +165,7 @@ export function AddOrganizationRoleModal({
 						/>
 						<div className="col-span-2">
 							<Editor
-								theme="vs-dark"
+								theme={monacoTheme}
 								height="300px"
 								defaultLanguage="json"
 								onValidate={onValidate}

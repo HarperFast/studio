@@ -1,6 +1,7 @@
 import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import Editor from '@monaco-editor/react';
 import { Save, Trash } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -28,6 +29,7 @@ export function EditTableRowModal({
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
 }) {
+	const monacoTheme = useMonacoTheme();
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [madeChanges, setMadeChanges] = useState(false);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
@@ -63,7 +65,7 @@ export function EditTableRowModal({
 						<Editor
 							className="w-full h-96"
 							language="json"
-							theme="vs-dark"
+							theme={monacoTheme}
 							options={canEditRecords ? undefined : { readOnly: true }}
 							value={value}
 							onValidate={onValidate}
