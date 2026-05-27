@@ -235,8 +235,8 @@ export function Logs() {
 	const onRefreshClick = useRefreshClick(refetchReadLogQueryOptions);
 
 	return (
-		<div className="grid grid-cols-1 gap-4 text-foreground md:grid-cols-12">
-			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2">
+		<div className="grid grid-cols-1 gap-4 pt-2 text-foreground md:grid-cols-12">
+			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-4 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34)))] md:overflow-y-auto">
 				<LogsFiltersForm
 					form={form}
 					resetFilters={resetFilters}
