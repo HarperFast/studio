@@ -30,6 +30,7 @@ export async function getReadLog(
 		from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
 		until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,
 		log_name: logFilters.log_name ?? undefined,
+		filter: logFilters.filter ? logFilters.filter : undefined,
 		order: 'desc',
 	});
 	return data;
@@ -46,6 +47,7 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 			logFilters.from,
 			logFilters.until,
 			logFilters.log_name,
+			logFilters.filter,
 			params.replicated,
 		] as const,
 		queryFn: () => getReadLog(params),
