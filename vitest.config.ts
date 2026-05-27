@@ -5,6 +5,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
 	test: {
 		environment: 'node',
+		// Worker threads spin up faster than forked processes, trimming
+		// per-file startup overhead. Isolation stays on (the default) because
+		// several suites rely on vi.mock, which is unreliable without it.
+		pool: 'threads',
 		include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
 		exclude: [
 			'**/node_modules/**',
