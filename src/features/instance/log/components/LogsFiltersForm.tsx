@@ -9,7 +9,9 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
-import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { cn } from '@/lib/cn';
+import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
 
@@ -26,15 +28,28 @@ export function LogsFiltersForm({
 	showLogName?: boolean;
 	showFilter?: boolean;
 }) {
+	const [isOpen, setIsOpen] = useState(false);
+
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle className="flex items-center gap-2 text-base">
-					<SlidersHorizontalIcon className="size-4 text-muted-foreground" />
-					Filters
-				</CardTitle>
+				<button
+					type="button"
+					onClick={() => setIsOpen((open) => !open)}
+					aria-expanded={isOpen}
+					aria-controls="logs-filters-content"
+					className="flex w-full items-center justify-between md:pointer-events-none"
+				>
+					<CardTitle className="flex items-center gap-2 text-base">
+						<SlidersHorizontalIcon className="size-4 text-muted-foreground" />
+						Filters
+					</CardTitle>
+					<ChevronDownIcon
+						className={cn('size-4 text-muted-foreground transition-transform md:hidden', isOpen && 'rotate-180')}
+					/>
+				</button>
 			</CardHeader>
-			<CardContent>
+			<CardContent id="logs-filters-content" className={cn(!isOpen && 'hidden', 'md:block')}>
 				<Form {...form}>
 					<form
 						id="instance-edit-log-filters-form"
