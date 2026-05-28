@@ -423,8 +423,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					/>
 
 					<DropdownMenu>
-						<DropdownMenuTrigger disabled={!instanceDatabaseMap}>
-							<EllipsisIcon aria-label="Table options" color={!instanceDatabaseMap ? 'gray' : 'white'} />
+						<DropdownMenuTrigger asChild disabled={!instanceDatabaseMap}>
+							<Button variant="ghost" size="icon" disabled={!instanceDatabaseMap}>
+								<EllipsisIcon aria-label="Table options" />
+							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
 							<DropdownMenuItem className="focus:bg-primary/70 focus:text-white" onClick={toggleOnlyCached}>
