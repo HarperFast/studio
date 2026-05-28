@@ -26,7 +26,12 @@ export function errorHandler(rawErr: unknown) {
 		errorTitle = split.shift()!;
 		errorMsg = split.join(':');
 	}
+	// Axios surfaces request timeouts as ECONNABORTED / ETIMEDOUT. Multiple
+	// queries can timeout in parallel and stack up identical toasts; collapse
+	// them onto a single id so the user sees one instead of a wall.
+	const isTimeout = axiosWrappedErr?.code === 'ECONNABORTED' || axiosWrappedErr?.code === 'ETIMEDOUT';
 	toast.error(errorTitle, {
+		id: isTimeout ? 'request-timeout' : undefined,
 		description: errorMsg,
 		action: {
 			label: 'Dismiss',
