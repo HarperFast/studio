@@ -302,7 +302,7 @@ export function ClusterForm({
 					duration={deploymentDescription === 'Dedicated' ? 60_000 : 5_000}
 				/>
 			),
-			duration: 120_000,
+			duration: 0,
 		}), []);
 
 	const onClusterSavedCallback = useCallback(async ({
