@@ -37,6 +37,65 @@ describe('parseComparator', () => {
 		});
 	});
 
+	it('requires a separator after alphabetic operators to avoid ambiguity', () => {
+		// "LT1" looks like it could be the literal value "LT1" — a letter operator
+		// only counts as a comparator if it's followed by a space or underscore.
+		expect(parseComparator('LT1')).toEqual({
+			comparator: 'equals',
+			value: 'LT1',
+		});
+		expect(parseComparator('gt5')).toEqual({
+			comparator: 'equals',
+			value: 'gt5',
+		});
+		expect(parseComparator('greaterthan10')).toEqual({
+			comparator: 'equals',
+			value: 'greaterthan10',
+		});
+
+		// With a space it's unambiguous, so the operator parses.
+		expect(parseComparator('lt 1')).toEqual({
+			comparator: 'less_than',
+			value: '1',
+		});
+		expect(parseComparator('LT 1')).toEqual({
+			comparator: 'less_than',
+			value: '1',
+		});
+		expect(parseComparator('gt 5')).toEqual({
+			comparator: 'greater_than',
+			value: '5',
+		});
+		expect(parseComparator('lt_1')).toEqual({
+			comparator: 'less_than',
+			value: '1',
+		});
+	});
+
+	it('does not require a separator for symbolic operators', () => {
+		// Symbols like < and >= are unambiguous, so no space needed.
+		expect(parseComparator('<1')).toEqual({
+			comparator: 'less_than',
+			value: '1',
+		});
+		expect(parseComparator('< 1')).toEqual({
+			comparator: 'less_than',
+			value: '1',
+		});
+		expect(parseComparator('>=10')).toEqual({
+			comparator: 'greater_than_equal',
+			value: '10',
+		});
+		expect(parseComparator('>1')).toEqual({
+			comparator: 'greater_than',
+			value: '1',
+		});
+		expect(parseComparator('<=3.14')).toEqual({
+			comparator: 'less_than_equal',
+			value: '3.14',
+		});
+	});
+
 	it('can compare strings', () => {
 		expect(parseComparator('!= foo')).toEqual({
 			comparator: 'ne',
