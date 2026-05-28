@@ -57,7 +57,7 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 		<div className="pl-3">
 			<h1 className="pt-3 pb-3 text-3xl">Databases</h1>
 			{loading
-				? <TextLoadingSkeleton className="w-full h-9 m-0 rounded-md bg-gray-700" />
+				? <TextLoadingSkeleton className="w-full h-9 m-0 rounded-md" />
 				: (
 					<div className="flex space-x-2">
 						<Select
@@ -82,7 +82,7 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 					</div>
 				)}
 			{loading
-				? <TextLoadingSkeleton className="w-full min-h-80 rounded-md bg-gray-700 mb-0" />
+				? <TextLoadingSkeleton className="w-full min-h-80 rounded-md mb-0" />
 				: (
 					<ScrollArea className="border rounded-md min-h-80 border-grey-700 mt-4">
 						{tableNames.length === 0 && params.databaseName?.length
