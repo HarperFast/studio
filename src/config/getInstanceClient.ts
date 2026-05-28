@@ -52,7 +52,7 @@ export function getInstanceClient(
 	const client = axios.create({
 		auth: fabricConnect ? undefined : basicAuth,
 		withCredentials: fabricConnect || !basicAuth,
-		timeout: 15000,
+		timeout: 60000,
 		headers: {
 			'Content-Type': 'application/json',
 		},
