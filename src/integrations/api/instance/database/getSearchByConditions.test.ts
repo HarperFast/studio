@@ -30,6 +30,33 @@ describe('parseComparator', () => {
 		});
 	});
 
+	it('supports full ISO timestamps with T and Z', () => {
+		// The regex matches against the lowered string, so the T/Z chars in the
+		// value class must also be lowercase — otherwise full ISO datetimes
+		// silently fall through to equals.
+		expect(parseComparator('>= 2025-10-01T12:00:00Z')).toEqual({
+			comparator: 'greater_than_equal',
+			value: '2025-10-01t12:00:00z',
+		});
+		expect(parseComparator('< 2025-10-01T12:00:00Z')).toEqual({
+			comparator: 'less_than',
+			value: '2025-10-01t12:00:00z',
+		});
+	});
+
+	it('tolerates a trailing space after the value', () => {
+		// Filters typed by hand sometimes have an accidental trailing space
+		// (e.g. "> 1 "). It should still parse cleanly, not throw downstream.
+		expect(parseComparator('> 1 ')).toEqual({
+			comparator: 'greater_than',
+			value: '1',
+		});
+		expect(parseComparator('>=10 ')).toEqual({
+			comparator: 'greater_than_equal',
+			value: '10',
+		});
+	});
+
 	it('falls back to equals with pure numbers', () => {
 		expect(parseComparator('2025')).toEqual({
 			comparator: 'equals',

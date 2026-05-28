@@ -246,7 +246,7 @@ export function parseComparator(value: string): { comparator: Comparator; value:
 	//   - letters-only (lt, gt, greaterthan, etc.): a space or underscore separator is required,
 	//     otherwise `LT1` would be ambiguous with values like "LT1" that just happen to start with letters
 	const numericalComparator = lowered.match(
-		/^ *([>=<]+[a-z]*[_ ]*|[a-z]+[>=<]+[_ ]*|[a-z]+[_ ]+)([\d._TZ-]+)$/,
+		/^ *([>=<]+[a-z]*[_ ]*|[a-z]+[>=<]+[_ ]*|[a-z]+[_ ]+)([\d._:tz-]+) *$/,
 	);
 	if (numericalComparator) {
 		const prefix = numericalComparator[1]
