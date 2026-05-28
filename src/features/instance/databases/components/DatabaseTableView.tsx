@@ -325,7 +325,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	);
 
 	const [columnVisibility, setColumnVisibility] = useSessionStorage(
-		`ColumnDisplayed/${databaseName}}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
+		`ColumnDisplayed/${databaseName}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
 		{} satisfies VisibilityState,
 	);
 

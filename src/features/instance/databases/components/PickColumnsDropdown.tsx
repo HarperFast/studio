@@ -6,11 +6,10 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
-import { useToggler } from '@/hooks/useToggler';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { VisibilityState } from '@tanstack/react-table';
 import { Columns3CogIcon } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 export function PickColumnsDropdown({
 	columns,
@@ -23,9 +22,15 @@ export function PickColumnsDropdown({
 }) {
 	const columnHeaders = useMemo(() => {
 		return columns
-			.map(c => c.header as string)
+			.map(c => (typeof c.header === 'string' ? c.header : undefined))
 			.filter(excludeFalsy);
 	}, [columns]);
+	const toggleColumn = useCallback((columnHeader: string, nextChecked: boolean) => {
+		setColumnVisibility({
+			...columnVisibility,
+			[columnHeader]: nextChecked,
+		});
+	}, [columnVisibility, setColumnVisibility]);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -39,8 +44,8 @@ export function PickColumnsDropdown({
 					<ColumnPicker
 						key={columnHeader}
 						columnHeader={columnHeader}
-						columnVisibility={columnVisibility}
-						setColumnVisibility={setColumnVisibility}
+						isChecked={columnVisibility[columnHeader] ?? true}
+						toggleColumn={toggleColumn}
 					/>
 				))}
 			</DropdownMenuContent>
@@ -50,24 +55,22 @@ export function PickColumnsDropdown({
 
 function ColumnPicker({
 	columnHeader,
-	columnVisibility,
-	setColumnVisibility,
+	isChecked,
+	toggleColumn,
 }: {
 	columnHeader: string;
-	columnVisibility: VisibilityState;
-	setColumnVisibility: (columnVisibility: VisibilityState) => void;
+	isChecked: boolean;
+	toggleColumn: (columnHeader: string, nextChecked: boolean) => void;
 }) {
-	const { toggled: isChecked, toggle: onCheckedChanged } = useToggler(columnVisibility[columnHeader] ?? true);
-	useEffect(() => {
-		if (columnVisibility[columnHeader] !== isChecked) {
-			setColumnVisibility({
-				...columnVisibility,
-				[columnHeader]: isChecked,
-			});
-		}
-	}, [columnHeader, columnVisibility, isChecked, setColumnVisibility]);
+	const onCheckedChange = useCallback((checked: boolean) => {
+		toggleColumn(columnHeader, checked);
+	}, [columnHeader, toggleColumn]);
 	return (
-		<DropdownMenuCheckboxItem key={columnHeader} checked={isChecked} onClick={onCheckedChanged}>
+		<DropdownMenuCheckboxItem
+			checked={isChecked}
+			onCheckedChange={onCheckedChange}
+			onSelect={e => e.preventDefault()}
+		>
 			{columnHeader}
 		</DropdownMenuCheckboxItem>
 	);
