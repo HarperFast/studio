@@ -240,7 +240,14 @@ const comparatorNumericalPrefixMappings: Record<string, Comparator> = {
 export function parseComparator(value: string): { comparator: Comparator; value: string } {
 	const lowered = value.toLowerCase();
 
-	const numericalComparator = lowered.match(/^([>=<a-z_ ]+)([\d._TZ-]+)$/);
+	// Three accepted prefix shapes:
+	//   - symbol-led (>, <, >=, =gt, etc.): no separator needed before the value
+	//   - letters-then-symbol (gte=, lt=, etc.): the symbol acts as the separator
+	//   - letters-only (lt, gt, greaterthan, etc.): a space or underscore separator is required,
+	//     otherwise `LT1` would be ambiguous with values like "LT1" that just happen to start with letters
+	const numericalComparator = lowered.match(
+		/^ *([>=<]+[a-z]*[_ ]*|[a-z]+[>=<]+[_ ]*|[a-z]+[_ ]+)([\d._TZ-]+)$/,
+	);
 	if (numericalComparator) {
 		const prefix = numericalComparator[1]
 			.replace(/[_ ]+/g, '')
