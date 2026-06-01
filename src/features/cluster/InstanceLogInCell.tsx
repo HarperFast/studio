@@ -25,7 +25,7 @@ export function InstanceLogInCell(
 		authStore.setUserForEntity(instance, null);
 	}, [instance, instanceClient]);
 
-	if (instanceAuthIsLoading || !['CLONE_READY', 'RUNNING', 'UPDATED'].includes(instance.status)) {
+	if (instanceAuthIsLoading || !['CLONE_READY', 'RUNNING', 'UPDATED', 'PENDING_UPGRADE'].includes(instance.status)) {
 		return <LoaderCircleIcon className="animate-spin" color="gray" />;
 	}
 

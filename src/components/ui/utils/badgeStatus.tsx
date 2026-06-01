@@ -2,7 +2,9 @@ export type BadgeStatusVariant =
 	| string
 	| 'PROVISIONING'
 	| 'CLONE_PENDING'
+	| 'PENDING_UPGRADE'
 	| 'UPDATING_HDB_NODES'
+	| 'DRAINING'
 	| 'UPDATING'
 	| 'CLONE_READY'
 	| 'RUNNING'
@@ -65,9 +67,10 @@ export function isTerminated(value: string | undefined): value is 'TERMINATED' {
 	}
 }
 
-export function isPendingUpdate(value: string | undefined): value is 'CLONE_PENDING' {
+export function isPendingUpdate(value: string | undefined): value is 'CLONE_PENDING' | 'PENDING_UPGRADE' {
 	switch (value) {
 		case 'CLONE_PENDING':
+		case 'PENDING_UPGRADE':
 			return true;
 		default:
 			return false;
@@ -76,12 +79,13 @@ export function isPendingUpdate(value: string | undefined): value is 'CLONE_PEND
 
 export function isBeingUpdated(
 	value: string | undefined,
-): value is 'PROVISIONING' | 'CLONING' | 'CLONE_READY' | 'UPDATING_HDB_NODES' | 'UPDATING' {
+): value is 'PROVISIONING' | 'CLONING' | 'CLONE_READY' | 'UPDATING_HDB_NODES' | 'DRAINING' | 'UPDATING' {
 	switch (value) {
 		case 'PROVISIONING':
 		case 'CLONING':
 		case 'CLONE_READY':
 		case 'UPDATING_HDB_NODES':
+		case 'DRAINING':
 		case 'UPDATING':
 			return true;
 		default:
