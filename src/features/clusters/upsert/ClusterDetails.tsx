@@ -14,6 +14,7 @@ import { useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
+import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
@@ -53,13 +54,18 @@ export function ClusterDetails({
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
 	const availablePerformanceDescriptions = useMemo(() => {
-		return Object.keys(deploymentToPerformanceToPlan[selectedDeployment] || {}).map(performanceTier => {
+		const plansByTier = deploymentToPerformanceToPlan[selectedDeployment] || {};
+		const planLevels = Object.values(plansByTier).map(plan => plan.planLevel ?? 0);
+		const minPlanLevel = planLevels.length ? Math.min(...planLevels) : 0;
+		return Object.keys(plansByTier).map(performanceTier => {
+			const isPremium = (plansByTier[performanceTier].planLevel ?? 0) > minPlanLevel;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
 				return {
 					performanceTier,
 					name: splitByParens[0],
 					description: splitByParens[1],
+					isPremium,
 				};
 			}
 			const splitByFor = performanceTier.split(' for ');
@@ -68,18 +74,28 @@ export function ClusterDetails({
 					performanceTier,
 					name: splitByFor[0],
 					description: 'For ' + splitByFor[1],
+					isPremium,
 				};
 			}
 			return {
 				performanceTier,
 				name: performanceTier,
 				description: '',
+				isPremium,
 			};
 		});
 	}, [deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() => Object.keys(deploymentToPerformanceToPlan).sort(), [
 		deploymentToPerformanceToPlan,
 	]);
+	const premiumOnlyRegions = useMemo(
+		() =>
+			calculatePremiumOnlyRegions(
+				Object.values(deploymentToPerformanceToPlan[selectedDeployment] || {}),
+				regionNameToLatencyToRegion,
+			),
+		[deploymentToPerformanceToPlan, regionNameToLatencyToRegion, selectedDeployment],
+	);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
 		if (
@@ -114,7 +130,7 @@ export function ClusterDetails({
 	if (mode === 'version') {
 		return (
 			<>
-				<div className="grid grid-cols-3 gap-6 text-foreground md:grid-cols-6">
+				<div className="grid grid-cols-3 items-start gap-6 text-foreground md:grid-cols-6">
 					<ClusterName
 						className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
 						disabled={true}
@@ -134,7 +150,7 @@ export function ClusterDetails({
 
 	return (
 		<>
-			<div className="grid grid-cols-3 gap-6 text-foreground md:grid-cols-6">
+			<div className="grid grid-cols-3 items-start gap-6 text-foreground md:grid-cols-6">
 				<ClusterName
 					className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
 					disabled={!!clusterId}
@@ -166,6 +182,7 @@ export function ClusterDetails({
 							form={form}
 							regionLocations={regionLocations}
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+							premiumOnlyRegions={premiumOnlyRegions}
 							selectedPlan={selectedPlan}
 							totalPrice={totalPrice}
 							isEnterprise={isEnterprise}

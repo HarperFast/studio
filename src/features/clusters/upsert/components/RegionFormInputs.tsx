@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
@@ -11,6 +12,7 @@ import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
 import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
+import { PremiumOnlyRegions } from '../lib/calculatePremiumOnlyRegions';
 import { ResourcesPerInstance } from './ResourcesPerInstance';
 
 type RegionFormInputsProps = {
@@ -19,6 +21,7 @@ type RegionFormInputsProps = {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	index: number;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	premiumOnlyRegions: PremiumOnlyRegions;
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
@@ -30,6 +33,7 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
+	premiumOnlyRegions,
 	selectedPlan,
 	isEnterprise,
 	cloudProvider,
@@ -43,6 +47,26 @@ export function RegionFormInputs({
 	const availableLatencyDescriptions = useMemo(
 		() => Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}).sort(sortByNumberPrefix).reverse(),
 		[regionNameToLatencyToRegion, selectedRegionName],
+	);
+
+	const allowedRegionIds = selectedPlan?.allowedRegionIds;
+	const isRegionAllowedByPlan = useCallback(
+		(regionName: string) =>
+			!allowedRegionIds?.length
+			|| Object.values(regionNameToLatencyToRegion[regionName] || {}).some(region =>
+				allowedRegionIds.includes(region.id)
+			),
+		[allowedRegionIds, regionNameToLatencyToRegion],
+	);
+	const isLatencyAllowedByPlan = useCallback(
+		(latencyDescription: string) => {
+			if (!allowedRegionIds?.length) {
+				return true;
+			}
+			const id = regionNameToLatencyToRegion[selectedRegionName]?.[latencyDescription]?.id;
+			return !id || allowedRegionIds.includes(id);
+		},
+		[allowedRegionIds, regionNameToLatencyToRegion, selectedRegionName],
 	);
 
 	useEffect(function autoPickLatencyDescription() {
@@ -86,7 +110,12 @@ export function RegionFormInputs({
 								<SelectContent>
 									<SelectGroup>
 										{availableRegionNames.map((regionName) => (
-											<SelectItem key={regionName} value={regionName}>{regionName}</SelectItem>
+											<SelectItem key={regionName} value={regionName} disabled={!isRegionAllowedByPlan(regionName)}>
+												<span className="flex items-center gap-2">
+													{regionName}
+													{premiumOnlyRegions.regionNames.has(regionName) && <Badge>Premium</Badge>}
+												</span>
+											</SelectItem>
 										))}
 									</SelectGroup>
 								</SelectContent>
@@ -118,7 +147,19 @@ export function RegionFormInputs({
 								<SelectContent>
 									<SelectGroup>
 										{availableLatencyDescriptions.map((latencyDescription) => (
-											<SelectItem key={latencyDescription} value={latencyDescription}>{latencyDescription}</SelectItem>
+											<SelectItem
+												key={latencyDescription}
+												value={latencyDescription}
+												disabled={!isLatencyAllowedByPlan(latencyDescription)}
+											>
+												<span className="flex items-center gap-2">
+													{latencyDescription}
+													{(() => {
+														const id = regionNameToLatencyToRegion[selectedRegionName]?.[latencyDescription]?.id;
+														return id && premiumOnlyRegions.regionIds.has(id) && <Badge>Premium</Badge>;
+													})()}
+												</span>
+											</SelectItem>
 										))}
 									</SelectGroup>
 								</SelectContent>

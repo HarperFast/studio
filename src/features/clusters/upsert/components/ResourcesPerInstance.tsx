@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
@@ -153,11 +154,11 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 	return (
 		<FormItem className="basis-full">
 			<FormLabel onClick={onUsageLimitsClick}>
-				<em className="text-muted-foreground">{selectedPlan?.id}</em> Purchasing usage block for {maybeReadsPerMinute}
+				Purchasing usage block for {maybeReadsPerMinute}
 				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {inRegionOrPerServer},
 				<br className="hidden sm:block" />
-				{maybeWritesPerMinute} {humanNumber(planLimits.totalWriteCount)} total writes{forMonths}.
-				{pricingSubjectToTerms}
+				{maybeWritesPerMinute} {humanNumber(planLimits.totalWriteCount)} total writes{forMonths}.{' '}
+				<Badge variant="warning" className="mx-1 align-middle">{pricingSubjectToTerms.trim()}</Badge>
 				<br className="block sm:hidden" />
 				<Button
 					type="button"
