@@ -457,7 +457,9 @@ export function ClusterForm({
 				<div className="absolute top-3 right-4 md:right-12 text-right">
 					<dt className="font-light">Total Price</dt>
 					<dd className="font-bold">
-						<PriceDisplay price={totalPrice} />
+						{totalPrice > 0
+							? <PriceDisplay price={totalPrice} />
+							: <span className="text-4xl text-green">Free</span>}
 					</dd>
 				</div>
 			)}

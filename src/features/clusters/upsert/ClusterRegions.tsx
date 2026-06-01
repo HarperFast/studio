@@ -6,12 +6,14 @@ import { PlusIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
 import { RegionFormInputs } from './components/RegionFormInputs';
+import { PremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	premiumOnlyRegions: PremiumOnlyRegions;
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number | undefined;
 	isEnterprise: boolean;
@@ -22,6 +24,7 @@ export function ClusterRegions({
 	form,
 	regionLocations,
 	regionNameToLatencyToRegion,
+	premiumOnlyRegions,
 	selectedPlan,
 	totalPrice,
 	isEnterprise,
@@ -85,6 +88,7 @@ export function ClusterRegions({
 					index={index}
 					key={field.id}
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+					premiumOnlyRegions={premiumOnlyRegions}
 					selectedPlan={selectedPlan}
 					isEnterprise={isEnterprise}
 					cloudProvider={cloudProvider}
