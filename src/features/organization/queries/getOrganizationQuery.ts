@@ -12,6 +12,7 @@ export function getOrganizationQueryOptions(orgId: string) {
 		queryKey: [orgId],
 		queryFn: () => getOrganization(orgId),
 		retry: false,
+		enabled: !!orgId,
 		refetchInterval: 10000,
 	});
 }
