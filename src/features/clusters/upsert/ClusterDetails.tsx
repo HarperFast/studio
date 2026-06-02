@@ -15,6 +15,7 @@ import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
+import { calculateUsageScale } from './lib/calculateUsageScale';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
@@ -95,6 +96,14 @@ export function ClusterDetails({
 				regionNameToLatencyToRegion,
 			),
 		[deploymentToPerformanceToPlan, regionNameToLatencyToRegion, selectedDeployment],
+	);
+	const usageScale = useMemo(
+		() =>
+			calculateUsageScale(
+				Object.values(deploymentToPerformanceToPlan).flatMap(performanceToPlan => Object.values(performanceToPlan)),
+				regionNameToLatencyToRegion,
+			),
+		[deploymentToPerformanceToPlan, regionNameToLatencyToRegion],
 	);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
@@ -183,6 +192,7 @@ export function ClusterDetails({
 							regionLocations={regionLocations}
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 							premiumOnlyRegions={premiumOnlyRegions}
+							usageScale={usageScale}
 							selectedPlan={selectedPlan}
 							totalPrice={totalPrice}
 							isEnterprise={isEnterprise}
