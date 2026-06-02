@@ -2,14 +2,23 @@ import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
 import { NewOrg } from '@/features/organizations/NewOrg';
+import {
+	ALL_ORGANIZATIONS_PAGE_SIZE,
+	getAllOrganizationsQueryOptions,
+} from '@/features/organizations/queries/getAllOrganizations';
+import { useAdminMode } from '@/hooks/useAuth';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, Navigate, useSearch } from '@tanstack/react-router';
-import { PlusIcon } from 'lucide-react';
+import { ArrowLeftIcon, ArrowRightIcon, PlusIcon } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -29,6 +38,24 @@ export function OrganizationsIndex() {
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 	const clearFilterByNameValue = useCallback(() => setFilterByNameValue(''), []);
 
+	const isAdminMode = useAdminMode();
+	const [showAllOrgs, setShowAllOrgs] = useSessionStorage('ShowAllOrganizations', false);
+	const [pageIndex, setPageIndex] = useState(0);
+	const showAll = isAdminMode && showAllOrgs;
+
+	const onShowAllOrgsChanged = useCallback((checked: boolean) => {
+		setShowAllOrgs(checked);
+		setPageIndex(0);
+	}, [setShowAllOrgs]);
+
+	// In the admin view, filtering happens server-side; debounce so we don't
+	// issue a request per keystroke.
+	const debouncedFilterValue = useDebounce(filterByNameValue, 300);
+	const { data: allOrgsPage, isPending: isAllOrgsPending } = useQuery({
+		...getAllOrganizationsQueryOptions(pageIndex, debouncedFilterValue),
+		enabled: showAll,
+	});
+
 	const organizationRoles = useMemo(() => {
 		const roles = user?.roles || {};
 		const organizations = Object.values(roles);
@@ -44,8 +71,24 @@ export function OrganizationsIndex() {
 		);
 	}, [filterByNameValue, user?.roles]);
 
+	// Roles for organizations the fabric admin is fetching server-side. Falls
+	// back to "fabric admin" for organizations the user has no role in.
+	const allOrganizationRoles = useMemo(() => {
+		const roles = user?.roles || {};
+		return (allOrgsPage?.organizations || []).map((org) => ({
+			organizationId: org.id,
+			organizationName: org.name,
+			roleName: roles[org.id]?.role || 'fabric admin',
+		}));
+	}, [allOrgsPage?.organizations, user?.roles]);
+
+	const displayedOrganizationRoles = showAll ? allOrganizationRoles : organizationRoles;
+
 	const onFilterByNameChanged = useCallback((e: FormEvent<HTMLInputElement>) => {
-		setFilterByNameValue(e.currentTarget.value?.toLowerCase() || '');
+		// Keep the raw casing: the fuzzy filter lowercases internally, and the
+		// server-side admin filter wants the value as typed.
+		setFilterByNameValue(e.currentTarget.value || '');
+		setPageIndex(0);
 	}, []);
 
 	const handleDeleteOrg = useCallback(
@@ -78,18 +121,28 @@ export function OrganizationsIndex() {
 
 	const { createCluster }: { createCluster?: string } = useSearch({ strict: false });
 
-	if (organizationRoles.length === 1 && !filterByNameValue.length && createCluster) {
+	if (!showAll && organizationRoles.length === 1 && !filterByNameValue.length && createCluster) {
 		return <Navigate to={`/${organizationRoles[0].organizationId}/new-cluster`} replace={true} />;
 	}
 
-	if (!organizationRoles.length && !filterByNameValue.length) {
+	if (!showAll && !organizationRoles.length && !filterByNameValue.length) {
 		return <NewOrg />;
 	}
 
 	return (
 		<>
 			<SubNavMenu>
-				<div className="flex w-full justify-end gap-2">
+				<div className="flex w-full items-center justify-end gap-2">
+					{isAdminMode && (
+						<label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs">
+							<Switch
+								checked={showAllOrgs}
+								onCheckedChange={onShowAllOrgsChanged}
+								aria-label="Show all organizations"
+							/>
+							<span className="hidden sm:inline-block">All Orgs</span>
+						</label>
+					)}
 					<Input
 						placeholder="Filter by name"
 						className="inline-block w-full text-xs"
@@ -108,21 +161,53 @@ export function OrganizationsIndex() {
 			</SubNavMenu>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-					{organizationRoles.map((organizationRole) => (
-						<div
-							key={organizationRole.organizationId}
-							className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
-						>
-							<OrgCard organizationRole={organizationRole} onDeleteOrgModal={onDeleteOrgModal} />
-						</div>
-					))}
-					{!organizationRoles.length && (
+					{showAll && isAllOrgsPending
+						? Array.from({ length: ALL_ORGANIZATIONS_PAGE_SIZE }, (_, index) => (
+							<Skeleton
+								key={index}
+								className="col-span-1 h-40 md:col-span-4 lg:col-span-3 2xl:col-span-2"
+							/>
+						))
+						: displayedOrganizationRoles.map((organizationRole) => (
+							<div
+								key={organizationRole.organizationId}
+								className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
+							>
+								<OrgCard organizationRole={organizationRole} onDeleteOrgModal={onDeleteOrgModal} />
+							</div>
+						))}
+					{!displayedOrganizationRoles.length && !(showAll && isAllOrgsPending) && (
 						<div className="col-span-1 md:col-span-12 text-center">
 							<h2 className="my-4 text-xl">No matches found.</h2>
 							<Button variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
 						</div>
 					)}
 				</div>
+				{showAll && (pageIndex > 0 || allOrgsPage?.hasNextPage) && (
+					<div className="flex items-center justify-center gap-4 py-6">
+						<Button
+							variant="defaultOutline"
+							size="sm"
+							className="select-none"
+							disabled={pageIndex === 0}
+							onClick={() => setPageIndex((index) => index - 1)}
+						>
+							<ArrowLeftIcon />
+							Previous
+						</Button>
+						<span className="text-sm text-gray-500 dark:text-gray-400">Page {pageIndex + 1}</span>
+						<Button
+							variant="defaultOutline"
+							size="sm"
+							className="select-none"
+							disabled={!allOrgsPage?.hasNextPage}
+							onClick={() => setPageIndex((index) => index + 1)}
+						>
+							Next
+							<ArrowRightIcon />
+						</Button>
+					</div>
+				)}
 			</section>
 			{deleteOrgInfo && (
 				<ConfirmDeletionModal
