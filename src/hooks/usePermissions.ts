@@ -1,5 +1,5 @@
 import { EntityIds } from '@/features/auth/store/authStore';
-import { useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
+import { isAdminMode, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
 	LocalRoleAttributePermissionAction,
@@ -24,6 +24,11 @@ interface CRUV {
 export function useOrganizationPermissions(orgId?: string): UR {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
+
+	if (isAdminMode(user)) {
+		return { update: true, remove: true };
+	}
+
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization) {
 		return { update: false, remove: false };
@@ -37,6 +42,11 @@ export function useOrganizationPermissions(orgId?: string): UR {
 export function useOrganizationRolePermissions(orgId?: string): CRUV {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
+
+	if (isAdminMode(user)) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+
 	const role = user?.roles?.[orgId ?? orgIdFromRoute];
 	if (!role?.permission && !role?.organization?.roles) {
 		return { create: false, remove: false, update: false, view: false };
@@ -63,6 +73,10 @@ export function useOrganizationClusterPermissions(orgId?: string, clusterId?: st
 }
 
 export function getOrganizationClusterPermissions(user: User | null, orgId: string, clusterId: string): CRUV {
+	if (isAdminMode(user)) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+
 	const role = user?.roles?.[orgId];
 	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };
@@ -95,6 +109,10 @@ export function useOrganizationClusterInstancePermissions(orgId?: string, cluste
 }
 
 export function getOrganizationClusterInstancePermissions(user: User | null, orgId: string, clusterId: string): CRUV {
+	if (isAdminMode(user)) {
+		return { create: true, remove: true, update: true, view: true };
+	}
+
 	const role = user?.roles?.[orgId];
 	if (!role?.permission && !role?.organization?.clusters) {
 		return { create: false, remove: false, update: false, view: false };

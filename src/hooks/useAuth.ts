@@ -7,6 +7,7 @@ import {
 	EntityIds,
 	OverallAppSignIn,
 } from '@/features/auth/store/authStore';
+import { User } from '@/integrations/api/api.patch';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
@@ -32,6 +33,10 @@ export function useCloudAuth(): AuthenticatedCloudConnection {
 
 export function useAdminMode(): boolean {
 	const { user } = useCloudAuth();
+	return isAdminMode(user);
+}
+
+export function isAdminMode(user: User | null): boolean {
 	return user?.fabricRole === 'fabric_admin' || user?.fabricRole === 'super_user';
 }
 
