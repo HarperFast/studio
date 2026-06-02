@@ -196,8 +196,7 @@ class AuthStore {
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
 		for (const entityId in this.potentiallyAuthenticated) {
-			this.allConnections[entityId].user = null;
-			this.allConnections[entityId].isLoading = false;
+			this.updateConnectionIfChanged(entityId, false, null);
 			this.flagKeyAsSignedOut(entityId);
 			if (entityId === OverallAppSignIn) {
 				continue;
@@ -227,18 +226,14 @@ class AuthStore {
 	private updateConnectionIfChanged(id: EntityIds, isLoading: boolean, user: AuthenticatedConnection['user']) {
 		this.checkedAuthentication[id] = true;
 		const connection = this.getConnectionById(id);
-		let changes = false;
-		if (connection.isLoading !== isLoading) {
-			connection.isLoading = isLoading;
-			changes = true;
+		if (connection.isLoading === isLoading && connection.user === user) {
+			return;
 		}
-		if (connection.user !== user) {
-			connection.user = user;
-			changes = true;
-		}
-		if (changes) {
-			void this.updateListeners(id);
-		}
+		// Replace the connection instead of mutating it: listeners hand the
+		// connection to React state setters, which bail out when they receive
+		// the same object reference and would never re-render.
+		this.allConnections[id] = { isLoading, user };
+		void this.updateListeners(id);
 	}
 
 	private flagKeyAsSignedIn(id: EntityIds, key: AuthenticatedConnectionKey) {
