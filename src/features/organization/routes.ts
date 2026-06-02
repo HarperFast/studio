@@ -6,17 +6,20 @@ import {
 import { OrgConfigRolesIndex } from '@/features/organization/roles';
 import { OrgConfigUsersIndex } from '@/features/organization/users';
 import { orgsLayoutRoute } from '@/features/organizations/routes';
-import { createRoute } from '@tanstack/react-router';
+import { createRoute, redirect } from '@tanstack/react-router';
 
 export const orgLayoutRoute = createRoute({
 	getParentRoute: () => orgsLayoutRoute,
 	path: '$organizationId',
 	beforeLoad: async (opts) => {
 		const { organizationId } = opts.params;
-		// `ensureQueryData` ignores the query's `enabled` flag, so without this guard
-		// a stray `/undefined` URL would still fetch `/Organization/undefined`.
+		// A stray `/undefined` URL would otherwise fetch `/Organization/undefined`
+		// (`ensureQueryData` ignores the query's `enabled` flag). Bounce to the org
+		// picker instead of rendering a broken org shell. Redirecting rather than
+		// returning a partial context also keeps `organization` strictly defined
+		// for every route that loads under here.
 		if (!isValidOrganizationId(organizationId)) {
-			return {};
+			throw redirect({ to: '/' });
 		}
 		return {
 			organization: await opts.context.queryClient.ensureQueryData(
