@@ -9,4 +9,5 @@ export interface SessionStorageKeys {
 	'FolderOpened/{entityId}': true;
 	'FileSelected/{entityId}': true;
 	'ColumnDisplayed/{database}/{table}': true;
+	'ShowAllOrganizations': true;
 }
