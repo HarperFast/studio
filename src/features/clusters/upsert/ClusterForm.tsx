@@ -12,9 +12,11 @@ import { Organization } from '@/integrations/api/api.patch';
 import { ENTERPRISE } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
+import { pluralize } from '@/lib/pluralize';
 import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLength';
 import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
+import { isPositive } from '@/lib/types/isPositive';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -287,6 +289,10 @@ export function ClusterForm({
 				: selectedPlan.priceUsd * regionPlan.instanceCount / 2);
 		}, 0);
 
+	const expirationMonths = selectedPlan?.planLimits?.expirationMonths;
+	const termMonths = isPositive(expirationMonths) && expirationMonths < 1000 ? expirationMonths : undefined;
+	const monthlyPrice = termMonths ? totalPrice / termMonths : totalPrice;
+
 	const onStartSaving = useCallback(({
 		creating,
 		deploymentDescription,
@@ -455,12 +461,23 @@ export function ClusterForm({
 		<>
 			{!isEnterprise && mode !== 'version' && (
 				<div className="absolute top-3 right-4 md:right-12 text-right">
-					<dt className="font-light">Total Price</dt>
+					<dt className="font-light">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="font-bold">
 						{totalPrice > 0
-							? <PriceDisplay price={totalPrice} />
+							? (
+								<span className="inline-flex items-baseline">
+									<PriceDisplay price={monthlyPrice} />
+									{!!termMonths && <span className="font-light text-base text-muted-foreground">/mo</span>}
+								</span>
+							)
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
+					{!!termMonths && termMonths > 1 && totalPrice > 0 && (
+						<dd className="font-light text-xs text-muted-foreground">
+							Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
+							every {pluralize(termMonths, 'month', 'months')}
+						</dd>
+					)}
 				</div>
 			)}
 			<Form {...form}>
