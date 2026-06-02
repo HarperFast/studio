@@ -143,7 +143,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 		? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
 		: ' ';
 	const inRegionOrPerServer = isPositive(planLimits.readsPerMinuteCount)
-		? `in ${selectedRegion?.region ?? ''} region${selectedRegion ? ` (${selectedRegion?.id})` : ''}`
+		? `in ${selectedRegion?.region ?? ''} region`
 		: 'per server';
 	const forMonths = expirationMonths ? `, for ${pluralize(expirationMonths, 'month', 'months')}` : '';
 	const forThePriceAbove = isEnterprise
@@ -155,10 +155,10 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 		<FormItem className="basis-full">
 			<FormLabel onClick={onUsageLimitsClick}>
 				Purchasing usage block for {maybeReadsPerMinute}
-				{humanNumber(planLimits.totalReadCount * multiplier)} total reads {inRegionOrPerServer},
-				<br className="hidden sm:block" />
-				{maybeWritesPerMinute} {humanNumber(planLimits.totalWriteCount)} total writes{forMonths}.{' '}
-				<Badge variant="warning" className="mx-1 align-middle">{pricingSubjectToTerms.trim()}</Badge>
+				{humanNumber(planLimits.totalReadCount * multiplier)} total reads,
+				{maybeWritesPerMinute}
+				{humanNumber(planLimits.totalWriteCount)} total writes {inRegionOrPerServer}
+				{forMonths}. <Badge variant="warning" className="mx-1 align-middle">{pricingSubjectToTerms.trim()}</Badge>
 				<br className="block sm:hidden" />
 				<Button
 					type="button"
@@ -171,11 +171,11 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 			<FormControl>
 				<dl
 					className={cn(
-						'divide-y divide-border border border-border rounded-md overflow-hidden transition-[max-height] duration-200 ease-in',
-						toggled ? 'max-h-fit' : 'max-h-0',
+						'divide-y divide-border rounded-md overflow-hidden transition-[max-height] duration-200 ease-in',
+						toggled ? 'max-h-fit border border-border' : 'max-h-0',
 					)}
 				>
-					<div className="text-sm mb-3 max-w-lg px-3 pt-3 text-muted-foreground">
+					<div className="text-sm mb-4 px-4 pt-4 leading-relaxed text-muted-foreground">
 						This plan licenses Harper for the usage limits below, {forThePriceAbove}. The usage license expires
 						{expiresInMonths}{' '}
 						when any usage limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
