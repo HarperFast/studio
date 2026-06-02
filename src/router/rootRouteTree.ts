@@ -2,7 +2,7 @@ import { isLocalStudio } from '@/config/constants';
 import { authRouteTree, localAuthRoutes } from '@/features/auth/routes';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { clusterRoutes } from '@/features/cluster/routes';
-import { clustersLayoutRoute, clustersRoutes } from '@/features/clusters/routes';
+import { clusterEditRoutes, clustersLayoutRoute, clustersRoutes, newClusterRoute } from '@/features/clusters/routes';
 import { createInstanceRouteTree } from '@/features/instance/routes';
 import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
 import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
@@ -25,11 +25,18 @@ export const rootRouteTree = isLocalStudio
 				...orgsRoutes,
 				orgLayoutRoute.addChildren([
 					...orgRoutes,
+					newClusterRoute,
 					clustersLayoutRoute.addChildren([
 						...clustersRoutes,
-						createInstanceRouteTree('cluster'),
 						clusterLayoutRoute.addChildren([
 							...clusterRoutes,
+							...clusterEditRoutes,
+							// Every route nested under clusterLayoutRoute must also be wired in here,
+							// because each declares `getParentRoute: () => clusterLayoutRoute`. Mounting
+							// any of them a level up (under clustersLayoutRoute) makes its declared parent
+							// a sibling, which TanStack Router 1.170 resolves into a corrupted route tree
+							// (path params mis-parsed, `organizationId` lost → /Organization/undefined).
+							createInstanceRouteTree('cluster'),
 							createInstanceRouteTree('instance'),
 						]),
 					]),
