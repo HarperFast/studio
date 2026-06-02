@@ -31,7 +31,7 @@ export const buttonVariants = cva(
 				default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
 				submit:
 					'bg-gradient-to-r from-blue-100 from-0% to-blue to-100% hover:bg-gradient-to-r hover:from-blue text-primary-foreground shadow-sm',
-				destructive: 'bg-destructive shadow-xs hover:bg-destructive/90',
+				destructive: 'bg-destructive text-white shadow-xs hover:bg-destructive/90',
 				secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
 				ghost: 'hover:bg-accent hover:text-muted-foreground',
 				destructiveGhost: 'hover:bg-accent hover:text-red',
