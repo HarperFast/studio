@@ -37,9 +37,20 @@ const editClusterVersionRoute = createRoute({
 	component: UpsertCluster,
 });
 
+// Each route must be wired into the tree (in rootRouteTree) under the same route
+// its `getParentRoute` declares — otherwise TanStack Router 1.170 mis-parses the
+// tree and drops path params. So these are grouped by their declared parent.
+
+// Parent: clustersLayoutRoute
 export const clustersRoutes = [
 	clustersIndexRoute,
-	newClusterRoute,
+];
+
+// Parent: orgLayoutRoute
+export { newClusterRoute };
+
+// Parent: clusterLayoutRoute
+export const clusterEditRoutes = [
 	editClusterRoute,
 	editClusterVersionRoute,
 ];
