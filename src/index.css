@@ -284,10 +284,10 @@
 /* Glowing, pulsing attention animation (apply with class `animate-glow-pulse`) */
 @keyframes glow-pulse {
 	0%, 100% {
-		box-shadow: 0 0 20px hsl(289.87, 39.9%, 37.84%, 50%);
+		box-shadow: 0 0 var(--glow-pulse-blur-min, 20px) var(--glow-pulse-color-min, hsl(289.87, 39.9%, 37.84%, 50%));
 	}
 	50% {
-		box-shadow: 0 0 32px hsl(289.87, 39.9%, 37.84%, 100%);
+		box-shadow: 0 0 var(--glow-pulse-blur-max, 32px) var(--glow-pulse-color-max, hsl(289.87, 39.9%, 37.84%, 100%));
 	}
 }
 
@@ -302,6 +302,14 @@
 		animation: glow-pulse 3s ease-in-out infinite;
 		transform-origin: center;
 		will-change: transform, box-shadow;
+	}
+
+	/* The purple glow reads much stronger against light surfaces; soften it. */
+	html:not(.dark) .animate-glow-pulse {
+		--glow-pulse-blur-min: 12px;
+		--glow-pulse-color-min: hsl(289.87, 39.9%, 37.84%, 25%);
+		--glow-pulse-blur-max: 20px;
+		--glow-pulse-color-max: hsl(289.87, 39.9%, 37.84%, 55%);
 	}
 }
 
