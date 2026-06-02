@@ -13,6 +13,7 @@ import { TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { PremiumOnlyRegions } from '../lib/calculatePremiumOnlyRegions';
+import { UsageScale } from '../lib/calculateUsageScale';
 import { ResourcesPerInstance } from './ResourcesPerInstance';
 
 type RegionFormInputsProps = {
@@ -22,6 +23,7 @@ type RegionFormInputsProps = {
 	index: number;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	premiumOnlyRegions: PremiumOnlyRegions;
+	usageScale: UsageScale;
 	selectedPlan: SchemaPlan | undefined;
 	isEnterprise: boolean;
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
@@ -34,6 +36,7 @@ export function RegionFormInputs({
 	index,
 	regionNameToLatencyToRegion,
 	premiumOnlyRegions,
+	usageScale,
 	selectedPlan,
 	isEnterprise,
 	cloudProvider,
@@ -185,6 +188,7 @@ export function RegionFormInputs({
 			<ResourcesPerInstance
 				selectedPlan={selectedPlan}
 				selectedRegion={regionNameToLatencyToRegion[selectedRegionName]?.[selectedLatencyDescription]}
+				usageScale={usageScale}
 				isEnterprise={isEnterprise}
 				cloudProvider={cloudProvider}
 			/>

@@ -7,6 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
 import { RegionFormInputs } from './components/RegionFormInputs';
 import { PremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
+import { UsageScale } from './lib/calculateUsageScale';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
@@ -14,6 +15,7 @@ interface ClusterRegionsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	premiumOnlyRegions: PremiumOnlyRegions;
+	usageScale: UsageScale;
 	selectedPlan: SchemaPlan | undefined;
 	totalPrice: number | undefined;
 	isEnterprise: boolean;
@@ -25,6 +27,7 @@ export function ClusterRegions({
 	regionLocations,
 	regionNameToLatencyToRegion,
 	premiumOnlyRegions,
+	usageScale,
 	selectedPlan,
 	totalPrice,
 	isEnterprise,
@@ -89,6 +92,7 @@ export function ClusterRegions({
 					key={field.id}
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 					premiumOnlyRegions={premiumOnlyRegions}
+					usageScale={usageScale}
 					selectedPlan={selectedPlan}
 					isEnterprise={isEnterprise}
 					cloudProvider={cloudProvider}

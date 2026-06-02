@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormItem } from '@/components/ui/form/FormItem';
@@ -11,12 +10,22 @@ import { humanFileSize } from '@/lib/humanFileSize';
 import { humanNumber } from '@/lib/humanNumber';
 import { pluralize } from '@/lib/pluralize';
 import { isPositive } from '@/lib/types/isPositive';
-import { ArrowDownIcon, ArrowRightIcon } from 'lucide-react';
+import {
+	ArrowDownIcon,
+	ArrowDownToLineIcon,
+	ArrowRightIcon,
+	ArrowUpFromLineIcon,
+	CalendarClockIcon,
+	GaugeIcon,
+	type LucideIcon,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { UsageScale } from '../lib/calculateUsageScale';
 
-export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterprise, cloudProvider }: {
+export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale, isEnterprise, cloudProvider }: {
 	readonly selectedPlan: SchemaPlan | undefined;
 	readonly selectedRegion: SchemaRegion | undefined;
+	readonly usageScale: UsageScale;
 	readonly isEnterprise: boolean;
 	readonly cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 }) {
@@ -132,42 +141,74 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 		return 'This plan has no usage limits.';
 	}
 
-	const pricingSubjectToTerms = isEnterprise
-		? ' Pricing subject to contracted rate.'
-		: ' Beta pricing subject to change.';
-
-	const maybeReadsPerMinute = isPositive(planLimits.readsPerMinuteCount)
-		? `${humanNumber(planLimits.readsPerMinuteCount * multiplier)} reads/min & `
-		: '';
-	const maybeWritesPerMinute = isPositive(planLimits.writesPerMinuteCount)
-		? ` ${humanNumber(planLimits.writesPerMinuteCount)} writes/min & `
-		: ' ';
-	const inRegionOrPerServer = isPositive(planLimits.readsPerMinuteCount)
-		? `in ${selectedRegion?.region ?? ''} region`
-		: 'per server';
-	const forMonths = expirationMonths ? `, for ${pluralize(expirationMonths, 'month', 'months')}` : '';
 	const forThePriceAbove = isEnterprise
 		? 'for the contracted rate'
 		: 'for the price listed above';
 	const expiresInMonths = expirationMonths ? ` in ${pluralize(expirationMonths, 'month', 'months')} or` : '';
 
+	const readRate = isPositive(planLimits.readsPerMinuteCount) ? planLimits.readsPerMinuteCount * multiplier : 0;
+	const writeRate = isPositive(planLimits.writesPerMinuteCount) ? planLimits.writesPerMinuteCount : 0;
+	const totalReads = planLimits.totalReadCount * multiplier;
+	const totalWrites = isPositive(planLimits.totalWriteCount) ? planLimits.totalWriteCount : 0;
+
+	const usageStats = ([
+		readRate > 0 && {
+			icon: GaugeIcon,
+			label: 'Read Rate',
+			value: `${humanNumber(readRate)}/min`,
+			fill: readRate / Math.max(usageScale.readRate, readRate, 1),
+		},
+		totalReads > 0 && {
+			icon: ArrowUpFromLineIcon,
+			label: 'Total Reads',
+			value: humanNumber(totalReads),
+			fill: totalReads / Math.max(usageScale.totalReads, totalReads, 1),
+		},
+		writeRate > 0 && {
+			icon: GaugeIcon,
+			label: 'Write Rate',
+			value: `${humanNumber(writeRate)}/min`,
+			fill: writeRate / Math.max(usageScale.writeRate, writeRate, 1),
+		},
+		totalWrites > 0 && {
+			icon: ArrowDownToLineIcon,
+			label: 'Total Writes',
+			value: humanNumber(totalWrites),
+			fill: totalWrites / Math.max(usageScale.totalWrites, totalWrites, 1),
+		},
+		!!expirationMonths && {
+			icon: CalendarClockIcon,
+			label: 'License Term',
+			value: pluralize(expirationMonths, 'month', 'months'),
+		},
+	] satisfies Array<boolean | { icon: LucideIcon; label: string; value: string; fill?: number }>).filter(excludeFalsy);
+
 	return (
 		<FormItem className="basis-full">
-			<FormLabel onClick={onUsageLimitsClick}>
-				Purchasing usage block for {maybeReadsPerMinute}
-				{humanNumber(planLimits.totalReadCount * multiplier)} total reads,
-				{maybeWritesPerMinute}
-				{humanNumber(planLimits.totalWriteCount)} total writes {inRegionOrPerServer}
-				{forMonths}. <Badge variant="warning" className="mx-1 align-middle">{pricingSubjectToTerms.trim()}</Badge>
-				<br className="block sm:hidden" />
+			<div className="flex flex-wrap items-center justify-between gap-x-2">
+				<FormLabel onClick={onUsageLimitsClick} className="cursor-pointer">
+					Usage block included with this plan
+				</FormLabel>
 				<Button
 					type="button"
 					variant="link"
 					className="text-foreground"
+					onClick={onUsageLimitsClick}
 				>
 					Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 				</Button>
-			</FormLabel>
+			</div>
+			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+				{usageStats.map(stat => (
+					<UsageStat
+						key={stat.label}
+						icon={stat.icon}
+						label={stat.label}
+						value={stat.value}
+						fill={stat.fill}
+					/>
+				))}
+			</div>
 			<FormControl>
 				<dl
 					className={cn(
@@ -175,7 +216,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 						toggled ? 'max-h-fit border border-border' : 'max-h-0',
 					)}
 				>
-					<div className="text-sm mb-4 px-4 pt-4 leading-relaxed text-muted-foreground">
+					<div className="text-sm px-4 py-5 leading-relaxed text-muted-foreground">
 						This plan licenses Harper for the usage limits below, {forThePriceAbove}. The usage license expires
 						{expiresInMonths}{' '}
 						when any usage limit is reached. New usage blocks are automatically purchased/billed as blocks are consumed.
@@ -196,5 +237,30 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, isEnterpris
 			</FormControl>
 			<FormMessage />
 		</FormItem>
+	);
+}
+
+function UsageStat({ icon: Icon, label, value, fill }: {
+	readonly icon: LucideIcon;
+	readonly label: string;
+	readonly value: string;
+	readonly fill?: number;
+}) {
+	return (
+		<div className="flex flex-col gap-2 rounded-md border border-border bg-background/50 p-3">
+			<div className="flex items-center gap-1.5 text-muted-foreground">
+				<Icon className="size-4 shrink-0" />
+				<span className="text-xs font-medium">{label}</span>
+			</div>
+			<span className="text-lg font-bold text-foreground tabular-nums">{value}</span>
+			{fill !== undefined && (
+				<div className="h-1.5 w-full overflow-hidden rounded-full bg-sky-500/15">
+					<div
+						className="h-full rounded-full bg-sky-500 transition-[width] duration-300"
+						style={{ width: `${Math.max(Math.min(fill, 1) * 100, 4)}%` }}
+					/>
+				</div>
+			)}
+		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { EstimatedProgressBar } from '@/components/EstimatedProgressBar';
+import { Badge } from '@/components/ui/badge';
 import { Form } from '@/components/ui/form/Form';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
@@ -460,24 +461,22 @@ export function ClusterForm({
 	return (
 		<>
 			{!isEnterprise && mode !== 'version' && (
-				<div className="absolute top-3 right-4 md:right-12 text-right">
+				<div className="absolute top-3 right-4 md:right-12 flex flex-col items-end text-right">
 					<dt className="font-light">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="font-bold">
 						{totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
 									<PriceDisplay price={monthlyPrice} />
-									{!!termMonths && <span className="font-light text-base text-muted-foreground">/mo</span>}
+									{!!termMonths && (
+										<span className="font-light text-base text-muted-foreground">
+											/mo{termMonths > 1 && <sup>*</sup>}
+										</span>
+									)}
 								</span>
 							)
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
-					{!!termMonths && termMonths > 1 && totalPrice > 0 && (
-						<dd className="font-light text-xs text-muted-foreground">
-							Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
-							every {pluralize(termMonths, 'month', 'months')}
-						</dd>
-					)}
 				</div>
 			)}
 			<Form {...form}>
@@ -487,9 +486,23 @@ export function ClusterForm({
 							<h1 className={cx('text-lg leading-none text-foreground font-semibold mb-4', pricingMarginRight)}>
 								Cluster Configuration
 							</h1>
-							<p className={cx('text-muted-foreground text-sm mb-6', pricingMarginRight)}>
-								Configure your Harper cluster and define deployment plans.
-							</p>
+							<div className={cx('mb-6 flex flex-col items-start gap-2', pricingMarginRight)}>
+								<p className="sr-only">Configure your Harper cluster and define deployment plans.</p>
+								{!isEnterprise && mode !== 'version' && (
+									<>
+										<Badge variant="warning">Beta pricing subject to change.</Badge>
+										{!!termMonths && termMonths > 1 && totalPrice > 0 && (
+											<p className="max-w-prose text-xs font-light text-muted-foreground">
+												* Billed as{' '}
+												{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
+												every{' '}
+												{pluralize(termMonths, 'month', 'months')}, or sooner if you reach a usage limit — then a new
+												license is issued.
+											</p>
+										)}
+									</>
+								)}
+							</div>
 
 							<form
 								id="cluster-upsert-form"
