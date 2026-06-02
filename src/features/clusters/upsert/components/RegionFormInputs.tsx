@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
-import { TrashIcon } from 'lucide-react';
+import { MapPinIcon, TrashIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { Control, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { PremiumOnlyRegions } from '../lib/calculatePremiumOnlyRegions';
@@ -92,13 +92,16 @@ export function RegionFormInputs({
 	}, [fieldArray, form, index]);
 
 	return (
-		<div className="md:col-span-6 col-span-3 p-4 rounded-md bg-accent gap-6 flex flex-wrap items-start">
+		<div className="md:col-span-6 col-span-3 py-2 pl-4 border-l-4 border-border gap-6 flex flex-wrap items-start">
 			<FormField
 				control={control}
 				name={`regionPlans.${index}.regionName`}
 				render={({ field: regionField }) => (
 					<FormItem className="flex-1">
-						<FormLabel>Region {fieldArray.fields.length > 1 ? index + 1 : ''}</FormLabel>
+						<FormLabel className="flex items-center gap-1.5">
+							<MapPinIcon className="size-4 shrink-0" />
+							Region {fieldArray.fields.length > 1 ? index + 1 : ''}
+						</FormLabel>
 						<FormControl>
 							<Select
 								onValueChange={value => {
