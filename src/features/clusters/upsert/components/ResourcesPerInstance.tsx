@@ -20,7 +20,7 @@ import {
 	type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { UsageScale } from '../lib/calculateUsageScale';
+import { logarithmicFill, UsageScale } from '../lib/calculateUsageScale';
 
 export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale, isEnterprise, cloudProvider }: {
 	readonly selectedPlan: SchemaPlan | undefined;
@@ -156,25 +156,25 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			icon: GaugeIcon,
 			label: 'Read Rate',
 			value: `${humanNumber(readRate)}/min`,
-			fill: readRate / Math.max(usageScale.readRate, readRate, 1),
+			fill: logarithmicFill(readRate, usageScale.readRate),
 		},
 		totalReads > 0 && {
 			icon: ArrowUpFromLineIcon,
 			label: 'Total Reads',
 			value: humanNumber(totalReads),
-			fill: totalReads / Math.max(usageScale.totalReads, totalReads, 1),
+			fill: logarithmicFill(totalReads, usageScale.totalReads),
 		},
 		writeRate > 0 && {
 			icon: GaugeIcon,
 			label: 'Write Rate',
 			value: `${humanNumber(writeRate)}/min`,
-			fill: writeRate / Math.max(usageScale.writeRate, writeRate, 1),
+			fill: logarithmicFill(writeRate, usageScale.writeRate),
 		},
 		totalWrites > 0 && {
 			icon: ArrowDownToLineIcon,
 			label: 'Total Writes',
 			value: humanNumber(totalWrites),
-			fill: totalWrites / Math.max(usageScale.totalWrites, totalWrites, 1),
+			fill: logarithmicFill(totalWrites, usageScale.totalWrites),
 		},
 		!!expirationMonths && {
 			icon: CalendarClockIcon,
