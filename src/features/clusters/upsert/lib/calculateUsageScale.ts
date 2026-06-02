@@ -26,8 +26,8 @@ export function calculateUsageScale(
 	const multipliers = Object.values(regionNameToLatencyToRegion)
 		.flatMap(latencyToRegion => Object.values(latencyToRegion))
 		.map(region => region.purchasedBlockMultiplier ?? 1);
-	const maxMultiplier = multipliers.reduce((max, value) => Math.max(max, value), 1);
-	const minMultiplier = multipliers.reduce((min, value) => Math.min(min, value), maxMultiplier);
+	const maxMultiplier = Math.max(...multipliers, 1);
+	const minMultiplier = Math.min(...multipliers, maxMultiplier);
 
 	const range = (pick: (plan: SchemaPlan) => number | undefined): UsageRange => {
 		const values = deploymentPlans
