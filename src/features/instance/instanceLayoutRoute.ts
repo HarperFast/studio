@@ -79,7 +79,10 @@ async function checkClusterInstanceAuthenticationBeforeLoad({
 			authStore.flagForFabricConnect(entityId, true);
 			return;
 		} catch (err) {
-			console.error('Fabric Connect not established', err);
+			// Expected: the instance may be down, restarting, or unauthorized. We fall
+			// through to the sign-in redirect below. Use debug so RUM doesn't forward it
+			// to Datadog as an error (RUM only forwards console.error).
+			console.debug('Fabric Connect not established', err);
 		}
 	}
 
