@@ -43,6 +43,21 @@ describe('normalizeRecords', () => {
 	it('handles empty input', () => {
 		expect(normalizeRecords([])).toEqual([]);
 	});
+
+	it('coerces non-string node values to strings', () => {
+		// Some Harper builds serialize a numeric node name as a JSON number, or
+		// omit it. Downstream sort uses localeCompare, so node must be a string.
+		const raw: TableSizeRecord[] = [
+			{ metric: 'table-size', database: 'd', table: 't', node: 1, id: 1, size: 100 },
+			{ metric: 'table-size', database: 'd', table: 't', node: null, id: 2, size: 200 },
+			// node omitted entirely (single-instance Harper) → undefined.
+			{ metric: 'table-size', database: 'd', table: 't', id: 3, size: 300 },
+			{ metric: 'table-size', database: 'd', table: 't', node: 'n4', id: 4, size: 400 },
+		];
+		const normalized = normalizeRecords(raw);
+		expect(normalized.every((r) => typeof r.node === 'string')).toBeTruthy();
+		expect(normalized.map((r) => r.node)).toEqual(['1', '', '', 'n4']);
+	});
 });
 
 describe('dedupRecords', () => {

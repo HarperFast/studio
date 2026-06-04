@@ -69,7 +69,12 @@ export function normalizeRecords(raw: TableSizeRecord[]): NormalizedRecord[] {
 		database: r.database,
 		table: r.table,
 		tableKey: toTableKey(r),
-		node: r.node,
+		// `node` is typed `string`, but some Harper builds serialize a numeric
+		// node name as a JSON number (or omit it entirely). Coerce here — the
+		// single boundary where the NormalizedRecord contract is established —
+		// so every downstream consumer (sort via localeCompare, dedup/trend
+		// grouping keys) can safely treat it as a string.
+		node: r.node == null ? '' : String(r.node),
 		time: r.id,
 		size: r.size,
 	}));
