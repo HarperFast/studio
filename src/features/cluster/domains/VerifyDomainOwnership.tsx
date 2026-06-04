@@ -30,7 +30,7 @@ export function VerifyDomainOwnership(
 
 			<div className="col-span-1">Name:</div>
 			<div className="col-span-1 flex gap-2 items-center">
-				<div className="flex items-center gap-1 bg-gray-700 rounded-md px-3 py-1 flex-1 overflow-hidden">
+				<div className="flex items-center gap-1 bg-muted rounded-md px-3 py-1 flex-1 overflow-hidden">
 					<input
 						className="bg-transparent border-none outline-none w-full cursor-text truncate"
 						type="text"
@@ -50,7 +50,7 @@ export function VerifyDomainOwnership(
 
 			<div className="col-span-1">Content:</div>
 			<div className="col-span-1 flex gap-2 items-center">
-				<div className="flex items-center gap-1 bg-gray-700 rounded-md px-3 py-1 flex-1 overflow-hidden">
+				<div className="flex items-center gap-1 bg-muted rounded-md px-3 py-1 flex-1 overflow-hidden">
 					<input
 						className="bg-transparent border-none outline-none w-full cursor-text truncate"
 						type="text"
@@ -74,7 +74,7 @@ export function VerifyDomainOwnership(
 
 			<div className="col-span-1">Name:</div>
 			<div className="col-span-1 flex gap-2 items-center">
-				<div className="flex items-center gap-1 bg-gray-700 rounded-md px-3 py-1 flex-1 overflow-hidden">
+				<div className="flex items-center gap-1 bg-muted rounded-md px-3 py-1 flex-1 overflow-hidden">
 					<input
 						className="bg-transparent border-none outline-none w-full cursor-text truncate"
 						type="text"
@@ -94,7 +94,7 @@ export function VerifyDomainOwnership(
 
 			<div className="col-span-1">Target:</div>
 			<div className="col-span-1 flex gap-2 items-center">
-				<div className="flex items-center gap-1 bg-gray-700 rounded-md px-3 py-1 flex-1 overflow-hidden">
+				<div className="flex items-center gap-1 bg-muted rounded-md px-3 py-1 flex-1 overflow-hidden">
 					<input
 						className="bg-transparent border-none outline-none w-full cursor-text truncate"
 						type="text"
@@ -111,7 +111,7 @@ export function VerifyDomainOwnership(
 
 			<div className="col-span-1 text-xs">Domain ID:</div>
 			<div className="col-span-1 flex gap-2 items-center">
-				<div className="flex items-center gap-1 bg-gray-800 rounded-md px-3 py-0.5 text-xs text-muted-foreground italic flex-1 overflow-hidden">
+				<div className="flex items-center gap-1 bg-muted rounded-md px-3 py-0.5 text-xs text-muted-foreground italic flex-1 overflow-hidden">
 					<input
 						className="bg-transparent border-none outline-none w-full cursor-text truncate"
 						type="text"

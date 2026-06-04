@@ -66,7 +66,7 @@ export function CertificateProgress({
 			<div className="grid gap-2 grid-cols-1 md:grid-cols-[80px_1fr] text-sm">
 				<div className="col-span-1 text-xs text-muted-foreground">CNAME:</div>
 				<div className="col-span-1 flex gap-2 items-center flex-wrap">
-					<div className="flex items-center gap-1 bg-gray-800 px-2 py-0.5 rounded text-xs">
+					<div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-xs">
 						<span className="truncate max-w-[150px]" title={recordName}>
 							{recordName}
 						</span>
@@ -82,7 +82,7 @@ export function CertificateProgress({
 						</Button>
 					</div>
 					<ArrowIcon />
-					<div className="flex items-center gap-1 bg-gray-800 px-2 py-0.5 rounded text-xs">
+					<div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-xs">
 						<span className="truncate max-w-[200px]" title={cluster.fqdn || ''}>
 							{cluster.fqdn}
 						</span>
@@ -101,7 +101,7 @@ export function CertificateProgress({
 
 				<div className="col-span-1 text-[10px] text-muted-foreground">Domain ID:</div>
 				<div className="col-span-1 flex gap-2 items-center">
-					<div className="flex items-center gap-1 bg-gray-800/50 px-2 py-0.5 rounded text-[10px] text-muted-foreground italic">
+					<div className="flex items-center gap-1 bg-muted px-2 py-0.5 rounded text-[10px] text-muted-foreground italic">
 						<span className="truncate max-w-[200px]">{domain.id}</span>
 						<Button type="button" variant="ghost" size="sm" className="h-3 w-3 p-0" onClick={onCopyId} title="Copy ID">
 							<CopyIcon className="w-2.5 h-2.5" />
