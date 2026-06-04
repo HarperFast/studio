@@ -7,7 +7,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ContactUs } from './ContactUs';
 
-afterEach(() => cleanup);
+afterEach(() => cleanup());
 
 describe(ContactUs, () => {
 	it('should render a Discord link', async () => {

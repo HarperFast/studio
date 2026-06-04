@@ -11,7 +11,7 @@ import { OrgCard } from './OrgCard';
 // import * as matchers from '@testing-library/jest-dom/matchers';
 // expect.extend(matchers);
 
-afterEach(() => cleanup);
+afterEach(() => cleanup());
 
 describe('Org Card', () => {
 	it('should render', async () => {
