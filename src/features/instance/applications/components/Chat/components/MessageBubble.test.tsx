@@ -8,7 +8,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MessageBubble } from './MessageBubble';
 
-afterEach(() => cleanup);
+afterEach(() => cleanup());
 
 describe('MessageBubble', () => {
 	it('should render without crashing when parts is undefined', async () => {
