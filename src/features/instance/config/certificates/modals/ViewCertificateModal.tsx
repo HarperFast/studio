@@ -70,58 +70,60 @@ export function ViewCertificateModal({
 						</DialogHeader>
 
 						<div className="space-y-4">
-							<div className="grid grid-cols-2 gap-4 text-sm bg-gray-900/50 p-4 rounded-lg border border-gray-800">
+							<div className="grid grid-cols-2 gap-4 text-sm bg-muted p-4 rounded-lg border border-border">
 								<div className="col-span-2">
 									<p className="font-semibold">Issuer</p>
-									<p className="text-gray-400 break-all">{data.details.issuer || 'N/A'}</p>
+									<p className="text-muted-foreground break-all">{data.details.issuer || 'N/A'}</p>
 								</div>
 								<div className="col-span-2">
 									<p className="font-semibold">Subject</p>
-									<p className="text-gray-400 break-all">{data.details.subject || 'N/A'}</p>
+									<p className="text-muted-foreground break-all">{data.details.subject || 'N/A'}</p>
 								</div>
 								{data.details.subject_alt_name && (
 									<div className="col-span-2">
 										<p className="font-semibold">Subject Alternative Name</p>
-										<p className="text-gray-400 break-all">{data.details.subject_alt_name}</p>
+										<p className="text-muted-foreground break-all">{data.details.subject_alt_name}</p>
 									</div>
 								)}
 								<div>
 									<p className="font-semibold">Valid From</p>
-									<p className="text-gray-400">
+									<p className="text-muted-foreground">
 										{data.details.valid_from ? new Date(data.details.valid_from).toLocaleString() : 'N/A'}
 									</p>
 								</div>
 								<div>
 									<p className="font-semibold">Valid To (Expires At)</p>
-									<p className="text-gray-400">
+									<p className="text-muted-foreground">
 										{data.details.valid_to ? new Date(data.details.valid_to).toLocaleString() : 'N/A'}
 									</p>
 								</div>
 								<div>
 									<p className="font-semibold">Serial Number</p>
-									<p className="text-gray-400 font-mono text-xs break-all">{data.details.serial_number || 'N/A'}</p>
+									<p className="text-muted-foreground font-mono text-xs break-all">
+										{data.details.serial_number || 'N/A'}
+									</p>
 								</div>
 								<div>
 									<p className="font-semibold">Private Key Name</p>
-									<p className="text-gray-400">{data.private_key_name || 'N/A'}</p>
+									<p className="text-muted-foreground">{data.private_key_name || 'N/A'}</p>
 								</div>
 								<div>
 									<p className="font-semibold">Is Authority</p>
-									<p className="text-gray-400">{data.is_authority ? 'Yes' : 'No'}</p>
+									<p className="text-muted-foreground">{data.is_authority ? 'Yes' : 'No'}</p>
 								</div>
 								<div>
 									<p className="font-semibold">Is Self-Signed</p>
-									<p className="text-gray-400">{data.is_self_signed ? 'Yes' : 'No'}</p>
+									<p className="text-muted-foreground">{data.is_self_signed ? 'Yes' : 'No'}</p>
 								</div>
 								{data.hosts && data.hosts.length > 0 && (
 									<div className="col-span-2">
 										<p className="font-semibold">Hosts</p>
-										<p className="text-gray-400">{data.hosts.join(', ')}</p>
+										<p className="text-muted-foreground">{data.hosts.join(', ')}</p>
 									</div>
 								)}
 								<div className="col-span-2">
 									<p className="font-semibold">Uses</p>
-									<p className="text-gray-400">{data.uses?.join(', ') || 'N/A'}</p>
+									<p className="text-muted-foreground">{data.uses?.join(', ') || 'N/A'}</p>
 								</div>
 							</div>
 
