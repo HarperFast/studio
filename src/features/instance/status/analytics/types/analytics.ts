@@ -33,7 +33,11 @@ export interface TableSizeRecord {
 	id: number;
 	/** Size in bytes. */
 	size: number;
-	node: string;
+	/** Replication node name. Typed loosely because some Harper builds
+	 *  serialize a numeric node name as a JSON number, or omit it entirely on
+	 *  single-instance deployments. `normalizeRecords` coerces this to a string
+	 *  at the pipeline boundary — consumers should read the normalized value. */
+	node?: string | number | null;
 }
 
 export interface TimeRange {
