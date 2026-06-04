@@ -25,7 +25,7 @@ export function MessageBubble(
 				{m.role === 'user' ? <User size={18} /> : <Bot size={18} />}
 			</div>
 			<div className="content">
-				{m.parts.map((part, i) => {
+				{m.parts?.map((part, i) => {
 					if (isTextUIPart(part)) {
 						return <div key={i} className="text-block">{part.text}</div>;
 					}
