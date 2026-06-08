@@ -49,7 +49,7 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import yamlWorker from 'monaco-yaml/yaml.worker?worker';
 
-const globalScope = self as unknown as { MonacoEnvironment?: monaco.Environment };
+const globalScope = globalThis as unknown as { MonacoEnvironment?: monaco.Environment };
 
 globalScope.MonacoEnvironment = {
 	getWorker(_workerId: string, label: string): Worker {
