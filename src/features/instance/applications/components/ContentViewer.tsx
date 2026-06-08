@@ -43,20 +43,10 @@ export function ContentViewer() {
 	return <TextEditorView />;
 }
 
-/** Decode a base64 string into a Blob of the given MIME type. */
-function base64ToBlob(base64: string, mime: string): Blob {
-	const binary = atob(base64);
-	const bytes = new Uint8Array(binary.length);
-	for (let i = 0; i < binary.length; i++) {
-		bytes[i] = binary.charCodeAt(i);
-	}
-	return new Blob([bytes], { type: mime });
-}
-
 /**
- * Previews a binary media file (image or video) loaded as base64. Renders via an
- * object URL rather than a `data:` URL so large videos stream/seek correctly,
- * and revokes the URL on cleanup.
+ * Previews a binary media file (image or video) loaded as base64. The base64 is
+ * handed straight to a `data:` URL so the browser's (forgiving) decoder reads it
+ * — `atob` is stricter and rejects some payloads the browser accepts.
  */
 function MediaPreview({
 	name,
@@ -67,27 +57,16 @@ function MediaPreview({
 	base64: string | undefined;
 	media: MediaFileType;
 }) {
-	const [url, setUrl] = useState<string>();
-
-	useEffect(() => {
-		if (!base64) {
-			setUrl(undefined);
-			return;
-		}
-		const objectUrl = URL.createObjectURL(base64ToBlob(base64, media.mime));
-		setUrl(objectUrl);
-		return () => URL.revokeObjectURL(objectUrl);
-	}, [base64, media.mime]);
-
-	if (!url) {
+	if (!base64) {
 		return null;
 	}
 
+	const src = `data:${media.mime};base64,${base64}`;
 	return (
 		<div className="mt-9 absolute top-0 right-0 bottom-0 left-0">
 			{media.kind === 'video'
-				? <video className="w-full h-full object-contain p-20" src={url} controls />
-				: <img className="w-full h-full object-contain p-20" alt={name} src={url} />}
+				? <video className="w-full h-full object-contain p-20" src={src} controls />
+				: <img className="w-full h-full object-contain p-20" alt={name} src={src} />}
 		</div>
 	);
 }
