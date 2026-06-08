@@ -114,9 +114,15 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 
 				const filePath = getFilePath(targetPath, file);
 				const dataURLResponse = await readAsDataURL(file);
-				const dataURLResult = dataURLResponse.target!.result as string;
+				const dataURLResult = dataURLResponse.target?.result as string | undefined;
+				if (!dataURLResult) {
+					throw new Error(`Failed to read file: ${file.name}`);
+				}
 				const demarcation = 'base64,';
 				const encodingIndex = dataURLResult.indexOf(demarcation);
+				if (encodingIndex === -1) {
+					throw new Error(`Invalid data URL format for file: ${file.name}`);
+				}
 				if (!canceled) {
 					await setComponentFile({
 						...instanceParams,
