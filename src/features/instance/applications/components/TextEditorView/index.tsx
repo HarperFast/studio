@@ -8,6 +8,7 @@ import { useListener } from '@/lib/events/listener';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import { Editor, EditorProps, OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useState } from 'react';
+import { configureHarperLanguageSupport } from './harper-language';
 import './monaco-customizations.css';
 
 const extensionToLanguageMap: Record<string, string> = {
@@ -43,6 +44,10 @@ export function TextEditorView() {
 
 	const extension = parseFileExtension(openedEntry?.path);
 	const language = extensionToLanguageMap[extension] || 'plaintext';
+
+	const handleEditorWillMount: EditorProps['beforeMount'] = useCallback((monaco) => {
+		configureHarperLanguageSupport(monaco);
+	}, []);
 
 	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
 		setMounted([editor, monaco]);
@@ -93,9 +98,11 @@ export function TextEditorView() {
 	return (
 		<Editor
 			className="w-full min-h-full h-80"
+			path={openedEntry.path}
 			language={language}
 			theme={monacoTheme}
 			value={updatedFileContent ?? openedEntryContents}
+			beforeMount={handleEditorWillMount}
 			onMount={handleEditorDidMount}
 			onChange={readOnly ? undefined : setUpdatedFileContent}
 			options={{
