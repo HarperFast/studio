@@ -1,0 +1,77 @@
+{
+	"$schema": "https://json-schema.org/draft-06/schema",
+	"$id": "https://harper.fast/schema/config.schema.json",
+	"type": "object",
+	"properties": {
+		"rest": {
+			"type": "boolean",
+			"description": "Enable REST API endpoints."
+		},
+		"graphqlSchema": {
+			"type": "object",
+			"description": "GraphQL schema configuration.",
+			"additionalProperties": false,
+			"properties": {
+				"files": {
+					"description": "Glob(s) or path(s) to GraphQL schema files.",
+					"oneOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					]
+				}
+			},
+			"required": ["files"]
+		},
+		"jsResource": {
+			"type": "object",
+			"description": "JavaScript resource(s) configuration.",
+			"additionalProperties": false,
+			"properties": {
+				"files": {
+					"description": "Path(s) to JS resource file(s).",
+					"oneOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					]
+				}
+			},
+			"required": ["files"]
+		},
+		"package": {
+			"type": "string",
+			"description": "Package identifier for the application (npm-compatible or git URL)."
+		},
+		"loadComponent": {
+			"type": "string",
+			"description": "Conditional package loading option.",
+			"enum": ["always", "if-installed", "dev-only"],
+			"default": "always"
+		}
+	},
+	"additionalProperties": true,
+	"examples": [
+		{
+			"rest": true,
+			"graphqlSchema": {
+				"files": "*.graphql"
+			},
+			"jsResource": {
+				"files": "resources.js"
+			}
+		}
+	]
+}

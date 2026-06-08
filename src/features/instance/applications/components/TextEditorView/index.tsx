@@ -16,6 +16,7 @@ const extensionToLanguageMap: Record<string, string> = {
 	cjs: 'javascript',
 	jsx: 'javascript',
 	yaml: 'yaml',
+	yml: 'yaml',
 	ts: 'typescript',
 	tsx: 'typescript',
 	json: 'json',
