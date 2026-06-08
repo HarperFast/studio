@@ -191,6 +191,48 @@
 	background-color: var(--grey-700);
 }
 
+/* ── Dark-mode contrast & surface fixes ──────────────────────────────────────
+ * Swagger hardcodes a dark slate (#3b4151) for most body text, a white-80% fill
+ * for section-header bars, and washed 10%-opacity colour tints behind each
+ * operation — all of which read poorly on Studio's dark surfaces. These rules
+ * out-specify swagger's defaults and apply only in dark mode (light mode is
+ * already legible on white). The coloured left border + method chip keep each
+ * operation identifiable without the muddy full-width tint. */
+
+/* Neutralise the washed method tints so each operation is a uniform dark card. */
+.dark .swagger-ui .opblock {
+	background: var(--card);
+}
+
+/* Section-header bars (Parameters / Request body / Responses) default to a
+ * white-80% fill — drop it so they sit flat on the dark opblock body. */
+.dark .swagger-ui .opblock .opblock-section-header {
+	background: transparent;
+	box-shadow: none;
+}
+
+/* Restore readable foreground text wherever swagger forces its slate colour. */
+.dark .swagger-ui .opblock .opblock-summary-path,
+.dark .swagger-ui .opblock .opblock-summary-path__deprecated,
+.dark .swagger-ui .opblock .opblock-description-wrapper p,
+.dark .swagger-ui .opblock .opblock-title_normal,
+.dark .swagger-ui .opblock .opblock-title,
+.dark .swagger-ui .opblock .opblock-section-header h4,
+.dark .swagger-ui .opblock .opblock-section-header > label,
+.dark .swagger-ui .tab li,
+.dark .swagger-ui .tab li button.tablinks,
+.dark .swagger-ui .responses-inner h4,
+.dark .swagger-ui .responses-inner h5,
+.dark .swagger-ui .response-col_status,
+.dark .swagger-ui .response-col_links,
+.dark .swagger-ui .servers > label,
+.dark .swagger-ui .scheme-container label,
+.dark .swagger-ui table.headers .header-col,
+.dark .swagger-ui .col_header,
+.dark .swagger-ui .parameter__name {
+	color: var(--foreground);
+}
+
 /* ── Authorize modal ─────────────────────────────────────────────────────────
  * Swagger renders its auth dialog with a heavy black backdrop, hardcoded light
  * surface colours, a 4px radius and a generic sans-serif font — none of which
