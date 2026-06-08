@@ -60,7 +60,7 @@ export function TemplateInstructions({
 														<img
 															src="/github/GitHub_Lockup_White.svg"
 															alt="GitHub"
-															className="h-4"
+															className="h-4 invert dark:invert-0"
 														/>
 													</a>
 												</div>
