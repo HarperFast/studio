@@ -1,3 +1,4 @@
+import '@/lib/monaco/setup';
 import { App } from '@/App';
 import { addReactError } from '@datadog/browser-rum-react';
 import { StrictMode } from 'react';

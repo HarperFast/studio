@@ -6,9 +6,18 @@ import { defineConfig } from 'vite';
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
+	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
+	// modules; the default 'iife' worker format breaks them.
+	worker: {
+		format: 'es',
+	},
 	resolve: {
 		alias: {
 			'@': path.resolve(__dirname, './src'),
+			// monaco-yaml's worker imports path-browserify (CommonJS). Vite doesn't
+			// convert CommonJS for worker-internal imports, so the YAML worker throws
+			// "module is not defined" in dev. Alias it to a vendored ESM build.
+			'path-browserify': path.resolve(__dirname, './src/lib/monaco/path-browserify-esm.js'),
 		},
 	},
 	build: {
