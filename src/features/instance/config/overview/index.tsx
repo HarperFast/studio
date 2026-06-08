@@ -28,12 +28,13 @@ import {
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import Editor from '@monaco-editor/react';
+import Editor, { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { useLoaderData, useParams } from '@tanstack/react-router';
 import { AlertCircleIcon, EditIcon, SaveIcon, XIcon } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { flattenConfig, getChangedFields, isRestrictedConfigPath, omitRestrictedFields } from './configRestrictions';
+import { configureHarperConfigEditor, HARPER_CONFIG_MODEL_PATH } from './harper-config/configMonaco';
 
 const LocalStudioOverview = ({ children }: { children: ReactNode }) => {
 	return <>{children}</>;
@@ -149,6 +150,10 @@ export function ConfigOverviewIndex() {
 			}
 		}
 	}, [configurationInfo]);
+
+	const handleEditorDidMount = useCallback<OnMount>((_editor, monaco) => {
+		configureHarperConfigEditor(monaco);
+	}, []);
 
 	const handleSave = useCallback(() => {
 		if (jsonError || restrictedError.length > 0) { return; }
@@ -297,8 +302,10 @@ export function ConfigOverviewIndex() {
 					? (
 						<Editor
 							className="w-full min-h-full h-96"
+							path={HARPER_CONFIG_MODEL_PATH}
 							language="json"
 							theme={monacoTheme}
+							onMount={handleEditorDidMount}
 							options={{ readOnly: !isEditing, scrollBeyondLastLine: false }}
 							value={isEditing ? editedConfig : JSON.stringify(sanitizedConfigInfo, null, 4)}
 							onChange={handleEditorChange}
