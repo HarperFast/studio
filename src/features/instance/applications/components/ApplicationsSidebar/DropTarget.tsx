@@ -8,6 +8,7 @@ import { setComponentFile } from '@/integrations/api/instance/applications/setCo
 import { humanFileSize } from '@/lib/humanFileSize';
 import { pluralize } from '@/lib/pluralize';
 import { readAsDataURL } from '@/lib/storage/readAsDataURL';
+import { errorHandler } from '@/react-query/queryClient';
 import { useParams } from '@tanstack/react-router';
 import { cx } from 'class-variance-authority';
 import { useCallback, useState } from 'react';
@@ -95,78 +96,88 @@ export function DropTarget() {
 
 		setUploading(`Uploading ${pluralize(filesToUpload.length, 'file', 'files')}...`);
 
-		const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
-		let uploadedBytes = 0;
-		let counter = 0;
-		for (const file of filesToUpload) {
-			counter += 1;
+		try {
+			const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
+			let uploadedBytes = 0;
+			let counter = 0;
+			for (const file of filesToUpload) {
+				counter += 1;
 
-			toast.loading(`Upload in progress...`, {
-				id,
-				descriptionClassName: 'whitespace-pre',
-				description: `${counter} of ${pluralize(filesToUpload.length, 'file', 'files')}
+				toast.loading(`Upload in progress...`, {
+					id,
+					descriptionClassName: 'whitespace-pre',
+					description: `${counter} of ${pluralize(filesToUpload.length, 'file', 'files')}
 ${file.name}
 ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
-				action: toastCancelAction,
-			});
+					action: toastCancelAction,
+				});
 
-			const filePath = getFilePath(targetPath, file);
-			const dataURLResponse = await readAsDataURL(file);
-			const dataURLResult = dataURLResponse.target!.result as string;
-			const demarcation = 'base64,';
-			const encodingIndex = dataURLResult.indexOf(demarcation);
-			if (!canceled) {
-				await setComponentFile({
-					...instanceParams,
-					file: filePath,
-					project: targetProject,
-					encoding: 'base64',
-					payload: dataURLResult.slice(encodingIndex + demarcation.length),
-				});
-				uploadedBytes += file.size;
-			} else {
-				filesRejected.push({
-					file,
-					errors: [
-						{
-							message: `${filePath} cancelled`,
-							code: 'cancelled',
-						},
-					],
-				});
+				const filePath = getFilePath(targetPath, file);
+				const dataURLResponse = await readAsDataURL(file);
+				const dataURLResult = dataURLResponse.target!.result as string;
+				const demarcation = 'base64,';
+				const encodingIndex = dataURLResult.indexOf(demarcation);
+				if (!canceled) {
+					await setComponentFile({
+						...instanceParams,
+						file: filePath,
+						project: targetProject,
+						encoding: 'base64',
+						payload: dataURLResult.slice(encodingIndex + demarcation.length),
+					});
+					uploadedBytes += file.size;
+				} else {
+					filesRejected.push({
+						file,
+						errors: [
+							{
+								message: `${filePath} cancelled`,
+								code: 'cancelled',
+							},
+						],
+					});
+				}
 			}
-		}
 
-		toast.loading(`Reloading sidebar...`, {
-			id: canceled ? undefined : id,
-			action: toastOKAction,
-			description: '',
-		});
-		await reloadRootEntries();
-
-		if (filesRejected.length === 0) {
-			if (rawAcceptedFiles.length > 0) {
-				toast.success(`Uploaded ${pluralize(filesToUpload.length, 'file', 'files')}!`, {
-					id,
-					action: toastOKAction,
-					description: '',
-				});
-			}
-		} else {
-			// Note: this console.log is deliberate. It lets developers know all the files that were rejected.
-			console.log(filesRejected);
-			toast.error(canceled ? 'Cancelled uploads' : 'Rejected uploads', {
+			toast.loading(`Reloading sidebar...`, {
 				id: canceled ? undefined : id,
 				action: toastOKAction,
-				descriptionClassName: 'whitespace-pre overflow-y-auto',
-				description: filesRejected
-					.slice(0, 5)
-					.map(r => r.errors.map(e => e.message).join('\n'))
-					.join('\n')
-					+ (filesRejected?.length > 5 ? '\nCheck the console for the full list.' : ''),
+				description: '',
 			});
+			await reloadRootEntries();
+
+			if (filesRejected.length === 0) {
+				if (rawAcceptedFiles.length > 0) {
+					toast.success(`Uploaded ${pluralize(filesToUpload.length, 'file', 'files')}!`, {
+						id,
+						action: toastOKAction,
+						description: '',
+					});
+				}
+			} else {
+				// Note: this console.log is deliberate. It lets developers know all the files that were rejected.
+				console.log(filesRejected);
+				toast.error(canceled ? 'Cancelled uploads' : 'Rejected uploads', {
+					id: canceled ? undefined : id,
+					action: toastOKAction,
+					descriptionClassName: 'whitespace-pre overflow-y-auto',
+					description: filesRejected
+						.slice(0, 5)
+						.map(r => r.errors.map(e => e.message).join('\n'))
+						.join('\n')
+						+ (filesRejected?.length > 5 ? '\nCheck the console for the full list.' : ''),
+				});
+			}
+		} catch (error) {
+			// An upload (or the reload) threw — e.g. the API rejected an oversized
+			// payload ("body size must be less than 2MB"). Without this, the loading
+			// toast lingers forever and the user never sees why it failed. Replace it
+			// with the real error.
+			toast.dismiss(id);
+			errorHandler(error);
+		} finally {
+			setUploading('');
 		}
-		setUploading('');
 	}, [dragTarget, canUpload, currentProject, currentPath, entryExists, instanceParams, reloadRootEntries]);
 
 	const isFabricConnect = !!clusterId && authStore.checkForFabricConnect(clusterId);
