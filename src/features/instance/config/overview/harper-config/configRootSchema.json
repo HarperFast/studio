@@ -1,0 +1,643 @@
+{
+	"$schema": "https://json-schema.org/draft-06/schema",
+	"$id": "https://harper.fast/schema/config-root.schema.json",
+	"title": "HarperDB Root Configuration",
+	"description": "JSON Schema for harperdb-config.yaml as documented in docs.html. This focuses on the primary, documented configuration sections and keys. Unknown properties are allowed for forward compatibility.",
+	"type": "object",
+	"properties": {
+		"rootPath": {
+			"type": "string",
+			"description": "Root folder where Harper persists data, config, logs, and components. Default: user's home directory"
+		},
+		"componentsRoot": {
+			"type": "string",
+			"description": "Path to the folder containing local component files. Default: <ROOTPATH>/components"
+		},
+		"http": {
+			"type": "object",
+			"description": "HTTP server configuration for the main component server.",
+			"additionalProperties": true,
+			"properties": {
+				"sessionAffinity": {
+					"description": "Route multiple requests from the same client to the same thread. Use 'ip' or a header name.",
+					"type": ["string", "null"]
+				},
+				"compressionThreshold": {
+					"type": "integer",
+					"minimum": 0,
+					"description": "Responses larger than this threshold (bytes) will be compressed for clients that accept compression. Default: 1200"
+				},
+				"cors": { "type": "boolean", "description": "Enable Cross Origin Resource Sharing. Default: true" },
+				"corsAccessList": {
+					"type": ["array", "null"],
+					"description": "List of allowed origins for CORS.",
+					"items": { "type": "string" }
+				},
+				"corsAccessControlAllowHeaders": {
+					"type": "string",
+					"description": "Comma-separated list of header keys for Access-Control-Allow-Headers on OPTIONS requests. Default: 'Accept, Content-Type, Authorization'"
+				},
+				"headersTimeout": {
+					"type": "integer",
+					"description": "Milliseconds to wait for complete HTTP headers. Default: 60000"
+				},
+				"maxHeaderSize": {
+					"type": "integer",
+					"description": "Maximum allowed size of HTTP headers in bytes. Default: 16394"
+				},
+				"requestQueueLimit": {
+					"type": "integer",
+					"description": "Max estimated request queue time (ms) before rejecting with 503. Default: 20000"
+				},
+				"keepAliveTimeout": { "type": "integer", "description": "Keep-alive inactivity timeout in ms. Default: 30000" },
+				"port": { "type": "integer", "description": "HTTP port. Default: 9926" },
+				"securePort": { "type": ["integer", "null"], "description": "HTTPS port. Requires valid certificate + key." },
+				"http2": { "type": "boolean", "description": "Enable HTTP/2. Default: false" },
+				"timeout": { "type": "integer", "description": "Request timeout (ms). Default: 120000" },
+				"mtls": {
+					"description": "Enable and configure mTLS authentication for HTTP.",
+					"oneOf": [
+						{ "type": "boolean" },
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"user": {
+									"type": ["string", "null"],
+									"description": "Authenticate all authorized mTLS connections as this user. Default: common name from certificate or null to not auto-auth."
+								},
+								"required": {
+									"type": "boolean",
+									"description": "Require client certificates for all HTTP connections. Default: false"
+								},
+								"certificateVerification": {
+									"description": "Enable certificate revocation checking (CRL/OCSP).",
+									"oneOf": [
+										{ "type": "boolean" },
+										{
+											"type": "object",
+											"additionalProperties": false,
+											"properties": {
+												"failureMode": {
+													"type": "string",
+													"enum": ["fail-open", "fail-closed"],
+													"description": "Global behavior when verification fails. Default: 'fail-closed'"
+												},
+												"crl": {
+													"type": "object",
+													"additionalProperties": false,
+													"properties": {
+														"enabled": { "type": "boolean", "description": "Enable CRL checking. Default: true" },
+														"timeout": {
+															"type": "number",
+															"description": "Max ms to wait for CRL download. Default: 10000"
+														},
+														"cacheTtl": { "type": "number", "description": "CRL cache TTL (ms). Default: 86400000" },
+														"gracePeriod": {
+															"type": "number",
+															"description": "Grace period after CRL nextUpdate (ms). Default: 86400000"
+														},
+														"failureMode": {
+															"type": "string",
+															"enum": ["fail-open", "fail-closed"],
+															"description": "CRL-specific failure mode. Default: 'fail-closed'"
+														}
+													}
+												},
+												"ocsp": {
+													"type": "object",
+													"additionalProperties": false,
+													"properties": {
+														"enabled": { "type": "boolean", "description": "Enable OCSP checking. Default: true" },
+														"timeout": {
+															"type": "number",
+															"description": "Max ms to wait for OCSP response. Default: 5000"
+														},
+														"cacheTtl": {
+															"type": "number",
+															"description": "Cache TTL for successful OCSP (ms). Default: 3600000"
+														},
+														"errorCacheTtl": {
+															"type": "number",
+															"description": "Cache TTL for OCSP errors (ms). Default: 300000"
+														},
+														"failureMode": {
+															"type": "string",
+															"enum": ["fail-open", "fail-closed"],
+															"description": "OCSP-specific failure mode. Default: 'fail-closed'"
+														}
+													}
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					]
+				},
+				"logging": {
+					"allOf": [{ "$ref": "#/definitions/loggerConfig" }],
+					"properties": {
+						"timing": { "type": "boolean", "description": "Log timing information for HTTP requests." },
+						"headers": { "type": "boolean", "description": "Log HTTP headers (verbose)." },
+						"id": { "type": "boolean", "description": "Assign/log unique id per request." }
+					}
+				}
+			}
+		},
+
+		"threads": {
+			"type": "object",
+			"description": "Harper worker thread configuration.",
+			"additionalProperties": true,
+			"properties": {
+				"count": { "type": "number", "description": "Number of worker threads. Default: logical CPU count minus one" },
+				"debug": {
+					"oneOf": [
+						{ "type": "boolean" },
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"port": { "type": "integer", "description": "Port for debugging the main thread (default 9229)" },
+								"startingPort": {
+									"type": "integer",
+									"description": "Starting port to assign unique debugging ports per thread"
+								},
+								"host": { "type": "string", "description": "Debug host interface (default 127.0.0.1)" },
+								"waitForDebugger": { "type": "boolean", "description": "Wait for debugger before starting" }
+							}
+						}
+					]
+				},
+				"maxHeapMemory": { "type": "number", "description": "Heap memory limit per thread (MB)." },
+				"heapSnapshotNearLimit": { "type": "boolean", "description": "Take a heap snapshot when near the heap limit." }
+			}
+		},
+
+		"replication": {
+			"type": "object",
+			"description": "Harper replication configuration for clustering and data replication.",
+			"additionalProperties": true,
+			"properties": {
+				"hostname": { "type": "string", "description": "Hostname of this Harper instance." },
+				"url": { "type": "string", "description": "URL of this Harper instance." },
+				"databases": {
+					"description": "Databases to replicate. '*' for all, array of names, or array with objects to mark sharded databases.",
+					"oneOf": [
+						{ "type": "string" },
+						{
+							"type": "array",
+							"items": {
+								"oneOf": [
+									{ "type": "string" },
+									{
+										"type": "object",
+										"additionalProperties": false,
+										"properties": {
+											"name": { "type": "string" },
+											"sharded": { "type": "boolean" }
+										},
+										"required": ["name"]
+									}
+								]
+							}
+						}
+					]
+				},
+				"routes": {
+					"type": "array",
+					"description": "Routes to connect to other nodes. Each route can be a string or an object with hostname, port, and optional startTime.",
+					"items": {
+						"oneOf": [
+							{ "type": "string" },
+							{
+								"type": "object",
+								"additionalProperties": false,
+								"properties": {
+									"hostname": { "type": "string" },
+									"port": { "type": "integer" },
+									"startTime": {
+										"type": "string",
+										"format": "date-time",
+										"description": "ISO 8601 UTC start time to begin replication."
+									}
+								},
+								"required": ["hostname", "port"]
+							}
+						]
+					}
+				},
+				"startTime": { "type": "string", "format": "date-time", "description": "Start replication from this time." },
+				"revokedCertificates": {
+					"type": "array",
+					"items": { "type": "string" },
+					"description": "Array of revoked certificate serial numbers."
+				},
+				"port": { "type": "integer", "description": "Replication insecure port." },
+				"securePort": { "type": "integer", "description": "Replication secure port. Default: 9933" },
+				"enableRootCAs": {
+					"type": "boolean",
+					"description": "Verify certificates against Node.js bundled CA store. Default: true"
+				},
+				"mtls": {
+					"type": "object",
+					"description": "mTLS settings for replication connections (always required).",
+					"additionalProperties": true,
+					"properties": {
+						"certificateVerification": {
+							"description": "Enable certificate revocation checking (CRL/OCSP) for peer certificates.",
+							"oneOf": [
+								{ "type": "boolean" },
+								{
+									"type": "object",
+									"additionalProperties": false,
+									"properties": {
+										"failureMode": { "type": "string", "enum": ["fail-open", "fail-closed"] },
+										"crl": {
+											"type": "object",
+											"additionalProperties": false,
+											"properties": {
+												"enabled": { "type": "boolean" },
+												"timeout": { "type": "number" },
+												"cacheTtl": { "type": "number" },
+												"gracePeriod": { "type": "number" },
+												"failureMode": { "type": "string", "enum": ["fail-open", "fail-closed"] }
+											}
+										},
+										"ocsp": {
+											"type": "object",
+											"additionalProperties": false,
+											"properties": {
+												"enabled": { "type": "boolean" },
+												"timeout": { "type": "number" },
+												"cacheTtl": { "type": "number" },
+												"errorCacheTtl": { "type": "number" },
+												"failureMode": { "type": "string", "enum": ["fail-open", "fail-closed"] }
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				},
+				"blobTimeout": { "type": "number", "description": "Max time (ms) to wait for blob transfer. Default: 120000" },
+				"failOver": {
+					"type": "boolean",
+					"description": "Attempt fail-over to different node when unreachable. Default: true"
+				},
+				"shard": { "type": "integer", "description": "Shard id for this instance." },
+				"logging": { "$ref": "#/definitions/loggerConfig" }
+			}
+		},
+
+		"localStudio": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"enabled": { "type": "boolean", "description": "Enable local Harper Studio GUI. Default: false" }
+			}
+		},
+
+		"logging": {
+			"type": "object",
+			"description": "Logging configuration for Harper.",
+			"additionalProperties": true,
+			"properties": {
+				"auditLog": { "type": "boolean", "description": "Enable structured table transaction logging. Default: false" },
+				"file": { "type": "boolean", "description": "Log to file. Default: true" },
+				"auditRetention": {
+					"type": ["string", "number"],
+					"description": "Retention of audit logs (e.g. '3d'). Default: 3d"
+				},
+				"level": {
+					"type": "string",
+					"enum": ["trace", "debug", "info", "warn", "error", "fatal", "notify"],
+					"description": "Verbosity of text event logs. Default: warn"
+				},
+				"console": { "type": "boolean", "description": "Log console.* output to log file. Default: true" },
+				"root": { "type": "string", "description": "Directory where log files are written. Default: <ROOTPATH>/log" },
+				"path": { "type": "string", "description": "Log file path. Default: <ROOTPATH>/log/hdb.log" },
+				"rotation": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"enabled": { "type": "boolean", "description": "Enable log rotation. Default: true" },
+						"compress": { "type": "boolean", "description": "Compress rotated logs with gzip. Default: false" },
+						"interval": { "type": ["string", "null"], "description": "Time between rotations (e.g. '1D','6H','30M')." },
+						"maxSize": { "type": ["string", "null"], "description": "Max size before rotation (e.g. '100M', '1G')." },
+						"path": { "type": "string", "description": "Directory to store rotated logs. Default: <ROOTPATH>/log" }
+					}
+				},
+				"stdStreams": { "type": "boolean", "description": "Log to stdout/stderr. Default: false" },
+				"auditAuthEvents": {
+					"type": "object",
+					"additionalProperties": false,
+					"properties": {
+						"logFailed": { "type": "boolean", "description": "Log failed authentication events. Default: false" },
+						"logSuccessful": {
+							"type": "boolean",
+							"description": "Log successful authentication events. Default: false"
+						}
+					}
+				},
+				"external": {
+					"$ref": "#/definitions/loggerConfig",
+					"description": "Logging configuration for external components that use the logger API."
+				}
+			}
+		},
+
+		"authentication": {
+			"type": "object",
+			"description": "Default authentication settings.",
+			"additionalProperties": true,
+			"properties": {
+				"authorizeLocal": {
+					"type": "boolean",
+					"description": "Automatically authorize requests from loopback IP as superuser. Default: true"
+				},
+				"cacheTTL": { "type": "number", "description": "Milliseconds an authentication can be cached. Default: 30000" },
+				"enableSessions": { "type": "boolean", "description": "Enable cookie-based sessions. Default: true" },
+				"operationTokenTimeout": {
+					"type": "string",
+					"description": "Operation token expiry duration (e.g. '1d'). Default: 1d"
+				},
+				"refreshTokenTimeout": {
+					"type": "string",
+					"description": "Refresh token expiry duration (e.g. '1d'). Default: 1d"
+				},
+				"logging": { "$ref": "#/definitions/loggerConfig" }
+			}
+		},
+
+		"operationsApi": {
+			"type": "object",
+			"description": "Operations API configuration. Values default to http configuration when not provided.",
+			"additionalProperties": true,
+			"properties": {
+				"network": {
+					"type": "object",
+					"additionalProperties": true,
+					"properties": {
+						"cors": { "type": "boolean" },
+						"corsAccessList": { "type": ["array", "null"], "items": { "type": "string" } },
+						"domainSocket": {
+							"type": "string",
+							"description": "Unix domain socket path for CLI access. Default: <ROOTPATH>/hdb/operations-server"
+						},
+						"headersTimeout": { "type": "integer" },
+						"keepAliveTimeout": { "type": "integer" },
+						"port": { "type": "integer", "description": "Operations API HTTP port. Default: 9925" },
+						"securePort": { "type": ["integer", "null"] },
+						"timeout": { "type": "integer" }
+					}
+				},
+				"tls": {
+					"$ref": "#/definitions/tlsConfig",
+					"description": "TLS configuration overriding root TLS for Operations API"
+				}
+			}
+		},
+
+		"storage": {
+			"type": "object",
+			"description": "Storage engine configuration.",
+			"additionalProperties": true,
+			"properties": {
+				"writeAsync": {
+					"type": "boolean",
+					"description": "Disable fsync for faster writes (risk of data loss on crash). Default: false"
+				},
+				"caching": { "type": "boolean", "description": "Enable in-memory caching of records. Default: true" },
+				"compression": {
+					"oneOf": [
+						{ "type": "boolean" },
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"dictionary": { "type": ["string", "null"], "description": "Path to compression dictionary file." },
+								"threshold": {
+									"type": "number",
+									"description": "Only entries larger than this many bytes will be compressed."
+								}
+							}
+						}
+					],
+					"description": "Enable/Configure compression (LZ4). Default: true"
+				},
+				"compactOnStart": { "type": "boolean", "description": "Compact non-system databases on start. Default: false" },
+				"compactOnStartKeepBackup": {
+					"type": "boolean",
+					"description": "Keep backups created by compactOnStart. Default: false"
+				},
+				"maxTransactionQueueTime": {
+					"type": "string",
+					"description": "Max write queue time before rejecting (e.g. '45s')."
+				},
+				"noReadAhead": { "type": "boolean", "description": "Advise OS to not read ahead. Default: false" },
+				"prefetchWrites": { "type": "boolean", "description": "Load data prior to write transactions. Default: true" },
+				"path": { "type": "string", "description": "Directory for all database files. Default: <rootPath>/database" },
+				"blobPaths": {
+					"oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }],
+					"description": "Path or array of paths for blob storage. Default: <rootPath>/blobs"
+				},
+				"pageSize": { "type": "number", "description": "Database page size (bytes). Default: OS default" },
+				"reclamation": {
+					"type": "object",
+					"description": "Reclamation process configuration.",
+					"additionalProperties": true
+				},
+				"logging": { "$ref": "#/definitions/loggerConfig" }
+			}
+		},
+
+		"tls": {
+			"description": "TLS certificates/keys/settings for HTTPS and MQTT. Can be a single object or an array (SNI).",
+			"oneOf": [
+				{ "$ref": "#/definitions/tlsConfig" },
+				{ "type": "array", "items": { "$ref": "#/definitions/tlsConfig" } }
+			]
+		},
+
+		"mqtt": {
+			"type": "object",
+			"description": "MQTT server configuration.",
+			"additionalProperties": true,
+			"properties": {
+				"port": { "type": "number", "description": "Insecure MQTT port. Default: 1883" },
+				"securePort": { "type": "number", "description": "Secure MQTT port. Default: 8883" },
+				"webSocket": { "type": "boolean", "description": "Enable MQTT over WebSockets (on http port). Default: true" },
+				"requireAuthentication": {
+					"type": "boolean",
+					"description": "Require authentication for MQTT connections. Default: true"
+				},
+				"mtls": {
+					"oneOf": [
+						{ "type": "boolean" },
+						{
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"user": {
+									"type": ["string", "null"],
+									"description": "Authenticate all authorized mTLS connections as this user (or null for none). Default: Common Name"
+								},
+								"required": {
+									"type": "boolean",
+									"description": "Require client certificates for all MQTT connections. Default: false"
+								},
+								"certificateAuthority": {
+									"type": "string",
+									"description": "Override CA path for MQTT. Default: tls.certificateAuthority"
+								},
+								"certificateVerification": {
+									"oneOf": [
+										{ "type": "boolean" },
+										{
+											"type": "object",
+											"additionalProperties": false,
+											"properties": {
+												"timeout": {
+													"type": "number",
+													"description": "Max ms to wait for OCSP response. Default: 5000"
+												},
+												"cacheTtl": {
+													"type": "number",
+													"description": "Cache TTL (ms) for verification results. Default: 3600000"
+												},
+												"failureMode": {
+													"type": "string",
+													"enum": ["fail-open", "fail-closed"],
+													"description": "Behavior on verification failure. Default: 'fail-open'"
+												}
+											}
+										}
+									]
+								}
+							}
+						}
+					]
+				},
+				"logging": { "$ref": "#/definitions/loggerConfig" }
+			}
+		},
+
+		"databases": {
+			"type": "object",
+			"description": "Optional mapping of databases and tables to file system paths.",
+			"additionalProperties": {
+				"type": "object",
+				"additionalProperties": false,
+				"properties": {
+					"path": { "type": "string", "description": "Path for all files of this database." },
+					"auditPath": { "type": "string", "description": "Path for audit log database files for this database." },
+					"tables": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "object",
+							"additionalProperties": false,
+							"properties": {
+								"path": { "type": "string", "description": "Path for this table's files." }
+							},
+							"required": ["path"]
+						}
+					}
+				}
+			}
+		},
+
+		"analytics": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"aggregatePeriod": {
+					"type": "number",
+					"description": "Seconds between aggregation of raw analytics. Default: 60"
+				},
+				"replicate": {
+					"type": "boolean",
+					"description": "Replicate aggregated analytics across cluster. Default: false"
+				},
+				"storageInterval": {
+					"type": "number",
+					"description": "Number of aggregation cycles between node storage measurements. 0 to disable. Default: 10"
+				},
+				"logging": { "$ref": "#/definitions/loggerConfig" }
+			}
+		}
+	},
+
+	"additionalProperties": true,
+
+	"definitions": {
+		"loggerConfig": {
+			"type": "object",
+			"additionalProperties": true,
+			"properties": {
+				"path": { "type": "string" },
+				"root": { "type": "string" },
+				"level": { "type": "string", "enum": ["trace", "debug", "info", "warn", "error", "fatal", "notify"] },
+				"tag": { "type": "string" },
+				"stdStreams": { "type": "boolean" }
+			}
+		},
+		"tlsConfig": {
+			"type": "object",
+			"additionalProperties": false,
+			"properties": {
+				"certificate": {
+					"type": "string",
+					"description": "Path to certificate file. Default: <ROOTPATH>/keys/certificate.pem"
+				},
+				"certificateAuthority": { "type": "string", "description": "Path to CA file. Default: <ROOTPATH>/keys/ca.pem" },
+				"privateKey": {
+					"type": "string",
+					"description": "Path to private key file. Default: <ROOTPATH>/keys/privateKey.pem"
+				},
+				"ciphers": { "type": "string", "description": "Optional explicit cipher list." },
+				"host": { "type": "string", "description": "Optional SNI host this certificate applies to." }
+			}
+		}
+	},
+
+	"examples": [
+		{
+			"rootPath": "~/hdb",
+			"componentsRoot": "~/hdb/components",
+			"http": {
+				"port": 9926,
+				"cors": true,
+				"compressionThreshold": 1200,
+				"mtls": {
+					"required": false,
+					"certificateVerification": {
+						"failureMode": "fail-closed",
+						"crl": { "enabled": true, "timeout": 10000, "cacheTtl": 86400000, "gracePeriod": 86400000 },
+						"ocsp": { "enabled": true, "timeout": 5000, "cacheTtl": 3600000, "errorCacheTtl": 300000 }
+					}
+				}
+			},
+			"threads": { "count": 8, "maxHeapMemory": 300 },
+			"authentication": { "authorizeLocal": true, "enableSessions": true },
+			"operationsApi": { "network": { "port": 9925 } },
+			"logging": {
+				"level": "warn",
+				"file": true,
+				"rotation": { "enabled": true, "interval": "1D", "maxSize": "100M" }
+			},
+			"storage": { "path": "~/hdb/database", "blobPaths": ["~/hdb/blobs"] },
+			"tls": {
+				"certificate": "~/hdb/keys/certificate.pem",
+				"privateKey": "~/hdb/keys/privateKey.pem",
+				"certificateAuthority": "~/hdb/keys/ca.pem"
+			},
+			"mqtt": { "port": 1883, "securePort": 8883, "webSocket": true },
+			"analytics": { "aggregatePeriod": 60, "replicate": false },
+			"my-app": { "package": "git+https://github.com/example/my-app.git", "port": 4000 }
+		}
+	]
+}
