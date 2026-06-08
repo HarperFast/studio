@@ -67,7 +67,7 @@ export function ApplicationsSidebar() {
 	);
 
 	return (
-		<div className="h-full overflow-auto pr-1.5 pb-18">
+		<div className="app-tree-scroll h-full overflow-auto pr-1.5 pb-18">
 			<ControlledTreeEnvironment
 				canDragAndDrop={true}
 				canDropOnFolder={true}
