@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { hasImageFileExtension } from '@/lib/string/hasImageFileExtension';
+import { isMediaFile } from '@/lib/string/mediaFileType';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetComponentFileRequest extends InstanceClientIdConfig {
@@ -27,7 +27,7 @@ export async function getComponentFile({
 		operation: 'get_component_file',
 		project,
 		file,
-		encoding: encoding ?? (hasImageFileExtension(file) ? 'base64' : 'utf8'),
+		encoding: encoding ?? (isMediaFile(file) ? 'base64' : 'utf8'),
 	});
 	return {
 		project,
