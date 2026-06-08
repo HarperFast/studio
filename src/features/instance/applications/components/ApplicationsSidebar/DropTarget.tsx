@@ -188,7 +188,7 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 					'cursor-copy text-sm text-center',
 					'p-2 w-full fixed bottom-0 h-16',
 					'flex flex-col items-center justify-center',
-					'bg-red-950 border-red-600',
+					'bg-red-100 border-red-600 dark:bg-red-950 dark:border-red-600',
 				)}
 			>
 				You cannot upload into<br />
@@ -214,8 +214,8 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 					'p-2 w-full fixed bottom-0 h-16',
 					'flex flex-col items-center justify-center',
 					isDraggingAnywhere
-						? 'animate-glow-pulse bg-green-950 border-green-600'
-						: 'bg-purple-950 border-purple-600',
+						? 'animate-glow-pulse bg-green-100 border-green-600 dark:bg-green-950 dark:border-green-600'
+						: 'border-purple-600 backdrop-blur-sm bg-purple-600/10 dark:bg-purple-600/30',
 				)}
 			>
 				{uploading
