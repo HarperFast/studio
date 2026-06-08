@@ -50,16 +50,45 @@
 		border-bottom: 1px solid var(--border);
 	}
 
-	/* ── Inputs & selects ────────────────────────────────────────────────── */
+	/* ── Inputs & selects ──────────────────────────────────────────────────
+	 * Match Studio's Input component (components/ui/input.tsx): a white surface
+	 * with a subtle --input-coloured border, not a solid --input fill. */
 	select,
 	input[type="text"],
 	input[type="password"],
 	input[type="search"],
 	textarea {
-		background-color: var(--input);
+		background-color: var(--white);
 		color: var(--foreground);
-		border: 1px solid var(--border);
+		border: 1px solid var(--input);
 		border-radius: var(--radius-md);
+		padding: 4px 12px;
+		font-size: 0.875rem;
+	}
+
+	/* Studio uses Ubuntu for input text and a 36px (h-9) control height; leave
+	 * textareas (request bodies) monospace and free to grow. */
+	select,
+	input[type="text"],
+	input[type="password"],
+	input[type="search"] {
+		font-family: var(--font-ubuntu);
+		height: 2.25rem;
+	}
+
+	::placeholder {
+		color: var(--muted-foreground);
+	}
+
+	/* Focus → the app's 1px purple ring. */
+	select:focus,
+	input[type="text"]:focus,
+	input[type="password"]:focus,
+	input[type="search"]:focus,
+	textarea:focus {
+		outline: none;
+		border-color: var(--purple);
+		box-shadow: 0 0 0 1px var(--purple);
 	}
 
 	/* ── Operation blocks ────────────────────────────────────────────────── */
@@ -150,4 +179,102 @@
 	.response-control-media-type__accept-message {
 		color: var(--muted-foreground);
 	}
+}
+
+/* Inputs use a white surface in light mode; in dark mode Studio's Input swaps to
+ * grey-700 (see components/ui/input.tsx's dark:bg-grey-700). */
+.dark .swagger-ui select,
+.dark .swagger-ui input[type="text"],
+.dark .swagger-ui input[type="password"],
+.dark .swagger-ui input[type="search"],
+.dark .swagger-ui textarea {
+	background-color: var(--grey-700);
+}
+
+/* ── Authorize modal ─────────────────────────────────────────────────────────
+ * Swagger renders its auth dialog with a heavy black backdrop, hardcoded light
+ * surface colours, a 4px radius and a generic sans-serif font — none of which
+ * match Studio's Dialog component (components/ui/dialog.tsx). Re-skin it with
+ * the same tokens so it reads as a native Studio modal in both themes. These
+ * rules live outside the `.swagger-ui {}` block because the backdrop needs a
+ * `.dark` ancestor selector to mirror DialogOverlay's light/dark variants.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Backdrop — mirror DialogOverlay: white/80 + subtle blur in light mode. */
+.swagger-ui .dialog-ux .backdrop-ux {
+	background: color-mix(in srgb, var(--white) 80%, transparent);
+	backdrop-filter: blur(2px);
+}
+.dark .swagger-ui .dialog-ux .backdrop-ux {
+	background: color-mix(in srgb, var(--black-dark) 90%, transparent);
+	backdrop-filter: none;
+}
+
+/* Surface — mirror DialogContent: popover bg, themed border, rounded-md, shadow-2xl. */
+.swagger-ui .dialog-ux .modal-ux {
+	background: var(--popover);
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header {
+	border-bottom: 1px solid var(--border);
+}
+
+/* Typography — Studio uses Ubuntu; swagger forces a generic sans-serif. */
+.swagger-ui .dialog-ux .modal-ux-header h3,
+.swagger-ui .dialog-ux .modal-ux-content h4,
+.swagger-ui .dialog-ux .modal-ux-content p,
+.swagger-ui .dialog-ux .modal-ux label,
+.swagger-ui .dialog-ux .modal-ux .btn {
+	font-family: var(--font-ubuntu);
+}
+
+.swagger-ui .dialog-ux .modal-ux-header h3,
+.swagger-ui .dialog-ux .modal-ux-content h4 {
+	color: var(--popover-foreground);
+}
+
+/* The "×" icon defaults to a dark slate that disappears against the dark-mode
+ * surface — give it a themed colour. */
+.swagger-ui .dialog-ux .modal-ux-header .close-modal svg {
+	fill: var(--muted-foreground);
+}
+
+/* Action buttons — match Studio's Button component (components/ui/buttonVariants.tsx),
+ * which uses outline buttons throughout (compare the Logs page filter actions):
+ * transparent fill, a 2px border, foreground text (white in dark mode), the
+ * rounded-lg radius, normal font weight, and a hover lift onto an accent tint.
+ * "Authorize" is the positive action (green border, like "Apply Filters");
+ * "Close" is a neutral dismiss (themed border). */
+.swagger-ui .dialog-ux .btn.authorize,
+.swagger-ui .dialog-ux .btn.btn-done {
+	background: transparent;
+	border: 2px solid var(--border);
+	color: var(--foreground);
+	border-radius: var(--radius);
+	padding: 8px 16px;
+	font-size: 0.875rem;
+	font-weight: 400;
+	box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	transition: color 0.2s, box-shadow 0.2s, background-color 0.2s, transform 0.2s;
+}
+.swagger-ui .dialog-ux .btn.authorize:hover,
+.swagger-ui .dialog-ux .btn.btn-done:hover {
+	background: color-mix(in srgb, var(--accent) 60%, transparent);
+	transform: translateY(-0.25rem);
+}
+.dark .swagger-ui .dialog-ux .btn.authorize,
+.dark .swagger-ui .dialog-ux .btn.btn-done {
+	color: var(--white);
+}
+.dark .swagger-ui .dialog-ux .btn.authorize:hover,
+.dark .swagger-ui .dialog-ux .btn.btn-done:hover {
+	background: color-mix(in srgb, var(--grey-700) 40%, transparent);
+}
+
+/* Authorize → `positiveOutline`: green border. */
+.swagger-ui .dialog-ux .btn.authorize {
+	border-color: var(--green);
 }
