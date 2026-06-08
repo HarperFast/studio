@@ -178,16 +178,19 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 
 	return (
 		<div className="flex flex-col h-full">
-			<div className="flex items-center justify-between p-4 border-b border-[#333] bg-[#242424]">
-				<div className="flex items-center gap-2">
-					<Bot className="text-[#646cff]" size={20} />
-					<span className="font-semibold text-white">Harper Agent</span>
+			<div className="flex items-start justify-between gap-6 px-4 py-2.5 border-b border-border bg-card">
+				<div className="flex flex-col gap-1 min-w-0 flex-1">
+					<div className="flex items-center gap-2">
+						<Bot className="text-primary" size={20} />
+						<span className="font-semibold text-foreground">Harper Agent</span>
+					</div>
+					<UsageBar />
 				</div>
-				<div className="flex items-center gap-1">
+				<div className="flex items-center gap-2 shrink-0">
 					<ClearChat setMessages={setMessages} />
 					<button
 						onClick={closeChat}
-						className="p-1 hover:bg-[#333] rounded-md transition-colors text-gray-400 hover:text-white"
+						className="p-1 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground"
 						title="Close chat"
 					>
 						<X size={20} />
@@ -224,10 +227,6 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 						disabled={isLoadingInitial}
 						autoFocus={autoFocus}
 					/>
-
-					<div className="p-2 border-t border-gray-700 bg-gray-800">
-						<UsageBar />
-					</div>
 				</div>
 			</div>
 		</div>

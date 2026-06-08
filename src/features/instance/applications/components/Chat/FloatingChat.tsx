@@ -158,7 +158,7 @@ export function FloatingChat() {
 							: {}}
 						className={`
 							pointer-events-auto
-							fixed bg-[#1a1a1a] shadow-2xl border-l border-[#333] overflow-visible
+							fixed bg-background shadow-2xl border-l border-border overflow-visible
 							${isMobile ? 'inset-0 w-full h-full rounded-none' : 'h-full'}
 						`}
 					>
@@ -167,8 +167,8 @@ export function FloatingChat() {
 								onMouseDown={handleResizeStart}
 								className={`
 									absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize
-									hover:bg-[#646cff] transition-colors z-50
-									${isResizing ? 'bg-[#646cff]' : ''}
+									hover:bg-primary transition-colors z-50
+									${isResizing ? 'bg-primary' : ''}
 								`}
 							/>
 						)}
@@ -195,9 +195,9 @@ export function FloatingChat() {
 					}}
 					className="
 						pointer-events-auto
-						fixed w-14 h-14 rounded-full bg-[#646cff]
-						text-white shadow-lg flex items-center justify-center cursor-pointer
-						hover:bg-[#535bf2] transition-colors
+						fixed w-14 h-14 rounded-full bg-primary
+						text-primary-foreground shadow-lg flex items-center justify-center cursor-pointer
+						hover:bg-primary/90 transition-colors
 					"
 				>
 					<Bot size={28} />

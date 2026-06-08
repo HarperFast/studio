@@ -5,8 +5,8 @@
 
 .chat-header {
     padding: 1rem 1.5rem;
-    background: #242424;
-    border-bottom: 1px solid #333;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
 }
 
 .header-content {
@@ -24,21 +24,21 @@
 .title-area h1 {
     margin: 0;
     font-size: 1.25rem;
-    color: #fff;
+    color: var(--foreground);
 }
 
 .title-area p {
     margin: 0.25rem 0 0;
     font-size: 0.875rem;
-    color: #888;
+    color: var(--muted-foreground);
 }
 
 .clear-chat-button {
     background: transparent;
-    border: 1px solid #444;
+    border: 1px solid var(--border);
     border-radius: 6px;
     padding: 6px;
-    color: #888;
+    color: var(--muted-foreground);
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -47,9 +47,9 @@
 }
 
 .clear-chat-button:hover:not(:disabled) {
-    background: #333;
-    color: #fff;
-    border-color: #666;
+    background: var(--accent);
+    color: var(--foreground);
+    border-color: var(--border);
 }
 
 .clear-chat-button:disabled {
@@ -61,6 +61,7 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
+    padding-right: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -72,7 +73,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #555;
+    color: var(--muted-foreground);
     gap: 1rem;
 }
 
@@ -91,7 +92,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    color: #555;
+    color: var(--muted-foreground);
     gap: 1rem;
 }
 
@@ -115,16 +116,17 @@
     width: 32px;
     height: 32px;
     border-radius: 50%;
-    background: #333;
+    background: var(--muted);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--muted-foreground);
     flex-shrink: 0;
 }
 
 .user .avatar {
-    background: #646cff;
+    background: var(--primary);
+    color: var(--primary-foreground);
 }
 
 .content {
@@ -135,14 +137,14 @@
 }
 
 .user .content {
-    background: #313244;
-    color: #fff;
+    background: var(--primary);
+    color: var(--primary-foreground);
     border-bottom-right-radius: 2px;
 }
 
 .assistant .content {
-    background: #2a2a2a;
-    color: #e0e0e0;
+    background: var(--muted);
+    color: var(--foreground);
     border-bottom-left-radius: 2px;
 }
 
@@ -152,20 +154,20 @@
 
 .tool-invocation {
     margin-top: 0.75rem;
-    background: #1e1e1e;
+    background: var(--card);
     border-radius: 8px;
-    border: 1px solid #444;
+    border: 1px solid var(--border);
     overflow: hidden;
 }
 
 .tool-info {
     padding: 0.5rem 0.75rem;
-    background: #252525;
+    background: var(--accent);
     display: flex;
     justify-content: space-between;
     align-items: center;
     font-size: 0.75rem;
-    border-bottom: 1px solid #444;
+    border-bottom: 1px solid var(--border);
 }
 
 .tool-name {
@@ -173,17 +175,18 @@
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    color: #aaa;
+    color: var(--muted-foreground);
 }
 
 .tool-status {
-    color: #646cff;
+    color: var(--primary);
 }
 
 .tool-io {
     padding: 0.75rem;
     font-family: monospace;
     font-size: 0.8rem;
+    color: var(--card-foreground);
 }
 
 .tool-args, .tool-result {
@@ -192,39 +195,39 @@
 }
 
 .tool-result {
-    color: #4ade80;
+    color: var(--card-foreground);
     padding-top: 0.5rem;
-    border-top: 1px dashed #444;
+    border-top: 1px dashed var(--border);
     display: flex;
     flex-direction: column;
 }
 
 .input-area {
     padding: 0.5rem;
-    background: #242424;
-    border-top: 1px solid #333;
+    background: var(--card);
+    border-top: 1px solid var(--border);
     display: flex;
     gap: 0.75rem;
 }
 
 .input-area input {
     flex: 1;
-    background: #1a1a1a;
-    border: 1px solid #444;
+    background: var(--background);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 0.6rem 1rem;
-    color: #fff;
+    color: var(--foreground);
     font-size: 0.9375rem;
 }
 
 .input-area input:focus {
     outline: none;
-    border-color: #646cff;
+    border-color: var(--ring);
 }
 
 .input-area button {
-    background: #646cff;
-    color: #fff;
+    background: var(--primary);
+    color: var(--primary-foreground);
     border: none;
     border-radius: 8px;
     width: 40px;
@@ -237,41 +240,42 @@
 }
 
 .input-area button:hover:not(:disabled) {
-    background: #535bf2;
+    background: color-mix(in srgb, var(--primary) 88%, black);
 }
 
 .input-area button:disabled {
-    background: #333;
+    background: var(--muted);
     cursor: not-allowed;
-    color: #666;
+    color: var(--muted-foreground);
 }
 
 .success {
-    color: #4ade80;
+    color: var(--green);
 }
 
 .usage-container {
     font-size: 0.75rem;
-    color: #888;
+    color: var(--muted-foreground);
 }
 
 .usage-info {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.1875rem;
 	gap: 0.5rem;
+    line-height: 1.2;
 }
 
 .usage-bar-bg {
     width: 100%;
     height: 4px;
-    background: #333;
+    background: var(--muted);
     border-radius: 2px;
     overflow: hidden;
 }
 
 .usage-bar-fill {
     height: 100%;
-    background: #646cff;
+    background: var(--primary);
     transition: width 0.3s ease;
 }
