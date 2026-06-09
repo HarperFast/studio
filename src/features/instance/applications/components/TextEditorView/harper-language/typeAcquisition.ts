@@ -1,0 +1,150 @@
+/**
+ * Automatic Type Acquisition (ATA) for the Applications editor: fetch the
+ * `@types` (or bundled declarations) for the third-party packages an
+ * application imports — `react`, `react-dom`, and so on — from the jsDelivr CDN
+ * and feed them to Monaco's TypeScript worker. Without this, npm imports report
+ * a spurious "cannot find module".
+ *
+ * We reuse `@typescript/ata` (the engine behind the TypeScript Playground) for
+ * the hard part: walking a package's declaration graph on the CDN, including
+ * transitive `@types`. It only touches `typescript` to scan a file's imports via
+ * `preProcessFile`, so we hand it a tiny regex shim instead of shipping the
+ * multi-megabyte `typescript` package to the browser.
+ *
+ * Everything here is lazy and best-effort: the engine loads (a code-split
+ * chunk) only once a real application file is open, and any failure — offline,
+ * blocked CDN, unknown package — is swallowed so it can never break editing.
+ */
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+
+/** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
+const NODE_BUILTINS = new Set([
+	'assert',
+	'async_hooks',
+	'buffer',
+	'child_process',
+	'cluster',
+	'console',
+	'crypto',
+	'dns',
+	'events',
+	'fs',
+	'http',
+	'http2',
+	'https',
+	'module',
+	'net',
+	'os',
+	'path',
+	'perf_hooks',
+	'process',
+	'querystring',
+	'readline',
+	'stream',
+	'string_decoder',
+	'timers',
+	'tls',
+	'tty',
+	'url',
+	'util',
+	'v8',
+	'vm',
+	'worker_threads',
+	'zlib',
+]);
+const ASSET_OR_DATA = /\.(svg|png|jpe?g|gif|webp|avif|ico|bmp|css|scss|sass|less|json|wasm|txt|md|html)$/i;
+
+/** A bare npm specifier we want real `@types` for — not relative, alias, asset, Harper, or node builtin. */
+function isAcquirablePackage(specifier: string): boolean {
+	if (!specifier || specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('@/')) {
+		return false;
+	}
+	if (specifier === 'harper' || specifier === 'harperdb' || specifier.startsWith('node:')) {
+		return false;
+	}
+	return !NODE_BUILTINS.has(specifier) && !ASSET_OR_DATA.test(specifier);
+}
+
+const IMPORT_SPECIFIER =
+	/(?:import|export)\b[^'";]*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
+const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
+
+/**
+ * Minimal stand-in for the sliver of `typescript` that `@typescript/ata` uses:
+ * it calls `preProcessFile` to discover a file's module imports and its
+ * `/// <reference path>` directives (needed to pull a package's other
+ * declaration files, e.g. React's `global.d.ts`). We return only the npm
+ * specifiers worth acquiring; relative paths within a package pass through.
+ */
+function createImportScannerShim(): unknown {
+	return {
+		libMap: new Map<string, string>(),
+		preProcessFile(code: string) {
+			const importedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
+			IMPORT_SPECIFIER.lastIndex = 0;
+			for (let match = IMPORT_SPECIFIER.exec(code); match; match = IMPORT_SPECIFIER.exec(code)) {
+				const specifier = match[1] ?? match[2] ?? match[3];
+				if (specifier && isAcquirablePackage(specifier)) {
+					importedFiles.push({ fileName: specifier, pos: match.index, end: IMPORT_SPECIFIER.lastIndex });
+				}
+			}
+			const referencedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
+			REFERENCE_PATH.lastIndex = 0;
+			for (let match = REFERENCE_PATH.exec(code); match; match = REFERENCE_PATH.exec(code)) {
+				referencedFiles.push({ fileName: match[1], pos: match.index, end: REFERENCE_PATH.lastIndex });
+			}
+			return {
+				referencedFiles,
+				importedFiles,
+				libReferenceDirectives: [],
+				typeReferenceDirectives: [],
+				ambientExternalModules: [],
+				isLibFile: false,
+			};
+		},
+	};
+}
+
+let runnerPromise: Promise<(source: string) => Promise<void>> | undefined;
+const acquiredPaths = new Set<string>();
+
+function getRunner(): Promise<(source: string) => Promise<void>> {
+	if (!runnerPromise) {
+		runnerPromise = import('@typescript/ata').then(({ setupTypeAcquisition }) => {
+			const { typescriptDefaults, javascriptDefaults } = monaco.languages.typescript;
+			return setupTypeAcquisition({
+				projectName: 'Harper Application',
+				typescript: createImportScannerShim() as unknown as typeof import('typescript'),
+				delegate: {
+					receivedFile(code: string, path: string) {
+						if (acquiredPaths.has(path)) {
+							return;
+						}
+						acquiredPaths.add(path);
+						const uri = `file://${path}`;
+						typescriptDefaults.addExtraLib(code, uri);
+						javascriptDefaults.addExtraLib(code, uri);
+					},
+				},
+			});
+		});
+	}
+	return runnerPromise;
+}
+
+/**
+ * Acquire npm `@types` for every package imported across the given source files.
+ * Best-effort and idempotent; safe to call on each project load.
+ */
+export async function acquireApplicationTypes(sources: string[]): Promise<void> {
+	if (sources.length === 0) {
+		return;
+	}
+	try {
+		const run = await getRunner();
+		// One pass: the shim scans the combined source for every import at once.
+		await run(sources.join('\n;\n'));
+	} catch (error) {
+		console.warn('[harper] type acquisition unavailable', error);
+	}
+}

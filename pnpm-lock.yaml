@@ -101,6 +101,9 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.0
+      '@typescript/ata':
+        specifier: ^0.9.8
+        version: 0.9.8(typescript@6.0.3)
       ai:
         specifier: ^6.0.154
         version: 6.0.197(zod@4.4.3)
@@ -2534,6 +2537,11 @@ packages:
 
   '@types/ws@8.18.1':
     resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
+  '@typescript/ata@0.9.8':
+    resolution: {integrity: sha512-+M815CeDRJS5H5ciWfhFCKp25nNfF+LFWawWAaBhNlquFb2wS5IIMDI+2bKWN3GuU6mpj+FzySsOD29M4nG8Xg==}
+    peerDependencies:
+      typescript: '>=4.4.4'
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
@@ -9341,6 +9349,10 @@ snapshots:
   '@types/ws@8.18.1':
     dependencies:
       '@types/node': 24.13.0
+
+  '@typescript/ata@0.9.8(typescript@6.0.3)':
+    dependencies:
+      typescript: 6.0.3
 
   '@ungap/structured-clone@1.3.0': {}
 
