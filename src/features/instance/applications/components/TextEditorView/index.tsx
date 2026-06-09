@@ -1,8 +1,8 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
+import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { useGoToDefinitionNavigation } from '@/features/instance/applications/hooks/useGoToDefinitionNavigation';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -34,7 +34,6 @@ export function TextEditorView() {
 	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile, rootEntries } =
 		useEditorView();
 	useApplicationTypeIntelligence(openedEntry, rootEntries);
-	useGoToDefinitionNavigation();
 	const {
 		content: updatedFileContent,
 		setContent,
@@ -47,6 +46,7 @@ export function TextEditorView() {
 	const monacoTheme = useMonacoTheme();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const [mounted, setMounted] = useState<Parameters<OnMount> | null>(null);
+	useCodeNavigation(mounted?.[0]);
 
 	const extension = parseFileExtension(openedEntry?.path);
 	const language = extensionToLanguageMap[extension] || 'plaintext';

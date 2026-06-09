@@ -1,6 +1,10 @@
 export interface WatchedValuesTypeMap {
 	RevertChanges: true;
 	SaveFile: true;
+	NavigateBack: true;
+	NavigateForward: true;
+	CanNavigateBack: boolean;
+	CanNavigateForward: boolean;
 	ShowAddDirectoryOrFileModalType: 'file' | 'directory' | false;
 	ShowNewTableModal: boolean;
 	ShowDeleteDirectoryOrFileModal: boolean;
