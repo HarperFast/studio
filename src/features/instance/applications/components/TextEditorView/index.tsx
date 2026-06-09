@@ -1,6 +1,8 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
+import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useGoToDefinitionNavigation } from '@/features/instance/applications/hooks/useGoToDefinitionNavigation';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -29,7 +31,10 @@ const extensionToLanguageMap: Record<string, string> = {
 
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile } = useEditorView();
+	const { openedEntryContents, openedEntry, restrictPackageModification, isSavingFile, saveFile, rootEntries } =
+		useEditorView();
+	useApplicationTypeIntelligence(openedEntry, rootEntries);
+	useGoToDefinitionNavigation();
 	const {
 		content: updatedFileContent,
 		setContent,
@@ -103,6 +108,7 @@ export function TextEditorView() {
 			language={language}
 			theme={monacoTheme}
 			value={updatedFileContent ?? openedEntryContents}
+			keepCurrentModel
 			beforeMount={handleEditorWillMount}
 			onMount={handleEditorDidMount}
 			onChange={readOnly ? undefined : setUpdatedFileContent}
