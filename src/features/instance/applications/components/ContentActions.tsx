@@ -1,16 +1,25 @@
-import { RestartButton } from '@/components/RestartButton';
 import { Button } from '@/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuShortcut,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	ChevronDownIcon,
 	DownloadIcon,
 	FilePlusIcon,
 	FolderPlusIcon,
@@ -20,6 +29,7 @@ import {
 	PanelRightOpenIcon,
 	PencilIcon,
 	PlusIcon,
+	RotateCcwIcon,
 	SaveIcon,
 	TrashIcon,
 	Undo2Icon,
@@ -27,6 +37,17 @@ import {
 import { newApplication } from './ApplicationsSidebar/specialItems';
 
 import './ContentActions.css';
+
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+// Mirrors the bindings registered in `../shortcuts`; shown so the menus teach
+// the keys. macOS gets the conventional symbols, everything else spells it out.
+const SHORTCUTS = {
+	save: isMac ? '⌘S' : 'Ctrl+S',
+	rename: 'F2',
+	newFile: isMac ? '⌃N' : 'Ctrl+N',
+	newDirectory: isMac ? '⌃⌥⇧N' : 'Ctrl+Alt+Shift+N',
+	delete: isMac ? '⌘⌦' : 'Ctrl+Del',
+};
 
 export function ContentActions({
 	toggledSidebar,
@@ -39,7 +60,10 @@ export function ContentActions({
 	const { openedEntryContents, openedEntry, isSavingFile, restrictPackageModification } = useEditorView();
 	const { content: updatedFileContent } = useEditorFileContent(openedEntry?.path);
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
-	const targetNoun = instanceParams.entityType === 'instance' ? 'Instance' : 'Cluster';
+	const { onRestartClick, isRestartPending } = useRestartInstanceClick({
+		operation: 'restart_service',
+		instanceClient: instanceParams.instanceClient,
+	});
 
 	const onAddFileClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'file');
 	const onAddDirectoryClick = useSetWatchedValue('ShowAddDirectoryOrFileModalType', 'directory');
@@ -56,6 +80,19 @@ export function ContentActions({
 	const canNavigateForward = useWatchedValue('CanNavigateForward', false).value;
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
+
+	// Which actions apply to what is open — drives both the menu items and
+	// whether each parent menu appears at all.
+	const isReadOnlyPackage = !!openedEntry?.package;
+	const canEditFile = !!openedEntry && !isDirectory(openedEntry) && !isReadOnlyPackage && canManageBrowseInstance;
+	const canAddEntries = !!openedEntry && !isReadOnlyPackage && canManageBrowseInstance;
+	const canAddTable = !!openedEntry && openedEntry.path.endsWith('.graphql') && canManageBrowseInstance;
+	const canDeleteEntry = !restrictPackageModification && canManageBrowseInstance;
+	const canDownload = !!openedEntry?.project;
+	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !restrictPackageModification;
+
+	const showFileMenu = canEditFile || canAddEntries || canAddTable || canDeleteEntry;
+	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy;
 
 	return (
 		<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12">
@@ -127,131 +164,107 @@ export function ContentActions({
 						</Tooltip>
 					)}
 
-					{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && (
-						<Button
-							variant="default"
-							className="rounded-none"
-							onClick={onSaveClick}
-							disabled={fileIsClean || isSavingFile}
-							title="Save"
-						>
-							<SaveIcon className="pointer-events-none" />
-							<span className="hidden lg:inline-block pointer-events-none">
-								<u>S</u>ave
-							</span>
-						</Button>
+					{showFileMenu && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button type="button" variant="ghost" className="rounded-none" title="File">
+									File
+									{!fileIsClean && canEditFile && (
+										<span className="ml-1 size-1.5 rounded-full bg-primary" aria-label="Unsaved changes" />
+									)}
+									<ChevronDownIcon className="pointer-events-none opacity-60" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								{canEditFile && (
+									<>
+										<DropdownMenuItem onSelect={onSaveClick} disabled={fileIsClean || isSavingFile}>
+											<SaveIcon />
+											Save
+											<DropdownMenuShortcut>{SHORTCUTS.save}</DropdownMenuShortcut>
+										</DropdownMenuItem>
+										<DropdownMenuItem onSelect={onRenameClick} disabled={!fileIsClean || isSavingFile}>
+											<PencilIcon />
+											Rename
+											<DropdownMenuShortcut>{SHORTCUTS.rename}</DropdownMenuShortcut>
+										</DropdownMenuItem>
+										<DropdownMenuItem onSelect={onRevertChangesClicked} disabled={fileIsClean || isSavingFile}>
+											<Undo2Icon />
+											Revert
+										</DropdownMenuItem>
+									</>
+								)}
+
+								{canEditFile && (canAddEntries || canAddTable) && <DropdownMenuSeparator />}
+
+								{canAddEntries && (
+									<>
+										<DropdownMenuItem onSelect={onAddFileClick}>
+											<FilePlusIcon />
+											New File
+											<DropdownMenuShortcut>{SHORTCUTS.newFile}</DropdownMenuShortcut>
+										</DropdownMenuItem>
+										<DropdownMenuItem onSelect={onAddDirectoryClick}>
+											<FolderPlusIcon />
+											Add Directory
+											<DropdownMenuShortcut>{SHORTCUTS.newDirectory}</DropdownMenuShortcut>
+										</DropdownMenuItem>
+									</>
+								)}
+								{canAddTable && (
+									<DropdownMenuItem onSelect={onNewTableClick}>
+										<PlusIcon />
+										New Table
+									</DropdownMenuItem>
+								)}
+
+								{(canEditFile || canAddEntries || canAddTable) && canDeleteEntry && <DropdownMenuSeparator />}
+
+								{canDeleteEntry && (
+									<DropdownMenuItem variant="destructive" onSelect={onDeleteClick}>
+										<TrashIcon />
+										Delete
+										<DropdownMenuShortcut>{SHORTCUTS.delete}</DropdownMenuShortcut>
+									</DropdownMenuItem>
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
 					)}
 
-					{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && (
-						<Button
-							variant="ghost"
-							className="rounded-none"
-							onClick={onRenameClick}
-							disabled={!fileIsClean || isSavingFile}
-							title="Rename"
-						>
-							<PencilIcon className="pointer-events-none" />
-							<span className="hidden lg:inline-block pointer-events-none">
-								<u>R</u>ename
-							</span>
-						</Button>
-					)}
-
-					{!openedEntry.package && canManageBrowseInstance && (
-						<Button variant="ghost" className="rounded-none" onClick={onAddFileClick} title="New File">
-							<FilePlusIcon className="pointer-events-none" />
-							<span className="pointer-events-none hidden lg:inline-block">
-								<u>N</u>ew
-								<span className="hidden lg:inline-block">&nbsp;File</span>
-							</span>
-						</Button>
-					)}
-
-					{!openedEntry.package && canManageBrowseInstance && (
-						<Button variant="ghost" className="rounded-none" onClick={onAddDirectoryClick} title="Add Directory">
-							<FolderPlusIcon className="pointer-events-none" />
-							<span className="pointer-events-none hidden lg:inline-block">
-								<u>A</u>dd
-								<span className="hidden xl:inline-block">&nbsp;Directory</span>
-							</span>
-						</Button>
-					)}
-
-					{openedEntry.path.endsWith('.graphql') && canManageBrowseInstance && (
-						<Button variant="ghost" className="rounded-none" onClick={onNewTableClick} title="New Table">
-							<PlusIcon className="pointer-events-none" />
-							<span className="hidden lg:inline-block pointer-events-none">
-								<span className="hidden xl:inline-block">New</span> Table
-							</span>
-						</Button>
-					)}
-
-					{openedEntry.project && (
-						<Button
-							variant="ghost"
-							className="rounded-none"
-							onClick={onDownloadApplicationClick}
-							title="Download Application"
-						>
-							<DownloadIcon className="pointer-events-none" />
-							<span className="hidden lg:inline-block pointer-events-none">
-								Download
-								<span className="hidden 2xl:inline-block">&nbsp;Application</span>
-							</span>
-						</Button>
-					)}
-
-					{!!openedEntry.package && canManageBrowseInstance && !restrictPackageModification && (
-						<Button variant="ghost" className="rounded-none" onClick={onRedeployClick} title="Redeploy Package">
-							<PackageIcon className="pointer-events-none" />
-							<span className="pointer-events-none">
-								Redeploy <u>P</u>ackage
-							</span>
-						</Button>
-					)}
-
-					<div className="grow"></div>
-
-					{canManageBrowseInstance && (
-						<RestartButton
-							targetNoun={targetNoun}
-							instanceClient={instanceParams.instanceClient}
-							operation="restart_service"
-							variant="ghost"
-							className="rounded-none mx-0 md:mx-0"
-							disabled={!fileIsClean || isSavingFile}
-						/>
-					)}
-
-					{!isDirectory(openedEntry) && !openedEntry.package && canManageBrowseInstance && (
-						<Button
-							type="button"
-							variant="ghost"
-							className="rounded-none"
-							onClick={onRevertChangesClicked}
-							disabled={fileIsClean || isSavingFile}
-							title="Revert Changes"
-						>
-							<Undo2Icon className="pointer-events-none" />
-							<span className="hidden xl:inline-block pointer-events-none">
-								Revert <span className="hidden 2xl:inline-block">Changes</span>
-							</span>
-						</Button>
-					)}
-
-					{!restrictPackageModification && canManageBrowseInstance && (
-						<Button
-							type="button"
-							variant="destructiveGhost"
-							className="rounded-none"
-							onClick={onDeleteClick}
-							title="Delete"
-						>
-							<TrashIcon className="pointer-events-none" />
-							<span className="hidden xl:inline-block pointer-events-none">
-								<u>D</u>elete
-							</span>
-						</Button>
+					{showApplicationMenu && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button type="button" variant="ghost" className="rounded-none" title="Application">
+									Application
+									<ChevronDownIcon className="pointer-events-none opacity-60" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								{canDownload && (
+									<DropdownMenuItem onSelect={onDownloadApplicationClick}>
+										<DownloadIcon />
+										Download
+									</DropdownMenuItem>
+								)}
+								{canManageBrowseInstance && (
+									<DropdownMenuItem
+										onSelect={onRestartClick}
+										disabled={!fileIsClean || isSavingFile || isRestartPending}
+										title="Restarts all service threads to apply changes. No downtime expected."
+									>
+										<RotateCcwIcon />
+										Restart
+									</DropdownMenuItem>
+								)}
+								{(canDownload || canManageBrowseInstance) && canRedeploy && <DropdownMenuSeparator />}
+								{canRedeploy && (
+									<DropdownMenuItem onSelect={onRedeployClick}>
+										<PackageIcon />
+										Redeploy Package
+									</DropdownMenuItem>
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
 					)}
 				</>
 			)}
