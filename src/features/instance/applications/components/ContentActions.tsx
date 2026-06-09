@@ -7,11 +7,13 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useEmitToListeners } from '@/lib/events/listener';
-import { useSetWatchedValue } from '@/lib/events/watcher';
+import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import {
+	ArrowLeftIcon,
+	ArrowRightIcon,
 	DownloadIcon,
-	FileIcon,
-	FolderIcon,
+	FilePlusIcon,
+	FolderPlusIcon,
 	LockIcon,
 	PackageIcon,
 	PanelRightCloseIcon,
@@ -48,6 +50,10 @@ export function ContentActions({
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
 	const onNewTableClick = useEmitToListeners('ShowNewTableModal', true);
+	const onNavigateBackClick = useEmitToListeners('NavigateBack', true);
+	const onNavigateForwardClick = useEmitToListeners('NavigateForward', true);
+	const canNavigateBack = useWatchedValue('CanNavigateBack', false).value;
+	const canNavigateForward = useWatchedValue('CanNavigateForward', false).value;
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
 
@@ -71,6 +77,29 @@ export function ContentActions({
 
 			{openedEntry && openedEntry?.path !== newApplication && (
 				<>
+					<Button
+						type="button"
+						variant="ghost"
+						className="rounded-none px-2"
+						onClick={onNavigateBackClick}
+						disabled={!canNavigateBack}
+						title="Go Back"
+					>
+						<ArrowLeftIcon className="pointer-events-none" />
+						<span className="sr-only">Go Back</span>
+					</Button>
+					<Button
+						type="button"
+						variant="ghost"
+						className="rounded-none px-2"
+						onClick={onNavigateForwardClick}
+						disabled={!canNavigateForward}
+						title="Go Forward"
+					>
+						<ArrowRightIcon className="pointer-events-none" />
+						<span className="sr-only">Go Forward</span>
+					</Button>
+
 					{openedEntry.package && (
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -130,7 +159,7 @@ export function ContentActions({
 
 					{!openedEntry.package && canManageBrowseInstance && (
 						<Button variant="ghost" className="rounded-none" onClick={onAddFileClick} title="New File">
-							<FileIcon className="pointer-events-none" />
+							<FilePlusIcon className="pointer-events-none" />
 							<span className="pointer-events-none hidden lg:inline-block">
 								<u>N</u>ew
 								<span className="hidden lg:inline-block">&nbsp;File</span>
@@ -140,7 +169,7 @@ export function ContentActions({
 
 					{!openedEntry.package && canManageBrowseInstance && (
 						<Button variant="ghost" className="rounded-none" onClick={onAddDirectoryClick} title="Add Directory">
-							<FolderIcon className="pointer-events-none" />
+							<FolderPlusIcon className="pointer-events-none" />
 							<span className="pointer-events-none hidden lg:inline-block">
 								<u>A</u>dd
 								<span className="hidden xl:inline-block">&nbsp;Directory</span>
