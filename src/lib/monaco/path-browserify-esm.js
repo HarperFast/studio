@@ -508,4 +508,24 @@ posix.posix = posix;
 module.exports = posix;
 // ===== end vendored path-browserify@1.0.1 =====
 
+// monaco-yaml's worker does `import * as path from 'path-browserify'` and then
+// reads members off the namespace (path.basename, path.posix, ...). A bare
+// `export default` leaves those named members undefined, so expose each one.
+export const {
+	resolve,
+	normalize,
+	isAbsolute,
+	join,
+	relative,
+	_makeLong,
+	dirname,
+	basename,
+	extname,
+	format,
+	parse,
+	sep,
+	delimiter,
+	win32,
+} = posix;
+export { posix };
 export default module.exports;
