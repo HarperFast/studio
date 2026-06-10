@@ -1,16 +1,14 @@
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { aggregateReplicationMatrix, bucketLineSeries } from '../../pipeline/replication-latency.tsx';
 import type { AnalyticsDataPoint } from '../../types/analytics.ts';
 
 const multi = JSON.parse(
-	readFileSync(join(__dirname, '../fixtures/replication-latency/multi-source.json'), 'utf8'),
+	readFileSync(join(import.meta.dirname, '../fixtures/replication-latency/multi-source.json'), 'utf8'),
 ) as AnalyticsDataPoint[];
 const lowCountMatrix = JSON.parse(
-	readFileSync(join(__dirname, '../fixtures/replication-latency/low-count-matrix.json'), 'utf8'),
+	readFileSync(join(import.meta.dirname, '../fixtures/replication-latency/low-count-matrix.json'), 'utf8'),
 ) as AnalyticsDataPoint[];
 
 const NODES = [
