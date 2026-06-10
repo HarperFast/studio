@@ -1,25 +1,26 @@
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import type { Snapshot } from '../lib/tableSize.ts';
 import {
 	buildDerived,
 	computeBucketMs,
 	computeDefaultSelection,
+	computeGrowthAnnotation,
 	computeSnapshot,
 	computeTableSet,
 	computeTrendFactory,
 	dedupRecords,
+	emptyCauseToFlags,
 	normalizeRecords,
+	resolveSelection,
 	TOP_N,
 	toTableKey,
 } from '../lib/tableSize.ts';
 import type { TableSizeRecord } from '../types/analytics.ts';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 function fixture(name: string): TableSizeRecord[] {
-	const path = join(__dirname, 'fixtures', 'table-size', `${name}.json`);
+	const path = join(import.meta.dirname, 'fixtures', 'table-size', `${name}.json`);
 	return JSON.parse(readFileSync(path, 'utf8'));
 }
 
@@ -405,9 +406,6 @@ describe('buildDerived memo stability', () => {
 	});
 });
 
-import { emptyCauseToFlags, resolveSelection } from '../lib/tableSize.ts';
-import type { Snapshot } from '../lib/tableSize.ts';
-
 describe('resolveSelection', () => {
 	const snapshot: Snapshot = {
 		byNode: [],
@@ -476,8 +474,6 @@ describe('resolveSelection', () => {
 		expect(calls).toEqual(['percent']);
 	});
 });
-
-import { computeGrowthAnnotation } from '../lib/tableSize.ts';
 
 describe('computeGrowthAnnotation', () => {
 	const fakeBytes = (n: number) => `${n}B`;

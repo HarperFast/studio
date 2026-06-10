@@ -1,7 +1,5 @@
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { bytesSentSpec } from '../../pipeline/bytes-sent.tsx';
 import { mqttTrafficSentDerived } from '../../pipeline/derived/mqtt-traffic-sent.tsx';
@@ -9,7 +7,7 @@ import { runPipeline } from '../../pipeline/pipeline.ts';
 
 describe('bytes-sent tolerance', () => {
 	it('total bytes/sec ≈ Σ type-rates within 0.5% (global sum)', () => {
-		const records = JSON.parse(readFileSync(join(__dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
+		const records = JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
 		const out = runPipeline(bytesSentSpec, records, { startTime: 0, endTime: Number.MAX_SAFE_INTEGER }, []);
 
 		const refTotal = records.reduce((s: number, r: any) => {
@@ -30,7 +28,7 @@ describe('bytes-sent tolerance', () => {
 	});
 
 	it('per-bucket Σ series.y === refTotal(t) within 1e-9 (epsilon — identical formulas)', () => {
-		const records = JSON.parse(readFileSync(join(__dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
+		const records = JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
 		const out = runPipeline(bytesSentSpec, records, { startTime: 0, endTime: Number.MAX_SAFE_INTEGER }, []);
 
 		const refByTime = new Map<number, number>();
@@ -58,7 +56,7 @@ describe('bytes-sent tolerance', () => {
 	});
 
 	it('mqtt-traffic-sent (msg/sec) total ≈ Σ count/period × 1000 within 0.5%', () => {
-		const records = JSON.parse(readFileSync(join(__dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
+		const records = JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
 		const out = mqttTrafficSentDerived.recompute(records, { startTime: 0, endTime: Number.MAX_SAFE_INTEGER }, []);
 
 		const refTotal = records.reduce((s: number, r: any) => {
