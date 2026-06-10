@@ -1,7 +1,14 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { Outlet } from '@tanstack/react-router';
-import { FloatingChat } from './applications/components/Chat/FloatingChat';
+import { lazy, Suspense } from 'react';
+
+// The chat widget pulls in the AI SDK and motion. It's a floating overlay that
+// isn't needed on first paint, so load it lazily to keep both off the initial
+// bundle; a null fallback is fine while its chunk fetches.
+const FloatingChat = lazy(() =>
+	import('./applications/components/Chat/FloatingChat').then((m) => ({ default: m.FloatingChat }))
+);
 
 export function InstanceLayout() {
 	return (
@@ -12,7 +19,11 @@ export function InstanceLayout() {
 			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">
 				<Outlet />
 			</div>
-			{!isLocalStudio && <FloatingChat />}
+			{!isLocalStudio && (
+				<Suspense fallback={null}>
+					<FloatingChat />
+				</Suspense>
+			)}
 		</>
 	);
 }
