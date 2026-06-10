@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { Snapshot } from '../lib/tableSize.ts';
 import {
+	type Snapshot,
 	buildDerived,
 	computeBucketMs,
 	computeDefaultSelection,
