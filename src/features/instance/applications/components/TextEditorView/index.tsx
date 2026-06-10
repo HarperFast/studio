@@ -1,4 +1,6 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { ALL_EDITOR_COMMAND_IDS } from '@/features/instance/applications/components/editorMenuCommands';
+import { setEditorShortcutLabels } from '@/features/instance/applications/components/editorShortcutLabels';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
@@ -28,6 +30,30 @@ const extensionToLanguageMap: Record<string, string> = {
 	graphql: 'graphql',
 	mjs: 'javascript',
 };
+
+/**
+ * Resolve the platform-correct keyboard-shortcut label (e.g. `⌘F` / `Ctrl+F`)
+ * for each editor command id, from Monaco's keybinding registry. The keybinding
+ * service isn't on the public editor API, so we locate it by shape rather than
+ * its minified name.
+ */
+function lookupEditorShortcuts(editor: Parameters<OnMount>[0], ids: string[]): Record<string, string> {
+	const service = Object.values(editor as unknown as Record<string, unknown>).find(
+		(value): value is { lookupKeybinding(id: string): { getLabel(): string | null } | undefined } =>
+			!!value && typeof (value as { lookupKeybinding?: unknown }).lookupKeybinding === 'function',
+	);
+	const labels: Record<string, string> = {};
+	if (!service) {
+		return labels;
+	}
+	for (const id of ids) {
+		const label = service.lookupKeybinding(id)?.getLabel();
+		if (label) {
+			labels[id] = label;
+		}
+	}
+	return labels;
+}
 
 export function TextEditorView() {
 	const instanceParams = useInstanceClientIdParams();
@@ -94,6 +120,23 @@ export function TextEditorView() {
 		},
 		[openedEntryContents, mounted],
 	);
+
+	// Run a Monaco editor command requested from the toolbar's Edit/Go menus.
+	useListener(
+		'RunEditorAction',
+		(actionId) => {
+			void mounted?.[0]?.getAction(actionId)?.run();
+		},
+		[mounted],
+	);
+
+	// Publish each surfaced command's keyboard-shortcut label so the menus can
+	// show it. Done once the editor (and its keybinding registry) is available.
+	useEffect(() => {
+		if (mounted) {
+			setEditorShortcutLabels(lookupEditorShortcuts(mounted[0], ALL_EDITOR_COMMAND_IDS));
+		}
+	}, [mounted]);
 
 	if (!openedEntry) {
 		return null;

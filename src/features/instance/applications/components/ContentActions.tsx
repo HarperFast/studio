@@ -5,6 +5,9 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuShortcut,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -14,11 +17,12 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
-import { useEmitToListeners } from '@/lib/events/listener';
+import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
 import { useSetWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import {
 	ArrowLeftIcon,
 	ArrowRightIcon,
+	CaseSensitiveIcon,
 	ChevronDownIcon,
 	DownloadIcon,
 	FilePlusIcon,
@@ -34,7 +38,15 @@ import {
 	TrashIcon,
 	Undo2Icon,
 } from 'lucide-react';
+import { Fragment } from 'react';
 import { newApplication } from './ApplicationsSidebar/specialItems';
+import {
+	CASE_TRANSFORM_COMMANDS,
+	EDIT_MENU_SECTIONS,
+	type EditorMenuCommand,
+	GO_MENU_SECTIONS,
+} from './editorMenuCommands';
+import { useEditorShortcutLabels } from './editorShortcutLabels';
 
 import './ContentActions.css';
 
@@ -78,8 +90,28 @@ export function ContentActions({
 	const onNavigateForwardClick = useEmitToListeners('NavigateForward', true);
 	const canNavigateBack = useWatchedValue('CanNavigateBack', false).value;
 	const canNavigateForward = useWatchedValue('CanNavigateForward', false).value;
+	const editorCommandShortcuts = useEditorShortcutLabels();
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
+
+	const renderCommandItem = (command: EditorMenuCommand) => {
+		const Icon = command.icon;
+		const shortcut = editorCommandShortcuts[command.id];
+		return (
+			<DropdownMenuItem key={command.id} onSelect={() => emitToListeners('RunEditorAction', command.id)}>
+				<Icon />
+				{command.label}
+				{shortcut && <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>}
+			</DropdownMenuItem>
+		);
+	};
+	const renderCommandSections = (sections: EditorMenuCommand[][]) =>
+		sections.map((section, index) => (
+			<Fragment key={index}>
+				{index > 0 && <DropdownMenuSeparator />}
+				{section.map(renderCommandItem)}
+			</Fragment>
+		));
 
 	// Which actions apply to what is open — drives both the menu items and
 	// whether each parent menu appears at all.
@@ -230,6 +262,42 @@ export function ContentActions({
 							</DropdownMenuContent>
 						</DropdownMenu>
 					)}
+
+					{canEditFile && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button type="button" variant="ghost" className="rounded-none" title="Edit">
+									Edit
+									<ChevronDownIcon className="pointer-events-none opacity-60" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								{renderCommandSections(EDIT_MENU_SECTIONS)}
+								<DropdownMenuSeparator />
+								<DropdownMenuSub>
+									<DropdownMenuSubTrigger>
+										<CaseSensitiveIcon />
+										Transform Case
+									</DropdownMenuSubTrigger>
+									<DropdownMenuSubContent>
+										{CASE_TRANSFORM_COMMANDS.map(renderCommandItem)}
+									</DropdownMenuSubContent>
+								</DropdownMenuSub>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
+
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button type="button" variant="ghost" className="rounded-none" title="Go">
+								Go
+								<ChevronDownIcon className="pointer-events-none opacity-60" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="start">
+							{renderCommandSections(GO_MENU_SECTIONS)}
+						</DropdownMenuContent>
+					</DropdownMenu>
 
 					{showApplicationMenu && (
 						<DropdownMenu>

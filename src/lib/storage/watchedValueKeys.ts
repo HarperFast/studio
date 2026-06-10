@@ -5,6 +5,7 @@ export interface WatchedValuesTypeMap {
 	NavigateForward: true;
 	CanNavigateBack: boolean;
 	CanNavigateForward: boolean;
+	RunEditorAction: string;
 	ShowAddDirectoryOrFileModalType: 'file' | 'directory' | false;
 	ShowNewTableModal: boolean;
 	ShowDeleteDirectoryOrFileModal: boolean;
