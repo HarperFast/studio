@@ -47,7 +47,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 		return ([
 			isPositive(planLimits.totalReadCount) && {
 				label: 'Total Reads',
-				value: `${humanNumber(planLimits.totalReadCount * multiplier)} reads`,
+				value: humanNumber(planLimits.totalReadCount * multiplier),
 			},
 			isPositive(planLimits.totalReadsBytes) && {
 				label: 'Total Read Transfer',
@@ -55,15 +55,15 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			},
 			isPositive(planLimits.readsPerMinuteCount) && {
 				label: 'Read Rate',
-				value: `${humanNumber(planLimits.readsPerMinuteCount * 60 * multiplier)}/min`,
+				value: `${humanNumber(planLimits.readsPerMinuteCount * 60 * multiplier)}/hr`,
 			},
 			isPositive(planLimits.readsPerMinuteBytes) && {
 				label: 'Read Bandwidth',
-				value: `${humanFileSize(planLimits.readsPerMinuteBytes * 60 * multiplier)}/min`,
+				value: `${humanFileSize(planLimits.readsPerMinuteBytes * 60 * multiplier)}/hr`,
 			},
 			isPositive(planLimits.totalWriteCount) && {
 				label: 'Total Writes',
-				value: `${humanNumber(planLimits.totalWriteCount)} reads`,
+				value: humanNumber(planLimits.totalWriteCount),
 			},
 			isPositive(planLimits.totalWritesBytes) && {
 				label: 'Total Write Transfer',
@@ -71,11 +71,11 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			},
 			isPositive(planLimits.writesPerMinuteCount) && {
 				label: 'Write Rate',
-				value: `${humanNumber(planLimits.writesPerMinuteCount * 60)}/min`,
+				value: `${humanNumber(planLimits.writesPerMinuteCount * 60)}/hr`,
 			},
 			isPositive(planLimits.writesPerMinuteBytes) && {
 				label: 'Write Bandwidth',
-				value: `${humanFileSize(planLimits.writesPerMinuteBytes * 60)}/min`,
+				value: `${humanFileSize(planLimits.writesPerMinuteBytes * 60)}/hr`,
 			},
 			isPositive(planLimits.totalRealTimeMessageDeliveries) && {
 				label: 'Total Real-Time Messages',
@@ -87,11 +87,11 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			},
 			isPositive(planLimits.realTimeMessageDeliveriesPerMinute) && {
 				label: 'Real-Time Message Rate',
-				value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute * 60 * multiplier)}/min`,
+				value: `${humanNumber(planLimits.realTimeMessageDeliveriesPerMinute * 60 * multiplier)}/hr`,
 			},
 			isPositive(planLimits.realTimeMessageDeliveryBytesPerMinute) && {
 				label: 'Real-Time Message Bandwidth',
-				value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute * 60 * multiplier)}/min`,
+				value: `${humanFileSize(planLimits.realTimeMessageDeliveryBytesPerMinute * 60 * multiplier)}/hr`,
 			},
 			isPositive(planLimits.tlsHandshakes) && {
 				label: 'TLS Handshakes',
