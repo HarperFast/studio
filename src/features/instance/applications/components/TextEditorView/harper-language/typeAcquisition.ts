@@ -81,17 +81,17 @@ function createImportScannerShim(): unknown {
 		libMap: new Map<string, string>(),
 		preProcessFile(code: string) {
 			const importedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
-			IMPORT_SPECIFIER.lastIndex = 0;
-			for (let match = IMPORT_SPECIFIER.exec(code); match; match = IMPORT_SPECIFIER.exec(code)) {
+			for (const match of code.matchAll(IMPORT_SPECIFIER)) {
 				const specifier = match[1] ?? match[2] ?? match[3];
 				if (specifier && isAcquirablePackage(specifier)) {
-					importedFiles.push({ fileName: specifier, pos: match.index, end: IMPORT_SPECIFIER.lastIndex });
+					const pos = match.index ?? 0;
+					importedFiles.push({ fileName: specifier, pos, end: pos + match[0].length });
 				}
 			}
 			const referencedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
-			REFERENCE_PATH.lastIndex = 0;
-			for (let match = REFERENCE_PATH.exec(code); match; match = REFERENCE_PATH.exec(code)) {
-				referencedFiles.push({ fileName: match[1], pos: match.index, end: REFERENCE_PATH.lastIndex });
+			for (const match of code.matchAll(REFERENCE_PATH)) {
+				const pos = match.index ?? 0;
+				referencedFiles.push({ fileName: match[1], pos, end: pos + match[0].length });
 			}
 			return {
 				referencedFiles,
