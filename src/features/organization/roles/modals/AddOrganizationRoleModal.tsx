@@ -15,9 +15,9 @@ import {
 	OrganizationRoleUpdatePayloadType,
 } from '@/features/organization/mutations/OrganizationRoleFormSchema';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
+import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Editor } from '@monaco-editor/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';

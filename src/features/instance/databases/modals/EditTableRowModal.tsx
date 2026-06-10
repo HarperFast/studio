@@ -2,7 +2,7 @@ import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
-import Editor from '@monaco-editor/react';
+import { Editor } from '@/lib/monaco/MonacoEditor';
 import { Save, Trash } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 

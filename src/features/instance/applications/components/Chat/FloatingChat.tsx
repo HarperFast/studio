@@ -1,10 +1,16 @@
+import { Loading } from '@/components/Loading';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { Bot } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Chat } from './index';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+
+// Second-tier lazy load: this file (the floating bubble) loads when you land on
+// an instance, but the chat pane — and its heavy dependencies (the AI SDK, the
+// chat tools, the markdown message renderer) — only loads the first time the
+// bubble is opened.
+const Chat = lazy(() => import('./index').then((m) => ({ default: m.Chat })));
 
 const BUBBLE_SIZE = 56;
 const PADDING = 24;
@@ -172,7 +178,9 @@ export function FloatingChat() {
 								`}
 							/>
 						)}
-						<Chat autoFocus closeChat={closeChat} />
+						<Suspense fallback={<Loading centered text="Loading chat…" />}>
+							<Chat autoFocus closeChat={closeChat} />
+						</Suspense>
 					</motion.div>
 				)}
 			</AnimatePresence>

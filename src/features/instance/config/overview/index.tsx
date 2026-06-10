@@ -27,8 +27,9 @@ import {
 } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { getUsageLicensesQueryOptions } from '@/integrations/api/instance/status/getUsageLicenses';
 import { keyBy } from '@/lib/keyBy';
+import { Editor } from '@/lib/monaco/MonacoEditor';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
-import Editor, { OnMount } from '@monaco-editor/react';
+import type { OnMount } from '@monaco-editor/react';
 import { useQuery } from '@tanstack/react-query';
 import { useLoaderData, useParams } from '@tanstack/react-router';
 import { AlertCircleIcon, EditIcon, SaveIcon, XIcon } from 'lucide-react';

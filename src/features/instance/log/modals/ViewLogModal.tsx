@@ -5,8 +5,8 @@ import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel'
 import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { Editor } from '@/lib/monaco/MonacoEditor';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
-import Editor from '@monaco-editor/react';
 
 function isJsonString(str: string) {
 	try {
