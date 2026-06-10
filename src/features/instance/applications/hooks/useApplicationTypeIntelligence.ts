@@ -39,6 +39,8 @@ const TSCONFIG = /(^|\/)(tsconfig.*|jsconfig)\.json$/i;
 const IGNORED_DIR = /^(node_modules|dist|build|out|coverage|\.git|\.next|\.turbo|\.cache)$/i;
 /** Generated lockfiles — large and useless to the type system. */
 const IGNORED_FILE = /^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/i;
+/** Cap simultaneous file fetches so large projects don't flood the connection pool. */
+const FETCH_CONCURRENCY = 5;
 
 type AnyEntry = DirectoryEntry | FileEntry;
 
@@ -163,21 +165,32 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 		let cancelled = false;
 
 		void (async () => {
-			const settled = await Promise.allSettled(
-				sourceFiles.map(async (appPath): Promise<LoadedFile> => {
+			// Fetch with a small concurrency cap rather than all at once, so large
+			// projects don't open dozens of simultaneous requests. Files are
+			// best-effort: a failed fetch is skipped, not fatal.
+			const loaded: LoadedFile[] = [];
+			const queue = [...sourceFiles];
+			const fetchNext = async (): Promise<void> => {
+				while (!cancelled) {
+					const appPath = queue.shift();
+					if (!appPath) {
+						return;
+					}
 					const fileWithinProject = appPath.split('/').slice(1).join('/');
-					const response = await queryClient.fetchQuery(
-						getComponentFileQueryOptions({ ...instanceParams, project, file: fileWithinProject }),
-					);
-					return { appPath, fileWithinProject, content: response.message ?? '' };
-				}),
-			);
+					try {
+						const response = await queryClient.fetchQuery(
+							getComponentFileQueryOptions({ ...instanceParams, project, file: fileWithinProject }),
+						);
+						loaded.push({ appPath, fileWithinProject, content: response.message ?? '' });
+					} catch {
+						// Skip files that fail to load.
+					}
+				}
+			};
+			await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, sourceFiles.length) }, fetchNext));
 			if (cancelled) {
 				return;
 			}
-			const loaded = settled
-				.filter((result): result is PromiseFulfilledResult<LoadedFile> => result.status === 'fulfilled')
-				.map(result => result.value);
 
 			for (const file of loaded) {
 				if (file.appPath === openPathRef.current) {
