@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-	type Snapshot,
 	buildDerived,
 	computeBucketMs,
 	computeDefaultSelection,
@@ -14,6 +13,7 @@ import {
 	emptyCauseToFlags,
 	normalizeRecords,
 	resolveSelection,
+	type Snapshot,
 	TOP_N,
 	toTableKey,
 } from '../lib/tableSize.ts';
