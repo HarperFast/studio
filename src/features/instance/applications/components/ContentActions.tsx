@@ -38,7 +38,7 @@ import {
 	TrashIcon,
 	Undo2Icon,
 } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import {
 	CASE_TRANSFORM_COMMANDS,
@@ -93,6 +93,16 @@ export function ContentActions({
 	const editorCommandShortcuts = useEditorShortcutLabels();
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
+
+	// OS-style menu bar: a single piece of shared state controls which menu is open,
+	// so each <DropdownMenu> below is controlled by it. `modal={false}` keeps the
+	// other triggers interactive while a menu is open (the default modal mode blocks
+	// their pointer events, which would kill the hover).
+	const [openMenu, setOpenMenu] = useState<string | null>(null);
+	// Once a menu is open, hovering a sibling trigger pops it open in place. Only
+	// switch when a menu is already open — matching how OS menu bars wait for a click
+	// to "activate" before tracking the pointer between menus.
+	const switchMenuOnHover = (id: string) => setOpenMenu((current) => (current === null ? null : id));
 
 	const renderCommandItem = (command: EditorMenuCommand) => {
 		const Icon = command.icon;
@@ -197,9 +207,19 @@ export function ContentActions({
 					)}
 
 					{showFileMenu && (
-						<DropdownMenu>
+						<DropdownMenu
+							open={openMenu === 'file'}
+							onOpenChange={(open) => setOpenMenu(open ? 'file' : null)}
+							modal={false}
+						>
 							<DropdownMenuTrigger asChild>
-								<Button type="button" variant="ghost" className="rounded-none" title="File">
+								<Button
+									type="button"
+									variant="ghost"
+									className="rounded-none"
+									title="File"
+									onPointerEnter={() => switchMenuOnHover('file')}
+								>
 									File
 									{!fileIsClean && canEditFile && (
 										<span className="ml-1 size-1.5 rounded-full bg-primary" aria-label="Unsaved changes" />
@@ -264,9 +284,19 @@ export function ContentActions({
 					)}
 
 					{canEditFile && (
-						<DropdownMenu>
+						<DropdownMenu
+							open={openMenu === 'edit'}
+							onOpenChange={(open) => setOpenMenu(open ? 'edit' : null)}
+							modal={false}
+						>
 							<DropdownMenuTrigger asChild>
-								<Button type="button" variant="ghost" className="rounded-none" title="Edit">
+								<Button
+									type="button"
+									variant="ghost"
+									className="rounded-none"
+									title="Edit"
+									onPointerEnter={() => switchMenuOnHover('edit')}
+								>
 									Edit
 									<ChevronDownIcon className="pointer-events-none opacity-60" />
 								</Button>
@@ -287,9 +317,19 @@ export function ContentActions({
 						</DropdownMenu>
 					)}
 
-					<DropdownMenu>
+					<DropdownMenu
+						open={openMenu === 'go'}
+						onOpenChange={(open) => setOpenMenu(open ? 'go' : null)}
+						modal={false}
+					>
 						<DropdownMenuTrigger asChild>
-							<Button type="button" variant="ghost" className="rounded-none" title="Go">
+							<Button
+								type="button"
+								variant="ghost"
+								className="rounded-none"
+								title="Go"
+								onPointerEnter={() => switchMenuOnHover('go')}
+							>
 								Go
 								<ChevronDownIcon className="pointer-events-none opacity-60" />
 							</Button>
@@ -300,9 +340,19 @@ export function ContentActions({
 					</DropdownMenu>
 
 					{showApplicationMenu && (
-						<DropdownMenu>
+						<DropdownMenu
+							open={openMenu === 'application'}
+							onOpenChange={(open) => setOpenMenu(open ? 'application' : null)}
+							modal={false}
+						>
 							<DropdownMenuTrigger asChild>
-								<Button type="button" variant="ghost" className="rounded-none" title="Application">
+								<Button
+									type="button"
+									variant="ghost"
+									className="rounded-none"
+									title="Application"
+									onPointerEnter={() => switchMenuOnHover('application')}
+								>
 									Application
 									<ChevronDownIcon className="pointer-events-none opacity-60" />
 								</Button>
