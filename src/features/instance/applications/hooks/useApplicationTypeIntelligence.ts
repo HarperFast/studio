@@ -225,8 +225,10 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 			// Acquire npm @types for the packages these files import. Scan scripts
 			// only — declaration and JSON files don't introduce new dependencies.
 			const scriptSources = loaded
-				.filter(file => /\.(tsx?|jsx?|mjs|cjs|mts|cts)$/i.test(file.appPath) && !/\.d\.ts$/i.test(file.appPath))
-				.filter(file => file.content.length <= MAX_WORKER_MODEL_CHARS)
+				.filter(file =>
+					/\.(tsx?|jsx?|mjs|cjs|mts|cts)$/i.test(file.appPath) && !/\.d\.ts$/i.test(file.appPath)
+					&& file.content.length <= MAX_WORKER_MODEL_CHARS
+				)
 				.map(file => file.content);
 			void acquireApplicationTypes(scriptSources);
 		})();
