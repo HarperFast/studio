@@ -27,7 +27,7 @@ export function detectPartialUpgrade(versions: Array<string | undefined | null>)
 	if (reported.length < 2) {
 		return null;
 	}
-	const latest = [...reported].sort(compareVersions).pop()!;
+	const latest = reported.reduce((max, v) => compareVersions(v, max) > 0 ? v : max);
 	const behindCount = reported.filter(v => v !== latest).length;
 	return behindCount > 0 ? { latest, behindCount, total: reported.length } : null;
 }
