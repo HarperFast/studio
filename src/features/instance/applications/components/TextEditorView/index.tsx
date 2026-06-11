@@ -2,7 +2,10 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ALL_EDITOR_COMMAND_IDS } from '@/features/instance/applications/components/editorMenuCommands';
 import { setEditorShortcutLabels } from '@/features/instance/applications/components/editorShortcutLabels';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
-import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
+import {
+	MAX_WORKER_MODEL_CHARS,
+	useApplicationTypeIntelligence,
+} from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
@@ -76,7 +79,13 @@ export function TextEditorView() {
 	useCodeNavigation(mounted?.[0]);
 
 	const extension = parseFileExtension(openedEntry?.path);
-	const language = extensionToLanguageMap[extension] || 'plaintext';
+	const fileContent = updatedFileContent ?? openedEntryContents;
+	// A huge open file would feed its full text to the language worker the same
+	// way sibling models do, overflowing the structured-clone buffer
+	// ("DataCloneError: ... out of memory."). Render it as plaintext so no
+	// language service runs against it.
+	const oversized = (fileContent?.length ?? 0) > MAX_WORKER_MODEL_CHARS;
+	const language = oversized ? 'plaintext' : extensionToLanguageMap[extension] || 'plaintext';
 
 	const handleEditorWillMount: EditorProps['beforeMount'] = useCallback((monaco) => {
 		configureHarperLanguageSupport(monaco);
@@ -151,7 +160,7 @@ export function TextEditorView() {
 			path={openedEntry.path}
 			language={language}
 			theme={monacoTheme}
-			value={updatedFileContent ?? openedEntryContents}
+			value={fileContent}
 			keepCurrentModel
 			beforeMount={handleEditorWillMount}
 			onMount={handleEditorDidMount}
