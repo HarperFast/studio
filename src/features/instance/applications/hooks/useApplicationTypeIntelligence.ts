@@ -41,6 +41,17 @@ const IGNORED_DIR = /^(node_modules|dist|build|out|coverage|\.git|\.next|\.turbo
 const IGNORED_FILE = /^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/i;
 /** Cap simultaneous file fetches so large projects don't flood the connection pool. */
 const FETCH_CONCURRENCY = 5;
+/**
+ * Skip files larger than this when feeding the language worker. Monaco clones a
+ * model's full text to its worker over `postMessage` (structured clone), and
+ * `setEagerModelSync(true)` does so for every model we create here. A large
+ * file — a checked-in bundle, generated data, a minified vendor script — can
+ * overflow the clone buffer and crash the worker with "DataCloneError: Data
+ * cannot be cloned, out of memory.", and even short of that it bloats worker
+ * memory and slows the language service. Real source never approaches this, and
+ * such files add nothing to IntelliSense.
+ */
+export const MAX_WORKER_MODEL_CHARS = 512 * 1024;
 
 type AnyEntry = DirectoryEntry | FileEntry;
 
@@ -196,6 +207,11 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 				if (file.appPath === openPathRef.current) {
 					continue;
 				}
+				// Don't register oversized files: their full text would be cloned to
+				// the language worker (see MAX_WORKER_MODEL_CHARS) and can crash it.
+				if (file.content.length > MAX_WORKER_MODEL_CHARS) {
+					continue;
+				}
 				const uri = monaco.Uri.parse(`file:///${file.appPath}`);
 				if (monaco.editor.getModel(uri)) {
 					continue;
@@ -210,6 +226,7 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 			// only — declaration and JSON files don't introduce new dependencies.
 			const scriptSources = loaded
 				.filter(file => /\.(tsx?|jsx?|mjs|cjs|mts|cts)$/i.test(file.appPath) && !/\.d\.ts$/i.test(file.appPath))
+				.filter(file => file.content.length <= MAX_WORKER_MODEL_CHARS)
 				.map(file => file.content);
 			void acquireApplicationTypes(scriptSources);
 		})();
