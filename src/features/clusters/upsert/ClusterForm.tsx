@@ -29,6 +29,7 @@ import { z } from 'zod';
 import { ClusterBilling } from './ClusterBilling';
 import { ClusterDetails } from './ClusterDetails';
 import { calculateInstanceFQDN } from './lib/calculateInstanceFQDN';
+import { PartialUpgrade } from './lib/detectPartialUpgrade';
 import { pickDefaultDeploymentPerformanceAndRegionPlans } from './lib/pickDefaultDeploymentPerformanceAndRegionPlans';
 import { PriceDisplay } from './PriceDisplay';
 import { specifiedAbbreviatedName, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
@@ -42,6 +43,7 @@ interface ClusterFormProps {
 	mode: 'version' | undefined;
 	organization: Organization;
 	organizationId: string;
+	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
@@ -58,6 +60,7 @@ export function ClusterForm({
 	mode,
 	organization,
 	organizationId,
+	partialUpgrade,
 	planTypes,
 	regionLocationsColocated,
 	regionLocationsDedicated,
@@ -517,6 +520,7 @@ export function ClusterForm({
 									isPending={isCreatePending || isEditPending}
 									harperVersions={harperVersions}
 									mode={mode}
+									partialUpgrade={partialUpgrade}
 									regionLocations={regionLocations}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									selectedDeployment={selectedDeployment}
