@@ -16,6 +16,7 @@ import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { calculateUsageScale } from './lib/calculateUsageScale';
+import { PartialUpgrade } from './lib/detectPartialUpgrade';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
@@ -28,6 +29,7 @@ interface ClusterDetailsProps {
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 	isPending: boolean;
 	mode: 'version' | undefined;
+	partialUpgrade: PartialUpgrade | null;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	selectedDeployment: string;
@@ -46,6 +48,7 @@ export function ClusterDetails({
 	cloudProvider,
 	isPending,
 	mode,
+	partialUpgrade,
 	regionLocations,
 	regionNameToLatencyToRegion,
 	selectedDeployment,
@@ -118,13 +121,17 @@ export function ClusterDetails({
 
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
+	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
+	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried.
+	const allowVersionResubmit = mode === 'version' && !!partialUpgrade;
+
 	const footer = (
 		<DialogFooter className="mt-3 mb-12">
 			<Button
 				type="submit"
 				variant="submit"
 				className="rounded-full"
-				disabled={isPending || (clusterId && !isDirty) || !isValid}
+				disabled={isPending || (clusterId && !isDirty && !allowVersionResubmit) || !isValid}
 			>
 				{mode !== 'version' && totalPrice > 0
 					? 'Confirm Payment Details'
@@ -151,6 +158,14 @@ export function ClusterDetails({
 						harperVersions={harperVersions}
 					/>
 					<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
+					{partialUpgrade && (
+						<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
+							{partialUpgrade.behindCount} of {partialUpgrade.total} instances{' '}
+							{partialUpgrade.behindCount === 1 ? 'is' : 'are'} still on an older version. Re-run the upgrade to bring
+							{' '}
+							{partialUpgrade.behindCount === 1 ? 'it' : 'them'} up to {partialUpgrade.latest}.
+						</p>
+					)}
 				</div>
 				{footer}
 			</>

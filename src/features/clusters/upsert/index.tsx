@@ -26,6 +26,7 @@ import { isUpsertClusterSchema } from './isUpsertClusterSchema';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
+import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 export function UpsertCluster() {
@@ -78,6 +79,16 @@ export function UpsertCluster() {
 		}
 		return newHarperVersions;
 	}, [newHarperVersions, cluster]);
+
+	// Detect a partially-upgraded cluster, where at least one instance failed to reach the version the
+	// rest of the cluster is on. In that state the version picker pre-selects the latest version as
+	// "current" and offers nothing newer, so the form can never become dirty — leaving no way to
+	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
+	// the current target as a recovery path.
+	const partialUpgrade = useMemo(
+		() => detectPartialUpgrade(cluster?.instances?.map(i => i.version) ?? []),
+		[cluster],
+	);
 
 	const alreadyUsingFree = useMemo(() => {
 		for (const orgCluster of organization?.clusters ?? []) {
@@ -257,6 +268,7 @@ export function UpsertCluster() {
 				mode={mode}
 				organization={organization}
 				organizationId={organizationId}
+				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
