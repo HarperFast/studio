@@ -1,0 +1,16 @@
+{
+	"hooks": {
+		"Stop": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "pnpm run lint:fix && pnpm run format:fix",
+						"statusMessage": "Linting and formatting...",
+						"async": true
+					}
+				]
+			}
+		]
+	}
+}
