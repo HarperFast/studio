@@ -10,8 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { cn } from '@/lib/cn';
-import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
-import { useState } from 'react';
+import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
 
@@ -21,21 +20,24 @@ export function LogsFiltersForm({
 	submitFilters,
 	showLogName,
 	showFilter,
+	isOpen,
+	onOpenChange,
 }: {
 	form: UseFormReturn<z.infer<typeof LogFiltersFormSchema>>;
 	resetFilters: () => void;
 	submitFilters: (data: z.infer<typeof LogFiltersFormSchema>) => void;
 	showLogName?: boolean;
 	showFilter?: boolean;
+	isOpen: boolean;
+	onOpenChange: (open: boolean) => void;
 }) {
-	const [isOpen, setIsOpen] = useState(false);
-
+	// On mobile the panel is toggled from the compact toolbar in the parent; on desktop it is always shown.
 	return (
-		<Card>
-			<CardHeader>
+		<Card className={cn(isOpen ? 'block' : 'hidden', 'mt-3 md:mt-0 md:block')}>
+			<CardHeader className="hidden md:block">
 				<button
 					type="button"
-					onClick={() => setIsOpen((open) => !open)}
+					onClick={() => onOpenChange(!isOpen)}
 					aria-expanded={isOpen}
 					aria-controls="logs-filters-content"
 					className="flex w-full items-center justify-between md:pointer-events-none"
@@ -44,12 +46,9 @@ export function LogsFiltersForm({
 						<SlidersHorizontalIcon className="size-4 text-muted-foreground" />
 						Filters
 					</CardTitle>
-					<ChevronDownIcon
-						className={cn('size-4 text-muted-foreground transition-transform md:hidden', isOpen && 'rotate-180')}
-					/>
 				</button>
 			</CardHeader>
-			<CardContent id="logs-filters-content" className={cn(!isOpen && 'hidden', 'md:block')}>
+			<CardContent id="logs-filters-content">
 				<Form {...form}>
 					<form
 						id="instance-edit-log-filters-form"

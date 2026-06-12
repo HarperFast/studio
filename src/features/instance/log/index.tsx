@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Toggle } from '@/components/ui/toggle';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { renderBadgeLogLevelVariant } from '@/components/ui/utils/badgeLogLevel';
 import { BadgeNodeVariantValues, memoizeNodeNames } from '@/components/ui/utils/badgeNode';
@@ -9,10 +9,12 @@ import { isLocalStudio } from '@/config/constants';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,13 +24,15 @@ import {
 	ActivityIcon,
 	AlertCircleIcon,
 	AlertTriangleIcon,
+	ArrowUpDownIcon,
 	BellIcon,
 	BugIcon,
 	InfoIcon,
 	RefreshCwIcon,
+	SlidersHorizontalIcon,
 	TerminalIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
@@ -179,6 +183,9 @@ export function Logs() {
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
 	const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
+	// Persisted per browser/user across all clusters and instances; defaults to newest-first.
+	const [isReversed, setIsReversed] = useLocalStorage<boolean>(LocalStorageKeys.LogsOrderReversed, false);
+	const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
 	const instanceParams = useInstanceClientIdParams();
 
@@ -200,6 +207,29 @@ export function Logs() {
 			isAutoRefreshEnabled,
 		}),
 	);
+
+	// Logs arrive newest-first from the API; reversing flips the view to oldest-first without re-fetching.
+	const displayedLogs = useMemo(
+		() => (isReversed ? [...(instanceLogs ?? [])].reverse() : instanceLogs ?? []),
+		[instanceLogs, isReversed],
+	);
+
+	const tableScrollRef = useRef<HTMLDivElement>(null);
+
+	// Keep the newest entries in view on first load and whenever the display order changes: the table
+	// scrolls to the top when newest-first, and to the bottom when newest-last (the log-file style).
+	useEffect(() => {
+		const el = tableScrollRef.current;
+		if (isLoading || !el) { return; }
+		el.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
+	}, [isReversed, isLoading]);
+
+	// While auto-refreshing, follow new entries like `tail -f`, keeping the newest in view as they arrive.
+	useEffect(() => {
+		const el = tableScrollRef.current;
+		if (!isAutoRefreshEnabled || isLoading || !el) { return; }
+		el.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
+	}, [displayedLogs, isAutoRefreshEnabled, isReversed, isLoading]);
 
 	const form = useForm({
 		resolver: zodResolver(LogFiltersFormSchema),
@@ -235,49 +265,104 @@ export function Logs() {
 	const onRefreshClick = useRefreshClick(refetchReadLogQueryOptions);
 
 	return (
-		<div className="grid grid-cols-1 gap-4 pt-2 text-foreground md:grid-cols-12">
-			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-4 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34)))] md:overflow-y-auto">
+		<div className="grid grid-cols-1 gap-3 pt-2 text-foreground md:grid-cols-12 md:gap-4">
+			<section className="col-span-1 md:col-span-4 lg:col-span-3 px-2 pb-0 md:self-start md:sticky md:top-34 md:max-h-[calc(100vh-(--spacing(34)))] md:overflow-y-auto md:pb-4">
+				{/* Compact toolbar — mobile only */}
+				<div className="flex items-center gap-2 md:hidden">
+					<Button
+						variant="defaultOutline"
+						onClick={() => setIsFiltersOpen((open) => !open)}
+						aria-label="Toggle filters"
+						aria-expanded={isFiltersOpen}
+						className="flex-1"
+					>
+						<SlidersHorizontalIcon />
+						Filters
+					</Button>
+					<Button
+						variant="defaultOutline"
+						onClick={onRefreshClick}
+						disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+						aria-label="Refresh logs"
+						className="flex-1"
+					>
+						<RefreshCwIcon className={isFetchingInstanceLogs ? 'animate-spin' : ''} />
+						Refresh
+					</Button>
+					<Button
+						variant={isReversed ? 'default' : 'defaultOutline'}
+						onClick={() => setIsReversed((reversed) => !reversed)}
+						aria-label="Reverse log order"
+						aria-pressed={isReversed}
+						className="flex-1"
+					>
+						<ArrowUpDownIcon />
+						Reverse
+					</Button>
+				</div>
+
 				<LogsFiltersForm
 					form={form}
 					resetFilters={resetFilters}
 					submitFilters={submitFilters}
 					showLogName={showLogName}
 					showFilter={showFilter}
+					isOpen={isFiltersOpen}
+					onOpenChange={setIsFiltersOpen}
 				/>
 
-				<div className="flex items-center gap-2 mt-3">
+				{/* Full controls — desktop only */}
+				<div className="mt-3 space-y-3 hidden md:block">
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
 						disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
-						className="grow"
+						className="w-full"
 					>
 						<RefreshCwIcon />
 						Refresh
 					</Button>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Toggle
-								variant="outline"
-								aria-label="Toggle Auto Refresh"
-								pressed={isAutoRefreshEnabled}
-								onPressedChange={setIsAutoRefreshEnabled}
-								className="shrink-0"
-							>
-								<RefreshCwIcon className={isAutoRefreshEnabled ? 'animate-spin' : ''} />
-								Auto
-							</Toggle>
-						</TooltipTrigger>
-						<TooltipContent>
-							{isAutoRefreshEnabled ? 'Auto refresh on — click to disable' : 'Enable auto refresh (every 5s)'}
-						</TooltipContent>
-					</Tooltip>
+					<div className="flex flex-col gap-2.5">
+						<div className="flex items-center gap-2 text-sm text-foreground">
+							<Switch
+								id="logs-auto-refresh-switch"
+								aria-label="Toggle auto refresh"
+								checked={isAutoRefreshEnabled}
+								onCheckedChange={setIsAutoRefreshEnabled}
+							/>
+							<label htmlFor="logs-auto-refresh-switch" className="flex items-center gap-2 cursor-pointer">
+								<RefreshCwIcon
+									className={`size-4 ${isAutoRefreshEnabled ? 'animate-spin [animation-duration:3s]' : ''}`}
+								/>
+								Auto refresh (every 5s)
+							</label>
+						</div>
+						<div className="flex items-center gap-2 text-sm text-foreground">
+							<Switch
+								id="logs-reverse-order-switch"
+								aria-label="Reverse log order"
+								checked={isReversed}
+								onCheckedChange={setIsReversed}
+							/>
+							<label htmlFor="logs-reverse-order-switch" className="flex items-center gap-2 cursor-pointer">
+								<ArrowUpDownIcon className="size-4" />
+								{isReversed ? 'Oldest first' : 'Newest first'}
+							</label>
+						</div>
+					</div>
 				</div>
 			</section>
 			<section className="col-span-1 md:col-span-8 lg:col-span-9">
 				{isLoading
 					? <LogsTableSkeleton />
-					: <LogsDataTable columns={columns} data={instanceLogs || []} onRowClick={onRowClick} />}
+					: (
+						<LogsDataTable
+							columns={columns}
+							data={displayedLogs}
+							onRowClick={onRowClick}
+							containerRef={tableScrollRef}
+						/>
+					)}
 			</section>
 			<ViewLogModal isModalOpen={isViewLogModalOpen} setIsModalOpen={setIsViewLogModalOpen} data={selectedLogData} />
 		</div>
