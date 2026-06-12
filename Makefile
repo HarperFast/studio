@@ -8,13 +8,14 @@
 SHELL := /bin/bash
 PNPM  := pnpm
 
-.PHONY: help install prepare dev dev-local build build-dev build-stage build-prod build-local preview lint lint-fix format format-fix typecheck test test-watch update-sdk clean
+.PHONY: help install prepare dev dev-fabric dev-local build build-dev build-stage build-prod build-local preview lint lint-fix format format-fix typecheck test test-watch update-sdk clean
 
 help:
 	@echo "Available targets:"
 	@echo "  install       - Install dependencies (pnpm install)"
 	@echo "  prepare       - Setup git hooks with Husky (pnpm prepare)"
-	@echo "  dev           - Start Vite dev server"
+	@echo "  dev           - Start Vite dev server (Fabric mode; alias of dev-fabric)"
+	@echo "  dev-fabric    - Start Vite dev server in Fabric mode"
 	@echo "  dev-local     - Start Vite dev server in Local Studio mode"
 	@echo "  build         - Type-check and build for production"
 	@echo "  build-dev     - Build using --mode dev"
@@ -41,6 +42,9 @@ prepare:
 dev:
 	$(PNPM) dev
 
+dev-fabric:
+	$(PNPM) dev:fabric
+
 dev-local:
 	$(PNPM) dev:local
 
@@ -48,13 +52,13 @@ build:
 	$(PNPM) build
 
 build-dev:
-	$(PNPM) build:dev
+	$(PNPM) build --mode dev
 
 build-stage:
-	$(PNPM) build:stage
+	$(PNPM) build --mode stage
 
 build-prod:
-	$(PNPM) build:prod
+	$(PNPM) build --mode prod
 
 build-local:
 	$(PNPM) build:local
