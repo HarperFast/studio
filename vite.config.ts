@@ -3,8 +3,16 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { defineConfig } from 'vite';
 
+// The build-mode env files (dev/stage/prod for deploys, localstudio for the
+// bundled-with-harper UI) are versioned in .github/deploy-public-env to keep the
+// repo root uncluttered; the developer's own .env.local stays at the root where
+// Vite looks by default. Vite's envDir is global, so we point it at that folder
+// only for these build modes.
+const PUBLIC_ENV_MODES = new Set(['dev', 'stage', 'prod', 'localstudio']);
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+	envDir: PUBLIC_ENV_MODES.has(mode) ? path.resolve(__dirname, '.github/deploy-public-env') : undefined,
 	plugins: [react(), tailwindcss()],
 	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
 	// modules; the default 'iife' worker format breaks them.
@@ -93,4 +101,4 @@ export default defineConfig({
 			},
 		},
 	},
-});
+}));

@@ -28,10 +28,12 @@ Builds are emitted to `web/` (see `vite.config.ts`). The `web/` directory is bui
 
 Common scripts:
 
-- `pnpm dev` — start Vite dev server
+- `pnpm dev` — start the Vite dev server (Fabric mode; alias of `pnpm dev:fabric`)
+- `pnpm dev:fabric` — start the Vite dev server against Fabric
 - `pnpm dev:local` — start in Local Studio mode
 - `pnpm build` — type-check then build for production
-- `pnpm build:dev|stage|prod|local` — build for a specific mode
+- `pnpm build --mode dev|stage|prod` — build for a specific deploy environment (env files live in `.github/deploy-public-env`)
+- `pnpm build:local` — build the bundled Local Studio UI
 - `pnpm preview` — serve the built `web/`
 - `pnpm test` / `pnpm test:watch` — run unit tests (Vitest)
 - `pnpm lint` — run code linting (use `pnpm lint:fix` to write changes)
@@ -54,7 +56,7 @@ Then visit http://localhost:9925 (or wherever you've set your operations port) t
 
 ## Environments and configuration
 
-This project uses Vite environment files and modes. You can pass `--mode <name>` to Vite to pick a `.env.<name>` file. Some keys you may encounter:
+This project uses Vite environment files and modes. You can pass `--mode <name>` to Vite to pick a `.env.<name>` file. Your personal `.env.local` lives at the repo root (copy it from `.env.local.example`); the versioned env files used by builds and the Local Studio dev server (`.env.dev`, `.env.stage`, `.env.prod`, `.env.localstudio`, `.env.dev-local`) live in `.github/deploy-public-env`. Some keys you may encounter:
 
 - `VITE_LOCAL_STUDIO` — whether to run in “Local Studio” mode
 - `VITE_CENTRAL_MANAGER_API_URL` — base URL for API calls (e.g. https://fabric.harper.fast)
@@ -73,8 +75,8 @@ VITE_ENV_NAME=dev
 
 Notes:
 
-- A production example is in `.env.prod`.
-- Building for a specific environment uses the matching mode: `pnpm build:dev`, `pnpm build:stage`, or `pnpm build:prod`.
+- A production example is in `.github/deploy-public-env/.env.prod`.
+- Building for a specific environment uses the matching mode: `pnpm build --mode dev`, `pnpm build --mode stage`, or `pnpm build --mode prod`.
 
 ## OpenAPI SDK generation
 

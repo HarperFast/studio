@@ -40,7 +40,7 @@ jobs:
           fi
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build dev
-        run: pnpm build:dev
+        run: pnpm build --mode dev
       - name: Upload sourcemaps to Datadog
         run: |
           pnpm datadog-ci sourcemaps upload web/assets \
@@ -53,6 +53,6 @@ jobs:
         run: |
           mkdir deploy
           mv web deploy/
-          cp -R deploy-template/* deploy/
+          cp -R .github/deploy-template/* deploy/
           cd deploy
           CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=true replicated=true

@@ -27,10 +27,10 @@ Related docs and helpers:
 
 Use pnpm scripts and Make targets. Examples:
 
-- Dev: `pnpm dev` or `make dev`
+- Dev (Fabric): `pnpm dev` (alias of `pnpm dev:fabric`) or `make dev`
 - Local Studio dev: `pnpm dev:local` or `make dev-local`
 - Build: `pnpm build` or `make build`
-- Env-specific builds: `pnpm build:dev|stage|prod|local` or `make build-<mode>`
+- Env-specific builds: `pnpm build --mode dev|stage|prod` (or `pnpm build:local`) or `make build-<mode>`
 - Preview build: `pnpm preview` or `make preview`
 - Lint: `pnpm lint` or `make lint`
 - Lint (fix): `pnpm exec eslint . --fix` or `make lint-fix`
@@ -42,7 +42,7 @@ See: package.json scripts and Makefile for the complete list.
 
 ## Environments and configuration
 
-- Vite modes select .env files (e.g., `.env.local`, `.env.prod`).
+- Vite modes select .env files. Local-dev env files live at the repo root (e.g., `.env.local`); deploy-target env files live in `.github/deploy-public-env` (e.g., `.env.prod`).
 - Common vars:
   - `VITE_LOCAL_STUDIO`
   - `VITE_CENTRAL_MANAGER_API_URL`
@@ -53,7 +53,7 @@ See: package.json scripts and Makefile for the complete list.
   - `HDB_ADMIN_USERNAME_FOR_OPENAPI`
   - `HDB_ADMIN_PASSWORD_FOR_OPENAPI`
 
-See examples in README.md and .env.prod.
+See examples in README.md and `.github/deploy-public-env/.env.prod`.
 
 ## Coding standards
 

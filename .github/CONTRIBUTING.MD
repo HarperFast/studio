@@ -17,11 +17,11 @@ pnpm prepare   # installs Husky if hooks are present
 
 ## Development workflow
 
-- Start the dev server: `pnpm dev`
+- Start the dev server (Fabric mode): `pnpm dev` (alias of `pnpm dev:fabric`)
 - Start in Local Studio mode: `pnpm dev:local`
 - Run tests: `pnpm test` or `pnpm test:watch`
 - Lint and type-check: `pnpm lint` and `pnpm exec tsc -b`
-- Build: `pnpm build` (or `pnpm build:dev|stage|prod|local`)
+- Build: `pnpm build` (deploy environments: `pnpm build --mode dev|stage|prod`; Local Studio: `pnpm build:local`)
 
 Build output goes to `web/` and should not be edited directly.
 
@@ -37,7 +37,7 @@ Some commonly used variables:
 - `VITE_PUBLIC_STRIPE_KEY` — Stripe public key
 - `VITE_ENV_NAME` — environment label (dev/stage/prod)
 
-See `.env.prod` for a production example. For local development, create `.env.local` based on `.env.local.example`.
+See `.github/deploy-public-env/.env.prod` for a production example. For local development, create `.env.local` based on `.env.local.example`.
 
 ## Commit conventions
 
