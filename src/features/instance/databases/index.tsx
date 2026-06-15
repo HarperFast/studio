@@ -42,11 +42,11 @@ export function Databases() {
 	}
 
 	return (
-		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 min-h-[calc(100vh-(--spacing(36)))]">
-			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3">
+		<main className="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-start">
+			<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-hidden">
 				<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 			</section>
-			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 flex flex-col">
+			<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 flex flex-col min-h-0">
 				{params.databaseName && params.tableName && (
 					<DatabaseTableView
 						instanceDatabaseMap={instanceDatabaseMap}

@@ -54,12 +54,12 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 	}, [navigate, params]);
 
 	return (
-		<div className="pl-3">
-			<h1 className="pt-3 pb-3 text-3xl">Databases</h1>
+		<div className="pl-3 flex flex-col h-full min-h-0">
+			<h1 className="pt-3 pb-3 text-3xl shrink-0">Databases</h1>
 			{loading
-				? <TextLoadingSkeleton className="w-full h-9 m-0 rounded-md" />
+				? <TextLoadingSkeleton className="w-full h-9 m-0 rounded-md shrink-0" />
 				: (
-					<div className="flex space-x-2">
+					<div className="flex space-x-2 shrink-0">
 						<Select
 							name="databaseSelect"
 							value={params.databaseName || ''}
@@ -82,9 +82,9 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 					</div>
 				)}
 			{loading
-				? <TextLoadingSkeleton className="w-full min-h-80 rounded-md mb-0" />
+				? <TextLoadingSkeleton className="w-full flex-1 min-h-0 rounded-md mb-0 mt-4" />
 				: (
-					<ScrollArea className="border rounded-md min-h-80 border-grey-700 mt-4">
+					<ScrollArea type="auto" className="flex-1 min-h-0 border rounded-md border-grey-700 mt-4">
 						{tableNames.length === 0 && params.databaseName?.length
 							? (
 								<div className="w-full h-full text-center">
@@ -133,10 +133,12 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 					</ScrollArea>
 				)}
 			{canManageBrowseInstance && (
-				<CreateNewTableModal
-					databaseName={params.databaseName}
-					onSelectTable={onSelectTable}
-				/>
+				<div className="shrink-0">
+					<CreateNewTableModal
+						databaseName={params.databaseName}
+						onSelectTable={onSelectTable}
+					/>
+				</div>
 			)}
 		</div>
 	);

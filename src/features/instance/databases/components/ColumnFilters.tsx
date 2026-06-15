@@ -5,6 +5,7 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/cn';
 import { HeaderGroup } from '@tanstack/react-table';
 import { KeyboardEvent, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -34,7 +35,14 @@ export function ColumnFilters<TData>({
 				{headerGroups.map((headerGroup) => (
 					<TableRow key={headerGroup.id} className="border-none">
 						{headerGroup.headers.map((header) => (
-							<TableCell key={header.id} style={{ width: `${header.column.getSize()}px` }}>
+							<TableCell
+								key={header.id}
+								style={{ width: `${header.column.getSize()}px` }}
+								className={cn(
+									'sticky z-10 bg-card dark:bg-black-dark border-b border-border',
+									'top-[calc(var(--spacing(32))+var(--spacing(10)))]',
+								)}
+							>
 								{header.column.columnDef.enableColumnFilter && (
 									<FormField
 										control={columnFiltersForm.control}

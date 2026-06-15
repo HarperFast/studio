@@ -88,7 +88,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
-				<div className="sticky bottom-0 py-4 bg-background/80 backdrop-blur-xs dark:bg-black/70">
+				<div className="shrink-0 py-4">
 					<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
 						<Plus />
 						<span>
