@@ -14,7 +14,10 @@ export default defineConfig({
 			'**/node_modules/**',
 			'**/dist/**',
 		],
-		setupFiles: ['./src/features/instance/status/analytics/__tests__/setup.ts'],
+		setupFiles: [
+			'./src/features/instance/status/analytics/__tests__/setup.ts',
+			'./src/lib/monaco/__tests__/setup.ts',
+		],
 		globals: true,
 		coverage: {
 			provider: 'v8',

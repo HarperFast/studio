@@ -28,8 +28,9 @@ import { DirectoryEntry } from '@/features/instance/applications/context/directo
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { getComponentFileQueryOptions } from '@/integrations/api/instance/applications/getComponentFile';
+import { typescript } from '@/lib/monaco/languageServices';
 import { useQueryClient } from '@tanstack/react-query';
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import { useEffect, useMemo, useRef } from 'react';
 
 /** Source files worth registering as models (everything the worker can parse). */
@@ -143,7 +144,7 @@ function deriveProjectPathConfig(
 
 function applyProjectPathConfig(project: string, tsconfigText: string | undefined): void {
 	const { baseUrl, paths } = deriveProjectPathConfig(project, tsconfigText);
-	const { typescriptDefaults, javascriptDefaults } = monaco.languages.typescript;
+	const { typescriptDefaults, javascriptDefaults } = typescript;
 	for (const defaults of [typescriptDefaults, javascriptDefaults]) {
 		defaults.setCompilerOptions({ ...defaults.getCompilerOptions(), baseUrl, paths });
 	}

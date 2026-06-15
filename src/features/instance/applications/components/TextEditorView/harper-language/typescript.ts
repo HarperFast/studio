@@ -11,10 +11,8 @@
  * `@types` — live in `useApplicationTypeIntelligence`, which runs while a file
  * is open.
  */
-import { OnMount } from '@monaco-editor/react';
+import { typescript } from '@/lib/monaco/languageServices';
 import { harperGlobalsDeclaration } from './harperGlobals';
-
-type Monaco = Parameters<OnMount>[1];
 
 const HARPER_GLOBALS_PATH = 'file:///node_modules/@types/harper-globals/index.d.ts';
 const ASSET_MODULES_PATH = 'file:///node_modules/@types/harper-assets/index.d.ts';
@@ -43,9 +41,9 @@ declare module '*?raw' { const content: string; export default content; }
 declare module '*?url' { const url: string; export default url; }
 `;
 
-export function registerHarperTypescript(monaco: Monaco): void {
+export function registerHarperTypescript(): void {
 	const { typescriptDefaults, javascriptDefaults, ScriptTarget, ModuleKind, ModuleResolutionKind, JsxEmit } =
-		monaco.languages.typescript;
+		typescript;
 
 	for (const defaults of [typescriptDefaults, javascriptDefaults]) {
 		defaults.addExtraLib(harperGlobalsDeclaration, HARPER_GLOBALS_PATH);

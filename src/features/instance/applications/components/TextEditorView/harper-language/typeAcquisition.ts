@@ -15,7 +15,7 @@
  * chunk) only once a real application file is open, and any failure — offline,
  * blocked CDN, unknown package — is swallowed so it can never break editing.
  */
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import { typescript } from '@/lib/monaco/languageServices';
 
 /** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
 const NODE_BUILTINS = new Set([
@@ -111,7 +111,7 @@ const acquiredPaths = new Set<string>();
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
 		runnerPromise = import('@typescript/ata').then(({ setupTypeAcquisition }) => {
-			const { typescriptDefaults, javascriptDefaults } = monaco.languages.typescript;
+			const { typescriptDefaults, javascriptDefaults } = typescript;
 			return setupTypeAcquisition({
 				projectName: 'Harper Application',
 				typescript: createImportScannerShim() as unknown as typeof import('typescript'),

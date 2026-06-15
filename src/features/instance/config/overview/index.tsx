@@ -152,8 +152,8 @@ export function ConfigOverviewIndex() {
 		}
 	}, [configurationInfo]);
 
-	const handleEditorDidMount = useCallback<OnMount>((_editor, monaco) => {
-		configureHarperConfigEditor(monaco);
+	const handleEditorDidMount = useCallback<OnMount>(() => {
+		configureHarperConfigEditor();
 	}, []);
 
 	const handleSave = useCallback(() => {

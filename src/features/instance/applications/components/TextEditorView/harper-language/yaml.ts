@@ -11,11 +11,9 @@
  * ./configAppSchema.json (the `harper` package only exposes `.`). Refresh the
  * copy when the bundled harper version changes its app config schema.
  */
-import { OnMount } from '@monaco-editor/react';
+import { Monaco } from '@/lib/monaco/types';
 import { configureMonacoYaml } from 'monaco-yaml';
 import configAppSchemaRaw from './configAppSchema.json?raw';
-
-type Monaco = Parameters<OnMount>[1];
 
 const configAppSchema = JSON.parse(configAppSchemaRaw);
 

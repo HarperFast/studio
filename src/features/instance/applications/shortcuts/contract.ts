@@ -1,3 +1,4 @@
+import { Monaco } from '@/lib/monaco/types';
 import { OnMount } from '@monaco-editor/react';
 
 export interface Contract {
@@ -12,6 +13,6 @@ export interface Contract {
 	): true | undefined;
 
 	addEditorAction?(
-		monaco: Parameters<OnMount>[1],
+		monaco: Monaco,
 	): Parameters<Parameters<OnMount>[0]['addAction']>[0];
 }
