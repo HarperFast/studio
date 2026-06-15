@@ -66,6 +66,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<'th'>) {
 export function TableHeadSortable<TData extends RowData>({
 	header,
 	onColumnClick,
+	className,
 	...props
 }: React.ComponentProps<'th'> & {
 	header: Header<TData, unknown>;
@@ -87,7 +88,7 @@ export function TableHeadSortable<TData extends RowData>({
 		<TableHead
 			{...props}
 			style={{ width: `${header.getSize()}px` }}
-			className={enableSorting ? 'px-0' : 'px-2'}
+			className={cn(enableSorting ? 'px-0' : 'px-2', className)}
 		>
 			<div className="flex items-center justify-between">
 				{enableSorting

@@ -87,12 +87,17 @@ export function TableView<TData, TValue>({
 
 	return (
 		<>
-			<Table containerClassName="rounded-md bg-card dark:bg-black-dark grow max-h-[calc(100vh-128px-16px-112px-80px)]">
+			<Table containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible">
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
 							{headerGroup.headers.map((header) => (
-								<TableHeadSortable key={header.id} header={header} onColumnClick={onColumnClick} />
+								<TableHeadSortable
+									key={header.id}
+									header={header}
+									onColumnClick={onColumnClick}
+									className="sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
+								/>
 							))}
 						</TableRow>
 					))}
