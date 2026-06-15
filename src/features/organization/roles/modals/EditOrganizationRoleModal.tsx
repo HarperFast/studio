@@ -24,7 +24,7 @@ import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ConfirmDeletionContent } from './ConfirmDeletionContent';
@@ -83,16 +83,20 @@ export function EditOrganizationRoleModal({
 	}, [data.id, deleteOrganizationRole, form, closeModal]);
 
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const [updatedPermissions, setUpdatedPermissions] = useState<string>(
-		JSON.stringify(
-			{
-				roles: { ...roleInfo.organization.roles },
-				clusters: { ...roleInfo.organization.clusters },
-			} satisfies OrganizationRoleSpecificPermissionsType,
-			null,
-			2,
-		),
+	const initialPermissions = useMemo(
+		() =>
+			JSON.stringify(
+				{
+					roles: { ...roleInfo.organization.roles },
+					clusters: { ...roleInfo.organization.clusters },
+				} satisfies OrganizationRoleSpecificPermissionsType,
+				null,
+				2,
+			),
+		[roleInfo],
 	);
+	const [updatedPermissions, setUpdatedPermissions] = useState<string>(initialPermissions);
+	const isPermissionsDirty = updatedPermissions !== initialPermissions;
 
 	const onValidate = useCallback(
 		(markers: unknown[]) => {
@@ -274,7 +278,7 @@ export function EditOrganizationRoleModal({
 														variant="submit"
 														className="rounded-full"
 														disabled={!isValidJSON || isRoleUpdatePending || !form.formState.isValid
-															|| !form.formState.isDirty}
+															|| (!form.formState.isDirty && !isPermissionsDirty)}
 													>
 														Save Changes
 													</Button>
