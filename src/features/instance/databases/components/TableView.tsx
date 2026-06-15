@@ -1,11 +1,7 @@
 'use client';
 
 import { LoadingSubtle } from '@/components/LoadingSubtle';
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
-import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { cn } from '@/lib/cn';
 import {
 	Cell,
@@ -17,11 +13,11 @@ import {
 	useReactTable,
 	VisibilityState,
 } from '@tanstack/react-table';
-import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
-import { Dispatch, SetStateAction, useCallback, useMemo } from 'react';
+import { Dispatch, SetStateAction, useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
+import { TablePagination } from './TablePagination';
 
 interface BrowseDataTableProps<TData, TValue> {
 	applyFilters: () => void;
@@ -78,13 +74,6 @@ export function TableView<TData, TValue>({
 		getPaginationRowModel: getPaginationRowModel(),
 	});
 
-	const previousPage = useCallback(() => {
-		setPageIndex(pageIndex - 1);
-	}, [pageIndex, setPageIndex]);
-	const nextPage = useCallback(() => {
-		setPageIndex(pageIndex + 1);
-	}, [pageIndex, setPageIndex]);
-
 	return (
 		<>
 			<Table containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible">
@@ -125,78 +114,14 @@ export function TableView<TData, TValue>({
 						)}
 				</TableBody>
 			</Table>
-			<div className="flex items-center justify-end py-4 space-x-2 pr-4">
-				<Button
-					variant="defaultOutline"
-					size="sm"
-					onClick={previousPage}
-					className="select-none"
-					disabled={pageIndex === 0}
-				>
-					<ArrowLeftIcon />
-					Previous
-				</Button>
-
-				<div className="grow"></div>
-
-				<div className="text-center">
-					<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Records</dt>
-					<dd className="font-semibold tracking-tight">
-						{totalRecords === undefined
-							? <TextLoadingSkeleton />
-							: addCommasToNumbers(totalRecords)}
-					</dd>
-				</div>
-				{totalRecords !== undefined && totalRecords > 0 && (
-					<>
-						<div>
-							<Select
-								defaultValue={pageSize.toString()}
-								onValueChange={(value) => {
-									setPageSize(Number(value));
-								}}
-							>
-								<SelectTrigger className="h-10 w-20">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent side="top">
-									{[20, 50, 100, 250].map((pageSize) => (
-										<SelectItem key={pageSize} value={`${pageSize}`}>
-											{pageSize}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-
-						{totalPages !== undefined && totalPages > 1 && (
-							<>
-								<div className="text-center">
-									<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Pages</dt>
-									<dd className="font-semibold tracking-tight">{addCommasToNumbers(totalPages)}</dd>
-								</div>
-								<div className="text-center">
-									<dt className="font-medium text-gray-500 text-sm/6 dark:text-gray-400">Page</dt>
-									<dd className="font-semibold tracking-tight">{addCommasToNumbers(pageIndex + 1)}</dd>
-								</div>
-							</>
-						)}
-					</>
-				)}
-
-				<div className="grow"></div>
-
-				<Button
-					variant="defaultOutline"
-					size="sm"
-					onClick={nextPage}
-					className="select-none"
-					disabled={totalPages === undefined || pageIndex === totalPages - 1}
-				>
-					Next
-					<ArrowRightIcon />
-				</Button>
-			</div>
+			<TablePagination
+				pageIndex={pageIndex}
+				pageSize={pageSize}
+				totalPages={totalPages}
+				totalRecords={totalRecords}
+				setPageIndex={setPageIndex}
+				setPageSize={setPageSize}
+			/>
 		</>
 	);
 }
