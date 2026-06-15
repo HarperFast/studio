@@ -103,6 +103,7 @@ export function OrgConfigRolesIndex() {
 					)}
 					{isEditOrgRoleModalOpen && (
 						<EditOrganizationRoleModal
+							key={selectedOrgRole.id}
 							data={selectedOrgRole}
 							isModalOpen={isEditOrgRoleModalOpen}
 							closeModal={closeEditModal}
