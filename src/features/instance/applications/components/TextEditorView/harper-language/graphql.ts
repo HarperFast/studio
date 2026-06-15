@@ -4,7 +4,7 @@
  * GraphQL language only provides syntax highlighting, so these providers add
  * the Harper-specific intelligence sourced from `./schema`.
  */
-import { OnMount } from '@monaco-editor/react';
+import { Monaco } from '@/lib/monaco/types';
 import {
 	findDirective,
 	findScalar,
@@ -14,8 +14,6 @@ import {
 	HarperScalar,
 	harperScalars,
 } from './schema';
-
-type Monaco = Parameters<OnMount>[1];
 
 /* -------------------------------------------------------------------------- */
 /* Pure helpers (exported for unit testing — no Monaco dependency).           */

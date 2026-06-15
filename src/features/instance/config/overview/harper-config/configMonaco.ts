@@ -14,10 +14,8 @@
  * exports map, so we can't import the schema file directly; refresh the copy
  * when the bundled harper version changes its config schema.
  */
-import { OnMount } from '@monaco-editor/react';
+import { json } from '@/lib/monaco/languageServices';
 import configRootSchemaRaw from './configRootSchema.json?raw';
-
-type Monaco = Parameters<OnMount>[1];
 
 const configRootSchema = JSON.parse(configRootSchemaRaw);
 
@@ -38,8 +36,8 @@ const SCHEMA_URI = 'harper://schemas/config-root.json';
  * registration sticks. The guard keys off the already-registered schema URI,
  * so repeated mounts (and HMR) are no-ops.
  */
-export function configureHarperConfigEditor(monaco: Monaco): void {
-	const jsonDefaults = monaco.languages.json.jsonDefaults;
+export function configureHarperConfigEditor(): void {
+	const jsonDefaults = json.jsonDefaults;
 	const { schemas = [], ...rest } = jsonDefaults.diagnosticsOptions;
 
 	if (schemas.some(schema => schema.uri === SCHEMA_URI)) {

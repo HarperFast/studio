@@ -19,28 +19,28 @@
  */
 import { loader } from '@monaco-editor/react';
 // Typed Monaco API namespace.
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 // Editor runtime: core + all editor features (find, folding, suggest, hover,
 // command palette, …). `edcore.main` re-exports `editor.api`, so this adds the
 // feature contributions on top of the namespace imported above — without
 // Monaco's bundled languages.
 import 'monaco-editor/esm/vs/editor/edcore.main.js';
 // Rich language services (IntelliSense + diagnostics, each backed by a worker).
-import 'monaco-editor/esm/vs/language/css/monaco.contribution';
-import 'monaco-editor/esm/vs/language/html/monaco.contribution';
-import 'monaco-editor/esm/vs/language/json/monaco.contribution';
-import 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
+import 'monaco-editor/esm/vs/language/css/monaco.contribution.js';
+import 'monaco-editor/esm/vs/language/html/monaco.contribution.js';
+import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
+import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 // Syntax highlighting (Monarch grammars). TS/JS need these for highlighting
 // (their language service only adds IntelliSense); CSS/HTML round out the
 // grammar alongside their services; Markdown and YAML are highlighting-only
 // here (YAML schema features come from monaco-yaml).
-import 'monaco-editor/esm/vs/basic-languages/css/css.contribution';
-import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution';
-import 'monaco-editor/esm/vs/basic-languages/html/html.contribution';
-import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution';
-import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution';
-import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution';
-import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution';
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution.js';
 // Workers (Vite-bundled).
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';

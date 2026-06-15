@@ -10,12 +10,10 @@
  * development, and rather than on the Monaco instance because the self-hosted
  * Monaco is a frozen ES module namespace that cannot be mutated.
  */
-import { OnMount } from '@monaco-editor/react';
+import { Monaco } from '@/lib/monaco/types';
 import { registerHarperGraphql } from './graphql';
 import { registerHarperTypescript } from './typescript';
 import { registerHarperYaml } from './yaml';
-
-type Monaco = Parameters<OnMount>[1];
 
 const CONFIGURED_FLAG = '__harperLanguageSupportConfigured';
 
@@ -27,6 +25,6 @@ export function configureHarperLanguageSupport(monaco: Monaco): void {
 	scope[CONFIGURED_FLAG] = true;
 
 	registerHarperGraphql(monaco);
-	registerHarperTypescript(monaco);
+	registerHarperTypescript();
 	registerHarperYaml(monaco);
 }
