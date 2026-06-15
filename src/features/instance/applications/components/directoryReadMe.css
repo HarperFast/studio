@@ -40,7 +40,6 @@
 		 * theme's color and feels less heavy. */
 		.dark & {
 			background-color: hsl(250 25% 12%);
-			color: var(--white);
 		}
 	}
 
