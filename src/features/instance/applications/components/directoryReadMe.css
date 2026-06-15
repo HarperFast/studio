@@ -30,8 +30,18 @@
 	}
 
 	code {
-		background-color: black;
+		background-color: var(--muted);
+		color: var(--foreground);
 		overflow: auto;
+
+		/* Keep the dark "terminal" look in dark mode; in light mode follow the
+		 * theme so code reads as a light block instead of a black box. The dark
+		 * surface is a deep purple-tint (not flat black) so it carries the
+		 * theme's color and feels less heavy. */
+		.dark & {
+			background-color: hsl(250 25% 12%);
+			color: var(--white);
+		}
 	}
 
 	p > code {
@@ -80,7 +90,8 @@
 
 .directoryReadMe th,
 .directoryReadMe td {
-	border: 1px solid var(--card);
+	/* --border adapts to the theme; --card is white in light mode (invisible). */
+	border: 1px solid var(--border);
 	padding: 0.5rem 0.75rem;
 	text-align: left;
 }
@@ -90,6 +101,16 @@
 	font-weight: 600;
 }
 
+/* Zebra stripe follows the theme in light mode (a subtle light band) and keeps
+ * the near-black stripe in dark mode. A hardcoded dark stripe was unreadable in
+ * light mode: near-black row behind near-black text. */
 .directoryReadMe tr:nth-child(even) {
-	background-color: var(--black-dark);
+	background-color: var(--muted);
+
+	/* Purple-tinted, slightly-elevated stripe: picks up the theme hue and reads
+	 * with more contrast against the deep-purple page background than a neutral
+	 * near-black did. */
+	.dark & {
+		background-color: hsl(255 28% 15%);
+	}
 }
