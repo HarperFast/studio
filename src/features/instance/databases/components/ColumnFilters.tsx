@@ -48,7 +48,7 @@ export function ColumnFilters<TData>({
 										control={columnFiltersForm.control}
 										name={header.id}
 										render={({ field }) => (
-											<FormItem className="border-r-1 border-r-black">
+											<FormItem className="border-r border-r-black">
 												<FormControl>
 													<Input
 														{...field}
