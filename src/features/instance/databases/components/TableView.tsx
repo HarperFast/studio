@@ -134,8 +134,6 @@ function TableBodyRow<TData>(
 		const isExpired = original && original.message === 'This entry has expired';
 		const visibleCells = row.getVisibleCells();
 
-		console.log('primaryKey, visibleCells', primaryKey, visibleCells);
-
 		if (isExpired) {
 			if (visibleCells[0]?.column?.id === primaryKey) {
 				return [
