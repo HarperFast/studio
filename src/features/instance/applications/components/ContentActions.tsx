@@ -13,8 +13,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
-import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useRestartInstanceClick } from '@/hooks/useRestartInstanceClick';
 import { emitToListeners, useEmitToListeners } from '@/lib/events/listener';
@@ -124,14 +124,10 @@ export function ContentActions({
 		));
 
 	// Which actions apply to what is open — drives both the menu items and
-	// whether each parent menu appears at all.
-	const isReadOnlyPackage = !!openedEntry?.package;
-	const canEditFile = !!openedEntry && !isDirectory(openedEntry) && !isReadOnlyPackage && canManageBrowseInstance;
-	const canAddEntries = !!openedEntry && !isReadOnlyPackage && canManageBrowseInstance;
-	const canAddTable = !!openedEntry && openedEntry.path.endsWith('.graphql') && canManageBrowseInstance;
-	const canDeleteEntry = !restrictPackageModification && canManageBrowseInstance;
-	const canDownload = !!openedEntry?.project;
-	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !restrictPackageModification;
+	// whether each parent menu appears at all. Shared with the sidebar context menu.
+	const { canEditFile, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(
+		openedEntry,
+	);
 
 	const showFileMenu = canEditFile || canAddEntries || canAddTable || canDeleteEntry;
 	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy;
