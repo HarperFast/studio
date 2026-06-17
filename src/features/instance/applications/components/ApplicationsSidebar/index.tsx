@@ -12,6 +12,7 @@ import { DraggingPosition } from 'react-complex-tree/src/types';
 import { toast } from 'sonner';
 import { buildItems } from './buildItems';
 import { DropTarget } from './DropTarget';
+import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { getItemTitle } from './getItemTitle';
 import { ItemTitle } from './ItemTitle';
 
@@ -68,26 +69,28 @@ export function ApplicationsSidebar() {
 
 	return (
 		<div className="app-tree-scroll h-full overflow-auto pr-1.5 pb-18">
-			<ControlledTreeEnvironment
-				canDragAndDrop={true}
-				canDropOnFolder={true}
-				canDropOnNonFolder={false}
-				canReorderItems={false}
-				canSearch={true}
-				canRename={false}
-				getItemTitle={getItemTitle}
-				items={items}
-				onDrop={onInternalDrop}
-				renderItemTitle={ItemTitle}
-				viewState={{ applicationsTree: { focusedItem, expandedItems, selectedItems } }}
-				onFocusItem={item => setFocusedItem(item.index)}
-				onExpandItem={item => setExpandedItems([...expandedItems, item.index])}
-				onCollapseItem={item =>
-					setExpandedItems(expandedItems.filter(expandedItemIndex => expandedItemIndex !== item.index))}
-				onSelectItems={items => setSelectedItems(items)}
-			>
-				<Tree treeId="applicationsTree" rootItem={rootId} treeLabel="Applications file tree" />
-			</ControlledTreeEnvironment>
+			<FileTreeContextMenu items={items}>
+				<ControlledTreeEnvironment
+					canDragAndDrop={true}
+					canDropOnFolder={true}
+					canDropOnNonFolder={false}
+					canReorderItems={false}
+					canSearch={true}
+					canRename={false}
+					getItemTitle={getItemTitle}
+					items={items}
+					onDrop={onInternalDrop}
+					renderItemTitle={ItemTitle}
+					viewState={{ applicationsTree: { focusedItem, expandedItems, selectedItems } }}
+					onFocusItem={item => setFocusedItem(item.index)}
+					onExpandItem={item => setExpandedItems([...expandedItems, item.index])}
+					onCollapseItem={item =>
+						setExpandedItems(expandedItems.filter(expandedItemIndex => expandedItemIndex !== item.index))}
+					onSelectItems={items => setSelectedItems(items)}
+				>
+					<Tree treeId="applicationsTree" rootItem={rootId} treeLabel="Applications file tree" />
+				</ControlledTreeEnvironment>
+			</FileTreeContextMenu>
 
 			<DropTarget />
 		</div>
