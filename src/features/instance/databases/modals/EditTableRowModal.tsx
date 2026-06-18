@@ -63,17 +63,22 @@ export function EditTableRowModal({
 				</DialogHeader>
 				{data
 					? (
-						<Editor
-							className="w-full flex-1 min-h-0"
-							language="json"
-							theme={monacoTheme}
-							options={{ readOnly: !canEditRecords, automaticLayout: true }}
-							value={value}
-							onValidate={onValidate}
-							onChange={(updatedValue) => {
-								setUpdatedTableRecordData(updatedValue);
-							}}
-						/>
+						// Wrapper owns the flex sizing: @monaco-editor/react applies `className` to its inner
+						// element, not the layout wrapper, so `flex-1 min-h-0` has to live on a div we control
+						// for the editor to shrink with the modal.
+						<div className="flex-1 min-h-0 w-full">
+							<Editor
+								className="w-full h-full"
+								language="json"
+								theme={monacoTheme}
+								options={{ readOnly: !canEditRecords, automaticLayout: true }}
+								value={value}
+								onValidate={onValidate}
+								onChange={(updatedValue) => {
+									setUpdatedTableRecordData(updatedValue);
+								}}
+							/>
+						</div>
 					)
 					: <Loading />}
 				<DialogFooter>

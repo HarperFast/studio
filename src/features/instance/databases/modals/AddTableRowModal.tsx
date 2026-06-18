@@ -126,16 +126,23 @@ export function AddTableRowModal({
 							auto-generate. You may manually add it if you want to specify its value.
 						</div>
 					)}
-				<Editor
-					className="w-full flex-1 min-h-0"
-					language="json"
-					theme={monacoTheme}
-					value={sampleJSON}
-					onValidate={onValidate}
-					onChange={setAddTableRecordData}
-					options={{ minimap: { enabled: false }, automaticLayout: true }}
-					onMount={handleEditorDidMount}
-				/>
+				{
+					/* Wrapper owns the flex sizing: @monaco-editor/react applies `className` to its inner
+				    element, not the layout wrapper, so `flex-1 min-h-0` has to live on a div we control
+				    for the editor to shrink with the modal. */
+				}
+				<div className="flex-1 min-h-0 w-full">
+					<Editor
+						className="w-full h-full"
+						language="json"
+						theme={monacoTheme}
+						value={sampleJSON}
+						onValidate={onValidate}
+						onChange={setAddTableRecordData}
+						options={{ minimap: { enabled: false }, automaticLayout: true }}
+						onMount={handleEditorDidMount}
+					/>
+				</div>
 				<div className="text-sm text-gray-500">
 					<strong>Provide an [array]</strong> if you want to add more than one record at a time.
 				</div>
