@@ -14,9 +14,14 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
+import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
+import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { renameFileInPath } from '@/lib/string/paths/renameFileInPath';
@@ -27,6 +32,11 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
 
+/** Every file at or beneath an entry (directories are implicit in file paths). */
+function collectFiles(entry: DirectoryEntry | FileEntry): FileEntry[] {
+	return isDirectory(entry) ? entry.entries.flatMap(collectFiles) : [entry];
+}
+
 export function RenameFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowRenameFileModal', false);
 
@@ -35,7 +45,8 @@ export function RenameFileModal() {
 		attemptToRestoreFocus(trigger);
 	}, [trigger]);
 
-	const { openedEntry, entryExists } = useEditorView();
+	const { openedEntry, entryExists, reloadRootEntries } = useEditorView();
+	const instanceParams = useInstanceClientIdParams();
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
@@ -74,12 +85,50 @@ export function RenameFileModal() {
 			return;
 		}
 
+		// A directory can't be moved in a single file operation, so rebase every file
+		// beneath it onto the new path — the API recreates the directories implicitly.
+		const isDir = isDirectory(openedEntry);
+		const changes = isDir
+			? collectFiles(openedEntry).map(file => ({
+				from: file.path,
+				to: to + file.path.slice(openedEntry.path.length),
+			}))
+			: [{ from: openedEntry.path, to }];
+
 		setIsPending(true);
-		await renameFiles([{ from: openedEntry.path, to }]);
-		closeModal();
-		form.reset();
+		const renamed = await renameFiles(changes);
+
+		// Moving the files leaves the original (now-empty) directory behind, so once
+		// the move fully succeeds recreate the renamed shell (for empty folders) and
+		// drop the old one. `relative` strips the leading project segment.
+		if (renamed && isDir) {
+			const relative = (path: string) => path.split('/').slice(1).join('/');
+			try {
+				if (changes.length === 0) {
+					await setComponentFile({
+						...instanceParams,
+						project: openedEntry.project,
+						file: relative(to),
+						payload: undefined,
+					});
+				}
+				await dropComponent({ ...instanceParams, project: openedEntry.project, file: relative(openedEntry.path) });
+				await reloadRootEntries();
+			} catch (error) {
+				toast.error('Rename Failed', {
+					description: error instanceof Error ? error.message : 'Could not remove the original directory.',
+				});
+				setIsPending(false);
+				return;
+			}
+		}
+
 		setIsPending(false);
-	}, [closeModal, entryExists, form, openedEntry, renameFiles, setIsPending]);
+		if (renamed) {
+			closeModal();
+			form.reset();
+		}
+	}, [closeModal, entryExists, form, instanceParams, openedEntry, reloadRootEntries, renameFiles, setIsPending]);
 
 	const onCancelClick = useCallback(() => {
 		closeModal();
@@ -96,7 +145,7 @@ export function RenameFileModal() {
 						onSubmit={form.handleSubmit(submitForm)}
 					>
 						<DialogHeader>
-							<DialogTitle>Rename File</DialogTitle>
+							<DialogTitle>Rename {isDirectory(openedEntry) ? 'Directory' : 'File'}</DialogTitle>
 							<DialogDescription>
 								{openedEntry?.path}
 							</DialogDescription>

@@ -16,7 +16,9 @@ import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { EmptyCluster } from './EmptyCluster';
+import { InstanceActionsMenu } from './InstanceActionsMenu';
 import { InstanceLogInCell } from './InstanceLogInCell';
+import { InstanceRowContextMenu } from './InstanceRowContextMenu';
 import { InstanceStatusCell } from './InstanceStatusCell';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
@@ -117,6 +119,16 @@ export function Instances() {
 						return `${value / 1024} GB`; // The value is in MiB since that's how memory is sold, but alwayas says MB or GB instead of MiB or GiB
 					},
 				},
+				{
+					id: 'instanceMenu',
+					size: 1,
+					minSize: 1,
+					cell: (cell) => (
+						<div className="flex justify-end">
+							<InstanceActionsMenu isSelfManaged={isSelfManaged} instance={cell.row.original} />
+						</div>
+					),
+				},
 			] satisfies Array<ColumnDef<Instance> | false>).filter(excludeFalsy),
 		[isSelfManaged],
 	);
@@ -140,7 +152,17 @@ export function Instances() {
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
 							: instances.length
-							? <DataTable data={instances} columns={columns} />
+							? (
+								<DataTable
+									data={instances}
+									columns={columns}
+									renderRowWrapper={(instance, row) => (
+										<InstanceRowContextMenu instance={instance} isSelfManaged={isSelfManaged}>
+											{row}
+										</InstanceRowContextMenu>
+									)}
+								/>
+							)
 							: <EmptyCluster />}
 					</CardContent>
 				</Card>

@@ -13,6 +13,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
@@ -125,12 +126,13 @@ export function ContentActions({
 
 	// Which actions apply to what is open — drives both the menu items and
 	// whether each parent menu appears at all. Shared with the sidebar context menu.
-	const { canEditFile, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(
-		openedEntry,
-	);
+	const { canEditFile, canRename, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy } =
+		useEntryActions(openedEntry);
 
-	const showFileMenu = canEditFile || canAddEntries || canAddTable || canDeleteEntry;
+	const showFileMenu = canEditFile || canRename || canAddEntries || canAddTable || canDeleteEntry;
 	const showApplicationMenu = canDownload || canManageBrowseInstance || canRedeploy;
+	// The "File" menu acts on whatever is selected, so name it for that thing.
+	const fileMenuLabel = openedEntry && isDirectory(openedEntry) ? 'Directory' : 'File';
 
 	return (
 		<div className="absolute top-0 right-0 left-0 backdrop-blur-sm bg-black-10 shadow-xl flex pr-4 md:pr-12">
@@ -213,10 +215,10 @@ export function ContentActions({
 									type="button"
 									variant="ghost"
 									className="rounded-none"
-									title="File"
+									title={fileMenuLabel}
 									onPointerEnter={() => switchMenuOnHover('file')}
 								>
-									File
+									{fileMenuLabel}
 									{!fileIsClean && canEditFile && (
 										<span className="ml-1 size-1.5 rounded-full bg-primary" aria-label="Unsaved changes" />
 									)}
@@ -225,25 +227,27 @@ export function ContentActions({
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="start">
 								{canEditFile && (
-									<>
-										<DropdownMenuItem onSelect={onSaveClick} disabled={fileIsClean || isSavingFile}>
-											<SaveIcon />
-											Save
-											<DropdownMenuShortcut>{SHORTCUTS.save}</DropdownMenuShortcut>
-										</DropdownMenuItem>
-										<DropdownMenuItem onSelect={onRenameClick} disabled={!fileIsClean || isSavingFile}>
-											<PencilIcon />
-											Rename
-											<DropdownMenuShortcut>{SHORTCUTS.rename}</DropdownMenuShortcut>
-										</DropdownMenuItem>
-										<DropdownMenuItem onSelect={onRevertChangesClicked} disabled={fileIsClean || isSavingFile}>
-											<Undo2Icon />
-											Revert
-										</DropdownMenuItem>
-									</>
+									<DropdownMenuItem onSelect={onSaveClick} disabled={fileIsClean || isSavingFile}>
+										<SaveIcon />
+										Save
+										<DropdownMenuShortcut>{SHORTCUTS.save}</DropdownMenuShortcut>
+									</DropdownMenuItem>
+								)}
+								{canRename && (
+									<DropdownMenuItem onSelect={onRenameClick} disabled={!fileIsClean || isSavingFile}>
+										<PencilIcon />
+										Rename
+										<DropdownMenuShortcut>{SHORTCUTS.rename}</DropdownMenuShortcut>
+									</DropdownMenuItem>
+								)}
+								{canEditFile && (
+									<DropdownMenuItem onSelect={onRevertChangesClicked} disabled={fileIsClean || isSavingFile}>
+										<Undo2Icon />
+										Revert
+									</DropdownMenuItem>
 								)}
 
-								{canEditFile && (canAddEntries || canAddTable) && <DropdownMenuSeparator />}
+								{(canEditFile || canRename) && (canAddEntries || canAddTable) && <DropdownMenuSeparator />}
 
 								{canAddEntries && (
 									<>
@@ -266,7 +270,8 @@ export function ContentActions({
 									</DropdownMenuItem>
 								)}
 
-								{(canEditFile || canAddEntries || canAddTable) && canDeleteEntry && <DropdownMenuSeparator />}
+								{(canEditFile || canRename || canAddEntries || canAddTable) && canDeleteEntry
+									&& <DropdownMenuSeparator />}
 
 								{canDeleteEntry && (
 									<DropdownMenuItem variant="destructive" onSelect={onDeleteClick}>
@@ -357,7 +362,7 @@ export function ContentActions({
 								{canDownload && (
 									<DropdownMenuItem onSelect={onDownloadApplicationClick}>
 										<DownloadIcon />
-										Download
+										Download Application
 									</DropdownMenuItem>
 								)}
 								{canManageBrowseInstance && (
