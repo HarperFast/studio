@@ -63,6 +63,7 @@ export function useResizableDialog() {
 	const [position, setPosition] = useState<DialogPosition>(() => centerOf(size, window.innerWidth, window.innerHeight));
 	const [isDragging, setIsDragging] = useState(false);
 	const [isResizing, setIsResizing] = useState(false);
+	const [isMaximized, setIsMaximized] = useState(false);
 
 	// Mirror the latest values into refs so window listeners and the mount-time ref
 	// callback can read current state without re-subscribing on every change.
@@ -70,6 +71,10 @@ export function useResizableDialog() {
 	sizeRef.current = size;
 	const positionRef = useRef(position);
 	positionRef.current = position;
+	const isMaximizedRef = useRef(isMaximized);
+	isMaximizedRef.current = isMaximized;
+	// Size/position captured before maximizing, so the button can restore them.
+	const restoreRef = useRef<{ size: DialogSize; position: DialogPosition } | null>(null);
 	// The user's persisted, *unclamped* preferred size. The rendered size is always a clamped
 	// view of this, so shrinking the window and growing it back restores their chosen size.
 	const desiredSizeRef = useRef(storedSize);
@@ -85,6 +90,9 @@ export function useResizableDialog() {
 			return;
 		}
 		lastNodeRef.current = node;
+		// A fresh open always starts un-maximized at the preferred size.
+		setIsMaximized(false);
+		restoreRef.current = null;
 		const vw = window.innerWidth;
 		const vh = window.innerHeight;
 		const clamped = clampSize(desiredSizeRef.current, vw, vh);
@@ -98,6 +106,13 @@ export function useResizableDialog() {
 		const onResize = () => {
 			const vw = window.innerWidth;
 			const vh = window.innerHeight;
+			if (isMaximizedRef.current) {
+				// Stay filling the (new) screen.
+				const maxSize = clampSize({ width: vw, height: vh }, vw, vh);
+				setSize(maxSize);
+				setPosition(centerOf(maxSize, vw, vh));
+				return;
+			}
 			const clamped = clampSize(desiredSizeRef.current, vw, vh);
 			setSize(clamped);
 			setPosition(clampPosition(positionRef.current, clamped, vw, vh));
@@ -113,6 +128,8 @@ export function useResizableDialog() {
 		const startY = event.clientY;
 		const origin = { ...positionRef.current };
 		setIsDragging(true);
+		// A manual move means we're no longer "maximized".
+		setIsMaximized(false);
 
 		// Move imperatively via a compositor `transform`, coalesced to one update per frame, so the
 		// heavy editor subtree is never re-rendered or re-laid-out mid-drag. We commit to React
@@ -169,6 +186,8 @@ export function useResizableDialog() {
 		const startSize = { ...sizeRef.current };
 		const startPos = { ...positionRef.current };
 		setIsResizing(true);
+		// A manual resize means we're no longer "maximized".
+		setIsMaximized(false);
 
 		// Like dragging, apply size/position imperatively (once per frame) and commit to state on release.
 		let frame = 0;
@@ -239,5 +258,27 @@ export function useResizableDialog() {
 		window.addEventListener('mouseup', onUp);
 	}, [setStoredSize]);
 
-	return { size, position, isDragging, isResizing, contentRef, startDrag, startResize };
+	// Maximize fills the screen (within the standard margin); toggling again restores the size and
+	// position from just before. Maximizing never touches the persisted preferred size.
+	const toggleMaximize = useCallback(() => {
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		if (isMaximizedRef.current) {
+			const prev = restoreRef.current;
+			if (prev) {
+				const restoredSize = clampSize(prev.size, vw, vh);
+				setSize(restoredSize);
+				setPosition(clampPosition(prev.position, restoredSize, vw, vh));
+			}
+			setIsMaximized(false);
+		} else {
+			restoreRef.current = { size: sizeRef.current, position: positionRef.current };
+			const maxSize = clampSize({ width: vw, height: vh }, vw, vh);
+			setSize(maxSize);
+			setPosition(centerOf(maxSize, vw, vh));
+			setIsMaximized(true);
+		}
+	}, []);
+
+	return { size, position, isDragging, isResizing, isMaximized, contentRef, startDrag, startResize, toggleMaximize };
 }
