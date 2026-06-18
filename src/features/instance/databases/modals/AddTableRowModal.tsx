@@ -108,6 +108,7 @@ export function AddTableRowModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent
 				aria-describedby={undefined}
+				resizable
 				onEscapeKeyDown={(event) => {
 					if (madeChanges) {
 						event.preventDefault();
@@ -126,13 +127,13 @@ export function AddTableRowModal({
 						</div>
 					)}
 				<Editor
-					className="w-full h-96"
+					className="w-full flex-1 min-h-0"
 					language="json"
 					theme={monacoTheme}
 					value={sampleJSON}
 					onValidate={onValidate}
 					onChange={setAddTableRecordData}
-					options={{ minimap: { enabled: false } }}
+					options={{ minimap: { enabled: false }, automaticLayout: true }}
 					onMount={handleEditorDidMount}
 				/>
 				<div className="text-sm text-gray-500">

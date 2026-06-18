@@ -3,6 +3,7 @@ export const enum LocalStorageKeys {
 	'ApplicationChatWidth' = 'ApplicationChatWidth',
 	'ChatAlwaysApprovedTools' = 'ChatAlwaysApprovedTools',
 	'LogsOrderReversed' = 'LogsOrderReversed',
+	'ResizableModalSize' = 'ResizableModalSize',
 	'SavedClusterState' = 'SavedClusterState',
 	'Theme' = 'Theme',
 }

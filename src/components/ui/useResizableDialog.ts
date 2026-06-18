@@ -1,0 +1,192 @@
+import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+export interface DialogSize {
+	width: number;
+	height: number;
+}
+
+export interface DialogPosition {
+	x: number;
+	y: number;
+}
+
+export type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+
+const MIN_WIDTH = 360;
+const MIN_HEIGHT = 280;
+/** Keep at least this much gap between the modal and the viewport edges when snapped/clamped into view. */
+const MARGIN = 16;
+const DEFAULT_SIZE: DialogSize = { width: 820, height: 680 };
+
+/** Never let the modal grow larger than the viewport (minus a margin) or shrink below a usable minimum. */
+function clampSize({ width, height }: DialogSize, vw: number, vh: number): DialogSize {
+	return {
+		width: Math.round(Math.max(MIN_WIDTH, Math.min(width, vw - MARGIN * 2))),
+		height: Math.round(Math.max(MIN_HEIGHT, Math.min(height, vh - MARGIN * 2))),
+	};
+}
+
+function centerOf({ width, height }: DialogSize, vw: number, vh: number): DialogPosition {
+	return {
+		x: Math.round((vw - width) / 2),
+		y: Math.round((vh - height) / 2),
+	};
+}
+
+/** Pull a (possibly off-screen) position back so the whole modal sits within the viewport. */
+function clampPosition(
+	{ x, y }: DialogPosition,
+	{ width, height }: DialogSize,
+	vw: number,
+	vh: number,
+): DialogPosition {
+	const maxX = Math.max(MARGIN, vw - width - MARGIN);
+	const maxY = Math.max(MARGIN, vh - height - MARGIN);
+	return {
+		x: Math.min(Math.max(x, MARGIN), maxX),
+		y: Math.min(Math.max(y, MARGIN), maxY),
+	};
+}
+
+/**
+ * Drag + resize state for a modal. The size is persisted to local storage under a single shared key,
+ * so resizing one modal is remembered across every resizable modal. The position is intentionally not
+ * persisted: each time the modal opens it re-centers, and while dragging the user may pull it past the
+ * edge (to peek behind it) — on release it snaps back fully into view.
+ */
+export function useResizableDialog() {
+	const [storedSize, setStoredSize] = useLocalStorage<DialogSize>(LocalStorageKeys.ResizableModalSize, DEFAULT_SIZE);
+
+	const [size, setSize] = useState<DialogSize>(() => clampSize(storedSize, window.innerWidth, window.innerHeight));
+	const [position, setPosition] = useState<DialogPosition>(() => centerOf(size, window.innerWidth, window.innerHeight));
+	const [isDragging, setIsDragging] = useState(false);
+	const [isResizing, setIsResizing] = useState(false);
+
+	// Mirror the latest values into refs so window listeners and the mount-time ref
+	// callback can read current state without re-subscribing on every change.
+	const sizeRef = useRef(size);
+	sizeRef.current = size;
+	const positionRef = useRef(position);
+	positionRef.current = position;
+	// The user's persisted, *unclamped* preferred size. The rendered size is always a clamped
+	// view of this, so shrinking the window and growing it back restores their chosen size.
+	const desiredSizeRef = useRef(storedSize);
+	desiredSizeRef.current = storedSize;
+
+	// Re-center each time the dialog content mounts (i.e. each time the modal opens),
+	// re-deriving the rendered size from the persisted preferred size. Radix may invoke this
+	// ref more than once per render and on unmount, so we only act on a brand-new content
+	// node — otherwise the setState here would re-trigger the ref and loop forever.
+	const lastNodeRef = useRef<HTMLElement | null>(null);
+	const contentRef = useCallback((node: HTMLElement | null) => {
+		if (!node || node === lastNodeRef.current) {
+			return;
+		}
+		lastNodeRef.current = node;
+		const vw = window.innerWidth;
+		const vh = window.innerHeight;
+		const clamped = clampSize(desiredSizeRef.current, vw, vh);
+		setSize(clamped);
+		setPosition(centerOf(clamped, vw, vh));
+	}, []);
+
+	// Keep the modal within the viewport as the window changes: re-clamp the preferred size
+	// (so it grows back when there's room again) and pull the position back into view.
+	useEffect(() => {
+		const onResize = () => {
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			const clamped = clampSize(desiredSizeRef.current, vw, vh);
+			setSize(clamped);
+			setPosition(clampPosition(positionRef.current, clamped, vw, vh));
+		};
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
+	}, []);
+
+	const startDrag = useCallback((event: React.MouseEvent) => {
+		event.preventDefault();
+		const startX = event.clientX;
+		const startY = event.clientY;
+		const origin = { ...positionRef.current };
+		setIsDragging(true);
+
+		const onMove = (e: MouseEvent) => {
+			// No clamping mid-drag: allow dragging past the edge so the user can peek behind the modal.
+			setPosition({ x: origin.x + (e.clientX - startX), y: origin.y + (e.clientY - startY) });
+		};
+		const onUp = () => {
+			setIsDragging(false);
+			// Snap back fully into view.
+			setPosition(clampPosition(positionRef.current, sizeRef.current, window.innerWidth, window.innerHeight));
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+		};
+		window.addEventListener('mousemove', onMove);
+		window.addEventListener('mouseup', onUp);
+	}, []);
+
+	const startResize = useCallback((direction: ResizeDirection) => (event: React.MouseEvent) => {
+		event.preventDefault();
+		event.stopPropagation();
+		const startX = event.clientX;
+		const startY = event.clientY;
+		const startSize = { ...sizeRef.current };
+		const startPos = { ...positionRef.current };
+		setIsResizing(true);
+
+		const onMove = (e: MouseEvent) => {
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			const dx = e.clientX - startX;
+			const dy = e.clientY - startY;
+
+			let width = startSize.width;
+			let height = startSize.height;
+			if (direction.includes('e')) {
+				width = startSize.width + dx;
+			}
+			if (direction.includes('w')) {
+				width = startSize.width - dx;
+			}
+			if (direction.includes('s')) {
+				height = startSize.height + dy;
+			}
+			if (direction.includes('n')) {
+				height = startSize.height - dy;
+			}
+
+			const clamped = clampSize({ width, height }, vw, vh);
+
+			// When resizing from the top/left edges, keep the opposite edge anchored.
+			let { x, y } = startPos;
+			if (direction.includes('w')) {
+				x = startPos.x + startSize.width - clamped.width;
+			}
+			if (direction.includes('n')) {
+				y = startPos.y + startSize.height - clamped.height;
+			}
+
+			setSize(clamped);
+			setPosition({ x, y });
+		};
+		const onUp = () => {
+			setIsResizing(false);
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			const finalSize = clampSize(sizeRef.current, vw, vh);
+			setSize(finalSize);
+			setPosition(clampPosition(positionRef.current, finalSize, vw, vh));
+			// Persist the new size under the shared key so every resizable modal remembers it.
+			setStoredSize(finalSize);
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+		};
+		window.addEventListener('mousemove', onMove);
+		window.addEventListener('mouseup', onUp);
+	}, [setStoredSize]);
+
+	return { size, position, isDragging, isResizing, contentRef, startDrag, startResize };
+}
