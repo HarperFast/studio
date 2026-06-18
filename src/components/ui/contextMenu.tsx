@@ -53,7 +53,7 @@ function ContextMenuItem({
 			data-inset={inset}
 			data-variant={variant}
 			className={cn(
-				'focus:bg-accent focus:text-grey',
+				'focus:bg-accent focus:text-grey dark:focus:bg-white/15 dark:focus:text-white',
 				'data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10',
 				'dark:data-[variant=destructive]:focus:bg-destructive/20 data-[variant=destructive]:focus:text-destructive',
 				"data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground",

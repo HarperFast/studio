@@ -49,7 +49,7 @@ export function FileTreeContextMenu({
 }) {
 	const { setOpenedEntry, setFocusedItem, setSelectedItems, selectedItems } = useEditorView();
 	const [target, setTarget] = useState<ContextTarget | undefined>(undefined);
-	const { canEditFile, canAddEntries, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(target?.entry);
+	const { canRename, canAddEntries, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(target?.entry);
 
 	const focusTarget = useCallback((next: ContextTarget) => {
 		setOpenedEntry(next.entry);
@@ -83,7 +83,7 @@ export function FileTreeContextMenu({
 		fire();
 	}, [target, focusTarget]);
 
-	const hasActions = canAddEntries || canEditFile || canDownload || canRedeploy || canDeleteEntry;
+	const hasActions = canAddEntries || canRename || canDownload || canRedeploy || canDeleteEntry;
 
 	return (
 		<ContextMenu>
@@ -111,7 +111,7 @@ export function FileTreeContextMenu({
 						</>
 					)}
 
-					{canEditFile && (
+					{canRename && (
 						<ContextMenuItem onSelect={() => act(() => setWatchedValue('ShowRenameFileModal', true))}>
 							<PencilIcon />
 							Rename
@@ -122,7 +122,7 @@ export function FileTreeContextMenu({
 					{canDownload && (
 						<ContextMenuItem onSelect={() => act(() => setWatchedValue('ShowDownloadApplicationModal', true))}>
 							<DownloadIcon />
-							Download
+							Download Application
 						</ContextMenuItem>
 					)}
 
@@ -133,7 +133,7 @@ export function FileTreeContextMenu({
 						</ContextMenuItem>
 					)}
 
-					{(canAddEntries || canEditFile || canDownload || canRedeploy) && canDeleteEntry && <ContextMenuSeparator />}
+					{(canAddEntries || canRename || canDownload || canRedeploy) && canDeleteEntry && <ContextMenuSeparator />}
 
 					{canDeleteEntry && (
 						<ContextMenuItem

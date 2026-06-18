@@ -1,14 +1,9 @@
 import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdownMenu';
-import { isFailed, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
+import { EntityContextMenu, type EntityMenuItem, renderEntityMenuItems } from '@/components/ui/entityMenu';
+import { isBeingUpdated, isFailed, isPendingUpdate, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
@@ -29,7 +24,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, useRouter } from '@tanstack/react-router';
+import { useRouter } from '@tanstack/react-router';
 import {
 	ClipboardIcon,
 	CopyIcon,
@@ -58,18 +53,25 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const [signingOut, setSigningOut] = useState(false);
 	const [isTerminateClusterModalOpen, setIsTerminateClusterModalOpen] = useState(false);
 
-	const isActive = useMemo(() => cluster.status && activeClusterStatuses.includes(cluster.status), [cluster.status]);
+	const isActive = useMemo(
+		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
+		[cluster.status],
+	);
 	const isSelfManaged = clusterIsSelfManaged(cluster);
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
-		() => cluster.status && deletedClusterStatuses.includes(cluster.status),
+		() => !!(cluster.status && deletedClusterStatuses.includes(cluster.status)),
 		[cluster.status],
 	);
 	const clusterHasFailed = useMemo(
-		() => cluster.status && isFailed(cluster.status),
+		() => !!(cluster.status && isFailed(cluster.status)),
 		[cluster.status],
 	);
+	// Version can be edited from any settled state (including FAILED) — just not
+	// while the cluster is actively provisioning, cloning, draining or upgrading.
+	const canEditVersion = update && !isSelfManaged && !isTerminated
+		&& !isBeingUpdated(cluster.status) && !isPendingUpdate(cluster.status);
 
 	const onSignOutClick = useCallback(async () => {
 		setSigningOut(true);
@@ -137,123 +139,135 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		`https://${clusterFQDN}`,
 	);
 
-	const menuItems = [
-		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && (
-			<Link key="sign-in" to={`${cluster.id}/sign-in`} disabled={signingOut}>
-				<DropdownMenuItem>
-					<KeyIcon className="text-green" /> Direct Sign In
-				</DropdownMenuItem>
-			</Link>
-		),
-		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && (
-			<DropdownMenuItem key="direct-sign-out" onClick={onSignOutClick} disabled={signingOut}>
-				Direct Sign Out
-			</DropdownMenuItem>
-		),
-		isActive && update && (
-			<Link key="edit" to={`${cluster.id}/edit`} disabled={signingOut}>
-				<DropdownMenuItem>
-					<ScaleIcon className="text-purple-600" /> {isSelfManaged ? 'Edit' : 'Edit Scaling'}
-				</DropdownMenuItem>
-			</Link>
-		),
-		isActive && update && !isSelfManaged && (
-			<Link key="edit-version" to={`${cluster.id}/edit/version`} disabled={signingOut}>
-				<DropdownMenuItem>
-					<GitGraphIcon className="text-fuchsia-300" /> Edit Version
-				</DropdownMenuItem>
-			</Link>
-		),
-		isActive && update && !isLocalStudio && !clusterIsSelfManaged(cluster) && (
-			<Link key="domains" to={`${cluster.id}/domains`} disabled={signingOut}>
-				<DropdownMenuItem>
-					<GlobeIcon className="text-cyan-400" /> Domains
-				</DropdownMenuItem>
-			</Link>
-		),
-		isActive && view && (
-			<Link key="instances" to={`${cluster.id}/instances`} disabled={signingOut}>
-				<DropdownMenuItem>
-					<ServerIcon className="text-orange-300" /> Instances
-				</DropdownMenuItem>
-			</Link>
-		),
+	const menuItems: EntityMenuItem[] = [
+		{ type: 'label' as const, key: 'label', className: 'text-gray-600 text-xs', label: 'Options' },
+		{ type: 'separator' as const, key: 'label-separator' },
+		isActive && update && !auth.isLoading && (!isDirectConnect || isFabricConnect) && {
+			key: 'sign-in',
+			to: `${cluster.id}/sign-in`,
+			disabled: signingOut,
+			icon: <KeyIcon className="text-green" />,
+			label: 'Direct Sign In',
+		},
+		isActive && view && !!operationsUrl && !auth.isLoading && isDirectConnect && {
+			key: 'direct-sign-out',
+			onClick: onSignOutClick,
+			disabled: signingOut,
+			label: 'Direct Sign Out',
+		},
+		isActive && update && {
+			key: 'edit',
+			to: `${cluster.id}/edit`,
+			disabled: signingOut,
+			icon: <ScaleIcon className="text-purple-600" />,
+			label: isSelfManaged ? 'Edit' : 'Edit Scaling',
+		},
+		canEditVersion && {
+			key: 'edit-version',
+			to: `${cluster.id}/edit/version`,
+			disabled: signingOut,
+			icon: <GitGraphIcon className="text-fuchsia-300" />,
+			label: 'Edit Version',
+		},
+		isActive && update && !isLocalStudio && !clusterIsSelfManaged(cluster) && {
+			key: 'domains',
+			to: `${cluster.id}/domains`,
+			disabled: signingOut,
+			icon: <GlobeIcon className="text-cyan-400" />,
+			label: 'Domains',
+		},
+		isActive && view && {
+			key: 'instances',
+			to: `${cluster.id}/instances`,
+			disabled: signingOut,
+			icon: <ServerIcon className="text-orange-300" />,
+			label: 'Instances',
+		},
 
-		isActive && view && cluster.fqdn && <DropdownMenuSeparator key="copy-separator" />,
-		isActive && view && cluster.fqdn && (
-			<DropdownMenuItem key="copy-host-name" onClick={onCopyFQDNClick} disabled={signingOut}>
-				<ClipboardIcon /> Copy Host Name
-			</DropdownMenuItem>
-		),
-		isActive && view && cluster.fqdn && (
-			<DropdownMenuItem key="copy-api-url" onClick={onCopyAPIClick} disabled={signingOut}>
-				<ClipboardIcon /> Copy API URL
-			</DropdownMenuItem>
-		),
+		isActive && view && !!cluster.fqdn && { type: 'separator' as const, key: 'copy-separator' },
+		isActive && view && !!cluster.fqdn && {
+			key: 'copy-host-name',
+			onClick: onCopyFQDNClick,
+			disabled: signingOut,
+			icon: <ClipboardIcon />,
+			label: 'Copy Host Name',
+		},
+		isActive && view && !!cluster.fqdn && {
+			key: 'copy-api-url',
+			onClick: onCopyAPIClick,
+			disabled: signingOut,
+			icon: <ClipboardIcon />,
+			label: 'Copy API URL',
+		},
 
-		clusterHasFailed && create && (
-			<DropdownMenuItem key="try-again" className="focus:bg-green/70 focus:text-white" onClick={onTryAgainClick}>
-				Try Again
-			</DropdownMenuItem>
-		),
-		!isTerminated && remove && isActive && <DropdownMenuSeparator key="remove-separator" />,
-		!isTerminated && remove && (
-			<DropdownMenuItem key="remove" className="focus:bg-red/70 focus:text-white" onClick={onTerminateClick}>
-				<TrashIcon className="text-red-300" /> {isSelfManaged ? 'Remove' : 'Terminate'}
-			</DropdownMenuItem>
-		),
+		clusterHasFailed && create && {
+			key: 'try-again',
+			onClick: onTryAgainClick,
+			className: 'focus:bg-green/70 focus:text-white',
+			label: 'Try Again',
+		},
+		!isTerminated && remove && isActive && { type: 'separator' as const, key: 'remove-separator' },
+		!isTerminated && remove && {
+			key: 'remove',
+			onClick: onTerminateClick,
+			className: 'focus:bg-red/70 focus:text-white',
+			icon: <TrashIcon className="text-red-300" />,
+			label: isSelfManaged ? 'Remove' : 'Terminate',
+		},
 	].filter(excludeFalsy);
 
 	return (
-		<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
-			<CardHeader>
-				<CardDescription className="flex items-center justify-between">
-					{clusterFQDN
-						? (
-							<>
-								<span className="truncate max-w-48">{clusterFQDN}</span>
-								<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
-								<span className="grow"></span>
-							</>
-						)
-						: <span>Self-Hosted</span>}
-					{!isTerminated && (
-						<DropdownMenu>
-							<DropdownMenuTrigger>
-								<Ellipsis aria-label="Cluster options" />
-							</DropdownMenuTrigger>
-							<DropdownMenuContent>
-								{...menuItems}
-							</DropdownMenuContent>
-						</DropdownMenu>
+		<EntityContextMenu items={isTerminated ? [] : menuItems}>
+			<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
+				<CardHeader>
+					<CardDescription className="flex items-center justify-between">
+						{clusterFQDN
+							? (
+								<>
+									<span className="truncate max-w-48">{clusterFQDN}</span>
+									<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
+									<span className="grow"></span>
+								</>
+							)
+							: <span>Self-Hosted</span>}
+						{!isTerminated && (
+							<DropdownMenu>
+								<DropdownMenuTrigger>
+									<Ellipsis aria-label="Cluster options" />
+								</DropdownMenuTrigger>
+								<DropdownMenuContent>
+									{renderEntityMenuItems(menuItems, 'dropdown')}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+					</CardDescription>
+					<CardTitle>
+						<h2>{cluster.name}</h2>
+					</CardTitle>
+				</CardHeader>
+				<CardContent className="flex items-center justify-between gap-2">
+					<ClusterProgress cluster={cluster} />
+					{isActive && view && <ClusterCardAction cluster={cluster} />}
+					{clusterHasFailed && cluster.status && (
+						<>
+							<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+							<span className="text-xs">Click "..." to choose how to proceed.</span>
+						</>
 					)}
-				</CardDescription>
-				<CardTitle>
-					<h2>{cluster.name}</h2>
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="flex items-center justify-between gap-2">
-				<ClusterProgress cluster={cluster} />
-				{isActive && view && <ClusterCardAction cluster={cluster} />}
-				{clusterHasFailed && cluster.status && (
-					<>
-						<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
-						<span className="text-xs">Click "..." to choose how to proceed.</span>
-					</>
-				)}
-			</CardContent>
+				</CardContent>
 
-			<ConfirmDeletionModal
-				typeOfThingBeingDeleted="cluster"
-				transitiveVerb={isSelfManaged ? 'Remove' : 'Terminate'}
-				presentParticiple={isSelfManaged ? 'Removing' : 'Terminating'}
-				nameOfThingBeingDeleted={cluster.name}
-				isModalOpen={isTerminateClusterModalOpen}
-				hideDataLossWarning={isSelfManaged}
-				setIsModalOpen={(isOpen: boolean) => setIsTerminateClusterModalOpen(isOpen)}
-				deletionConfirmed={handleTerminatedCluster}
-				deletionPending={isTerminateClusterPending}
-			/>
-		</Card>
+				<ConfirmDeletionModal
+					typeOfThingBeingDeleted="cluster"
+					transitiveVerb={isSelfManaged ? 'Remove' : 'Terminate'}
+					presentParticiple={isSelfManaged ? 'Removing' : 'Terminating'}
+					nameOfThingBeingDeleted={cluster.name}
+					isModalOpen={isTerminateClusterModalOpen}
+					hideDataLossWarning={isSelfManaged}
+					setIsModalOpen={(isOpen: boolean) => setIsTerminateClusterModalOpen(isOpen)}
+					deletionConfirmed={handleTerminatedCluster}
+					deletionPending={isTerminateClusterPending}
+				/>
+			</Card>
+		</EntityContextMenu>
 	);
 }
