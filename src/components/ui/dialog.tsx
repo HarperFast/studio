@@ -1,8 +1,9 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { XIcon } from 'lucide-react';
+import { GripHorizontal, XIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/lib/cn';
+import { type ResizeDirection, useResizableDialog } from './useResizableDialog';
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
 	return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -33,7 +34,96 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
 	);
 }
 
-function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function DialogCloseButton({ className }: { className?: string }) {
+	return (
+		<DialogPrimitive.Close
+			className={cn(
+				"ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+				className,
+			)}
+		>
+			<XIcon className="text-popover-foreground" />
+			<span className="sr-only">Close</span>
+		</DialogPrimitive.Close>
+	);
+}
+
+/**
+ * Resize handles, one per edge and corner. Edges are inset so the corner handles own the very
+ * corners (where both axes resize). Edges sit at z-30, corners above them at z-40.
+ */
+const RESIZE_HANDLES: { dir: ResizeDirection; className: string }[] = [
+	{ dir: 'n', className: 'top-0 inset-x-3 h-1.5 cursor-ns-resize z-30' },
+	{ dir: 's', className: 'bottom-0 inset-x-3 h-1.5 cursor-ns-resize z-30' },
+	{ dir: 'e', className: 'right-0 inset-y-3 w-1.5 cursor-ew-resize z-30' },
+	{ dir: 'w', className: 'left-0 inset-y-3 w-1.5 cursor-ew-resize z-30' },
+	{ dir: 'nw', className: 'top-0 left-0 size-3 cursor-nwse-resize z-40' },
+	{ dir: 'ne', className: 'top-0 right-0 size-3 cursor-nesw-resize z-40' },
+	{ dir: 'sw', className: 'bottom-0 left-0 size-3 cursor-nesw-resize z-40' },
+	{ dir: 'se', className: 'bottom-0 right-0 size-3 cursor-nwse-resize z-40' },
+];
+
+function ResizableDialogContent(
+	{ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>,
+) {
+	const { size, position, isDragging, isResizing, contentRef, startDrag, startResize } = useResizableDialog();
+
+	return (
+		<DialogPortal data-slot="dialog-portal">
+			{/* Drop the backdrop to fully transparent while dragging so the user can see what's behind the modal. */}
+			<DialogOverlay className={cn('transition-opacity duration-200', isDragging && 'opacity-0')} />
+			<DialogPrimitive.Content
+				ref={contentRef}
+				data-slot="dialog-content"
+				style={{ left: position.x, top: position.y, width: size.width, height: size.height }}
+				className={cn(
+					'bg-popover '
+						+ 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 '
+						+ 'fixed z-50 flex flex-col '
+						+ 'overflow-hidden '
+						+ 'gap-4 rounded-md border p-6 shadow-2xl '
+						+ 'duration-200',
+					(isDragging || isResizing) && 'select-none',
+					className,
+				)}
+				{...props}
+			>
+				{/* Title-bar strip: grab anywhere across the top to drag the modal around. */}
+				<div
+					onMouseDown={startDrag}
+					className="absolute inset-x-0 top-0 z-10 flex h-12 cursor-move items-start justify-center"
+					aria-hidden
+				>
+					<GripHorizontal className="mt-1 size-4 text-muted-foreground/40" />
+				</div>
+				{children}
+				<DialogCloseButton className="z-20" />
+				{RESIZE_HANDLES.map(({ dir, className: handleClassName }) => (
+					<div
+						key={dir}
+						onMouseDown={startResize(dir)}
+						className={cn('absolute', handleClassName)}
+						aria-hidden
+					/>
+				))}
+			</DialogPrimitive.Content>
+		</DialogPortal>
+	);
+}
+
+function DialogContent(
+	{ className, children, resizable, ...props }:
+		& React.ComponentProps<typeof DialogPrimitive.Content>
+		& { resizable?: boolean },
+) {
+	if (resizable) {
+		return (
+			<ResizableDialogContent className={className} {...props}>
+				{children}
+			</ResizableDialogContent>
+		);
+	}
+
 	return (
 		<DialogPortal data-slot="dialog-portal">
 			<DialogOverlay />
@@ -53,10 +143,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
 				{...props}
 			>
 				{children}
-				<DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4">
-					<XIcon className="text-popover-foreground" />
-					<span className="sr-only">Close</span>
-				</DialogPrimitive.Close>
+				<DialogCloseButton />
 			</DialogPrimitive.Content>
 		</DialogPortal>
 	);

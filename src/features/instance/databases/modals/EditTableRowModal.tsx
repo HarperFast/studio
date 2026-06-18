@@ -48,6 +48,7 @@ export function EditTableRowModal({
 			{/* NOTE - Is this okay to do for the aria describedby? */}
 			<DialogContent
 				aria-describedby={undefined}
+				resizable
 				autoFocus={canEditRecords}
 				onEscapeKeyDown={canEditRecords
 					? (event) => {
@@ -63,10 +64,10 @@ export function EditTableRowModal({
 				{data
 					? (
 						<Editor
-							className="w-full h-96"
+							className="w-full flex-1 min-h-0"
 							language="json"
 							theme={monacoTheme}
-							options={canEditRecords ? undefined : { readOnly: true }}
+							options={{ readOnly: !canEditRecords, automaticLayout: true }}
 							value={value}
 							onValidate={onValidate}
 							onChange={(updatedValue) => {

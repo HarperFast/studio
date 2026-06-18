@@ -40,13 +40,13 @@ export function ViewLogModal({
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-			<DialogContent aria-describedby={undefined} className="max-w-2xl">
+			<DialogContent aria-describedby={undefined} resizable>
 				<DialogHeader>
 					<DialogTitle>Log Entry</DialogTitle>
 				</DialogHeader>
 				{data
 					? (
-						<div className="flex flex-col gap-2 text-popover-foreground">
+						<div className="flex flex-1 min-h-0 flex-col gap-2 text-popover-foreground">
 							<div className="rounded-md border border-border/50 bg-muted/20 px-3 py-1">
 								<MetaRow label="Level">
 									<Badge variant={renderBadgeLogLevelVariant(data.level)}>
@@ -71,9 +71,9 @@ export function ViewLogModal({
 								)}
 							</div>
 
-							<div>
+							<div className="flex flex-1 min-h-0 flex-col">
 								<p className="text-xs font-medium text-muted-foreground mb-1.5">Message</p>
-								<div className="rounded-md overflow-hidden border border-border/50 h-72">
+								<div className="rounded-md overflow-hidden border border-border/50 flex-1 min-h-0">
 									<Editor
 										className="w-full h-full"
 										language={isJsonString(data.message) ? 'json' : 'text'}
@@ -85,6 +85,7 @@ export function ViewLogModal({
 											scrollBeyondLastLine: false,
 											fontSize: 12,
 											padding: { top: 12, bottom: 12 },
+											automaticLayout: true,
 										}}
 									/>
 								</div>
