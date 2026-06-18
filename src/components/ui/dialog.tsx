@@ -1,5 +1,5 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { GripHorizontal, XIcon } from 'lucide-react';
+import { GripHorizontal, Maximize, Minimize, XIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { cn } from '@/lib/cn';
@@ -70,7 +70,11 @@ const RESIZE_HANDLES: { dir: ResizeDirection; className: string }[] = [
 function ResizableDialogContent(
 	{ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>,
 ) {
-	const { size, position, isDragging, isResizing, contentRef, startDrag, startResize } = useResizableDialog();
+	const { size, position, isDragging, isResizing, isMaximized, contentRef, startDrag, startResize, toggleMaximize } =
+		useResizableDialog();
+
+	const headerButtonClass =
+		'ring-offset-background focus:ring-ring text-popover-foreground flex size-8 items-center justify-center rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none';
 
 	return (
 		<DialogPortal data-slot="dialog-portal">
@@ -111,7 +115,24 @@ function ResizableDialogContent(
 						<GripHorizontal className="mt-1 size-4 text-muted-foreground/40" />
 					</div>
 					{children}
-					<DialogCloseButton className="z-20" />
+					{
+						/* Header actions — maximize/restore and close — vertically centered on the title row
+					    (top-6 matches the body's p-6, and the row's height matches the text-lg title line). */
+					}
+					<div className="absolute top-6 right-4 z-20 flex h-[1.125rem] items-center gap-1">
+						<button
+							type="button"
+							onClick={toggleMaximize}
+							aria-label={isMaximized ? 'Restore modal size' : 'Maximize modal'}
+							className={headerButtonClass}
+						>
+							{isMaximized ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+						</button>
+						<DialogPrimitive.Close aria-label="Close" className={headerButtonClass}>
+							<XIcon className="size-4" />
+							<span className="sr-only">Close</span>
+						</DialogPrimitive.Close>
+					</div>
 				</div>
 				{/* Resize handles sit outside the clipped body so their hit area can extend past the edges. */}
 				{RESIZE_HANDLES.map(({ dir, className: handleClassName }) => (
