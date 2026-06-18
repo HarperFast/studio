@@ -18,11 +18,11 @@ importers:
         specifier: ^7.0.0
         version: 7.2.0(@datadog/browser-rum@7.2.0)(@tanstack/react-router@1.170.15(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       '@harperfast/agent-tools':
-        specifier: ^1.1.6
-        version: 1.1.7(@harperfast/skills@1.9.1)
+        specifier: ^1.2.0
+        version: 1.2.0(@harperfast/skills@1.10.0)(create-harper@1.9.0)
       '@harperfast/skills':
-        specifier: ^1.4.1
-        version: 1.9.1
+        specifier: ^1.10.0
+        version: 1.10.0
       '@hookform/resolvers':
         specifier: ^5.0.0
         version: 5.4.0(react-hook-form@7.78.0(react@19.2.7))
@@ -119,6 +119,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      create-harper:
+        specifier: ^1.9.0
+        version: 1.9.0
       html-to-image:
         specifier: ^1.11.13
         version: 1.11.13
@@ -526,6 +529,14 @@ packages:
   '@chevrotain/types@11.1.2':
     resolution: {integrity: sha512-U+HFai5+zmJCkK86QsaJtoITlboZHBqrVketcO2ROv865xfCMSFpELQoz1GkX5GzME8pTa+3kbKrZHQtI0gdbw==}
 
+  '@clack/core@1.4.1':
+    resolution: {integrity: sha512-FILJa1gGKEFTGZAJE9RpVhrjKz3c3h4ar60dSv6cGuDqufQ84YEIS3GAGvZiN+H6yaLbbvTFNejjCC4tXpZEuw==}
+    engines: {node: '>= 20.12.0'}
+
+  '@clack/prompts@1.5.1':
+    resolution: {integrity: sha512-zccHj2z2oCCO4yrDiRSlFOxWerGqRiysP7a5jPK6uoI9URKAquwY42Dd/iUP8JWHxEzdRe4TlbvZCo8z1/mhrw==}
+    engines: {node: '>= 20.12.0'}
+
   '@colors/colors@1.5.0':
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
@@ -845,10 +856,11 @@ packages:
   '@hapi/topo@5.1.0':
     resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
 
-  '@harperfast/agent-tools@1.1.7':
-    resolution: {integrity: sha512-5zz4y6Av9gIe3YeMwf4nw6VFm7JD2n/E2iITUFdePtOgbWwmz9Zotg2hhUlIwpFc90gR7ouZkmsN5lPPgVb1aw==}
+  '@harperfast/agent-tools@1.2.0':
+    resolution: {integrity: sha512-+ERHQIfTq5n8mzFcyM09f5FPT2nFjk9v9M5mNXWTEoNAU/EATo21fPvAYXNFnxl/i2dmvysLmPGeIEnfGK7CLQ==}
     peerDependencies:
-      '@harperfast/skills': ^1.3.0
+      '@harperfast/skills': ^1.10.0
+      create-harper: ^1.9.0
 
   '@harperfast/extended-iterable@1.0.3':
     resolution: {integrity: sha512-sSAYhQca3rDWtQUHSAPeO7axFIUJOI6hn1gjRC5APVE1a90tuyT8f5WIgRsFhhWA7htNkju2veB9eWL6YHi/Lw==}
@@ -910,8 +922,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@harperfast/skills@1.9.1':
-    resolution: {integrity: sha512-WRjjFk+F+ryiMKDcXmXEsNbXhfuUNyYb6tWazry/5RpXltp2QHfPAlyZhU408L7dVBrsUv7zQQfIUDGPtTNVug==}
+  '@harperfast/skills@1.10.0':
+    resolution: {integrity: sha512-sPNRrFbPWYFvX88GKBBtVC0Hlbt+3msaN/KaUwSV/ON+YPQHTwVwuyVUVNNO8hPcptmKdbvs0LHCxHek/u8xag==}
 
   '@hookform/resolvers@5.4.0':
     resolution: {integrity: sha512-EIsqr/t/qbinPIhGjMdtvutIN1Kk4uwbROE9/UQ93CAVGR7GkA7Y92+fX80OzXi/OB67jVFYwKGO1WzkxmkFZw==}
@@ -2666,6 +2678,10 @@ packages:
   '@upsetjs/venn.js@2.0.0':
     resolution: {integrity: sha512-WbBhLrooyePuQ1VZxrJjtLvTc4NVfpOyKx0sKqioq9bX1C1m7Jgykkn8gLrtwumBioXIqam8DLxp88Adbue6Hw==}
 
+  '@vercel/detect-agent@1.2.3':
+    resolution: {integrity: sha512-VYNCgUc0nOmC4WJmWw9GkrKdfr8Zl4/rxhC5SvgacBgxiW9W/9NRttUoHHXV8xdII3MaRgkZZVX8Ikzc/Jmjag==}
+    engines: {node: '>=14'}
+
   '@vercel/oidc@3.2.0':
     resolution: {integrity: sha512-UycprH3T6n3jH0k44NHMa7pnFHGu/N05MjojYr+Mc6I7obkoLIJujSWwin1pCvdy/eOxrI/l3uDLQsmcrOb4ug==}
     engines: {node: '>= 20'}
@@ -3249,6 +3265,11 @@ packages:
       typescript:
         optional: true
 
+  create-harper@1.9.0:
+    resolution: {integrity: sha512-z0TnBiJfBUxhOKiZG8VAZ6DGIh3zIZOaMjwNYy1V1ixVlvev7VJAuvtvNIQuR13gwoViPDW7btQnm/VbMcS2PA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+
   cross-env@10.1.0:
     resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
     engines: {node: '>=20'}
@@ -3755,8 +3776,17 @@ packages:
     resolution: {integrity: sha512-dwsoQlS7h9hMeYUq1W++23NDcBLV4KqONnITDV9DjfS3q1SgDGVrBdvvTLUotWtPSD7asWDV9/CmsZPy8Hf70A==}
     engines: {node: '>=6'}
 
+  fast-string-truncated-width@3.0.3:
+    resolution: {integrity: sha512-0jjjIEL6+0jag3l2XWWizO64/aZVtpiGE3t0Zgqxv0DPuxiMjvB3M24fCyhZUO4KomJQPj3LTSUnDP3GpdwC0g==}
+
+  fast-string-width@3.0.2:
+    resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
+
   fast-uri@3.1.2:
     resolution: {integrity: sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==}
+
+  fast-wrap-ansi@0.2.2:
+    resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
 
   fast-xml-builder@1.2.0:
     resolution: {integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==}
@@ -4890,6 +4920,10 @@ packages:
   mqtt-packet@9.0.2:
     resolution: {integrity: sha512-MvIY0B8/qjq7bKxdN1eD+nrljoeaai+qjLJgfRn3TiMuz0pamsIWY2bFODPZMSNmabsLANXsLl4EMoWvlaTZWA==}
 
+  mri@1.2.0:
+    resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
+    engines: {node: '>=4'}
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
@@ -5949,6 +5983,9 @@ packages:
   signale@1.4.0:
     resolution: {integrity: sha512-iuh+gPf28RkltuJC7W5MRi6XAjTDCAPC/prJUpQoG4vIP3MJZ+GTydVnodXA7pwvTKb2cA0m9OFZW/cdWy/I/w==}
     engines: {node: '>=6'}
+
+  sisteransi@1.0.5:
+    resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
 
   skin-tone@2.0.0:
     resolution: {integrity: sha512-kUMbT1oBJCpgrnKoSr0o6wPtvRWT9W9UKvGLwfJYO2WuahZRHOpEyL1ckyMGgMWh0UdpmaoFqKKD29WTomNEGA==}
@@ -7155,6 +7192,18 @@ snapshots:
 
   '@chevrotain/types@11.1.2': {}
 
+  '@clack/core@1.4.1':
+    dependencies:
+      fast-wrap-ansi: 0.2.2
+      sisteransi: 1.0.5
+
+  '@clack/prompts@1.5.1':
+    dependencies:
+      '@clack/core': 1.4.1
+      fast-string-width: 3.0.2
+      fast-wrap-ansi: 0.2.2
+      sisteransi: 1.0.5
+
   '@colors/colors@1.5.0': {}
 
   '@commitlint/cli@21.0.2(@types/node@24.13.2)(conventional-commits-filter@5.0.0)(conventional-commits-parser@6.4.0)(typescript@6.0.3)':
@@ -7478,9 +7527,10 @@ snapshots:
     dependencies:
       '@hapi/hoek': 9.3.0
 
-  '@harperfast/agent-tools@1.1.7(@harperfast/skills@1.9.1)':
+  '@harperfast/agent-tools@1.2.0(@harperfast/skills@1.10.0)(create-harper@1.9.0)':
     dependencies:
-      '@harperfast/skills': 1.9.1
+      '@harperfast/skills': 1.10.0
+      create-harper: 1.9.0
       zod: 4.4.3
 
   '@harperfast/extended-iterable@1.0.3': {}
@@ -7524,7 +7574,7 @@ snapshots:
       '@harperfast/rocksdb-js-win32-arm64': 1.5.0
       '@harperfast/rocksdb-js-win32-x64': 1.5.0
 
-  '@harperfast/skills@1.9.1': {}
+  '@harperfast/skills@1.10.0': {}
 
   '@hookform/resolvers@5.4.0(react-hook-form@7.78.0(react@19.2.7))':
     dependencies:
@@ -9593,6 +9643,8 @@ snapshots:
       d3-selection: 3.0.0
       d3-transition: 3.0.1(d3-selection@3.0.0)
 
+  '@vercel/detect-agent@1.2.3': {}
+
   '@vercel/oidc@3.2.0': {}
 
   '@vitejs/plugin-react@6.0.2(vite@8.0.16(@types/node@24.13.2)(jiti@2.7.0)(yaml@2.9.0))':
@@ -10166,6 +10218,14 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
+  create-harper@1.9.0:
+    dependencies:
+      '@clack/prompts': 1.5.1
+      '@vercel/detect-agent': 1.2.3
+      cross-spawn: 7.0.6
+      mri: 1.2.0
+      picocolors: 1.1.1
+
   cross-env@10.1.0:
     dependencies:
       '@epic-web/invariant': 1.0.0
@@ -10703,7 +10763,17 @@ snapshots:
 
   fast-redact@3.5.0: {}
 
+  fast-string-truncated-width@3.0.3: {}
+
+  fast-string-width@3.0.2:
+    dependencies:
+      fast-string-truncated-width: 3.0.3
+
   fast-uri@3.1.2: {}
+
+  fast-wrap-ansi@0.2.2:
+    dependencies:
+      fast-string-width: 3.0.2
 
   fast-xml-builder@1.2.0:
     dependencies:
@@ -12162,6 +12232,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  mri@1.2.0: {}
+
   ms@2.1.3: {}
 
   msgpackr-extract@3.0.4:
@@ -13233,6 +13305,8 @@ snapshots:
       chalk: 2.4.2
       figures: 2.0.0
       pkg-conf: 2.1.0
+
+  sisteransi@1.0.5: {}
 
   skin-tone@2.0.0:
     dependencies:
