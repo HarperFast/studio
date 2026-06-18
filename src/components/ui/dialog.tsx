@@ -49,18 +49,20 @@ function DialogCloseButton({ className }: { className?: string }) {
 }
 
 /**
- * Resize handles, one per edge and corner. Edges are inset so the corner handles own the very
- * corners (where both axes resize). Edges sit at z-30, corners above them at z-40.
+ * Resize handles, one per edge and corner. Each straddles the modal border and extends ~8px
+ * outward (negative insets) for a generous, forgiving hit area — only possible because the
+ * content shell below does not clip its overflow. Edges are inset from the corners so the corner
+ * handles own the very corners (where both axes resize); edges sit at z-30, corners above at z-40.
  */
 const RESIZE_HANDLES: { dir: ResizeDirection; className: string }[] = [
-	{ dir: 'n', className: 'top-0 inset-x-3 h-1.5 cursor-ns-resize z-30' },
-	{ dir: 's', className: 'bottom-0 inset-x-3 h-1.5 cursor-ns-resize z-30' },
-	{ dir: 'e', className: 'right-0 inset-y-3 w-1.5 cursor-ew-resize z-30' },
-	{ dir: 'w', className: 'left-0 inset-y-3 w-1.5 cursor-ew-resize z-30' },
-	{ dir: 'nw', className: 'top-0 left-0 size-3 cursor-nwse-resize z-40' },
-	{ dir: 'ne', className: 'top-0 right-0 size-3 cursor-nesw-resize z-40' },
-	{ dir: 'sw', className: 'bottom-0 left-0 size-3 cursor-nesw-resize z-40' },
-	{ dir: 'se', className: 'bottom-0 right-0 size-3 cursor-nwse-resize z-40' },
+	{ dir: 'n', className: '-top-2 inset-x-5 h-4 cursor-ns-resize z-30' },
+	{ dir: 's', className: '-bottom-2 inset-x-5 h-4 cursor-ns-resize z-30' },
+	{ dir: 'e', className: '-right-2 inset-y-5 w-4 cursor-ew-resize z-30' },
+	{ dir: 'w', className: '-left-2 inset-y-5 w-4 cursor-ew-resize z-30' },
+	{ dir: 'nw', className: '-top-2 -left-2 size-6 cursor-nwse-resize z-40' },
+	{ dir: 'ne', className: '-top-2 -right-2 size-6 cursor-nesw-resize z-40' },
+	{ dir: 'sw', className: '-bottom-2 -left-2 size-6 cursor-nesw-resize z-40' },
+	{ dir: 'se', className: '-bottom-2 -right-2 size-6 cursor-nwse-resize z-40' },
 ];
 
 function ResizableDialogContent(
@@ -79,31 +81,41 @@ function ResizableDialogContent(
 				className={cn(
 					'bg-popover '
 						+ 'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 '
-						+ 'fixed z-50 flex flex-col '
-						+ 'overflow-hidden '
-						+ 'gap-4 rounded-md border p-6 shadow-2xl '
-						// No transition: dragging/resizing move the modal imperatively every frame, and an
-						// implicit `transition: all` would make it lag behind the cursor. (Open/close still animate.)
+						+ 'fixed z-50 '
+						+ 'rounded-md border shadow-2xl '
+						// Deliberately NOT clipped here: the resize handles below extend past the modal edges,
+						// so the inner body does the clipping instead. No transition either — dragging/resizing
+						// move the modal imperatively every frame and an implicit `transition: all` would make
+						// it lag behind the cursor. (Open/close still animate.)
 						+ 'transition-none',
-					(isDragging || isResizing) && 'select-none',
 					isDragging && 'will-change-transform',
 					className,
 				)}
 				{...props}
 			>
-				{/* Title-bar strip: grab anywhere across the top to drag the modal around. */}
+				{/* Inner body holds the actual UI and clips it to the rounded rect. */}
 				<div
-					onMouseDown={startDrag}
-					className="absolute inset-x-0 top-0 z-10 flex h-12 cursor-move items-start justify-center"
-					aria-hidden
+					className={cn(
+						'flex h-full w-full flex-col gap-4 overflow-hidden rounded-md p-6',
+						(isDragging || isResizing) && 'select-none',
+					)}
 				>
-					<GripHorizontal className="mt-1 size-4 text-muted-foreground/40" />
+					{/* Title-bar strip: grab anywhere across the top to drag the modal around. */}
+					<div
+						onMouseDown={startDrag}
+						className="absolute inset-x-0 top-0 z-10 flex h-12 cursor-move items-start justify-center"
+						aria-hidden
+					>
+						<GripHorizontal className="mt-1 size-4 text-muted-foreground/40" />
+					</div>
+					{children}
+					<DialogCloseButton className="z-20" />
 				</div>
-				{children}
-				<DialogCloseButton className="z-20" />
+				{/* Resize handles sit outside the clipped body so their hit area can extend past the edges. */}
 				{RESIZE_HANDLES.map(({ dir, className: handleClassName }) => (
 					<div
 						key={dir}
+						data-resize-handle={dir}
 						onMouseDown={startResize(dir)}
 						className={cn('absolute', handleClassName)}
 						aria-hidden
