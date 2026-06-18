@@ -108,19 +108,51 @@ export function useResizableDialog() {
 
 	const startDrag = useCallback((event: React.MouseEvent) => {
 		event.preventDefault();
+		const node = lastNodeRef.current;
 		const startX = event.clientX;
 		const startY = event.clientY;
 		const origin = { ...positionRef.current };
 		setIsDragging(true);
 
+		// Move imperatively via a compositor `transform`, coalesced to one update per frame, so the
+		// heavy editor subtree is never re-rendered or re-laid-out mid-drag. We commit to React
+		// state (left/top) only on release.
+		let frame = 0;
+		let dx = 0;
+		let dy = 0;
+		const apply = () => {
+			frame = 0;
+			if (node) {
+				node.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+			}
+		};
 		const onMove = (e: MouseEvent) => {
 			// No clamping mid-drag: allow dragging past the edge so the user can peek behind the modal.
-			setPosition({ x: origin.x + (e.clientX - startX), y: origin.y + (e.clientY - startY) });
+			dx = e.clientX - startX;
+			dy = e.clientY - startY;
+			if (!frame) {
+				frame = requestAnimationFrame(apply);
+			}
 		};
 		const onUp = () => {
+			if (frame) {
+				cancelAnimationFrame(frame);
+			}
 			setIsDragging(false);
 			// Snap back fully into view.
-			setPosition(clampPosition(positionRef.current, sizeRef.current, window.innerWidth, window.innerHeight));
+			const clamped = clampPosition(
+				{ x: origin.x + dx, y: origin.y + dy },
+				sizeRef.current,
+				window.innerWidth,
+				window.innerHeight,
+			);
+			// Commit to left/top and drop the live transform together so there's no flash.
+			if (node) {
+				node.style.left = `${clamped.x}px`;
+				node.style.top = `${clamped.y}px`;
+				node.style.transform = '';
+			}
+			setPosition(clamped);
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
 		};
@@ -131,12 +163,26 @@ export function useResizableDialog() {
 	const startResize = useCallback((direction: ResizeDirection) => (event: React.MouseEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
+		const node = lastNodeRef.current;
 		const startX = event.clientX;
 		const startY = event.clientY;
 		const startSize = { ...sizeRef.current };
 		const startPos = { ...positionRef.current };
 		setIsResizing(true);
 
+		// Like dragging, apply size/position imperatively (once per frame) and commit to state on release.
+		let frame = 0;
+		let nextSize = startSize;
+		let nextPos = startPos;
+		const apply = () => {
+			frame = 0;
+			if (node) {
+				node.style.width = `${nextSize.width}px`;
+				node.style.height = `${nextSize.height}px`;
+				node.style.left = `${nextPos.x}px`;
+				node.style.top = `${nextPos.y}px`;
+			}
+		};
 		const onMove = (e: MouseEvent) => {
 			const vw = window.innerWidth;
 			const vh = window.innerHeight;
@@ -158,27 +204,32 @@ export function useResizableDialog() {
 				height = startSize.height - dy;
 			}
 
-			const clamped = clampSize({ width, height }, vw, vh);
+			nextSize = clampSize({ width, height }, vw, vh);
 
 			// When resizing from the top/left edges, keep the opposite edge anchored.
 			let { x, y } = startPos;
 			if (direction.includes('w')) {
-				x = startPos.x + startSize.width - clamped.width;
+				x = startPos.x + startSize.width - nextSize.width;
 			}
 			if (direction.includes('n')) {
-				y = startPos.y + startSize.height - clamped.height;
+				y = startPos.y + startSize.height - nextSize.height;
 			}
+			nextPos = { x, y };
 
-			setSize(clamped);
-			setPosition({ x, y });
+			if (!frame) {
+				frame = requestAnimationFrame(apply);
+			}
 		};
 		const onUp = () => {
+			if (frame) {
+				cancelAnimationFrame(frame);
+			}
 			setIsResizing(false);
 			const vw = window.innerWidth;
 			const vh = window.innerHeight;
-			const finalSize = clampSize(sizeRef.current, vw, vh);
+			const finalSize = clampSize(nextSize, vw, vh);
 			setSize(finalSize);
-			setPosition(clampPosition(positionRef.current, finalSize, vw, vh));
+			setPosition(clampPosition(nextPos, finalSize, vw, vh));
 			// Persist the new size under the shared key so every resizable modal remembers it.
 			setStoredSize(finalSize);
 			window.removeEventListener('mousemove', onMove);
