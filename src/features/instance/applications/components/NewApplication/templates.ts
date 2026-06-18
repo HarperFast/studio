@@ -1,84 +1,31 @@
-const CREATE_HARPER_TREE = 'https://github.com/HarperFast/create-harper/tree/main';
+import { templates as catalog } from 'create-harper/templates';
 
-export const templates = [
-	{
-		id: 'vanilla',
-		name: 'Vanilla JS',
-		description: "Define your entities in schema.graphql, add your HTML/CSS/JS in web, and you're cooking!",
-		tags: ['Vanilla', 'REST', 'GraphQL', 'ORM'],
-		npm: '@harperfast/template-vanilla-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vanilla`,
-	},
-	{
-		id: 'vanilla-ts',
-		name: 'Vanilla + TypeScript',
-		description: 'The same Web + REST ORM from the first template, but with TypeScript sprinkled in.',
-		tags: ['Vanilla', 'TypeScript', 'GraphQL'],
-		npm: '@harperfast/template-vanilla-ts-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vanilla-ts`,
-	},
-	{
-		id: 'react',
-		name: 'React',
-		description: "A Vite-powered React single-page app, wired up to Harper's REST + GraphQL APIs out of the box.",
-		tags: ['React', 'Vite', 'SPA', 'GraphQL'],
-		npm: '@harperfast/template-react-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-react`,
-	},
-	{
-		id: 'react-ts',
-		name: 'React + TypeScript',
-		description: 'The same Vite-powered React app, with end-to-end type safety from TypeScript.',
-		tags: ['React', 'TypeScript', 'Vite', 'SPA'],
-		npm: '@harperfast/template-react-ts-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-react-ts`,
-	},
-	{
-		id: 'react-ssr',
-		name: 'React + SSR',
-		description: 'Server-rendered React with Vite for fast first paints, hydrating into a full SPA on Harper.',
-		tags: ['React', 'SSR', 'Vite', 'GraphQL'],
-		npm: '@harperfast/template-react-ssr-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-react-ssr`,
-	},
-	{
-		id: 'react-ts-ssr',
-		name: 'React + TypeScript + SSR',
-		description: 'Server-rendered React with Vite and TypeScript for type-safe, SEO-friendly pages on Harper.',
-		tags: ['React', 'TypeScript', 'SSR', 'Vite'],
-		npm: '@harperfast/template-react-ts-ssr-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-react-ts-ssr`,
-	},
-	{
-		id: 'vue',
-		name: 'Vue',
-		description: "A Vite-powered Vue single-page app, wired up to Harper's REST + GraphQL APIs out of the box.",
-		tags: ['Vue', 'Vite', 'SPA', 'GraphQL'],
-		npm: '@harperfast/template-vue-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vue`,
-	},
-	{
-		id: 'vue-ts',
-		name: 'Vue + TypeScript',
-		description: 'The same Vite-powered Vue app, with end-to-end type safety from TypeScript.',
-		tags: ['Vue', 'TypeScript', 'Vite', 'SPA'],
-		npm: '@harperfast/template-vue-ts-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vue-ts`,
-	},
-	{
-		id: 'vue-ssr',
-		name: 'Vue + SSR',
-		description: 'Server-rendered Vue with Vite for fast first paints, hydrating into a full SPA on Harper.',
-		tags: ['Vue', 'SSR', 'Vite', 'GraphQL'],
-		npm: '@harperfast/template-vue-ssr-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vue-ssr`,
-	},
-	{
-		id: 'vue-ts-ssr',
-		name: 'Vue + TypeScript + SSR',
-		description: 'Server-rendered Vue with Vite and TypeScript for type-safe, SEO-friendly pages on Harper.',
-		tags: ['Vue', 'TypeScript', 'SSR', 'Vite'],
-		npm: '@harperfast/template-vue-ts-ssr-studio',
-		githubUrl: `${CREATE_HARPER_TREE}/template-vue-ts-ssr`,
-	},
-];
+// create-harper is the single source of truth for the template list, descriptions, npm packages, and
+// GitHub links. New templates added there flow through here (and into the createApp agent tool)
+// automatically. create-harper lists TypeScript-first; we re-sort to Studio's established display order
+// (by framework, then non-SSR before SSR, then JavaScript before TypeScript) so the picker and its
+// default selection stay stable.
+const FRAMEWORK_ORDER = ['vanilla', 'react', 'vue'] as const;
+
+// Rank a framework by its position in FRAMEWORK_ORDER. Any framework not listed (e.g. a future
+// Svelte/Angular template added to create-harper) sorts to the end rather than the top.
+function frameworkRank(framework: string): number {
+	const index = (FRAMEWORK_ORDER as readonly string[]).indexOf(framework);
+	return index === -1 ? Infinity : index;
+}
+
+export const templates = [...catalog]
+	.sort((a, b) =>
+		frameworkRank(a.framework) - frameworkRank(b.framework)
+		|| Number(a.ssr) - Number(b.ssr)
+		|| Number(a.typescript) - Number(b.typescript)
+	)
+	.map((t) => ({
+		// Widen to `string`: the New Application form supplies the selected id as a plain string.
+		id: t.name as string,
+		name: t.title,
+		description: t.description,
+		tags: [...t.tags],
+		npm: t.npmPackage,
+		githubUrl: t.githubUrl,
+	}));

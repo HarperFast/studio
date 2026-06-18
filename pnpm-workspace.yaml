@@ -15,6 +15,10 @@ allowBuilds:
   tree-sitter: true
   tree-sitter-json: true
   utf-8-validate: true
+minimumReleaseAgeExclude:
+  - '@harperfast/agent-tools@1.2.0'
+  - '@harperfast/skills@1.10.0'
+  - create-harper@1.9.0
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
   - core-js-pure
