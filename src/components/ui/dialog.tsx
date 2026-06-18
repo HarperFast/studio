@@ -82,8 +82,11 @@ function ResizableDialogContent(
 						+ 'fixed z-50 flex flex-col '
 						+ 'overflow-hidden '
 						+ 'gap-4 rounded-md border p-6 shadow-2xl '
-						+ 'duration-200',
+						// No transition: dragging/resizing move the modal imperatively every frame, and an
+						// implicit `transition: all` would make it lag behind the cursor. (Open/close still animate.)
+						+ 'transition-none',
 					(isDragging || isResizing) && 'select-none',
+					isDragging && 'will-change-transform',
 					className,
 				)}
 				{...props}
