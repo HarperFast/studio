@@ -21,14 +21,14 @@ const MARGIN = 16;
 const DEFAULT_SIZE: DialogSize = { width: 820, height: 680 };
 
 /** Never let the modal grow larger than the viewport (minus a margin) or shrink below a usable minimum. */
-function clampSize({ width, height }: DialogSize, vw: number, vh: number): DialogSize {
+export function clampSize({ width, height }: DialogSize, vw: number, vh: number): DialogSize {
 	return {
 		width: Math.round(Math.max(MIN_WIDTH, Math.min(width, vw - MARGIN * 2))),
 		height: Math.round(Math.max(MIN_HEIGHT, Math.min(height, vh - MARGIN * 2))),
 	};
 }
 
-function centerOf({ width, height }: DialogSize, vw: number, vh: number): DialogPosition {
+export function centerOf({ width, height }: DialogSize, vw: number, vh: number): DialogPosition {
 	return {
 		x: Math.round((vw - width) / 2),
 		y: Math.round((vh - height) / 2),
@@ -36,7 +36,7 @@ function centerOf({ width, height }: DialogSize, vw: number, vh: number): Dialog
 }
 
 /** Pull a (possibly off-screen) position back so the whole modal sits within the viewport. */
-function clampPosition(
+export function clampPosition(
 	{ x, y }: DialogPosition,
 	{ width, height }: DialogSize,
 	vw: number,
@@ -79,6 +79,9 @@ export function useResizableDialog() {
 	// view of this, so shrinking the window and growing it back restores their chosen size.
 	const desiredSizeRef = useRef(storedSize);
 	desiredSizeRef.current = storedSize;
+	// While a drag/resize gesture is live, this holds the teardown for its window listeners. onUp
+	// clears it on release; if the dialog unmounts mid-gesture instead, the effect below runs it.
+	const activeGestureRef = useRef<(() => void) | null>(null);
 
 	// Re-center each time the dialog content mounts (i.e. each time the modal opens),
 	// re-deriving the rendered size from the persisted preferred size. Radix may invoke this
@@ -121,6 +124,12 @@ export function useResizableDialog() {
 		return () => window.removeEventListener('resize', onResize);
 	}, []);
 
+	// onUp tears down a gesture's window listeners on mouse release. If the dialog unmounts while a
+	// gesture is still live (Escape, route change, or a programmatic close with the button held),
+	// onUp never fires — so clean up the live gesture here, dropping its listeners and the closure
+	// capturing the now-stale content node.
+	useEffect(() => () => activeGestureRef.current?.(), []);
+
 	const startDrag = useCallback((event: React.MouseEvent) => {
 		event.preventDefault();
 		const node = lastNodeRef.current;
@@ -151,10 +160,18 @@ export function useResizableDialog() {
 				frame = requestAnimationFrame(apply);
 			}
 		};
-		const onUp = () => {
+		// Remove the window listeners and cancel any pending frame. Stored in activeGestureRef so an
+		// unmount mid-drag can run the same teardown (onUp would otherwise never fire to do it).
+		const teardown = () => {
 			if (frame) {
 				cancelAnimationFrame(frame);
 			}
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+			activeGestureRef.current = null;
+		};
+		const onUp = () => {
+			teardown();
 			setIsDragging(false);
 			// Snap back fully into view.
 			const clamped = clampPosition(
@@ -170,11 +187,10 @@ export function useResizableDialog() {
 				node.style.transform = '';
 			}
 			setPosition(clamped);
-			window.removeEventListener('mousemove', onMove);
-			window.removeEventListener('mouseup', onUp);
 		};
 		window.addEventListener('mousemove', onMove);
 		window.addEventListener('mouseup', onUp);
+		activeGestureRef.current = teardown;
 	}, []);
 
 	const startResize = useCallback((direction: ResizeDirection) => (event: React.MouseEvent) => {
@@ -239,10 +255,18 @@ export function useResizableDialog() {
 				frame = requestAnimationFrame(apply);
 			}
 		};
-		const onUp = () => {
+		// Remove the window listeners and cancel any pending frame. Stored in activeGestureRef so an
+		// unmount mid-resize can run the same teardown (onUp would otherwise never fire to do it).
+		const teardown = () => {
 			if (frame) {
 				cancelAnimationFrame(frame);
 			}
+			window.removeEventListener('mousemove', onMove);
+			window.removeEventListener('mouseup', onUp);
+			activeGestureRef.current = null;
+		};
+		const onUp = () => {
+			teardown();
 			setIsResizing(false);
 			const vw = window.innerWidth;
 			const vh = window.innerHeight;
@@ -251,11 +275,10 @@ export function useResizableDialog() {
 			setPosition(clampPosition(nextPos, finalSize, vw, vh));
 			// Persist the new size under the shared key so every resizable modal remembers it.
 			setStoredSize(finalSize);
-			window.removeEventListener('mousemove', onMove);
-			window.removeEventListener('mouseup', onUp);
 		};
 		window.addEventListener('mousemove', onMove);
 		window.addEventListener('mouseup', onUp);
+		activeGestureRef.current = teardown;
 	}, [setStoredSize]);
 
 	// Maximize fills the screen (within the standard margin); toggling again restores the size and
