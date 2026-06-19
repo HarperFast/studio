@@ -39,13 +39,17 @@ export function AlterUserForm({
 	onUserUpdated: () => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { data: roles, isLoading: isRolesLoading } = useQuery(getListRolesQueryOptions(instanceParams));
+	const { data: roles, isLoading: isRolesLoading } = useQuery({
+		...getListRolesQueryOptions(instanceParams),
+		// Keep the previous useSuspenseQuery behavior of surfacing fetch errors to the ErrorBoundary.
+		throwOnError: true,
+	});
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
 	const alterForm = useForm({
 		resolver: zodResolver(AlterUserFormSchema),
 		defaultValues: {
 			username: data.username,
-			role: data.role.id,
+			role: data.role?.id ?? '',
 			newPassword: '',
 			confirmPassword: '',
 		},
