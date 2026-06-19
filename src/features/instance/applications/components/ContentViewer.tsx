@@ -3,8 +3,9 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { getMediaFileType, MediaFileType } from '@/lib/string/mediaFileType';
-import { CopyIcon } from 'lucide-react';
+import { CopyIcon, FileArchive } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -40,7 +41,29 @@ export function ContentViewer() {
 		return <MediaPreview name={openedEntry?.name} base64={openedEntryContents} media={mediaType} />;
 	}
 
+	// Archives and other binary files would otherwise be decoded as UTF-8 and
+	// dumped into the text editor as garbage (and a large archive can lock Monaco
+	// up entirely). Show a placeholder instead — its contents are never fetched.
+	if (isBinaryFile(openedEntry?.name)) {
+		return <BinaryFilePreview name={openedEntry?.name} />;
+	}
+
 	return <TextEditorView />;
+}
+
+/** Placeholder shown for binary files that can't be edited or previewed as text. */
+function BinaryFilePreview({ name }: { name: string | undefined }) {
+	return (
+		<div className="absolute inset-0 mt-9 flex items-center justify-center p-8 text-center text-muted-foreground">
+			<div className="max-w-md">
+				<FileArchive className="mx-auto mb-4 h-10 w-10 opacity-60" />
+				<p className="font-medium text-foreground">{name ?? 'This file'} can&rsquo;t be previewed</p>
+				<p className="mt-1 text-sm">
+					It&rsquo;s a binary file. You can still rename or delete it from the file tree.
+				</p>
+			</div>
+		</div>
+	);
 }
 
 /**
