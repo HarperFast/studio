@@ -1,3 +1,4 @@
+import { RoleOptionLabel } from '@/components/RoleOptionLabel';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import {
@@ -31,11 +32,11 @@ import {
 import { useInviteUserToOrganizationRole } from '@/features/organization/mutations/inviteUserToOrganizationRole';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import { MailWarningIcon, Save } from 'lucide-react';
-import { Suspense, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -50,7 +51,7 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
-	const { data: orgRoles } = useSuspenseQuery(getOrganizationRolesQueryOptions(organizationId));
+	const { data: orgRoles, isLoading: isRolesLoading } = useQuery(getOrganizationRolesQueryOptions(organizationId));
 	const [shouldInvite, setShouldInvite] = useState(false);
 
 	const form = useForm({
@@ -128,7 +129,7 @@ export function AddUserModal({
 								<FormItem>
 									<FormLabel className="pb-1">Roles</FormLabel>
 
-									<Suspense fallback={<TextLoadingSkeleton />}>
+									{isRolesLoading ? <TextLoadingSkeleton /> : (
 										<FormControl>
 											<Select {...field} onValueChange={(role) => field.onChange(role)}>
 												<SelectTrigger className="w-full">
@@ -140,14 +141,14 @@ export function AddUserModal({
 														<SelectLabel>Role</SelectLabel>
 														{orgRoles?.map((role) => (
 															<SelectItem key={role.id} value={role.id}>
-																{role.roleName}
+																<RoleOptionLabel name={role.roleName} id={role.id} />
 															</SelectItem>
 														))}
 													</SelectGroup>
 												</SelectContent>
 											</Select>
 										</FormControl>
-									</Suspense>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}

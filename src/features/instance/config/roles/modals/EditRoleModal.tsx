@@ -49,7 +49,7 @@ export function EditRoleModal({
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
 	const auth = useInstanceAuth(instanceId ?? clusterId);
-	const isSelf = auth.user?.role?.role === data.role;
+	const isSelf = auth.user?.role?.id === data.id;
 
 	const [showAttributes, onShowAttributesChanged] = useCheckboxCallback(updatedPermissions?.includes('attribute_name'));
 
@@ -149,7 +149,7 @@ export function EditRoleModal({
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent className="sm:max-w-[750px]">
+			<DialogContent resizable>
 				<DialogTitle>{isSelf ? 'View' : 'Edit'} Role "{role}"</DialogTitle>
 				<DialogDescription>
 					{isSelf
@@ -157,20 +157,22 @@ export function EditRoleModal({
 							+ ' role to edit this role.'
 						: "Edit the role's permissions in JSON format or remove the role entirely."}
 				</DialogDescription>
-				{defaultValue
-					? (
-						<Editor
-							theme={monacoTheme}
-							height="400px"
-							defaultLanguage="json"
-							value={updatedPermissions}
-							options={isSelf ? { readOnly: true } : undefined}
-							onValidate={onValidate}
-							onChange={setUpdatedPermissions}
-							defaultValue={defaultValue}
-						/>
-					)
-					: <TextLoadingSkeleton />}
+				<div className="flex-1 min-h-0">
+					{defaultValue
+						? (
+							<Editor
+								className="w-full h-full"
+								theme={monacoTheme}
+								defaultLanguage="json"
+								value={updatedPermissions}
+								options={{ readOnly: isSelf, automaticLayout: true }}
+								onValidate={onValidate}
+								onChange={setUpdatedPermissions}
+								defaultValue={defaultValue}
+							/>
+						)
+						: <TextLoadingSkeleton />}
+				</div>
 				<DialogFooter>
 					{!isSelf && (
 						<div className="flex justify-between w-full">

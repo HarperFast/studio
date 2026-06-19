@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { LocalRole } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
 export interface AddRoleFormData {
@@ -7,7 +8,7 @@ export interface AddRoleFormData {
 	structure_user?: boolean;
 }
 
-export async function onAddRoleSubmit(formData: AddRoleFormData & InstanceClientConfig) {
+export async function onAddRoleSubmit(formData: AddRoleFormData & InstanceClientConfig): Promise<LocalRole> {
 	const { role, super_user, structure_user, instanceClient } = formData;
 	const { data } = await instanceClient.post(
 		'/',
@@ -20,7 +21,9 @@ export async function onAddRoleSubmit(formData: AddRoleFormData & InstanceClient
 			},
 		},
 	);
-	return data;
+	// add_role echoes back the created role, including its unique `id`, which we use to navigate
+	// to the new role for editing (role names are not unique, so the name can't identify it).
+	return data as LocalRole;
 }
 
 export function useAddRoleMutation() {

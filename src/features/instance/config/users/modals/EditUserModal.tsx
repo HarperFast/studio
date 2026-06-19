@@ -29,7 +29,7 @@ export function EditUserModal({
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent className="sm:max-w-[750px]">
+			<DialogContent resizable>
 				<AlterUserForm data={data} onUserUpdated={onUserUpdated} />
 				{canDelete && <DeleteUserForm data={data} onUserDeleted={onUserDeleted} />}
 			</DialogContent>

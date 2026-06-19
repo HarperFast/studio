@@ -1,3 +1,4 @@
+import { RoleOptionLabel } from '@/components/RoleOptionLabel';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -23,9 +24,9 @@ import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/
 import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { Suspense, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -38,13 +39,13 @@ export function AlterUserForm({
 	onUserUpdated: () => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
+	const { data: roles, isLoading: isRolesLoading } = useQuery(getListRolesQueryOptions(instanceParams));
 	const { mutate: alterUser, isPending: isUpdateUserPending } = useAlterUser();
 	const alterForm = useForm({
 		resolver: zodResolver(AlterUserFormSchema),
 		defaultValues: {
 			username: data.username,
-			role: data.role.role,
+			role: data.role.id,
 			newPassword: '',
 			confirmPassword: '',
 		},
@@ -148,7 +149,7 @@ export function AlterUserForm({
 						<FormItem>
 							<FormLabel className="pb-1">Role</FormLabel>
 
-							<Suspense fallback={<TextLoadingSkeleton />}>
+							{isRolesLoading ? <TextLoadingSkeleton /> : (
 								<FormControl>
 									<Select {...field} onValueChange={(role) => field.onChange(role)}>
 										<SelectTrigger className="w-full">
@@ -162,14 +163,14 @@ export function AlterUserForm({
 														key={role.id}
 														value={role.id}
 													>
-														{role.role}
+														<RoleOptionLabel name={role.role} id={role.id} />
 													</SelectItem>
 												))}
 											</SelectGroup>
 										</SelectContent>
 									</Select>
 								</FormControl>
-							</Suspense>
+							)}
 							<FormMessage />
 						</FormItem>
 					)}
