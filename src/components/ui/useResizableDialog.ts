@@ -82,6 +82,9 @@ export function useResizableDialog() {
 	// While a drag/resize gesture is live, this holds the teardown for its window listeners. onUp
 	// clears it on release; if the dialog unmounts mid-gesture instead, the effect below runs it.
 	const activeGestureRef = useRef<(() => void) | null>(null);
+	// Set when the dialog unmounts, so a teardown triggered by unmount skips its state resets:
+	// the component is already gone, so setState would just be a wasted no-op.
+	const unmountedRef = useRef(false);
 
 	// Re-center each time the dialog content mounts (i.e. each time the modal opens),
 	// re-deriving the rendered size from the persisted preferred size. Radix may invoke this
@@ -127,8 +130,12 @@ export function useResizableDialog() {
 	// onUp tears down a gesture's window listeners on mouse release. If the dialog unmounts while a
 	// gesture is still live (Escape, route change, or a programmatic close with the button held),
 	// onUp never fires — so clean up the live gesture here, dropping its listeners and the closure
-	// capturing the now-stale content node.
-	useEffect(() => () => activeGestureRef.current?.(), []);
+	// capturing the now-stale content node. unmountedRef is flipped first so teardown skips its
+	// state resets — the component is gone, so those setState calls would just be wasted no-ops.
+	useEffect(() => () => {
+		unmountedRef.current = true;
+		activeGestureRef.current?.();
+	}, []);
 
 	const startDrag = useCallback((event: React.MouseEvent) => {
 		event.preventDefault();
@@ -171,6 +178,11 @@ export function useResizableDialog() {
 			}
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
+			// Drop the dragging flag so a lost mouseup (released off-window, blur mid-drag) can't leave
+			// the modal stuck mid-gesture (transparent overlay, no text selection). Skipped on unmount.
+			if (!unmountedRef.current) {
+				setIsDragging(false);
+			}
 			// Only clear the ref if it still points at this gesture — a newer gesture may have
 			// replaced it, and a late onUp from this one must not clobber the newer gesture's teardown.
 			if (activeGestureRef.current === teardown) {
@@ -179,7 +191,6 @@ export function useResizableDialog() {
 		};
 		const onUp = () => {
 			teardown();
-			setIsDragging(false);
 			// Snap back fully into view.
 			const clamped = clampPosition(
 				{ x: origin.x + dx, y: origin.y + dy },
@@ -285,6 +296,11 @@ export function useResizableDialog() {
 			}
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
+			// Drop the resizing flag so a lost mouseup (released off-window, blur mid-resize) can't leave
+			// the modal stuck mid-gesture (no text selection). Skipped on unmount.
+			if (!unmountedRef.current) {
+				setIsResizing(false);
+			}
 			// Only clear the ref if it still points at this gesture — a newer gesture may have
 			// replaced it, and a late onUp from this one must not clobber the newer gesture's teardown.
 			if (activeGestureRef.current === teardown) {
@@ -293,7 +309,6 @@ export function useResizableDialog() {
 		};
 		const onUp = () => {
 			teardown();
-			setIsResizing(false);
 			const vw = window.innerWidth;
 			const vh = window.innerHeight;
 			const finalSize = clampSize(nextSize, vw, vh);
