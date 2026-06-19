@@ -137,7 +137,18 @@ export function RenameFileModal() {
 
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent aria-describedby={undefined} className="text-popover-foreground">
+			<DialogContent
+				aria-describedby={undefined}
+				className="text-popover-foreground"
+				// The bare `autoFocus` attribute loses a focus race here: the context menu
+				// is closing as this dialog opens, and its focus teardown lands on <body>
+				// after the input would have been focused. Drive focus explicitly on open
+				// (deferred a frame so it wins), selecting the pre-filled name to retype.
+				onOpenAutoFocus={event => {
+					event.preventDefault();
+					requestAnimationFrame(() => form.setFocus('name', { shouldSelect: true }));
+				}}
+			>
 				<Form {...form}>
 					<form
 						id="instance-rename-app-file-form"
@@ -159,7 +170,6 @@ export function RenameFileModal() {
 									<FormLabel>Name</FormLabel>
 									<FormControl>
 										<Input
-											autoFocus
 											disabled={isPending}
 											type="text"
 											autoComplete="off"
