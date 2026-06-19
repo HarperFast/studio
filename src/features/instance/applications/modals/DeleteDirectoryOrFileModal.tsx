@@ -3,10 +3,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { pluralize } from '@/lib/pluralize';
+import { errorHandler } from '@/react-query/queryClient';
 import { Trash } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -38,52 +40,45 @@ export function DeleteDirectoryOrFileModal() {
 	const handleDeleteFolderOrFile = useCallback(async () => {
 		closeModal();
 
-		let split: string[] = [];
-		let count = 0;
 		let canceled = false;
-
-		const toastCancelAction = {
-			label: 'Cancel',
-			onClick: () => {
-				canceled = true;
-			},
-		};
+		const id = 'deleting-files';
+		const total = pluralize(selectedItems.length, 'item', 'items');
 		const toastOKAction = {
 			label: 'OK',
 			onClick: () => undefined,
 		};
 
-		const id = 'deleting-files';
+		// Delete bottom-up so removing a child doesn't shift the path of a parent
+		// still queued for deletion. Copy first — `selectedItems` is shared state.
+		const result = await deleteSelectedItems(selectedItems.map(String).reverse(), {
+			dropItem: (project, file) => dropComponent({ file, project, ...instanceParams }),
+			onProgress: (deleted) => {
+				toast.loading(`${action} in progress...`, {
+					id,
+					description: `${deleted} of ${total}`,
+					action: {
+						label: 'Cancel',
+						onClick: () => {
+							canceled = true;
+						},
+					},
+				});
+			},
+			isCanceled: () => canceled,
+		});
 
-		for (const selectedItem of selectedItems.reverse()) {
-			split = (selectedItem as string).split('/');
-			const project = split[0];
-			const file = split.length > 1 ? split.slice(1).join('/') : undefined;
-
-			toast.loading(`${action} in progress...`, {
-				id,
-				description: `${count} of ${pluralize(selectedItems.length, 'item', 'items')}`,
-				action: toastCancelAction,
-			});
-			await dropComponent({
-				file,
-				project,
-				...instanceParams,
-			});
-			if (canceled) {
-				break;
-			}
-			count += 1;
-		}
-
-		if (canceled) {
+		if (result.error) {
+			// Replace the spinner so it can't hang, then surface the real error.
+			toast.dismiss(id);
+			errorHandler(result.error);
+		} else if (result.canceled) {
 			toast.warning(`${action} canceled!`, { id, description: '', action: toastOKAction });
 		} else {
 			toast.success(`${action} completed!`, { id, description: '', action: toastOKAction });
 		}
 
-		if (split.length) {
-			const itemToFocus = split.slice(0, -1).join('/');
+		if (result.lastSplit.length) {
+			const itemToFocus = result.lastSplit.slice(0, -1).join('/');
 			setFocusedItem(itemToFocus || undefined);
 			setSelectedItems(itemToFocus ? [itemToFocus] : []);
 			void reloadRootEntries();
