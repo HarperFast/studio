@@ -56,9 +56,9 @@ describe('deleteSelectedItems', () => {
 		});
 
 		expect(result.canceled).toBe(true);
-		// First item is dropped, then the cancel check halts the run.
+		// First item is dropped (and counted), then the cancel check halts the run.
 		expect(dropItem).toHaveBeenCalledTimes(1);
-		expect(result.deleted).toBe(0);
+		expect(result.deleted).toBe(1);
 	});
 
 	it('handles an empty selection', async () => {

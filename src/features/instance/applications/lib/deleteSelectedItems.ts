@@ -48,6 +48,7 @@ export async function deleteSelectedItems(
 
 		try {
 			await dropItem(project, file);
+			deleted += 1;
 		} catch (error) {
 			return { deleted, canceled: false, error, lastSplit };
 		}
@@ -55,8 +56,6 @@ export async function deleteSelectedItems(
 		if (isCanceled?.()) {
 			return { deleted, canceled: true, lastSplit };
 		}
-
-		deleted += 1;
 	}
 
 	return { deleted, canceled: false, lastSplit };
