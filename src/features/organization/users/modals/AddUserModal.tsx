@@ -51,7 +51,11 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const { organizationId }: { organizationId: string } = useParams({ strict: false });
-	const { data: orgRoles, isLoading: isRolesLoading } = useQuery(getOrganizationRolesQueryOptions(organizationId));
+	const { data: orgRoles, isLoading: isRolesLoading } = useQuery({
+		...getOrganizationRolesQueryOptions(organizationId),
+		// Keep the previous useSuspenseQuery behavior of surfacing fetch errors to the ErrorBoundary.
+		throwOnError: true,
+	});
 	const [shouldInvite, setShouldInvite] = useState(false);
 
 	const form = useForm({

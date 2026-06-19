@@ -40,7 +40,11 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { data: roles, isLoading: isRolesLoading } = useQuery(getListRolesQueryOptions(instanceParams));
+	const { data: roles, isLoading: isRolesLoading } = useQuery({
+		...getListRolesQueryOptions(instanceParams),
+		// Keep the previous useSuspenseQuery behavior of surfacing fetch errors to the ErrorBoundary.
+		throwOnError: true,
+	});
 	const form = useForm({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {

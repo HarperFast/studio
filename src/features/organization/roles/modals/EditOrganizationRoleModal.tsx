@@ -79,7 +79,7 @@ function EditOrganizationRoleModalContent({
 		getOrganizationRoleInfoQueryOptions({ roleId: data.id, organizationId: data.organizationId }),
 	);
 	const auth = useCloudAuth();
-	const isSelf = auth.user && auth.user?.roles?.[data.organizationId]?.id === data.id;
+	const isSelf = auth.user?.roles?.[data.organizationId]?.id === data.id;
 	const { update, remove } = useOrganizationRolePermissions(data.organizationId);
 	const { mutate: updateOrganizationRole, isPending: isRoleUpdatePending } = useUpdateOrganizationRole();
 	const { mutate: deleteOrganizationRole, isPending: isRoleDeletionPending } = useDeleteOrganizationRole();
@@ -288,7 +288,7 @@ function EditOrganizationRoleModalContent({
 										setUpdatedPermissions(value);
 									}
 								}}
-								options={{ readOnly: !!isSelf || !update, automaticLayout: true }}
+								options={{ readOnly: isSelf || !update, automaticLayout: true }}
 								defaultValue={updatedPermissions}
 							/>
 						</div>
