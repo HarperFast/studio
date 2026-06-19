@@ -207,31 +207,43 @@ export function useResizableDialog() {
 			const vh = window.innerHeight;
 			const dx = e.clientX - startX;
 			const dy = e.clientY - startY;
+			// Hold Alt (Option on macOS) to resize symmetrically about the modal's center: the dragged edge
+			// is mirrored on the opposite edge, so the size changes by twice the cursor delta. Read live from
+			// the event so the user can toggle the behavior mid-resize by pressing/releasing Alt.
+			const fromCenter = e.altKey;
+			const scale = fromCenter ? 2 : 1;
 
 			let width = startSize.width;
 			let height = startSize.height;
 			if (direction.includes('e')) {
-				width = startSize.width + dx;
+				width = startSize.width + dx * scale;
 			}
 			if (direction.includes('w')) {
-				width = startSize.width - dx;
+				width = startSize.width - dx * scale;
 			}
 			if (direction.includes('s')) {
-				height = startSize.height + dy;
+				height = startSize.height + dy * scale;
 			}
 			if (direction.includes('n')) {
-				height = startSize.height - dy;
+				height = startSize.height - dy * scale;
 			}
 
 			nextSize = clampSize({ width, height }, vw, vh);
 
-			// When resizing from the top/left edges, keep the opposite edge anchored.
 			let { x, y } = startPos;
-			if (direction.includes('w')) {
-				x = startPos.x + startSize.width - nextSize.width;
-			}
-			if (direction.includes('n')) {
-				y = startPos.y + startSize.height - nextSize.height;
+			if (fromCenter) {
+				// Keep the center fixed: split the size change evenly between both edges. Unchanged axes
+				// keep their start position (nextSize matches startSize there, so the offset is zero).
+				x = Math.round(startPos.x + (startSize.width - nextSize.width) / 2);
+				y = Math.round(startPos.y + (startSize.height - nextSize.height) / 2);
+			} else {
+				// When resizing from the top/left edges, keep the opposite edge anchored.
+				if (direction.includes('w')) {
+					x = startPos.x + startSize.width - nextSize.width;
+				}
+				if (direction.includes('n')) {
+					y = startPos.y + startSize.height - nextSize.height;
+				}
 			}
 			nextPos = { x, y };
 
