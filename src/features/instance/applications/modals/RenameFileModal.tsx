@@ -159,6 +159,7 @@ export function RenameFileModal() {
 									<FormLabel>Name</FormLabel>
 									<FormControl>
 										<Input
+											autoFocus
 											disabled={isPending}
 											type="text"
 											autoComplete="off"
