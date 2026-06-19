@@ -145,8 +145,12 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 				}
 			}
 
+			// Always reuse the same toast id so the single upload toast transitions
+			// from loading into a terminal state. Using `undefined` here (e.g. when
+			// canceled) would spawn a brand-new loading toast that nothing ever
+			// replaces or dismisses, leaving "Reloading sidebar..." spinning forever.
 			toast.loading(`Reloading sidebar...`, {
-				id: canceled ? undefined : id,
+				id,
 				action: toastOKAction,
 				description: '',
 			});
@@ -159,12 +163,15 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 						action: toastOKAction,
 						description: '',
 					});
+				} else {
+					// Nothing was uploaded or rejected — don't leave the loading toast hanging.
+					toast.dismiss(id);
 				}
 			} else {
 				// Note: this console.log is deliberate. It lets developers know all the files that were rejected.
 				console.log(filesRejected);
 				toast.error(canceled ? 'Cancelled uploads' : 'Rejected uploads', {
-					id: canceled ? undefined : id,
+					id,
 					action: toastOKAction,
 					descriptionClassName: 'whitespace-pre overflow-y-auto',
 					description: filesRejected
