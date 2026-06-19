@@ -132,6 +132,9 @@ export function useResizableDialog() {
 
 	const startDrag = useCallback((event: React.MouseEvent) => {
 		event.preventDefault();
+		// End any still-live prior gesture (e.g. a dropped mouseup) before starting a new one,
+		// so its window listeners don't outlive this gesture overwriting activeGestureRef.
+		activeGestureRef.current?.();
 		const node = lastNodeRef.current;
 		const startX = event.clientX;
 		const startY = event.clientY;
@@ -168,7 +171,11 @@ export function useResizableDialog() {
 			}
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
-			activeGestureRef.current = null;
+			// Only clear the ref if it still points at this gesture — a newer gesture may have
+			// replaced it, and a late onUp from this one must not clobber the newer gesture's teardown.
+			if (activeGestureRef.current === teardown) {
+				activeGestureRef.current = null;
+			}
 		};
 		const onUp = () => {
 			teardown();
@@ -196,6 +203,9 @@ export function useResizableDialog() {
 	const startResize = useCallback((direction: ResizeDirection) => (event: React.MouseEvent) => {
 		event.preventDefault();
 		event.stopPropagation();
+		// End any still-live prior gesture (e.g. a dropped mouseup) before starting a new one,
+		// so its window listeners don't outlive this gesture overwriting activeGestureRef.
+		activeGestureRef.current?.();
 		const node = lastNodeRef.current;
 		const startX = event.clientX;
 		const startY = event.clientY;
@@ -263,7 +273,11 @@ export function useResizableDialog() {
 			}
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
-			activeGestureRef.current = null;
+			// Only clear the ref if it still points at this gesture — a newer gesture may have
+			// replaced it, and a late onUp from this one must not clobber the newer gesture's teardown.
+			if (activeGestureRef.current === teardown) {
+				activeGestureRef.current = null;
+			}
 		};
 		const onUp = () => {
 			teardown();
