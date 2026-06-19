@@ -1,3 +1,4 @@
+import { RoleOptionLabel } from '@/components/RoleOptionLabel';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,9 +23,9 @@ import { useAddUserMutation } from '@/integrations/api/instance/auth/addUser';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
-import { Suspense, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -39,7 +40,7 @@ export function AddUserModal({
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const instanceParams = useInstanceClientIdParams();
-	const { data: roles } = useSuspenseQuery(getListRolesQueryOptions(instanceParams));
+	const { data: roles, isLoading: isRolesLoading } = useQuery(getListRolesQueryOptions(instanceParams));
 	const form = useForm({
 		resolver: zodResolver(AddUserFormSchema),
 		defaultValues: {
@@ -151,7 +152,7 @@ export function AddUserModal({
 								<FormItem>
 									<FormLabel className="pb-1">Role</FormLabel>
 
-									<Suspense fallback={<TextLoadingSkeleton />}>
+									{isRolesLoading ? <TextLoadingSkeleton /> : (
 										<FormControl>
 											<Select {...field} onValueChange={(role) => field.onChange(role)}>
 												<SelectTrigger className="w-full">
@@ -165,14 +166,14 @@ export function AddUserModal({
 																key={role.id}
 																value={role.id}
 															>
-																{role.role}
+																<RoleOptionLabel name={role.role} id={role.id} />
 															</SelectItem>
 														))}
 													</SelectGroup>
 												</SelectContent>
 											</Select>
 										</FormControl>
-									</Suspense>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}

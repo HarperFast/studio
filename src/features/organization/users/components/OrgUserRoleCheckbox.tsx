@@ -24,7 +24,7 @@ export function OrgUserRoleCheckbox({
 }) {
 	const { mutate: addUser, isPending: isAddPending } = useAddUserToOrganizationRole();
 	const { mutate: removeUser, isPending: isRemovePending } = useRemoveUserFromOrganizationRole();
-	const userIsInRole = !!selectedRoles[orgRole.roleName];
+	const userIsInRole = !!selectedRoles[orgRole.id];
 	const [wasChecked, setWasChecked] = useState(userIsInRole);
 	const [isChecked, onCheckedChanged] = useCheckboxCallback(userIsInRole);
 	useEffect(() => {

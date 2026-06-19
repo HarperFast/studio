@@ -104,69 +104,71 @@ export function AddOrganizationRoleModal({
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
-			<DialogContent>
+			<DialogContent resizable>
 				<DialogTitle>Add New Organization Role</DialogTitle>
 				<DialogDescription>Set the new organization role permissions.</DialogDescription>
 				<Form {...form}>
 					<form
 						id="org-add-role-form"
 						name="org-add-role-form"
-						className="grid grid-cols-2 gap-4 my-4"
+						className="flex flex-1 min-h-0 flex-col gap-4 my-4"
 						onSubmit={form.handleSubmit(onSubmitRoleEdits)}
 					>
-						<FormField
-							control={form.control}
-							name="name"
-							render={({ field }) => (
-								<FormItem className="col-span-2">
-									<FormLabel className="pb-1">Role Name</FormLabel>
-									<FormControl>
-										<Input type="text" className="" {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="update"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel className="pb-1">Can Update Organization</FormLabel>
-									<FormControl>
-										<Input
-											type="checkbox"
-											className="w-6 ml-2"
-											checked={field.value}
-											onChange={(e) => field.onChange(e.target.checked)}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="delete"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel className="pb-1">Can Delete Organization</FormLabel>
-									<FormControl>
-										<Input
-											type="checkbox"
-											className="w-6 ml-2"
-											checked={field.value}
-											onChange={(e) => field.onChange(e.target.checked)}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<div className="col-span-2">
+						<div className="grid grid-cols-2 gap-4">
+							<FormField
+								control={form.control}
+								name="name"
+								render={({ field }) => (
+									<FormItem className="col-span-2">
+										<FormLabel className="pb-1">Role Name</FormLabel>
+										<FormControl>
+											<Input type="text" className="" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="update"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Can Update Organization</FormLabel>
+										<FormControl>
+											<Input
+												type="checkbox"
+												className="w-6 ml-2"
+												checked={field.value}
+												onChange={(e) => field.onChange(e.target.checked)}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="delete"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Can Delete Organization</FormLabel>
+										<FormControl>
+											<Input
+												type="checkbox"
+												className="w-6 ml-2"
+												checked={field.value}
+												onChange={(e) => field.onChange(e.target.checked)}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</div>
+						<div className="flex-1 min-h-0">
 							<Editor
+								className="w-full h-full"
 								theme={monacoTheme}
-								height="300px"
 								defaultLanguage="json"
 								onValidate={onValidate}
 								onChange={(value) => {
@@ -174,10 +176,11 @@ export function AddOrganizationRoleModal({
 										setUpdatedPermissions(value);
 									}
 								}}
+								options={{ automaticLayout: true }}
 								defaultValue={JSON.stringify(defaultPermissions, null, 2)}
 							/>
 						</div>
-						<DialogFooter className="col-span-2">
+						<DialogFooter>
 							<div className="flex justify-between w-full">
 								<Button
 									variant="destructiveOutline"

@@ -32,8 +32,8 @@ export function ConfigRolesIndex() {
 	const selectedRole = useMemo(() => localRoles?.find((role) => role.id === roleId), [localRoles, roleId]);
 
 	const onSelectRole = useCallback(
-		(newRole: string | undefined) => {
-			const parts = [roleId ? '..' : '', newRole].filter(Boolean);
+		(newRoleId: string | undefined) => {
+			const parts = [roleId ? '..' : '', newRoleId].filter(Boolean);
 			void navigate({ to: parts.join('/') });
 		},
 		[roleId, navigate],
@@ -46,15 +46,15 @@ export function ConfigRolesIndex() {
 	const onAddClicked = useCallback(() => {
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
-	const onRoleAdded = useCallback((roleName: string) => {
+	const onRoleAdded = useCallback((newRoleId: string) => {
 		void refetch();
 		setIsAddModalOpen(false);
-		onSelectRole(roleName);
+		onSelectRole(newRoleId);
 	}, [onSelectRole, refetch]);
 
 	const onRowClick = useCallback(
 		(rowData: Row<LocalRole>) => {
-			onSelectRole(rowData.original.role);
+			onSelectRole(rowData.original.id);
 		},
 		[onSelectRole],
 	);

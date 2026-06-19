@@ -11,6 +11,17 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		enableSorting: false,
 	},
 	columnHelper.display({
+		header: 'ID',
+		id: 'id',
+		enableSorting: false,
+		// Role names are not unique; surfacing the id makes roles that share a name distinguishable.
+		cell: (props) => (
+			<span className="font-mono text-xs text-muted-foreground" title={props.row.original.id}>
+				{props.row.original.id}
+			</span>
+		),
+	}),
+	columnHelper.display({
 		header: 'Created',
 		enableSorting: false,
 		id: '__createdtime__',
