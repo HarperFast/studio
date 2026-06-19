@@ -21,6 +21,7 @@ import {
 } from '@/integrations/api/instance/applications/setComponentFile';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
+import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { PropsWithChildren, useCallback, useEffect, useMemo, useState } from 'react';
@@ -131,15 +132,20 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		openedEntry && (isDirectory(openedEntry) ? openedEntry.overviewEntry?.project : openedEntry.project) || '';
 	const loadedOverviewEntry = openedEntry && (isDirectory(openedEntry) ? !!openedEntry.overviewEntry?.path : false)
 		|| false;
+	// Binary files (archives, fonts, etc.) are shown as a placeholder, so don't
+	// fetch their contents — decoding a large archive as text wastes bandwidth and
+	// risks choking the editor. Leave the file undefined to disable the query.
+	const isBinaryEntry = !!openedEntry && !isDirectory(openedEntry) && isBinaryFile(openedEntry.name);
+	const fileToLoad = isBinaryEntry ? undefined : pathToLoad?.split('/').slice(1).join('/');
 	const fileQueryKey = getComponentFileQueryKey({
-		file: pathToLoad?.split('/').slice(1).join('/'),
+		file: fileToLoad,
 		project: projectToLoad,
 		...instanceParams,
 	});
 	const { data: getComponentFileQueryData } = useQuery(
 		getComponentFileQueryOptions(
 			{
-				file: pathToLoad?.split('/').slice(1).join('/'),
+				file: fileToLoad,
 				project: projectToLoad,
 				...instanceParams,
 			},
