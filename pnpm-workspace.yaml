@@ -30,6 +30,8 @@ overrides:
   # All are transitive-only; bumping the minimum clears the advisories.
   handlebars: '^4.7.9'
   'undici@>=7.0.0': '^7.28.0'
+  # undici 6.x comes in via semantic-release's @actions/http-client (^6.23.0).
+  'undici@<6.27.0': '^6.27.0'
   lodash-es: '^4.18.1'
   form-data: '^4.0.6'
   dompurify: '^3.4.11'
