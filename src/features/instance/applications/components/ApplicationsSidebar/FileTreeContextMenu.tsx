@@ -86,7 +86,13 @@ export function FileTreeContextMenu({
 	const hasActions = canAddEntries || canRename || canDownload || canRedeploy || canDeleteEntry;
 
 	return (
-		<ContextMenu>
+		// `modal={false}` (matching the editor menu bar in ContentActions) keeps the menu from
+		// locking `pointer-events: none` onto <body> while open. A modal menu sets that lock and
+		// relies on its own teardown to lift it — but every action here opens a dialog as the menu
+		// closes, and Radix's body-pointer-events bookkeeping desyncs across the menu's and dialog's
+		// separate dismissable-layer instances, leaving the lock stuck after the dialog closes and
+		// freezing the whole page. Non-modal never touches body pointer events, sidestepping it.
+		<ContextMenu modal={false}>
 			<ContextMenuTrigger asChild>
 				<div onContextMenu={onContextMenu} className="min-h-full">
 					{children}
