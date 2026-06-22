@@ -3,6 +3,8 @@ import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
@@ -31,6 +33,20 @@ export function PickColumnsDropdown({
 			[columnHeader]: nextChecked,
 		});
 	}, [columnVisibility, setColumnVisibility]);
+	const setAllColumns = useCallback((nextChecked: boolean) => {
+		setColumnVisibility({
+			...columnVisibility,
+			...Object.fromEntries(columnHeaders.map(columnHeader => [columnHeader, nextChecked])),
+		});
+	}, [columnHeaders, columnVisibility, setColumnVisibility]);
+	const allVisible = useMemo(
+		() => columnHeaders.every(columnHeader => columnVisibility[columnHeader] ?? true),
+		[columnHeaders, columnVisibility],
+	);
+	const noneVisible = useMemo(
+		() => columnHeaders.every(columnHeader => !(columnVisibility[columnHeader] ?? true)),
+		[columnHeaders, columnVisibility],
+	);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -40,6 +56,31 @@ export function PickColumnsDropdown({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent>
+				{columnHeaders.length > 0 && (
+					<>
+						<DropdownMenuItem
+							inset
+							disabled={allVisible}
+							onSelect={e => {
+								e.preventDefault();
+								setAllColumns(true);
+							}}
+						>
+							Select all
+						</DropdownMenuItem>
+						<DropdownMenuItem
+							inset
+							disabled={noneVisible}
+							onSelect={e => {
+								e.preventDefault();
+								setAllColumns(false);
+							}}
+						>
+							Deselect all
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+					</>
+				)}
 				{columnHeaders.map(columnHeader => (
 					<ColumnPicker
 						key={columnHeader}
