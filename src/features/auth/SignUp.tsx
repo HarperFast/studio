@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { personNameRegex } from '@/lib/string/regex/personNameRegex';
+import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -93,6 +94,7 @@ export function SignUp() {
 					lastname: userData.lastname,
 					...(company ? { company } : {}),
 				});
+				clearUtmParamsFromUrl();
 				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
 			},
 		});

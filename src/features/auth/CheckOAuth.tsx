@@ -3,6 +3,7 @@ import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
+import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
@@ -30,6 +31,7 @@ export function CheckOAuth() {
 				await navigate({ to: '/sign-in' });
 			} else {
 				authStore.setUserForEntity(OverallAppSignIn, user);
+				clearUtmParamsFromUrl();
 				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 
 				loginSuccessDatadogAction(user);

@@ -6,6 +6,7 @@ import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema
 import { loginSuccessDatadogAction } from '@/integrations/datadog/datadog';
 import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
+import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
@@ -24,6 +25,7 @@ export function useCloudSignIn() {
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
 				authStore.setUserForEntity(OverallAppSignIn, data);
+				clearUtmParamsFromUrl();
 				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(data);
 
 				loginSuccessDatadogAction(data);
