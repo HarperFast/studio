@@ -249,8 +249,8 @@ importers:
         specifier: ^20.9.0
         version: 20.10.6(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       harper:
-        specifier: ^5.0.10
-        version: 5.1.5(@types/node@24.13.2)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
+        specifier: ^5.1.7
+        version: 5.1.7(@types/node@24.13.2)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -4143,8 +4143,8 @@ packages:
     resolution: {integrity: sha512-6QD0ilzDDt93tX44y8tbmZdAcdTRYDhUP+Asgi6pC8Pp5IA3cvaZGyoVN/EGtlq9ziT65iPuBBn3ASLr6hCgVw==}
     engines: {node: '>=20.0.0'}
 
-  harper@5.1.5:
-    resolution: {integrity: sha512-CItsA9n8XrVpLbai+PjLBxxDYlPCeQVCbM6BGzp92NqjQ231CrAKaT6N0E/Tpwe11vjgNG9E/WQia0r/di66Lw==}
+  harper@5.1.7:
+    resolution: {integrity: sha512-41Owl3Na5Zhx4F+Hy2xEJAmNHOBAKqYzlmrchANdvB5ukkivl6Pz3kMAoBZNNHJ2xccbcXMo9aETC3MTGvFfkA==}
     engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
     peerDependencies:
@@ -7158,10 +7158,6 @@ packages:
     resolution: {integrity: sha512-rwu/ClNdSMpkSrUb+d6BRsSkLUq1fmfsY6TOpYzTwvwkg1/NRG85KBy3kq++A8LKQwX6lsu+aWad+2khvuXrqw==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
 
-  yargs@16.2.0:
-    resolution: {integrity: sha512-D1mvvtDG0L5ft/jGWkLpG1+m0eQxOfaBvTNELraWj22wSVUMWxZUvYgJYcKh6jGGIkJFhH4IZPQhR4TKpc8mBw==}
-    engines: {node: '>=10'}
-
   yargs@16.2.2:
     resolution: {integrity: sha512-Nt9ZJjXTv5R8MHbqby/wXQ6Gi0Bb3TcYZkR1bzuL4yB2OxWPkXknz513gEF0GoA6tn00UpbPvERW8rzCuWCA6w==}
     engines: {node: '>=10'}
@@ -9023,7 +9019,7 @@ snapshots:
       read-pkg: 10.1.0
       registry-auth-token: 5.1.1
       semantic-release: 25.0.5(typescript@6.0.3)
-      semver: 7.8.4
+      semver: 7.8.5
       tempy: 3.2.0
 
   '@semantic-release/release-notes-generator@14.1.1(semantic-release@25.0.5(typescript@6.0.3))':
@@ -10609,7 +10605,7 @@ snapshots:
       mz: 2.7.0
       parse5: 5.1.1
       parse5-htmlparser2-tree-adapter: 6.0.1
-      yargs: 16.2.0
+      yargs: 16.2.2
 
   cli-progress@3.12.0:
     dependencies:
@@ -11385,7 +11381,7 @@ snapshots:
       process-warning: 5.0.0
       rfdc: 1.4.1
       secure-json-parse: 4.1.0
-      semver: 7.8.0
+      semver: 7.8.5
       toad-cache: 3.7.1
 
   fastq@1.20.1:
@@ -11639,7 +11635,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  harper@5.1.5(@types/node@24.13.2)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)):
+  harper@5.1.7(@types/node@24.13.2)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)):
     dependencies:
       '@aws-sdk/client-s3': 3.1073.0
       '@aws-sdk/lib-storage': 3.1045.0(@aws-sdk/client-s3@3.1073.0)
@@ -12201,7 +12197,7 @@ snapshots:
       lodash.isstring: 4.0.1
       lodash.once: 4.1.1
       ms: 2.1.3
-      semver: 7.8.0
+      semver: 7.8.5
 
   jwa@2.0.1:
     dependencies:
@@ -13234,7 +13230,7 @@ snapshots:
   normalize-package-data@8.0.0:
     dependencies:
       hosted-git-info: 9.0.3
-      semver: 7.8.4
+      semver: 7.8.5
       validate-npm-package-license: 3.0.4
 
   normalize-path@3.0.0: {}
@@ -15170,16 +15166,6 @@ snapshots:
     optional: true
 
   yargs-parser@22.0.0: {}
-
-  yargs@16.2.0:
-    dependencies:
-      cliui: 7.0.4
-      escalade: 3.2.0
-      get-caller-file: 2.0.5
-      require-directory: 2.1.1
-      string-width: 4.2.3
-      y18n: 5.0.8
-      yargs-parser: 20.2.9
 
   yargs@16.2.2:
     dependencies:
