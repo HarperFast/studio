@@ -110,15 +110,17 @@ export function OrgCard({
 						<h2>{organizationName}</h2>
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="flex justify-between">
-					<Badge>{capitalizeWords(roleName)}</Badge>
+				<CardContent className="flex items-center justify-between gap-2">
+					<Badge className="min-w-0 shrink" title={capitalizeWords(roleName)}>
+						<span className="truncate">{capitalizeWords(roleName)}</span>
+					</Badge>
 					<Link
 						to={organizationId}
-						className="text-sm"
+						className="text-sm shrink-0"
 						aria-label={`View ${organizationName}`}
 						title={`View ${organizationName}`}
 					>
-						<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2">
+						<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2 whitespace-nowrap">
 							View <ArrowRight className="inline-block" />
 						</span>
 					</Link>
