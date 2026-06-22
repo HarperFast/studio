@@ -63,4 +63,9 @@ describe('replaceGitUrlHost', () => {
 	it('returns the reference unchanged when no host is detectable', () => {
 		expect(replaceGitUrlHost('some-package', 'github.com')).toBe('some-package');
 	});
+
+	it('treats $ sequences in the new host literally (no replacement-pattern injection)', () => {
+		expect(replaceGitUrlHost('git@github.com:org/repo.git', 'weird$&host.com'))
+			.toBe('git@weird$&host.com:org/repo.git');
+	});
 });
