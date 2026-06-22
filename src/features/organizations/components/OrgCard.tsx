@@ -117,8 +117,8 @@ export function OrgCard({
 					<Link
 						to={organizationId}
 						className="text-sm shrink-0"
-						aria-label={`View ${organizationName}`}
-						title={`View ${organizationName}`}
+						aria-label={`View ${organizationName ?? organizationId}`}
+						title={`View ${organizationName ?? organizationId}`}
 					>
 						<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2 whitespace-nowrap">
 							View <ArrowRight className="inline-block" />
