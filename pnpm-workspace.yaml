@@ -30,6 +30,11 @@ overrides:
   # All are transitive-only; bumping the minimum clears the advisories.
   handlebars: '^4.7.9'
   'undici@>=7.0.0': '^8.0.0'
+  # jsdom (incl. latest 29.x) requires undici ^7.25.0 and imports the internal
+  # undici/lib/handler/wrap-handler.js, which undici 8 removed. Keep jsdom on
+  # undici 7.x until a jsdom release supports undici 8, otherwise its tests crash
+  # with "Cannot find module 'undici/lib/handler/wrap-handler.js'".
+  'jsdom>undici': '^7.28.0'
   # undici 6.x comes in via semantic-release's @actions/http-client (^6.23.0).
   'undici@<6.27.0': '^8.0.0'
   lodash-es: '^4.18.1'
