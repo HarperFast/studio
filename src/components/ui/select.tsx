@@ -28,7 +28,7 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
 		>
 			{children}
 			<SelectPrimitive.Icon asChild>
-				<ChevronDownIcon className="opacity-50 size-4" />
+				<ChevronDownIcon className="size-4 text-foreground dark:text-white" />
 			</SelectPrimitive.Icon>
 		</SelectPrimitive.Trigger>
 	);
