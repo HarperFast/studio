@@ -1,17 +1,20 @@
 import './GoogleAuthenticationButton.css';
 import { cx } from 'class-variance-authority';
 import { MouseEventHandler } from 'react';
+import { LastUsedBadge } from './LastUsedBadge';
 
 export function GoogleAuthenticationButton({
 	text,
 	disabled,
 	onClick,
+	lastUsed = false,
 }: {
 	text: 'Sign in with Google' | 'Sign up with Google';
 	disabled?: boolean;
 	onClick?: MouseEventHandler<HTMLAnchorElement>;
+	lastUsed?: boolean;
 }) {
-	return (
+	const button = (
 		<a
 			href="/oauth/google/login?redirect=%2F%23%2Fcheck-oauth"
 			onClick={onClick}
@@ -55,5 +58,18 @@ export function GoogleAuthenticationButton({
 				<span className="hidden">{text}</span>
 			</div>
 		</a>
+	);
+
+	if (!lastUsed) {
+		return button;
+	}
+
+	// `flex flex-col` mirrors the button's original flex-parent context so the anchor stays
+	// block-level (the Google button relies on flex blockification for its `width: 100%`).
+	return (
+		<div className="relative flex flex-col">
+			{button}
+			<LastUsedBadge />
+		</div>
 	);
 }

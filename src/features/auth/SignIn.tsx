@@ -13,6 +13,10 @@ import { useForm } from 'react-hook-form';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { useCloudSignIn } from './hooks/useCloudSignIn';
+import { useLastUsedSignInMethod } from './hooks/useLastUsedSignInMethod';
+
+const rememberControlClassName =
+	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
@@ -28,6 +32,7 @@ export function SignIn() {
 	const email = methods.watch('email');
 
 	const { submitForm, isPending } = useCloudSignIn();
+	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();
 
 	return (
 		<div className="text-foreground dark:text-white w-xs">
@@ -101,9 +106,31 @@ export function SignIn() {
 			<hr aria-hidden="true" className="border-border dark:border-gray-600 my-6" />
 
 			<div className="flex flex-col gap-2">
-				<GoogleAuthenticationButton text="Sign in with Google" />
-				<GitHubAuthenticationButton text="Sign in with GitHub" />
+				<GoogleAuthenticationButton
+					text="Sign in with Google"
+					lastUsed={lastUsed === 'google'}
+					onClick={() => recordMethod('google')}
+				/>
+				<GitHubAuthenticationButton
+					text="Sign in with GitHub"
+					lastUsed={lastUsed === 'github'}
+					onClick={() => recordMethod('github')}
+				/>
 			</div>
+
+			{remember
+				? (
+					lastUsed && (
+						<button type="button" onClick={disable} className={rememberControlClassName}>
+							On a shared device? Forget my sign-in method.
+						</button>
+					)
+				)
+				: (
+					<button type="button" onClick={enable} className={rememberControlClassName}>
+						Remember my last sign-in method on this device.
+					</button>
+				)}
 		</div>
 	);
 }
