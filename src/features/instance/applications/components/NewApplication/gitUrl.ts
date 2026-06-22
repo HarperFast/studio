@@ -46,5 +46,6 @@ export function replaceGitUrlHost(ref: string, newHost: string): string {
 	// The host sits at the start of the string, or after `@` (userinfo) or `//` (scheme), and is
 	// followed by `:` (port/path), `/` (path), or the end of the string.
 	const hostPattern = new RegExp(`(^|@|//)${escaped}(?=[:/]|$)`);
-	return trimmed.replace(hostPattern, `$1${newHost}`);
+	// Use a replacer fn so a `newHost` containing `$`/`$&` isn't treated as a replacement pattern.
+	return trimmed.replace(hostPattern, (_, prefix) => `${prefix}${newHost}`);
 }

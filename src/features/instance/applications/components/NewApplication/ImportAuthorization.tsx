@@ -33,7 +33,7 @@ export function ImportAuthorization({
 	const ref = watch('contents.ref');
 	const sshKeyName = watch('contents.sshKeyName');
 
-	const { data: sshKeys, isLoading: areKeysLoading } = useQuery({
+	const { data: sshKeys, isLoading: areKeysLoading, isError: isKeysError } = useQuery({
 		...listSSHKeysQueryOptions(instanceParams),
 		enabled: requiresAuth,
 	});
@@ -58,6 +58,14 @@ export function ImportAuthorization({
 	let body: ReactNode;
 	if (areKeysLoading) {
 		body = <TextLoadingSkeleton className="w-full" />;
+	} else if (isKeysError) {
+		body = (
+			<Alert variant="destructive">
+				<AlertDescription>
+					Failed to load SSH keys. Please try again.
+				</AlertDescription>
+			</Alert>
+		);
 	} else if (!sshKeys || sshKeys.length === 0) {
 		body = (
 			<Alert>
@@ -114,7 +122,7 @@ export function ImportAuthorization({
 
 				{hostMatches && (
 					<Alert>
-						<CheckCircle2Icon />
+						<CheckCircle2Icon className="h-4 w-4" />
 						<AlertDescription>
 							This URL targets <code>{keyHost}</code>, matching the selected key.
 						</AlertDescription>
@@ -123,7 +131,7 @@ export function ImportAuthorization({
 
 				{hostMismatch && (
 					<Alert variant="warning">
-						<TriangleAlertIcon />
+						<TriangleAlertIcon className="h-4 w-4" />
 						<AlertDescription>
 							<span>
 								The URL targets <code>{urlHost}</code>, but the selected key <strong>{sshKeyName}</strong> uses the host
