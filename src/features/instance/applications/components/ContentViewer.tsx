@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { newApplication } from './ApplicationsSidebar/specialItems';
+import { DirectoryPlaceholder } from './DirectoryPlaceholder';
 import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
@@ -23,6 +24,13 @@ export function ContentViewer() {
 	}
 
 	if (isDirectory(openedEntry)) {
+		// No README to show — fill the space with a quiet hint about the folder
+		// rather than rendering an empty page. Keyed off overviewEntry (not the
+		// loaded contents) so a folder that has a README doesn't flash the hint
+		// while its contents are still loading.
+		if (!openedEntry.overviewEntry) {
+			return <DirectoryPlaceholder name={openedEntry.name} />;
+		}
 		return (
 			<div className="directoryReadMe max-w-3xl">
 				<Markdown

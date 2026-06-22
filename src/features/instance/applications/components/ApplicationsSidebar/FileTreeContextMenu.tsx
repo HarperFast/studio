@@ -12,8 +12,9 @@ import { useEditorView } from '@/features/instance/applications/hooks/useEditorV
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { DownloadIcon, FilePlusIcon, FolderPlusIcon, PackageIcon, PencilIcon, TrashIcon } from 'lucide-react';
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { TreeItem, TreeItemIndex } from 'react-complex-tree';
+import { setPendingContextAction } from '../../shortcuts/pendingContextAction';
 import { importedApplications, newApplication, rootId } from './specialItems';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -34,11 +35,13 @@ interface ContextTarget {
 
 /**
  * Wraps the file tree with a right-click context menu. Resolves which row was
- * clicked (react-complex-tree tags each row with `data-rct-item-id`) and makes it
- * the editor's opened/selected entry, then fires the same `setWatchedValue`
- * triggers the menu bar uses — reusing the existing modals. Synthetic nodes (the
- * "New Application" entry, the imported-applications root) and empty space below
- * the tree don't open a menu.
+ * clicked (react-complex-tree tags each row with `data-rct-item-id`) and remembers
+ * it as the menu's target, then fires the same `setWatchedValue` triggers the menu
+ * bar uses — reusing the existing modals. Right-clicking does NOT select or open
+ * the row (only a left click does that); selection only shifts to the target when
+ * an action is actually invoked (see `act`), so the modal operates on it. Synthetic
+ * nodes (the "New Application" entry, the imported-applications root) and empty
+ * space below the tree don't open a menu.
  */
 export function FileTreeContextMenu({
 	items,
@@ -57,6 +60,26 @@ export function FileTreeContextMenu({
 		setSelectedItems(next.selection);
 	}, [setOpenedEntry, setFocusedItem, setSelectedItems]);
 
+	// While the menu is open, let a keyboard shortcut (e.g. Cmd+Delete) act on the
+	// right-clicked row instead of the background selection — without right-click
+	// itself changing the selection. `targetRef` keeps the latest target so the
+	// registered applier never goes stale.
+	const targetRef = useRef(target);
+	targetRef.current = target;
+	const [menuOpen, setMenuOpen] = useState(false);
+	useEffect(() => {
+		if (!menuOpen) {
+			return;
+		}
+		setPendingContextAction(() => {
+			const current = targetRef.current;
+			if (current) {
+				focusTarget(current);
+			}
+		});
+		return () => setPendingContextAction(undefined);
+	}, [menuOpen, focusTarget]);
+
 	const onContextMenu = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
 		const id = (event.target as HTMLElement).closest('[data-rct-item-id]')?.getAttribute('data-rct-item-id');
 		const entry = id ? items[id]?.data : undefined;
@@ -66,12 +89,13 @@ export function FileTreeContextMenu({
 			event.preventDefault();
 			return;
 		}
+		// Remember the right-clicked row as the menu target WITHOUT selecting/opening
+		// it — that only happens on a left click (or when an action runs, via `act`).
 		// Keep an existing multi-selection if the clicked row is part of it (so a
-		// multi-delete still spans every selected row); otherwise select just this one.
+		// multi-delete still spans every selected row); otherwise target just this one.
 		const next: ContextTarget = { entry, id, selection: selectedItems.includes(id) ? selectedItems : [id] };
 		setTarget(next);
-		focusTarget(next);
-	}, [items, selectedItems, focusTarget]);
+	}, [items, selectedItems]);
 
 	// Re-assert the target as the action fires. This runs in the same React batch
 	// as opening the modal, so the modal always reads the right-clicked entry even
@@ -92,7 +116,9 @@ export function FileTreeContextMenu({
 		// closes, and Radix's body-pointer-events bookkeeping desyncs across the menu's and dialog's
 		// separate dismissable-layer instances, leaving the lock stuck after the dialog closes and
 		// freezing the whole page. Non-modal never touches body pointer events, sidestepping it.
-		<ContextMenu modal={false}>
+		// `onOpenChange` tracks the open state so a keyboard shortcut fired while the menu is open
+		// can act on the right-clicked row (see the menuOpen effect above).
+		<ContextMenu modal={false} onOpenChange={setMenuOpen}>
 			<ContextMenuTrigger asChild>
 				<div onContextMenu={onContextMenu} className="min-h-full">
 					{children}

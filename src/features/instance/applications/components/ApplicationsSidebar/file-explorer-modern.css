@@ -14,6 +14,10 @@
 	--rct-arrow-size: 10px;
 	--rct-arrow-container-size: 16px;
 	--rct-arrow-padding: 6px;
+	/* Invisible extension of the arrow's click target into the dead band to its
+	   left, so the expand/collapse toggle is easy to hit. Purely a hit area: the
+	   chevron and the row layout stay put (see .rct-tree-item-arrow). */
+	--rct-arrow-hit-extend: 14px;
 
 	--rct-cursor: pointer;
 
@@ -160,15 +164,36 @@
 }
 
 .rct-tree-item-arrow {
+	position: relative;
 	z-index: 1;
 	margin-right: calc(-1 * var(--rct-arrow-container-size) + var(--rct-arrow-padding));
 	width: var(--rct-arrow-container-size);
 	height: var(--rct-arrow-container-size);
 	display: flex;
 	justify-content: center;
-	align-content: center;
+	align-items: center;
 	border-radius: var(--rct-radius);
 	cursor: var(--rct-cursor);
+}
+
+/* Invisibly extend the folder arrow's click/hover target into the dead band to
+   its left (the main ask in #1348) and to the full row height, so the toggle is
+   easy to hit — without moving the chevron or making the visible hover pill
+   asymmetric. The pill stays a centred square on the box above. */
+.rct-tree-item-arrow-isFolder::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	transform: translateY(-50%);
+	height: var(--rct-item-height);
+	left: calc(-1 * var(--rct-arrow-hit-extend));
+	right: 0;
+}
+
+/* Non-folder rows render an inert arrow spacer; let clicks fall through to the
+   row button so files still select. */
+.rct-tree-item-arrow:not(.rct-tree-item-arrow-isFolder) {
+	pointer-events: none;
 }
 
 .rct-tree-item-arrow.rct-tree-item-arrow-isFolder:hover {

@@ -5,6 +5,7 @@ import { Contract } from './contract';
 import { deleteShortcut } from './deleteShortcut';
 import { newDirectoryShortcut } from './newDirectoryShortcut';
 import { newFileShortcut } from './newFileShortcut';
+import { applyPendingContextAction } from './pendingContextAction';
 import { renameFileShortcut } from './renameFileShortcut';
 import { revertFileShortcut } from './revertFileShortcut';
 import { saveChangesShortcut } from './saveChangesShortcut';
@@ -51,6 +52,12 @@ function keyDownHandler(e: KeyboardEvent) {
 
 	for (const globalShortcut of globalShortcuts) {
 		if (globalShortcut.handleGlobal(e.key, modifiers)) {
+			// If the file-tree context menu is open, align the selection to the
+			// right-clicked row so the shortcut acts on it (mirroring a menu-item
+			// click). React batches this with the modal-open update above, so the
+			// modal reads the aligned selection. No-op when no menu is open, so
+			// right-click on its own still never changes the selection.
+			applyPendingContextAction();
 			e.preventDefault();
 			return;
 		}

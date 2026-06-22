@@ -9,21 +9,27 @@ export function useDraggingHook() {
 		if (!foundFiles) {
 			return;
 		}
-		const newTarget = e.target;
-		if (
-			newTarget instanceof Element
-			&& newTarget.classList.contains('rct-tree-item-button-isFolder')
-		) {
-			const itemId = newTarget.getAttribute('data-rct-item-id');
-			const isLocked = newTarget.querySelector('.packageIsLocked');
+		// Resolve the folder button for the row under the cursor. e.target may be
+		// the button itself, a child of it (icon/label), or — now that the arrow's
+		// hit area is enlarged — the sibling arrow. The arrow is a sibling of the
+		// button (not an ancestor), so a plain `closest` would miss it; fall back
+		// to querying the shared title-container for the row's folder button.
+		const el = e.target instanceof Element ? e.target : null;
+		const folderButton = el?.closest<HTMLElement>('.rct-tree-item-button-isFolder')
+			?? el?.closest('.rct-tree-item-title-container')
+				?.querySelector<HTMLElement>(':scope > .rct-tree-item-button-isFolder')
+			?? null;
+		if (folderButton) {
+			const itemId = folderButton.getAttribute('data-rct-item-id');
+			const isLocked = folderButton.querySelector('.packageIsLocked');
 			if (
 				!isLocked && itemId && itemId !== importedApplications && itemId !== newApplication
 			) {
 				setDragTarget(currentTarget => {
-					if (currentTarget !== newTarget) {
+					if (currentTarget !== folderButton) {
 						currentTarget?.classList?.remove?.('rct-tree-item-title-container-dragging-over');
-						newTarget.classList.add('rct-tree-item-title-container-dragging-over');
-						return newTarget;
+						folderButton.classList.add('rct-tree-item-title-container-dragging-over');
+						return folderButton;
 					}
 					return currentTarget;
 				});
