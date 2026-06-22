@@ -7,6 +7,7 @@ settings:
 overrides:
   handlebars: ^4.7.9
   undici@>=7.0.0: ^8.0.0
+  jsdom>undici: ^7.28.0
   undici@<6.27.0: ^8.0.0
   lodash-es: ^4.18.1
   form-data: ^4.0.6
@@ -6758,6 +6759,10 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  undici@7.28.0:
+    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
+    engines: {node: '>=20.18.1'}
+
   undici@8.5.0:
     resolution: {integrity: sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg==}
     engines: {node: '>=22.19.0'}
@@ -12141,7 +12146,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.1
-      undici: 8.5.0
+      undici: 7.28.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -14825,6 +14830,8 @@ snapshots:
       layerr: 0.1.2
 
   undici-types@7.18.2: {}
+
+  undici@7.28.0: {}
 
   undici@8.5.0: {}
 
