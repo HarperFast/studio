@@ -36,6 +36,12 @@ export function stripUtmParams(search: string): string {
  * route) via history.replaceState so the current view is unaffected.
  */
 export function clearUtmParamsFromUrl(): void {
+	// Guard the browser globals so importing/calling this in a non-DOM context
+	// (e.g. the node-based test environment) is a harmless no-op rather than a
+	// ReferenceError.
+	if (typeof location === 'undefined' || typeof history === 'undefined') {
+		return;
+	}
 	const { search, pathname, hash, origin } = location;
 	const nextSearch = stripUtmParams(search);
 	if (nextSearch === search) {
