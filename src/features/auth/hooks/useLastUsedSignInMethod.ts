@@ -17,16 +17,18 @@ export function useLastUsedSignInMethod() {
 	const [lastUsed, setLastUsed] = useLocalStorage<SignInMethod | null>(LocalStorageKeys.LastUsedSignInMethod, null);
 
 	/**
-	 * Persist the chosen method synchronously. The OAuth buttons navigate away on click, so we
-	 * cannot rely on `useLocalStorage`'s effect-based write to flush before the redirect.
+	 * Record the chosen method. Writes straight to storage because the OAuth buttons navigate away
+	 * on click and `useLocalStorage`'s effect-based write may not flush before the redirect; also
+	 * updates React state so the badge stays in sync if navigation is delayed or interrupted.
 	 */
 	const recordMethod = useCallback(
 		(method: SignInMethod) => {
 			if (remember) {
 				setLocalStorage(LocalStorageKeys.LastUsedSignInMethod, method);
+				setLastUsed(method);
 			}
 		},
-		[remember],
+		[remember, setLastUsed],
 	);
 
 	const disable = useCallback(() => {

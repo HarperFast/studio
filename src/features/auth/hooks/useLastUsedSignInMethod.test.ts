@@ -24,9 +24,8 @@ describe('useLastUsedSignInMethod', () => {
 		act(() => result.current.recordMethod('github'));
 		// Written straight to storage so it survives the OAuth redirect navigation.
 		expect(window.localStorage.getItem(LocalStorageKeys.LastUsedSignInMethod)).toBe('"github"');
-		// A fresh mount reads it back as the last-used method.
-		const { result: reread } = renderHook(() => useLastUsedSignInMethod());
-		expect(reread.current.lastUsed).toBe('github');
+		// ...and reflected immediately in the hook state.
+		expect(result.current.lastUsed).toBe('github');
 	});
 
 	it('does not record the method when remembering is disabled', () => {
