@@ -124,7 +124,9 @@ export function ImportAuthorization({
 					<Alert>
 						<CheckCircle2Icon className="h-4 w-4" />
 						<AlertDescription>
-							This URL targets <code>{keyHost}</code>, matching the selected key.
+							<span>
+								This URL targets <code>{keyHost}</code>, matching the selected key.
+							</span>
 						</AlertDescription>
 					</Alert>
 				)}
