@@ -73,4 +73,9 @@ describe('clearUtmParamsFromUrl', () => {
 		clearUtmParamsFromUrl();
 		expect(replaceState).not.toHaveBeenCalled();
 	});
+
+	it('is a harmless no-op when browser globals are unavailable', () => {
+		// No stubs: `location`/`history` are undefined in the node test env.
+		expect(() => clearUtmParamsFromUrl()).not.toThrow();
+	});
 });
