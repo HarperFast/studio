@@ -272,7 +272,7 @@
 .swagger-ui .dialog-ux .modal-ux {
 	display: flex;
 	flex-direction: column;
-	max-height: calc(100vh - 2rem);
+	max-height: calc(100dvh - 2rem); /* dvh, not vh: account for mobile dynamic toolbars/keyboard */
 	overflow: hidden; /* clip the scrolling body to the rounded corners */
 }
 .swagger-ui .dialog-ux .modal-dialog-ux,
