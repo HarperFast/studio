@@ -22,7 +22,7 @@ async function getSSHKey({ name, instanceClient }: GetSSHKeyFormData) {
 
 export function getSSHKeyQueryOptions(params: GetSSHKeyFormData) {
 	return queryOptions({
-		queryKey: [params.entityId, 'get_ssh_key'] as const,
+		queryKey: [params.entityId, 'get_ssh_key', params.name] as const,
 		queryFn: () => getSSHKey(params),
 		refetchInterval: 10_000,
 	});
