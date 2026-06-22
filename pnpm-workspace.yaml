@@ -29,7 +29,7 @@ overrides:
   # Force patched versions of stale transitive deps flagged by Dependabot.
   # All are transitive-only; bumping the minimum clears the advisories.
   handlebars: '^4.7.9'
-  'undici@>=7.0.0': '^7.28.0'
+  'undici@>=7.0.0': '^8.0.0'
   # undici 6.x comes in via semantic-release's @actions/http-client (^6.23.0).
   'undici@<6.27.0': '^8.0.0'
   lodash-es: '^4.18.1'
