@@ -6,7 +6,7 @@ import { useGlobalShortcutKeys } from '@/features/instance/applications/shortcut
 import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
 import { joinPath } from '@/lib/string/paths/joinPath';
 import { useCallback, useEffect, useMemo } from 'react';
-import { ControlledTreeEnvironment, Tree, TreeItem } from 'react-complex-tree';
+import { ControlledTreeEnvironment, InteractionMode, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { DraggingPosition } from 'react-complex-tree/src/types';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { buildItems } from './buildItems';
 import { DropTarget } from './DropTarget';
 import { FileTreeContextMenu } from './FileTreeContextMenu';
 import { getItemTitle } from './getItemTitle';
+import { ItemArrow } from './ItemArrow';
 import { ItemTitle } from './ItemTitle';
 
 export function ApplicationsSidebar() {
@@ -77,9 +78,11 @@ export function ApplicationsSidebar() {
 					canReorderItems={false}
 					canSearch={true}
 					canRename={false}
+					defaultInteractionMode={InteractionMode.DoubleClickItemToExpand}
 					getItemTitle={getItemTitle}
 					items={items}
 					onDrop={onInternalDrop}
+					renderItemArrow={ItemArrow}
 					renderItemTitle={ItemTitle}
 					viewState={{ applicationsTree: { focusedItem, expandedItems, selectedItems } }}
 					onFocusItem={item => setFocusedItem(item.index)}
