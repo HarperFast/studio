@@ -260,6 +260,38 @@
 	box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
 }
 
+/* Fit-to-viewport & scroll (#1310) — Swagger centres the dialog with
+ * `top: 50%; transform: translate(-50%, -50%)` and caps only the body at a
+ * fixed `max-height: 540px`. When the form is taller than the viewport the
+ * modal overflows both edges, pushing the header and the Authorize/Close
+ * buttons (which sit at the foot of the body) off-screen with no way to reach
+ * them — the body is the lone scroll region yet is itself partly clipped. Cap
+ * the whole dialog at the viewport and lay it out as a flex column so the
+ * header stays pinned while the body scrolls, buttons included. Mirrors
+ * DialogContent's `max-h-screen overflow-y-auto`. */
+.swagger-ui .dialog-ux .modal-ux {
+	display: flex;
+	flex-direction: column;
+	max-height: calc(100vh - 2rem);
+	overflow: hidden; /* clip the scrolling body to the rounded corners */
+}
+.swagger-ui .dialog-ux .modal-dialog-ux,
+.swagger-ui .dialog-ux .modal-ux-inner {
+	display: flex;
+	flex: 1 1 auto;
+	flex-direction: column;
+	min-height: 0; /* let the body shrink below its content height so it can scroll */
+}
+.swagger-ui .dialog-ux .modal-ux-header {
+	flex: 0 0 auto;
+}
+.swagger-ui .dialog-ux .modal-ux-content {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: none; /* override Swagger's fixed 540px */
+	overflow-y: auto;
+}
+
 .swagger-ui .dialog-ux .modal-ux-header {
 	border-bottom: 1px solid var(--border);
 }
