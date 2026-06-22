@@ -17,6 +17,9 @@ export const ImportSchema = z.object({
 	ref: z.string().nonempty('Please enter a URL or package reference.'),
 	installCommand: z.string(),
 	requiresAuth: z.boolean(),
+	// The SSH key the import URL is expected to use. Form-only state used to verify the URL's host
+	// — it is not sent to deploy_component (the backend resolves the key from the URL host alias).
+	sshKeyName: z.string(),
 });
 
 export const defaultImportOptions: z.infer<typeof ImportSchema> = {
@@ -25,6 +28,7 @@ export const defaultImportOptions: z.infer<typeof ImportSchema> = {
 	ref: '',
 	requiresAuth: false,
 	installCommand: '',
+	sshKeyName: '',
 };
 
 export const CLISchema = z.object({

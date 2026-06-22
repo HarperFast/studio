@@ -1,4 +1,3 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -9,11 +8,11 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link } from '@tanstack/react-router';
 import { GitMergeIcon, LinkIcon, PackageIcon, RocketIcon } from 'lucide-react';
 import { useCallback } from 'react';
 import { Control, FormState, UseFormSetValue, UseFormWatch } from 'react-hook-form';
 import { z } from 'zod';
+import { ImportAuthorization } from './ImportAuthorization';
 import { NewApplicationSchema } from './schema';
 
 export function ImportInstructions({
@@ -153,61 +152,7 @@ export function ImportInstructions({
 					)}
 				/>
 
-				<FormLabel>Authorization</FormLabel>
-				<FormField
-					control={control}
-					name="contents.requiresAuth"
-					render={({ field }) => (
-						<Tabs
-							className="w-full pt-2 pb-0 mb-0"
-							value={String(field.value)}
-							onValueChange={value => field.onChange(value === 'true')}
-						>
-							<TabsList className="grid w-full grid-cols-2">
-								<TabsTrigger value="false">
-									Public Access
-								</TabsTrigger>
-								<TabsTrigger value="true">
-									Requires Auth
-								</TabsTrigger>
-							</TabsList>
-
-							<TabsContent value="false" className="space-y-4 mt-4">
-							</TabsContent>
-
-							<TabsContent value="true" className="space-y-4 mt-4">
-								<Alert>
-									<AlertDescription>
-										<span>
-											You can manage your certificates over in{' '}
-											<Link
-												to="config"
-												className="underline"
-											>
-												Config
-											</Link>{' '}
-											&gt;{' '}
-											<Link
-												to="config/ssh-keys"
-												className="underline"
-											>
-												SSH Keys
-											</Link>. This enables SSH based auth for private repos, i.e. following the pattern of{' '}
-											<a
-												href="https://github.com/HarperFast/Studio"
-												target="_blank"
-												rel="noreferrer"
-												className="underline"
-											>
-												git@github.com:HarperFast/studio.git
-											</a>. If you have more than one key, make sure to utilize unique hostnames!
-										</span>
-									</AlertDescription>
-								</Alert>
-							</TabsContent>
-						</Tabs>
-					)}
-				/>
+				{importSource === 'git' && <ImportAuthorization control={control} setValue={setValue} watch={watch} />}
 
 				<Separator className="bg-border" />
 
