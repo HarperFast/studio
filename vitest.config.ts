@@ -13,6 +13,9 @@ export default defineConfig({
 		exclude: [
 			'**/node_modules/**',
 			'**/dist/**',
+			// Nested git worktrees live under .claude/worktrees/; without this
+			// their test files get swept into runs from the main checkout.
+			'**/.claude/worktrees/**',
 		],
 		setupFiles: [
 			'./src/features/instance/status/analytics/__tests__/setup.ts',
