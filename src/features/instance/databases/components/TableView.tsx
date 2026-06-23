@@ -101,7 +101,12 @@ export function TableView<TData, TValue>({
 				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
 					{table.getRowModel().rows?.length
 						? (table.getRowModel().rows.map((row) => (
-							<TableBodyRow key={row.id} row={row} onRowClick={onRowClick} primaryKey={primaryKey} />
+							<TableBodyRow
+								key={row.id}
+								row={row}
+								onRowClick={onRowClick}
+								primaryKey={primaryKey}
+							/>
 						)))
 						: (
 							<TableRow>
@@ -129,10 +134,13 @@ export function TableView<TData, TValue>({
 function TableBodyRow<TData>(
 	{ row, primaryKey, onRowClick }: { row: Row<TData>; primaryKey?: string; onRowClick?: (row: Row<TData>) => void },
 ) {
+	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
+	// visible columns change, so depending on it keeps the body in step with the
+	// header (a hidden column must leave the body too, not just the header).
+	const visibleCells = row.getVisibleCells();
 	const cells = useMemo(() => {
 		const original = row.original as Record<string, unknown>;
 		const isExpired = original && original.message === 'This entry has expired';
-		const visibleCells = row.getVisibleCells();
 
 		if (isExpired) {
 			if (visibleCells[0]?.column?.id === primaryKey) {
@@ -146,7 +154,7 @@ function TableBodyRow<TData>(
 			];
 		}
 		return visibleCells.map((cell) => <TableBodyRowCell key={cell.id} cell={cell} />);
-	}, [row, primaryKey]);
+	}, [row, primaryKey, visibleCells]);
 
 	return (
 		<TableRow
