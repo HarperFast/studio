@@ -1,4 +1,3 @@
-import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -33,7 +32,7 @@ export function ImportAuthorization({
 	const ref = watch('contents.ref');
 	const sshKeyName = watch('contents.sshKeyName');
 
-	const { data: sshKeys, isLoading: areKeysLoading, isError: isKeysError } = useQuery({
+	const { data: sshKeys } = useQuery({
 		...listSSHKeysQueryOptions(instanceParams),
 		enabled: requiresAuth,
 	});
@@ -56,38 +55,7 @@ export function ImportAuthorization({
 	}, [setValue, suggestedUrl]);
 
 	let body: ReactNode;
-	if (areKeysLoading) {
-		body = <TextLoadingSkeleton className="w-full" />;
-	} else if (isKeysError) {
-		body = (
-			<Alert variant="destructive">
-				<AlertDescription>
-					Failed to load SSH keys. Please try again.
-				</AlertDescription>
-			</Alert>
-		);
-	} else if (!sshKeys || sshKeys.length === 0) {
-		body = (
-			<Alert>
-				<AlertDescription>
-					<span>
-						You don't have any SSH keys yet. Add one over in <Link to="config" className="underline">Config</Link> &gt;
-						{' '}
-						<Link to="config/ssh-keys" className="underline">SSH Keys</Link>{' '}
-						to enable SSH based auth for private repos, i.e. following the pattern of{' '}
-						<a
-							href="https://github.com/HarperFast/Studio"
-							target="_blank"
-							rel="noreferrer"
-							className="underline"
-						>
-							git@github.com:HarperFast/studio.git
-						</a>. If you have more than one key, make sure to utilize unique hostnames!
-					</span>
-				</AlertDescription>
-			</Alert>
-		);
-	} else {
+	if (sshKeys && sshKeys.length > 0) {
 		body = (
 			<>
 				<FormField
@@ -149,6 +117,29 @@ export function ImportAuthorization({
 					</Alert>
 				)}
 			</>
+		);
+	} else {
+		// No keys configured yet, still loading, or the list couldn't be fetched. Fall back to the
+		// informational guidance the screen showed before the picker existed, so a slow or failing
+		// list_ssh_keys degrades gracefully instead of surfacing a loading bar or an error.
+		body = (
+			<Alert>
+				<AlertDescription>
+					<span>
+						Manage your SSH keys in <Link to="config" className="underline">Config</Link> &gt;{' '}
+						<Link to="config/ssh-keys" className="underline">SSH Keys</Link>. This enables SSH based auth for private
+						repos, i.e. following the pattern of{' '}
+						<a
+							href="https://github.com/HarperFast/Studio"
+							target="_blank"
+							rel="noreferrer"
+							className="underline"
+						>
+							git@github.com:HarperFast/studio.git
+						</a>. If you have more than one key, make sure to utilize unique hostnames!
+					</span>
+				</AlertDescription>
+			</Alert>
 		);
 	}
 
