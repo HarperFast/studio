@@ -19,8 +19,8 @@ function isJsonString(str: string): boolean {
  * messages render as `plaintext`, which has no language worker — the same guard
  * the Applications editor applies to large files.
  */
-export function chooseLogEditorLanguage(message: string): 'json' | 'plaintext' {
-	if (message.length > MAX_WORKER_MODEL_CHARS) {
+export function chooseLogEditorLanguage(message: string | undefined | null): 'json' | 'plaintext' {
+	if (!message || message.length > MAX_WORKER_MODEL_CHARS) {
 		return 'plaintext';
 	}
 	return isJsonString(message) ? 'json' : 'plaintext';
