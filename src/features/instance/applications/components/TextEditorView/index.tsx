@@ -2,10 +2,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ALL_EDITOR_COMMAND_IDS } from '@/features/instance/applications/components/editorMenuCommands';
 import { setEditorShortcutLabels } from '@/features/instance/applications/components/editorShortcutLabels';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
-import {
-	MAX_WORKER_MODEL_CHARS,
-	useApplicationTypeIntelligence,
-} from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
+import { useApplicationTypeIntelligence } from '@/features/instance/applications/hooks/useApplicationTypeIntelligence';
 import { useCodeNavigation } from '@/features/instance/applications/hooks/useCodeNavigation';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { registerWithEditor } from '@/features/instance/applications/shortcuts';
@@ -13,6 +10,7 @@ import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useListener } from '@/lib/events/listener';
 import { Editor } from '@/lib/monaco/MonacoEditor';
+import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { parseFileExtension } from '@/lib/string/parseFileExtension';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useState } from 'react';
