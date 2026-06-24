@@ -11,8 +11,10 @@ describe('chooseLogEditorLanguage', () => {
 		expect(chooseLogEditorLanguage('plain log line, not json')).toBe('plaintext');
 	});
 
-	it('treats an empty message as plaintext', () => {
+	it('treats an empty or nullish message as plaintext', () => {
 		expect(chooseLogEditorLanguage('')).toBe('plaintext');
+		expect(chooseLogEditorLanguage(undefined)).toBe('plaintext');
+		expect(chooseLogEditorLanguage(null)).toBe('plaintext');
 	});
 
 	it('renders an oversized JSON message as plaintext to avoid the worker OOM', () => {
