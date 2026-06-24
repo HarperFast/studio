@@ -1,5 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
+import { discardExpectedInstanceErrors } from '@/integrations/datadog/discardExpectedInstanceErrors';
 import { translateUrlForDatadog } from '@/integrations/datadog/translateUrlForDatadog';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { isLocalUser } from '@/lib/types/isLocalUser';
@@ -10,48 +11,6 @@ import { useEffect } from 'react';
 
 let initialized = false;
 const enabled = !import.meta.env.DEV && !isLocalStudio;
-
-/**
- * Reaching an instance can legitimately fail when it's down, restarting, or the
- * user lacks Fabric Connect — these are expected states, not Studio bugs, and they
- * otherwise flood Error Tracking. Drop connectivity-class errors (timeouts, network
- * failures) against instance/cluster operation endpoints so they don't create issues.
- *
- * Returning false discards the event entirely.
- */
-function discardExpectedInstanceErrors(
-	event: { type: string; error?: { message?: string; source?: string; resource?: { url?: string } } },
-) {
-	if (event.type !== 'error') {
-		return true;
-	}
-	const message = event.error?.message ?? '';
-	const source = event.error?.source;
-
-	// Aborted requests are client-initiated cancellations (navigating away, a
-	// component unmounting, React Query cancelling an in-flight query) — not failures.
-	// Safe to drop globally regardless of endpoint.
-	if (/Request aborted/i.test(message)) {
-		return false;
-	}
-
-	// Belt-and-suspenders: any stray "Fabric Connect not established" breadcrumb.
-	if (message.includes('Fabric Connect not established')) {
-		return false;
-	}
-
-	// Network failures (timeouts, connection refused) against an instance/cluster.
-	const url = event.error?.resource?.url ?? '';
-	const isInstanceEndpoint = /\/(HDBInstance|Cluster)\/[^/]+\/operation/.test(url);
-	const isConnectivityFailure = /timeout of \d+ms exceeded/i.test(message)
-		|| /Network Error/i.test(message)
-		|| source === 'network';
-	if (isInstanceEndpoint && isConnectivityFailure) {
-		return false;
-	}
-
-	return true;
-}
 
 export function useDatadog() {
 	useEffect(() => {
