@@ -1,6 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
-import { discardExpectedInstanceErrors } from '@/integrations/datadog/discardExpectedInstanceErrors';
+import { shouldKeepEvent } from '@/integrations/datadog/shouldKeepEvent';
 import { translateUrlForDatadog } from '@/integrations/datadog/translateUrlForDatadog';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { isLocalUser } from '@/lib/types/isLocalUser';
@@ -33,7 +33,7 @@ export function useDatadog() {
 				trackViewsManually: true,
 				trackUserInteractions: true,
 
-				beforeSend: discardExpectedInstanceErrors,
+				beforeSend: shouldKeepEvent,
 
 				sessionSampleRate: 100,
 				sessionReplaySampleRate: 0,

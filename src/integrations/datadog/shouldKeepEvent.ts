@@ -12,20 +12,21 @@ export interface DatadogErrorEvent {
 }
 
 /**
+ * Datadog `beforeSend` predicate: returns true to keep the event, false to discard
+ * it (false is what tells RUM to drop the event). Wired straight into `beforeSend`.
+ *
  * Reaching an instance can legitimately fail when it's down, restarting, or the
  * user lacks Fabric Connect — these are expected states, not Studio bugs, and they
- * otherwise flood Error Tracking. Drop connectivity-class errors (timeouts, network
- * failures) so they don't create issues.
+ * otherwise flood Error Tracking. We drop connectivity-class errors (timeouts,
+ * network failures) so they don't create issues.
  *
  * These errors reach RUM two ways: as tracked resource errors (which carry an
  * `error.resource.url`) and as handled AxiosErrors surfaced through `console.error`
  * — most notably React Query's global error handler — which do NOT. The URL-based
  * endpoint check below only ever sees the former, so the URL-less timeouts slipped
  * past it and flooded Error Tracking (issue #1371).
- *
- * Returning false discards the event entirely.
  */
-export function discardExpectedInstanceErrors(event: DatadogErrorEvent) {
+export function shouldKeepEvent(event: DatadogErrorEvent) {
 	if (event.type !== 'error') {
 		return true;
 	}
