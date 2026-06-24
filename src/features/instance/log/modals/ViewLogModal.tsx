@@ -7,15 +7,7 @@ import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
-
-function isJsonString(str: string) {
-	try {
-		JSON.parse(str);
-	} catch {
-		return false;
-	}
-	return true;
-}
+import { chooseLogEditorLanguage } from './logEditorLanguage';
 
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
@@ -76,7 +68,7 @@ export function ViewLogModal({
 								<div className="rounded-md overflow-hidden border border-border/50 flex-1 min-h-0">
 									<Editor
 										className="w-full h-full"
-										language={isJsonString(data.message) ? 'json' : 'text'}
+										language={chooseLogEditorLanguage(data.message)}
 										theme={monacoTheme}
 										value={data.message}
 										options={{

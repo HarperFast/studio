@@ -29,6 +29,7 @@ import { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { getComponentFileQueryOptions } from '@/integrations/api/instance/applications/getComponentFile';
 import { typescript } from '@/lib/monaco/languageServices';
+import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { useQueryClient } from '@tanstack/react-query';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 import { useEffect, useMemo, useRef } from 'react';
@@ -42,17 +43,6 @@ const IGNORED_DIR = /^(node_modules|dist|build|out|coverage|\.git|\.next|\.turbo
 const IGNORED_FILE = /^(package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/i;
 /** Cap simultaneous file fetches so large projects don't flood the connection pool. */
 const FETCH_CONCURRENCY = 5;
-/**
- * Skip files larger than this when feeding the language worker. Monaco clones a
- * model's full text to its worker over `postMessage` (structured clone), and
- * `setEagerModelSync(true)` does so for every model we create here. A large
- * file — a checked-in bundle, generated data, a minified vendor script — can
- * overflow the clone buffer and crash the worker with "DataCloneError: Data
- * cannot be cloned, out of memory.", and even short of that it bloats worker
- * memory and slows the language service. Real source never approaches this, and
- * such files add nothing to IntelliSense.
- */
-export const MAX_WORKER_MODEL_CHARS = 512 * 1024;
 
 type AnyEntry = DirectoryEntry | FileEntry;
 
