@@ -1,7 +1,55 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
+
+/**
+ * Fix the monaco-yaml language worker dropping every provider call (studio#1376).
+ *
+ * monaco-yaml runs its YAML language service in a web worker, bootstrapped by
+ * `monaco-worker-manager`. That bootstrap (node_modules/monaco-worker-manager/worker.js)
+ * imports Monaco's `initialize` from `monaco-editor/esm/vs/editor/editor.worker.js`.
+ *
+ * `editor.worker.js` is meant to be Monaco's *default* editor worker, so it has a
+ * top-level side effect: it installs a `self.onmessage` handler that boots the worker
+ * with an EMPTY foreign module (`start(() => ({}))`). monaco-worker-manager only wants
+ * that file's `initialize` re-export and immediately overwrites `self.onmessage` with
+ * its own handler — but the empty-module handler is set first, during the worker's async
+ * module evaluation, so it can win the startup race. When it does, the worker exposes no
+ * YAML methods and every monaco-yaml provider call rejects with
+ * "Missing requestHandler or method: <getFoldingRanges|findDocumentSymbols|findLinks|doValidation|getCodeAction>".
+ *
+ * Monaco's own language workers (css/json/html/ts) sidestep this by importing the
+ * identical `initialize` from `monaco-editor/esm/vs/common/initialize.js`, which has no
+ * such side effect. We rewrite monaco-worker-manager's import to point there too. This is
+ * the only consumer of `editor.worker.js`'s `initialize` re-export; the default editor
+ * worker still imports `editor.worker.js` directly and keeps its (correct) empty module.
+ *
+ * Done at build time rather than via a node_modules patch because the install is shared
+ * across git worktrees. monaco-worker-manager is unmaintained at 2.0.1 (no upstream fix).
+ * The transform throws if the expected import disappears so a dependency bump can't
+ * silently reintroduce the bug.
+ */
+function fixMonacoYamlWorkerInit(): Plugin {
+	const TARGET = /monaco-worker-manager\/worker\.js$/;
+	const FROM = 'monaco-editor/esm/vs/editor/editor.worker.js';
+	const TO = 'monaco-editor/esm/vs/common/initialize.js';
+	return {
+		name: 'fix-monaco-yaml-worker-init',
+		enforce: 'pre',
+		transform(code, id) {
+			if (!TARGET.test(id.replace(/\\/g, '/'))) { return null; }
+			if (!code.includes(FROM)) {
+				throw new Error(
+					`[fix-monaco-yaml-worker-init] Expected import of "${FROM}" in monaco-worker-manager/worker.js `
+						+ 'was not found — the package changed. Re-verify whether studio#1376 (empty-foreign-module '
+						+ 'worker race) is still present before removing this workaround.',
+				);
+			}
+			return { code: code.replace(FROM, TO), map: null };
+		},
+	};
+}
 
 // The build-mode env files (dev/stage/prod for deploys, localstudio for the
 // bundled-with-harper UI) are versioned in .github/deploy-public-env to keep the
@@ -15,9 +63,12 @@ export default defineConfig(({ mode }) => ({
 	envDir: PUBLIC_ENV_MODES.has(mode) ? path.resolve(__dirname, '.github/deploy-public-env') : undefined,
 	plugins: [react(), tailwindcss()],
 	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
-	// modules; the default 'iife' worker format breaks them.
+	// modules; the default 'iife' worker format breaks them. `plugins` here applies to the
+	// worker bundles specifically — Vite does not run the top-level `plugins` against them
+	// during `vite build` — which is where the monaco-yaml worker fix has to live.
 	worker: {
 		format: 'es',
+		plugins: () => [fixMonacoYamlWorkerInit()],
 	},
 	resolve: {
 		alias: {
