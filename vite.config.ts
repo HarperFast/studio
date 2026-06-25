@@ -31,7 +31,9 @@ import { defineConfig, type Plugin } from 'vite';
  * silently reintroduce the bug.
  */
 function fixMonacoYamlWorkerInit(): Plugin {
-	const TARGET = /monaco-worker-manager\/worker\.js$/;
+	// Allow a trailing query (e.g. Vite's `?v=…` dep-optimizer hash) so the match
+	// isn't silently skipped when the module id carries one.
+	const TARGET = /monaco-worker-manager\/worker\.js(?:\?|$)/;
 	const FROM = 'monaco-editor/esm/vs/editor/editor.worker.js';
 	const TO = 'monaco-editor/esm/vs/common/initialize.js';
 	return {
