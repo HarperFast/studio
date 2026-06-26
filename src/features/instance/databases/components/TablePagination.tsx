@@ -2,9 +2,10 @@
 
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { cn } from '@/lib/cn';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, Loader2Icon } from 'lucide-react';
 import { ComponentProps, Dispatch, FormEvent, SetStateAction, useState } from 'react';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 250];
@@ -14,12 +15,29 @@ interface TablePaginationProps {
 	pageSize: number;
 	totalPages?: number;
 	totalRecords?: number;
+	/** When true the count is an approximation and an exact count can be requested. */
+	isEstimatedCount?: boolean;
+	/** Server-provided confidence interval [low, high] for an estimated count. */
+	estimatedRange?: [number, number];
+	isExactCountFetching?: boolean;
+	onRequestExactCount?: () => void;
 	setPageIndex: Dispatch<SetStateAction<number>>;
 	setPageSize: Dispatch<SetStateAction<number>>;
 }
 
 export function TablePagination(
-	{ pageIndex, pageSize, totalPages, totalRecords, setPageIndex, setPageSize }: TablePaginationProps,
+	{
+		pageIndex,
+		pageSize,
+		totalPages,
+		totalRecords,
+		isEstimatedCount,
+		estimatedRange,
+		isExactCountFetching,
+		onRequestExactCount,
+		setPageIndex,
+		setPageSize,
+	}: TablePaginationProps,
 ) {
 	const isLoading = totalPages === undefined || totalRecords === undefined;
 	const pageCount = totalPages && totalPages > 0 ? totalPages : 1;
@@ -53,6 +71,15 @@ export function TablePagination(
 					<span>
 						{isLoading
 							? <TextLoadingSkeleton />
+							: isEstimatedCount
+							? (
+								<EstimatedRecordCount
+									totalRecords={totalRecords}
+									estimatedRange={estimatedRange}
+									isExactCountFetching={isExactCountFetching}
+									onRequestExactCount={onRequestExactCount}
+								/>
+							)
 							: <>{addCommasToNumbers(totalRecords)} {totalRecords === 1 ? 'record' : 'records'}</>}
 					</span>
 				</div>
@@ -112,6 +139,55 @@ export function TablePagination(
 				<GoToPage pageCount={pageCount} disabled={isLoading || pageCount <= 1} onGo={goToPage} />
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Renders an estimated record count as a hoverable "~N records". The tooltip explains the estimate
+ * (with the server's confidence interval, when available) and offers a button to compute the exact
+ * count on demand -- that triggers the unbounded count scan only when the user actually wants it.
+ */
+function EstimatedRecordCount({ totalRecords, estimatedRange, isExactCountFetching, onRequestExactCount }: {
+	totalRecords: number;
+	estimatedRange?: [number, number];
+	isExactCountFetching?: boolean;
+	onRequestExactCount?: () => void;
+}) {
+	const noun = totalRecords === 1 ? 'record' : 'records';
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<button
+					type="button"
+					className="cursor-help underline decoration-dotted underline-offset-4"
+					aria-label={`Approximately ${addCommasToNumbers(totalRecords)} ${noun} (estimated)`}
+				>
+					~{addCommasToNumbers(totalRecords)} {noun}
+				</button>
+			</TooltipTrigger>
+			<TooltipContent side="top" align="start" className="flex max-w-60 flex-col gap-2 p-3 text-left">
+				<span>
+					Estimated count.{estimatedRange
+						? (
+							<>
+								{' '}Likely between {addCommasToNumbers(estimatedRange[0])} and {addCommasToNumbers(estimatedRange[1])}.
+							</>
+						)
+						: null}
+				</span>
+				<button
+					type="button"
+					onClick={onRequestExactCount}
+					disabled={isExactCountFetching}
+					className="inline-flex items-center justify-center gap-1.5 self-start rounded border
+						border-primary-foreground/30 bg-primary-foreground/10 px-2 py-1 font-medium transition-colors
+						hover:bg-primary-foreground/20 disabled:pointer-events-none disabled:opacity-60"
+				>
+					{isExactCountFetching && <Loader2Icon className="size-3 animate-spin" />}
+					{isExactCountFetching ? 'Counting…' : 'Get exact count'}
+				</button>
+			</TooltipContent>
+		</Tooltip>
 	);
 }
 

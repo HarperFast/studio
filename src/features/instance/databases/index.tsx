@@ -15,7 +15,12 @@ export function Databases() {
 	} = useParams({ strict: false });
 
 	const instanceParams = useInstanceClientIdParams();
-	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceParams));
+	// Skip the per-table record-count scan here: the sidebar and table view only need schema to render,
+	// and the selected table's count is fetched separately (see DatabaseTableView) so a slow count never
+	// blocks the database tree or the first page of records from appearing.
+	const { data: instanceDatabaseMap } = useQuery(
+		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true }),
+	);
 
 	let newDatabaseName: string | undefined;
 	let newTableName: string | undefined;
