@@ -39,6 +39,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	isEstimatedCount?: boolean;
 	estimatedRange?: [number, number];
 	isExactCountFetching?: boolean;
+	isExactCountError?: boolean;
 	onRequestExactCount?: () => void;
 }
 
@@ -62,6 +63,7 @@ export function TableView<TData, TValue>({
 	isEstimatedCount,
 	estimatedRange,
 	isExactCountFetching,
+	isExactCountError,
 	onRequestExactCount,
 }: BrowseDataTableProps<TData, TValue>) {
 	const table = useReactTable({
@@ -135,6 +137,7 @@ export function TableView<TData, TValue>({
 				isEstimatedCount={isEstimatedCount}
 				estimatedRange={estimatedRange}
 				isExactCountFetching={isExactCountFetching}
+				isExactCountError={isExactCountError}
 				onRequestExactCount={onRequestExactCount}
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}

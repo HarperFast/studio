@@ -44,7 +44,11 @@ export function EditRoleModal({
 
 	const instanceParams = useInstanceClientIdParams();
 	const [isValidJSON, setIsValidJSON] = useState(true);
-	const { data: instanceDatabaseMap } = useQuery(getDescribeAllQueryOptions(instanceParams));
+	// Permission editing only needs the schema tree (attributes), never record counts, so skip the count
+	// scan -- and share the same count-free describe_all cache entry the Databases tab populates.
+	const { data: instanceDatabaseMap } = useQuery(
+		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true }),
+	);
 	const { data: registrationInfo } = useQuery(
 		getRegistrationInfoQueryOptions(instanceParams),
 	);
