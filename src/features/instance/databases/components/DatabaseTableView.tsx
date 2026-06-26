@@ -25,6 +25,7 @@ import {
 } from '@/integrations/api/instance/database/getSearchByConditions';
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValue, getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
+import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
 import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
@@ -85,7 +86,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			tableName,
 		}),
 	);
-	const attributesMap = useMemo(() => keyBy(describeTableData?.attributes ?? [], 'attribute'), [describeTableData]);
+	// describe_all (which feeds `instanceDatabaseMap`) is fetched without record counts so it returns fast;
+	// describe_table backfills this table's count asynchronously. Render schema from whichever arrives first
+	// -- the map is usually ready before describe_table -- so columns and records are never gated on the
+	// (slower) count scan. describe_table wins once present: it's the per-table, refresh-invalidated copy.
+	const tableFromMap = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const instanceTable = describeTableData ?? tableFromMap;
+	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -136,7 +143,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return clearFilters();
 	}, [allParams, clearFilters]);
 
-	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(describeTableData);
+	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
@@ -150,8 +157,25 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName]);
 	const [pageSize, setPageSize] = useState(20);
 
-	const totalRecords = describeTableData?.record_count;
-	const totalPages = describeTableData?.record_count ? Math.ceil(describeTableData.record_count / pageSize) : 0;
+	// The count comes from whichever describe carries it: the map when the server still returns counts
+	// (older backends), otherwise describe_table's async backfill. The first pass is always the cheap
+	// estimate (a plain describe_table caps the count scan at ~500ms); the server returns an exact value
+	// for small tables (no `estimated_record_range`) and a rounded estimate + range for large ones.
+	const estimatedCount = describeTableData?.record_count ?? tableFromMap?.record_count;
+	const estimatedRange = describeTableData?.estimated_record_range ?? tableFromMap?.estimated_record_range;
+
+	// Exact count is opt-in: it forces a full, unbounded scan, so we only run it when the user asks for
+	// it from the pagination tooltip. Reset the request when the table changes.
+	const [wantExactCount, setWantExactCount] = useEffectedState(false, [databaseName, tableName]);
+	const requestExactCount = useCallback(() => setWantExactCount(true), [setWantExactCount]);
+	const { data: exactCount, isFetching: isExactCountFetching } = useQuery(
+		getTableRecordCountQueryOptions({ ...instanceParams, enabled: wantExactCount, databaseName, tableName }),
+	);
+
+	const totalRecords = exactCount ?? estimatedCount;
+	const totalPages = totalRecords ? Math.ceil(totalRecords / pageSize) : 0;
+	// A count is approximate only while we're still showing the estimate and the server flagged it as one.
+	const isEstimatedCount = exactCount === undefined && estimatedRange !== undefined;
 
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
@@ -482,6 +506,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				onColumnClick={onColumnClick}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
+				isEstimatedCount={isEstimatedCount}
+				estimatedRange={estimatedRange}
+				isExactCountFetching={isExactCountFetching}
+				onRequestExactCount={requestExactCount}
 				pageIndex={pageIndex}
 				pageSize={pageSize}
 				columnFiltersForm={columnFiltersForm}
@@ -489,9 +517,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>
-			{canAddRecords && describeTableData && isAddModalOpen && (
+			{canAddRecords && instanceTable && isAddModalOpen && (
 				<AddTableRowModal
-					instanceTable={describeTableData}
+					instanceTable={instanceTable}
 					isModalOpen={isAddModalOpen}
 					refreshTable={refreshTable}
 					setIsModalOpen={setIsAddModalOpen}

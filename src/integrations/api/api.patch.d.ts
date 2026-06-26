@@ -152,7 +152,10 @@ export interface InstanceTable {
 	schema_defined: boolean;
 	db_size: number;
 	sources: unknown[];
-	record_count: number;
+	/** Omitted when describe is requested with `skip_record_count` (the count scan is expensive). */
+	record_count?: number;
+	/** Present (alongside an estimated `record_count`) when the count exceeded the server's exact-count budget. */
+	estimated_record_range?: [number, number];
 	table_size: number;
 	db_audit_size: number;
 	last_updated_record?: number;
