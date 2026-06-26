@@ -14,8 +14,12 @@ interface GetDescribeAllParams extends InstanceClientIdConfig {
 export async function getDescribeAll({ instanceClient, skipRecordCount }: GetDescribeAllParams) {
 	const { data } = await instanceClient.post<InstanceDatabaseMap>('/', {
 		operation: 'describe_all',
-		// Ignored by servers that predate the flag, so this is safe to send unconditionally.
+		// When we don't need counts, ask the server to skip them entirely. Pair it with `exact_count: false`
+		// so an older server that doesn't understand `skip_record_count` still takes its cheap (time-bounded)
+		// estimate path rather than a full exact scan. Both keys are ignored by servers that predate them, so
+		// this is safe: newer servers don't count at all, older ones at least never count exactly.
 		skip_record_count: skipRecordCount || undefined,
+		exact_count: skipRecordCount ? false : undefined,
 	});
 	return data;
 }
