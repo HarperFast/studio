@@ -78,4 +78,26 @@ describe('TablePagination record count', () => {
 		const action = screen.getAllByRole('button', { name: /counting/i })[0];
 		expect(action.hasAttribute('disabled')).toBe(true);
 	});
+
+	it('surfaces an error and offers a retry when the exact count fails', () => {
+		const onRequestExactCount = vi.fn();
+		render(
+			<TablePagination
+				{...baseProps}
+				totalPages={50}
+				totalRecords={1000}
+				isEstimatedCount
+				estimatedRange={[900, 1100]}
+				isExactCountError
+				onRequestExactCount={onRequestExactCount}
+			/>,
+		);
+
+		fireEvent.focus(screen.getByRole('button', { name: /approximately 1,000 records/i }));
+		expect(screen.getAllByText(/couldn.t get the exact count/i).length).toBeGreaterThan(0);
+
+		// The action becomes a retry that re-invokes the fetch.
+		fireEvent.click(screen.getAllByRole('button', { name: /try again/i })[0]);
+		expect(onRequestExactCount).toHaveBeenCalledTimes(1);
+	});
 });

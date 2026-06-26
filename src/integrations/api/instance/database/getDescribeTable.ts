@@ -12,6 +12,11 @@ export async function getDescribeTable({ databaseName, tableName, instanceClient
 		operation: 'describe_table',
 		database: databaseName,
 		table: tableName,
+		// Take the cheap (time-bounded) estimate path for the count. We intentionally keep the count here --
+		// it drives the "~N records" estimate shown immediately in pagination -- rather than skipping it; the
+		// exact count is a separate, on-demand fetch. `exact_count: false` is the default on current servers,
+		// so this is mainly an explicit guard against any server that would otherwise count exactly.
+		exact_count: false,
 	});
 	return data;
 }

@@ -167,10 +167,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Exact count is opt-in: it forces a full, unbounded scan, so we only run it when the user asks for
 	// it from the pagination tooltip. Reset the request when the table changes.
 	const [wantExactCount, setWantExactCount] = useEffectedState(false, [databaseName, tableName]);
-	const requestExactCount = useCallback(() => setWantExactCount(true), [setWantExactCount]);
-	const { data: exactCount, isFetching: isExactCountFetching } = useQuery(
-		getTableRecordCountQueryOptions({ ...instanceParams, enabled: wantExactCount, databaseName, tableName }),
-	);
+	const { data: exactCount, isFetching: isExactCountFetching, isError: isExactCountError, refetch: refetchExactCount } =
+		useQuery(
+			getTableRecordCountQueryOptions({ ...instanceParams, enabled: wantExactCount, databaseName, tableName }),
+		);
+	// First click enables the (initially disabled) query; later clicks retry a failed fetch via refetch.
+	const requestExactCount = useCallback(() => {
+		if (wantExactCount) {
+			void refetchExactCount();
+		} else {
+			setWantExactCount(true);
+		}
+	}, [wantExactCount, refetchExactCount, setWantExactCount]);
 
 	const totalRecords = exactCount ?? estimatedCount;
 	const totalPages = totalRecords ? Math.ceil(totalRecords / pageSize) : 0;
@@ -509,6 +517,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				isEstimatedCount={isEstimatedCount}
 				estimatedRange={estimatedRange}
 				isExactCountFetching={isExactCountFetching}
+				isExactCountError={isExactCountError}
 				onRequestExactCount={requestExactCount}
 				pageIndex={pageIndex}
 				pageSize={pageSize}

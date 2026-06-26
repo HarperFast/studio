@@ -20,6 +20,8 @@ interface TablePaginationProps {
 	/** Server-provided confidence interval [low, high] for an estimated count. */
 	estimatedRange?: [number, number];
 	isExactCountFetching?: boolean;
+	/** The on-demand exact-count fetch failed; surfaced so the user can retry. */
+	isExactCountError?: boolean;
 	onRequestExactCount?: () => void;
 	setPageIndex: Dispatch<SetStateAction<number>>;
 	setPageSize: Dispatch<SetStateAction<number>>;
@@ -34,6 +36,7 @@ export function TablePagination(
 		isEstimatedCount,
 		estimatedRange,
 		isExactCountFetching,
+		isExactCountError,
 		onRequestExactCount,
 		setPageIndex,
 		setPageSize,
@@ -77,6 +80,7 @@ export function TablePagination(
 									totalRecords={totalRecords}
 									estimatedRange={estimatedRange}
 									isExactCountFetching={isExactCountFetching}
+									isExactCountError={isExactCountError}
 									onRequestExactCount={onRequestExactCount}
 								/>
 							)
@@ -147,13 +151,17 @@ export function TablePagination(
  * (with the server's confidence interval, when available) and offers a button to compute the exact
  * count on demand -- that triggers the unbounded count scan only when the user actually wants it.
  */
-function EstimatedRecordCount({ totalRecords, estimatedRange, isExactCountFetching, onRequestExactCount }: {
-	totalRecords: number;
-	estimatedRange?: [number, number];
-	isExactCountFetching?: boolean;
-	onRequestExactCount?: () => void;
-}) {
+function EstimatedRecordCount(
+	{ totalRecords, estimatedRange, isExactCountFetching, isExactCountError, onRequestExactCount }: {
+		totalRecords: number;
+		estimatedRange?: [number, number];
+		isExactCountFetching?: boolean;
+		isExactCountError?: boolean;
+		onRequestExactCount?: () => void;
+	},
+) {
 	const noun = totalRecords === 1 ? 'record' : 'records';
+	const showError = isExactCountError && !isExactCountFetching;
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
@@ -175,6 +183,7 @@ function EstimatedRecordCount({ totalRecords, estimatedRange, isExactCountFetchi
 						)
 						: null}
 				</span>
+				{showError && <span className="font-medium">Couldn’t get the exact count.</span>}
 				<button
 					type="button"
 					onClick={onRequestExactCount}
@@ -184,7 +193,7 @@ function EstimatedRecordCount({ totalRecords, estimatedRange, isExactCountFetchi
 						hover:bg-primary-foreground/20 disabled:pointer-events-none disabled:opacity-60"
 				>
 					{isExactCountFetching && <Loader2Icon className="size-3 animate-spin" />}
-					{isExactCountFetching ? 'Counting…' : 'Get exact count'}
+					{isExactCountFetching ? 'Counting…' : showError ? 'Try again' : 'Get exact count'}
 				</button>
 			</TooltipContent>
 		</Tooltip>
