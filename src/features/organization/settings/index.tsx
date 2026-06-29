@@ -136,14 +136,14 @@ export function OrgSettingsIndex() {
 	const getCallbackUrl = (oauthConfigId: string) =>
 		`${import.meta.env.VITE_CENTRAL_MANAGER_API_URL}/oauth/${oauthConfigId}/callback`;
 
-	const copySignInUrl = (url: string) => {
-		if (writeToClipboard(url)) {
+	const copySignInUrl = async (url: string) => {
+		if (await writeToClipboard(url)) {
 			toast.success('Sign-in URL copied.');
 		}
 	};
 
-	const copyCallbackUrl = (url: string) => {
-		if (writeToClipboard(url)) {
+	const copyCallbackUrl = async (url: string) => {
+		if (await writeToClipboard(url)) {
 			toast.success('Redirect URI copied.');
 		}
 	};
