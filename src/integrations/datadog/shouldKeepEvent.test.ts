@@ -59,9 +59,12 @@ describe('shouldKeepEvent', () => {
 
 	// Regression test for issue #1386: a session expiring / signing out mid-poll leaves
 	// an in-flight request that 401s; these reach RUM as handled AxiosErrors with no URL.
-	it('discards auth failures (401/403) on the message alone', () => {
+	it('discards 401 auth failures on the message alone but keeps 403', () => {
 		expect(shouldKeepEvent(errorEvent({ message: 'AxiosError: Request failed with status code 401' }))).toBe(false);
-		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 403' }))).toBe(false);
+		// 403 = authenticated but forbidden; usually a UI authorization bug worth keeping.
+		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 403' }))).toBe(true);
+		// Word boundary guards against longer codes like 4010 being mistaken for 401.
+		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 4010' }))).toBe(true);
 	});
 
 	it('discards 5xx errors against an instance/cluster operation endpoint', () => {

@@ -54,14 +54,16 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
-	// Auth failures (401 Unauthorized / 403 Forbidden) are an expected state, not a
-	// Studio bug: a session expires or the user signs out while a query (most often the
-	// 10s instance status poll) is still in flight, so the in-flight request 401s and
-	// the next poll fires before the redirect to sign-in tears the query down. Like the
-	// timeouts above, these surface as handled AxiosErrors through React Query's global
-	// error handler with no resource URL, so we match on the message alone. The auth
-	// layer already handles the real consequence (redirecting to sign-in). (issue #1386)
-	if (/Request failed with status code 40[13]/i.test(message)) {
+	// A 401 Unauthorized is an expected state, not a Studio bug: a session expires or the
+	// user signs out while a query (most often the 10s instance status poll) is still in
+	// flight, so the in-flight request 401s and the next poll fires before the redirect to
+	// sign-in tears the query down. Like the timeouts above, these surface as handled
+	// AxiosErrors through React Query's global error handler with no resource URL, so we
+	// match on the message alone. The auth layer already handles the real consequence
+	// (redirecting to sign-in). We deliberately do NOT drop 403 Forbidden — the user is
+	// authenticated but lacks permission, which usually points to a UI bug (an action
+	// shown that shouldn't be, or a mismatched resource id) worth keeping visible. (#1386)
+	if (/Request failed with status code 401\b/i.test(message)) {
 		return false;
 	}
 
@@ -72,7 +74,7 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// to answer (broken, unsupported, or mid-restart) — a server-side condition tracked
 	// on the backend, not a Studio bug. Only drop when the URL attributes it to the
 	// operation endpoint; an unattributed 5xx could be a genuine failure worth keeping.
-	const isServerError = /Request failed with status code 5\d\d/i.test(message);
+	const isServerError = /Request failed with status code 5\d\d\b/i.test(message);
 	if (isInstanceEndpoint && isServerError) {
 		return false;
 	}
