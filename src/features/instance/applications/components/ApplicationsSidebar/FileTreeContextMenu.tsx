@@ -10,9 +10,9 @@ import type { DirectoryEntry } from '@/features/instance/applications/context/di
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
+import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { setWatchedValue } from '@/lib/events/watcher';
 import {
-	ClipboardCheckIcon,
 	CopyIcon,
 	DownloadIcon,
 	FilePlusIcon,
@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { TreeItem, TreeItemIndex } from 'react-complex-tree';
-import { toast } from 'sonner';
 import { setPendingContextAction } from '../../shortcuts/pendingContextAction';
 import { importedApplications, newApplication, rootId } from './specialItems';
 
@@ -120,15 +119,7 @@ export function FileTreeContextMenu({
 
 	// Copy is always available (it reads the right-clicked entry, needs no permission and
 	// changes no selection), so it reads `target` directly rather than going through `act`.
-	const copy = useCallback((text: string) => {
-		// `navigator.clipboard` is undefined in non-secure contexts (HTTP, non-localhost) and old browsers.
-		if (!navigator.clipboard) {
-			toast.error('Clipboard access is not available in this environment.');
-			return;
-		}
-		void navigator.clipboard.writeText(text);
-		toast.info('Copied to clipboard!', { icon: <ClipboardCheckIcon />, duration: 1000 });
-	}, []);
+	const copy = useCopyTextToClipboard();
 
 	const hasActions = canAddEntries || canRename || canDownload || canRedeploy || canDeleteEntry;
 

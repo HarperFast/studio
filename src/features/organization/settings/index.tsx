@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { apiClient } from '@/config/apiClient';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useCloudAuth } from '@/hooks/useAuth';
+import { writeToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { SchemaOrganization } from '@/integrations/api/api.gen';
 import { OAuthConfig } from '@/integrations/api/api.patch';
@@ -135,14 +136,16 @@ export function OrgSettingsIndex() {
 	const getCallbackUrl = (oauthConfigId: string) =>
 		`${import.meta.env.VITE_CENTRAL_MANAGER_API_URL}/oauth/${oauthConfigId}/callback`;
 
-	const copySignInUrl = async (url: string) => {
-		await navigator.clipboard.writeText(url);
-		toast.success('Sign-in URL copied.');
+	const copySignInUrl = (url: string) => {
+		if (writeToClipboard(url)) {
+			toast.success('Sign-in URL copied.');
+		}
 	};
 
-	const copyCallbackUrl = async (url: string) => {
-		await navigator.clipboard.writeText(url);
-		toast.success('Redirect URI copied.');
+	const copyCallbackUrl = (url: string) => {
+		if (writeToClipboard(url)) {
+			toast.success('Redirect URI copied.');
+		}
 	};
 
 	if (!canUpdate) {
