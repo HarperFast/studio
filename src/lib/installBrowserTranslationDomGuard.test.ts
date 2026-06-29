@@ -66,4 +66,20 @@ describe('installBrowserTranslationDomGuard', () => {
 		installBrowserTranslationDomGuard();
 		expect(Node.prototype.removeChild).toBe(after);
 	});
+
+	it('defines the guard marker as a non-enumerable property', () => {
+		const descriptor = Object.getOwnPropertyDescriptor(Node.prototype, guardFlag);
+		expect(descriptor?.enumerable).toBe(false);
+		// It must not leak into for...in iteration over a node.
+		const node = document.createElement('div');
+		for (const key in node) {
+			expect(key).not.toBe(guardFlag);
+		}
+	});
+
+	it('lets the browser throw for non-Node arguments instead of masking the bug', () => {
+		const parent = document.createElement('div');
+		// A non-Node argument should fall through to native removeChild and throw.
+		expect(() => parent.removeChild({} as unknown as Node)).toThrow();
+	});
 });
