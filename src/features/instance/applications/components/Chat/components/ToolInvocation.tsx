@@ -42,9 +42,11 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 					<span>{toolName}</span>
 				</div>
 				<div className="tool-status">
-					{part.state === 'input-streaming' && 'Thinking...'}
+					{part.state === 'input-streaming' && <span>Thinking...</span>}
 					{part.state === 'input-available'
-						&& (isApproving ? 'Executing...' : (requiresApproval ? 'Awaiting Approval...' : 'Executing...'))}
+						&& (
+							<span>{isApproving ? 'Executing...' : (requiresApproval ? 'Awaiting Approval...' : 'Executing...')}</span>
+						)}
 					{part.state === 'output-available'
 						&& ((part.output as any)?.error ? <XCircle size={14} className="text-destructive" /> : <Check size={14} />)}
 				</div>
