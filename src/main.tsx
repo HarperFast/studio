@@ -1,8 +1,13 @@
 import { App } from '@/App';
+import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
 import { addReactError } from '@datadog/browser-rum-react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+
+// Must run before React mounts: keeps browser page-translation from crashing React
+// with `removeChild`/`insertBefore` NotFoundErrors (issue #1388).
+installBrowserTranslationDomGuard();
 
 createRoot(
 	document.getElementById('root')!,
