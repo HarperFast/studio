@@ -12,7 +12,7 @@ overrides:
   lodash-es: ^4.18.1
   form-data: ^4.0.6
   dompurify: ^3.4.11
-  js-yaml: ^4.2.0
+  js-yaml: ^5.0.0
   mdast-util-to-hast: ^13.2.1
 
 importers:
@@ -3857,6 +3857,7 @@ packages:
   git-raw-commits@5.0.1:
     resolution: {integrity: sha512-Y+csSm2GD/PCSh6Isd/WiMjNAydu0VBiG9J7EdQsNA5P9uXvLayqjmTsNlK5Gs9IhblFZqOU0yid5Il5JPoLiQ==}
     engines: {node: '>=18'}
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   glob-parent@5.1.2:
@@ -4246,8 +4247,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.2.0:
-    resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
+  js-yaml@5.2.0:
+    resolution: {integrity: sha512-YeLUMlvR4Ou1B119LIaM0r65JvbOBooJDc9yEu0dClb/uSC5P4FrLU8OCCz/HXWvtPoIrR0dRzABTjo1sTN9Bw==}
     hasBin: true
 
   jsdom@29.1.1:
@@ -10003,7 +10004,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.1
-      js-yaml: 4.2.0
+      js-yaml: 5.2.0
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 6.0.3
@@ -11220,7 +11221,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.2.0:
+  js-yaml@5.2.0:
     dependencies:
       argparse: 2.0.1
 
@@ -13266,7 +13267,7 @@ snapshots:
       '@swaggerexpert/cookie': 2.0.2
       deepmerge: 4.3.1
       fast-json-patch: 3.1.1
-      js-yaml: 4.2.0
+      js-yaml: 5.2.0
       neotraverse: 0.6.18
       node-abort-controller: 3.1.1
       openapi-path-templating: 2.2.1
@@ -13290,7 +13291,7 @@ snapshots:
       ieee754: 1.2.1
       immutable: 3.8.3
       js-file-download: 0.4.12
-      js-yaml: 4.2.0
+      js-yaml: 5.2.0
       lodash: 4.18.1
       prop-types: 15.8.1
       randexp: 0.5.3
