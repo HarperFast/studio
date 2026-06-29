@@ -25,7 +25,7 @@
 		"test:coverage": "vitest run --coverage"
 	},
 	"dependencies": {
-		"@ai-sdk/react": "^3.0.171",
+		"@ai-sdk/react": "^4.0.0",
 		"@datadog/browser-rum": "^7.0.0",
 		"@datadog/browser-rum-react": "^7.0.0",
 		"@harperfast/agent-tools": "^1.2.0",
