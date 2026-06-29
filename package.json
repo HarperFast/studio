@@ -103,7 +103,7 @@
 		"dotenv-cli": "^11.0.0",
 		"dprint": "^0.54.0",
 		"happy-dom": "^20.9.0",
-		"harper": "5.0.31",
+		"harper": "5.1.14",
 		"husky": "^9.1.7",
 		"jsdom": "^29.0.0",
 		"oxlint": "^1.32.0",
@@ -112,6 +112,6 @@
 		"vite": "^8.0.0",
 		"vitest": "^4.0.0"
 	},
-	"packageManager": "pnpm@11.8.0",
+	"packageManager": "pnpm@11.9.0",
 	"license": "Apache-2.0"
 }
