@@ -72,7 +72,7 @@ export function OverwriteConfirmModal() {
 				</AlertDialogHeader>
 
 				{collisions.length > 0 && (
-					<div className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/40 p-2 text-sm whitespace-pre">
+					<div className="max-h-48 overflow-y-auto rounded-md border border-border bg-muted/40 p-2 text-sm whitespace-pre-wrap break-all">
 						{collisions.slice(0, 50).join('\n')}
 						{collisions.length > 50 ? `\n…and ${collisions.length - 50} more` : ''}
 					</div>

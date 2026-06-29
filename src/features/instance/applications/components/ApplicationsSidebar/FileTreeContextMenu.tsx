@@ -121,6 +121,11 @@ export function FileTreeContextMenu({
 	// Copy is always available (it reads the right-clicked entry, needs no permission and
 	// changes no selection), so it reads `target` directly rather than going through `act`.
 	const copy = useCallback((text: string) => {
+		// `navigator.clipboard` is undefined in non-secure contexts (HTTP, non-localhost) and old browsers.
+		if (!navigator.clipboard) {
+			toast.error('Clipboard access is not available in this environment.');
+			return;
+		}
 		void navigator.clipboard.writeText(text);
 		toast.info('Copied to clipboard!', { icon: <ClipboardCheckIcon />, duration: 1000 });
 	}, []);
