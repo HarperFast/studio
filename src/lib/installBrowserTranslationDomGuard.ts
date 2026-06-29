@@ -33,11 +33,16 @@ export function installBrowserTranslationDomGuard() {
 	if (proto[guardFlag]) {
 		return;
 	}
-	proto[guardFlag] = true;
+	// Define the marker non-enumerable so it doesn't leak into `for...in` loops that
+	// iterate over DOM nodes in third-party/legacy code.
+	Object.defineProperty(proto, guardFlag, { value: true, configurable: true, writable: true, enumerable: false });
 
 	const originalRemoveChild = Node.prototype.removeChild;
 	Node.prototype.removeChild = function removeChild<T extends Node>(this: Node, child: T): T {
-		if (child.parentNode !== this) {
+		// The `instanceof Node` guard ensures we only soften the failure for genuine nodes
+		// the translator moved — a non-Node argument still falls through to the native
+		// method so it throws a standard error rather than silently masking a real bug.
+		if (child instanceof Node && child.parentNode !== this) {
 			// The translator already detached/moved this node; nothing to remove.
 			return child;
 		}
@@ -50,7 +55,9 @@ export function installBrowserTranslationDomGuard() {
 		newNode: T,
 		referenceNode: Node | null,
 	): T {
-		if (referenceNode && referenceNode.parentNode !== this) {
+		// As above, only intercept genuine re-parented nodes; a null reference (a normal
+		// append) or a non-Node argument falls through to the native implementation.
+		if (referenceNode instanceof Node && referenceNode.parentNode !== this) {
 			// The reference node was re-parented by the translator; append instead of
 			// throwing, which is the closest safe equivalent of React's intent.
 			return originalInsertBefore.call(this, newNode, null) as T;
