@@ -57,6 +57,37 @@ describe('shouldKeepEvent', () => {
 		).toBe(false);
 	});
 
+	// Regression test for issue #1386: a session expiring / signing out mid-poll leaves
+	// an in-flight request that 401s; these reach RUM as handled AxiosErrors with no URL.
+	it('discards auth failures (401/403) on the message alone', () => {
+		expect(shouldKeepEvent(errorEvent({ message: 'AxiosError: Request failed with status code 401' }))).toBe(false);
+		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 403' }))).toBe(false);
+	});
+
+	it('discards 5xx errors against an instance/cluster operation endpoint', () => {
+		expect(
+			shouldKeepEvent(
+				errorEvent({
+					message: 'AxiosError: Request failed with status code 500',
+					resource: { url: 'https://api.harper.fast/HDBInstance/ins-123/operation' },
+				}),
+			),
+		).toBe(false);
+	});
+
+	it('keeps 5xx errors that are not attributable to an instance/cluster operation endpoint', () => {
+		// An unattributed 5xx could be a genuine backend failure worth surfacing.
+		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 500' }))).toBe(true);
+		expect(
+			shouldKeepEvent(
+				errorEvent({
+					message: 'Request failed with status code 502',
+					resource: { url: 'https://api.harper.fast/Organization/org-1' },
+				}),
+			),
+		).toBe(true);
+	});
+
 	it('keeps non-timeout network failures that are not attributable to an instance endpoint', () => {
 		// Without an instance/cluster URL we cannot tell a real backend failure from an
 		// expected one, so a bare "Network Error" stays visible (unlike timeouts).
