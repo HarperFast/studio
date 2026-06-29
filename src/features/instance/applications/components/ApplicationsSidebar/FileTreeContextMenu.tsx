@@ -11,9 +11,20 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useEntryActions } from '@/features/instance/applications/hooks/useEntryActions';
 import { setWatchedValue } from '@/lib/events/watcher';
-import { DownloadIcon, FilePlusIcon, FolderPlusIcon, PackageIcon, PencilIcon, TrashIcon } from 'lucide-react';
+import {
+	ClipboardCheckIcon,
+	CopyIcon,
+	DownloadIcon,
+	FilePlusIcon,
+	FolderPlusIcon,
+	LinkIcon,
+	PackageIcon,
+	PencilIcon,
+	TrashIcon,
+} from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { TreeItem, TreeItemIndex } from 'react-complex-tree';
+import { toast } from 'sonner';
 import { setPendingContextAction } from '../../shortcuts/pendingContextAction';
 import { importedApplications, newApplication, rootId } from './specialItems';
 
@@ -107,6 +118,13 @@ export function FileTreeContextMenu({
 		fire();
 	}, [target, focusTarget]);
 
+	// Copy is always available (it reads the right-clicked entry, needs no permission and
+	// changes no selection), so it reads `target` directly rather than going through `act`.
+	const copy = useCallback((text: string) => {
+		void navigator.clipboard.writeText(text);
+		toast.info('Copied to clipboard!', { icon: <ClipboardCheckIcon />, duration: 1000 });
+	}, []);
+
 	const hasActions = canAddEntries || canRename || canDownload || canRedeploy || canDeleteEntry;
 
 	return (
@@ -124,8 +142,19 @@ export function FileTreeContextMenu({
 					{children}
 				</div>
 			</ContextMenuTrigger>
-			{hasActions && (
+			{target && (
 				<ContextMenuContent className="min-w-44" onCloseAutoFocus={event => event.preventDefault()}>
+					<ContextMenuItem onSelect={() => copy(target.entry.name)}>
+						<CopyIcon />
+						Copy Name
+					</ContextMenuItem>
+					<ContextMenuItem onSelect={() => copy(target.entry.path)}>
+						<LinkIcon />
+						Copy Path
+					</ContextMenuItem>
+
+					{hasActions && <ContextMenuSeparator />}
+
 					{canAddEntries && (
 						<>
 							<ContextMenuItem onSelect={() => act(() => setWatchedValue('ShowAddDirectoryOrFileModalType', 'file'))}>

@@ -138,6 +138,16 @@ export function TextEditorView() {
 		[mounted],
 	);
 
+	// Return focus to the editor after a file-tree modal closes (e.g. creating or renaming
+	// a file). Deferred a frame so it wins the focus race against the closing dialog.
+	useListener(
+		'FocusEditor',
+		() => {
+			requestAnimationFrame(() => mounted?.[0]?.focus());
+		},
+		[mounted],
+	);
+
 	// Publish each surfaced command's keyboard-shortcut label so the menus can
 	// show it. Done once the editor (and its keybinding registry) is available.
 	useEffect(() => {

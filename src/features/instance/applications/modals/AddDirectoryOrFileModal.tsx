@@ -21,13 +21,12 @@ import { useSetComponentFile } from '@/integrations/api/instance/applications/se
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
-import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { toast } from 'sonner';
 import z from 'zod';
+import { confirmOverwrite } from './confirmOverwrite';
 
 export function AddDirectoryOrFileModal() {
 	const { value: type, trigger } = useWatchedValue('ShowAddDirectoryOrFileModalType', false);
@@ -65,7 +64,7 @@ export function AddDirectoryOrFileModal() {
 		},
 	});
 
-	const submitForm = useCallback((data: z.infer<typeof NewFileFolderSchema>) => {
+	const submitForm = useCallback(async (data: z.infer<typeof NewFileFolderSchema>) => {
 		if (!openedEntry || !type) {
 			return;
 		}
@@ -76,11 +75,17 @@ export function AddDirectoryOrFileModal() {
 				: splitPath.slice(1, -1)
 		).join('/');
 		const file = filePath ? `${filePath}/${data.name}` : data.name;
-		if (entryExists(openedEntry.project + '/' + file)) {
-			toast.error(`${capitalizeWords(type)} already exists!`, {
-				description: file,
+		const fullPath = `${openedEntry.project}/${file}`;
+		// A name collision is no longer a hard error: let the user confirm overwriting the
+		// existing file (or merging into the existing directory) instead.
+		if (entryExists(fullPath)) {
+			const confirmed = await confirmOverwrite({
+				files: type === 'file' ? [fullPath] : [],
+				directories: type === 'directory' ? [fullPath] : [],
 			});
-			return;
+			if (!confirmed) {
+				return;
+			}
 		}
 		addFolderFile(
 			{
@@ -99,6 +104,11 @@ export function AddDirectoryOrFileModal() {
 					setSelectedItems([treeId]);
 					if (type === 'directory') {
 						setExpandedItems(expandedItems => [...expandedItems, treeId]);
+						// Land keyboard focus on the new directory in the tree.
+						setWatchedValue('FocusFileTree', true);
+					} else {
+						// Land keyboard focus in the editor, now showing the new file.
+						setWatchedValue('FocusEditor', true);
 					}
 				},
 			},
