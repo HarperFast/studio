@@ -1,11 +1,14 @@
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
+import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
+import { confirmOverwrite } from '@/features/instance/applications/modals/confirmOverwrite';
 import { useGlobalShortcutKeys } from '@/features/instance/applications/shortcuts';
+import { useListener } from '@/lib/events/listener';
 import { extractFileNameFromPath } from '@/lib/string/paths/extractFileNameFromPath';
 import { joinPath } from '@/lib/string/paths/joinPath';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ControlledTreeEnvironment, InteractionMode, Tree, TreeItem } from 'react-complex-tree';
 import './file-explorer-modern.css';
 import { DraggingPosition } from 'react-complex-tree/src/types';
@@ -28,10 +31,35 @@ export function ApplicationsSidebar() {
 		setExpandedItems,
 		selectedItems,
 		setSelectedItems,
+		entryExists,
 	} = useEditorView();
 	const { items, rootId } = useMemo(() => buildItems(rootEntries), [rootEntries]);
 
 	useGlobalShortcutKeys();
+
+	// Move DOM focus into the tree after a modal closes (e.g. adding a directory, or
+	// deleting an entry and falling back to its parent). The row to land on is whatever
+	// the modal set as `focusedItem`; deferred a frame so it runs after the tree re-renders
+	// from the reload. Falls back to the tree container if the specific row isn't mounted.
+	const treeScrollRef = useRef<HTMLDivElement>(null);
+	useListener(
+		'FocusFileTree',
+		() => {
+			requestAnimationFrame(() => {
+				const container = treeScrollRef.current;
+				if (!container) {
+					return;
+				}
+				const row = focusedItem
+					? container.querySelector<HTMLElement>(`[data-rct-item-id="${CSS.escape(String(focusedItem))}"]`)
+					: null;
+				const target = row ?? container.querySelector<HTMLElement>('[role="tree"]');
+				target?.focus();
+				row?.scrollIntoView({ block: 'nearest' });
+			});
+		},
+		[focusedItem],
+	);
 
 	useEffect(function setOpenedEntryFromFocusedItem() {
 		if (openedEntry?.path !== focusedItem && focusedItem) {
@@ -45,31 +73,48 @@ export function ApplicationsSidebar() {
 
 	const renameFiles = useRenameFiles();
 	const onInternalDrop = useCallback(
-		(droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
+		async (droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
 			switch (target.targetType) {
-				case 'item':
+				case 'item': {
 					if (items[target.targetItem]?.data?.package) {
 						toast.error('Read-Only Imported Application', {
 							description: 'To make changes to an application, please click the "Redeploy" button and update the'
 								+ ' reference.',
 						});
-					} else {
-						return renameFiles(droppedItems.map(item => ({
-							from: item.index as string,
-							to: joinPath(target.targetItem as string, extractFileNameFromPath(item.index as string)),
-						})));
+						return;
 					}
-					break;
+					const changes = droppedItems.map(item => ({
+						from: item.index as string,
+						to: joinPath(target.targetItem as string, extractFileNameFromPath(item.index as string)),
+					}));
+					// Confirm before clobbering anything already at a destination path (files are
+					// overwritten, directories merged) instead of silently failing the move.
+					const collidingFiles: string[] = [];
+					const collidingDirectories: string[] = [];
+					for (const change of changes) {
+						if (change.from !== change.to && entryExists(change.to)) {
+							const existing = items[change.to]?.data;
+							(existing && isDirectory(existing) ? collidingDirectories : collidingFiles).push(change.to);
+						}
+					}
+					if (collidingFiles.length || collidingDirectories.length) {
+						const confirmed = await confirmOverwrite({ files: collidingFiles, directories: collidingDirectories });
+						if (!confirmed) {
+							return;
+						}
+					}
+					return renameFiles(changes);
+				}
 				default:
 					toast.error(`${target.targetType} drop not yet supported`);
 					break;
 			}
 		},
-		[items, renameFiles],
+		[items, renameFiles, entryExists],
 	);
 
 	return (
-		<div className="app-tree-scroll h-full overflow-auto pr-1.5 pb-18">
+		<div ref={treeScrollRef} className="app-tree-scroll h-full overflow-auto pr-1.5 pb-18">
 			<FileTreeContextMenu items={items}>
 				<ControlledTreeEnvironment
 					canDragAndDrop={true}

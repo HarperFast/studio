@@ -31,6 +31,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import z from 'zod';
+import { confirmOverwrite } from './confirmOverwrite';
 
 /** Every file at or beneath an entry (directories are implicit in file paths). */
 function collectFiles(entry: DirectoryEntry | FileEntry): FileEntry[] {
@@ -78,16 +79,21 @@ export function RenameFileModal() {
 			return;
 		}
 		const to = renameFileInPath(openedEntry.path, data.name);
-		if (entryExists(to)) {
-			toast.error(`${isDirectory(openedEntry) ? 'Directory' : 'File'} already exists!`, {
-				description: to,
-			});
-			return;
-		}
-
 		// A directory can't be moved in a single file operation, so rebase every file
 		// beneath it onto the new path — the API recreates the directories implicitly.
 		const isDir = isDirectory(openedEntry);
+		// A name collision is no longer a hard error: let the user confirm overwriting the
+		// existing file (or merging into the existing directory) instead.
+		if (entryExists(to)) {
+			const confirmed = await confirmOverwrite({
+				files: isDir ? [] : [to],
+				directories: isDir ? [to] : [],
+			});
+			if (!confirmed) {
+				return;
+			}
+		}
+
 		const changes = isDir
 			? collectFiles(openedEntry).map(file => ({
 				from: file.path,
@@ -127,6 +133,8 @@ export function RenameFileModal() {
 		if (renamed) {
 			closeModal();
 			form.reset();
+			// Restore focus: a renamed directory stays in the tree; a renamed file is back in the editor.
+			setWatchedValue(isDir ? 'FocusFileTree' : 'FocusEditor', true);
 		}
 	}, [closeModal, entryExists, form, instanceParams, openedEntry, reloadRootEntries, renameFiles, setIsPending]);
 

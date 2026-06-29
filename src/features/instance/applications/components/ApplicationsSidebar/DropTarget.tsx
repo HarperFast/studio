@@ -4,6 +4,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { useDraggingHook } from '@/features/instance/applications/components/ApplicationsSidebar/useDraggingHook';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { confirmOverwrite } from '@/features/instance/applications/modals/confirmOverwrite';
 import { setComponentFile } from '@/integrations/api/instance/applications/setComponentFile';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { pluralize } from '@/lib/pluralize';
@@ -52,6 +53,10 @@ export function DropTarget() {
 
 		const filesToUpload: FileWithPath[] = [];
 		const filesRejected: FileRejection[] = rawRejectedFiles.slice();
+		// Files whose destination path already exists. Rather than rejecting them outright,
+		// collect them and ask once whether to overwrite (uploading a folder over an existing
+		// one this way merges it — only the colliding files are replaced).
+		const collisions: { file: FileWithPath; path: string }[] = [];
 
 		for (const file of rawAcceptedFiles) {
 			const filePath = getFilePath(targetPath, file);
@@ -66,17 +71,23 @@ export function DropTarget() {
 					],
 				});
 			} else if (entryExists(`${targetProject}/${filePath}`)) {
-				filesRejected.push({
-					file,
-					errors: [
-						{
-							message: `${filePath} already exists`,
-							code: 'duplicate',
-						},
-					],
-				});
+				collisions.push({ file, path: `${targetProject}/${filePath}` });
 			} else {
 				filesToUpload.push(file);
+			}
+		}
+
+		if (collisions.length > 0) {
+			const overwrite = await confirmOverwrite({ files: collisions.map(c => c.path), directories: [] });
+			for (const collision of collisions) {
+				if (overwrite) {
+					filesToUpload.push(collision.file);
+				} else {
+					filesRejected.push({
+						file: collision.file,
+						errors: [{ message: `${getFilePath(targetPath, collision.file)} already exists`, code: 'duplicate' }],
+					});
+				}
 			}
 		}
 

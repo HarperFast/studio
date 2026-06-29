@@ -82,6 +82,8 @@ export function DeleteDirectoryOrFileModal() {
 			setFocusedItem(itemToFocus || undefined);
 			setSelectedItems(itemToFocus ? [itemToFocus] : []);
 			void reloadRootEntries();
+			// Land keyboard focus on the parent directory of what was just deleted.
+			setWatchedValue('FocusFileTree', true);
 		}
 	}, [action, closeModal, instanceParams, reloadRootEntries, selectedItems, setFocusedItem, setSelectedItems]);
 

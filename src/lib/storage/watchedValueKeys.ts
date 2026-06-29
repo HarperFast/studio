@@ -16,6 +16,8 @@ export interface WatchedValuesTypeMap {
 	ShowDeleteTable: boolean;
 	'Session:{key}': unknown;
 	ReloadApplicationRootEntries: true;
+	FocusEditor: true;
+	FocusFileTree: true;
 }
 
 export type WatchedValueKeys = keyof WatchedValuesTypeMap;
