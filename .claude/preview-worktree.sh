@@ -9,8 +9,7 @@
 # Solution: this script reads the target directory from `.claude/preview-cwd` (a path relative
 # to the repo root, gitignored — write it before starting the server), falls back to the main
 # checkout when that file is absent, and starts the dev server there. To keep a fresh worktree
-# zero-setup it symlinks node_modules from the main checkout and copies .env.local if missing
-# (mirroring the copy-env-local.sh SessionStart hook).
+# zero-setup it symlinks node_modules and .env.local from the main checkout when missing.
 #
 # Usage: echo .claude/worktrees/<name> > .claude/preview-cwd  # then preview_start "studio (worktree)"
 set -e
@@ -26,9 +25,9 @@ if [ ! -e node_modules ]; then
 	ln -s "$root/node_modules" node_modules
 	echo "[preview] Symlinked node_modules from the main checkout." >&2
 fi
-if [ ! -f .env.local ] && [ -f "$root/.env.local" ]; then
-	cp "$root/.env.local" .env.local
-	echo "[preview] Copied .env.local from the main checkout." >&2
+if [ ! -e .env.local ] && [ -f "$root/.env.local" ]; then
+	ln -s "$root/.env.local" .env.local
+	echo "[preview] Symlinked .env.local from the main checkout." >&2
 fi
 
 echo "[preview] Serving $(pwd) on port 5173" >&2
