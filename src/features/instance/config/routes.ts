@@ -1,4 +1,5 @@
 import { ConfigCertificatesIndex } from '@/features/instance/config/certificates';
+import { ConfigDeploymentsIndex } from '@/features/instance/config/deployments';
 import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
@@ -71,6 +72,19 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigSSHKeysIndex,
 	});
 
+	const instanceConfigDeploymentsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'deployments',
+		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
+		component: ConfigDeploymentsIndex,
+	});
+	const instanceConfigDeploymentRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'deployments/$deploymentId',
+		head: () => ({ meta: [{ title: 'Deployments — Harper Fabric' }] }),
+		component: ConfigDeploymentsIndex,
+	});
+
 	const instanceConfigCertificatesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'certificates',
@@ -94,6 +108,9 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		instanceConfigUserRoute,
 
 		instanceConfigDomainsRoute,
+
+		instanceConfigDeploymentsRoute,
+		instanceConfigDeploymentRoute,
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,

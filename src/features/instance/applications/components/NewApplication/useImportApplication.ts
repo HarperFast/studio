@@ -1,11 +1,23 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { useComponentHealthCheck } from '@/features/instance/applications/hooks/useComponentHealthCheck';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
+import { reportDeployHealth } from '@/features/instance/applications/modals/reportDeployHealth';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
+import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { ImportSchema } from './schema';
+
+const PHASE_LABELS: Record<string, string> = {
+	prepare: 'Preparing…',
+	load: 'Loading component…',
+	replicate: 'Replicating to nodes…',
+	restart: 'Restarting…',
+	success: 'Finishing…',
+};
 
 export function useImportApplication(
 	setIsReloading: (isReloading: boolean) => void,
@@ -14,7 +26,27 @@ export function useImportApplication(
 
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
+	const sseDeploy = useSupportsDeploymentSSE();
+	const runHealthCheck = useComponentHealthCheck(instanceParams);
 	const { reloadRootEntries, setFocusedItem, setExpandedItems, setSelectedItems } = useEditorView();
+
+	const onImported = useCallback((project: string) => {
+		setIsReloading(true);
+		void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId] });
+		void reloadRootEntries();
+		setFocusedItem(project);
+		setSelectedItems([project]);
+		setExpandedItems([project]);
+	}, [
+		queryClient,
+		instanceParams.entityId,
+		reloadRootEntries,
+		setFocusedItem,
+		setSelectedItems,
+		setExpandedItems,
+		setIsReloading,
+	]);
+
 	const callback = useCallback(({
 		contents,
 		project,
@@ -30,35 +62,45 @@ export function useImportApplication(
 			applicationName: project,
 			applicationUrl: contents.ref,
 			installCommand: contents.installCommand,
+			useSSE: sseDeploy,
+			onEvent: (event) => {
+				// Stream the current phase into the loading toast so the user sees live progress.
+				if (event.type === 'phase' && event.data.status === 'start') {
+					toast.loading(`Importing ${project}…`, {
+						id: toastId,
+						description: PHASE_LABELS[event.data.phase] ?? event.data.phase,
+						duration: 300_000,
+					});
+				}
+			},
 			...instanceParams,
 		}, {
-			onSuccess: () => {
-				toast.success(`Imported successfully`, {
-					description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
-					id: toastId,
-					duration: 5_000,
-				});
-				setIsReloading(true);
-				void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId] });
-				void reloadRootEntries();
-				setFocusedItem(project);
-				setSelectedItems([project]);
-				setExpandedItems([project]);
-			},
-			onError: () => {
+			onSuccess: async () => {
 				toast.dismiss(toastId);
+				onImported(project);
+				if (sseDeploy) {
+					reportDeployHealth(project, await runHealthCheck(project));
+				} else {
+					toast.success(`Imported successfully`, {
+						description: `${project} will be available once you restart your ${instanceParams.entityType}!`,
+						duration: 5_000,
+					});
+				}
+			},
+			onError: async (error) => {
+				toast.dismiss(toastId);
+				// Live stream dropped after the deploy started — verify rather than assume failure.
+				if (error instanceof SSEInconclusiveError) {
+					onImported(project);
+					reportDeployHealth(project, await runHealthCheck(project));
+					return;
+				}
+				toast.error(`Failed to import ${project}`, {
+					description: error instanceof Error ? error.message : undefined,
+				});
 			},
 		});
-	}, [
-		mutate,
-		queryClient,
-		instanceParams,
-		setIsReloading,
-		reloadRootEntries,
-		setFocusedItem,
-		setExpandedItems,
-		setSelectedItems,
-	]);
+	}, [mutate, sseDeploy, instanceParams, runHealthCheck, onImported]);
 
 	return useMemo(() => ({
 		isImportingApplication,

@@ -8,7 +8,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
-import { GlobeIcon, HandshakeIcon, KeyIcon, PieChartIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import { GlobeIcon, HandshakeIcon, KeyIcon, PieChartIcon, RocketIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
@@ -23,6 +23,7 @@ export function ConfigIndex() {
 	} = useParams({ strict: false });
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const certsAvailable = wasAReleasedBeforeB('4.6.0', version);
+	const deploymentsAvailable = wasAReleasedBeforeB('5.1.0', version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -53,6 +54,18 @@ export function ConfigIndex() {
 					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
 				</Link>
 			</li>
+			{deploymentsAvailable && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/deployments')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<RocketIcon className="hidden md:inline-block" /> <span className="ms-3">Deployments</span>
+					</Link>
+				</li>
+			)}
 			{certsAvailable && (
 				<li>
 					<Link

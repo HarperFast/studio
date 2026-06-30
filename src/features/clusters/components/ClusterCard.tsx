@@ -32,6 +32,7 @@ import {
 	GitGraphIcon,
 	GlobeIcon,
 	KeyIcon,
+	RocketIcon,
 	ScaleIcon,
 	ServerIcon,
 	TrashIcon,
@@ -195,6 +196,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			disabled: signingOut,
 			icon: <ServerIcon className="text-orange-300" />,
 			label: 'Instances',
+		},
+		isActive && view && {
+			key: 'deployments',
+			to: `${cluster.id}/config/deployments`,
+			disabled: signingOut,
+			icon: <RocketIcon className="text-sky-400" />,
+			label: 'Deployments',
 		},
 
 		isActive && view && !!cluster.fqdn && { type: 'separator' as const, key: 'copy-separator' },
