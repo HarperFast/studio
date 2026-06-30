@@ -8,6 +8,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { RegistrationInfoResponse } from '@/integrations/api/instance/status/getRegistrationInfo';
@@ -92,16 +93,21 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 			<Breadcrumbs restartRequired={restartRequired} />
 			<div className="flex space-x-2">
 				{links.map(({ shortName, ...link }) => (
-					<Link
-						key={link.to}
-						className="p-2 text-center text-muted-foreground hover:text-foreground"
-						activeProps={activeLinkProps}
-						{...link}
-					>
-						{link.icon}
-						<span className="hidden xl:inline-block ml-1">{link.name}</span>
-						{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
-					</Link>
+					<Tooltip key={link.to}>
+						<TooltipTrigger asChild>
+							<Link
+								className="p-2 text-center text-muted-foreground hover:text-foreground"
+								activeProps={activeLinkProps}
+								{...link}
+							>
+								{link.icon}
+								<span className="hidden xl:inline-block ml-1">{link.name}</span>
+								{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
+							</Link>
+						</TooltipTrigger>
+						{/* Full name is only visible at xl+, so the tooltip only helps in the narrower icon view. */}
+						<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
+					</Tooltip>
 				))}
 			</div>
 		</div>

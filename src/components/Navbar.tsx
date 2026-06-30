@@ -5,6 +5,7 @@ import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
 import { NavigationMenuLink } from '@/components/ui/navigation/NavigationMenuLink';
 import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuList';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
@@ -233,19 +234,25 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 function DesktopNavItem({ menuItem }: { menuItem: MenuItem }) {
 	return (
 		<NavigationMenuItem className="text-muted-foreground dark:text-gray-400 hover:text-foreground dark:hover:text-white">
-			<NavigationMenuLink asChild>
-				<Link
-					to={menuItem.to}
-					onClick={menuItem.onClick}
-					className="flex-row items-center"
-					target={menuItem.target}
-					activeProps={menuItem.to ? activeLinkProps : undefined}
-				>
-					{menuItem.icon}
-					<span className={`hidden ${menuItem.textBreakpoint}:inline-block`}>{menuItem.text}</span>
-					<span className={`${menuItem.textBreakpoint}:hidden`}>&nbsp;</span>
-				</Link>
-			</NavigationMenuLink>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<NavigationMenuLink asChild>
+						<Link
+							to={menuItem.to}
+							onClick={menuItem.onClick}
+							className="flex-row items-center"
+							target={menuItem.target}
+							activeProps={menuItem.to ? activeLinkProps : undefined}
+						>
+							{menuItem.icon}
+							<span className={`hidden ${menuItem.textBreakpoint}:inline-block`}>{menuItem.text}</span>
+							<span className={`${menuItem.textBreakpoint}:hidden`}>&nbsp;</span>
+						</Link>
+					</NavigationMenuLink>
+				</TooltipTrigger>
+				{/* The label is hidden until textBreakpoint, so the tooltip only helps in the narrower icon view. */}
+				<TooltipContent side="bottom" className={`${menuItem.textBreakpoint}:hidden`}>{menuItem.text}</TooltipContent>
+			</Tooltip>
 		</NavigationMenuItem>
 	);
 }
