@@ -132,9 +132,16 @@ export function useResizableDialog() {
 	// onUp never fires — so clean up the live gesture here, dropping its listeners and the closure
 	// capturing the now-stale content node. unmountedRef is flipped first so teardown skips its
 	// state resets — the component is gone, so those setState calls would just be wasted no-ops.
-	useEffect(() => () => {
-		unmountedRef.current = true;
-		activeGestureRef.current?.();
+	useEffect(() => {
+		// Reset on (re)mount: StrictMode's dev mount→cleanup→remount fires the cleanup once,
+		// and refs persist across it, so without this the flag would stay `true` after mount and
+		// every later teardown would skip its state resets (e.g. setIsDragging(false)) — leaving
+		// the overlay stuck transparent after a drag.
+		unmountedRef.current = false;
+		return () => {
+			unmountedRef.current = true;
+			activeGestureRef.current?.();
+		};
 	}, []);
 
 	const startDrag = useCallback((event: React.MouseEvent) => {
