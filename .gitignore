@@ -23,6 +23,7 @@ CLAUDE.local.md
 .vscode/*
 !.vscode/extensions.json
 .claude/worktrees
+.claude/preview-cwd
 .idea
 .DS_Store
 *.suo
