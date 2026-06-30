@@ -17,15 +17,28 @@ set -e
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$root"
 
-target="$(cat .claude/preview-cwd 2>/dev/null || echo .)"
-cd "$target"
+# Read the target worktree from .claude/preview-cwd (repo-relative). `read` trims surrounding
+# whitespace and tolerates a missing trailing newline; fall back to the main checkout when the
+# file is absent or empty.
+target=""
+if [ -f .claude/preview-cwd ]; then
+	read -r target < .claude/preview-cwd || :
+fi
+target="${target:-.}"
+
+if ! cd "$target" 2>/dev/null; then
+	echo "[preview] Error: target directory '$target' (from .claude/preview-cwd) is missing or inaccessible." >&2
+	exit 1
+fi
 
 # Zero-setup provisioning (only ever creates what's missing; never touches the main checkout).
-if [ ! -e node_modules ]; then
+# Guard with both -e and -L so an existing real dir/file AND a dangling symlink are left alone
+# (a broken symlink passes -e but `ln -s` over it would fail with "File exists").
+if [ ! -e node_modules ] && [ ! -L node_modules ]; then
 	ln -s "$root/node_modules" node_modules
 	echo "[preview] Symlinked node_modules from the main checkout." >&2
 fi
-if [ ! -e .env.local ] && [ -f "$root/.env.local" ]; then
+if [ ! -e .env.local ] && [ ! -L .env.local ] && [ -f "$root/.env.local" ]; then
 	ln -s "$root/.env.local" .env.local
 	echo "[preview] Symlinked .env.local from the main checkout." >&2
 fi
