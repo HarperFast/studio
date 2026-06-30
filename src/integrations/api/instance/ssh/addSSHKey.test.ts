@@ -19,6 +19,8 @@ describe('SSHKeySchema host alias guard', () => {
 			expect(result.success, `expected "${host}" to be rejected`).toBe(false);
 			if (!result.success) {
 				expect(result.error.issues[0].path).toEqual(['host']);
+				// Guards against the refine custom message being dropped (e.g. wrong params key).
+				expect(result.error.issues[0].message).toContain('Use a unique alias');
 			}
 		}
 	});
@@ -28,6 +30,7 @@ describe('SSHKeySchema host alias guard', () => {
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(result.error.issues[0].path).toEqual(['host']);
+			expect(result.error.issues[0].message).toContain('Host alias must differ from the hostname');
 		}
 	});
 
