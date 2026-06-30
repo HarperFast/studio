@@ -7,4 +7,16 @@ export const dataTableColumns: Array<ColumnDef<SSHKeyName>> = [
 		accessorKey: 'name',
 		enableSorting: false,
 	},
+	{
+		header: 'Host',
+		accessorKey: 'host',
+		enableSorting: false,
+		cell: ({ getValue }) => (getValue() as string | undefined) || '—',
+	},
+	{
+		header: 'Hostname',
+		accessorKey: 'hostname',
+		enableSorting: false,
+		cell: ({ getValue }) => (getValue() as string | undefined) || '—',
+	},
 ];
