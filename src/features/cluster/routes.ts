@@ -63,12 +63,10 @@ export function redirectAwayFromInstanceSignInIfConnected(
 		params: { clusterId: string; instanceId: string };
 	},
 ) {
-	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId)
-		|| authStore.checkForFabricConnect(params.instanceId);
-	if (isFabricConnect) {
-		return;
-	}
-	if (authStore.getConnectionById(params.instanceId).user) {
+	// Key off the instance's OWN state, mirroring the cluster guard. The parent cluster's Fabric Connect
+	// flag must not suppress the redirect for an instance that is directly connected in its own right.
+	const isFabricConnect = authStore.checkForFabricConnect(params.instanceId);
+	if (authStore.getConnectionById(params.instanceId).user && !isFabricConnect) {
 		const redirectTo = location?.search?.redirect;
 		throw redirect({
 			to: redirectTo?.startsWith('/') ? redirectTo : defaultInstanceRouteUpOne,

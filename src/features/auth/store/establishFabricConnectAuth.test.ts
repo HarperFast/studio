@@ -88,4 +88,39 @@ describe('authStore.establishFabricConnectAuth', () => {
 			.rejects.toThrow('proxy unauthorized');
 		expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(false);
 	});
+
+	it('clears resolution and rethrows when both direct and proxy verification fail', async () => {
+		// Token mints, but neither the direct probe nor the proxy fallback can reach the instance — the
+		// half-resolved {mode:'proxy'} entry must be cleared so the next navigation retries.
+		getInstanceUserInfo.mockRejectedValue(new Error('unreachable'));
+
+		await expect(authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL }))
+			.rejects.toThrow('unreachable');
+		expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(false);
+		expect(authStore.getOperationToken('ins-1')).toBeUndefined();
+	});
+
+	it('skips the direct Bearer probe and uses the proxy when no direct operations URL is known', async () => {
+		// Without a concrete direct URL, a Bearer request would be sent to the stored key (possibly the
+		// proxy origin) — so it must go straight to proxy mode and never probe directly.
+		getInstanceUserInfo.mockResolvedValue(proxyUser);
+
+		const user = await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: null });
+
+		expect(user).toBe(proxyUser);
+		expect(authStore.getOperationToken('ins-1')).toBeUndefined();
+		expect(getInstanceUserInfo).toHaveBeenCalledTimes(1);
+		expect(getInstanceUserInfo.mock.calls[0][0].instanceClient.defaults.baseURL).toBe(PROXY_URL);
+	});
+
+	it('drops the in-memory token when Fabric Connect is flagged off (e.g. on logout)', async () => {
+		getInstanceUserInfo.mockResolvedValue(directUser);
+		await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
+		expect(authStore.getOperationToken('ins-1')).toBe('jwt-token');
+
+		authStore.flagForFabricConnect('ins-1', false);
+
+		expect(authStore.getOperationToken('ins-1')).toBeUndefined();
+		expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(false);
+	});
 });

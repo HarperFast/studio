@@ -235,25 +235,37 @@ class AuthStore {
 			const token = await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
-			this.fabricConnectAuth.set(id, { mode: 'direct', token });
 
-			let user: LocalUser;
-			let key: AuthenticatedConnectionKey;
-			try {
-				const directClient = getInstanceClient({ id, operationsUrl: operationsUrl ?? undefined });
-				user = await getInstanceUserInfo({ instanceClient: directClient });
-				key = operationsUrl || directClient.defaults.baseURL!;
-			} catch (directErr) {
-				// Direct connect unreachable — fall back to the proxy for all operations.
-				console.debug('Fabric Connect direct connect unavailable; falling back to proxy', directErr);
-				this.fabricConnectAuth.set(id, { mode: 'proxy' });
-				const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
-				user = await getInstanceUserInfo({ instanceClient: proxyClient });
-				key = operationsUrl || proxyClient.defaults.baseURL!;
+			// Only attempt a direct Bearer connection when we have a concrete direct operations URL.
+			// Without one, getInstanceClient would fall back to the stored connection key — which may be
+			// the proxy URL — and we'd send the instance JWT to the central-manager origin. In that case
+			// skip straight to the proxy fallback.
+			if (operationsUrl) {
+				this.fabricConnectAuth.set(id, { mode: 'direct', token });
+				try {
+					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we
+					// just minted (basic auth otherwise wins in getInstanceClient).
+					const directClient = getInstanceClient({ id, operationsUrl, forceOperationToken: true });
+					const user = await getInstanceUserInfo({ instanceClient: directClient });
+					this.flagForFabricConnect(id, true);
+					this.setUserForIdAndKey(id, operationsUrl, user);
+					return user;
+				} catch (directErr) {
+					// Direct connect unreachable — fall back to the proxy. Log only the message: the full
+					// axios error carries the Bearer token in error.config.headers.
+					console.debug(
+						'Fabric Connect direct connect unavailable; falling back to proxy',
+						directErr instanceof Error ? directErr.message : directErr,
+					);
+				}
 			}
 
+			// Proxy fallback: route every operation through the central-manager proxy.
+			this.fabricConnectAuth.set(id, { mode: 'proxy' });
+			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
+			const user = await getInstanceUserInfo({ instanceClient: proxyClient });
 			this.flagForFabricConnect(id, true);
-			this.setUserForIdAndKey(id, key, user);
+			this.setUserForIdAndKey(id, operationsUrl || proxyClient.defaults.baseURL!, user);
 			return user;
 		} catch (err) {
 			// Couldn't establish either mode — clear the half-resolved state so we retry next time.

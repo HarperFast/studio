@@ -1,4 +1,5 @@
 import { forceBasicAuth, isLocalStudio } from '@/config/constants';
+import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { authStore } from '@/features/auth/store/authStore';
 import { LocalUser } from '@/integrations/api/api.patch';
@@ -83,6 +84,10 @@ export async function onInstanceLoginSubmit({
 	return {
 		message,
 		user,
+		// Hand back a client rebuilt from the now-established auth (Bearer-direct or proxy-routed) so
+		// callers that keep issuing operations on the returned client — e.g. the reset-password /
+		// Finish Setup flow — don't reuse the stale pre-fallback (cookie-mode) client.
+		instanceClient: getInstanceClient({ id: entityId, operationsUrl: instanceClient.defaults.baseURL }),
 	};
 }
 

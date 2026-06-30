@@ -43,7 +43,7 @@ export function createInstanceLayoutRoute(mode: 'local' | 'cluster' | 'instance'
 	}
 }
 
-async function checkClusterInstanceAuthenticationBeforeLoad({
+export async function checkClusterInstanceAuthenticationBeforeLoad({
 	context,
 	params,
 }: {
@@ -54,7 +54,9 @@ async function checkClusterInstanceAuthenticationBeforeLoad({
 
 	// The Fabric Connect JWT lives only in memory, so after a reload we still have the persisted flag
 	// but no token. Re-establish direct connect before anything tries to talk to the instance.
+	let attemptedEstablish = false;
 	if (authStore.checkForFabricConnect(entityId) && !authStore.hasResolvedFabricConnect(entityId)) {
+		attemptedEstablish = true;
 		if (await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId)) {
 			return;
 		}
@@ -73,10 +75,11 @@ async function checkClusterInstanceAuthenticationBeforeLoad({
 	}
 
 	// First visit: if the user can manage this entity, connect them via Fabric Connect automatically.
+	// Skip if we already tried above (e.g. reload with an unreachable proxy) to avoid a duplicate mint.
 	const { update } = params.instanceId
 		? getOrganizationClusterInstancePermissions(overallAuth.user, params.organizationId, params.clusterId)
 		: getOrganizationClusterPermissions(overallAuth.user, params.organizationId, params.clusterId);
-	if (update && await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId)) {
+	if (!attemptedEstablish && update && await tryEstablishFabricConnect(entityId, context.cluster, params.instanceId)) {
 		return;
 	}
 

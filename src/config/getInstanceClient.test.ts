@@ -81,4 +81,33 @@ describe('getInstanceClient', () => {
 		expect(client.defaults.baseURL).toBe(DIRECT_URL);
 		expect(client.defaults.withCredentials).toBe(true);
 	});
+
+	it('disableFabricConnect suppresses both the token and proxy routing', () => {
+		stubAuthStore({ operationToken: 'jwt-abc', fabricConnect: true });
+
+		const client = getInstanceClient({ id: INSTANCE_ID, disableFabricConnect: true });
+
+		expect(authHeader(client)).toBeUndefined();
+		expect(client.defaults.baseURL).toBe(DIRECT_URL);
+		expect(client.defaults.withCredentials).toBe(true);
+	});
+
+	it('forceOperationToken sends the Bearer token even when a basic-auth entry exists', () => {
+		stubAuthStore({ operationToken: 'jwt-abc', basicAuth: { username: 'admin', password: 'pw' } });
+
+		const client = getInstanceClient({ id: INSTANCE_ID, operationsUrl: DIRECT_URL, forceOperationToken: true });
+
+		expect(authHeader(client)).toBe('Bearer jwt-abc');
+		expect(client.defaults.auth).toBeUndefined();
+		expect(client.defaults.baseURL).toBe(DIRECT_URL);
+	});
+
+	it('routes a cluster id through the /Cluster proxy path under Fabric Connect', () => {
+		stubAuthStore({ fabricConnect: true });
+
+		const client = getInstanceClient({ id: 'clu-123' });
+
+		expect(client.defaults.baseURL).toContain('/Cluster/clu-123/operation');
+		expect(authHeader(client)).toBeUndefined();
+	});
 });
