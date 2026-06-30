@@ -89,7 +89,10 @@ export function InstanceNavBar() {
 
 function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
-		<div className="hidden md:flex items-center justify-between h-full text-sm text-foreground">
+		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
+		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
+		// until xl, where the full word labels fit.
+		<div className="hidden md:[@media(hover:hover)]:flex xl:flex items-center justify-between h-full text-sm text-foreground">
 			<Breadcrumbs restartRequired={restartRequired} />
 			<div className="flex space-x-2">
 				{links.map(({ shortName, ...link }) => {
@@ -128,7 +131,8 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; restartRequired: boolean }) {
 	return (
 		<>
-			<div className="flex md:hidden items-center justify-between h-full px-2 text-foreground">
+			{/* Mirror of DesktopInstanceNavBar: hover devices drop the hamburger at md, touch-only keeps it until xl. */}
+			<div className="flex md:[@media(hover:hover)]:hidden xl:hidden items-center justify-between h-full px-2 text-foreground">
 				<Breadcrumbs restartRequired={restartRequired} />
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
@@ -142,7 +146,10 @@ function MobileInstanceNavBar({ links, restartRequired }: { links: Link[]; resta
 
 						{links.map(link => (
 							<DropdownMenuItem key={link.to} asChild>
-								<Link to={link.to} activeProps={activeLinkProps}>{link.name}</Link>
+								<Link to={link.to} activeProps={activeLinkProps} className="flex items-center gap-2">
+									{link.icon}
+									{link.name}
+								</Link>
 							</DropdownMenuItem>
 						))}
 					</DropdownMenuContent>
