@@ -92,23 +92,34 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 		<div className="hidden md:flex items-center justify-between h-full text-sm text-foreground">
 			<Breadcrumbs restartRequired={restartRequired} />
 			<div className="flex space-x-2">
-				{links.map(({ shortName, ...link }) => (
-					<Tooltip key={link.to}>
-						<TooltipTrigger asChild>
-							<Link
-								className="p-2 text-center text-muted-foreground hover:text-foreground"
-								activeProps={activeLinkProps}
-								{...link}
-							>
-								{link.icon}
-								<span className="hidden xl:inline-block ml-1">{link.name}</span>
-								{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
-							</Link>
-						</TooltipTrigger>
-						{/* Full name is only visible at xl+, so the tooltip only helps in the narrower icon view. */}
-						<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
-					</Tooltip>
-				))}
+				{links.map(({ shortName, ...link }) => {
+					const linkElement = (
+						<Link
+							key={link.to}
+							className="p-2 text-center text-muted-foreground hover:text-foreground"
+							activeProps={activeLinkProps}
+							{...link}
+						>
+							{link.icon}
+							<span className="hidden xl:inline-block ml-1">{link.name}</span>
+							{shortName && <span className="visible xl:hidden ml-1">{shortName}</span>}
+						</Link>
+					);
+
+					// Links with a shortName always show a text label, so a tooltip would be
+					// redundant. Only the icon-only links (no shortName, hidden name below xl)
+					// need one, and it's suppressed at xl+ where the full name is visible.
+					if (shortName) {
+						return linkElement;
+					}
+
+					return (
+						<Tooltip key={link.to}>
+							<TooltipTrigger asChild>{linkElement}</TooltipTrigger>
+							<TooltipContent side="bottom" className="xl:hidden">{link.name}</TooltipContent>
+						</Tooltip>
+					);
+				})}
 			</div>
 		</div>
 	);
