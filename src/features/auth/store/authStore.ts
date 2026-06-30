@@ -3,6 +3,7 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
+import { createInstanceAuthenticationTokens } from '@/integrations/api/instance/auth/createInstanceAuthenticationTokens';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
@@ -52,6 +53,14 @@ class AuthStore {
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
+
+	// In Fabric Connect mode, the JWT we exchange for direct access is kept in memory ONLY (never
+	// persisted) so it can't be exfiltrated from storage. `direct` means we verified a direct Bearer
+	// connection and hold its token; `proxy` means direct connect was unreachable and we fall back to
+	// routing operations through the Fabric Connect proxy. A missing entry means "not yet resolved
+	// this session" — re-resolved on the next instance navigation (see establishFabricConnectAuth).
+	private readonly fabricConnectAuth = new Map<EntityIds, { mode: 'direct'; token: string } | { mode: 'proxy' }>();
+	private readonly fabricConnectInFlight = new Map<EntityIds, Promise<LocalUser>>();
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -182,6 +191,74 @@ class AuthStore {
 			localStorage.setItem(this.fabricConnectKeyPrefix + id, 'true');
 		} else {
 			localStorage.removeItem(this.fabricConnectKeyPrefix + id);
+			this.fabricConnectAuth.delete(id);
+		}
+	}
+
+	/** The in-memory Fabric Connect JWT for direct connect, or undefined if not connected directly. */
+	public getOperationToken(id: EntityIds): string | undefined {
+		const fabric = this.fabricConnectAuth.get(id);
+		return fabric?.mode === 'direct' ? fabric.token : undefined;
+	}
+
+	/** Whether Fabric Connect auth has been resolved (direct or proxy) for this id this session. */
+	public hasResolvedFabricConnect(id: EntityIds): boolean {
+		return this.fabricConnectAuth.has(id);
+	}
+
+	/**
+	 * Establishes Fabric Connect auth for an instance/cluster: grabs a JWT through the proxy, then
+	 * tries to use it to connect to the instance directly (Bearer token, no proxy). If the instance
+	 * isn't directly reachable (e.g. CORS/mixed-content from cloud Studio to a local instance), we
+	 * drop the token and fall back to routing everything through the proxy. The verified user is
+	 * recorded in the connection state either way. The JWT is held in memory only.
+	 *
+	 * Concurrent calls for the same id share one in-flight request.
+	 */
+	public establishFabricConnectAuth(
+		{ id, operationsUrl }: { id: EntityIds; operationsUrl?: string | null },
+	): Promise<LocalUser> {
+		const inFlight = this.fabricConnectInFlight.get(id);
+		if (inFlight) {
+			return inFlight;
+		}
+		const promise = this.resolveFabricConnectAuth(id, operationsUrl);
+		this.fabricConnectInFlight.set(id, promise);
+		return promise.finally(() => this.fabricConnectInFlight.delete(id));
+	}
+
+	private async resolveFabricConnectAuth(
+		id: EntityIds,
+		operationsUrl: string | null | undefined,
+	): Promise<LocalUser> {
+		try {
+			const token = await createInstanceAuthenticationTokens({
+				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
+			});
+			this.fabricConnectAuth.set(id, { mode: 'direct', token });
+
+			let user: LocalUser;
+			let key: AuthenticatedConnectionKey;
+			try {
+				const directClient = getInstanceClient({ id, operationsUrl: operationsUrl ?? undefined });
+				user = await getInstanceUserInfo({ instanceClient: directClient });
+				key = operationsUrl || directClient.defaults.baseURL!;
+			} catch (directErr) {
+				// Direct connect unreachable — fall back to the proxy for all operations.
+				console.debug('Fabric Connect direct connect unavailable; falling back to proxy', directErr);
+				this.fabricConnectAuth.set(id, { mode: 'proxy' });
+				const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
+				user = await getInstanceUserInfo({ instanceClient: proxyClient });
+				key = operationsUrl || proxyClient.defaults.baseURL!;
+			}
+
+			this.flagForFabricConnect(id, true);
+			this.setUserForIdAndKey(id, key, user);
+			return user;
+		} catch (err) {
+			// Couldn't establish either mode — clear the half-resolved state so we retry next time.
+			this.fabricConnectAuth.delete(id);
+			throw err;
 		}
 	}
 
@@ -198,6 +275,7 @@ class AuthStore {
 		for (const entityId in this.potentiallyAuthenticated) {
 			this.updateConnectionIfChanged(entityId, false, null);
 			this.flagKeyAsSignedOut(entityId);
+			this.fabricConnectAuth.delete(entityId);
 			if (entityId === OverallAppSignIn) {
 				continue;
 			}
