@@ -37,22 +37,51 @@ const clusterDomainsRoute = createRoute({
 	component: DomainsPage,
 });
 
+// These guards intentionally read live `authStore` state rather than the `context.authentication`
+// snapshot. Clicking "Direct Sign In" clears the connection synchronously, but the router context
+// lags (authStore notifies its listeners asynchronously), so the snapshot still shows the old user
+// — which would bounce us off the sign-in form and back into Fabric Connect (HarperFast/studio#1333).
+
+export function redirectAwayFromSignInIfConnected(
+	{ location, params }: {
+		location?: { search?: { redirect?: string } };
+		params: { clusterId: string };
+	},
+) {
+	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
+	if (authStore.getConnectionById(params.clusterId).user && !isFabricConnect) {
+		const redirectTo = location?.search?.redirect;
+		throw redirect({
+			to: redirectTo?.startsWith('/') ? redirectTo : defaultInstanceRouteUpOne,
+		});
+	}
+}
+
+export function redirectAwayFromInstanceSignInIfConnected(
+	{ location, params }: {
+		location?: { search?: { redirect?: string } };
+		params: { clusterId: string; instanceId: string };
+	},
+) {
+	const isFabricConnect = authStore.checkForFabricConnect(params.clusterId)
+		|| authStore.checkForFabricConnect(params.instanceId);
+	if (isFabricConnect) {
+		return;
+	}
+	if (authStore.getConnectionById(params.instanceId).user) {
+		const redirectTo = location?.search?.redirect;
+		throw redirect({
+			to: redirectTo?.startsWith('/') ? redirectTo : defaultInstanceRouteUpOne,
+		});
+	}
+}
+
 const clusterSignInRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
 	path: 'sign-in',
 	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
-	beforeLoad: ({ context, location, params }) => {
-		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId);
-		if (context.authentication[params.clusterId]?.user && !isFabricConnect) {
-			const search: Record<string, string> = location?.search;
-			throw redirect({
-				to: search?.redirect?.startsWith('/')
-					? search.redirect
-					: defaultInstanceRouteUpOne,
-			});
-		}
-	},
+	beforeLoad: redirectAwayFromSignInIfConnected,
 });
 
 const instanceSignInRoute = createRoute({
@@ -60,21 +89,7 @@ const instanceSignInRoute = createRoute({
 	path: 'instance/$instanceId/sign-in',
 	head: () => ({ meta: [{ title: 'Sign In — Harper Fabric' }] }),
 	component: ClusterInstanceSignIn,
-	beforeLoad: ({ context, location, params }) => {
-		const isFabricConnect = authStore.checkForFabricConnect(params.clusterId)
-			|| authStore.checkForFabricConnect(params.instanceId);
-		if (isFabricConnect) {
-			return;
-		}
-		if (context.authentication[params.instanceId]?.user) {
-			const search: Record<string, string> = location?.search;
-			throw redirect({
-				to: search?.redirect?.startsWith('/')
-					? search.redirect
-					: defaultInstanceRouteUpOne,
-			});
-		}
-	},
+	beforeLoad: redirectAwayFromInstanceSignInIfConnected,
 });
 
 const clusterFinishSetupRoute = createRoute({
