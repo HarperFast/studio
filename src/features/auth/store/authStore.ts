@@ -40,6 +40,13 @@ type OverallAppSignInType = typeof OverallAppSignIn;
 export type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
 type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
+// The Fabric Connect proxy routes through these central-manager paths (see getInstanceClient). A
+// direct operations URL must never be one of them, or we'd send the instance Bearer JWT to the proxy
+// origin instead of the instance.
+function isDirectOperationsUrl(url: string | null | undefined): url is string {
+	return !!url && !url.includes('/HDBInstance/') && !url.includes('/Cluster/');
+}
+
 class AuthStore {
 	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
 	private readonly specificListeners: Record<
@@ -236,11 +243,11 @@ class AuthStore {
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
 
-			// Only attempt a direct Bearer connection when we have a concrete direct operations URL.
-			// Without one, getInstanceClient would fall back to the stored connection key — which may be
-			// the proxy URL — and we'd send the instance JWT to the central-manager origin. In that case
-			// skip straight to the proxy fallback.
-			if (operationsUrl) {
+			// Only attempt a direct Bearer connection when we have a concrete DIRECT operations URL.
+			// Without one, getInstanceClient would fall back to the stored connection key, and if that
+			// (or the passed URL) is a proxy URL we'd send the instance JWT to the central-manager origin.
+			// In that case skip straight to the proxy fallback.
+			if (isDirectOperationsUrl(operationsUrl)) {
 				this.fabricConnectAuth.set(id, { mode: 'direct', token });
 				try {
 					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we

@@ -113,6 +113,18 @@ describe('authStore.establishFabricConnectAuth', () => {
 		expect(getInstanceUserInfo.mock.calls[0][0].instanceClient.defaults.baseURL).toBe(PROXY_URL);
 	});
 
+	it('refuses to send the Bearer token to a proxy URL and falls back to the proxy', async () => {
+		// A proxy-looking operations URL must never receive the instance JWT directly.
+		getInstanceUserInfo.mockResolvedValue(proxyUser);
+
+		const user = await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: PROXY_URL });
+
+		expect(user).toBe(proxyUser);
+		expect(authStore.getOperationToken('ins-1')).toBeUndefined();
+		expect(getInstanceUserInfo).toHaveBeenCalledTimes(1);
+		expect(getInstanceUserInfo.mock.calls[0][0].instanceClient.defaults.baseURL).toBe(PROXY_URL);
+	});
+
 	it('drops the in-memory token when Fabric Connect is flagged off (e.g. on logout)', async () => {
 		getInstanceUserInfo.mockResolvedValue(directUser);
 		await authStore.establishFabricConnectAuth({ id: 'ins-1', operationsUrl: DIRECT_URL });
