@@ -31,6 +31,14 @@
 	font-family: sans-serif;
 	background-color: var(--rct-color-tree-bg);
 	padding: 4px 0;
+	/* Size the tree to its widest row, not just the scroll viewport, so rows
+	   that overflow horizontally still get a full-width hover/selection
+	   background instead of having the overflowed text spill past it (#1307).
+	   The block descendants (ul/li/title-container) fill 100% of this, and the
+	   row button flex-grows to match — so short and long rows align uniformly.
+	   `min-width: 100%` keeps rows at least as wide as the viewport. */
+	width: max-content;
+	min-width: 100%;
 }
 
 .rct-tree-root-focus {
