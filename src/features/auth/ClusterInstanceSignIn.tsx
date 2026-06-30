@@ -44,11 +44,17 @@ export function ClusterInstanceSignIn() {
 
 	const operationsUrl = useMemo(() => {
 		if (cluster) {
+			// Entering direct sign-in resets any existing Fabric Connect session for this entity. We drop
+			// the connected user (not just the Fabric Connect flag) so it isn't mislabeled as "Direct
+			// Connect" if the user leaves the form without signing in (HarperFast/studio#1333), and so the
+			// sign-in/health requests go directly to the instance rather than through the proxy.
 			if (instance) {
 				authStore.flagForFabricConnect(instance.id, false);
+				authStore.setUserForEntity(instance, null);
 				return getOperationsUrlForInstance(instance);
 			} else {
 				authStore.flagForFabricConnect(cluster.id, false);
+				authStore.setUserForEntity(cluster, null);
 				return getOperationsUrlForCluster(cluster);
 			}
 		}
