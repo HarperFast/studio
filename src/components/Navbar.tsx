@@ -200,7 +200,10 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
 
 	return (
-		<div className="hidden md:block">
+		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
+		// range). Touch-only devices can't hover those tooltips, so they stay on the hamburger
+		// until xl, where the word labels fit.
+		<div className="hidden md:[@media(hover:hover)]:block xl:block">
 			<div className="flex items-center justify-between">
 				<div className="inline-block">
 					<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
@@ -265,7 +268,8 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 	const closeMenu = useCallback(() => setIsMenuOpen(false), []);
 
 	return (
-		<div className="md:hidden" id="mobile-menu">
+		// Mirror of DesktopNav: hover devices drop the hamburger at md, touch-only keeps it until xl.
+		<div className="md:[@media(hover:hover)]:hidden xl:hidden" id="mobile-menu">
 			<div className="flex items-center justify-between">
 				<Link to={isLocalStudio ? defaultInstanceRoute : defaultCloudRoute}>
 					<MainLogo />
