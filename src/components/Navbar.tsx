@@ -243,6 +243,9 @@ function DesktopNavItem({ menuItem }: { menuItem: MenuItem }) {
 						<Link
 							to={menuItem.to}
 							onClick={menuItem.onClick}
+							// The label is display:none below textBreakpoint, so give the link a stable
+							// accessible name (the tooltip only wires aria-describedby, not a name).
+							aria-label={menuItem.text}
 							className="flex-row items-center"
 							target={menuItem.target}
 							activeProps={menuItem.to ? activeLinkProps : undefined}
