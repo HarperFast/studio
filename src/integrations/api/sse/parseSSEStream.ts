@@ -23,6 +23,7 @@ export async function* parseSSEStream(
 	const reader = body.getReader();
 	const decoder = new TextDecoder('utf-8');
 	let buffer = '';
+	let completed = false;
 	try {
 		while (true) {
 			if (signal?.aborted) {
@@ -30,6 +31,7 @@ export async function* parseSSEStream(
 			}
 			const { value, done } = await reader.read();
 			if (done) {
+				completed = true;
 				break;
 			}
 			buffer += decoder.decode(value, { stream: true });
@@ -45,6 +47,12 @@ export async function* parseSSEStream(
 			}
 		}
 	} finally {
+		// If a consumer breaks early (e.g. on a terminal `done` event) or aborts, the stream
+		// hasn't drained — cancel it so the underlying network connection is released rather
+		// than left open (browsers cap concurrent connections per host).
+		if (!completed) {
+			void reader.cancel().catch(() => {});
+		}
 		reader.releaseLock();
 	}
 

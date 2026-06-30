@@ -77,6 +77,14 @@ describe('streamOperation', () => {
 		expect(SSEOperationError).toBeDefined();
 	});
 
+	it('does not crash on a null error payload', async () => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse('event: error\ndata: null\n\n')));
+
+		await expect(
+			streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } }),
+		).rejects.toMatchObject({ name: 'SSEOperationError', message: 'The operation failed.' });
+	});
+
 	it('falls back (SSEUnsupportedError) when the response is not an event stream', async () => {
 		vi.stubGlobal(
 			'fetch',

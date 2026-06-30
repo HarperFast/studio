@@ -60,6 +60,26 @@ describe('parseSSEStream', () => {
 		expect(message.data).toBe(' two spaces');
 	});
 
+	it('cancels the underlying stream when the consumer breaks early', async () => {
+		let cancelled = false;
+		const encoder = new TextEncoder();
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				// Enqueue one record but never close — the only way the reader releases is via cancel.
+				controller.enqueue(encoder.encode('event: phase\ndata: {"phase":"prepare"}\n\n'));
+			},
+			cancel() {
+				cancelled = true;
+			},
+		});
+
+		for await (const _message of parseSSEStream(stream)) {
+			break; // bail after the first message, like streamOperation does on `done`
+		}
+
+		expect(cancelled).toBe(true);
+	});
+
 	it('stops early when the signal is already aborted', async () => {
 		const controller = new AbortController();
 		controller.abort();
