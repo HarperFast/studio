@@ -99,6 +99,9 @@ function DesktopInstanceNavBar({ links, restartRequired }: { links: Link[]; rest
 					const linkElement = (
 						<Link
 							key={link.to}
+							// The label is display:none below xl, so give the link a stable accessible name
+							// (the tooltip only wires aria-describedby, a description, not a name).
+							aria-label={link.name}
 							className="p-2 text-center text-muted-foreground hover:text-foreground"
 							activeProps={activeLinkProps}
 							{...link}
