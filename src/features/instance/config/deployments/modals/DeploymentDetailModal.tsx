@@ -12,11 +12,20 @@ export function DeploymentDetailModal({
 }) {
 	return (
 		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent resizable className="max-h-[85vh] overflow-y-auto">
+			{
+				/*
+				No overflow/max-h on DialogContent itself: the resizable shell leaves the outer
+				content unclipped so its resize handles (which extend past the edges) stay reachable.
+				Clipping here swallows them. Scrolling lives on the inner flex-1/min-h-0 body instead.
+			*/
+			}
+			<DialogContent resizable aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>Deployment</DialogTitle>
 				</DialogHeader>
-				<DeploymentDetail deploymentId={deploymentId} />
+				<div className="min-h-0 flex-1 overflow-y-auto">
+					<DeploymentDetail deploymentId={deploymentId} />
+				</div>
 			</DialogContent>
 		</Dialog>
 	);
