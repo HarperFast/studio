@@ -76,11 +76,32 @@ describe('redirectAwayFromInstanceSignInIfConnected (instance)', () => {
 		).toThrow();
 	});
 
-	it('shows the form when Fabric Connect is flagged, even with a user', () => {
+	it('shows the form when the INSTANCE is flagged for Fabric Connect, even with a user', () => {
 		setConnectedUser(INSTANCE_ID);
 		authStore.flagForFabricConnect(INSTANCE_ID, true);
 		expect(() =>
 			redirectAwayFromInstanceSignInIfConnected({ params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID } })
 		).not.toThrow();
+	});
+
+	it('redirects away for a directly-connected instance even when the parent CLUSTER is fabric-connected', () => {
+		setConnectedUser(INSTANCE_ID);
+		authStore.flagForFabricConnect(CLUSTER_ID, true); // cluster flag must not suppress the instance redirect
+		expect(() =>
+			redirectAwayFromInstanceSignInIfConnected({ params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID } })
+		).toThrow();
+	});
+
+	it('honors an absolute redirect target', () => {
+		setConnectedUser(INSTANCE_ID);
+		try {
+			redirectAwayFromInstanceSignInIfConnected({
+				params: { clusterId: CLUSTER_ID, instanceId: INSTANCE_ID },
+				location: { search: { redirect: '/some/path' } },
+			});
+			expect.unreachable('expected a redirect');
+		} catch (thrown) {
+			expect((thrown as { options?: { to?: string } }).options?.to).toBe('/some/path');
+		}
 	});
 });

@@ -19,9 +19,11 @@ export function getInstanceClient(
 		secure,
 		forceFabricConnect,
 		disableFabricConnect,
+		forceOperationToken,
 	}: InstanceClient & {
 		forceFabricConnect?: boolean;
 		disableFabricConnect?: boolean;
+		forceOperationToken?: boolean;
 	} = {},
 ) {
 	let baseURL = operationsUrl || authStore.getOperationsUrl(id);
@@ -42,8 +44,10 @@ export function getInstanceClient(
 
 	// In Fabric Connect mode we obtain a JWT via the proxy (see authStore.establishFabricConnectAuth)
 	// and then talk to the instance directly with a Bearer token instead of routing every operation
-	// through the proxy. Basic auth and explicit proxy requests (forceFabricConnect) take precedence.
-	const operationToken = forceFabricConnect || disableFabricConnect || basicAuth
+	// through the proxy. Basic auth and explicit proxy requests (forceFabricConnect) take precedence —
+	// except when forceOperationToken is set (the establish probe, which must verify the JWT it just
+	// minted even if a stale basic-auth entry exists for this id).
+	const operationToken = forceFabricConnect || disableFabricConnect || (basicAuth && !forceOperationToken)
 		? undefined
 		: authStore.getOperationToken(id);
 

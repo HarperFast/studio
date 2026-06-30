@@ -24,7 +24,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from '@tanstack/react-router';
 import { cx } from 'class-variance-authority';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 
 export function ClusterInstanceSignIn() {
@@ -44,22 +44,33 @@ export function ClusterInstanceSignIn() {
 
 	const operationsUrl = useMemo(() => {
 		if (cluster) {
-			// Entering direct sign-in resets any existing Fabric Connect session for this entity. We drop
-			// the connected user (not just the Fabric Connect flag) so it isn't mislabeled as "Direct
-			// Connect" if the user leaves the form without signing in (HarperFast/studio#1333), and so the
-			// sign-in/health requests go directly to the instance rather than through the proxy.
+			// Clear the Fabric Connect flag synchronously here (before the instance client is built below)
+			// so the sign-in / health requests go directly to the instance rather than through the proxy.
+			// This is idempotent, so it's safe to re-run on every render (e.g. the 10s cluster poll).
 			if (instance) {
 				authStore.flagForFabricConnect(instance.id, false);
-				authStore.setUserForEntity(instance, null);
 				return getOperationsUrlForInstance(instance);
 			} else {
 				authStore.flagForFabricConnect(cluster.id, false);
-				authStore.setUserForEntity(cluster, null);
 				return getOperationsUrlForCluster(cluster);
 			}
 		}
 		return null;
 	}, [cluster, instance]);
+
+	// Drop any existing connected user ONCE on entering the sign-in form (keyed on the stable entity id,
+	// not the poll-refreshed cluster object) so an abandoned sign-in isn't mislabeled as "Direct Connect"
+	// (HarperFast/studio#1333) — without wiping a user that a successful sign-in sets on a later poll tick.
+	const signInEntityId = instance?.id ?? cluster?.id;
+	useEffect(() => {
+		if (instance) {
+			authStore.setUserForEntity(instance, null);
+		} else if (cluster) {
+			authStore.setUserForEntity(cluster, null);
+		}
+		// Intentionally keyed on the stable id, not the entity object (which changes on every poll).
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [signInEntityId]);
 
 	const instanceParams = useInstanceClientIdParams({ operationsUrl });
 	const warnAboutLocalDeviceAccess = useMemo(
