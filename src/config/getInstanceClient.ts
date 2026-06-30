@@ -38,7 +38,17 @@ export function getInstanceClient(
 		}
 	}
 
-	const fabricConnect = !disableFabricConnect && (forceFabricConnect || authStore.checkForFabricConnect(id));
+	const basicAuth = authStore.checkForBasicAuth(id);
+
+	// In Fabric Connect mode we obtain a JWT via the proxy (see authStore.establishFabricConnectAuth)
+	// and then talk to the instance directly with a Bearer token instead of routing every operation
+	// through the proxy. Basic auth and explicit proxy requests (forceFabricConnect) take precedence.
+	const operationToken = forceFabricConnect || disableFabricConnect || basicAuth
+		? undefined
+		: authStore.getOperationToken(id);
+
+	const fabricConnect = !operationToken && !disableFabricConnect
+		&& (forceFabricConnect || authStore.checkForFabricConnect(id));
 	if (fabricConnect) {
 		if (id.startsWith('clu-')) {
 			baseURL = apiClient.defaults.baseURL + `/Cluster/${id}/operation`;
@@ -47,14 +57,13 @@ export function getInstanceClient(
 		}
 	}
 
-	const basicAuth = authStore.checkForBasicAuth(id);
-
 	const client = axios.create({
-		auth: fabricConnect ? undefined : basicAuth,
-		withCredentials: fabricConnect || !basicAuth,
+		auth: fabricConnect || operationToken ? undefined : basicAuth,
+		withCredentials: fabricConnect || (!basicAuth && !operationToken),
 		timeout: 60000,
 		headers: {
 			'Content-Type': 'application/json',
+			...(operationToken ? { Authorization: `Bearer ${operationToken}` } : {}),
 		},
 		baseURL,
 	});

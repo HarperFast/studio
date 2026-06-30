@@ -1,5 +1,4 @@
 import { forceBasicAuth, isLocalStudio } from '@/config/constants';
-import { getInstanceClient } from '@/config/getInstanceClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { authStore } from '@/features/auth/store/authStore';
 import { LocalUser } from '@/integrations/api/api.patch';
@@ -73,18 +72,17 @@ export async function onInstanceLoginSubmit({
 		console.error('Failed to get user with basic auth, trying Fabric Connect', err);
 	}
 
-	const fabricInstanceClient = getInstanceClient({
+	// The user's own credentials worked for the login operation but neither session cookies nor basic
+	// auth stuck (e.g. cross-origin cookie restrictions). Fall back to Fabric Connect: grab a JWT via
+	// the proxy and connect to the instance directly with it, or proxy everything if that's not
+	// reachable either.
+	const user = await authStore.establishFabricConnectAuth({
 		id: entityId,
-		forceFabricConnect: true,
+		operationsUrl: instanceClient.defaults.baseURL,
 	});
-	const user = await getInstanceUserInfo({
-		instanceClient: fabricInstanceClient,
-	});
-	authStore.flagForFabricConnect(entityId, true);
 	return {
 		message,
 		user,
-		instanceClient: fabricInstanceClient,
 	};
 }
 

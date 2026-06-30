@@ -12,6 +12,7 @@ export async function onInstanceLogoutSubmit(
 		operation: 'logout',
 	});
 	authStore.flagForBasicAuth(entityId, null);
+	authStore.flagForFabricConnect(entityId, false);
 	if (data) {
 		return data;
 	} else {
