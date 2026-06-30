@@ -188,7 +188,7 @@ export function EditSSHKeyModal({
 							<FormMessage />
 						</FormItem>
 
-						<DialogFooter>
+						<DialogFooter className="md:col-span-2">
 							<Button
 								type="button"
 								variant="destructiveOutline"
@@ -198,8 +198,6 @@ export function EditSSHKeyModal({
 							>
 								Delete SSH Key
 							</Button>
-
-							<div className="grow" />
 
 							<Button
 								type="submit"
