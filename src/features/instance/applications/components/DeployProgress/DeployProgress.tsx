@@ -61,9 +61,9 @@ export function DeployProgress({ state }: { state: DeploymentStreamState }) {
 					<div className="mb-1 text-xs font-medium text-muted-foreground">Install output</div>
 					<ScrollArea className="h-40 rounded-md border bg-muted/40">
 						<pre className="whitespace-pre-wrap break-words p-2 font-mono text-xs leading-relaxed">
-							{state.installLog.map((entry, i) => (
+							{state.installLog.map((entry) => (
 								<div
-									key={i}
+									key={entry.id}
 									className={cn(entry.stream === 'stderr' && 'text-destructive')}
 								>
 									{entry.line}

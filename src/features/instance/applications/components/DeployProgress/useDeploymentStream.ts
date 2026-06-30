@@ -5,6 +5,8 @@ export type DeploymentLifecycle = 'idle' | 'streaming' | 'success' | 'error' | '
 export type PhaseStatus = 'start' | 'done' | 'error';
 
 export interface InstallLine {
+	/** Stable, monotonically increasing id so React keys survive front-slicing of the log. */
+	id: number;
 	stream?: string;
 	line: string;
 }
@@ -54,7 +56,9 @@ function reducer(state: DeploymentStreamState, action: Action): DeploymentStream
 				};
 			}
 			if (event.type === 'install') {
-				const next = state.installLog.concat({ stream: event.data.stream, line: event.data.line });
+				// Derive the next id from the last line's so keys stay stable across slicing.
+				const nextId = (state.installLog[state.installLog.length - 1]?.id ?? 0) + 1;
+				const next = state.installLog.concat({ id: nextId, stream: event.data.stream, line: event.data.line });
 				return {
 					...state,
 					installLog: next.length > MAX_INSTALL_LINES ? next.slice(-MAX_INSTALL_LINES) : next,
