@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
+import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { dataTableColumns } from '@/features/organization/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/organization/users/modals/AddUserModal';
@@ -96,7 +97,7 @@ export function OrgConfigUsersIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<OrgPageLayout>
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 					<SimpleBrowseDataTable<SchemaUser, unknown>
 						data={cloudUsers}
@@ -141,7 +142,7 @@ export function OrgConfigUsersIndex() {
 						/>
 					)}
 				</Suspense>
-			</div>
+			</OrgPageLayout>
 		</>
 	);
 }
