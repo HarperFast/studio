@@ -26,7 +26,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	const items = [
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
 		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
-		update && { to: `${base}/scaling`, label: 'Scaling', icon: GaugeIcon },
+		// Scaling opens the cluster editor (matches the card's "Edit Scaling"), not the /scaling
+		// update-progress screen.
+		update && { to: `${base}/edit`, label: 'Scaling', icon: GaugeIcon },
 		update && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
 	].filter(Boolean) as SubNavItem[];
 
