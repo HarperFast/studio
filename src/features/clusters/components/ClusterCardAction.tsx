@@ -50,18 +50,11 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		);
 	}
 
-	// The cluster home owns the connect choice (Fabric Connect / Direct Sign In) and the connected
-	// state, so the card just opens it rather than guessing a connection mode here.
+	// The whole card is the click target for opening the cluster (see ClusterCard's stretched link),
+	// so this is just a visual affordance — not its own link.
 	return (
-		<Link
-			to={`${base}/home`}
-			className="text-sm text-nowrap"
-			aria-label={`Open ${cluster.name}`}
-			title={`Open ${cluster.name}`}
-		>
-			<span className="py-2 hover:border-b-2">
-				Open <ArrowRight className="inline-block" />
-			</span>
-		</Link>
+		<span className="text-sm text-nowrap py-2">
+			Open <ArrowRight className="inline-block" />
+		</span>
 	);
 }

@@ -24,7 +24,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from '@tanstack/react-router';
+import { Link, useRouter } from '@tanstack/react-router';
 import {
 	ClipboardIcon,
 	CopyIcon,
@@ -133,6 +133,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		});
 	}, [router, cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
 
+	// The whole card opens the cluster home for the normal "Open" case. Edge states (no FQDN → Instances,
+	// resetPassword → Finish Setup / Pending) keep their own explicit CTA in ClusterCardAction instead.
+	const cardHref = isActive && view && !isTerminated && !!cluster.fqdn && !cluster.resetPassword
+		? `/${cluster.organizationId}/${cluster.id}/home`
+		: undefined;
+
 	const clusterFQDN = cluster.domains?.[0]?.domain || cluster.fqdn;
 	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
 		`${clusterFQDN}`,
@@ -219,21 +225,39 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	return (
 		<EntityContextMenu items={isTerminated ? [] : menuItems}>
 			<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
+				{cardHref && (
+					<Link
+						to={cardHref}
+						aria-label={`Open ${cluster.name}`}
+						className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
+					/>
+				)}
 				<CardHeader>
 					<CardDescription className="flex items-center justify-between">
 						{clusterFQDN
 							? (
 								<>
 									<span className="truncate max-w-48">{clusterFQDN}</span>
-									<CopyIcon onClick={onCopyFQDNClick} size={16} className="cursor-pointer" />
+									<CopyIcon
+										onClick={(e) => {
+											e.stopPropagation();
+											onCopyFQDNClick();
+										}}
+										size={16}
+										className="cursor-pointer relative z-10"
+									/>
 									<span className="grow"></span>
 								</>
 							)
 							: <span>Self-Hosted</span>}
 						{!isTerminated && (
 							<DropdownMenu>
-								<DropdownMenuTrigger>
-									<Ellipsis aria-label="Cluster options" />
+								<DropdownMenuTrigger
+									aria-label="Cluster options"
+									onClick={(e) => e.stopPropagation()}
+									className="relative z-10 -m-2 p-2 rounded-md hover:bg-accent/60"
+								>
+									<Ellipsis />
 								</DropdownMenuTrigger>
 								<DropdownMenuContent>
 									{renderEntityMenuItems(menuItems, 'dropdown')}
