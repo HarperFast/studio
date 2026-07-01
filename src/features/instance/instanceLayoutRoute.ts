@@ -63,8 +63,13 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 	}
 
 	// Are we already authenticated (direct sign-in, basic auth, or a resolved Fabric Connect)?
-	const auth = context.authentication[entityId];
-	if (auth?.isLoading || auth?.user) {
+	// Read LIVE auth state, not the context.authentication snapshot: a direct sign-in sets the
+	// connection synchronously but the router context lags (authStore notifies listeners
+	// asynchronously), so the snapshot would miss the just-signed-in user and we'd wrongly
+	// auto-Fabric-Connect over the direct session (the user lands back on the cluster list as
+	// "Fabric Connect" instead of "Direct Connect").
+	const auth = authStore.getConnectionById(entityId);
+	if (auth.isLoading || auth.user) {
 		return;
 	}
 

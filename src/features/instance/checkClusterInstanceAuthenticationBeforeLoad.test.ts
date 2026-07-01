@@ -16,11 +16,14 @@ const PARAMS = { organizationId: 'org-1', clusterId: CLUSTER_ID };
 const overallAuthReady = { OverallAppSignIn: { isLoading: false, user: null } };
 
 let establishSpy: ReturnType<typeof vi.spyOn>;
+let connectionSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
 	permissions = { update: false };
 	vi.spyOn(authStore, 'checkForFabricConnect').mockReturnValue(false);
 	vi.spyOn(authStore, 'hasResolvedFabricConnect').mockReturnValue(false);
+	// Default: no live connection for the entity (not signed in yet).
+	connectionSpy = vi.spyOn(authStore, 'getConnectionById').mockReturnValue({ isLoading: false, user: null });
 	establishSpy = vi.spyOn(authStore, 'establishFabricConnectAuth').mockResolvedValue({} as never);
 });
 
@@ -49,6 +52,22 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: overallAuthReady }, params: PARAMS }),
 		).rejects.toMatchObject({ options: { to: expect.stringContaining('/sign-in') } });
 		expect(establishSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not Fabric Connect over a fresh direct sign-in (reads live auth, not the stale snapshot)', async () => {
+		// Simulates a just-completed direct sign-in: the live connection has a user (set synchronously by
+		// the sign-in success handler) even though the router-context snapshot would still be empty, and
+		// the manager has update permission. The guard must NOT auto-Fabric-Connect over the direct session.
+		permissions = { update: true };
+		connectionSpy.mockReturnValue({ isLoading: false, user: { username: 'direct-user' } as never });
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({
+				context: { authentication: { OverallAppSignIn: { isLoading: false, user: null } } },
+				params: PARAMS,
+			}),
+		).resolves.toBeUndefined();
+		expect(establishSpy).not.toHaveBeenCalled();
 	});
 
 	it('auto-connects a first-time visitor with manage permission', async () => {
