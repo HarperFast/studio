@@ -1,3 +1,4 @@
+import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { defaultInstanceRoute } from '@/config/constants';
@@ -195,7 +196,14 @@ export function ClusterHome() {
 }
 
 function ClusterHomeShell({ children }: { children: ReactNode }) {
-	return <div className="max-w-3xl mx-auto px-4 md:px-6 py-8">{children}</div>;
+	return (
+		<>
+			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center">
+				<Breadcrumbs />
+			</nav>
+			<div className="mt-32 max-w-3xl mx-auto px-4 md:px-6 pb-10">{children}</div>
+		</>
+	);
 }
 
 function Spinner() {
