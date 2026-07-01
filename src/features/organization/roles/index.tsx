@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
+import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
@@ -72,7 +73,7 @@ export function OrgConfigRolesIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+			<OrgPageLayout>
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
 					<SimpleBrowseDataTable data={orgRoles} columns={dataTableColumns} onRowClick={onRowClick}>
 						<Button
@@ -110,7 +111,7 @@ export function OrgConfigRolesIndex() {
 						/>
 					)}
 				</Suspense>
-			</div>
+			</OrgPageLayout>
 		</>
 	);
 }

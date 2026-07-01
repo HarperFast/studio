@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { isTerminated } from '@/components/ui/utils/badgeStatus';
 import { ClusterCard } from '@/features/clusters/components/ClusterCard';
 import { UpsertCluster } from '@/features/clusters/upsert';
+import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -78,21 +79,21 @@ export function ClustersList() {
 					)
 					: null}
 			</SubNavMenu>
-			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
-				<div className="grid grid-cols-1 gap-4 md:grid-cols-12 mb-4">
+			<OrgPageLayout>
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-9 mb-4">
 					{filteredClusters.map((cluster) => (
-						<div key={cluster.id} className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2">
+						<div key={cluster.id} className="col-span-1 md:col-span-3 xl:col-span-3 2xl:col-span-2">
 							<ClusterCard cluster={cluster} />
 						</div>
 					))}
 					{!filteredClusters.length && (
-						<div className="col-span-1 md:col-span-12 text-center">
+						<div className="col-span-1 md:col-span-9 text-center">
 							<h2 className="my-4 text-xl">No matches found.</h2>
 							<Button type="button" variant="outline" onClick={clearFilterByNameValue}>Clear Filters</Button>
 						</div>
 					)}
 				</div>
-			</section>
+			</OrgPageLayout>
 		</>
 	);
 }

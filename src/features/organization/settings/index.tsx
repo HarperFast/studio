@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { apiClient } from '@/config/apiClient';
+import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { writeToClipboard } from '@/hooks/useCopyToClipboard';
@@ -159,7 +160,7 @@ export function OrgSettingsIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<OrgPageLayout>
 				<div className="max-w-2xl">
 					<h2 className="text-2xl text-foreground font-light mb-6">Authentication</h2>
 
@@ -483,7 +484,7 @@ export function OrgSettingsIndex() {
 						)}
 					</section>
 				</div>
-			</div>
+			</OrgPageLayout>
 		</>
 	);
 }

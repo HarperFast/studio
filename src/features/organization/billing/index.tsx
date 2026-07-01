@@ -1,4 +1,5 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
+import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
@@ -23,7 +24,7 @@ export function OrgBillingIndex() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
+			<OrgPageLayout>
 				<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
 					<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
 						<DesktopBillingNavBar />
@@ -33,7 +34,7 @@ export function OrgBillingIndex() {
 						<Outlet />
 					</section>
 				</div>
-			</div>
+			</OrgPageLayout>
 		</>
 	);
 }

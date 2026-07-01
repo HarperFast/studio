@@ -10,23 +10,10 @@ import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
 import { useOverallAuth } from '@/hooks/useAuth';
-import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
-import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import {
-	BookOpenTextIcon,
-	BugIcon,
-	BuildingIcon,
-	HandshakeIcon,
-	LogInIcon,
-	LogOutIcon,
-	Menu,
-	ReceiptIcon,
-	UserIcon,
-	UsersIcon,
-	X,
-} from 'lucide-react';
+import { Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { BookOpenTextIcon, BugIcon, LogInIcon, LogOutIcon, Menu, UserIcon, X } from 'lucide-react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -37,10 +24,6 @@ export function Navbar() {
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
 	const router = useRouter();
-	const { organizationId }: { organizationId: string } = useParams({ strict: false });
-	const { update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
-	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
-	const showBilling = canUpdateOrganization;
 
 	const handleSignOut = useCallback(() => {
 		signOut(undefined, {
@@ -61,35 +44,8 @@ export function Navbar() {
 	const menuItems: Array<MenuGroup | MenuItem> = useMemo(
 		() =>
 			[
-				!isLocalStudio && {
-					to: '/',
-					icon: <BuildingIcon />,
-					text: 'Organizations',
-					textBreakpoint: 'xl',
-				},
-				!isLocalStudio && {
-					text: 'SubOrganizations',
-					items: [
-						showOrgUsersAndRoles && {
-							to: `/${organizationId}/roles`,
-							icon: <HandshakeIcon />,
-							text: 'Roles',
-							textBreakpoint: 'lg',
-						},
-						showOrgUsersAndRoles && {
-							to: `/${organizationId}/users`,
-							icon: <UsersIcon />,
-							text: 'Users',
-							textBreakpoint: 'lg',
-						},
-						showBilling && {
-							to: `/${organizationId}/billing`,
-							icon: <ReceiptIcon />,
-							text: 'Billing',
-							textBreakpoint: 'xl',
-						},
-					].filter(excludeFalsy),
-				},
+				// Organizations lives in the breadcrumbs; Roles / Users / Billing moved into the org page's
+				// sub-nav (OrgPageLayout), so they're no longer in the global header.
 				!isLocalStudio && {
 					to: '/profile',
 					icon: <UserIcon />,
@@ -124,7 +80,7 @@ export function Navbar() {
 					textBreakpoint: isLocalStudio ? 'md' : 'xl',
 				},
 			].filter(excludeFalsy) satisfies Array<MenuGroup | MenuItem>,
-		[organizationId, showBilling, showOrgUsersAndRoles, handleSignOut],
+		[handleSignOut],
 	);
 
 	if (!user) {
