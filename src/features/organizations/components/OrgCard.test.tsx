@@ -32,7 +32,8 @@ describe('Org Card', () => {
 
 		// screen.debug();
 		expect(screen.getByText(/^Acme/).textContent).toBeTruthy();
-		const link = screen.getByTitle('View Acme');
+		// The whole card is a stretched link to the org; find it by its accessible name.
+		const link = screen.getByRole('link', { name: 'View Acme' });
 		expect(link).toBeTruthy();
 		const href = link.getAttribute('href');
 		expect(href).toBe('/#/123');
