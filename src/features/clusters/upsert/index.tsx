@@ -1,9 +1,11 @@
 import { ContactUs } from '@/components/ContactUs';
 import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
@@ -19,7 +21,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { compareVersions, wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
@@ -28,6 +30,26 @@ import {
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
+
+// Editing an existing cluster gets the cluster sub-nav rail (so Scaling/Version editing keep it);
+// creating a new cluster has no cluster context yet, so it uses the plain breadcrumb layout.
+function UpsertClusterLayout({ isEdit, className, children }: {
+	isEdit: boolean;
+	className?: string;
+	children: ReactNode;
+}) {
+	if (isEdit) {
+		return (
+			<>
+				<SubNavMenu />
+				<ClusterPageLayout>
+					<div className={className}>{children}</div>
+				</ClusterPageLayout>
+			</>
+		);
+	}
+	return <SubNavSimpleLayout className={className}>{children}</SubNavSimpleLayout>;
+}
 
 export function UpsertCluster() {
 	const { organizationId, clusterId, mode }: { organizationId: string; clusterId?: string; mode?: 'version' } =
@@ -217,15 +239,15 @@ export function UpsertCluster() {
 		|| !regionLocationsDedicated;
 	if (isLoading) {
 		return (
-			<SubNavSimpleLayout>
+			<UpsertClusterLayout isEdit={!!clusterId}>
 				<Loading centered={true} text="Loading..." />
-			</SubNavSimpleLayout>
+			</UpsertClusterLayout>
 		);
 	}
 
 	if (cluster?.id ? !update : !create) {
 		return (
-			<SubNavSimpleLayout>
+			<UpsertClusterLayout isEdit={!!clusterId}>
 				<ErrorComponent
 					title={`Not Allowed`}
 					error={{
@@ -236,13 +258,13 @@ export function UpsertCluster() {
 						),
 					}}
 				/>
-			</SubNavSimpleLayout>
+			</UpsertClusterLayout>
 		);
 	}
 
 	if (planTypes.length === 0) {
 		return (
-			<SubNavSimpleLayout>
+			<UpsertClusterLayout isEdit={!!clusterId}>
 				<ErrorComponent
 					title={`Cluster ${clusterId ? 'Modification' : 'Creation'} Not Currently Allowed`}
 					error={{
@@ -253,12 +275,12 @@ export function UpsertCluster() {
 						),
 					}}
 				/>
-			</SubNavSimpleLayout>
+			</UpsertClusterLayout>
 		);
 	}
 
 	return (
-		<SubNavSimpleLayout className="max-w-4xl mx-auto">
+		<UpsertClusterLayout isEdit={!!clusterId} className="max-w-4xl mx-auto">
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
@@ -275,6 +297,6 @@ export function UpsertCluster() {
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
-		</SubNavSimpleLayout>
+		</UpsertClusterLayout>
 	);
 }
