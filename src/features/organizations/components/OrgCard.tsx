@@ -91,7 +91,7 @@ export function OrgCard({
 
 	return (
 		<EntityContextMenu items={remove ? menuItems : []}>
-			<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
+			<Card className="relative h-full justify-between transition-[transform,box-shadow] duration-200 hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-primary/60 dark:hover:ring-violet-400/70">
 				<CardHeader>
 					<CardDescription className="flex items-center justify-between">
 						<span className="truncate">{organizationId}</span>

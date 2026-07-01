@@ -225,8 +225,10 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	return (
 		<EntityContextMenu items={isTerminated ? [] : menuItems}>
 			<Card
-				className={`relative h-full justify-between transition-[transform,box-shadow,border-color] duration-200 ${
-					cardHref ? 'hover:scale-[1.02] hover:shadow-lg hover:border-primary/50' : 'hover:shadow-lg'
+				className={`relative h-full justify-between transition-[transform,box-shadow] duration-200 ${
+					cardHref
+						? 'hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-primary/60 dark:hover:ring-violet-400/70'
+						: 'hover:shadow-lg'
 				}`}
 			>
 				{cardHref && (
