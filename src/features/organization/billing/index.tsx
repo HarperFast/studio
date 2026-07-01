@@ -1,13 +1,7 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { OrgPageLayout } from '@/features/organization/components/OrgPageLayout';
 import { useOrganizationPermissions } from '@/hooks/usePermissions';
-import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
-import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { CreditCardIcon, ReceiptIcon, ReceiptTextIcon } from 'lucide-react';
-
-const sharedClasses = 'flex items-center p-2 rounded-lg group';
-const inactiveProps = { className: 'text-foreground hover:bg-accent dark:text-white dark:hover:bg-gray-700' };
-const activeProps = { className: 'text-black bg-white pointer-events-none cursor-default' };
+import { Outlet, useParams } from '@tanstack/react-router';
 
 export function OrgBillingIndex() {
 	const { organizationId } = useParams({ strict: false });
@@ -21,86 +15,14 @@ export function OrgBillingIndex() {
 		);
 	}
 
+	// Payment Method and Invoices are surfaced as sub-items under Billing in the org sub-nav
+	// (OrgPageLayout), so this layout just hosts the active billing page.
 	return (
 		<>
 			<SubNavMenu />
 			<OrgPageLayout>
-				<div className="md:grid gap-4 md:grid-cols-12 min-h-[calc(100vh-theme(spacing.36))] mb-12">
-					<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 md:border-r-1 border-b md:border-b-0 md:pr-4 border-gray-700">
-						<DesktopBillingNavBar />
-						<MobileBillingNavBar />
-					</section>
-					<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9">
-						<Outlet />
-					</section>
-				</div>
+				<Outlet />
 			</OrgPageLayout>
 		</>
-	);
-}
-
-function DesktopBillingNavBar() {
-	const params = useParams({ strict: false });
-	return (
-		<div className="hidden md:block">
-			<span className={sharedClasses}>
-				<ReceiptIcon className="inline-block" />
-				<h3 className="ms-3 text-2xl font-extrabold text-foreground">Billing</h3>
-			</span>
-
-			<ul className="border-t border-gray-700 pt-4 mt-4 space-y-2">
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'billing')}
-						className={sharedClasses}
-						activeOptions={{ exact: true }}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<CreditCardIcon className="inline-block" /> <span className="ms-3">Payment Method</span>
-					</Link>
-				</li>
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'billing/invoices')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<ReceiptTextIcon className="inline-block" />
-						<span className="ms-3">Invoices &amp; Payments</span>
-					</Link>
-				</li>
-			</ul>
-		</div>
-	);
-}
-
-function MobileBillingNavBar() {
-	const params = useParams({ strict: false });
-	return (
-		<ul className="flex space-x-4 md:hidden py-2">
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'billing')}
-					className={sharedClasses}
-					activeOptions={{ exact: true }}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<CreditCardIcon className="inline-block" /> <span className="ms-3">Payment Method</span>
-				</Link>
-			</li>
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'billing/invoices')}
-					className={sharedClasses}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<ReceiptTextIcon className="inline-block" /> <span className="ms-3">Invoices &amp; Payments</span>
-				</Link>
-			</li>
-		</ul>
 	);
 }
