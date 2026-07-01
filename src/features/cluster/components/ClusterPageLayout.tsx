@@ -25,13 +25,13 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 
 	const items = [
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
-		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
 		// Scaling and Version open the cluster editor (matching the card's "Edit Scaling" / "Edit
 		// Version"), not the /scaling update-progress screen. Both are exact so /edit/version doesn't
 		// also light up Scaling (/edit).
 		update && { to: `${base}/edit`, label: 'Scaling', icon: GaugeIcon, exact: true },
 		update && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
 		update && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
+		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
 	].filter(Boolean) as SubNavItem[];
 
 	return (
