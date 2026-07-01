@@ -105,7 +105,7 @@ export function OrgCard({
 								<DropdownMenuTrigger
 									aria-label="Options"
 									onClick={(e) => e.stopPropagation()}
-									className="relative z-10 p-4 -m-4 -mr-6 hover:text-foreground"
+									className="relative z-10 -m-2 p-2 rounded-md hover:bg-accent/60 hover:text-foreground"
 								>
 									<Ellipsis />
 								</DropdownMenuTrigger>

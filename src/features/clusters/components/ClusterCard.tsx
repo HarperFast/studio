@@ -244,14 +244,17 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 							? (
 								<>
 									<span className="truncate max-w-48">{clusterFQDN}</span>
-									<CopyIcon
+									<button
+										type="button"
+										aria-label="Copy host name"
 										onClick={(e) => {
 											e.stopPropagation();
 											onCopyFQDNClick();
 										}}
-										size={16}
-										className="cursor-pointer relative z-10"
-									/>
+										className="relative z-10 -m-1.5 p-1.5 rounded-md text-muted-foreground cursor-pointer hover:bg-accent/60 hover:text-foreground"
+									>
+										<CopyIcon size={16} />
+									</button>
 									<span className="grow"></span>
 								</>
 							)
