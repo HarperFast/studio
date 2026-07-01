@@ -12,7 +12,7 @@ import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInsta
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { ArrowRight, CircleCheck, KeyRound, Loader2, Server, Zap } from 'lucide-react';
+import { ArrowRight, CircleCheck, KeyRound, Loader2, Rocket, Server, Zap } from 'lucide-react';
 import { ComponentType, ReactNode, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -105,27 +105,49 @@ export function ClusterHome() {
 			{isLoading ? <Spinner /> : connected
 				? (
 					<div>
-						<div className="flex items-center gap-3 p-4 rounded-xl bg-green/10 mb-3">
-							<CircleCheck className="size-5 text-green" />
-							<div className="flex-1">
-								<div className="text-sm font-medium text-green">
-									{isFabricConnect ? 'Connected via Fabric Connect' : 'Signed in directly'}
-								</div>
-								<div className="text-xs text-muted-foreground">
-									{isFabricConnect ? 'Through your Harper account' : 'Session cookie'}
+						<div className="flex items-center gap-2 mb-4 text-sm">
+							<CircleCheck className="size-4 text-green shrink-0" />
+							<span className="font-medium text-green">
+								{isFabricConnect ? 'Connected via Fabric Connect' : 'Signed in directly'}
+							</span>
+							<span className="text-xs text-muted-foreground">
+								· {isFabricConnect ? 'through your Harper account' : 'session cookie'}
+							</span>
+						</div>
+
+						<Link
+							to={`${base}/apps`}
+							className="group flex items-center gap-4 rounded-2xl border-2 border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary hover:bg-primary/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:hover:border-violet-400 dark:hover:bg-violet-400/10"
+						>
+							<div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 dark:bg-violet-400/15 dark:text-violet-300">
+								<Rocket className="size-6" />
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="text-lg font-medium text-foreground">Enter cluster</div>
+								<div className="text-sm text-muted-foreground">
+									Open the studio — apps, databases, APIs, logs, and config.
 								</div>
 							</div>
-						</div>
-						<div className="flex gap-2 flex-wrap">
-							<Link to={`${base}/apps`}>
-								<Button>
-									Enter cluster <ArrowRight />
-								</Button>
-							</Link>
-							{isFabricConnect && <Button variant="outline" onClick={onDirectSignIn}>Switch to direct sign-in</Button>}
-							<Button variant="destructiveOutline" onClick={() => void onDisconnect()}>
+							<ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
+						</Link>
+
+						<div className="mt-4 flex flex-wrap gap-4 text-sm">
+							{isFabricConnect && (
+								<button
+									type="button"
+									onClick={onDirectSignIn}
+									className="text-muted-foreground hover:text-foreground transition-colors"
+								>
+									Switch to direct sign-in
+								</button>
+							)}
+							<button
+								type="button"
+								onClick={() => void onDisconnect()}
+								className="text-muted-foreground hover:text-destructive transition-colors"
+							>
 								{isFabricConnect ? 'Disconnect' : 'Direct sign out'}
-							</Button>
+							</button>
 						</div>
 					</div>
 				)
