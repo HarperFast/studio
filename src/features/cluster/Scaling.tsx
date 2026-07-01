@@ -1,6 +1,6 @@
-import { NestedContentWithSubNavMenu } from '@/components/NestedContentWithSubNavMenu';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useQuery } from '@tanstack/react-query';
@@ -20,15 +20,15 @@ export function Scaling() {
 
 	if (clusterIsLoading || !cluster) {
 		return (
-			<NestedContentWithSubNavMenu className="flex justify-center">
+			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<TextLoadingSkeleton />
-			</NestedContentWithSubNavMenu>
+			</ClusterContentWithSubNavMenu>
 		);
 	}
 
 	if (clusterIsActive) {
 		return (
-			<NestedContentWithSubNavMenu className="flex justify-center">
+			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<div className="center w-2xl flex flex-col gap-4">
 					<h1 className="text-xl text-center">All done!</h1>
 					<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
@@ -37,12 +37,12 @@ export function Scaling() {
 						<ClusterCardAction cluster={cluster} />
 					</div>
 				</div>
-			</NestedContentWithSubNavMenu>
+			</ClusterContentWithSubNavMenu>
 		);
 	}
 
 	return (
-		<NestedContentWithSubNavMenu className="flex justify-center">
+		<ClusterContentWithSubNavMenu className="flex justify-center">
 			<div className="center w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
@@ -63,6 +63,6 @@ export function Scaling() {
 					</span>
 				</p>
 			</div>
-		</NestedContentWithSubNavMenu>
+		</ClusterContentWithSubNavMenu>
 	);
 }

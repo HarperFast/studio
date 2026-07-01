@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { Instance } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -146,8 +147,8 @@ export function Instances() {
 	return (
 		<>
 			<SubNavMenu />
-			<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
-				<Card className="p-0 mt-4 min-h-96">
+			<ClusterPageLayout>
+				<Card className="p-0 min-h-96">
 					<CardContent className="p-0 min-h-96">
 						{clusterIsLoading
 							? <TextLoadingSkeleton />
@@ -166,7 +167,7 @@ export function Instances() {
 							: <EmptyCluster />}
 					</CardContent>
 				</Card>
-			</div>
+			</ClusterPageLayout>
 		</>
 	);
 }
