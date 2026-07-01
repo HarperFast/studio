@@ -4,7 +4,7 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon } from 'lucide-react';
+import { GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
 /**
@@ -26,9 +26,11 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	const items = [
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
 		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
-		// Scaling opens the cluster editor (matches the card's "Edit Scaling"), not the /scaling
-		// update-progress screen.
-		update && { to: `${base}/edit`, label: 'Scaling', icon: GaugeIcon },
+		// Scaling and Version open the cluster editor (matching the card's "Edit Scaling" / "Edit
+		// Version"), not the /scaling update-progress screen. Both are exact so /edit/version doesn't
+		// also light up Scaling (/edit).
+		update && { to: `${base}/edit`, label: 'Scaling', icon: GaugeIcon, exact: true },
+		update && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
 		update && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
 	].filter(Boolean) as SubNavItem[];
 
