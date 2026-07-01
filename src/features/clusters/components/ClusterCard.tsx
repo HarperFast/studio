@@ -136,7 +136,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// The whole card opens the cluster home for the normal "Open" case. Edge states (no FQDN → Instances,
 	// resetPassword → Finish Setup / Pending) keep their own explicit CTA in ClusterCardAction instead.
 	const cardHref = isActive && view && !isTerminated && !!cluster.fqdn && !cluster.resetPassword
-		? `/${cluster.organizationId}/${cluster.id}/home`
+		? `/${cluster.organizationId}/${cluster.id}`
 		: undefined;
 
 	const clusterFQDN = cluster.domains?.[0]?.domain || cluster.fqdn;
@@ -224,7 +224,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 
 	return (
 		<EntityContextMenu items={isTerminated ? [] : menuItems}>
-			<Card className="relative h-full justify-between hover:shadow-lg transition-shadow duration-200">
+			<Card
+				className={`relative h-full justify-between transition-[transform,box-shadow,border-color] duration-200 ${
+					cardHref ? 'hover:scale-[1.02] hover:shadow-lg hover:border-primary/50' : 'hover:shadow-lg'
+				}`}
+			>
 				{cardHref && (
 					<Link
 						to={cardHref}

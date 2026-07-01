@@ -47,7 +47,11 @@ export function InstanceNavBar() {
 	const links = useMemo(() =>
 		[
 			canManage && {
-				to: buildAbsoluteLinkToPage(params),
+				// In cluster context the bare index is the cluster home, so Applications lives at /apps.
+				// Instance and local modes keep Applications at their index.
+				to: params.clusterId && !params.instanceId
+					? buildAbsoluteLinkToPage(params, 'apps')
+					: buildAbsoluteLinkToPage(params),
 				activeOptions: { exact: true },
 				name: 'Applications',
 				shortName: 'Apps',
