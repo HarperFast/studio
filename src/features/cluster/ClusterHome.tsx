@@ -65,6 +65,11 @@ export function ClusterHome() {
 			// Ignore: we're clearing local state regardless of the server response.
 		}
 		authStore.setUserForEntity(cluster, null);
+		// Clear the persisted connection flags too, and do it even if the logout POST above failed —
+		// onInstanceLogoutSubmit clears them on success, but a swallowed error would otherwise leave the
+		// Fabric Connect flag and Basic Auth credentials behind in localStorage.
+		authStore.flagForFabricConnect(cluster.id, false);
+		authStore.flagForBasicAuth(cluster.id, null);
 		await router.invalidate();
 	}, [cluster, router]);
 
@@ -82,6 +87,22 @@ export function ClusterHome() {
 		return <Navigate to={`${base}/instances`} replace />;
 	}
 	if (cluster.resetPassword) {
+		// Only an admin (update) can finish setup / set the password. Match ClusterCardAction: send
+		// updaters into the setup flow, but show view-only members a "pending" message instead of
+		// redirecting them to a page they can't act on.
+		if (!update) {
+			return (
+				<ClusterHomeShell>
+					<div className="text-center py-12">
+						<Server className="size-12 text-muted-foreground mx-auto mb-4" />
+						<h1 className="text-xl font-medium mb-2 text-foreground">Pending Owner Setup</h1>
+						<p className="text-sm text-muted-foreground max-w-md mx-auto">
+							This cluster needs an administrator to finish setup before it can be used.
+						</p>
+					</div>
+				</ClusterHomeShell>
+			);
+		}
 		const isActive = cluster.status && activeClusterStatuses.includes(cluster.status);
 		return <Navigate to={`${base}/${isActive ? 'finish-setup' : 'starting-up'}`} replace />;
 	}
