@@ -1,6 +1,7 @@
 import { apiClient } from '@/config/apiClient';
 import { authStore, EntityIds, OverallAppSignIn } from '@/features/auth/store/authStore';
 import { rejectReplicationFailures } from '@/integrations/api/replication';
+import { curryRecoverExpiredOperationToken } from '@/integrations/api/retryExpiredOperationToken';
 import { curryRetryGatewayErrors } from '@/integrations/api/retryGatewayErrors';
 import axios from 'axios';
 
@@ -75,5 +76,10 @@ export function getInstanceClient(
 		rejectReplicationFailures,
 		curryRetryGatewayErrors(client),
 	);
+	// Direct-connect clients recover from a 401 (expired operation token) by minting a fresh token and
+	// replaying once. Registered after the gateway-retry handler, which passes a 401 straight through.
+	if (operationToken) {
+		client.interceptors.response.use(undefined, curryRecoverExpiredOperationToken(client, id));
+	}
 	return client;
 }

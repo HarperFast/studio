@@ -3,7 +3,10 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
-import { createInstanceAuthenticationTokens } from '@/integrations/api/instance/auth/createInstanceAuthenticationTokens';
+import {
+	createInstanceAuthenticationTokens,
+	refreshInstanceOperationToken,
+} from '@/integrations/api/instance/auth/createInstanceAuthenticationTokens';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
@@ -66,8 +69,12 @@ class AuthStore {
 	// connection and hold its token; `proxy` means direct connect was unreachable and we fall back to
 	// routing operations through the Fabric Connect proxy. A missing entry means "not yet resolved
 	// this session" — re-resolved on the next instance navigation (see establishFabricConnectAuth).
-	private readonly fabricConnectAuth = new Map<EntityIds, { mode: 'direct'; token: string } | { mode: 'proxy' }>();
+	private readonly fabricConnectAuth = new Map<
+		EntityIds,
+		{ mode: 'direct'; token: string; refreshToken?: string } | { mode: 'proxy' }
+	>();
 	private readonly fabricConnectInFlight = new Map<EntityIds, Promise<LocalUser>>();
+	private readonly operationTokenRefreshInFlight = new Map<EntityIds, Promise<string | null>>();
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -214,6 +221,67 @@ class AuthStore {
 	}
 
 	/**
+	 * Recovers a fresh operation token for a direct-connect id whose token was rejected (typically 401
+	 * from mid-session expiry — Harper operation tokens default to ~1 day). Prefers exchanging the
+	 * refresh token directly at the instance; falls back to re-minting a fresh pair through the proxy.
+	 * Returns the new token, or null if recovery failed or the id isn't in direct mode. Concurrent
+	 * callers for the same id share one recovery.
+	 */
+	public recoverExpiredOperationToken(id: EntityIds): Promise<string | null> {
+		const fabric = this.fabricConnectAuth.get(id);
+		if (fabric?.mode !== 'direct') {
+			return Promise.resolve(null);
+		}
+		const inFlight = this.operationTokenRefreshInFlight.get(id);
+		if (inFlight) {
+			return inFlight;
+		}
+		const promise = this.mintFreshOperationToken(id, fabric.refreshToken);
+		this.operationTokenRefreshInFlight.set(id, promise);
+		return promise.finally(() => this.operationTokenRefreshInFlight.delete(id));
+	}
+
+	private async mintFreshOperationToken(id: EntityIds, refreshToken: string | undefined): Promise<string | null> {
+		// Cheap path: exchange the refresh token for a new operation token, directly at the instance.
+		// forceOperationToken keeps getInstanceClient on the direct URL (not the proxy) even if a stale
+		// basic-auth entry exists; refreshInstanceOperationToken overrides the Bearer with the refresh token.
+		if (refreshToken) {
+			try {
+				const token = await refreshInstanceOperationToken({
+					instanceClient: getInstanceClient({ id, forceOperationToken: true }),
+					refreshToken,
+				});
+				this.updateDirectOperationToken(id, token, refreshToken);
+				return token;
+			} catch (err) {
+				console.debug(
+					'Operation token refresh failed; re-minting via proxy',
+					err instanceof Error ? err.message : err,
+				);
+			}
+		}
+
+		// Fall back to minting a fresh pair through the proxy.
+		try {
+			const { operationToken, refreshToken: newRefreshToken } = await createInstanceAuthenticationTokens({
+				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
+			});
+			this.updateDirectOperationToken(id, operationToken, newRefreshToken ?? refreshToken);
+			return operationToken;
+		} catch (err) {
+			console.debug('Operation token re-mint failed', err instanceof Error ? err.message : err);
+			return null;
+		}
+	}
+
+	/** Update the in-memory direct token, but only if a concurrent logout/flag-off hasn't cleared it. */
+	private updateDirectOperationToken(id: EntityIds, token: string, refreshToken: string | undefined): void {
+		if (this.fabricConnectAuth.get(id)?.mode === 'direct') {
+			this.fabricConnectAuth.set(id, { mode: 'direct', token, refreshToken });
+		}
+	}
+
+	/**
 	 * Establishes Fabric Connect auth for an instance/cluster: grabs a JWT through the proxy, then
 	 * tries to use it to connect to the instance directly (Bearer token, no proxy). If the instance
 	 * isn't directly reachable (e.g. CORS/mixed-content from cloud Studio to a local instance), we
@@ -239,7 +307,7 @@ class AuthStore {
 		operationsUrl: string | null | undefined,
 	): Promise<LocalUser> {
 		try {
-			const token = await createInstanceAuthenticationTokens({
+			const { operationToken, refreshToken } = await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
 
@@ -248,7 +316,7 @@ class AuthStore {
 			// (or the passed URL) is a proxy URL we'd send the instance JWT to the central-manager origin.
 			// In that case skip straight to the proxy fallback.
 			if (isDirectOperationsUrl(operationsUrl)) {
-				this.fabricConnectAuth.set(id, { mode: 'direct', token });
+				this.fabricConnectAuth.set(id, { mode: 'direct', token: operationToken, refreshToken });
 				try {
 					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we
 					// just minted (basic auth otherwise wins in getInstanceClient).
