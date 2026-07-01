@@ -66,11 +66,11 @@ export function ClustersList() {
 				)}
 			</SubNavMenu>
 			<OrgPageLayout>
-				<div className="relative mb-4 max-w-xs">
-					<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+				<div className="relative mb-6 w-full">
+					<SearchIcon className="pointer-events-none absolute left-0 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
 						placeholder="Filter by name"
-						className="pl-8 text-xs bg-transparent border-border/60"
+						className="w-full rounded-none border-0 border-b border-border bg-transparent dark:bg-transparent pl-6 shadow-none focus-visible:border-primary focus-visible:ring-0"
 						value={filterByNameValue}
 						onChange={onFilterByNameChanged}
 					/>
