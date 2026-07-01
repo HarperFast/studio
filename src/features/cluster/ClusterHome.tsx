@@ -1,18 +1,20 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { ArrowRight, CircleCheck, KeyRound, Loader2, Rocket, Server, Zap } from 'lucide-react';
+import { ArrowRight, CircleCheck, Copy, ExternalLink, KeyRound, Loader2, Rocket, Server, Zap } from 'lucide-react';
 import { ComponentType, ReactNode, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -25,6 +27,9 @@ export function ClusterHome() {
 	const { user, isLoading } = useInstanceAuth(clusterId);
 	const { view, update } = useOrganizationClusterPermissions(cluster?.organizationId, cluster?.id);
 	const [isConnecting, setIsConnecting] = useState(false);
+
+	const clusterHost = cluster?.domains?.[0]?.domain || cluster?.fqdn || '';
+	const [copyHostName, copyApiUrl] = useCopyToClipboard(clusterHost, clusterHost ? `https://${clusterHost}` : '');
 
 	const base = cluster ? `/${cluster.organizationId}/${cluster.id}` : '';
 
@@ -96,8 +101,30 @@ export function ClusterHome() {
 						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
 						<StatusPill status={cluster.status} />
 					</div>
-					<div className="mt-1 text-sm text-muted-foreground">
-						{cluster.instances?.length ?? 0} instances · {cluster.fqdn}
+					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+						<span>{cluster.instances?.length ?? 0} instances</span>
+						<span aria-hidden="true">·</span>
+						<a
+							href={`https://${clusterHost}`}
+							target="_blank"
+							rel="noreferrer"
+							className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+						>
+							{clusterHost}
+							<ExternalLink className="size-3" />
+						</a>
+						<DropdownMenu>
+							<DropdownMenuTrigger
+								aria-label="Copy cluster URLs"
+								className="rounded-md p-1 -m-1 hover:bg-accent/60 hover:text-foreground"
+							>
+								<Copy className="size-3.5" />
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start">
+								<DropdownMenuItem onClick={copyHostName}>Copy host name</DropdownMenuItem>
+								<DropdownMenuItem onClick={copyApiUrl}>Copy API URL</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					</div>
 				</div>
 			</div>
