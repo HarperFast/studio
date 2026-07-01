@@ -1,8 +1,9 @@
-import { Breadcrumbs } from '@/components/Breadcrumbs';
+import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -11,7 +12,7 @@ import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInsta
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { ArrowRight, CircleCheck, Database, Gauge, Globe, KeyRound, Loader2, Server, Zap } from 'lucide-react';
+import { ArrowRight, CircleCheck, KeyRound, Loader2, Server, Zap } from 'lucide-react';
 import { ComponentType, ReactNode, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -155,41 +156,6 @@ export function ClusterHome() {
 						</div>
 					</div>
 				)}
-
-			<div className="mt-7 pt-5 border-t border-border">
-				<div className="text-xs text-muted-foreground mb-3">Manage</div>
-				<div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-					<ManageTile
-						to={`${base}/instances`}
-						icon={Server}
-						label="Instances"
-						hint={`${cluster.instances?.length ?? 0} running`}
-						enabled={connected}
-					/>
-					<ManageTile
-						to={`${base}/databases`}
-						icon={Database}
-						label="Databases"
-						hint="Browse and query"
-						enabled={connected}
-					/>
-					<ManageTile
-						to={`${base}/scaling`}
-						icon={Gauge}
-						label="Scaling"
-						hint="Size and replicas"
-						enabled={connected && update}
-					/>
-					<ManageTile
-						to={`${base}/domains`}
-						icon={Globe}
-						label="Domains"
-						hint="Custom domains"
-						enabled={connected && update}
-					/>
-				</div>
-				<div className="mt-3.5 text-xs text-muted-foreground">Scaling and domains require manage permission.</div>
-			</div>
 		</ClusterHomeShell>
 	);
 }
@@ -197,10 +163,10 @@ export function ClusterHome() {
 function ClusterHomeShell({ children }: { children: ReactNode }) {
 	return (
 		<>
-			<nav className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center">
-				<Breadcrumbs />
-			</nav>
-			<div className="mt-40 max-w-3xl mx-auto px-4 md:px-6 pb-10">{children}</div>
+			<SubNavMenu />
+			<ClusterPageLayout>
+				<div className="max-w-3xl">{children}</div>
+			</ClusterPageLayout>
 		</>
 	);
 }
@@ -263,38 +229,5 @@ function ConnectOption(
 			<p className="text-[13px] text-muted-foreground leading-normal mb-4">{description}</p>
 			{children}
 		</div>
-	);
-}
-
-function ManageTile(
-	{ to, icon: Icon, label, hint, enabled }: {
-		to: string;
-		icon: ComponentType<{ className?: string }>;
-		label: string;
-		hint: string;
-		enabled: boolean;
-	},
-) {
-	const body = (
-		<>
-			<Icon className="size-5 text-primary dark:text-violet-300 shrink-0" />
-			<div className="min-w-0">
-				<div className="text-[13px] font-medium text-foreground truncate">{label}</div>
-				<div className="text-[11px] text-muted-foreground truncate">{hint}</div>
-			</div>
-		</>
-	);
-	const className =
-		'flex items-center gap-3 p-3 rounded-xl border border-border bg-card transition-[transform,border-color,background-color] duration-150';
-	if (!enabled) {
-		return <div className={`${className} opacity-50`} aria-disabled>{body}</div>;
-	}
-	return (
-		<Link
-			to={to}
-			className={`${className} hover:scale-[1.02] hover:bg-accent/60 hover:border-primary/50 dark:hover:border-violet-400/60`}
-		>
-			{body}
-		</Link>
 	);
 }
