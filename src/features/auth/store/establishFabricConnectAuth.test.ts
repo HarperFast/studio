@@ -53,6 +53,8 @@ describe('authStore.establishFabricConnectAuth', () => {
 		expect(authStore.getOperationToken('ins-1')).toBe('jwt-token');
 		expect(authStore.hasResolvedFabricConnect('ins-1')).toBe(true);
 		expect(authStore.checkForFabricConnect('ins-1')).toBe(true);
+		// Remembered for the cluster landing page's "Last used" pill.
+		expect(authStore.getLastConnectMode('ins-1')).toBe('fabric');
 	});
 
 	it('drops the JWT and falls back to the proxy when direct connect is unreachable', async () => {

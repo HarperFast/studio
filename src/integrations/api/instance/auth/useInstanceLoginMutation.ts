@@ -43,6 +43,7 @@ export async function onInstanceLoginSubmit({
 		// Attempt to use the login with session storage only.
 		try {
 			const user = await getInstanceUserInfo({ instanceClient });
+			authStore.setLastConnectMode(entityId, 'direct');
 			return {
 				message,
 				user,
@@ -60,6 +61,7 @@ export async function onInstanceLoginSubmit({
 			auth,
 		});
 		authStore.flagForBasicAuth(entityId, auth);
+		authStore.setLastConnectMode(entityId, 'direct');
 		return {
 			message,
 			user,

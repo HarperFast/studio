@@ -2,6 +2,7 @@ import { defaultInstanceRouteUpOne } from '@/config/constants';
 import { ClusterInstanceSignIn } from '@/features/auth/ClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { ClusterHome } from './ClusterHome';
 import { clusterLayoutRoute } from './clusterLayoutRoute';
 import { DomainsPage } from './domains/Page';
 import { FinishSetup } from './FinishSetup';
@@ -97,6 +98,13 @@ const clusterFinishSetupRoute = createRoute({
 	component: FinishSetup,
 });
 
+const clusterHomeRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'home',
+	head: () => ({ meta: [{ title: 'Cluster — Harper Fabric' }] }),
+	component: ClusterHome,
+});
+
 export const clusterRoutes = [
 	clusterInstancesRoute,
 	clusterStartingUpRoute,
@@ -105,4 +113,5 @@ export const clusterRoutes = [
 	clusterFinishSetupRoute,
 	clusterSignInRoute,
 	instanceSignInRoute,
+	clusterHomeRoute,
 ];
