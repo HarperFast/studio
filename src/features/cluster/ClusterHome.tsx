@@ -1,7 +1,6 @@
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { Button } from '@/components/ui/button';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
-import { defaultInstanceRoute } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
@@ -117,7 +116,7 @@ export function ClusterHome() {
 							</div>
 						</div>
 						<div className="flex gap-2 flex-wrap">
-							<Link to={`${base}${defaultInstanceRoute}`}>
+							<Link to={`${base}/apps`}>
 								<Button>
 									Enter cluster <ArrowRight />
 								</Button>
@@ -168,7 +167,7 @@ export function ClusterHome() {
 						enabled={connected}
 					/>
 					<ManageTile
-						to={`${base}${defaultInstanceRoute}`}
+						to={`${base}/databases`}
 						icon={Database}
 						label="Databases"
 						hint="Browse and query"
@@ -285,9 +284,17 @@ function ManageTile(
 			</div>
 		</>
 	);
-	const className = 'flex items-center gap-3 p-3 rounded-xl border border-border bg-card';
+	const className =
+		'flex items-center gap-3 p-3 rounded-xl border border-border bg-card transition-[transform,border-color,background-color] duration-150';
 	if (!enabled) {
 		return <div className={`${className} opacity-50`} aria-disabled>{body}</div>;
 	}
-	return <Link to={to} className={`${className} hover:border-primary/40 hover:bg-accent/60`}>{body}</Link>;
+	return (
+		<Link
+			to={to}
+			className={`${className} hover:scale-[1.02] hover:bg-accent/60 hover:border-primary/50 dark:hover:border-violet-400/60`}
+		>
+			{body}
+		</Link>
+	);
 }

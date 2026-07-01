@@ -98,9 +98,12 @@ const clusterFinishSetupRoute = createRoute({
 	component: FinishSetup,
 });
 
+// The cluster home is the cluster index (/{org}/{clusterId}). The within-cluster tabs (apps,
+// databases, …) live under the pathless instance layout, so they render with the instance nav; the
+// home is a sibling index and renders without it.
 const clusterHomeRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
-	path: 'home',
+	path: '/',
 	head: () => ({ meta: [{ title: 'Cluster — Harper Fabric' }] }),
 	component: ClusterHome,
 });

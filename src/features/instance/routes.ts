@@ -11,7 +11,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 
 	const children = [
 		createLogRouteTree(instanceLayoutRoute),
-		...createApplicationsRoutes(instanceLayoutRoute),
+		...createApplicationsRoutes(instanceLayoutRoute, mode),
 		createAPIsRouteTree(instanceLayoutRoute),
 		createStatusRouteTree(instanceLayoutRoute),
 		createConfigRouteTree(instanceLayoutRoute),
