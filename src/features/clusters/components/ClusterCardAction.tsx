@@ -53,7 +53,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 	// The whole card is the click target for opening the cluster (see ClusterCard's stretched link),
 	// so this is just a visual affordance — not its own link.
 	return (
-		<span className="text-sm text-nowrap py-2">
+		<span className="text-sm text-nowrap py-2 ml-auto">
 			Open <ArrowRight className="inline-block" />
 		</span>
 	);

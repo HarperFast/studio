@@ -92,13 +92,22 @@ export function OrgCard({
 	return (
 		<EntityContextMenu items={remove ? menuItems : []}>
 			<Card className="relative h-full justify-between transition-[transform,box-shadow] duration-200 hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-primary/60 dark:hover:ring-violet-400/70">
+				<Link
+					to={organizationId}
+					aria-label={`View ${organizationName ?? organizationId}`}
+					className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
+				/>
 				<CardHeader>
 					<CardDescription className="flex items-center justify-between">
 						<span className="truncate">{organizationId}</span>
 						{remove && (
 							<DropdownMenu>
-								<DropdownMenuTrigger className="p-4 -m-4 -mr-6 hover:text-foreground">
-									<Ellipsis aria-label="Options" />
+								<DropdownMenuTrigger
+									aria-label="Options"
+									onClick={(e) => e.stopPropagation()}
+									className="relative z-10 p-4 -m-4 -mr-6 hover:text-foreground"
+								>
+									<Ellipsis />
 								</DropdownMenuTrigger>
 								<DropdownMenuContent>
 									{renderEntityMenuItems(menuItems, 'dropdown')}
@@ -114,16 +123,10 @@ export function OrgCard({
 					<Badge className="min-w-0 shrink" title={capitalizeWords(roleName)}>
 						<span className="truncate">{capitalizeWords(roleName)}</span>
 					</Badge>
-					<Link
-						to={organizationId}
-						className="text-sm shrink-0"
-						aria-label={`View ${organizationName ?? organizationId}`}
-						title={`View ${organizationName ?? organizationId}`}
-					>
-						<span className="py-2 transition-all duration-100 ease-in-out border-0 hover:border-b-2 whitespace-nowrap">
-							View <ArrowRight className="inline-block" />
-						</span>
-					</Link>
+					{/* The whole card opens the org (stretched link above); this is a visual affordance. */}
+					<span className="text-sm shrink-0 py-2 whitespace-nowrap ml-auto">
+						View <ArrowRight className="inline-block" />
+					</span>
 				</CardContent>
 				<AddCouponModal
 					organizationId={organizationId}
