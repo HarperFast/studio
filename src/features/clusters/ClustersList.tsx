@@ -14,7 +14,7 @@ import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link, Navigate, useParams } from '@tanstack/react-router';
-import { Plus } from 'lucide-react';
+import { Plus, SearchIcon } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 
 export function ClustersList() {
@@ -52,34 +52,29 @@ export function ClustersList() {
 	return (
 		<>
 			<SubNavMenu>
-				{isSuccess
-					? (
-						<div className="flex w-full justify-end gap-2">
-							<Input
-								placeholder="Filter by name"
-								className="inline-block w-full text-xs"
-								value={filterByNameValue}
-								onChange={onFilterByNameChanged}
-							/>
-
-							{create && (
-								<Link to="new-cluster">
-									<Button
-										variant="positive"
-										accessKey="n"
-									>
-										<Plus />{' '}
-										<span className="hidden sm:inline-block">
-											<u>N</u>ew <span className="hidden md:inline-block">Cluster</span>
-										</span>
-									</Button>
-								</Link>
-							)}
-						</div>
-					)
-					: null}
+				{isSuccess && create && (
+					<div className="flex w-full justify-end">
+						<Link to="new-cluster">
+							<Button variant="positive" accessKey="n">
+								<Plus />{' '}
+								<span className="hidden sm:inline-block">
+									<u>N</u>ew <span className="hidden md:inline-block">Cluster</span>
+								</span>
+							</Button>
+						</Link>
+					</div>
+				)}
 			</SubNavMenu>
 			<OrgPageLayout>
+				<div className="relative mb-4 max-w-xs">
+					<SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
+						placeholder="Filter by name"
+						className="pl-8 text-xs bg-transparent border-border/60"
+						value={filterByNameValue}
+						onChange={onFilterByNameChanged}
+					/>
+				</div>
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-9 mb-4">
 					{filteredClusters.map((cluster) => (
 						<div key={cluster.id} className="col-span-1 md:col-span-3 xl:col-span-3 2xl:col-span-2">
