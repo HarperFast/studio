@@ -88,7 +88,7 @@ export function ClusterHome() {
 	return (
 		<ClusterHomeShell>
 			<div className="flex items-start gap-4 mb-6">
-				<div className="flex items-center justify-center size-12 rounded-xl bg-violet-50 text-primary dark:bg-grey-700 shrink-0">
+				<div className="flex items-center justify-center size-12 rounded-xl bg-violet-50 text-primary dark:bg-grey-700 dark:text-violet-300 shrink-0">
 					<Server className="size-6" />
 				</div>
 				<div className="flex-1 min-w-0">
@@ -243,21 +243,23 @@ function ConnectOption(
 				pill === 'last'
 					? 'border-2 border-green'
 					: pill === 'recommended'
-					? 'border-2 border-primary'
+					? 'border-2 border-primary dark:border-violet-400'
 					: 'border-border'
 			}`}
 		>
 			{pill && (
 				<span
 					className={`absolute -top-2.5 left-4 inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${
-						pill === 'last' ? 'text-green bg-green/15' : 'text-primary bg-violet-50 dark:bg-grey-700'
+						pill === 'last'
+							? 'text-green bg-green/15'
+							: 'text-primary bg-violet-50 dark:text-violet-300 dark:bg-grey-700'
 					}`}
 				>
 					{pill === 'last' && <span className="size-1.5 rounded-full bg-current" />}
 					{pill === 'last' ? 'Last used' : 'Recommended'}
 				</span>
 			)}
-			<Icon className="size-6 text-primary mb-2" />
+			<Icon className="size-6 text-primary dark:text-violet-300 mb-2" />
 			<div className="text-[15px] font-medium text-foreground mb-1">{title}</div>
 			<p className="text-[13px] text-muted-foreground leading-normal mb-4">{description}</p>
 			{children}
@@ -276,7 +278,7 @@ function ManageTile(
 ) {
 	const body = (
 		<>
-			<Icon className="size-5 text-primary shrink-0" />
+			<Icon className="size-5 text-primary dark:text-violet-300 shrink-0" />
 			<div className="min-w-0">
 				<div className="text-[13px] font-medium text-foreground truncate">{label}</div>
 				<div className="text-[11px] text-muted-foreground truncate">{hint}</div>
