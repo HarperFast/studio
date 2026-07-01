@@ -60,6 +60,7 @@ class AuthStore {
 	private readonly potentiallyAuthenticatedKey = 'Studio:PotentiallyAuthenticated';
 	private readonly basicAuthKeyPrefix = 'Studio:BasicAuth:';
 	private readonly fabricConnectKeyPrefix = 'Studio:FabricConnect:';
+	private readonly lastConnectModeKeyPrefix = 'Studio:LastConnectMode:';
 	private readonly potentiallyAuthenticated: Record<EntityIds, AuthenticatedConnectionKey>;
 	private readonly checkedAuthentication: Record<EntityIds, boolean> = {};
 	private readonly allConnections: Record<EntityIds, AuthenticatedConnection> = {};
@@ -209,6 +210,20 @@ class AuthStore {
 		}
 	}
 
+	/**
+	 * Remembers which connection mode the user last chose for an entity, so the cluster landing page
+	 * can highlight it with a "Last used" pill. Persisted (unlike the JWT) — it's a preference, not a
+	 * secret.
+	 */
+	public setLastConnectMode(id: EntityIds, mode: 'fabric' | 'direct') {
+		localStorage.setItem(this.lastConnectModeKeyPrefix + id, mode);
+	}
+
+	public getLastConnectMode(id: EntityIds): 'fabric' | 'direct' | undefined {
+		const value = localStorage.getItem(this.lastConnectModeKeyPrefix + id);
+		return value === 'fabric' || value === 'direct' ? value : undefined;
+	}
+
 	/** The in-memory Fabric Connect JWT for direct connect, or undefined if not connected directly. */
 	public getOperationToken(id: EntityIds): string | undefined {
 		const fabric = this.fabricConnectAuth.get(id);
@@ -323,6 +338,7 @@ class AuthStore {
 					const directClient = getInstanceClient({ id, operationsUrl, forceOperationToken: true });
 					const user = await getInstanceUserInfo({ instanceClient: directClient });
 					this.flagForFabricConnect(id, true);
+					this.setLastConnectMode(id, 'fabric');
 					this.setUserForIdAndKey(id, operationsUrl, user);
 					return user;
 				} catch (directErr) {
@@ -340,6 +356,7 @@ class AuthStore {
 			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
 			const user = await getInstanceUserInfo({ instanceClient: proxyClient });
 			this.flagForFabricConnect(id, true);
+			this.setLastConnectMode(id, 'fabric');
 			this.setUserForIdAndKey(id, operationsUrl || proxyClient.defaults.baseURL!, user);
 			return user;
 		} catch (err) {

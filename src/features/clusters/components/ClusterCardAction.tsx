@@ -1,32 +1,22 @@
 import { Button } from '@/components/ui/button';
-import { defaultInstanceRoute } from '@/config/constants';
-import { authStore } from '@/features/auth/store/authStore';
-import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
-import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
-import { useCallback } from 'react';
 
 export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
-	const auth = useInstanceAuth(cluster.id);
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
-	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
-	const isDirectConnect = !isFabricConnect && !!auth.user;
-	const prepareForDirectSignIn = useCallback(() => {
-		authStore.setUserForEntity(cluster, null);
-		authStore.flagForFabricConnect(cluster.id, false);
-	}, [cluster]);
+	const base = `/${cluster.organizationId}/${cluster.id}`;
 
 	if (!view) {
 		return undefined;
 	}
 
+	// A cluster with no FQDN can't be connected to yet — send them to its instances.
 	if (!cluster.fqdn) {
 		return (
 			<Link
-				to={`/${cluster.organizationId}/${cluster.id}/instances`}
+				to={`${base}/instances`}
 				className="text-sm text-nowrap"
 				aria-label={`View ${cluster.name}`}
 				title={`View ${cluster.name}`}
@@ -42,7 +32,7 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		if (update) {
 			return (
 				<Link
-					to={`/${cluster.organizationId}/${cluster.id}/finish-setup`}
+					to={`${base}/finish-setup`}
 					className="text-sm text-nowrap"
 					aria-label={`Set Password on ${cluster.name}`}
 					title={`Set Password on ${cluster.name}`}
@@ -60,50 +50,17 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		);
 	}
 
-	if (auth.isLoading) {
-		return undefined;
-	}
-
-	if (isDirectConnect) {
-		return (
-			<Link
-				to={`/${cluster.organizationId}/${cluster.id}${defaultInstanceRoute}`}
-				className="text-sm text-nowrap"
-				aria-label={`View ${cluster.name}`}
-				title={`View ${cluster.name}`}
-			>
-				<span className="py-2 hover:border-b-2">
-					Direct Connect <ArrowRight className="inline-block" />
-				</span>
-			</Link>
-		);
-	}
-
-	if (update && !clusterIsSelfManaged(cluster)) {
-		return (
-			<Link
-				to={`/${cluster.organizationId}/${cluster.id}${defaultInstanceRoute}`}
-				className="text-sm text-nowrap"
-				aria-label={`Connect to ${cluster.name}`}
-				title={`Connect to ${cluster.name}`}
-			>
-				<span className="py-2 hover:border-b-2">
-					Fabric Connect <ArrowRight className="inline-block" />
-				</span>
-			</Link>
-		);
-	}
-
+	// The cluster home owns the connect choice (Fabric Connect / Direct Sign In) and the connected
+	// state, so the card just opens it rather than guessing a connection mode here.
 	return (
 		<Link
-			to={`/${cluster.organizationId}/${cluster.id}/sign-in`}
+			to={`${base}/home`}
 			className="text-sm text-nowrap"
-			aria-label={`Sign In to ${cluster.name}`}
-			title={`Sign In to ${cluster.name}`}
-			onClick={prepareForDirectSignIn}
+			aria-label={`Open ${cluster.name}`}
+			title={`Open ${cluster.name}`}
 		>
 			<span className="py-2 hover:border-b-2">
-				Direct Sign In <ArrowRight className="inline-block" />
+				Open <ArrowRight className="inline-block" />
 			</span>
 		</Link>
 	);
