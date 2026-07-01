@@ -42,7 +42,7 @@ export function OrgPageLayout({ children }: { children: ReactNode }) {
 			icon: CreditCardIcon,
 			children: [
 				{ to: `${base}/billing`, label: 'Payment Method', exact: true },
-				{ to: `${base}/billing/invoices`, label: 'Invoices and Payments' },
+				{ to: `${base}/billing/invoices`, label: 'Invoices' },
 			],
 		},
 		canManageOrg && { to: `${base}/settings`, label: 'Settings', icon: SettingsIcon },
