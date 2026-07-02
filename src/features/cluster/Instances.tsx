@@ -60,7 +60,9 @@ export function Instances() {
 					size: 90,
 					header: 'Name',
 				},
-				{
+				// Self-hosted instances aren't monitored from here — no status column, and no per-instance
+				// status requests (InstanceStatusCell polls each instance's operations API).
+				!isSelfManaged && {
 					accessorKey: 'status',
 					header: 'Status',
 					size: 1,

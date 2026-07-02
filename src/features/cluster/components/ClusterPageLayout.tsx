@@ -27,8 +27,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
 		// Scaling and Version open the cluster editor (matching the card's "Edit Scaling" / "Edit
 		// Version"), not the /scaling update-progress screen. Both are exact so /edit/version doesn't
-		// also light up Scaling (/edit).
-		update && { to: `${base}/edit`, label: 'Scaling', icon: GaugeIcon, exact: true },
+		// also light up Scaling (/edit). Self-hosted clusters don't scale from here — their editor
+		// only holds registration details, so the item reads "Configuration" instead.
+		update && { to: `${base}/edit`, label: selfManaged ? 'Configuration' : 'Scaling', icon: GaugeIcon, exact: true },
 		update && !selfManaged && { to: `${base}/edit/version`, label: 'Version', icon: TagIcon, exact: true },
 		update && !selfManaged && { to: `${base}/domains`, label: 'Domains', icon: GlobeIcon },
 		view && { to: `${base}/instances`, label: 'Instances', icon: ServerIcon },
