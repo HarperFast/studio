@@ -133,9 +133,16 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		});
 	}, [router, cluster.organizationId, cluster.id, cluster.name, terminateCluster, isSelfManaged, queryClient]);
 
-	// The whole card opens the cluster home for the normal "Open" case. Edge states (no FQDN → Instances,
-	// resetPassword → Finish Setup / Pending) keep their own explicit CTA in ClusterCardAction instead.
-	const cardHref = isActive && view && !isTerminated && !!cluster.fqdn && !cluster.resetPassword
+	// The whole card opens the cluster home (overview) for the normal "Open" case — including
+	// self-hosted clusters, which get their own overview. A managed cluster with no FQDN yet opens its
+	// instances; resetPassword (→ Finish Setup / Pending) keeps its explicit CTA in ClusterCardAction.
+	const cardHref = !isActive || !view || isTerminated
+		? undefined
+		: isSelfManaged
+		? `/${cluster.organizationId}/${cluster.id}`
+		: !cluster.fqdn
+		? `/${cluster.organizationId}/${cluster.id}/instances`
+		: !cluster.resetPassword
 		? `/${cluster.organizationId}/${cluster.id}`
 		: undefined;
 
@@ -234,7 +241,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				{cardHref && (
 					<Link
 						to={cardHref}
-						aria-label={`Open ${cluster.name}`}
+						aria-label={`${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
 						className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
 					/>
 				)}
@@ -280,7 +287,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				</CardHeader>
 				<CardContent className="flex items-center justify-between gap-2">
 					<ClusterProgress cluster={cluster} />
-					{isActive && view && <ClusterCardAction cluster={cluster} />}
+					{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 					{clusterHasFailed && cluster.status && (
 						<>
 							<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
