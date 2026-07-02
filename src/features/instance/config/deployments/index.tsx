@@ -20,7 +20,7 @@ export function ConfigDeploymentsIndex() {
 	const instanceParams = useInstanceClientIdParams();
 
 	const { data, isFetching, isRefetching, refetch, error } = useQuery(
-		getDeploymentsQueryOptions({ ...instanceParams, limit: 100, enabled: canManage }),
+		getDeploymentsQueryOptions({ ...instanceParams, limit: 100, enabled: canManage, pollWhileOpen: true }),
 	);
 	const deployments = useMemo(() => data?.deployments ?? [], [data]);
 

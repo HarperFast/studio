@@ -64,11 +64,18 @@ export function useImportApplication(
 			installCommand: contents.installCommand,
 			useSSE: sseDeploy,
 			onEvent: (event) => {
-				// Stream the current phase into the loading toast so the user sees live progress.
+				// Stream live progress into the loading toast: phase transitions, and the latest
+				// install output line during the install/load phase (so npm output shows through).
 				if (event.type === 'phase' && event.data.status === 'start') {
 					toast.loading(`Importing ${project}…`, {
 						id: toastId,
 						description: PHASE_LABELS[event.data.phase] ?? event.data.phase,
+						duration: 300_000,
+					});
+				} else if (event.type === 'install' && event.data.line?.trim()) {
+					toast.loading(`Importing ${project}…`, {
+						id: toastId,
+						description: event.data.line.trim().slice(0, 140),
 						duration: 300_000,
 					});
 				}

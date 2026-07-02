@@ -10,6 +10,7 @@ vi.mock('@/features/auth/store/authStore', () => ({
 		getOperationsUrl: vi.fn(),
 		checkForFabricConnect: vi.fn(),
 		checkForBasicAuth: vi.fn(),
+		getOperationToken: vi.fn(),
 	},
 }));
 
@@ -22,6 +23,7 @@ beforeEach(() => {
 	vi.resetAllMocks();
 	mockAuthStore.checkForFabricConnect.mockReturnValue(false);
 	mockAuthStore.checkForBasicAuth.mockReturnValue(undefined);
+	mockAuthStore.getOperationToken.mockReturnValue(undefined);
 });
 
 describe('resolveInstanceConnection', () => {
@@ -29,7 +31,7 @@ describe('resolveInstanceConnection', () => {
 		mockAuthStore.getOperationsUrl.mockReturnValue('https://host:9925');
 		mockAuthStore.checkForBasicAuth.mockReturnValue({ username: 'admin', password: 'pw' });
 
-		const { url, headers, credentials } = resolveInstanceConnection({ id: 'ins-1' });
+		const { url, headers, credentials, mode } = resolveInstanceConnection({ id: 'ins-1' });
 
 		expect(url).toBe('https://host:9925/');
 		expect(headers.Authorization).toBe(`Basic ${btoa('admin:pw')}`);
@@ -37,6 +39,21 @@ describe('resolveInstanceConnection', () => {
 		expect(headers['Content-Type']).toBe('application/json');
 		// Direct + basic auth → no cookies needed.
 		expect(credentials).toBe('same-origin');
+		expect(mode).toBe('direct');
+	});
+
+	it('uses a direct Bearer token when Fabric Connect resolved to direct', () => {
+		mockAuthStore.getOperationsUrl.mockReturnValue('https://host:9925');
+		mockAuthStore.checkForFabricConnect.mockReturnValue(true);
+		mockAuthStore.getOperationToken.mockReturnValue('jwt-123');
+
+		const { url, headers, credentials, mode } = resolveInstanceConnection({ id: 'clu-abc' });
+
+		// Direct instance URL (NOT the proxy) + Bearer → SSE streams.
+		expect(url).toBe('https://host:9925/');
+		expect(headers.Authorization).toBe('Bearer jwt-123');
+		expect(credentials).toBe('same-origin');
+		expect(mode).toBe('direct');
 	});
 
 	it('uses cookie credentials for a direct connection without basic auth', () => {
@@ -54,11 +71,12 @@ describe('resolveInstanceConnection', () => {
 		// Basic auth must be ignored on the proxy path (cookies are used instead).
 		mockAuthStore.checkForBasicAuth.mockReturnValue({ username: 'admin', password: 'pw' });
 
-		const { url, headers, credentials } = resolveInstanceConnection({ id: 'clu-abc' });
+		const { url, headers, credentials, mode } = resolveInstanceConnection({ id: 'clu-abc' });
 
 		expect(url).toBe('https://cm.example.com/Cluster/clu-abc/operation/');
 		expect(headers.Authorization).toBeUndefined();
 		expect(credentials).toBe('include');
+		expect(mode).toBe('proxy');
 	});
 
 	it('routes an instance through the fabric-connect proxy', () => {
