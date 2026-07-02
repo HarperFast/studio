@@ -1,7 +1,7 @@
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
-import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
@@ -9,13 +9,16 @@ import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getCluste
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
+import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
+import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { ArrowRight, CircleCheck, Copy, ExternalLink, KeyRound, Loader2, Rocket, Server, Zap } from 'lucide-react';
-import { ComponentType, ReactNode, useCallback, useState } from 'react';
+import { ComponentType, ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 export function ClusterHome() {
@@ -82,6 +85,9 @@ export function ClusterHome() {
 	}
 	if (!view) {
 		return <Navigate to={`/${cluster.organizationId}`} replace />;
+	}
+	if (clusterIsSelfManaged(cluster)) {
+		return <SelfHostedClusterHome cluster={cluster} />;
 	}
 	if (!cluster.fqdn) {
 		return <Navigate to={`${base}/instances`} replace />;
@@ -230,6 +236,133 @@ export function ClusterHome() {
 	);
 }
 
+// The self-hosted overview: no managed-cluster status, FQDN, or Fabric Connect — connections are made
+// directly to the registered instances, so this connects to (and enters through) the first instance.
+function SelfHostedClusterHome({ cluster }: { cluster: Cluster }) {
+	const router = useRouter();
+	const navigate = useNavigate();
+	const base = `/${cluster.organizationId}/${cluster.id}`;
+
+	const instances = useMemo(
+		() =>
+			(cluster.instances ?? [])
+				.filter((instance) => instance.status && !deletedClusterStatuses.includes(instance.status))
+				.sort(byInstanceFqdnThenPort),
+		[cluster.instances],
+	);
+	const firstInstance = instances.at(0);
+	const { user, isLoading } = useInstanceAuth(firstInstance?.id);
+	const connected = !!firstInstance && !!user;
+
+	const onDirectSignIn = useCallback(() => {
+		if (!firstInstance) { return; }
+		void navigate({ to: `${base}/instance/${firstInstance.id}/sign-in` });
+	}, [base, firstInstance, navigate]);
+
+	const onDisconnect = useCallback(async () => {
+		if (!firstInstance) { return; }
+		try {
+			await onInstanceLogoutSubmit({
+				instanceClient: getInstanceClient({
+					id: firstInstance.id,
+					operationsUrl: getOperationsUrlForInstance(firstInstance),
+				}),
+				entityId: firstInstance.id,
+			});
+		} catch {
+			// Ignore: we're clearing local state regardless of the server response.
+		}
+		authStore.setUserForEntity(firstInstance, null);
+		authStore.flagForBasicAuth(firstInstance.id, null);
+		await router.invalidate();
+	}, [firstInstance, router]);
+
+	return (
+		<ClusterHomeShell>
+			<div className="flex items-start gap-4 mb-6">
+				<div className="flex items-center justify-center size-12 rounded-xl bg-violet-50 text-primary dark:bg-grey-700 dark:text-violet-300 shrink-0">
+					<Server className="size-6" />
+				</div>
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center gap-3 flex-wrap">
+						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
+						<span className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-muted-foreground bg-muted">
+							Self-Hosted
+						</span>
+					</div>
+					<div className="mt-1 text-sm text-muted-foreground">
+						<Link to={`${base}/instances`} className="hover:text-foreground hover:underline">
+							{instances.length} {instances.length === 1 ? 'instance' : 'instances'}
+						</Link>
+					</div>
+				</div>
+			</div>
+
+			{!firstInstance
+				? (
+					<p className="text-sm text-muted-foreground">
+						This cluster has no instances yet. Register one from the{' '}
+						<Link to={`${base}/instances`} className="underline hover:text-foreground">Instances</Link> page.
+					</p>
+				)
+				: isLoading
+				? <Spinner />
+				: connected
+				? (
+					<div>
+						<div className="flex items-center gap-2 mb-4 text-sm">
+							<CircleCheck className="size-4 text-green shrink-0" />
+							<span className="font-medium text-green">Signed in directly</span>
+							<span className="text-xs text-muted-foreground">
+								· {firstInstance.name || firstInstance.instanceFqdn}
+							</span>
+						</div>
+
+						<Link
+							to={`${base}/instance/${firstInstance.id}/`}
+							className="group flex items-center gap-4 rounded-2xl border-2 border-primary/30 bg-primary/5 p-6 transition-all hover:border-primary hover:bg-primary/10 dark:border-violet-400/30 dark:bg-violet-400/5 dark:hover:border-violet-400 dark:hover:bg-violet-400/10"
+						>
+							<div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 dark:bg-violet-400/15 dark:text-violet-300">
+								<Rocket className="size-6" />
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="text-lg font-medium text-foreground">Enter cluster</div>
+								<div className="text-sm text-muted-foreground">
+									Open the studio — apps, databases, APIs, logs, and config.
+								</div>
+							</div>
+							<ArrowRight className="size-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
+						</Link>
+
+						<div className="mt-4 flex flex-wrap gap-4 text-sm">
+							<button
+								type="button"
+								onClick={() => void onDisconnect()}
+								className="text-muted-foreground hover:text-destructive transition-colors"
+							>
+								Direct sign out
+							</button>
+						</div>
+					</div>
+				)
+				: (
+					<div>
+						<h2 className="text-sm font-medium text-foreground mb-3">Connect to this cluster</h2>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+							<ConnectOption
+								icon={KeyRound}
+								title="Direct sign-in"
+								description="Sign in with this instance's Harper username and password."
+							>
+								<Button className="w-full" variant="outline" onClick={onDirectSignIn}>Direct sign-in</Button>
+							</ConnectOption>
+						</div>
+					</div>
+				)}
+		</ClusterHomeShell>
+	);
+}
+
 function ClusterHomeShell({ children }: { children: ReactNode }) {
 	return (
 		<>
@@ -283,15 +416,18 @@ function ConnectOption(
 			}`}
 		>
 			{pill && (
-				<span
-					className={`absolute -top-2.5 left-4 inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${
-						pill === 'last'
-							? 'text-green bg-green/15'
-							: 'text-primary bg-violet-50 dark:text-violet-300 dark:bg-grey-700'
-					}`}
-				>
-					{pill === 'last' && <span className="size-1.5 rounded-full bg-current" />}
-					{pill === 'last' ? 'Last used' : 'Recommended'}
+				// Solid backdrop so the card's border doesn't show through the translucent pill color.
+				<span className="absolute -top-2.5 left-4 rounded-full bg-card">
+					<span
+						className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${
+							pill === 'last'
+								? 'text-green bg-green/15'
+								: 'text-primary bg-violet-50 dark:text-violet-300 dark:bg-grey-700'
+						}`}
+					>
+						{pill === 'last' && <span className="size-1.5 rounded-full bg-current" />}
+						{pill === 'last' ? 'Last used' : 'Recommended'}
+					</span>
 				</span>
 			)}
 			<Icon className="size-6 text-primary dark:text-violet-300 mb-2" />

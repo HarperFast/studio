@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
+import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 
-export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
+export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: Cluster; hasCardLink?: boolean }) {
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
 	const base = `/${cluster.organizationId}/${cluster.id}`;
 
@@ -12,8 +13,20 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		return undefined;
 	}
 
-	// A cluster with no FQDN can't be connected to yet — send them to its instances.
+	// Self-hosted clusters open their own overview (see SelfHostedClusterHome), like managed clusters.
+	if (clusterIsSelfManaged(cluster)) {
+		return <OpenAction cluster={cluster} hasCardLink={hasCardLink} />;
+	}
+
+	// A managed cluster with no FQDN can't be connected to yet — send them to its instances.
 	if (!cluster.fqdn) {
+		if (hasCardLink) {
+			return (
+				<span className="text-sm text-nowrap py-2 ml-auto">
+					Instances <ArrowRight className="inline-block" />
+				</span>
+			);
+		}
 		return (
 			<Link
 				to={`${base}/instances`}
@@ -50,11 +63,29 @@ export function ClusterCardAction({ cluster }: { cluster: Cluster }) {
 		);
 	}
 
-	// The whole card is the click target for opening the cluster (see ClusterCard's stretched link),
-	// so this is just a visual affordance — not its own link.
+	return <OpenAction cluster={cluster} hasCardLink={hasCardLink} />;
+}
+
+// Inside a card the whole card is the click target for opening the cluster (see ClusterCard's
+// stretched link), so this is just a visual affordance. Standalone (Scaling, StartingUp) it links.
+function OpenAction({ cluster, hasCardLink }: { cluster: Cluster; hasCardLink: boolean }) {
+	if (hasCardLink) {
+		return (
+			<span className="text-sm text-nowrap py-2 ml-auto">
+				Open <ArrowRight className="inline-block" />
+			</span>
+		);
+	}
 	return (
-		<span className="text-sm text-nowrap py-2 ml-auto">
-			Open <ArrowRight className="inline-block" />
-		</span>
+		<Link
+			to={`/${cluster.organizationId}/${cluster.id}`}
+			className="text-sm text-nowrap"
+			aria-label={`Open ${cluster.name}`}
+			title={`Open ${cluster.name}`}
+		>
+			<span className="py-2 hover:border-b-2">
+				Open <ArrowRight className="inline-block" />
+			</span>
+		</Link>
 	);
 }
