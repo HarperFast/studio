@@ -2,13 +2,16 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { CreateNewTableModal } from '@/features/instance/databases/modals/CreateNewTableModal';
+import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { ArrowRight } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { ArrowRight, CloudUploadIcon } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 
 export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?: InstanceDatabaseMap }) {
 	const router = useRouter();
@@ -18,6 +21,9 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 	const params: { databaseName?: string; tableName?: string } = useParams({ strict: false });
 	const navigate = useNavigate();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
+	const queryClient = useQueryClient();
+	const instanceParams = useInstanceClientIdParams();
+	const [isImportDataModalOpen, setIsImportDataModalOpen] = useState(false);
 
 	const { databaseNames, tableNames } = useMemo(() => {
 		const databaseNames = Object.keys(instanceDatabaseMap || {}).sort();
@@ -52,6 +58,15 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 			}),
 		});
 	}, [navigate, params]);
+
+	const onImported = useCallback(async (newDatabaseName: string, newTableName: string) => {
+		await queryClient.invalidateQueries({
+			queryKey: [instanceParams.entityId, 'describe_all'],
+			refetchType: 'all',
+		});
+		onSelectTable(newDatabaseName, newTableName);
+		await router.invalidate();
+	}, [queryClient, instanceParams.entityId, onSelectTable, router]);
 
 	return (
 		<div className="pl-3 flex flex-col h-full min-h-0">
@@ -137,6 +152,25 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 					<CreateNewTableModal
 						databaseName={params.databaseName}
 						onSelectTable={onSelectTable}
+					/>
+					<div className="shrink-0 pb-4">
+						<Button
+							variant="defaultOutline"
+							className="w-full rounded-full"
+							size="lg"
+							onClick={() => setIsImportDataModalOpen(true)}
+							disabled={isImportDataModalOpen || loading}
+						>
+							<CloudUploadIcon />
+							<span>Import Data</span>
+						</Button>
+					</div>
+					<ImportDataModal
+						isModalOpen={isImportDataModalOpen}
+						setIsModalOpen={setIsImportDataModalOpen}
+						instanceDatabaseMap={instanceDatabaseMap}
+						databaseName={params.databaseName}
+						onImported={onImported}
 					/>
 				</div>
 			)}

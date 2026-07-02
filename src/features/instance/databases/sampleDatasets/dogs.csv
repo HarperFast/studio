@@ -1,0 +1,16 @@
+id,dog_name,owner_name,breed,age,weight_lbs,adorable
+1,Penny,Kyle,Dachshund,7,12,true
+2,Harper,Stephen,Great Dane,5,127,true
+3,Alby,Kaylan,Pit Bull Mix,8,58,true
+4,Billy,Zach,Labrador Retriever,6,64,true
+5,Rose Merry,Zach,Beagle Mix,9,31,true
+6,Kato,Kyle,German Shepherd,4,74,true
+7,Simon,Fred,Corgi,3,26,true
+8,Gemma,Stephen,Boxer Mix,5,55,true
+9,Yeti,Jaxon,Great Pyrenees,2,89,true
+10,Monkey,Aron,Shiba Inu,7,21,true
+11,Bode,Margo,Bernese Mountain Dog,8,91,true
+12,Tucker,David,Golden Retriever,2,60,true
+13,Jagger,Margo,Australian Shepherd,4,49,true
+14,Frankie,Alex,French Bulldog,3,24,true
+15,Winnie,Sam,Cavalier King Charles Spaniel,6,17,true
