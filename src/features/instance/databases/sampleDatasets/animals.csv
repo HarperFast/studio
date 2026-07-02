@@ -1,0 +1,41 @@
+id,name,class,diet,habitat,avg_lifespan_years,endangered
+1,African Elephant,Mammal,Herbivore,Savanna,60,true
+2,Blue Whale,Mammal,Carnivore,Ocean,85,true
+3,Giant Panda,Mammal,Herbivore,Temperate forest,20,false
+4,Snow Leopard,Mammal,Carnivore,Alpine mountains,15,true
+5,Red Kangaroo,Mammal,Herbivore,Grassland,22,false
+6,Gray Wolf,Mammal,Carnivore,Forest,13,false
+7,Polar Bear,Mammal,Carnivore,Arctic sea ice,25,true
+8,Chimpanzee,Mammal,Omnivore,Tropical forest,40,true
+9,Giraffe,Mammal,Herbivore,Savanna,25,false
+10,Bottlenose Dolphin,Mammal,Carnivore,Ocean,45,false
+11,Bald Eagle,Bird,Carnivore,Coastal forest,20,false
+12,Emperor Penguin,Bird,Carnivore,Antarctic coast,20,false
+13,Peregrine Falcon,Bird,Carnivore,Cliffs and cities,15,false
+14,Scarlet Macaw,Bird,Omnivore,Tropical forest,50,false
+15,Common Ostrich,Bird,Omnivore,Savanna,40,false
+16,Snowy Owl,Bird,Carnivore,Arctic tundra,10,false
+17,Ruby-throated Hummingbird,Bird,Omnivore,Woodland,5,false
+18,Kakapo,Bird,Herbivore,Island forest,60,true
+19,Komodo Dragon,Reptile,Carnivore,Island scrubland,30,true
+20,Green Sea Turtle,Reptile,Herbivore,Ocean,70,true
+21,American Alligator,Reptile,Carnivore,Freshwater wetland,50,false
+22,King Cobra,Reptile,Carnivore,Tropical forest,20,false
+23,Galapagos Tortoise,Reptile,Herbivore,Island grassland,100,true
+24,Chameleon,Reptile,Carnivore,Tropical forest,8,false
+25,Poison Dart Frog,Amphibian,Carnivore,Rainforest floor,10,false
+26,Axolotl,Amphibian,Carnivore,Freshwater lake,15,true
+27,American Bullfrog,Amphibian,Carnivore,Pond,9,false
+28,Fire Salamander,Amphibian,Carnivore,Deciduous forest,24,false
+29,Great White Shark,Fish,Carnivore,Ocean,70,true
+30,Clownfish,Fish,Omnivore,Coral reef,10,false
+31,Atlantic Salmon,Fish,Carnivore,Ocean and rivers,8,false
+32,Seahorse,Fish,Carnivore,Seagrass beds,4,false
+33,Whale Shark,Fish,Carnivore,Ocean,80,true
+34,Monarch Butterfly,Insect,Herbivore,Meadow,1,true
+35,Honey Bee,Insect,Herbivore,Meadow,1,false
+36,Atlas Moth,Insect,Herbivore,Tropical forest,1,false
+37,Ladybug,Insect,Carnivore,Garden,1,false
+38,Giant Pacific Octopus,Invertebrate,Carnivore,Ocean,4,false
+39,Christmas Island Red Crab,Invertebrate,Omnivore,Island forest,30,false
+40,Chambered Nautilus,Invertebrate,Carnivore,Deep ocean,20,true

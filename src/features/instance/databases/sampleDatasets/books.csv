@@ -1,0 +1,41 @@
+id,title,author,year,genre,pages,rating
+1,Pride and Prejudice,Jane Austen,1813,Romance,432,4.6
+2,Moby-Dick,Herman Melville,1851,Adventure,635,3.9
+3,Great Expectations,Charles Dickens,1861,Coming-of-age,544,4.1
+4,Middlemarch,George Eliot,1871,Realist,880,4.2
+5,Anna Karenina,Leo Tolstoy,1878,Realist,864,4.5
+6,The Adventures of Huckleberry Finn,Mark Twain,1884,Adventure,366,4.0
+7,The Picture of Dorian Gray,Oscar Wilde,1890,Gothic,254,4.3
+8,Dracula,Bram Stoker,1897,Gothic,418,4.1
+9,Heart of Darkness,Joseph Conrad,1899,Novella,96,3.8
+10,The Call of the Wild,Jack London,1903,Adventure,232,4.0
+11,A Room with a View,E. M. Forster,1908,Romance,256,4.0
+12,Ethan Frome,Edith Wharton,1911,Tragedy,128,3.9
+13,My Antonia,Willa Cather,1918,Historical,272,4.1
+14,Ulysses,James Joyce,1922,Modernist,730,3.7
+15,The Great Gatsby,F. Scott Fitzgerald,1925,Tragedy,180,4.4
+16,Mrs Dalloway,Virginia Woolf,1925,Modernist,194,3.9
+17,The Sun Also Rises,Ernest Hemingway,1926,Modernist,251,4.0
+18,All Quiet on the Western Front,Erich Maria Remarque,1929,War,296,4.5
+19,Brave New World,Aldous Huxley,1932,Dystopian,311,4.2
+20,Their Eyes Were Watching God,Zora Neale Hurston,1937,Southern,219,4.3
+21,Of Mice and Men,John Steinbeck,1937,Tragedy,107,4.2
+22,The Grapes of Wrath,John Steinbeck,1939,Historical,464,4.4
+23,The Stranger,Albert Camus,1942,Philosophical,123,4.0
+24,Animal Farm,George Orwell,1945,Satire,112,4.3
+25,1984,George Orwell,1949,Dystopian,328,4.6
+26,The Catcher in the Rye,J. D. Salinger,1951,Coming-of-age,277,3.9
+27,Invisible Man,Ralph Ellison,1952,Social,581,4.3
+28,East of Eden,John Steinbeck,1952,Family saga,601,4.6
+29,Fahrenheit 451,Ray Bradbury,1953,Dystopian,194,4.1
+30,Lord of the Flies,William Golding,1954,Allegory,224,3.9
+31,Doctor Zhivago,Boris Pasternak,1957,Historical,592,4.2
+32,Things Fall Apart,Chinua Achebe,1958,Historical,209,4.2
+33,To Kill a Mockingbird,Harper Lee,1960,Southern,281,4.7
+34,Catch-22,Joseph Heller,1961,Satire,453,4.1
+35,A Wrinkle in Time,Madeleine L'Engle,1962,Science fiction,256,4.0
+36,One Hundred Years of Solitude,Gabriel Garcia Marquez,1967,Magical realism,417,4.5
+37,Slaughterhouse-Five,Kurt Vonnegut,1969,Satire,275,4.2
+38,Beloved,Toni Morrison,1987,Historical,324,4.3
+39,The Remains of the Day,Kazuo Ishiguro,1989,Historical,258,4.4
+40,The Road,Cormac McCarthy,2006,Post-apocalyptic,287,4.2

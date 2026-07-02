@@ -6,7 +6,7 @@ import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableR
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
-import { ImportCSVModal } from '@/features/instance/databases/modals/ImportCSVModal';
+import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { useAdminMode } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
@@ -30,6 +30,7 @@ import { useUpdateTableRecords } from '@/integrations/api/instance/database/upda
 import { useSetWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
+import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from '@tanstack/react-router';
@@ -145,7 +146,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [isImportCSVModalOpen, setIsImportCSVModalOpen] = useState(false);
+	const [isImportDataModalOpen, setIsImportDataModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
 		{
 			attribute: primaryKey,
@@ -325,11 +326,24 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		);
 	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
-	const onCSVDataAdded = useCallback((message: string) => {
-		void refreshTable();
-		setIsImportCSVModalOpen(false);
-		toast.success(`${message}. Please wait a few moments then refresh the table.`);
-	}, [refreshTable]);
+	const onImported = useCallback(async (importedDatabase: string, importedTable: string) => {
+		// The import may have created a new table (or even database), so refresh the tree too.
+		await queryClient.invalidateQueries({
+			queryKey: [instanceParams.entityId, 'describe_all'],
+			refetchType: 'all',
+		});
+		if (importedDatabase === databaseName && importedTable === tableName) {
+			void refreshTable();
+		} else {
+			void navigate({
+				to: buildAbsoluteLinkToDatabasePage({
+					...allParams,
+					databaseName: importedDatabase,
+					tableName: importedTable,
+				}),
+			});
+		}
+	}, [queryClient, instanceParams.entityId, databaseName, tableName, refreshTable, navigate, allParams]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		setSelectedIds([rowData.original[primaryKey]]);
@@ -347,9 +361,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		setIsAddModalOpen(true);
 	}, [setIsAddModalOpen]);
 
-	const onImportCSVClicked = useCallback(() => {
-		setIsImportCSVModalOpen(true);
-	}, [setIsImportCSVModalOpen]);
+	const onImportDataClicked = useCallback(() => {
+		setIsImportDataModalOpen(true);
+	}, [setIsImportDataModalOpen]);
 
 	const onDeleted = useCallback(
 		(deleted: 'table' | 'database') => void navigate({ to: deleted === 'table' ? '../' : '../../' }),
@@ -384,13 +398,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					{canAddRecords && (
 						<Button
 							variant="positiveOutline"
-							onClick={onImportCSVClicked}
-							disabled={isImportCSVModalOpen}
-							accessKey="c"
+							onClick={onImportDataClicked}
+							disabled={isImportDataModalOpen}
+							accessKey="i"
 						>
 							<CloudUploadIcon />
 							<span>
-								Import <u>C</u>SV
+								<u>I</u>mport Data
 							</span>
 						</Button>
 					)}
@@ -550,12 +564,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			<DeleteDatabaseModal databaseName={databaseName} onDeleted={onDeleted} />
 			<DeleteTableModal databaseName={databaseName} tableName={tableName} onDeleted={onDeleted} />
 
-			<ImportCSVModal
-				isModalOpen={isImportCSVModalOpen}
-				setIsModalOpen={setIsImportCSVModalOpen}
-				onSaveChanges={onCSVDataAdded}
-				database={databaseName}
-				table={tableName}
+			<ImportDataModal
+				isModalOpen={isImportDataModalOpen}
+				setIsModalOpen={setIsImportDataModalOpen}
+				instanceDatabaseMap={instanceDatabaseMap}
+				databaseName={databaseName}
+				tableName={tableName}
+				onImported={onImported}
 			/>
 		</>
 	);
