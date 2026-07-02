@@ -408,6 +408,19 @@ class AuthStore {
 		}
 	}
 
+	/**
+	 * Clears every locally-held credential and flag for an entity — the potentially-authenticated
+	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token —
+	 * without posting a logout to it. For when a server-side logout elsewhere already invalidated
+	 * the entity's session, e.g. signing out of an instance also signs Studio out of its cluster.
+	 */
+	public signOutLocally(id: EntityIds): void {
+		this.flagForBasicAuth(id, null);
+		this.flagForFabricConnect(id, false);
+		this.flagKeyAsSignedOut(id);
+		this.updateConnectionIfChanged(id, false, null);
+	}
+
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {
 		if (isLocalStudio || entity === OverallAppSignIn) {
 			return OverallAppSignIn;
