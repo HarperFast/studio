@@ -4,6 +4,7 @@ import { ConfigDomainsIndex } from '@/features/instance/config/domains';
 import { ConfigIndex } from '@/features/instance/config/index';
 import { ConfigOverviewIndex } from '@/features/instance/config/overview';
 import { ConfigRolesIndex } from '@/features/instance/config/roles';
+import { ConfigSecretsIndex } from '@/features/instance/config/secrets';
 import { ConfigSSHKeysIndex } from '@/features/instance/config/sshKeys';
 import { ConfigUsersIndex } from '@/features/instance/config/users';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
@@ -85,6 +86,19 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 		component: ConfigDeploymentsIndex,
 	});
 
+	const instanceConfigSecretsRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'secrets',
+		head: () => ({ meta: [{ title: 'Secrets — Harper Fabric' }] }),
+		component: ConfigSecretsIndex,
+	});
+	const instanceConfigSecretRoute = createRoute({
+		getParentRoute: () => instanceConfigRoute,
+		path: 'secrets/$secretName',
+		head: () => ({ meta: [{ title: 'Secrets — Harper Fabric' }] }),
+		component: ConfigSecretsIndex,
+	});
+
 	const instanceConfigCertificatesRoute = createRoute({
 		getParentRoute: () => instanceConfigRoute,
 		path: 'certificates',
@@ -114,6 +128,9 @@ export function createConfigRouteTree(instanceLayoutRoute: ReturnType<typeof cre
 
 		instanceConfigSSHKeysRoute,
 		instanceConfigSSHKeyRoute,
+
+		instanceConfigSecretsRoute,
+		instanceConfigSecretRoute,
 
 		instanceConfigCertificatesRoute,
 		instanceConfigCertificateRoute,
