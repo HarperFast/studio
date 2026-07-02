@@ -136,6 +136,7 @@ export function SecretsManager({
 			)}
 			{selectedName && selectedRow && (
 				<EditSecretModal
+					key={selectedRow.name}
 					name={selectedRow.name}
 					description={editDescription}
 					valueDescription={valueDescription}
