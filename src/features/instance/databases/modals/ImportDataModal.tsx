@@ -190,6 +190,9 @@ export function ImportDataModal({
 				form.setValue('fileName', file.name);
 			}
 		};
+		reader.onerror = () => {
+			toast.error('Failed to read the selected file.');
+		};
 		reader.readAsText(file);
 	};
 

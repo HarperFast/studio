@@ -32,8 +32,21 @@ export async function waitForJob({
 	timeoutMs?: number;
 } & InstanceClientConfig): Promise<HarperJob> {
 	const deadline = Date.now() + timeoutMs;
+	// A dropped poll shouldn't kill an import that is still running server-side, so
+	// transient get_job failures are tolerated — but only a few in a row, so a persistent
+	// problem (revoked token, instance gone) surfaces quickly instead of at the deadline.
+	let consecutiveFailures = 0;
 	for (;;) {
-		const job = await getJob({ jobId, instanceClient });
+		let job: HarperJob | undefined;
+		try {
+			job = await getJob({ jobId, instanceClient });
+			consecutiveFailures = 0;
+		} catch (err) {
+			consecutiveFailures += 1;
+			if (consecutiveFailures >= 5) {
+				throw err;
+			}
+		}
 		const status = job?.status?.toUpperCase();
 		if (job && status !== 'IN_PROGRESS') {
 			if (status === 'ERROR') {
