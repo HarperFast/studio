@@ -1,14 +1,21 @@
+import { isEnvFile } from '@/lib/env/envFile';
 import {
 	CodeIcon,
 	FileCode2Icon,
 	FileIcon,
 	FileImageIcon,
 	FileJsonIcon,
+	FileKeyIcon,
 	FileTypeIcon as LucideFileTypeIcon,
 } from 'lucide-react';
 
-export function FileTypeIcon({ extension }: { readonly extension: string | null }) {
+export function FileTypeIcon({ extension, filename }: { readonly extension: string | null; filename?: string }) {
 	const iconClassName = 'w-4 h-4 mr-2 shrink-0';
+
+	// `.env` files are matched by full name, not extension (`.env.local`'s "extension" is `local`).
+	if (isEnvFile(filename)) {
+		return <FileKeyIcon className={`${iconClassName} text-amber-500`} />;
+	}
 
 	switch (extension) {
 		case 'js':
