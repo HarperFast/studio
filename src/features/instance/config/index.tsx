@@ -8,7 +8,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
-import { GlobeIcon, HandshakeIcon, KeyIcon, PieChartIcon, RocketIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import { GlobeIcon, HandshakeIcon, KeyIcon, LockIcon, PieChartIcon, RocketIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
@@ -24,6 +24,9 @@ export function ConfigIndex() {
 	const { version }: RegistrationInfoResponse = useLoaderData({ strict: false });
 	const certsAvailable = wasAReleasedBeforeB('4.6.0', version);
 	const deploymentsAvailable = wasAReleasedBeforeB('5.1.0', version);
+	// The hdb_secret store and its operations (list_secrets / set_secret / …) ship in Harper 5.2
+	// (harper#1554's upgrade directive is tagged 5.2.0 — revisit if it ships in a different release).
+	const secretsSupported = wasAReleasedBeforeB('5.2.0', version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
@@ -99,6 +102,22 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<KeyIcon className="hidden md:inline-block" /> <span className="ms-3">SSH Keys</span>
+					</Link>
+				</li>
+			)}
+			{
+				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
+			    version — key custody may be file-based (self-hosted) or injected (Fabric). */
+			}
+			{secretsSupported && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/secrets')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<LockIcon className="hidden md:inline-block" /> <span className="ms-3">Secrets</span>
 					</Link>
 				</li>
 			)}
