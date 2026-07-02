@@ -3,6 +3,7 @@ import { isDirectory } from '@/features/instance/applications/context/isDirector
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/readMeUrlTransform';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { isProtectedEnvFile } from '@/lib/env/envFile';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
 import { getMediaFileType, MediaFileType } from '@/lib/string/mediaFileType';
 import { CopyIcon, FileArchive } from 'lucide-react';
@@ -11,6 +12,7 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import { DirectoryPlaceholder } from './DirectoryPlaceholder';
+import { EnvEditorView } from './EnvEditorView';
 import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
@@ -54,6 +56,15 @@ export function ContentViewer() {
 	// up entirely). Show a placeholder instead — its contents are never fetched.
 	if (isBinaryFile(openedEntry?.name)) {
 		return <BinaryFilePreview name={openedEntry?.name} />;
+	}
+
+	// Secret-bearing `.env` files get a managed secrets panel instead of the raw
+	// text editor, so values aren't flashed on screen or clobbered by accident.
+	// Template files (`.env.example` etc.) hold placeholders, not secrets, and
+	// fall through to the text editor. Keyed by path so per-file state (selection,
+	// raw-editor toggle) resets when switching files.
+	if (isProtectedEnvFile(openedEntry?.name)) {
+		return <EnvEditorView key={openedEntry?.path} />;
 	}
 
 	return <TextEditorView />;

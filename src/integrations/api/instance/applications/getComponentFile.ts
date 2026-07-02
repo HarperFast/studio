@@ -15,6 +15,13 @@ export interface GetComponentFileResponse {
 	message: string;
 	mtime: string;
 	size: number;
+	/**
+	 * Harper >= 5.2 marks secret-bearing `.env` files as protected: `message` is a value-free
+	 * `KEY=********` rendering, `keys` lists the key names, and the real values are never
+	 * returned. Older versions return the raw file text with neither field.
+	 */
+	protected?: boolean;
+	keys?: string[];
 }
 
 export async function getComponentFile({
