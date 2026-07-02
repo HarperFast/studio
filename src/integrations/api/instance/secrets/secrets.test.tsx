@@ -17,6 +17,11 @@ import { secretsPublicKeyQueryOptions, useDeleteSecret, useSetSecret } from './s
  our cached copy) must refetch the key and re-encrypt exactly once.
  */
 
+// Managed clusters fetch the public key from central-manager's apiClient; keep the real module
+// (and its env expectations) out of the test.
+const { cmPost } = vi.hoisted(() => ({ cmPost: vi.fn() }));
+vi.mock('@/config/apiClient', () => ({ apiClient: { post: cmPost } }));
+
 // jsdom has no SubtleCrypto; Node's WebCrypto implements the same interface.
 beforeAll(() => {
 	if (!globalThis.crypto?.subtle) {
@@ -132,6 +137,32 @@ describe('useSetSecret', () => {
 		await expect(result.current.mutateAsync({ ...params, name: 'API_KEY', value: 'x' })).rejects.toThrow(
 			'secrets custody is not initialized on this node',
 		);
+	});
+
+	it('fetches the key from central-manager for managed clusters (central-manager#409)', async () => {
+		const { post, wrapper, params } = harness();
+		const key = await generateKey();
+		cmPost.mockResolvedValue({
+			data: { publicKey: key.pem, fingerprint: key.fingerprint, scheme: 'enc:v1', algorithm: 'RSA-OAEP-256' },
+		});
+		post.mockImplementation((_url: string, body: { operation: string }) =>
+			body.operation === 'set_secret'
+				? Promise.resolve({ data: { name: 'API_KEY', kid: key.fingerprint, created: true } })
+				: Promise.reject(new Error(`Unexpected operation ${body.operation}`))
+		);
+
+		const { result } = renderHook(() => useSetSecret(), { wrapper });
+		await result.current.mutateAsync({ ...params, managedClusterId: 'clu-123', name: 'API_KEY', value: 'v' });
+
+		expect(cmPost).toHaveBeenCalledWith('/ClusterSecrets', {
+			operation: 'get_secrets_public_key',
+			clusterId: 'clu-123',
+		});
+		// The node op is never used for the key; the envelope targets CM's key; the write still
+		// goes to the cluster itself.
+		expect(post.mock.calls.filter(([, body]) => body.operation === 'get_secrets_public_key')).toHaveLength(0);
+		const setCall = post.mock.calls.find(([, body]) => body.operation === 'set_secret');
+		expect(decodeEnvelope(setCall![1].envelope).kid).toBe(key.fingerprint);
 	});
 
 	it('caches the public key between writes', async () => {
