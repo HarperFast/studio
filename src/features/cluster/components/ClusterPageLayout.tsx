@@ -36,7 +36,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	].filter(Boolean) as SubNavItem[];
 
 	return (
-		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+		// `relative` so absolutely-positioned page furniture (the cluster editor's price display) anchors
+		// to the content area, matching SubNavSimpleLayout — not the viewport, where the fixed header hides it.
+		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 			<div className="md:grid gap-6 md:grid-cols-12">
 				<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
 					<SubNavRail items={items} ariaLabel="Cluster sections" />
