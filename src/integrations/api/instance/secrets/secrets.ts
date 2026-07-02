@@ -9,17 +9,23 @@
  * normal system-table replication; at load time core materializes a secret only into components
  * listed in its `grants`.
  *
- * Without a registered key custody provider (the Pro secretCustody component), the node has no
- * public key — `get_secrets_public_key` fails with a clean error and nothing can be encrypted.
- * `list_secrets` still works, so the store is browsable read-only in that state.
+ * The public key has two sources depending on who holds custody (normalized here to one shape):
+ * Fabric-managed clusters fetch it from central-manager (`POST /ClusterSecrets`,
+ * central-manager#409 — CM mints the per-cluster keypair on first use and delivers the private
+ * key to hosts), while self-hosted/local nodes serve their own file-tier key via the
+ * `get_secrets_public_key` operation. Without custody the node has no key — the fetch fails with
+ * a clean error and nothing can be encrypted; `list_secrets` still works, so the store is
+ * browsable read-only in that state.
  */
+import { apiClient } from '@/config/apiClient';
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { encryptEnvelope } from '@/lib/crypto/envSecret';
 import { QueryClient, queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AxiosInstance } from 'axios';
 
-/** `get_secrets_public_key` — the cluster key clients encrypt against. */
+/** The cluster key clients encrypt against, normalized across the two sources (see below). */
 export interface SecretsPublicKey {
-	public_key: string;
+	publicKey: string;
 	fingerprint: string;
 }
 
@@ -52,15 +58,43 @@ function operationErrorMessage(error: unknown): string {
 	return body?.error ?? body?.message ?? String(error);
 }
 
-async function getSecretsPublicKey({ instanceClient }: InstanceClientIdConfig): Promise<SecretsPublicKey> {
-	const { data } = await instanceClient.post<SecretsPublicKey>('/', { operation: 'get_secrets_public_key' });
-	return data;
+async function getSecretsPublicKeyFromNode({ instanceClient }: InstanceClientIdConfig): Promise<SecretsPublicKey> {
+	const { data } = await instanceClient.post<{ public_key: string; fingerprint: string }>('/', {
+		operation: 'get_secrets_public_key',
+	});
+	return { publicKey: data.public_key, fingerprint: data.fingerprint };
 }
 
-export function secretsPublicKeyQueryOptions(params: InstanceClientIdConfig) {
+// `apiClient` is a TypedAxios bound to the generated OpenAPI spec; `/ClusterSecrets` isn't in the
+// spec yet, so use the plain Axios view. (Regenerate the SDK to type this once the endpoint ships.)
+const cm = apiClient as unknown as AxiosInstance;
+
+async function getSecretsPublicKeyFromClusterManager(clusterId: string): Promise<SecretsPublicKey> {
+	const { data } = await cm.post<{ publicKey: string; fingerprint: string }>('/ClusterSecrets', {
+		operation: 'get_secrets_public_key',
+		clusterId,
+	});
+	return { publicKey: data.publicKey, fingerprint: data.fingerprint };
+}
+
+export interface SecretsPublicKeySource extends InstanceClientIdConfig {
+	/**
+	 * For Fabric-managed clusters, the clusterId to fetch the key from central-manager
+	 * (central-manager#409): CM is the custodian there — it mints the keypair on first use and
+	 * delivers the private key to hosts, so the key exists (and is authoritative) even before any
+	 * node has custody registered. Omit for self-hosted/local, where the node mints its own
+	 * file-tier key and serves it via the `get_secrets_public_key` operation.
+	 */
+	managedClusterId?: string;
+}
+
+export function secretsPublicKeyQueryOptions(params: SecretsPublicKeySource) {
 	return queryOptions({
-		queryKey: [params.entityId, 'get_secrets_public_key'] as const,
-		queryFn: () => getSecretsPublicKey(params),
+		queryKey: [params.entityId, 'get_secrets_public_key', params.managedClusterId ?? 'node'] as const,
+		queryFn: () =>
+			params.managedClusterId
+				? getSecretsPublicKeyFromClusterManager(params.managedClusterId)
+				: getSecretsPublicKeyFromNode(params),
 		// The custody key can rotate (kid map), so refresh periodically instead of caching forever.
 		// Failure is a state, not a blip: without custody the node simply has no key.
 		staleTime: 5 * 60_000,
@@ -80,7 +114,7 @@ export function listSecretsQueryOptions(params: InstanceClientIdConfig) {
 	});
 }
 
-export interface SetSecretArgs extends InstanceClientIdConfig {
+export interface SetSecretArgs extends SecretsPublicKeySource {
 	name: string;
 	value: string;
 }
@@ -92,8 +126,8 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 }> {
 	// Encrypt against the cluster public key so the plaintext value never leaves the browser. The
 	// envelope's sealed kid tells the cluster which key it was encrypted under.
-	const { public_key, fingerprint } = await queryClient.ensureQueryData(secretsPublicKeyQueryOptions(args));
-	const envelope = await encryptEnvelope(args.value, public_key, fingerprint);
+	const { publicKey, fingerprint } = await queryClient.ensureQueryData(secretsPublicKeyQueryOptions(args));
+	const envelope = await encryptEnvelope(args.value, publicKey, fingerprint);
 	try {
 		const { data } = await args.instanceClient.post('/', {
 			operation: 'set_secret',

@@ -1,6 +1,8 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { SecretGrantsEditor } from '@/features/instance/config/secrets/SecretGrantsEditor';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
+import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import {
 	listSecretsQueryOptions,
 	SecretMetadata,
@@ -20,12 +22,20 @@ import { useCallback, useMemo } from 'react';
  */
 export function ConfigSecretsIndex() {
 	const navigate = useNavigate();
-	const { secretName }: { secretName?: string } = useParams({ strict: false });
+	const { secretName, clusterId }: { secretName?: string; clusterId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const { data, refetch, isFetching } = useQuery(listSecretsQueryOptions(instanceParams));
-	// Without registered key custody (the Pro secretCustody component) the node has no secrets
-	// key: nothing can be encrypted, so the store is browsable read-only.
-	const publicKeyQuery = useQuery(secretsPublicKeyQueryOptions(instanceParams));
+
+	// Fabric-managed clusters get their public key from central-manager (the custodian — it mints
+	// the keypair on first use, central-manager#409); self-hosted/local nodes serve their own.
+	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
+	const managedClusterId = !isSelfManaged ? clusterId : undefined;
+	const keySource = useMemo(() => ({ ...instanceParams, managedClusterId }), [instanceParams, managedClusterId]);
+
+	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted,
+	// so the store is browsable read-only.
+	const publicKeyQuery = useQuery(secretsPublicKeyQueryOptions(keySource));
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
@@ -46,9 +56,9 @@ export function ConfigSecretsIndex() {
 	const { mutateAsync: deleteSecret } = useDeleteSecret();
 
 	const onSet = useCallback(async (name: string, value: string) => {
-		await setSecret({ ...instanceParams, name, value });
+		await setSecret({ ...keySource, name, value });
 		await refetch();
-	}, [setSecret, instanceParams, refetch]);
+	}, [setSecret, keySource, refetch]);
 
 	const onDelete = useCallback(async (name: string) => {
 		await deleteSecret({ ...instanceParams, name });
