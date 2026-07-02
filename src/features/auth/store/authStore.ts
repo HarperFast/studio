@@ -236,6 +236,22 @@ class AuthStore {
 	}
 
 	/**
+	 * True when operations for this id go straight to the instance (Basic auth, a direct
+	 * operation-token Bearer, or a non-Fabric-Connect direct URL) rather than through the
+	 * central-manager proxy. The proxy buffers `text/event-stream`, so only direct
+	 * connections can consume SSE live — callers gate streaming features on this.
+	 */
+	public isDirectConnection(id: EntityIds): boolean {
+		// A direct operation token always streams straight from the instance. Otherwise it's
+		// direct only when Fabric Connect isn't in play — when the flag is set with no token,
+		// operations route through the buffering proxy (proxy wins, mirroring getInstanceClient).
+		if (this.getOperationToken(id)) {
+			return true;
+		}
+		return !this.checkForFabricConnect(id);
+	}
+
+	/**
 	 * Recovers a fresh operation token for a direct-connect id whose token was rejected (typically 401
 	 * from mid-session expiry — Harper operation tokens default to ~1 day). Prefers exchanging the
 	 * refresh token directly at the instance; falls back to re-minting a fresh pair through the proxy.
