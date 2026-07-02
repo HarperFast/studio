@@ -16,9 +16,21 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radioGroup';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import {
+	generateRandomRecords,
+	randomizableAttributes,
+} from '@/features/instance/databases/functions/generateRandomRecords';
 import { parseJsonRecords } from '@/features/instance/databases/functions/parseJsonRecords';
 import { sampleDatasets } from '@/features/instance/databases/sampleDatasets';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
@@ -32,12 +44,16 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+/** Pseudo-dataset offered when the target table already has columns: generate random rows for it. */
+export const RANDOM_DATASET_ID = '__random__';
+
 const ImportDataFormSchema = z
 	.object({
 		method: z.enum(['sample', 'file', 'url']),
 		database: databaseNameSchema,
 		table: tableNameSchema,
 		datasetId: z.string(),
+		rowCount: z.string(),
 		fileData: z.string(),
 		fileName: z.string(),
 		url: z.string(),
@@ -45,6 +61,12 @@ const ImportDataFormSchema = z
 	.superRefine((values, ctx) => {
 		if (values.method === 'sample' && !values.datasetId) {
 			ctx.addIssue({ code: 'custom', path: ['datasetId'], message: 'Please choose a sample dataset.' });
+		}
+		if (values.method === 'sample' && values.datasetId === RANDOM_DATASET_ID) {
+			const rows = Number(values.rowCount);
+			if (!Number.isInteger(rows) || rows < 1 || rows > 1000) {
+				ctx.addIssue({ code: 'custom', path: ['rowCount'], message: 'Enter a row count between 1 and 1000.' });
+			}
 		}
 		if (values.method === 'file' && !values.fileData) {
 			ctx.addIssue({ code: 'custom', path: ['fileData'], message: 'Please choose a CSV or JSON file.' });
@@ -113,6 +135,7 @@ export function ImportDataModal({
 			database: databaseName || '',
 			table: tableName || '',
 			datasetId: '',
+			rowCount: '25',
 			fileData: '',
 			fileName: '',
 			url: '',
@@ -129,6 +152,7 @@ export function ImportDataModal({
 				database: databaseName || '',
 				table: tableName || '',
 				datasetId: '',
+				rowCount: '25',
 				fileData: '',
 				fileName: '',
 				url: '',
@@ -143,8 +167,14 @@ export function ImportDataModal({
 	const watchedTable = form.watch('table');
 	const selectedDataset = sampleDatasets.find((dataset) => dataset.id === datasetId);
 
-	const tableExists = !!instanceDatabaseMap?.[watchedDatabase || 'data']?.[watchedTable];
+	const targetTable = instanceDatabaseMap?.[watchedDatabase || 'data']?.[watchedTable];
+	const tableExists = !!targetTable;
 	const tableWillBeCreated = !!instanceDatabaseMap && !!watchedTable && !tableExists;
+	// Random data needs existing columns to model values on, so the option only appears
+	// when the target table already has some beyond the primary key and system fields.
+	const fillableAttributes = randomizableAttributes(targetTable?.attributes);
+	const canGenerateRandom = fillableAttributes.length > 0;
+	const isRandomDataset = datasetId === RANDOM_DATASET_ID;
 
 	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -165,6 +195,7 @@ export function ImportDataModal({
 
 	const onDatasetChange = (newDatasetId: string) => {
 		form.setValue('datasetId', newDatasetId, { shouldValidate: true });
+		// Bundled datasets bring their own table name; random data fills the table as-is.
 		const dataset = sampleDatasets.find((d) => d.id === newDatasetId);
 		if (dataset) {
 			form.setValue('table', dataset.table, { shouldValidate: true });
@@ -180,7 +211,16 @@ export function ImportDataModal({
 		const table = values.table;
 
 		let source: ImportSource;
-		if (values.method === 'sample') {
+		if (values.method === 'sample' && values.datasetId === RANDOM_DATASET_ID) {
+			const attributes = randomizableAttributes(instanceDatabaseMap?.[database]?.[table]?.attributes);
+			if (attributes.length === 0) {
+				form.setError('datasetId', {
+					message: 'Random data needs an existing table with columns — pick a table that has some.',
+				});
+				return;
+			}
+			source = { kind: 'json-records', records: generateRandomRecords(attributes, Number(values.rowCount)) };
+		} else if (values.method === 'sample') {
 			const dataset = sampleDatasets.find((d) => d.id === values.datasetId);
 			if (!dataset) {
 				return;
@@ -294,10 +334,47 @@ export function ImportDataModal({
 															</SelectItem>
 														))}
 													</SelectGroup>
+													{canGenerateRandom && (
+														<SelectGroup>
+															<SelectLabel>This table</SelectLabel>
+															<SelectItem value={RANDOM_DATASET_ID}>
+																Random Data
+															</SelectItem>
+														</SelectGroup>
+													)}
 												</SelectContent>
 											</Select>
 										</FormControl>
 										{selectedDataset && <p className="text-sm text-muted-foreground">{selectedDataset.description}</p>}
+										{isRandomDataset && (
+											<p className="text-sm text-muted-foreground">
+												Generates rows for &quot;{watchedTable}&quot; based on its {fillableAttributes.length}{' '}
+												column{fillableAttributes.length === 1 ? '' : 's'} and their data types.
+											</p>
+										)}
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						)}
+
+						{method === 'sample' && isRandomDataset && (
+							<FormField
+								control={form.control}
+								name="rowCount"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Number of Rows</FormLabel>
+										<FormControl>
+											<Input
+												{...field}
+												type="number"
+												min={1}
+												max={1000}
+												inputMode="numeric"
+												autoComplete="off"
+											/>
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
