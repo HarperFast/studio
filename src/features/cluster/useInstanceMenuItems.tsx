@@ -2,12 +2,12 @@ import type { EntityMenuItem } from '@/components/ui/entityMenu';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
-import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -54,8 +54,7 @@ export function useInstanceMenuItems(
 	const [onCopyFqdn, onCopyApiUrl] = useCopyToClipboard(fqdn ?? '', apiUrl);
 
 	const onSignOut = useCallback(async () => {
-		await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
-		authStore.setUserForEntity(instance, null);
+		await signOutOfInstance({ instance, instanceClient });
 	}, [instance, instanceClient]);
 
 	const isReady = !!instance.status && READY_STATUSES.includes(instance.status);
