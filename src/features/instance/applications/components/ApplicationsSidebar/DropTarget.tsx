@@ -116,7 +116,10 @@ export function DropTarget() {
 
 				toast.loading(`Upload in progress...`, {
 					id,
-					descriptionClassName: 'whitespace-pre',
+					// pre-line (not pre): sonner toasts are fixed-width flex rows, so an
+					// unwrappable line wider than the toast pushes the action button
+					// outside the container (#1323).
+					descriptionClassName: 'whitespace-pre-line',
 					description: `${counter} of ${pluralize(filesToUpload.length, 'file', 'files')}
 ${file.name}
 ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
@@ -184,7 +187,7 @@ ${humanFileSize(uploadedBytes)} of ${humanFileSize(totalBytes)}`,
 				toast.error(canceled ? 'Cancelled uploads' : 'Rejected uploads', {
 					id,
 					action: toastOKAction,
-					descriptionClassName: 'whitespace-pre overflow-y-auto',
+					descriptionClassName: 'whitespace-pre-line overflow-y-auto',
 					description: filesRejected
 						.slice(0, 5)
 						.map(r => r.errors.map(e => e.message).join('\n'))
