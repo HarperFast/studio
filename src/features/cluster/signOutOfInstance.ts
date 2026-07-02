@@ -13,8 +13,13 @@ import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInsta
 export async function signOutOfInstance(
 	{ instance, instanceClient }: InstanceClientConfig & { instance: Instance },
 ): Promise<void> {
-	await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
-	authStore.setUserForEntity(instance, null);
+	try {
+		await onInstanceLogoutSubmit({ instanceClient, entityId: instance.id });
+	} catch {
+		// Ignore: we're clearing local state regardless of the server response — a failed logout
+		// POST must not leave stale flags/credentials behind (same as ClusterHome's onDisconnect).
+	}
+	authStore.signOutLocally(instance.id);
 	if (instance.clusterId) {
 		authStore.signOutLocally(instance.clusterId);
 	}

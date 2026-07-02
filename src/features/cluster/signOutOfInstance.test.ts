@@ -66,13 +66,17 @@ describe('signOutOfInstance', () => {
 		expect(authStore.checkForFabricConnect('clu-1')).toBe(false);
 	});
 
-	it('leaves the server-side logout error to the caller and keeps local state intact', async () => {
+	it('clears local state for the instance and cluster even when the server-side logout fails', async () => {
 		authStore.setUserForIdAndKey('clu-1', 'https://cluster.example.com:9925/', user);
+		authStore.setUserForIdAndKey('ins-a', 'https://node-a.example.com:9925/', user);
+		authStore.flagForBasicAuth('ins-a', { username: 'admin', password: 'pw' });
 		const instanceClient = { post: vi.fn().mockRejectedValue(new Error('network down')) } as unknown as AxiosInstance;
 
-		await expect(signOutOfInstance({ instance: makeInstance('ins-a', 'node-a.example.com'), instanceClient }))
-			.rejects.toThrow('network down');
+		// Resolves despite the failed POST — a failed logout must not leave stale flags/credentials.
+		await signOutOfInstance({ instance: makeInstance('ins-a', 'node-a.example.com'), instanceClient });
 
-		expect(authStore.getConnectionById('clu-1').user).toBe(user);
+		expect(authStore.getConnectionById('ins-a').user).toBeNull();
+		expect(authStore.getConnectionById('clu-1').user).toBeNull();
+		expect(authStore.checkForBasicAuth('ins-a')).toBeUndefined();
 	});
 });
