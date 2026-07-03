@@ -47,6 +47,11 @@ import { z } from 'zod';
 /** Pseudo-dataset offered when the target table already has columns: generate random rows for it. */
 export const RANDOM_DATASET_ID = '__random__';
 
+/** The whole file is read into memory and shipped in one JSON operation body, so cap it
+ * well below where the read/POST would freeze the tab; bigger imports should stream from
+ * a URL (csv_url_load) instead. */
+export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+
 const ImportDataFormSchema = z
 	.object({
 		method: z.enum(['sample', 'file', 'url']),
@@ -179,6 +184,16 @@ export function ImportDataModal({
 	const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) {
+			return;
+		}
+		if (file.size > MAX_IMPORT_FILE_BYTES) {
+			const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+			const limitMB = MAX_IMPORT_FILE_BYTES / (1024 * 1024);
+			form.setError('fileData', {
+				message: `That file is ${sizeMB} MB — uploads are limited to ${limitMB} MB. `
+					+ `For larger files, host the CSV and use Load from URL.`,
+			});
+			e.target.value = '';
 			return;
 		}
 		const reader = new FileReader();
