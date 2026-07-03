@@ -22,6 +22,22 @@ tolerated the mismatch; the 1.133→1.170 bump exposed it.
 coverage lives in `src/router/__tests__/orgUndefinedRepro.test.ts`, which uses
 `router.matchRoutes()` (no loaders/network) to assert deep links parse params correctly.
 
+## Routing — the router must be created exactly once (never per render)
+
+`useNewRouter` memoizes `createRouter()`/`createHashHistory()` with a `useState` initializer
+— keep it that way. Every `createHashHistory()` call monkey-patches
+`window.history.pushState/replaceState` (wrappers chain and are never removed) and leaks
+`popstate`/scroll listeners. Worse, when the current history entry lacks `__TSR_key` (true
+after any raw `location.hash =` navigation), history creation synchronously calls
+`replaceState` — the patched chain then notifies the live router's subscriber mid-render,
+which React logs as **"Cannot update a component (`Transitioner`) while rendering a
+different component (`AppRouted`)"** (hit Jul 2026: `AppRouted` re-rendered on every
+authStore tick and rebuilt the router each time).
+
+Auth updates reach the memoized router via the `RouterProvider` `context` prop plus the
+`router.invalidate()` effect in `src/AppRouted.tsx` — that invalidate is what re-runs
+`beforeLoad` guards (e.g. the sign-out redirect in `dashboardRoute.ts`), so don't remove it.
+
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
 This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,
