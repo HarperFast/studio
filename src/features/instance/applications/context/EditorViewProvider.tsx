@@ -95,7 +95,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 	 */
 	useEffect(() => {
 		if (open?.length) {
-			// ./schema.graphql?ShowNewTableModal=true
+			// ./schema.graphql?AddSchemaTable=true
 			const openParts = open.split('?');
 			const ref = openParts[0];
 			const action = openParts[1];
