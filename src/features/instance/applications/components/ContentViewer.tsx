@@ -5,6 +5,7 @@ import { useReadMeUrlTransformer } from '@/features/instance/applications/lib/re
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { isProtectedEnvFile } from '@/lib/env/envFile';
 import { isBinaryFile } from '@/lib/string/binaryFileType';
+import { getMarkupImageType } from '@/lib/string/markupImageType';
 import { getMediaFileType, MediaFileType } from '@/lib/string/mediaFileType';
 import { CopyIcon, FileArchive } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -13,6 +14,7 @@ import remarkGfm from 'remark-gfm';
 import { newApplication } from './ApplicationsSidebar/specialItems';
 import { DirectoryPlaceholder } from './DirectoryPlaceholder';
 import { EnvEditorView } from './EnvEditorView';
+import { MarkupImageView } from './MarkupImageView';
 import { NewApplication } from './NewApplication';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
@@ -49,6 +51,15 @@ export function ContentViewer() {
 	const mediaType = getMediaFileType(openedEntry?.name);
 	if (mediaType) {
 		return <MediaPreview name={openedEntry?.name} base64={openedEntryContents} media={mediaType} />;
+	}
+
+	// SVGs are images too, but their source is text (XML). Default to the rendered
+	// preview, with an "edit as text" escape hatch to the code editor — the same
+	// pattern the `.env` editor uses. Raster/binary images (above) stay preview-only.
+	// Keyed by path so the preview/source toggle resets when switching files.
+	const markupImageType = getMarkupImageType(openedEntry?.name);
+	if (markupImageType) {
+		return <MarkupImageView key={openedEntry?.path} media={markupImageType} />;
 	}
 
 	// Archives and other binary files would otherwise be decoded as UTF-8 and

@@ -12,6 +12,10 @@ export interface MediaFileType {
  * Maps file extensions the Applications editor can preview as media (rather than
  * editing as text) to their kind and MIME type. Limited to formats browsers can
  * render in an `<img>`/`<video>` element.
+ *
+ * These are binary formats: loaded as base64 and shown read-only. SVG is *not*
+ * here — it's markup (text), so it's loaded as text and gets a preview that also
+ * lets you edit the source (see {@link import('./markupImageType').getMarkupImageType}).
  */
 const mediaTypesByExtension: Record<string, MediaFileType> = {
 	// Images
@@ -24,7 +28,6 @@ const mediaTypesByExtension: Record<string, MediaFileType> = {
 	jpeg: { kind: 'image', mime: 'image/jpeg' },
 	jpg: { kind: 'image', mime: 'image/jpeg' },
 	png: { kind: 'image', mime: 'image/png' },
-	svg: { kind: 'image', mime: 'image/svg+xml' },
 	webp: { kind: 'image', mime: 'image/webp' },
 	// Videos
 	m4v: { kind: 'video', mime: 'video/mp4' },

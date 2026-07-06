@@ -12,7 +12,7 @@
  * This is a curated Monaco build: rather than `import 'monaco-editor'` (which
  * bundles all ~90 languages), we import the editor + all editor features, then
  * only the languages the Applications editor opens — TS/JS (+TSX/JSX), JSON,
- * CSS, HTML, Markdown, GraphQL (Harper schemas), and YAML.
+ * CSS, HTML, Markdown, GraphQL (Harper schemas), YAML, and XML (SVG source).
  *
  * This module has side effects and must run before the first `<Editor>` mounts,
  * so it is imported at the top of `main.tsx`.
@@ -32,14 +32,16 @@ import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
 // Syntax highlighting (Monarch grammars). TS/JS need these for highlighting
 // (their language service only adds IntelliSense); CSS/HTML round out the
-// grammar alongside their services; Markdown and YAML are highlighting-only
-// here (YAML schema features come from monaco-yaml).
+// grammar alongside their services; Markdown, YAML, and XML are highlighting-only
+// here (YAML schema features come from monaco-yaml; XML backs the SVG source
+// editor with no worker/validation of its own).
 import 'monaco-editor/esm/vs/basic-languages/css/css.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/html/html.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution.js';
+import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution.js';
 import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution.js';
 // Workers (Vite-bundled).
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
