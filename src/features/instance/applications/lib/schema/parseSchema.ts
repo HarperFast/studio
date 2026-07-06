@@ -11,6 +11,7 @@
  * unbalanced braces) it returns `ok: false` and the caller shows the text editor.
  */
 import { detectIndent, detectNewline } from './indentation';
+import { nextFieldKey } from './mutations';
 import { Directive, DirectiveArg, FieldModel, findDirective, ParseResult, Segment, TableModel, TypeRef } from './types';
 
 function isIdentChar(char: string): boolean {
@@ -418,7 +419,7 @@ function parseFields(body: string): FieldModel[] | null {
 			lineComment = body.slice(i, end).replace(/\r$/, '').trim();
 			i = end;
 		}
-		fields.push({ leadingComments: pendingComments, name, type: typeRef.type, directives, lineComment });
+		fields.push({ key: nextFieldKey(), leadingComments: pendingComments, name, type: typeRef.type, directives, lineComment });
 		pendingComments = [];
 	}
 	return fields;

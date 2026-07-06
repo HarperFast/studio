@@ -233,7 +233,7 @@ export function TableCard({
 							<div className="flex flex-col gap-2">
 								{table.fields.map((field, index) => (
 									<FieldRow
-										key={index}
+										key={field.key ?? index}
 										field={field}
 										typeNames={typeNames}
 										readOnly={readOnly}

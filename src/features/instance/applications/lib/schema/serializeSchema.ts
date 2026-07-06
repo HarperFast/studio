@@ -67,6 +67,11 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 	const lines: string[] = [`type ${table.typeName}${directives ? ` ${directives}` : ''} {`];
 
 	for (const field of table.fields) {
+		// An added-but-unnamed field would emit invalid SDL (`\t: String`); skip it
+		// until the user names it, mirroring how unnamed tables are handled.
+		if (!field.name.trim()) {
+			continue;
+		}
 		for (const comment of field.leadingComments) {
 			for (const line of comment.split('\n')) {
 				lines.push(`${indent}${line.replace(/\r$/, '')}`);
@@ -109,20 +114,25 @@ export function serializeSchema(doc: SchemaDocument): string {
 	});
 	const segments = doc.segments.filter((_, index) => !dropped.has(index));
 
-	// Reorder the surviving table segments alphabetically among their own slots;
-	// raw segments (and each table's attached leading comments) stay put.
-	const tableSlots: number[] = [];
-	segments.forEach((segment, index) => {
-		if (segment.kind === 'table') {
-			tableSlots.push(index);
-		}
-	});
-	const sortedTables = tableSlots
-		.map(slot => (segments[slot] as { kind: 'table'; table: TableModel }).table)
-		.sort((a, b) => a.typeName.localeCompare(b.typeName));
-	tableSlots.forEach((slot, order) => {
-		segments[slot] = { kind: 'table', table: sortedTables[order] };
-	});
+	// Order tables alphabetically only once the user has actually edited something.
+	// Sorting on open would reorder verbatim blocks and mark an unsorted file dirty
+	// the moment it's viewed; deferring until an edit keeps "just looking" a no-op
+	// while still normalizing order in generated output.
+	const hasEdits = segments.some(segment => segment.kind === 'table' && segment.table.edited);
+	if (hasEdits) {
+		const tableSlots: number[] = [];
+		segments.forEach((segment, index) => {
+			if (segment.kind === 'table') {
+				tableSlots.push(index);
+			}
+		});
+		const sortedTables = tableSlots
+			.map(slot => (segments[slot] as { kind: 'table'; table: TableModel }).table)
+			.sort((a, b) => a.typeName.localeCompare(b.typeName));
+		tableSlots.forEach((slot, order) => {
+			segments[slot] = { kind: 'table', table: sortedTables[order] };
+		});
+	}
 
 	return segments.map(segment => serializeSegment(segment, doc)).join('');
 }
