@@ -31,6 +31,9 @@ const extensionToLanguageMap: Record<string, string> = {
 	css: 'css',
 	graphql: 'graphql',
 	mjs: 'javascript',
+	// SVG is XML — highlight it as such when dropping down to edit its source.
+	svg: 'xml',
+	xml: 'xml',
 };
 
 /**
