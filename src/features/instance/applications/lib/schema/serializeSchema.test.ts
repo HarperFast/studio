@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTable } from './mutations';
+import { createField, createTable } from './mutations';
 import { parseSchema } from './parseSchema';
 import { serializeSchema } from './serializeSchema';
 import { SchemaDocument, Segment, TableModel } from './types';
@@ -52,8 +52,14 @@ describe('serializeSchema skips unnamed (in-progress) tables', () => {
 });
 
 describe('serializeSchema alphabetical ordering', () => {
-	it('sorts unedited table blocks alphabetically, verbatim, keeping raw gaps anchored', () => {
+	it('leaves an unsorted file untouched until something is edited (so opening never dirties it)', () => {
+		const source = 'type Zebra @table {\n\tid: ID @primaryKey\n}\ntype Apple @table {\n\tid: ID @primaryKey\n}\n';
+		expect(serializeSchema(parse(source))).toBe(source);
+	});
+
+	it('sorts table blocks alphabetically once any table is edited, keeping raw gaps anchored', () => {
 		const doc = parse('type Zebra @table {\n\tid: ID @primaryKey\n}\ntype Apple @table {\n\tid: ID @primaryKey\n}\n');
+		firstTable(doc).edited = true;
 		expect(serializeSchema(doc)).toBe(
 			'type Apple @table {\n\tid: ID @primaryKey\n}\ntype Zebra @table {\n\tid: ID @primaryKey\n}\n',
 		);
@@ -63,6 +69,7 @@ describe('serializeSchema alphabetical ordering', () => {
 		const doc = parse(
 			'# zebra comment\ntype Zebra @table {\n\tid: ID\n}\n# apple comment\ntype Apple @table {\n\tid: ID\n}\n',
 		);
+		firstTable(doc).edited = true;
 		expect(serializeSchema(doc)).toBe(
 			'# apple comment\ntype Apple @table {\n\tid: ID\n}\n# zebra comment\ntype Zebra @table {\n\tid: ID\n}\n',
 		);
@@ -98,6 +105,18 @@ describe('serializeSchema canonical generation for edited tables', () => {
 		const doc = parse('type Dog @table() {\n\tid: ID @primaryKey\n}\n');
 		firstTable(doc).edited = true;
 		expect(serializeSchema(doc)).toBe('type Dog @table {\n\tid: ID @primaryKey\n}\n');
+	});
+
+	it('skips an unnamed (in-progress) field until it is named', () => {
+		const doc = parse('type Dog @table {\n\tid: ID @primaryKey\n}\n');
+		const table = firstTable(doc);
+		table.edited = true;
+		table.fields.push(createField());
+		expect(serializeSchema(doc)).toBe('type Dog @table {\n\tid: ID @primaryKey\n}\n');
+
+		table.fields[table.fields.length - 1].name = 'age';
+		table.fields[table.fields.length - 1].type = { kind: 'named', name: 'Int', nonNull: false };
+		expect(serializeSchema(doc)).toBe('type Dog @table {\n\tid: ID @primaryKey\n\tage: Int\n}\n');
 	});
 
 	it('re-parsing generated output is stable (idempotent)', () => {
