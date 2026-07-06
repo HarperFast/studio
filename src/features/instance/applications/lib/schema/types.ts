@@ -51,6 +51,12 @@ export type TypeRef =
 
 export interface FieldModel {
 	/**
+	 * Stable identity for React keys, so a field's transient UI state (e.g. its
+	 * "Advanced" disclosure) follows the field across add/remove/reorder rather
+	 * than shifting by position. Not part of the serialized schema.
+	 */
+	key?: string;
+	/**
 	 * Comment (`# …`) and description (`"""…"""`) lines that immediately precede
 	 * the field, each captured verbatim (without the structural indent). Re-emitted
 	 * above the field when the table is regenerated.
