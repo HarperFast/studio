@@ -67,6 +67,12 @@ export const harperDirectives: HarperDirective[] = [
 				description:
 					'Configure replication for this individual table. Set to false to disable and exclude this table from a replicated database.',
 			},
+			{
+				name: 'randomAccessFields',
+				type: 'Boolean',
+				description:
+					"Encode records as typed random-access structures for fast field access and smaller records. Best for stable, homogeneous field types; pins this table's encoding, overriding the global storage.randomAccessFields config.",
+			},
 		],
 	},
 	{

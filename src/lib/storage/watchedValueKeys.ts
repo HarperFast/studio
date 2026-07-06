@@ -7,7 +7,7 @@ export interface WatchedValuesTypeMap {
 	CanNavigateForward: boolean;
 	RunEditorAction: string;
 	ShowAddDirectoryOrFileModalType: 'file' | 'directory' | false;
-	ShowNewTableModal: boolean;
+	AddSchemaTable: true;
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowDownloadApplicationModal: boolean;
 	ShowRedeployApplicationModal: boolean;
