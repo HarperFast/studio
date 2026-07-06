@@ -12,11 +12,17 @@ import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 export function useRootAuthenticationContext(): Record<EntityIds, AuthenticatedConnection> {
-	const [connections, setConnections] = useState(authStore.getAllConnections());
+	// Copy the store's record: getAllConnections() returns its live internal object, which
+	// mutates on every update and would make state comparisons lie.
+	const [connections, setConnections] = useState(() => ({ ...authStore.getAllConnections() }));
+	// Subscribe exactly once. Re-subscribing per change (the old `[connections]` dep) opened a
+	// gap between cleanup and re-subscribe in which updates were silently dropped — sign-out
+	// emits a burst (each instance entity, then OverallAppSignIn last), and losing that final
+	// event left AppRouted holding a signed-in context, so route guards never re-ran.
 	useEffect(() =>
 		authStore.listenToAllEntities((connection, id) => {
-			setConnections({ ...connections, [id]: connection });
-		}), [connections]);
+			setConnections((previous) => ({ ...previous, [id]: connection }));
+		}), []);
 	return connections;
 }
 
