@@ -1,7 +1,8 @@
+import { MutationObserver } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
-import { errorHandler } from './queryClient';
+import { errorHandler, queryClient } from './queryClient';
 
 // Mock the toast module
 vi.mock('sonner', () => ({
@@ -98,6 +99,20 @@ describe('errorHandler', () => {
 				onClick: expect.any(Function),
 			},
 		});
+	});
+
+	// Feature code (e.g. the Import Data modal) intentionally has no per-mutation onError:
+	// the MutationCache routes every mutation error through errorHandler. This pins that
+	// wiring so removing it doesn't silently drop all mutation error feedback.
+	it('is invoked for failing mutations via the global MutationCache', async () => {
+		const observer = new MutationObserver(queryClient, {
+			mutationFn: () => Promise.reject(new Error('Import failed: the CSV was malformed')),
+		});
+		await expect(observer.mutate()).rejects.toThrow('the CSV was malformed');
+		expect(toast.error).toHaveBeenCalledWith(
+			'Import failed',
+			expect.objectContaining({ description: expect.stringContaining('the CSV was malformed') }),
+		);
 	});
 
 	it('should display error message from generic error.message', () => {

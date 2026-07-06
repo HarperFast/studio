@@ -2,7 +2,8 @@ import { InstanceClientConfig } from '@/config/instanceClientConfig';
 
 export interface HarperJob {
 	id: string;
-	status: 'IN_PROGRESS' | 'COMPLETE' | 'ERROR' | string;
+	/** Lifecycle: CREATED → IN_PROGRESS → COMPLETE | ERROR. */
+	status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETE' | 'ERROR' | string;
 	message?: string;
 	job_body?: unknown;
 }
@@ -47,11 +48,13 @@ export async function waitForJob({
 				throw err;
 			}
 		}
+		// Only COMPLETE and ERROR are terminal: a freshly submitted job can still be
+		// CREATED (no worker picked it up yet), so anything else means keep polling.
 		const status = job?.status?.toUpperCase();
-		if (job && status !== 'IN_PROGRESS') {
-			if (status === 'ERROR') {
-				throw new Error(job.message || 'The import job failed.');
-			}
+		if (status === 'ERROR') {
+			throw new Error(job?.message || 'The import job failed.');
+		}
+		if (status === 'COMPLETE' && job) {
 			return job;
 		}
 		if (Date.now() >= deadline) {
