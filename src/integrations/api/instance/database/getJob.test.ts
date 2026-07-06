@@ -20,7 +20,7 @@ describe('waitForJob', () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 
-	it('resolves once the job leaves IN_PROGRESS', async () => {
+	it('resolves once the job reaches COMPLETE', async () => {
 		const instanceClient = makeClient([
 			{ status: 'IN_PROGRESS' },
 			{ status: 'IN_PROGRESS' },
@@ -31,6 +31,18 @@ describe('waitForJob', () => {
 		const job = await pending;
 		expect(job.status).toBe('COMPLETE');
 		expect(job.message).toContain('10 of 10');
+	});
+
+	it('keeps polling through CREATED — a job no worker has picked up yet is not done', async () => {
+		const instanceClient = makeClient([
+			{ status: 'CREATED' },
+			{ status: 'IN_PROGRESS' },
+			{ status: 'COMPLETE', message: 'done' },
+		]);
+		const pending = waitForJob({ jobId: 'job-1', instanceClient, pollIntervalMs: 100 });
+		await vi.advanceTimersByTimeAsync(500);
+		const job = await pending;
+		expect(job.status).toBe('COMPLETE');
 	});
 
 	it('rejects with the job message when the job errors', async () => {
