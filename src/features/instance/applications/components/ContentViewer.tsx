@@ -16,6 +16,7 @@ import { DirectoryPlaceholder } from './DirectoryPlaceholder';
 import { EnvEditorView } from './EnvEditorView';
 import { MarkupImageView } from './MarkupImageView';
 import { NewApplication } from './NewApplication';
+import { SchemaEditorView } from './SchemaEditorView';
 import { TextEditorView } from './TextEditorView';
 import './directoryReadMe.css';
 
@@ -76,6 +77,14 @@ export function ContentViewer() {
 	// raw-editor toggle) resets when switching files.
 	if (isProtectedEnvFile(openedEntry?.name)) {
 		return <EnvEditorView key={openedEntry?.path} />;
+	}
+
+	// Harper schemas get a visual table editor by default, with an "edit as text"
+	// escape hatch to Monaco — the same preview/source pattern as SVGs above. It
+	// falls back to the text editor for anything it can't parse. Keyed by path so
+	// the parsed model and preview/source toggle reset when switching files.
+	if (openedEntry?.name?.endsWith('.graphql')) {
+		return <SchemaEditorView key={openedEntry.path} />;
 	}
 
 	return <TextEditorView />;
