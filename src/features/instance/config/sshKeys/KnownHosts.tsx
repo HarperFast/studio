@@ -85,7 +85,7 @@ export function KnownHosts() {
 								<Button
 									type="submit"
 									variant="submit"
-									className="rounded-full mt-2"
+									className="mt-2"
 									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
 								>
 									<Save /> {isPending ? 'Saving' : 'Save'} Known Hosts{isPending ? '...' : ''}

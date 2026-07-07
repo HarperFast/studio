@@ -83,7 +83,7 @@ export function AddNewPaymentMethodForm({
 			<AddressElement options={{ mode: 'billing' }} />
 
 			<div className="mt-4 flex gap-8 items-center">
-				<Button disabled={!stripe || !elements || loading} variant="submit" className="rounded-full">
+				<Button disabled={!stripe || !elements || loading} variant="submit">
 					<Save /> Add Payment Method
 				</Button>
 				{hasExistingBilling && (

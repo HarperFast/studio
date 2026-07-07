@@ -170,7 +170,6 @@ export function AddUserModal({
 								<Button
 									type="submit"
 									variant="submit"
-									className="rounded-full"
 									disabled={isAddPending || isInvitePending}
 								>
 									<Save /> {shouldInvite ? 'Invite User' : 'Add User'}

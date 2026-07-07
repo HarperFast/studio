@@ -184,7 +184,6 @@ export function AddOrganizationRoleModal({
 							<div className="flex justify-between w-full">
 								<Button
 									variant="destructiveOutline"
-									className="rounded-full"
 									type="button"
 									onClick={() => setIsModalOpen(false)}
 									disabled={isPending}
@@ -193,7 +192,6 @@ export function AddOrganizationRoleModal({
 								</Button>
 								<Button
 									variant="submit"
-									className="rounded-full"
 									disabled={isPending || !isValidJSON || !form.formState.isValid}
 								>
 									Save Changes

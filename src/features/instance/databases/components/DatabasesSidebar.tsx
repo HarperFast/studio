@@ -156,7 +156,7 @@ export function DatabasesSidebar({ instanceDatabaseMap }: { instanceDatabaseMap?
 					<div className="shrink-0 pb-4">
 						<Button
 							variant="defaultOutline"
-							className="w-full rounded-full"
+							className="w-full"
 							size="lg"
 							onClick={() => setIsImportDataModalOpen(true)}
 							disabled={isImportDataModalOpen || loading}

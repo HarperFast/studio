@@ -22,7 +22,7 @@ export function ApplyLicensesButton({
 			<TooltipTrigger asChild>
 				<Button
 					variant="defaultOutline"
-					className="mx-0 md:mx-4 rounded-full"
+					className="mx-0 md:mx-4"
 					onClick={onApplyLicensesClick}
 					disabled={isApplyLicensesPending}
 				>

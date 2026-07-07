@@ -139,7 +139,6 @@ export function AddSecretModal({
 								<Button
 									variant="destructiveOutline"
 									type="button"
-									className="rounded-full"
 									onClick={onClickCancel}
 									disabled={isPending}
 								>
@@ -148,7 +147,6 @@ export function AddSecretModal({
 								<Button
 									type="submit"
 									variant="submit"
-									className="rounded-full"
 									disabled={isPending || !isDirty || !isValid}
 								>
 									<Save /> Add Secret
@@ -286,7 +284,6 @@ export function EditSecretModal({
 										<Button
 											variant="destructiveOutline"
 											type="button"
-											className="rounded-full"
 											onClick={onDeleteClick}
 											disabled={busy}
 										>
@@ -297,7 +294,6 @@ export function EditSecretModal({
 										<Button
 											variant="destructiveOutline"
 											type="button"
-											className="rounded-full"
 											onClick={closeModal}
 											disabled={busy}
 										>
@@ -307,7 +303,6 @@ export function EditSecretModal({
 								<Button
 									type="submit"
 									variant="submit"
-									className="rounded-full"
 									disabled={busy || !isDirty || !isValid}
 								>
 									<Save /> Save

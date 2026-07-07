@@ -112,7 +112,6 @@ export function APIDocs() {
 						type="button"
 						disabled={isSettingConfiguration}
 						variant="warning"
-						className="rounded-full"
 						onClick={enableCORS}
 					>
 						<Plus />

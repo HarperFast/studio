@@ -144,13 +144,12 @@ export function AddRoleModal({
 								<Button
 									variant="destructiveOutline"
 									type="button"
-									className="rounded-full"
 									onClick={onClickCancel}
 									disabled={isAddPending}
 								>
 									Cancel
 								</Button>
-								<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
+								<Button type="submit" variant="submit" disabled={isAddPending}>
 									<Save /> Add Role
 								</Button>
 							</div>

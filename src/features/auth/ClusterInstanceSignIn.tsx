@@ -172,7 +172,7 @@ export function ClusterInstanceSignIn() {
 									</FormItem>
 								)}
 							/>
-							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
+							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2">
 								Sign In
 							</Button>
 							{healthy === false && (

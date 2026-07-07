@@ -185,7 +185,7 @@ export function AddUserModal({
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="submit" variant="submit" className="rounded-full" disabled={isAddPending}>
+								<Button type="submit" variant="submit" disabled={isAddPending}>
 									<Save /> Add User
 								</Button>
 							</div>

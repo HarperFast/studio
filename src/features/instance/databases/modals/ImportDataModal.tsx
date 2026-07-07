@@ -523,10 +523,10 @@ export function ImportDataModal({
 						)}
 
 						<DialogFooter>
-							<Button type="button" variant="ghost" className="rounded-full" onClick={closeModal} disabled={isPending}>
+							<Button type="button" variant="ghost" onClick={closeModal} disabled={isPending}>
 								Cancel
 							</Button>
-							<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
+							<Button type="submit" variant="submit" disabled={isPending}>
 								{isPending ? <LoaderCircleIcon className="animate-spin" /> : <CloudUploadIcon />}
 								{isPending ? 'Importing...' : 'Import Data'}
 							</Button>

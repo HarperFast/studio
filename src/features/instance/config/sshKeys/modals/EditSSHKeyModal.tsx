@@ -1,3 +1,4 @@
+import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
@@ -17,7 +18,7 @@ import { UpdateSSHKeySchema, useUpdateSSHKey } from '@/integrations/api/instance
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Row } from '@tanstack/react-table';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -53,7 +54,8 @@ export function EditSSHKeyModal({
 	}));
 
 	const { mutate: updateSSHKey, isPending } = useUpdateSSHKey();
-	const { mutate: deleteSSHKey } = useDeleteSSHKey();
+	const { mutate: deleteSSHKey, isPending: isDeletePending } = useDeleteSSHKey();
+	const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
 
 	const onSubmitClick = useCallback(
 		async ({ key }: z.infer<typeof UpdateSSHKeySchema>) => {
@@ -78,6 +80,10 @@ export function EditSSHKeyModal({
 	);
 
 	const onSSHKeyDeleteClicked = useCallback(() => {
+		setIsConfirmDeleteModalOpen(true);
+	}, []);
+
+	const onDeletionConfirmed = useCallback(() => {
 		deleteSSHKey(
 			{
 				name,
@@ -94,123 +100,132 @@ export function EditSSHKeyModal({
 	}, [name, deleteSSHKey, instanceParams, onChangesSaved, onSelectSSHKey]);
 
 	return (
-		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent className="sm:max-w-[750px]" aria-describedby={undefined}>
-				<Form {...form}>
-					<form
-						id="instance-edit-ssh-key-form"
-						name="instance-edit-ssh-key-form"
-						onSubmit={form.handleSubmit(onSubmitClick)}
-						className="grid gap-4 my-4 md:grid-cols-2"
-					>
-						<DialogTitle>Edit SSH Key</DialogTitle>
+		<>
+			<Dialog onOpenChange={closeModal} open={isModalOpen}>
+				<DialogContent className="sm:max-w-[750px]" aria-describedby={undefined}>
+					<Form {...form}>
+						<form
+							id="instance-edit-ssh-key-form"
+							name="instance-edit-ssh-key-form"
+							onSubmit={form.handleSubmit(onSubmitClick)}
+							className="grid gap-4 my-4 md:grid-cols-2"
+						>
+							<DialogTitle>Edit SSH Key</DialogTitle>
 
-						<FormField
-							control={form.control}
-							name="name"
-							render={({ field }) => (
-								<FormItem className="md:col-span-2">
-									<FormLabel className="pb-1">Name</FormLabel>
-									<FormControl>
-										<Input
-											type="text"
-											autoComplete="off"
-											autoCapitalize="off"
-											readOnly={true}
-											disabled={true}
-											{...field}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+							<FormField
+								control={form.control}
+								name="name"
+								render={({ field }) => (
+									<FormItem className="md:col-span-2">
+										<FormLabel className="pb-1">Name</FormLabel>
+										<FormControl>
+											<Input
+												type="text"
+												autoComplete="off"
+												autoCapitalize="off"
+												readOnly={true}
+												disabled={true}
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 
-						<FormField
-							control={form.control}
-							name="key"
-							render={({ field }) => (
-								<FormItem className="md:col-span-2">
-									<FormLabel className="pb-1">Key</FormLabel>
-									<FormDescription>
-										Replace your existing private key. Lost it? Try out "ssh-keygen"! You'll want to add your public key
-										to your registry, i.e. GitHub.
-									</FormDescription>
-									<FormControl>
-										<Textarea
-											autoComplete="off"
-											autoCapitalize="off"
-											autoFocus={true}
-											rows={3}
-											{...field}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+							<FormField
+								control={form.control}
+								name="key"
+								render={({ field }) => (
+									<FormItem className="md:col-span-2">
+										<FormLabel className="pb-1">Key</FormLabel>
+										<FormDescription>
+											Replace your existing private key. Lost it? Try out "ssh-keygen"! You'll want to add your public
+											key to your registry, i.e. GitHub.
+										</FormDescription>
+										<FormControl>
+											<Textarea
+												autoComplete="off"
+												autoCapitalize="off"
+												autoFocus={true}
+												rows={3}
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 
-						<FormItem className="md:col-span-2">
-							<FormLabel className="pb-1">Host</FormLabel>
-							<FormDescription>
-								A unique identifying name for the combination of this key and your hostname, i.e.
-								"your-repo.github.com". You will use this instead of the direct hostname to pick your key when importing
-								applications.
-							</FormDescription>
-							<FormControl>
-								<Input
-									type="text"
-									autoComplete="off"
-									autoCapitalize="off"
-									value={fullData?.host || ''}
-									disabled={true}
-									readOnly={true}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
+							<FormItem className="md:col-span-2">
+								<FormLabel className="pb-1">Host</FormLabel>
+								<FormDescription>
+									A unique identifying name for the combination of this key and your hostname, i.e.
+									"your-repo.github.com". You will use this instead of the direct hostname to pick your key when
+									importing applications.
+								</FormDescription>
+								<FormControl>
+									<Input
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										value={fullData?.host || ''}
+										disabled={true}
+										readOnly={true}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
 
-						<FormItem className="md:col-span-2">
-							<FormLabel className="pb-1">Hostname</FormLabel>
-							<FormDescription>
-								When making the request, the actual hostname to use, i.e. "github.com".
-							</FormDescription>
-							<FormControl>
-								<Input
-									type="text"
-									autoComplete="off"
-									autoCapitalize="off"
-									value={fullData?.hostname || ''}
-									disabled={true}
-									readOnly={true}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
+							<FormItem className="md:col-span-2">
+								<FormLabel className="pb-1">Hostname</FormLabel>
+								<FormDescription>
+									When making the request, the actual hostname to use, i.e. "github.com".
+								</FormDescription>
+								<FormControl>
+									<Input
+										type="text"
+										autoComplete="off"
+										autoCapitalize="off"
+										value={fullData?.hostname || ''}
+										disabled={true}
+										readOnly={true}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
 
-						<DialogFooter className="md:col-span-2">
-							<Button
-								type="button"
-								variant="destructiveOutline"
-								className="rounded-full"
-								onClick={onSSHKeyDeleteClicked}
-								disabled={isPending}
-							>
-								Delete SSH Key
-							</Button>
+							<DialogFooter className="md:col-span-2">
+								<Button
+									type="button"
+									variant="destructiveOutline"
+									onClick={onSSHKeyDeleteClicked}
+									disabled={isPending}
+								>
+									Delete SSH Key
+								</Button>
 
-							<Button
-								type="submit"
-								variant="submit"
-								className="rounded-full"
-								disabled={isPending || !form.formState.isValid}
-							>
-								Update SSH Key
-							</Button>
-						</DialogFooter>
-					</form>
-				</Form>
-			</DialogContent>
-		</Dialog>
+								<Button
+									type="submit"
+									variant="submit"
+									disabled={isPending || !form.formState.isValid}
+								>
+									Update SSH Key
+								</Button>
+							</DialogFooter>
+						</form>
+					</Form>
+				</DialogContent>
+			</Dialog>
+			<ConfirmDeletionModal
+				isModalOpen={isConfirmDeleteModalOpen}
+				setIsModalOpen={setIsConfirmDeleteModalOpen}
+				deletionConfirmed={onDeletionConfirmed}
+				deletionPending={isDeletePending}
+				typeOfThingBeingDeleted="SSH key"
+				nameOfThingBeingDeleted={name}
+				hideDataLossWarning={true}
+			/>
+		</>
 	);
 }
