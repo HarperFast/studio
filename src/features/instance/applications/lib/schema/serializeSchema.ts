@@ -73,8 +73,13 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 			continue;
 		}
 		for (const comment of field.leadingComments) {
-			for (const line of comment.split('\n')) {
-				lines.push(`${indent}${line.replace(/\r$/, '')}`);
+			for (const rawLine of comment.split('\n')) {
+				// Strip any indentation the line already carried (e.g. interior lines of a
+				// multi-line """description""") before applying the canonical indent, so
+				// re-editing a table doesn't compound the indentation each time. Blank
+				// lines stay blank.
+				const line = rawLine.replace(/\r$/, '').replace(/^[ \t]+/, '');
+				lines.push(line ? `${indent}${line}` : '');
 			}
 		}
 		const fieldDirectives = serializeDirectives(field.directives, FIELD_DIRECTIVE_ORDER);

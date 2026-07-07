@@ -76,6 +76,31 @@ describe('serializeSchema alphabetical ordering', () => {
 	});
 });
 
+describe('serializeSchema description (""") handling', () => {
+	it('does not compound a multi-line field description\'s indentation when its table is edited', () => {
+		const source =
+			'type Dog @table {\n\t"""\n\tThe display name.\n\tShown in lists.\n\t"""\n\tname: String\n}\n';
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		const once = serializeSchema(doc);
+		expect(once).toBe(source);
+		// Editing again (re-parse → re-edit) must stay stable, not add indentation.
+		const twice = parse(once);
+		firstTable(twice).edited = true;
+		expect(serializeSchema(twice)).toBe(source);
+	});
+
+	it("keeps a table's leading description with it when tables are sorted", () => {
+		const doc = parse(
+			'"""\nZebra table.\n"""\ntype Zebra @table {\n\tid: ID\n}\n"""\nApple table.\n"""\ntype Apple @table {\n\tid: ID\n}\n',
+		);
+		firstTable(doc).edited = true;
+		expect(serializeSchema(doc)).toBe(
+			'"""\nApple table.\n"""\ntype Apple @table {\n\tid: ID\n}\n"""\nZebra table.\n"""\ntype Zebra @table {\n\tid: ID\n}\n',
+		);
+	});
+});
+
 describe('serializeSchema canonical generation for edited tables', () => {
 	it('regenerates directives and args in canonical order, preserving unknown ones', () => {
 		const doc = parse(
