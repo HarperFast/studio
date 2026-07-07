@@ -256,6 +256,17 @@
 
 	body {
 		@apply h-full bg-background font-ubuntu text-foreground;
+		/*
+		 * Establish a block formatting context on <body>. Every page layout uses an `mt-32`
+		 * (128px) top margin to clear the fixed header + nav; with no BFC in between, that
+		 * margin collapses up through <body> and shifts its box down ~128px. Absolutely
+		 * positioned overlays that browser extensions append to <body> and anchor from its
+		 * origin (e.g. LastPass's autofill menu, which becomes position:relative-anchored once
+		 * a modal opens) then inherit that offset and render ~1.5 fields below the focused
+		 * input. flow-root pins <body> at the viewport origin; the visible layout is unchanged
+		 * (the margin still spaces content below the header, just inside <body> now).
+		 */
+		display: flow-root;
 	}
 }
 
