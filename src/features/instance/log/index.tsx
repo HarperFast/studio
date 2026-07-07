@@ -11,7 +11,7 @@ import { LogsDataTable } from '@/features/instance/log/LogsDataTable';
 import { ViewLogModal } from '@/features/instance/log/modals/ViewLogModal';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
-import { getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
@@ -36,6 +36,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { LogsFiltersForm } from './components/LogsFiltersForm';
+import { useInstanceLogs } from './hooks/useInstanceLogs';
 
 type RowData = {
 	original: ReadLogItem;
@@ -182,7 +183,7 @@ export function Logs() {
 
 	const [isViewLogModalOpen, setIsViewLogModalOpen] = useState(false);
 	const [selectedLogData, setSelectedLogData] = useState<ReadLogItem | undefined>();
-	const [isAutoRefreshEnabled, setIsAutoRefreshEnabled] = useState(false);
+	const [isLive, setIsLive] = useState(false);
 	// Persisted per browser/user across all clusters and instances; defaults to newest-first.
 	const [isReversed, setIsReversed] = useLocalStorage<boolean>(LocalStorageKeys.LogsOrderReversed, false);
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -195,18 +196,17 @@ export function Logs() {
 	const showFilter = !!version && wasAReleasedBeforeB('4.7.16', version);
 
 	const {
-		data: instanceLogs,
+		logs: instanceLogs,
 		isLoading,
-		refetch: refetchReadLogQueryOptions,
 		isFetching: isFetchingInstanceLogs,
-	} = useQuery(
-		getReadLogQueryOptions({
-			logFilters,
-			...instanceParams,
-			replicated: instanceParams.entityType === 'cluster',
-			isAutoRefreshEnabled,
-		}),
-	);
+		refetch: refetchReadLogQueryOptions,
+		transport,
+	} = useInstanceLogs({
+		params: instanceParams,
+		logFilters,
+		replicated: instanceParams.entityType === 'cluster',
+		live: isLive,
+	});
 
 	// Logs arrive newest-first from the API; reversing flips the view to oldest-first without re-fetching.
 	const displayedLogs = useMemo(
@@ -224,12 +224,12 @@ export function Logs() {
 		el.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
 	}, [isReversed, isLoading]);
 
-	// While auto-refreshing, follow new entries like `tail -f`, keeping the newest in view as they arrive.
+	// While live, follow new entries like `tail -f`, keeping the newest in view as they arrive.
 	useEffect(() => {
 		const el = tableScrollRef.current;
-		if (!isAutoRefreshEnabled || isLoading || !el) { return; }
+		if (!isLive || isLoading || !el) { return; }
 		el.scrollTo({ top: isReversed ? el.scrollHeight : 0 });
-	}, [displayedLogs, isAutoRefreshEnabled, isReversed, isLoading]);
+	}, [displayedLogs, isLive, isReversed, isLoading]);
 
 	const form = useForm({
 		resolver: zodResolver(LogFiltersFormSchema),
@@ -282,7 +282,7 @@ export function Logs() {
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
-						disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+						disabled={isFetchingInstanceLogs || isLoading || isLive}
 						aria-label="Refresh logs"
 						className="flex-1"
 					>
@@ -316,7 +316,7 @@ export function Logs() {
 					<Button
 						variant="defaultOutline"
 						onClick={onRefreshClick}
-						disabled={isFetchingInstanceLogs || isLoading || isAutoRefreshEnabled}
+						disabled={isFetchingInstanceLogs || isLoading || isLive}
 						className="w-full"
 					>
 						<RefreshCwIcon />
@@ -325,16 +325,20 @@ export function Logs() {
 					<div className="flex flex-col gap-2.5">
 						<div className="flex items-center gap-2 text-sm text-foreground">
 							<Switch
-								id="logs-auto-refresh-switch"
-								aria-label="Toggle auto refresh"
-								checked={isAutoRefreshEnabled}
-								onCheckedChange={setIsAutoRefreshEnabled}
+								id="logs-live-switch"
+								aria-label="Toggle live logs"
+								checked={isLive}
+								onCheckedChange={setIsLive}
 							/>
-							<label htmlFor="logs-auto-refresh-switch" className="flex items-center gap-2 cursor-pointer">
+							<label htmlFor="logs-live-switch" className="flex items-center gap-2 cursor-pointer">
 								<RefreshCwIcon
-									className={`size-4 ${isAutoRefreshEnabled ? 'animate-spin [animation-duration:3s]' : ''}`}
+									className={`size-4 ${isLive ? 'animate-spin [animation-duration:3s]' : ''}`}
 								/>
-								Auto refresh (every 5s)
+								{isLive
+									? transport === 'streaming'
+										? 'Live (streaming)'
+										: 'Live (polling every 5s)'
+									: 'Live'}
 							</label>
 						</div>
 						<div className="flex items-center gap-2 text-sm text-foreground">

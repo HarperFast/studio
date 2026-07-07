@@ -18,10 +18,16 @@ interface GetReadLogParams {
 	isAutoRefreshEnabled: boolean;
 }
 
-export async function getReadLog(
-	{ instanceClient, logFilters, replicated }: Omit<GetReadLogParams, 'isAutoRefreshEnabled'> & InstanceClientIdConfig,
-): Promise<ReadLogItem[]> {
-	const { data } = await instanceClient.post<ReadLogItem[]>('/', {
+/**
+ * Build the `read_log` operation body from the current filters. Shared by the buffered
+ * (axios) fetch and the SSE tail so the two paths request the exact same slice — the only
+ * difference between them is the `Accept` header (see `streamReadLog`).
+ */
+export function buildReadLogBody(
+	logFilters: z.infer<typeof LogFiltersFormSchema>,
+	replicated: boolean,
+): Record<string, unknown> {
+	return {
 		operation: 'read_log',
 		start: 0,
 		replicated,
@@ -32,7 +38,13 @@ export async function getReadLog(
 		log_name: logFilters.log_name ?? undefined,
 		filter: logFilters.filter ? logFilters.filter : undefined,
 		order: 'desc',
-	});
+	};
+}
+
+export async function getReadLog(
+	{ instanceClient, logFilters, replicated }: Omit<GetReadLogParams, 'isAutoRefreshEnabled'> & InstanceClientIdConfig,
+): Promise<ReadLogItem[]> {
+	const { data } = await instanceClient.post<ReadLogItem[]>('/', buildReadLogBody(logFilters, replicated));
 	return data;
 }
 
