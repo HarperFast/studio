@@ -1,4 +1,5 @@
 import type { EntityMenuItem } from '@/components/ui/entityMenu';
+import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
@@ -6,6 +7,7 @@ import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { useInstanceContainerOps } from '@/hooks/useInstanceContainerOps';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
 import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
@@ -13,7 +15,18 @@ import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardIcon, LogInIcon, LogOutIcon, ServerIcon, ShieldCheckIcon, ShieldXIcon } from 'lucide-react';
+import {
+	ClipboardIcon,
+	LifeBuoyIcon,
+	LogInIcon,
+	LogOutIcon,
+	PlayIcon,
+	RotateCwIcon,
+	ServerIcon,
+	ShieldCheckIcon,
+	ShieldXIcon,
+	SquareIcon,
+} from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
 const READY_STATUSES = ['CLONE_READY', 'RUNNING', 'UPDATED', 'PENDING_UPGRADE'];
@@ -39,11 +52,14 @@ export function useInstanceMenuItems(
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
-	const { data: statusResponse } = useQuery(getStatusQueryOptions(statusParams, enabled && canManage));
+	const { data: statusResponse } = useQuery(
+		getStatusQueryOptions(statusParams, enabled && canManage && !isStoppedOrTransitioning(instance.status)),
+	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';
 	const isUnavailable = systemStatus === 'Unavailable';
 	const { mutate: setStatus, isPending: isSettingStatus } = useSetStatus();
+	const { run: runContainerOp, isPending: isContainerOpPending } = useInstanceContainerOps(instance);
 
 	const fqdn = instance.instanceFqdn;
 	const apiUrl = calculateInstanceFQDN({
@@ -62,6 +78,13 @@ export function useInstanceMenuItems(
 	const hasAuth = isReady;
 	const hasCopy = !!fqdn;
 	const hasRotation = canManage && isReady && (isAvailable || isUnavailable);
+
+	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
+	// Only offered from a settled RUNNING/STOPPED state; hidden mid-transition (the instances poll
+	// reveals the resting state and the actions reappear).
+	const isRunning = instance.status === 'RUNNING';
+	const isStopped = instance.status === 'STOPPED';
+	const hasContainerOps = canManage && (isRunning || isStopped);
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
@@ -109,6 +132,50 @@ export function useInstanceMenuItems(
 			onClick: () => setStatus({ ...statusParams, id: 'availability', status: 'Available' }),
 			icon: <ShieldCheckIcon />,
 			label: 'Bring back into rotation',
+		},
+
+		(hasAuth || hasCopy || hasRotation) && hasContainerOps && { type: 'separator' as const, key: 'container-sep' },
+		hasContainerOps && {
+			type: 'label' as const,
+			key: 'container-label',
+			className: 'text-gray-600 text-xs',
+			label: 'Container',
+		},
+		hasContainerOps && isStopped && {
+			key: 'container-start',
+			disabled: isContainerOpPending,
+			onClick: () => void runContainerOp('start', { safeMode: false }),
+			icon: <PlayIcon />,
+			label: 'Start',
+		},
+		hasContainerOps && isStopped && {
+			key: 'container-start-safe',
+			disabled: isContainerOpPending,
+			onClick: () => void runContainerOp('start', { safeMode: true, label: 'Starting in safe mode' }),
+			icon: <LifeBuoyIcon />,
+			label: 'Start in safe mode',
+		},
+		hasContainerOps && isRunning && {
+			key: 'container-restart',
+			disabled: isContainerOpPending,
+			onClick: () => void runContainerOp('restart', { safeMode: false }),
+			icon: <RotateCwIcon />,
+			label: 'Restart',
+		},
+		hasContainerOps && isRunning && {
+			key: 'container-restart-safe',
+			disabled: isContainerOpPending,
+			onClick: () => void runContainerOp('restart', { safeMode: true, label: 'Restarting in safe mode' }),
+			icon: <LifeBuoyIcon />,
+			label: 'Restart in safe mode',
+		},
+		hasContainerOps && isRunning && {
+			key: 'container-stop',
+			variant: 'destructive' as const,
+			disabled: isContainerOpPending,
+			onClick: () => void runContainerOp('stop'),
+			icon: <SquareIcon />,
+			label: 'Stop',
 		},
 	].filter(excludeFalsy);
 

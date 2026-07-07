@@ -387,12 +387,15 @@ function Spinner() {
 
 function StatusPill({ status }: { status?: string }) {
 	const active = status && activeClusterStatuses.includes(status);
+	const colorClass = active
+		? 'text-green bg-green/10'
+		: status === 'STOPPED'
+		? 'text-destructive bg-destructive/10'
+		: status === 'PARTIAL'
+		? 'text-yellow bg-yellow/10'
+		: 'text-muted-foreground bg-muted';
 	return (
-		<span
-			className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${
-				active ? 'text-green bg-green/10' : 'text-muted-foreground bg-muted'
-			}`}
-		>
+		<span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${colorClass}`}>
 			<span className="size-1.5 rounded-full bg-current" />
 			{status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Unknown'}
 		</span>
