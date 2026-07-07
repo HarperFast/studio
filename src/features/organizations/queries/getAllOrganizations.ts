@@ -1,6 +1,8 @@
 import { apiClient } from '@/config/apiClient';
-import { Organization } from '@/integrations/api/api.patch';
+import { Cluster, Organization } from '@/integrations/api/api.patch';
+import { detectEntityId } from '@/lib/string/entityId';
 import { keepPreviousData, queryOptions } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 
 // Server-side page size for the fabric admin "all organizations" view. Sized
 // to roughly one screen of cards: full rows at every breakpoint (3 per row at
@@ -39,10 +41,68 @@ export async function getAllOrganizations(pageIndex: number, nameFilter: string)
 	};
 }
 
-export function getAllOrganizationsQueryOptions(pageIndex: number, nameFilter: string) {
+const EMPTY_PAGE: AllOrganizationsPage = { organizations: [], hasNextPage: false };
+
+function isNotFoundError(error: unknown): boolean {
+	return error instanceof AxiosError && (error.response?.status === 404 || error.status === 404);
+}
+
+/**
+ * Fetches a single organization by its exact id, shaped as a one-item page so
+ * it can share the admin list's rendering. A missing id (typo, wrong prefix)
+ * resolves to an empty page ("No matches found") rather than an error.
+ */
+export async function getOrganizationByIdPage(organizationId: string): Promise<AllOrganizationsPage> {
+	try {
+		const { data } = await apiClient.get(
+			`/Admin/Organization/${organizationId}` as '/Admin/Organization/{id}',
+		);
+		return data ? { organizations: [data as Organization], hasNextPage: false } : EMPTY_PAGE;
+	} catch (error) {
+		if (isNotFoundError(error)) {
+			return EMPTY_PAGE;
+		}
+		throw error;
+	}
+}
+
+/**
+ * Resolves a cluster id to the organization that owns it (a cluster response
+ * carries its `organizationId`), then returns that org as a one-item page. An
+ * unknown cluster resolves to an empty page.
+ */
+export async function getOrganizationForClusterPage(clusterId: string): Promise<AllOrganizationsPage> {
+	try {
+		const { data: cluster } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
+		const organizationId = (cluster as Cluster)?.organizationId;
+		return organizationId ? getOrganizationByIdPage(organizationId) : EMPTY_PAGE;
+	} catch (error) {
+		if (isNotFoundError(error)) {
+			return EMPTY_PAGE;
+		}
+		throw error;
+	}
+}
+
+/**
+ * Query for the admin organization search. When the search value looks like an
+ * organization or cluster id (a lowercase `org-`/`clu-` prefix — see
+ * {@link detectEntityId}), it resolves that id server-side instead of running a
+ * title/name search, so pasting an id jumps straight to the matching org.
+ */
+export function getAllOrganizationsQueryOptions(pageIndex: number, searchValue: string) {
+	const entity = detectEntityId(searchValue);
 	return queryOptions({
-		queryKey: ['admin-all-organizations', nameFilter, pageIndex],
-		queryFn: () => getAllOrganizations(pageIndex, nameFilter),
+		queryKey: ['admin-all-organizations', searchValue, pageIndex],
+		queryFn: () => {
+			if (entity?.kind === 'organization') {
+				return getOrganizationByIdPage(entity.id);
+			}
+			if (entity?.kind === 'cluster') {
+				return getOrganizationForClusterPage(entity.id);
+			}
+			return getAllOrganizations(pageIndex, searchValue);
+		},
 		// Keep the previous page on screen while the next one loads.
 		placeholderData: keepPreviousData,
 		retry: false,

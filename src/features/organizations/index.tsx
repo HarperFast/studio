@@ -16,6 +16,7 @@ import {
 import { useAdminMode } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { detectEntityId } from '@/lib/string/entityId';
 import { curryFilterByFuzzySearch } from '@/lib/string/filterByFuzzySearch';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, Navigate, useSearch } from '@tanstack/react-router';
@@ -52,9 +53,25 @@ export function OrganizationsIndex() {
 	// In the admin view, filtering happens server-side; debounce so we don't
 	// issue a request per keystroke.
 	const debouncedFilterValue = useDebounce(filterByNameValue, 300);
+
+	// A pasted organization/cluster id is resolved by id server-side rather than
+	// matched as a title (see getAllOrganizationsQueryOptions). This works for
+	// any fabric admin regardless of the "All Orgs" toggle, so support can jump
+	// straight to an org from an id copied out of a log or ticket.
+	const searchEntityId = useMemo(() => {
+		if (!isAdminMode) {
+			return null;
+		}
+		const entity = detectEntityId(debouncedFilterValue);
+		return entity?.kind === 'organization' || entity?.kind === 'cluster' ? entity : null;
+	}, [isAdminMode, debouncedFilterValue]);
+
+	// Both the "All Orgs" listing and an id lookup render from the server query.
+	const isServerSearch = showAll || !!searchEntityId;
+
 	const { data: allOrgsPage, isPending: isAllOrgsPending } = useQuery({
 		...getAllOrganizationsQueryOptions(pageIndex, debouncedFilterValue),
-		enabled: showAll,
+		enabled: isServerSearch,
 	});
 
 	const { organizationRoles, oauthLockedOrgs } = useMemo(() => {
@@ -92,7 +109,7 @@ export function OrganizationsIndex() {
 		}));
 	}, [allOrgsPage?.organizations, user?.roles]);
 
-	const displayedOrganizationRoles = showAll ? allOrganizationRoles : organizationRoles;
+	const displayedOrganizationRoles = isServerSearch ? allOrganizationRoles : organizationRoles;
 
 	const onFilterByNameChanged = useCallback((e: FormEvent<HTMLInputElement>) => {
 		// Keep the raw casing: the fuzzy filter lowercases internally, and the
@@ -171,8 +188,8 @@ export function OrganizationsIndex() {
 			</SubNavMenu>
 			<section className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<div className="grid grid-cols-1 gap-4 md:grid-cols-12">
-					{/* OAuth-locked orgs only apply to the user's own orgs, not the admin show-all listing. */}
-					{!showAll && oauthLockedOrgs.map((lockedOrg) => (
+					{/* OAuth-locked orgs only apply to the user's own orgs, not a server-driven listing. */}
+					{!isServerSearch && oauthLockedOrgs.map((lockedOrg) => (
 						<div
 							key={lockedOrg.organizationId}
 							className="col-span-1 md:col-span-4 lg:col-span-3 2xl:col-span-2"
@@ -184,7 +201,7 @@ export function OrganizationsIndex() {
 							/>
 						</div>
 					))}
-					{showAll && isAllOrgsPending
+					{isServerSearch && isAllOrgsPending
 						? Array.from({ length: ALL_ORGANIZATIONS_PAGE_SIZE }, (_, index) => (
 							<Skeleton
 								key={index}
@@ -199,7 +216,8 @@ export function OrganizationsIndex() {
 								<OrgCard organizationRole={organizationRole} onDeleteOrgModal={onDeleteOrgModal} />
 							</div>
 						))}
-					{!displayedOrganizationRoles.length && !(showAll && isAllOrgsPending) && (showAll || !oauthLockedOrgs.length)
+					{!displayedOrganizationRoles.length && !(isServerSearch && isAllOrgsPending)
+						&& (isServerSearch || !oauthLockedOrgs.length)
 						&& (
 							<div className="col-span-1 md:col-span-12 text-center">
 								<h2 className="my-4 text-xl">No matches found.</h2>
@@ -207,7 +225,7 @@ export function OrganizationsIndex() {
 							</div>
 						)}
 				</div>
-				{showAll && (pageIndex > 0 || allOrgsPage?.hasNextPage) && (
+				{isServerSearch && (pageIndex > 0 || allOrgsPage?.hasNextPage) && (
 					<div className="flex items-center justify-center gap-4 py-6">
 						<Button
 							variant="defaultOutline"
