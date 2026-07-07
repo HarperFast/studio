@@ -24,7 +24,13 @@ export function nextFieldKey(): string {
 }
 
 export function createField(name = ''): FieldModel {
-	return { key: nextFieldKey(), leadingComments: [], name, type: { kind: 'named', name: 'String', nonNull: false }, directives: [] };
+	return {
+		key: nextFieldKey(),
+		leadingComments: [],
+		name,
+		type: { kind: 'named', name: 'String', nonNull: false },
+		directives: [],
+	};
 }
 
 /** A fresh table matching the defaults of the old New-Table modal. */

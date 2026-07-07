@@ -51,6 +51,12 @@ describe('parseSchema round-trip fidelity', () => {
 		);
 	});
 
+	it('round-trips table and field descriptions (single- and multi-line) verbatim', () => {
+		expectRoundTrip(
+			'"""\nA dog.\n"""\ntype Dog @table {\n\t"""The primary key."""\n\tid: ID @primaryKey\n\t"""\n\tThe display name.\n\tShown in lists.\n\t"""\n\tname: String @indexed\n}\n',
+		);
+	});
+
 	it('leaves an empty document empty', () => {
 		expectRoundTrip('');
 	});

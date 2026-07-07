@@ -419,7 +419,14 @@ function parseFields(body: string): FieldModel[] | null {
 			lineComment = body.slice(i, end).replace(/\r$/, '').trim();
 			i = end;
 		}
-		fields.push({ key: nextFieldKey(), leadingComments: pendingComments, name, type: typeRef.type, directives, lineComment });
+		fields.push({
+			key: nextFieldKey(),
+			leadingComments: pendingComments,
+			name,
+			type: typeRef.type,
+			directives,
+			lineComment,
+		});
 		pendingComments = [];
 	}
 	return fields;
@@ -461,9 +468,10 @@ function parseTypeBlock(blockSrc: string, id: string): TableModel | null {
 
 /**
  * Split the gap text preceding a `type` into `[standalone, attached]`, where
- * `attached` is the contiguous run of trailing `# …` comment lines (plus the
- * type's own line prefix) that should travel with the table when tables are
- * sorted. A blank or non-comment line ends the run.
+ * `attached` is the contiguous run of trailing trivia — `# …` comment lines and
+ * `"""…"""` description blocks — (plus the type's own line prefix) that should
+ * travel with the table when tables are sorted. A blank or non-trivia line ends
+ * the run, so unrelated definitions above it stay put.
  */
 function splitAttachedLeading(gap: string): [string, string] {
 	const lineStarts = [0];
@@ -472,10 +480,30 @@ function splitAttachedLeading(gap: string): [string, string] {
 			lineStarts.push(k + 1);
 		}
 	}
-	let start = lineStarts[lineStarts.length - 1];
-	for (let li = lineStarts.length - 2; li >= 0; li--) {
-		const line = gap.slice(lineStarts[li], lineStarts[li + 1] - 1).replace(/\r$/, '');
-		if (/^\s*#/.test(line)) {
+	const lineCount = lineStarts.length;
+	const lineAt = (li: number) =>
+		gap.slice(lineStarts[li], li + 1 < lineCount ? lineStarts[li + 1] - 1 : gap.length).replace(/\r$/, '');
+
+	// Mark lines that are part of a `"""…"""` block (a GraphQL description), so the
+	// multi-line block is treated as attachable trivia rather than "other" content.
+	const inDescription = Array.from({ length: lineCount }, () => false);
+	let block = false;
+	for (let li = 0; li < lineCount; li++) {
+		const startedInBlock = block;
+		let delimiters = 0;
+		for (let idx = lineAt(li).indexOf('"""'); idx !== -1; idx = lineAt(li).indexOf('"""', idx + 3)) {
+			delimiters++;
+			block = !block;
+		}
+		inDescription[li] = startedInBlock || delimiters > 0;
+	}
+
+	// The last line (the type's own indentation) is always attached; walk earlier
+	// lines while they're description/comment trivia.
+	let start = lineStarts[lineCount - 1];
+	for (let li = lineCount - 2; li >= 0; li--) {
+		const trimmed = lineAt(li).trim();
+		if (inDescription[li] || trimmed.startsWith('#')) {
 			start = lineStarts[li];
 			continue;
 		}
