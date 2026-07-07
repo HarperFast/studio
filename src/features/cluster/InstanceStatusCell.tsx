@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
@@ -31,8 +32,12 @@ export function InstanceStatusCell(
 		return () => clearTimeout(timer);
 	}, [index]);
 
+	// Don't poll get_status while the instance is stopped / mid container-transition — its ops API
+	// is unreachable, so the request just errors on a 10s loop.
+	const stopped = isStoppedOrTransitioning(instance.status);
+	const statusPollEnabled = ready && canManage && !stopped;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
-		getStatusQueryOptions(instanceParams, ready && canManage),
+		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
 
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
@@ -41,6 +46,21 @@ export function InstanceStatusCell(
 
 	if (!canManage) {
 		return null;
+	}
+
+	// Stopped / transitioning: availability + rotation are N/A. Show a muted dot rather than a stale
+	// green "Available" (cached from before it stopped) or an endless spinner.
+	if (stopped) {
+		return (
+			<div className="flex items-center gap-2">
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<span className="inline-block size-4 rounded-full bg-muted-foreground/40" aria-label="Not running" />
+					</TooltipTrigger>
+					<TooltipContent>Not running</TooltipContent>
+				</Tooltip>
+			</div>
+		);
 	}
 
 	return (

@@ -123,6 +123,9 @@ export type LocalRoleAttributePermissionAction = keyof Omit<LocalRoleAttributePe
 
 export interface Instance extends SchemaHdbInstance {
 	status?: BadgeStatus;
+	// Returned by the CM but not yet in the generated OpenAPI schema. True when the instance was
+	// (re)started in safe mode — Harper core is up but user apps/components are not loaded.
+	safeMode?: boolean;
 }
 
 export interface Cluster extends SchemaCluster {

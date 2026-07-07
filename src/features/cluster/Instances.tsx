@@ -3,7 +3,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { isStoppedOrTransitioning, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
@@ -15,6 +15,7 @@ import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ColumnDef } from '@tanstack/react-table';
+import { LifeBuoyIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { EmptyCluster } from './EmptyCluster';
 import { InstanceActionsMenu } from './InstanceActionsMenu';
@@ -73,6 +74,14 @@ export function Instances() {
 							<div className="flex items-center gap-2">
 								<InstanceStatusCell instance={cell.row.original} index={cell.row.index} />
 								{status ? <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge> : null}
+								{cell.row.original.safeMode && !isStoppedOrTransitioning(cell.row.original.status)
+									? (
+										<Badge variant="warning" title="Running in safe mode — user apps/components are not loaded">
+											<LifeBuoyIcon />
+											Safe mode
+										</Badge>
+									)
+									: null}
 							</div>
 						);
 					},

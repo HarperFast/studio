@@ -137,7 +137,16 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// The whole card opens the cluster home (overview) for the normal "Open" case — including
 	// self-hosted clusters, which get their own overview. A managed cluster with no FQDN yet opens its
 	// instances; resetPassword (→ Finish Setup / Pending) keeps its explicit CTA in ClusterCardAction.
-	const cardHref = !isActive || !view || isTerminated
+	// Stopped/partial clusters aren't "active" but must still be reachable: a fully-stopped cluster
+	// opens its instances page (where you start them back up); a partial cluster (some instances still
+	// running) opens the cluster overview like a normal cluster.
+	const cardHref = !view || isTerminated
+		? undefined
+		: cluster.status === 'STOPPED'
+		? `/${cluster.organizationId}/${cluster.id}/instances`
+		: cluster.status === 'PARTIAL'
+		? `/${cluster.organizationId}/${cluster.id}`
+		: !isActive
 		? undefined
 		: isSelfManaged
 		? `/${cluster.organizationId}/${cluster.id}`

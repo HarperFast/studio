@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
@@ -23,6 +24,12 @@ export function InstanceLogInCell(
 	const onSignOutClick = useCallback(async () => {
 		await signOutOfInstance({ instance, instanceClient });
 	}, [instance, instanceClient]);
+
+	// A stopped / mid-transition instance isn't reachable — you can't connect or sign in — so show a
+	// neutral placeholder instead of the perpetual spinner (which is meant for instances coming up).
+	if (isStoppedOrTransitioning(instance.status)) {
+		return <span className="text-muted-foreground text-sm">—</span>;
+	}
 
 	if (
 		instanceAuthIsLoading || !instance.status

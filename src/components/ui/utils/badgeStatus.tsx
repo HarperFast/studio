@@ -27,7 +27,7 @@ export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatus
 	}
 	switch (value) {
 		case 'STOPPED':
-			return 'secondary';
+			return 'destructive';
 		case 'TERMINATING':
 		case 'TERMINATED':
 		case 'FAILED':
@@ -36,6 +36,22 @@ export function renderBadgeStatusVariant(value: BadgeStatusVariant): BadgeStatus
 			return 'destructive';
 		default:
 			return 'default';
+	}
+}
+
+/**
+ * The instance is stopped or mid container-lifecycle transition, so its ops API is unreachable.
+ * Callers use this to suppress per-instance status polling (get_status) until it's back up.
+ */
+export function isStoppedOrTransitioning(value: string | undefined): boolean {
+	switch (value) {
+		case 'STOPPED':
+		case 'STOPPING':
+		case 'STARTING':
+		case 'RESTARTING':
+			return true;
+		default:
+			return false;
 	}
 }
 
