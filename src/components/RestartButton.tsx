@@ -34,7 +34,7 @@ export function RestartButton({
 				<Button
 					type="button"
 					variant={variant || 'positiveOutline'}
-					className={cx('mx-0 md:mx-4 rounded-full', className)}
+					className={cx('mx-0 md:mx-4', className)}
 					onClick={targetNoun === 'Cluster' && operation === 'restart' ? onRestartClusterClick : onRestartClick}
 					disabled={disabled || isRestartPending || isRestartClusterPending}
 					title={`Restart ${targetNoun}`}

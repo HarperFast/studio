@@ -192,13 +192,12 @@ export function RenameFileModal() {
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="button" variant="ghostOutline" className="rounded-full" onClick={onCancelClick}>
+								<Button type="button" variant="ghostOutline" onClick={onCancelClick}>
 									Cancel
 								</Button>
 								<Button
 									variant="positiveOutline"
 									type="submit"
-									className="rounded-full"
 									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
 								>
 									<PencilIcon /> Rename

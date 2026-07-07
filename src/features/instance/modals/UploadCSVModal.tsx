@@ -20,7 +20,7 @@ export function UploadCSVModal() {
 				</DialogHeader>
 				<Input type="file" accept=".csv" />
 				<DialogFooter>
-					<Button variant="submit" className="rounded-full">
+					<Button variant="submit">
 						<UploadCloud /> Upload CSV
 					</Button>
 				</DialogFooter>

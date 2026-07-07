@@ -130,7 +130,6 @@ export function ClusterDetails({
 			<Button
 				type="submit"
 				variant="submit"
-				className="rounded-full"
 				disabled={isPending || (clusterId && !isDirty && !allowVersionResubmit) || !isValid}
 			>
 				{mode !== 'version' && totalPrice > 0

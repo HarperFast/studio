@@ -127,7 +127,7 @@ export function NewOrgForm() {
 					</FormItem>
 
 					<DialogFooter>
-						<Button type="submit" variant="submit" className="rounded-full" disabled={isPending}>
+						<Button type="submit" variant="submit" disabled={isPending}>
 							Create New Organization <ArrowRight />
 						</Button>
 					</DialogFooter>

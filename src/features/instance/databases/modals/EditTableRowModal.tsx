@@ -86,7 +86,6 @@ export function EditTableRowModal({
 						{canDeleteRecords && (
 							<Button
 								variant="destructive"
-								className="rounded-full"
 								type="button"
 								autoFocus={false}
 								onClick={() => {
@@ -103,7 +102,6 @@ export function EditTableRowModal({
 						{canEditRecords && (
 							<Button
 								variant="submit"
-								className="rounded-full"
 								autoFocus={true}
 								accessKey="s"
 								onClick={() => {

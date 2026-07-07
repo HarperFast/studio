@@ -81,7 +81,7 @@ export function SignIn() {
 							</FormItem>
 						)}
 					/>
-					<Button type="submit" variant="submit" className="w-full my-2 rounded-full" disabled={isPending}>
+					<Button type="submit" variant="submit" className="w-full my-2" disabled={isPending}>
 						Sign In
 					</Button>
 					<div className="flex px-4 mt-4 underline place-content-between">

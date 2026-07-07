@@ -184,7 +184,6 @@ export function AlterUserForm({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"
-							className="rounded-full"
 							disabled={isUpdateUserPending}
 						>
 							<Save /> Save Changes

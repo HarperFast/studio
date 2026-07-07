@@ -279,7 +279,7 @@ export function SignUp() {
 					/>
 					{termsCheckbox}
 
-					<Button type="submit" variant="submit" className="w-full rounded-full my-4">
+					<Button type="submit" variant="submit" className="w-full my-4">
 						Sign Up For Free
 					</Button>
 				</form>

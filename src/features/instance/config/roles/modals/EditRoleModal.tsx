@@ -1,3 +1,4 @@
+import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
@@ -58,7 +59,8 @@ export function EditRoleModal({
 	const [showAttributes, onShowAttributesChanged] = useCheckboxCallback(updatedPermissions?.includes('attribute_name'));
 
 	const { mutate: alterRole, isPending } = useAlterRole();
-	const { mutate: dropRole } = useDeleteRoleMutation();
+	const { mutate: dropRole, isPending: isDeletePending } = useDeleteRoleMutation();
+	const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
 
 	const onValidate = useCallback(
 		(markers: unknown[]) => {
@@ -148,72 +150,81 @@ export function EditRoleModal({
 	}, [updatedPermissions, onRoleUpdated, isValidJSON]);
 
 	const onRoleDeleteClick = useCallback(() => {
-		onRoleDeleted();
-	}, [onRoleDeleted]);
+		setIsConfirmDeleteModalOpen(true);
+	}, []);
 
 	return (
-		<Dialog onOpenChange={closeModal} open={isModalOpen}>
-			<DialogContent resizable>
-				<DialogTitle>{isSelf ? 'View' : 'Edit'} Role "{role}"</DialogTitle>
-				<DialogDescription>
-					{isSelf
-						? 'You can view your own role, but you cannot edit it. Please assign yourself a different'
-							+ ' role to edit this role.'
-						: "Edit the role's permissions in JSON format or remove the role entirely."}
-				</DialogDescription>
-				<div className="flex-1 min-h-0">
-					{defaultValue
-						? (
-							<Editor
-								className="w-full h-full"
-								theme={monacoTheme}
-								defaultLanguage="json"
-								value={updatedPermissions}
-								options={{ readOnly: isSelf, automaticLayout: true }}
-								onValidate={onValidate}
-								onChange={setUpdatedPermissions}
-								defaultValue={defaultValue}
-							/>
-						)
-						: <TextLoadingSkeleton />}
-				</div>
-				<DialogFooter>
-					{!isSelf && (
-						<div className="flex justify-between w-full">
-							<Button
-								type="button"
-								variant="destructiveOutline"
-								className="rounded-full"
-								onClick={onRoleDeleteClick}
-								disabled={isPending}
-							>
-								Delete Role
-							</Button>
-
-							<div className="grow" />
-
-							<Label className="flex">
-								<Input
-									type="checkbox"
-									className="w-6"
-									checked={showAttributes}
-									onChange={onShowAttributesChanged}
+		<>
+			<Dialog onOpenChange={closeModal} open={isModalOpen}>
+				<DialogContent resizable>
+					<DialogTitle>{isSelf ? 'View' : 'Edit'} Role "{role}"</DialogTitle>
+					<DialogDescription>
+						{isSelf
+							? 'You can view your own role, but you cannot edit it. Please assign yourself a different'
+								+ ' role to edit this role.'
+							: "Edit the role's permissions in JSON format or remove the role entirely."}
+					</DialogDescription>
+					<div className="flex-1 min-h-0">
+						{defaultValue
+							? (
+								<Editor
+									className="w-full h-full"
+									theme={monacoTheme}
+									defaultLanguage="json"
+									value={updatedPermissions}
+									options={{ readOnly: isSelf, automaticLayout: true }}
+									onValidate={onValidate}
+									onChange={setUpdatedPermissions}
+									defaultValue={defaultValue}
 								/>
-								<span className="pl-4 pr-8 flex-1 py-2.5">Pick Attributes</span>
-							</Label>
+							)
+							: <TextLoadingSkeleton />}
+					</div>
+					<DialogFooter>
+						{!isSelf && (
+							<div className="flex justify-between w-full">
+								<Button
+									type="button"
+									variant="destructiveOutline"
+									onClick={onRoleDeleteClick}
+									disabled={isPending}
+								>
+									Delete Role
+								</Button>
 
-							<Button
-								variant="submit"
-								className="rounded-full"
-								onClick={onSubmitClick}
-								disabled={isPending || !isValidJSON}
-							>
-								Save Changes
-							</Button>
-						</div>
-					)}
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+								<div className="grow" />
+
+								<Label className="flex">
+									<Input
+										type="checkbox"
+										className="w-6"
+										checked={showAttributes}
+										onChange={onShowAttributesChanged}
+									/>
+									<span className="pl-4 pr-8 flex-1 py-2.5">Pick Attributes</span>
+								</Label>
+
+								<Button
+									variant="submit"
+									onClick={onSubmitClick}
+									disabled={isPending || !isValidJSON}
+								>
+									Save Changes
+								</Button>
+							</div>
+						)}
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+			<ConfirmDeletionModal
+				isModalOpen={isConfirmDeleteModalOpen}
+				setIsModalOpen={setIsConfirmDeleteModalOpen}
+				deletionConfirmed={onRoleDeleted}
+				deletionPending={isDeletePending}
+				typeOfThingBeingDeleted="role"
+				nameOfThingBeingDeleted={role}
+				hideDataLossWarning={true}
+			/>
+		</>
 	);
 }

@@ -81,7 +81,6 @@ export function DeleteUserForm({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="destructive"
-							className="rounded-full"
 							disabled={isDeleteUserPending || !deleteForm.formState.isValid}
 						>
 							<Trash /> Delete User

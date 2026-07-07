@@ -78,7 +78,7 @@ function SendEmailVerification() {
 						</FormItem>
 					)}
 				/>
-				<Button type="submit" variant="submit" disabled={isPending} className="w-full my-2 rounded-full">
+				<Button type="submit" variant="submit" disabled={isPending} className="w-full my-2">
 					Send Verification Email
 				</Button>
 			</form>

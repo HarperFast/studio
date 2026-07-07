@@ -42,7 +42,6 @@ export function ClusterInstances({
 				<Button
 					type="button"
 					variant="positiveOutline"
-					className="rounded-full"
 					onClick={onAddInstanceClick}
 				>
 					<PlusIcon />

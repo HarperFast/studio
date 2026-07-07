@@ -9,7 +9,7 @@ export function BrowseSettingsModal() {
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
 			<DialogTrigger asChild>
 				<Button
-					className="mt-4 bg-linear-(--purple-dark-to-light-gradient) hover:bg-linear-(--purple-gradient) rounded-full w-full"
+					className="mt-4 bg-linear-(--purple-dark-to-light-gradient) hover:bg-linear-(--purple-gradient) w-full"
 					size="lg"
 				>
 					<Settings /> Settings
@@ -23,10 +23,10 @@ export function BrowseSettingsModal() {
 
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						<Button type="button" variant="destructive" className="rounded-full">
+						<Button type="button" variant="destructive">
 							<Trash /> Delete Row
 						</Button>
-						<Button variant="submit" className="rounded-full">
+						<Button variant="submit">
 							<Save /> Save Changes
 						</Button>
 					</div>
