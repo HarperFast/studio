@@ -75,7 +75,8 @@ export async function getOrganizationForClusterPage(clusterId: string): Promise<
 	try {
 		const { data: cluster } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
 		const organizationId = (cluster as Cluster)?.organizationId;
-		return organizationId ? getOrganizationByIdPage(organizationId) : EMPTY_PAGE;
+		// Await so a rejection from the org lookup is caught here, not orphaned.
+		return organizationId ? await getOrganizationByIdPage(organizationId) : EMPTY_PAGE;
 	} catch (error) {
 		if (isNotFoundError(error)) {
 			return EMPTY_PAGE;
