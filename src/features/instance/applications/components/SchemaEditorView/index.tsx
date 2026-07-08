@@ -189,7 +189,7 @@ export function SchemaEditorView() {
 						type="button"
 						variant="positive"
 						size="sm"
-						className="rounded-full shadow-md"
+						className="shadow-md"
 						onClick={() => dispatch({ type: 'addTable' })}
 					>
 						<PlusIcon /> Add table

@@ -95,7 +95,6 @@ export function TableCard({
 						type="button"
 						variant="destructiveGhost"
 						size="sm"
-						className="rounded-full"
 						disabled={readOnly}
 						onClick={onRemove}
 					>
