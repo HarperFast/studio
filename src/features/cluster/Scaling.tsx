@@ -10,7 +10,10 @@ import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Scaling() {
 	const { clusterId }: { organizationId: string; clusterId: string } = useParams({ strict: false });
-	const { immediate }: { immediate?: boolean } = useSearch({ strict: false });
+	// The router JSON-parses search values, but a hand-edited URL can leave `immediate`
+	// as an arbitrary (truthy) string — only accept an explicit true.
+	const { immediate }: { immediate?: boolean | string } = useSearch({ strict: false });
+	const isImmediate = immediate === true || immediate === 'true';
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
@@ -48,7 +51,7 @@ export function Scaling() {
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
 				<p>
-					{immediate
+					{isImmediate
 						? 'Your cluster is applying the latest changes immediately, without waiting to take instances out of rotation.'
 						: 'Your cluster is updating with the latest changes. This includes waiting several minutes to let traffic drain safely.'}
 					{' '}
