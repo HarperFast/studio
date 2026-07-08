@@ -160,6 +160,37 @@
     overflow: hidden;
 }
 
+.tool-group {
+    margin-top: 0.75rem;
+}
+
+.tool-group-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.tool-group-summary:hover {
+    background: var(--accent);
+    color: var(--foreground);
+}
+
+.tool-group-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
 .tool-info {
     padding: 0.5rem 0.75rem;
     background: var(--accent);
