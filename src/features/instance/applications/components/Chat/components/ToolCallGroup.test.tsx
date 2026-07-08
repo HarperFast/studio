@@ -131,6 +131,24 @@ describe('ToolCallGroup', () => {
 		expect(getByRole('button', { name: 'Approve' })).toBeTruthy();
 	});
 
+	it('groups tool calls separated only by invisible parts (step markers, reasoning)', async () => {
+		const message = assistantMessage([
+			completedToolPart('getComponents', 'call-1'),
+			{ type: 'step-start' },
+			{ type: 'reasoning', text: 'thinking about the next step' },
+			completedToolPart('getComponentFile', 'call-2'),
+		]);
+
+		const { getByText } = render(
+			<TestProvider>
+				<MessageBubble message={message} />
+			</TestProvider>,
+		);
+		await act(() => null);
+
+		expect(getByText('Used 2 tools')).toBeTruthy();
+	});
+
 	it('does not group tool calls separated by a text part', async () => {
 		const message = assistantMessage([
 			completedToolPart('getComponents', 'call-1'),
