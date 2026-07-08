@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { Separator } from '@/components/ui/separator';
 import { DEPLOY_PHASE_ORDER } from '@/integrations/api/instance/applications/deployComponentStream';
+import { deploymentErrorText } from '@/integrations/api/instance/deployments/types';
 import { cn } from '@/lib/cn';
 import { CheckIcon, CircleDashedIcon, CircleIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -82,6 +83,9 @@ export function DeployProgress({ state }: { state: DeploymentStreamState }) {
 					<ul className="flex flex-col gap-1 text-sm">
 						{state.peers.map((peer, i) => {
 							const failed = peer.status === 'failed';
+							// Raw replicator results carry failure detail as either a structured
+							// `error` or a stringified `reason` — normalize both to text (#1426).
+							const reason = deploymentErrorText(peer.error ?? peer.reason);
 							return (
 								<li key={i} className="flex items-center justify-between gap-2">
 									<span className="flex items-center gap-2">
@@ -90,7 +94,7 @@ export function DeployProgress({ state }: { state: DeploymentStreamState }) {
 											: <CheckIcon className="size-4 text-success" />}
 										<span className="truncate">{peer.node ?? `node ${i + 1}`}</span>
 									</span>
-									{failed && peer.reason && <span className="truncate text-xs text-destructive">{peer.reason}</span>}
+									{failed && reason && <span className="truncate text-xs text-destructive">{reason}</span>}
 								</li>
 							);
 						})}
