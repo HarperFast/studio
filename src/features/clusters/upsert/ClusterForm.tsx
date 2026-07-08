@@ -321,12 +321,14 @@ export function ClusterForm({
 		creating,
 		toastId,
 		isSelfManaged,
+		skipGtmWait,
 	}: {
 		clusterId: string;
 		sourceClusterId: string | undefined;
 		creating: boolean;
 		isSelfManaged: boolean;
 		toastId: string | number;
+		skipGtmWait?: boolean;
 	}) => {
 		if (sourceClusterId) {
 			const existingOrg = await getOrganization(organizationId);
@@ -347,7 +349,10 @@ export function ClusterForm({
 		} else if (creating) {
 			void navigate({ to: `/${organizationId}/${clusterId}/starting-up` });
 		} else {
-			void navigate({ to: `/${organizationId}/${clusterId}/scaling` });
+			void navigate({
+				to: `/${organizationId}/${clusterId}/scaling`,
+				search: skipGtmWait ? { immediate: true } : undefined,
+			});
 		}
 		form.reset();
 		toast.success(creating ? 'Cluster Created' : 'Cluster Updated', {
@@ -403,6 +408,7 @@ export function ClusterForm({
 							isSelfManaged,
 							creating: false,
 							toastId,
+							skipGtmWait: formData.skipGtmWait,
 						}),
 					onError: clearToast,
 				},

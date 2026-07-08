@@ -4,12 +4,13 @@ import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/Clus
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { useParams, useSearch } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Scaling() {
 	const { clusterId }: { organizationId: string; clusterId: string } = useParams({ strict: false });
+	const { immediate }: { immediate?: boolean } = useSearch({ strict: false });
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
@@ -47,8 +48,10 @@ export function Scaling() {
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
 				<p>
-					Your cluster is updating with the latest changes. This includes waiting several minutes to let traffic drain
-					safely.{' '}
+					{immediate
+						? 'Your cluster is applying the latest changes immediately, without waiting to take instances out of rotation.'
+						: 'Your cluster is updating with the latest changes. This includes waiting several minutes to let traffic drain safely.'}
+					{' '}
 					<span className="text-muted-foreground">
 						We will let you know when we are ready for you to connect! In the meantime, join us on{' '}
 						<a
