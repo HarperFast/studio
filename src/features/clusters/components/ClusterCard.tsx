@@ -10,13 +10,16 @@ import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
+import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
+import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
+import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
@@ -32,9 +35,13 @@ import {
 	GitGraphIcon,
 	GlobeIcon,
 	KeyIcon,
+	LifeBuoyIcon,
+	PlayIcon,
 	RocketIcon,
+	RotateCwIcon,
 	ScaleIcon,
 	ServerIcon,
+	SquareIcon,
 	TrashIcon,
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
@@ -53,6 +60,16 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 
 	const [signingOut, setSigningOut] = useState(false);
 	const [isTerminateClusterModalOpen, setIsTerminateClusterModalOpen] = useState(false);
+	const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
+	const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+	const { run: runClusterOp, isPending: isClusterOpPending } = useClusterContainerOps(cluster);
+
+	// Container-op availability by cluster state (see the per-instance menu for the same idea):
+	//   RUNNING → Restart, Restart in safe mode, Stop     STOPPED → Start, Start in safe mode
+	//   PARTIAL → Start, Stop, Restart (some up, some down)
+	const isClusterRunning = cluster.status === 'RUNNING';
+	const isClusterStopped = cluster.status === 'STOPPED';
+	const isClusterPartial = cluster.status === 'PARTIAL';
 
 	const isActive = useMemo(
 		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
@@ -214,6 +231,49 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			label: 'Deployments',
 		},
 
+		update && (isClusterRunning || isClusterStopped || isClusterPartial)
+		&& { type: 'separator' as const, key: 'container-separator' },
+		update && (isClusterRunning || isClusterStopped || isClusterPartial)
+		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
+		update && (isClusterStopped || isClusterPartial) && {
+			key: 'container-start',
+			disabled: isClusterOpPending,
+			onClick: () => void runClusterOp('start', { strategy: 'parallel' }),
+			icon: <PlayIcon />,
+			label: 'Start',
+		},
+		update && isClusterStopped && {
+			key: 'container-start-safe',
+			disabled: isClusterOpPending,
+			onClick: () =>
+				void runClusterOp('start', { safeMode: true, strategy: 'parallel', label: 'Starting in safe mode' }),
+			icon: <LifeBuoyIcon />,
+			label: 'Start in safe mode',
+		},
+		update && (isClusterRunning || isClusterPartial) && {
+			key: 'container-restart',
+			disabled: isClusterOpPending,
+			onClick: () => setRestartDialogOpen(true),
+			icon: <RotateCwIcon />,
+			label: 'Restart',
+		},
+		update && isClusterRunning && {
+			key: 'container-restart-safe',
+			disabled: isClusterOpPending,
+			onClick: () =>
+				void runClusterOp('restart', { safeMode: true, strategy: 'parallel', label: 'Restarting in safe mode' }),
+			icon: <LifeBuoyIcon />,
+			label: 'Restart in safe mode',
+		},
+		update && (isClusterRunning || isClusterPartial) && {
+			key: 'container-stop',
+			variant: 'destructive' as const,
+			disabled: isClusterOpPending,
+			onClick: () => setStopConfirmOpen(true),
+			icon: <SquareIcon />,
+			label: 'Stop',
+		},
+
 		isActive && view && !!cluster.fqdn && { type: 'separator' as const, key: 'copy-separator' },
 		isActive && view && !!cluster.fqdn && {
 			key: 'copy-host-name',
@@ -323,6 +383,23 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 					setIsModalOpen={(isOpen: boolean) => setIsTerminateClusterModalOpen(isOpen)}
 					deletionConfirmed={handleTerminatedCluster}
 					deletionPending={isTerminateClusterPending}
+				/>
+
+				<ClusterContainerOpModals
+					clusterName={cluster.name}
+					isPending={isClusterOpPending}
+					stopOpen={stopConfirmOpen}
+					setStopOpen={setStopConfirmOpen}
+					onConfirmStop={() => {
+						setStopConfirmOpen(false);
+						void runClusterOp('stop', { strategy: 'parallel' });
+					}}
+					restartOpen={restartDialogOpen}
+					setRestartOpen={setRestartDialogOpen}
+					onConfirmRestart={(strategy: ContainerStrategy) => {
+						setRestartDialogOpen(false);
+						void runClusterOp('restart', { strategy });
+					}}
 				/>
 			</Card>
 		</EntityContextMenu>

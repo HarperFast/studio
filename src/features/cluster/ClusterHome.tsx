@@ -17,7 +17,18 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { ArrowRight, CircleCheck, Copy, ExternalLink, KeyRound, Loader2, Rocket, Server, Zap } from 'lucide-react';
+import {
+	ArrowRight,
+	CircleCheck,
+	Copy,
+	ExternalLink,
+	KeyRound,
+	LifeBuoy,
+	Loader2,
+	Rocket,
+	Server,
+	Zap,
+} from 'lucide-react';
 import { ComponentType, ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -117,6 +128,14 @@ export function ClusterHome() {
 	const connected = !!user;
 	const lastMode = authStore.getLastConnectMode(cluster.id);
 
+	// The cluster is "fully in safe mode" only when it's up and every instance reports safe mode — a
+	// stopped/transitioning instance has no safeMode flag, so a partial cluster won't qualify.
+	const clusterInstances = cluster.instances ?? [];
+	const allInSafeMode = !!cluster.status
+		&& activeClusterStatuses.includes(cluster.status)
+		&& clusterInstances.length > 0
+		&& clusterInstances.every((instance) => instance.safeMode);
+
 	return (
 		<ClusterHomeShell>
 			<div className="flex items-start gap-4 mb-6">
@@ -127,6 +146,7 @@ export function ClusterHome() {
 					<div className="flex items-center gap-3 flex-wrap">
 						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
 						<StatusPill status={cluster.status} />
+						{allInSafeMode && <SafeModePill />}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
 						<span>{cluster.instances?.length ?? 0} instances</span>
@@ -395,6 +415,20 @@ function StatusPill({ status }: { status?: string }) {
 		<span className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full ${colorClass}`}>
 			<span className="size-1.5 rounded-full bg-current" />
 			{status ? status.charAt(0) + status.slice(1).toLowerCase() : 'Unknown'}
+		</span>
+	);
+}
+
+// Shown beside the StatusPill when every instance is in safe mode (mirrors the per-instance
+// "Safe mode" badge on the Instances page, styled as a rounded-full pill to match StatusPill).
+function SafeModePill() {
+	return (
+		<span
+			title="All instances running in safe mode — user apps/components are not loaded"
+			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-yellow bg-yellow/10"
+		>
+			<LifeBuoy className="size-3" />
+			Safe mode
 		</span>
 	);
 }

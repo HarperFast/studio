@@ -128,9 +128,11 @@ export interface Instance extends SchemaHdbInstance {
 	safeMode?: boolean;
 }
 
-export interface Cluster extends SchemaCluster {
+export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
+	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
+	instances?: Instance[];
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {
