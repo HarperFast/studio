@@ -5,7 +5,11 @@ import { DeployProgress } from '@/features/instance/applications/components/Depl
 import { useDeploymentStream } from '@/features/instance/applications/components/DeployProgress/useDeploymentStream';
 import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks/useSupportsDeploymentSSE';
 import { getDeploymentQueryOptions, getDeploymentStream } from '@/integrations/api/instance/deployments/getDeployment';
-import { Deployment, isTerminalDeploymentStatus } from '@/integrations/api/instance/deployments/types';
+import {
+	Deployment,
+	deploymentErrorText,
+	isTerminalDeploymentStatus,
+} from '@/integrations/api/instance/deployments/types';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -135,10 +139,14 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 					<Separator />
 					<div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
 						<span className="font-medium text-destructive">
-							Error{deployment.error.phase ? ` during ${deployment.error.phase}` : ''}
-							{deployment.error.code ? ` (${deployment.error.code})` : ''}
+							Error{typeof deployment.error.phase === 'string' && deployment.error.phase
+								? ` during ${deployment.error.phase}`
+								: ''}
+							{typeof deployment.error.code === 'string' || typeof deployment.error.code === 'number'
+								? ` (${deployment.error.code})`
+								: ''}
 						</span>
-						<span className="break-words">{deployment.error.message}</span>
+						<span className="break-words">{deploymentErrorText(deployment.error) ?? 'Unknown error'}</span>
 					</div>
 				</>
 			)}
@@ -149,15 +157,18 @@ export function DeploymentDetail({ deploymentId }: { deploymentId: string }) {
 					<div>
 						<div className="mb-1 text-xs font-medium text-muted-foreground">Replication</div>
 						<ul className="flex flex-col gap-1 text-sm">
-							{deployment.peer_results.map((peer, i) => (
-								<li key={peer.node ?? i} className="flex items-center justify-between gap-2">
-									<span className="truncate">{peer.node}</span>
-									<span className={peer.status === 'failed' ? 'text-destructive' : 'text-success'}>
-										{peer.status ?? 'ok'}
-										{peer.error ? `: ${peer.error}` : ''}
-									</span>
-								</li>
-							))}
+							{deployment.peer_results.map((peer, i) => {
+								const peerError = deploymentErrorText(peer.error);
+								return (
+									<li key={peer.node ?? i} className="flex items-center justify-between gap-2">
+										<span className="truncate">{peer.node}</span>
+										<span className={peer.status === 'failed' ? 'text-destructive' : 'text-success'}>
+											{peer.status ?? 'ok'}
+											{peerError ? `: ${peerError}` : ''}
+										</span>
+									</li>
+								);
+							})}
 						</ul>
 					</div>
 				</>

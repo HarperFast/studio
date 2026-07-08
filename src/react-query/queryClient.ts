@@ -13,12 +13,12 @@ export function errorHandler(rawErr: unknown) {
 	} else if (axiosWrappedErr?.response?.data) {
 		if (typeof axiosWrappedErr.response.data === 'string') {
 			errorMsg = axiosWrappedErr.response.data;
-		} else if (axiosWrappedErr.response.data.error) {
+		} else if (typeof axiosWrappedErr.response.data.error === 'string' && axiosWrappedErr.response.data.error) {
 			errorMsg = axiosWrappedErr.response.data.error;
-		} else if (axiosWrappedErr.response.data.message) {
+		} else if (typeof axiosWrappedErr.response.data.message === 'string' && axiosWrappedErr.response.data.message) {
 			errorMsg = axiosWrappedErr.response.data.message;
 		}
-	} else if (otherErr?.message) {
+	} else if (typeof otherErr?.message === 'string' && otherErr.message) {
 		errorMsg = otherErr.message;
 	}
 	if (errorMsg.includes(':')) {
