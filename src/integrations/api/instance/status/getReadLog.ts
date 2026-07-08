@@ -19,6 +19,25 @@ interface GetReadLogParams {
 }
 
 /**
+ * Client-side ceiling on the `limit` we put on the wire, regardless of what the user types.
+ * The backend's SSE tail has an O(n·limit) cost for large limits (see harper#1693), so this
+ * keeps an unbounded number off the wire independent of whatever the backend eventually clamps.
+ */
+export const MAX_READ_LOG_LIMIT = 10000;
+
+/** Parse the user-supplied `limit` string, clamped to {@link MAX_READ_LOG_LIMIT}; undefined if blank/invalid. */
+export function clampReadLogLimit(limit: string | null | undefined): number | undefined {
+	if (!limit) {
+		return undefined;
+	}
+	const parsed = parseInt(limit, 10);
+	if (!Number.isFinite(parsed) || parsed <= 0) {
+		return undefined;
+	}
+	return Math.min(parsed, MAX_READ_LOG_LIMIT);
+}
+
+/**
  * Build the `read_log` operation body from the current filters. Shared by the buffered
  * (axios) fetch and the SSE tail so the two paths request the exact same slice — the only
  * difference between them is the `Accept` header (see `streamReadLog`).
@@ -31,7 +50,7 @@ export function buildReadLogBody(
 		operation: 'read_log',
 		start: 0,
 		replicated,
-		limit: logFilters.limit ? parseInt(logFilters.limit, 10) : undefined,
+		limit: clampReadLogLimit(logFilters.limit),
 		level: logFilters.level !== 'undefined' ? logFilters.level : undefined,
 		from: logFilters.from ? new Date(logFilters.from).toISOString() : undefined,
 		until: logFilters.until ? new Date(logFilters.until).toISOString() : undefined,

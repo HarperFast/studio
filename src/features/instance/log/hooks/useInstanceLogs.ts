@@ -1,11 +1,12 @@
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
-import { getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
+import { clampReadLogLimit, getReadLogQueryOptions, ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFiltersFormSchema';
 import { streamReadLog } from '@/integrations/api/instance/status/streamReadLog';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { z } from 'zod';
 import { mergeReadLogs } from './mergeReadLogs';
+import { INITIAL_STREAM_STATE, streamReducer } from './streamReducer';
 import { useSupportsLogSSE } from './useSupportsLogSSE';
 
 type LogFilters = z.infer<typeof LogFiltersFormSchema>;
@@ -32,48 +33,17 @@ export interface UseInstanceLogsResult {
 
 /** Fall back to Harper's own `read_log` default when the user clears the limit field. */
 const DEFAULT_LIMIT = 1000;
-/** Ceiling on retained live entries so a long-running tail can't grow state unbounded. */
+/**
+ * Floor on retained live entries so a long-running tail can't grow state unbounded. The actual
+ * cap is `max(this, limit)` so a user asking for more than this still sees a contiguous tail
+ * (a smaller cap would silently drop the oldest live entries with no backfill while streaming).
+ */
 const MAX_LIVE_ENTRIES = 2000;
 /** Batch streamed entries into at most one render per this interval (a chatty tail safety net). */
 const FLUSH_INTERVAL_MS = 250;
 
-interface StreamState {
-	entries: ReadLogItem[];
-	/** The tail ended or errored; the query takes over polling until inputs change. */
-	fellBack: boolean;
-}
-
-type StreamAction =
-	| { kind: 'reset' }
-	| { kind: 'append'; entries: ReadLogItem[] }
-	| { kind: 'fellBack' };
-
-const INITIAL_STREAM_STATE: StreamState = { entries: [], fellBack: false };
-
-function streamReducer(state: StreamState, action: StreamAction): StreamState {
-	switch (action.kind) {
-		case 'reset':
-			return INITIAL_STREAM_STATE;
-		case 'append': {
-			if (action.entries.length === 0) {
-				return state;
-			}
-			const next = state.entries.concat(action.entries);
-			if (next.length <= MAX_LIVE_ENTRIES) {
-				return { ...state, entries: next };
-			}
-			// Keep the newest MAX_LIVE_ENTRIES by timestamp.
-			next.sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0));
-			return { ...state, entries: next.slice(0, MAX_LIVE_ENTRIES) };
-		}
-		case 'fellBack':
-			return { ...state, fellBack: true };
-	}
-}
-
 function parseLimit(limit: LogFilters['limit']): number {
-	const parsed = limit ? parseInt(limit, 10) : NaN;
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LIMIT;
+	return clampReadLogLimit(limit) ?? DEFAULT_LIMIT;
 }
 
 /** Stable identity for the filter set, so effects restart only when the requested slice changes. */
@@ -107,6 +77,10 @@ export function useInstanceLogs(
 	const useSSE = live && supportsSSE && !stream.fellBack;
 	const key = filtersKey(logFilters, replicated);
 	const limit = parseLimit(logFilters.limit);
+	// Retain at least `limit` live entries so a user asking for a large slice still sees a
+	// contiguous tail rather than the oldest streamed lines silently dropping (polling is off
+	// while streaming, so there is no backfill to close such a gap).
+	const retainCap = Math.max(MAX_LIVE_ENTRIES, limit);
 
 	const query = useQuery(
 		getReadLogQueryOptions({
@@ -118,11 +92,20 @@ export function useInstanceLogs(
 		}),
 	);
 
-	// A new entity, filter set, or a fresh flip of the Live toggle is a new subscription
-	// context — drop stale live entries and clear a prior fall-back so SSE is retried.
+	// A new entity or filter set is a new subscription context — drop stale live entries and any
+	// fall-back. Deliberately NOT keyed on `live`: toggling Live off must keep the streamed tail
+	// on screen (otherwise the table jumps back to the pre-Live snapshot with no signal).
 	useEffect(() => {
 		dispatch({ kind: 'reset' });
-	}, [params.entityId, key, live]);
+	}, [params.entityId, key]);
+
+	// Turning Live back on after a fall-back should re-attempt SSE — but without discarding the
+	// entries already on screen, so only the fall-back flag is cleared.
+	useEffect(() => {
+		if (live) {
+			dispatch({ kind: 'retry' });
+		}
+	}, [live]);
 
 	// Keep the latest filters/replicated in refs so the tail can send the current slice without
 	// tearing the stream down on every keystroke — it restarts only when `key` changes below.
@@ -139,7 +122,7 @@ export function useInstanceLogs(
 			if (pending.length > 0 && !controller.signal.aborted) {
 				const batch = pending;
 				pending = [];
-				dispatch({ kind: 'append', entries: batch });
+				dispatch({ kind: 'append', entries: batch, cap: retainCap });
 			}
 		};
 		const flushTimer = setInterval(flush, FLUSH_INTERVAL_MS);
@@ -173,11 +156,10 @@ export function useInstanceLogs(
 
 	const logs = useMemo(() => {
 		const snapshot = query.data ?? [];
-		if (!live || stream.entries.length === 0) {
-			return snapshot;
-		}
-		return mergeReadLogs(snapshot, stream.entries, limit);
-	}, [query.data, stream.entries, live, limit]);
+		// Merge whenever there are streamed entries — including after Live is toggled off — so the
+		// tail the user was watching stays on screen instead of snapping back to the older snapshot.
+		return stream.entries.length === 0 ? snapshot : mergeReadLogs(snapshot, stream.entries, limit);
+	}, [query.data, stream.entries, limit]);
 
 	const transport: LogTransport = useSSE ? 'streaming' : live ? 'polling' : 'idle';
 
