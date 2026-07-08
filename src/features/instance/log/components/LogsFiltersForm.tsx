@@ -14,6 +14,11 @@ import { SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import z from 'zod';
 
+// In dark mode `--card`, `--input`, and `--border` all resolve to grey-700, so a default
+// field is invisible against the filters card. Give the fields a distinct fill + visible
+// border — matching the schema editor's treatment (SchemaEditorView `FIELD_SURFACE`).
+const FIELD_SURFACE = 'dark:bg-grey-600 dark:border-grey-500';
+
 export function LogsFiltersForm({
 	form,
 	resetFilters,
@@ -68,7 +73,7 @@ export function LogsFiltersForm({
 												<Input
 													type="search"
 													placeholder="Search logs…"
-													className="pl-9"
+													className={cn('pl-9', FIELD_SURFACE)}
 													value={field.value ?? ''}
 													onChange={field.onChange}
 												/>
@@ -87,7 +92,7 @@ export function LogsFiltersForm({
 									<FormItem>
 										<FormLabel>Log file</FormLabel>
 										<Select onValueChange={field.onChange} value={field.value ?? undefined}>
-											<SelectTrigger className="w-full bg-white dark:bg-grey-700">
+											<SelectTrigger className={cn('w-full bg-white', FIELD_SURFACE)}>
 												<SelectValue placeholder="Select log file" />
 											</SelectTrigger>
 											<SelectContent>
@@ -110,7 +115,7 @@ export function LogsFiltersForm({
 									<FormItem>
 										<FormLabel>Limit</FormLabel>
 										<Select onValueChange={field.onChange} value={field.value ?? undefined}>
-											<SelectTrigger className="w-full bg-white dark:bg-grey-700">
+											<SelectTrigger className={cn('w-full bg-white', FIELD_SURFACE)}>
 												<SelectValue placeholder="Limit" />
 											</SelectTrigger>
 											<SelectContent>
@@ -134,7 +139,7 @@ export function LogsFiltersForm({
 									<FormItem>
 										<FormLabel>Level</FormLabel>
 										<Select onValueChange={field.onChange} value={field.value ?? undefined}>
-											<SelectTrigger className="w-full bg-white dark:bg-grey-700">
+											<SelectTrigger className={cn('w-full bg-white', FIELD_SURFACE)}>
 												<SelectValue placeholder="Level" />
 											</SelectTrigger>
 											<SelectContent>
@@ -161,7 +166,12 @@ export function LogsFiltersForm({
 								<FormItem>
 									<FormLabel>Start date</FormLabel>
 									<FormControl>
-										<Input type="datetime-local" value={field.value ?? undefined} onChange={field.onChange} />
+										<Input
+											type="datetime-local"
+											className={FIELD_SURFACE}
+											value={field.value ?? undefined}
+											onChange={field.onChange}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -174,7 +184,12 @@ export function LogsFiltersForm({
 								<FormItem>
 									<FormLabel>End date</FormLabel>
 									<FormControl>
-										<Input type="datetime-local" value={field.value ?? undefined} onChange={field.onChange} />
+										<Input
+											type="datetime-local"
+											className={FIELD_SURFACE}
+											value={field.value ?? undefined}
+											onChange={field.onChange}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
