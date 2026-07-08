@@ -71,6 +71,21 @@ describe('Scaling status copy', () => {
 		expect(screen.queryByText(/traffic drain/)).toBeNull();
 	});
 
+	it('treats a stray truthy string like ?immediate=false as a standard update', async () => {
+		// A hand-edited URL can leave `immediate` as a string; only an explicit true counts.
+		currentSearch = { immediate: 'false' };
+		mount();
+		await waitFor(() => screen.getByText('Here we go!'));
+		expect(screen.getByText(/waiting several minutes to let traffic drain/)).toBeTruthy();
+	});
+
+	it('accepts the string form ?immediate=true', async () => {
+		currentSearch = { immediate: 'true' };
+		mount();
+		await waitFor(() => screen.getByText('Here we go!'));
+		expect(screen.getByText(/applying the latest changes immediately/)).toBeTruthy();
+	});
+
 	it('still shows the completion state once the cluster is active again', async () => {
 		clusterStatus = 'RUNNING';
 		currentSearch = { immediate: true };
