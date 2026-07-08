@@ -130,22 +130,44 @@
 }
 
 .content {
+    position: relative;
     padding: 0.75rem 1rem;
     border-radius: 12px;
     font-size: 0.9375rem;
     line-height: 1.5;
 }
 
+/* Tail pointing at the speaker's avatar (avatars are pinned to the top of the bubble). */
+.content::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+}
+
 .user .content {
     background: var(--primary);
     color: var(--primary-foreground);
-    border-bottom-right-radius: 2px;
+    border-top-right-radius: 2px;
+}
+
+.user .content::before {
+    right: -6px;
+    border-left: 6px solid var(--primary);
 }
 
 .assistant .content {
     background: var(--muted);
     color: var(--foreground);
-    border-bottom-left-radius: 2px;
+    border-top-left-radius: 2px;
+}
+
+.assistant .content::before {
+    left: -6px;
+    border-right: 6px solid var(--muted);
 }
 
 .text-block {
