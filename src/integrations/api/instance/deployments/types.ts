@@ -41,33 +41,6 @@ export interface DeploymentPeerError {
 	code?: string | number;
 }
 
-/**
- * Turn a deployment/peer error of unknown shape into display text. Harper emits both bare
- * strings and structured `{ message, code }` objects (and shapes vary across versions), so
- * always render errors through this — interpolating the raw value shows "[object Object]"
- * (#1426). Falls back to JSON for structured payloads without a usable `message`.
- */
-export function deploymentErrorText(error: unknown): string | undefined {
-	if (error == null) {
-		return undefined;
-	}
-	if (typeof error === 'string') {
-		return error || undefined;
-	}
-	if (typeof error === 'object') {
-		const { message } = error as DeploymentPeerError;
-		if (typeof message === 'string' && message) {
-			return message;
-		}
-		try {
-			return JSON.stringify(error);
-		} catch {
-			return undefined;
-		}
-	}
-	return String(error);
-}
-
 export interface DeploymentError {
 	message: string;
 	code?: string | number;

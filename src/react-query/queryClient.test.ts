@@ -133,4 +133,38 @@ describe('errorHandler', () => {
 			},
 		});
 	});
+
+	it('extracts the nested message when response.data.error is a structured object (#1426)', () => {
+		const axiosError = {
+			response: {
+				data: {
+					error: { message: 'npm install exited with code 1', code: 'ERR_INSTALL' },
+				},
+			},
+		} as AxiosError<{ error?: unknown; message?: unknown }>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'Error',
+			expect.objectContaining({ description: 'npm install exited with code 1' }),
+		);
+	});
+
+	it('never shows "[object Object]" for a structured error without a nested message', () => {
+		const axiosError = {
+			response: {
+				data: {
+					error: { code: 500 },
+				},
+			},
+		} as AxiosError<{ error?: unknown; message?: unknown }>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'Error',
+			expect.objectContaining({ description: '{"code":500}' }),
+		);
+	});
 });

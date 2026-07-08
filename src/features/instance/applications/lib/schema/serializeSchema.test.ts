@@ -77,9 +77,8 @@ describe('serializeSchema alphabetical ordering', () => {
 });
 
 describe('serializeSchema description (""") handling', () => {
-	it('does not compound a multi-line field description\'s indentation when its table is edited', () => {
-		const source =
-			'type Dog @table {\n\t"""\n\tThe display name.\n\tShown in lists.\n\t"""\n\tname: String\n}\n';
+	it("does not compound a multi-line field description's indentation when its table is edited", () => {
+		const source = 'type Dog @table {\n\t"""\n\tThe display name.\n\tShown in lists.\n\t"""\n\tname: String\n}\n';
 		const doc = parse(source);
 		firstTable(doc).edited = true;
 		const once = serializeSchema(doc);
