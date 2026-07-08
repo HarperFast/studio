@@ -16,6 +16,8 @@ import { SubmitEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ChatInput } from './components/ChatInput';
 import { LoadingState } from './components/LoadingState';
 import { MessageBubble } from './components/MessageBubble';
+import { shouldShowThinkingIndicator } from './components/shouldShowThinkingIndicator';
+import { ThinkingIndicator } from './components/ThinkingIndicator';
 import { UsageBar } from './components/UsageBar';
 import { getTool } from './tools/clientTools';
 import './Chat.css';
@@ -217,6 +219,7 @@ export function Chat({ autoFocus, closeChat }: { autoFocus: boolean; closeChat: 
 								approvingToolCallIds={approvingToolCallIds}
 							/>
 						))}
+						{shouldShowThinkingIndicator(status, messages.at(-1)) && <ThinkingIndicator />}
 						<div ref={messagesEndRef} />
 					</div>
 

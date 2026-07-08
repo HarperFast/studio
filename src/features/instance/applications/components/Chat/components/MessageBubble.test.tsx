@@ -11,7 +11,7 @@ import { MessageBubble } from './MessageBubble';
 afterEach(() => cleanup());
 
 describe('MessageBubble', () => {
-	it('should render without crashing when parts is undefined', async () => {
+	it('should render nothing when parts is undefined', async () => {
 		const mockMessage = {
 			id: '1',
 			role: 'assistant',
@@ -27,9 +27,8 @@ describe('MessageBubble', () => {
 
 		await act(() => null);
 
-		const contentDiv = container.querySelector('.content');
-		expect(contentDiv).toBeTruthy();
-		expect(contentDiv?.childNodes.length).toBe(0);
+		// Empty bubbles are hidden so the thinking indicator can stand alone while streaming starts.
+		expect(container.querySelector('.message-bubble')).toBeNull();
 	});
 
 	it('should render message parts when they exist', async () => {

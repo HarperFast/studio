@@ -16,6 +16,13 @@ interface MessageBubbleProps {
 export function MessageBubble(
 	{ message: m, onApprove, onDeny, onAlwaysApprove, approvingToolCallIds }: MessageBubbleProps,
 ) {
+	// An assistant message exists before any of its parts stream in; hide the empty bubble
+	// so the thinking indicator stands alone until there is real content.
+	const hasVisibleContent = m.parts?.some(part => (isTextUIPart(part) && part.text.length > 0) || isToolUIPart(part));
+	if (!hasVisibleContent) {
+		return null;
+	}
+
 	return (
 		<motion.div
 			key={m.id}
