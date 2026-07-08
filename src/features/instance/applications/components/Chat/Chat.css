@@ -162,6 +162,11 @@
 
 .tool-group {
     margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.tool-group:last-child {
+    margin-bottom: 0;
 }
 
 .tool-group-summary {
@@ -181,7 +186,7 @@
 }
 
 .tool-group-summary:hover {
-    background: var(--accent);
+    background: color-mix(in srgb, var(--card) 90%, var(--foreground));
     color: var(--foreground);
 }
 
