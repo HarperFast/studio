@@ -1,3 +1,4 @@
+import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 
@@ -40,4 +41,10 @@ export const dataTableColumns: Array<ColumnDef<SchemaUser>> = [
 		accessorKey: 'isVerified',
 		enableSorting: false,
 	},
+	columnHelper.display({
+		header: '',
+		enableSorting: false,
+		id: 'actions',
+		cell: (props) => props.row.original.status === 'PENDING' ? <ResendInviteButton user={props.row.original} /> : null,
+	}),
 ];
