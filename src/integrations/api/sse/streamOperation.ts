@@ -1,3 +1,4 @@
+import { errorText } from '@/lib/errorText';
 import { SSEInconclusiveError, SSEOperationError, SSEUnsupportedError } from './errors';
 import { parseSSEData, parseSSEStream, SSEMessage } from './parseSSEStream';
 import { resolveInstanceConnection, ResolveInstanceConnectionParams } from './resolveInstanceConnection';
@@ -105,9 +106,9 @@ export async function streamOperation({
 					}
 					const err = data as { message?: string; code?: string | number; phase?: string; deployment_id?: string };
 					// A non-string message (a structured/nested error object) would stringify to
-					// "[object Object]" in every toast that renders it (#1426).
-					const errMessage = typeof err.message === 'string' && err.message ? err.message : 'The operation failed.';
-					throw new SSEOperationError(errMessage, {
+					// "[object Object]" in every toast that renders it — extract its nested
+					// message (or JSON) instead of discarding the detail (#1426).
+					throw new SSEOperationError(errorText(err.message) ?? 'The operation failed.', {
 						code: err.code,
 						phase: err.phase,
 						deploymentId: err.deployment_id,

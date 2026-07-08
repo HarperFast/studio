@@ -77,6 +77,30 @@ describe('streamOperation', () => {
 		expect(SSEOperationError).toBeDefined();
 	});
 
+	it('extracts the nested message when the error event message is an object (#1426)', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(
+				sseResponse('event: error\ndata: {"message":{"message":"npm install failed","detail":"E1"},"code":500}\n\n'),
+			),
+		);
+
+		await expect(
+			streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } }),
+		).rejects.toMatchObject({ name: 'SSEOperationError', message: 'npm install failed', code: 500 });
+	});
+
+	it('stringifies an object error message with no nested message, never "[object Object]"', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(sseResponse('event: error\ndata: {"message":{"detail":"E1"}}\n\n')),
+		);
+
+		await expect(
+			streamOperation({ connection: { id: 'ins-1' }, body: { operation: 'deploy_component' } }),
+		).rejects.toMatchObject({ name: 'SSEOperationError', message: '{"detail":"E1"}' });
+	});
+
 	it('does not crash on a null error payload', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse('event: error\ndata: null\n\n')));
 
