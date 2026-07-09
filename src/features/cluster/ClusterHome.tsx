@@ -116,6 +116,9 @@ export function ClusterHome() {
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const connected = !!user;
 	const lastMode = authStore.getLastConnectMode(cluster.id);
+	const instanceCount = (cluster.instances ?? [])
+		.filter((instance) => instance.status && !deletedClusterStatuses.includes(instance.status))
+		.length;
 
 	return (
 		<ClusterHomeShell>
@@ -129,7 +132,7 @@ export function ClusterHome() {
 						<StatusPill status={cluster.status} />
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-						<span>{cluster.instances?.length ?? 0} instances</span>
+						<span>{instanceCount} {instanceCount === 1 ? 'instance' : 'instances'}</span>
 						<span aria-hidden="true">·</span>
 						<a
 							href={`https://${clusterHost}`}
