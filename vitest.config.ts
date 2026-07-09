@@ -24,7 +24,12 @@ export default defineConfig({
 		globals: true,
 		coverage: {
 			provider: 'v8',
-			reporter: ['text', 'lcov'],
+			// json-summary + json feed the PR coverage comment in CI
+			// (vitest-coverage-report-action); lcov stays for Sonar.
+			reporter: ['text', 'lcov', 'json-summary', 'json'],
+			// Still write coverage output when tests fail, so CI can post
+			// the coverage report alongside the failure.
+			reportOnFailure: true,
 		},
 	},
 	resolve: {
