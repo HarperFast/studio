@@ -1,5 +1,6 @@
 import { App } from '@/App';
 import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
+import { installStaleDeployReload } from '@/lib/installStaleDeployReload';
 import { addReactError } from '@datadog/browser-rum-react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -8,6 +9,9 @@ import './index.css';
 // Must run before React mounts: keeps browser page-translation from crashing React
 // with `removeChild`/`insertBefore` NotFoundErrors (issue #1388).
 installBrowserTranslationDomGuard();
+// Reload once when a redeploy invalidates this tab's hashed chunks, instead of
+// leaving routes and Monaco language workers broken for the session (issue #1406).
+installStaleDeployReload();
 
 createRoot(
 	document.getElementById('root')!,
