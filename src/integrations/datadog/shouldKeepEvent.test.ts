@@ -23,6 +23,22 @@ describe('shouldKeepEvent', () => {
 		expect(shouldKeepEvent(errorEvent({ message: 'Fabric Connect not established' }))).toBe(false);
 	});
 
+	// Regression test for the browser-extension-injected "Object Not Found Matching Id"
+	// error: a bare string (no stack) that a couple of extension-carrying sessions emit
+	// hundreds of times, doubling total RUM error volume without indicating a Studio bug.
+	it('discards browser-extension "Object Not Found Matching Id" errors', () => {
+		expect(
+			shouldKeepEvent(
+				errorEvent({ message: 'Uncaught "Object Not Found Matching Id:1, MethodName:update, ParamCount:4"' }),
+			),
+		).toBe(false);
+		expect(
+			shouldKeepEvent(
+				errorEvent({ message: 'Uncaught "Object Not Found Matching Id:2, MethodName:update, ParamCount:4"' }),
+			),
+		).toBe(false);
+	});
+
 	// Regression test for issue #1371: handled AxiosError timeouts reach RUM via
 	// console.error with no resource URL, so they must be discarded on the message alone.
 	it('discards timeout errors even when no resource URL is present', () => {

@@ -45,6 +45,17 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
+	// `Object Not Found Matching Id:N, MethodName:update, ParamCount:4` is injected by a
+	// browser extension, not thrown by Studio: it arrives as a bare string (so RUM records
+	// `type: null` and "No stack, consider using an instance of Error") and only ever from
+	// the handful of sessions whose user has the extension installed. In the wild a single
+	// such session emits hundreds of these — on 2026-07-09, 2 sessions produced ~1160 events
+	// in 24h, doubling total RUM error volume — so it drowns real signal in Error Tracking
+	// without pointing at any Studio bug. Match the stable signature and drop it globally.
+	if (/Object Not Found Matching Id:\d+, MethodName:/i.test(message)) {
+		return false;
+	}
+
 	// A request timeout is a connectivity-class failure, never a Studio bug: the
 	// instance, cluster, or backend was too slow to answer in time. Unlike the
 	// network failures below we drop these unconditionally, because the handled
