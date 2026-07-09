@@ -6,6 +6,7 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -174,6 +175,7 @@ export function ClusterHome() {
 						</DropdownMenu>
 					</div>
 				</div>
+				<ClusterStateMenu cluster={cluster} />
 			</div>
 
 			{isLoading ? <Spinner /> : connected
