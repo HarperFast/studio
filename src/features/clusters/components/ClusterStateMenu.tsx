@@ -59,14 +59,12 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 				void router.navigate({ to: `/${cluster.organizationId}` });
 			},
 			onError: () => {
-				toast.error('Error', {
-					description: `Failed to terminate cluster: ${cluster.name}.`,
-					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
-				});
+				// The global MutationCache.onError already toasts the failure (with the server's
+				// message); just close the modal here to avoid double-toasting.
 				setTerminateOpen(false);
 			},
 		});
-	}, [cluster.id, cluster.name, cluster.organizationId, terminateCluster, queryClient, router]);
+	}, [cluster.id, cluster.organizationId, terminateCluster, queryClient, router]);
 
 	const onConfirmSafeMode = useCallback(() => {
 		const action = safeModeAction;
