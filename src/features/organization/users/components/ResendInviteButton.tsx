@@ -24,11 +24,12 @@ export function ResendInviteButton({ user }: { user: SchemaUser }) {
 				toast.error('Cannot resend invite: this user has no email or role.');
 				return;
 			}
+			// The global MutationCache.onError (react-query/queryClient) already surfaces failures with
+			// the server's message, so only the success toast is local here — avoids double-toasting.
 			inviteUser(
 				{ email: user.email, roleId },
 				{
 					onSuccess: () => toast.success(`Invitation resent to ${user.email}.`),
-					onError: () => toast.error(`Failed to resend invitation to ${user.email}.`),
 				},
 			);
 		},
