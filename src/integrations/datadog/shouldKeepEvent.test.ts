@@ -39,6 +39,20 @@ describe('shouldKeepEvent', () => {
 		).toBe(false);
 	});
 
+	// Regression test for issue #1406: once a Monaco language worker fails to start
+	// (stale deploy chunk, OOM tab), its main-thread fallback rejects every folding/
+	// links/symbols/validation/code-action call with this message for the rest of the
+	// session — dozens of echoes of a root cause that has its own RUM signal.
+	it('discards Monaco "Missing requestHandler or method" worker-fallback spam', () => {
+		expect(shouldKeepEvent(errorEvent({ message: 'Missing requestHandler or method: getFoldingRanges' }))).toBe(false);
+		expect(shouldKeepEvent(errorEvent({ message: 'Missing requestHandler or method: doValidation' }))).toBe(false);
+		expect(
+			shouldKeepEvent(
+				errorEvent({ message: 'Uncaught (in promise) Error: Missing requestHandler or method: findLinks' }),
+			),
+		).toBe(false);
+	});
+
 	// Regression test for issue #1371: handled AxiosError timeouts reach RUM via
 	// console.error with no resource URL, so they must be discarded on the message alone.
 	it('discards timeout errors even when no resource URL is present', () => {

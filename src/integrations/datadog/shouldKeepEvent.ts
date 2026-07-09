@@ -56,6 +56,20 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
+	// "Missing requestHandler or method: <fn>" is Monaco's per-call symptom of a language
+	// worker that never started: when a worker script fails to load (stale hashed chunk
+	// after a redeploy, offline) or the tab is out of memory, Monaco silently swaps in a
+	// main-thread fallback that cannot host foreign worker modules (monaco-yaml, JSON, …),
+	// and then EVERY language-feature call — folding, links, symbols, validation, code
+	// actions — rejects with this error for the rest of the session (issue #1406: 7
+	// sessions emitted 161 of these in 7 days). The root causes carry their own, far more
+	// useful signals ("Failed to fetch dynamically imported module", the DataCloneError
+	// worker OOM of issue #1407), and the stale-deploy trigger now self-recovers via
+	// `installStaleDeployReload` — this repeated per-call echo adds nothing but volume.
+	if (/Missing requestHandler or method: /.test(message)) {
+		return false;
+	}
+
 	// A request timeout is a connectivity-class failure, never a Studio bug: the
 	// instance, cluster, or backend was too slow to answer in time. Unlike the
 	// network failures below we drop these unconditionally, because the handled
