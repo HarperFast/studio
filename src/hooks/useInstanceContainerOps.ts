@@ -40,7 +40,10 @@ export function useInstanceContainerOps(instance: Instance) {
 			});
 			try {
 				await mutateAsync({ instanceId: instance.id, action, safeMode: opts?.safeMode });
-				void queryClient.invalidateQueries({ queryKey: [clusterId] });
+				// clusterId is optional (useParams strict:false); guard so we don't invalidate [undefined].
+				if (clusterId) {
+					void queryClient.invalidateQueries({ queryKey: [clusterId] });
+				}
 				void queryClient.invalidateQueries({ queryKey: [instance.id] });
 				toast.dismiss(toastId);
 				toast.success('Request accepted', {
@@ -48,11 +51,9 @@ export function useInstanceContainerOps(instance: Instance) {
 					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
 				});
 			} catch {
+				// Just drop the loading toast; the global MutationCache.onError already shows the error
+				// (with the server's message), so a local error toast here would double up.
 				toast.dismiss(toastId);
-				toast.error('Error', {
-					description: `Failed to ${action} ${target}.`,
-					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
-				});
 			}
 		},
 		[clusterId, instance.id, instance.name, mutateAsync, queryClient],

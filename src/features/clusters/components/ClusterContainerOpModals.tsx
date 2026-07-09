@@ -47,7 +47,7 @@ export function ClusterContainerOpModals({
 					</DialogHeader>
 					<DialogFooter>
 						<div className="flex justify-end gap-3">
-							<Button type="button" onClick={() => setStopOpen(false)}>Cancel</Button>
+							<Button type="button" variant="defaultOutline" onClick={() => setStopOpen(false)}>Cancel</Button>
 							<Button type="button" variant="destructive" onClick={onConfirmStop} disabled={isPending}>
 								Stop cluster
 							</Button>
@@ -67,7 +67,7 @@ export function ClusterContainerOpModals({
 							type="button"
 							disabled={isPending}
 							onClick={() => onConfirmRestart('rolling')}
-							className="rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-accent/50 disabled:opacity-60"
+							className="rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
 						>
 							<div className="font-medium">
 								Rolling <span className="text-xs text-muted-foreground">(recommended)</span>
@@ -80,7 +80,7 @@ export function ClusterContainerOpModals({
 							type="button"
 							disabled={isPending}
 							onClick={() => onConfirmRestart('parallel')}
-							className="rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-accent/50 disabled:opacity-60"
+							className="rounded-lg border border-border p-4 text-left transition-colors hover:border-primary hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60"
 						>
 							<div className="font-medium">Parallel</div>
 							<div className="text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ export function ClusterContainerOpModals({
 						</button>
 					</div>
 					<DialogFooter>
-						<Button type="button" onClick={() => setRestartOpen(false)}>Cancel</Button>
+						<Button type="button" variant="defaultOutline" onClick={() => setRestartOpen(false)}>Cancel</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>

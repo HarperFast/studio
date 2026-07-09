@@ -54,7 +54,7 @@ export function SafeModeConfirmDialog({
 				</p>
 				<DialogFooter>
 					<div className="flex justify-end gap-3">
-						<Button type="button" onClick={() => setOpen(false)}>Cancel</Button>
+						<Button type="button" variant="defaultOutline" onClick={() => setOpen(false)}>Cancel</Button>
 						<Button type="button" variant="warning" onClick={onConfirm} disabled={isPending}>
 							<LifeBuoyIcon /> {verb} in safe mode
 						</Button>

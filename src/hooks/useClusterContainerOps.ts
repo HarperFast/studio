@@ -45,11 +45,9 @@ export function useClusterContainerOps(cluster: Cluster) {
 					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
 				});
 			} catch {
+				// Just drop the loading toast; the global MutationCache.onError already shows the error
+				// (with the server's message), so a local error toast here would double up.
 				toast.dismiss(toastId);
-				toast.error('Error', {
-					description: `Failed to ${action} cluster ${cluster.name}.`,
-					action: { label: 'Dismiss', onClick: () => toast.dismiss() },
-				});
 			}
 		},
 		[cluster.id, cluster.name, cluster.organizationId, mutateAsync, queryClient],
