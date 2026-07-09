@@ -50,6 +50,27 @@ describe('installStaleDeployReload', () => {
 		expect(reload).toHaveBeenCalledTimes(1);
 	});
 
+	it('does not let suppressed failures slide the cooldown window forward', () => {
+		// The cooldown is fixed from the last actual reload: a stream of failures
+		// arriving faster than the window (e.g. the reload landed on another stale
+		// copy of the app) must not postpone recovery indefinitely.
+		vi.useFakeTimers();
+		try {
+			const reload = vi.fn();
+			installStaleDeployReload(reload);
+			firePreloadError();
+			expect(reload).toHaveBeenCalledTimes(1);
+			vi.advanceTimersByTime(30_000);
+			firePreloadError();
+			expect(reload).toHaveBeenCalledTimes(1);
+			vi.advanceTimersByTime(40_000);
+			firePreloadError();
+			expect(reload).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('is idempotent across repeated installs (HMR)', () => {
 		const reload = vi.fn();
 		installStaleDeployReload(reload);
