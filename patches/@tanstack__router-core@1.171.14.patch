@@ -1,0 +1,330 @@
+diff --git a/dist/cjs/load-matches.cjs b/dist/cjs/load-matches.cjs
+index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee3361927e93a 100644
+--- a/dist/cjs/load-matches.cjs
++++ b/dist/cjs/load-matches.cjs
+@@ -5,6 +5,31 @@ const require_root = require("./root.cjs");
+ const require_redirect = require("./redirect.cjs");
+ let _tanstack_router_core_isServer = require("@tanstack/router-core/isServer");
+ //#region src/load-matches.ts
++const matchRemovedReason = "Match removed before complete load";
++class MatchLoadCancelledError extends Error {
++	constructor() {
++		super(matchRemovedReason);
++		this.name = "MatchCancel";
++	}
++}
++const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError;
++const getMatchOrThrowCancelled = (inner, matchId, cleanupMatch) => {
++	const match = inner.router.getMatch(matchId);
++	if (match) return match;
++	if (cleanupMatch) {
++		const s = cleanupMatch._nonReactive;
++		s.beforeLoadPromise?.resolve();
++		s.loaderPromise?.resolve();
++		s.loadPromise?.resolve();
++		cleanupMatch.abortController.abort(matchRemovedReason);
++		clearTimeout(s.pendingTimeout);
++		s.beforeLoadPromise = void 0;
++		s.loaderPromise = void 0;
++		s.loadPromise = void 0;
++		s.pendingTimeout = void 0;
++	}
++	throw new MatchLoadCancelledError();
++};
+ const triggerOnReady = (inner) => {
+ 	if (!inner.rendered) {
+ 		inner.rendered = true;
+@@ -435,46 +460,50 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 		loaderShouldRunAsync = status === "success" && (invalid || (shouldReload ?? staleMatchShouldReload));
+ 		if (preload && route.options.preload === false) {} else if (loaderShouldRunAsync && !inner.sync && shouldReloadInBackground) {
+ 			loaderIsRunningAsync = true;
++			const matchForCleanup = prevMatch;
+ 			(async () => {
+ 				try {
+ 					await runLoader(inner, matchPromises, matchId, index, route);
+-					const match = inner.router.getMatch(matchId);
+-					match._nonReactive.loaderPromise?.resolve();
+-					match._nonReactive.loadPromise?.resolve();
+-					match._nonReactive.loaderPromise = void 0;
+-					match._nonReactive.loadPromise = void 0;
+ 				} catch (err) {
+ 					if (require_redirect.isRedirect(err)) await inner.router.navigate(err.options);
++				} finally {
++					matchForCleanup._nonReactive.loaderPromise?.resolve();
++					matchForCleanup._nonReactive.loadPromise?.resolve();
++					matchForCleanup._nonReactive.loaderPromise = void 0;
++					matchForCleanup._nonReactive.loadPromise = void 0;
+ 				}
+ 			})();
+ 		} else if (status !== "success" || loaderShouldRunAsync) await runLoader(inner, matchPromises, matchId, index, route);
+ 		else syncMatchContext(inner, matchId, index);
+ 	}
+ 	const { id: matchId, routeId } = inner.matches[index];
++	let cleanupMatch;
+ 	let loaderShouldRunAsync = false;
+ 	let loaderIsRunningAsync = false;
+ 	const route = inner.router.looseRoutesById[routeId];
+ 	const routeLoader = route.options.loader;
+ 	const shouldReloadInBackground = ((typeof routeLoader === "function" ? void 0 : routeLoader?.staleReloadMode) ?? inner.router.options.defaultStaleReloadMode) !== "blocking";
+ 	if (shouldSkipLoader(inner, matchId)) {
+-		if (!inner.router.getMatch(matchId)) return inner.matches[index];
++		cleanupMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 		syncMatchContext(inner, matchId, index);
+ 		if (_tanstack_router_core_isServer.isServer ?? inner.router.isServer) return inner.router.getMatch(matchId);
+ 	} else {
+-		const prevMatch = inner.router.getMatch(matchId);
++		const prevMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 		const activeIdAtIndex = inner.router.stores.matchesId.get()[index];
+ 		const previousRouteMatchId = (activeIdAtIndex && inner.router.stores.matchStores.get(activeIdAtIndex) || null)?.routeId === routeId ? activeIdAtIndex : inner.router.stores.matches.get().find((d) => d.routeId === routeId)?.id;
+ 		const preload = resolvePreload(inner, matchId);
+ 		if (prevMatch._nonReactive.loaderPromise) {
+ 			if (prevMatch.status === "success" && !inner.sync && !prevMatch.preload && shouldReloadInBackground) return prevMatch;
+ 			await prevMatch._nonReactive.loaderPromise;
+-			const match = inner.router.getMatch(matchId);
++			const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++			cleanupMatch = match;
+ 			const error = match._nonReactive.error || match.error;
+ 			if (error) handleRedirectAndNotFound(inner, match, error);
+ 			if (match.status === "pending") await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
+ 		} else {
+ 			const nextPreload = preload && !inner.router.stores.matchStores.has(matchId);
+-			const match = inner.router.getMatch(matchId);
++			const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++			cleanupMatch = match;
+ 			match._nonReactive.loaderPromise = require_utils.createControlledPromise();
+ 			if (nextPreload !== match.preload) inner.updateMatch(matchId, (prev) => ({
+ 				...prev,
+@@ -483,7 +512,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 			await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
+ 		}
+ 	}
+-	const match = inner.router.getMatch(matchId);
++	const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 	if (!loaderIsRunningAsync) {
+ 		match._nonReactive.loaderPromise?.resolve();
+ 		match._nonReactive.loadPromise?.resolve();
+@@ -500,8 +529,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 			isFetching: nextIsFetching,
+ 			invalid: false
+ 		}));
+-		return inner.router.getMatch(matchId);
+-	} else return match;
++	}
++	return match;
+ };
+ async function loadMatches(arg) {
+ 	const inner = arg;
+@@ -525,6 +554,7 @@ async function loadMatches(arg) {
+ 	const maxIndexExclusive = beforeLoadNotFound && inner.preload ? 0 : boundaryIndex !== void 0 ? Math.min(boundaryIndex + 1, baseMaxIndexExclusive) : baseMaxIndexExclusive;
+ 	let firstNotFound;
+ 	let firstUnhandledRejection;
++	let firstCancelledMatch;
+ 	for (let i = 0; i < maxIndexExclusive; i++) matchPromises.push(loadRouteMatch(inner, matchPromises, i));
+ 	try {
+ 		await Promise.all(matchPromises);
+@@ -533,10 +563,15 @@ async function loadMatches(arg) {
+ 		for (const result of settled) {
+ 			if (result.status !== "rejected") continue;
+ 			const reason = result.reason;
++			if (isMatchLoadCancelledError(reason)) {
++				firstCancelledMatch ??= reason;
++				continue;
++			}
+ 			if (require_redirect.isRedirect(reason)) throw reason;
+ 			if (require_not_found.isNotFound(reason)) firstNotFound ??= reason;
+ 			else firstUnhandledRejection ??= reason;
+ 		}
++		if (firstCancelledMatch) throw firstCancelledMatch;
+ 		if (firstUnhandledRejection !== void 0) throw firstUnhandledRejection;
+ 	}
+ 	const notFoundToThrow = firstNotFound ?? (beforeLoadNotFound && !inner.preload ? beforeLoadNotFound : void 0);
+@@ -651,6 +686,7 @@ const componentTypes = [
+ 	"notFoundComponent"
+ ];
+ //#endregion
++exports.isMatchLoadCancelledError = isMatchLoadCancelledError;
+ exports.loadMatches = loadMatches;
+ exports.loadRouteChunk = loadRouteChunk;
+ exports.routeNeedsPreload = routeNeedsPreload;
+diff --git a/dist/cjs/router.cjs b/dist/cjs/router.cjs
+index b928d955ea81a572f2770baf30bfc9001e4a9011..c9f95fdc964f0bb03474c8b4c3914b73feb61395 100644
+--- a/dist/cjs/router.cjs
++++ b/dist/cjs/router.cjs
+@@ -768,6 +768,7 @@ var RouterCore = class {
+ 				});
+ 				return matches;
+ 			} catch (err) {
++				if (require_load_matches.isMatchLoadCancelledError(err)) return;
+ 				if (require_redirect.isRedirect(err)) {
+ 					if (err.options.reloadDocument) return;
+ 					return await this.preloadRoute({
+diff --git a/dist/esm/load-matches.js b/dist/esm/load-matches.js
+index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a86412098544b60ab12 100644
+--- a/dist/esm/load-matches.js
++++ b/dist/esm/load-matches.js
+@@ -5,6 +5,31 @@ import { rootRouteId } from "./root.js";
+ import { isRedirect } from "./redirect.js";
+ import { isServer } from "@tanstack/router-core/isServer";
+ //#region src/load-matches.ts
++const matchRemovedReason = "Match removed before complete load";
++class MatchLoadCancelledError extends Error {
++	constructor() {
++		super(matchRemovedReason);
++		this.name = "MatchCancel";
++	}
++}
++const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError;
++const getMatchOrThrowCancelled = (inner, matchId, cleanupMatch) => {
++	const match = inner.router.getMatch(matchId);
++	if (match) return match;
++	if (cleanupMatch) {
++		const s = cleanupMatch._nonReactive;
++		s.beforeLoadPromise?.resolve();
++		s.loaderPromise?.resolve();
++		s.loadPromise?.resolve();
++		cleanupMatch.abortController.abort(matchRemovedReason);
++		clearTimeout(s.pendingTimeout);
++		s.beforeLoadPromise = void 0;
++		s.loaderPromise = void 0;
++		s.loadPromise = void 0;
++		s.pendingTimeout = void 0;
++	}
++	throw new MatchLoadCancelledError();
++};
+ const triggerOnReady = (inner) => {
+ 	if (!inner.rendered) {
+ 		inner.rendered = true;
+@@ -435,46 +460,50 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 		loaderShouldRunAsync = status === "success" && (invalid || (shouldReload ?? staleMatchShouldReload));
+ 		if (preload && route.options.preload === false) {} else if (loaderShouldRunAsync && !inner.sync && shouldReloadInBackground) {
+ 			loaderIsRunningAsync = true;
++			const matchForCleanup = prevMatch;
+ 			(async () => {
+ 				try {
+ 					await runLoader(inner, matchPromises, matchId, index, route);
+-					const match = inner.router.getMatch(matchId);
+-					match._nonReactive.loaderPromise?.resolve();
+-					match._nonReactive.loadPromise?.resolve();
+-					match._nonReactive.loaderPromise = void 0;
+-					match._nonReactive.loadPromise = void 0;
+ 				} catch (err) {
+ 					if (isRedirect(err)) await inner.router.navigate(err.options);
++				} finally {
++					matchForCleanup._nonReactive.loaderPromise?.resolve();
++					matchForCleanup._nonReactive.loadPromise?.resolve();
++					matchForCleanup._nonReactive.loaderPromise = void 0;
++					matchForCleanup._nonReactive.loadPromise = void 0;
+ 				}
+ 			})();
+ 		} else if (status !== "success" || loaderShouldRunAsync) await runLoader(inner, matchPromises, matchId, index, route);
+ 		else syncMatchContext(inner, matchId, index);
+ 	}
+ 	const { id: matchId, routeId } = inner.matches[index];
++	let cleanupMatch;
+ 	let loaderShouldRunAsync = false;
+ 	let loaderIsRunningAsync = false;
+ 	const route = inner.router.looseRoutesById[routeId];
+ 	const routeLoader = route.options.loader;
+ 	const shouldReloadInBackground = ((typeof routeLoader === "function" ? void 0 : routeLoader?.staleReloadMode) ?? inner.router.options.defaultStaleReloadMode) !== "blocking";
+ 	if (shouldSkipLoader(inner, matchId)) {
+-		if (!inner.router.getMatch(matchId)) return inner.matches[index];
++		cleanupMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 		syncMatchContext(inner, matchId, index);
+ 		if (isServer ?? inner.router.isServer) return inner.router.getMatch(matchId);
+ 	} else {
+-		const prevMatch = inner.router.getMatch(matchId);
++		const prevMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 		const activeIdAtIndex = inner.router.stores.matchesId.get()[index];
+ 		const previousRouteMatchId = (activeIdAtIndex && inner.router.stores.matchStores.get(activeIdAtIndex) || null)?.routeId === routeId ? activeIdAtIndex : inner.router.stores.matches.get().find((d) => d.routeId === routeId)?.id;
+ 		const preload = resolvePreload(inner, matchId);
+ 		if (prevMatch._nonReactive.loaderPromise) {
+ 			if (prevMatch.status === "success" && !inner.sync && !prevMatch.preload && shouldReloadInBackground) return prevMatch;
+ 			await prevMatch._nonReactive.loaderPromise;
+-			const match = inner.router.getMatch(matchId);
++			const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++			cleanupMatch = match;
+ 			const error = match._nonReactive.error || match.error;
+ 			if (error) handleRedirectAndNotFound(inner, match, error);
+ 			if (match.status === "pending") await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
+ 		} else {
+ 			const nextPreload = preload && !inner.router.stores.matchStores.has(matchId);
+-			const match = inner.router.getMatch(matchId);
++			const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++			cleanupMatch = match;
+ 			match._nonReactive.loaderPromise = createControlledPromise();
+ 			if (nextPreload !== match.preload) inner.updateMatch(matchId, (prev) => ({
+ 				...prev,
+@@ -483,7 +512,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 			await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
+ 		}
+ 	}
+-	const match = inner.router.getMatch(matchId);
++	const match = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
+ 	if (!loaderIsRunningAsync) {
+ 		match._nonReactive.loaderPromise?.resolve();
+ 		match._nonReactive.loadPromise?.resolve();
+@@ -500,8 +529,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+ 			isFetching: nextIsFetching,
+ 			invalid: false
+ 		}));
+-		return inner.router.getMatch(matchId);
+-	} else return match;
++	}
++	return match;
+ };
+ async function loadMatches(arg) {
+ 	const inner = arg;
+@@ -525,6 +554,7 @@ async function loadMatches(arg) {
+ 	const maxIndexExclusive = beforeLoadNotFound && inner.preload ? 0 : boundaryIndex !== void 0 ? Math.min(boundaryIndex + 1, baseMaxIndexExclusive) : baseMaxIndexExclusive;
+ 	let firstNotFound;
+ 	let firstUnhandledRejection;
++	let firstCancelledMatch;
+ 	for (let i = 0; i < maxIndexExclusive; i++) matchPromises.push(loadRouteMatch(inner, matchPromises, i));
+ 	try {
+ 		await Promise.all(matchPromises);
+@@ -533,10 +563,15 @@ async function loadMatches(arg) {
+ 		for (const result of settled) {
+ 			if (result.status !== "rejected") continue;
+ 			const reason = result.reason;
++			if (isMatchLoadCancelledError(reason)) {
++				firstCancelledMatch ??= reason;
++				continue;
++			}
+ 			if (isRedirect(reason)) throw reason;
+ 			if (isNotFound(reason)) firstNotFound ??= reason;
+ 			else firstUnhandledRejection ??= reason;
+ 		}
++		if (firstCancelledMatch) throw firstCancelledMatch;
+ 		if (firstUnhandledRejection !== void 0) throw firstUnhandledRejection;
+ 	}
+ 	const notFoundToThrow = firstNotFound ?? (beforeLoadNotFound && !inner.preload ? beforeLoadNotFound : void 0);
+@@ -651,6 +686,6 @@ const componentTypes = [
+ 	"notFoundComponent"
+ ];
+ //#endregion
+-export { loadMatches, loadRouteChunk, routeNeedsPreload };
++export { isMatchLoadCancelledError, loadMatches, loadRouteChunk, routeNeedsPreload };
+ 
+ //# sourceMappingURL=load-matches.js.map
+\ No newline at end of file
+diff --git a/dist/esm/router.js b/dist/esm/router.js
+index 05cd2d21ab580df0956d03e2b4aabb29649edb40..ba24e4a0ef4e7008e3fec5651e6b85b156a01f47 100644
+--- a/dist/esm/router.js
++++ b/dist/esm/router.js
+@@ -7,7 +7,7 @@ import { setupScrollRestoration } from "./scroll-restoration.js";
+ import { defaultParseSearch, defaultStringifySearch } from "./searchParams.js";
+ import { rootRouteId } from "./root.js";
+ import { isRedirect, redirect } from "./redirect.js";
+-import { loadMatches, loadRouteChunk, routeNeedsPreload } from "./load-matches.js";
++import { isMatchLoadCancelledError, loadMatches, loadRouteChunk, routeNeedsPreload } from "./load-matches.js";
+ import { composeRewrites, executeRewriteInput, executeRewriteOutput, rewriteBasepath } from "./rewrite.js";
+ import { createRouterStores } from "./stores.js";
+ import { createBrowserHistory, parseHref } from "@tanstack/history";
+@@ -768,6 +768,7 @@ var RouterCore = class {
+ 				});
+ 				return matches;
+ 			} catch (err) {
++				if (isMatchLoadCancelledError(err)) return;
+ 				if (isRedirect(err)) {
+ 					if (err.options.reloadDocument) return;
+ 					return await this.preloadRoute({

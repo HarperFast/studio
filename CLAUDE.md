@@ -38,6 +38,24 @@ Auth updates reach the memoized router via the `RouterProvider` `context` prop p
 `router.invalidate()` effect in `src/AppRouted.tsx` — that invalidate is what re-runs
 `beforeLoad` guards (e.g. the sign-out redirect in `dashboardRoute.ts`), so don't remove it.
 
+## Routing — `@tanstack/router-core` is patched (preload eviction `_nonReactive` TypeError)
+
+`patches/@tanstack__router-core@1.171.14.patch` (wired via `patchedDependencies` in
+`pnpm-workspace.yaml`) ports the fix from TanStack/router PR #7003 for upstream issue
+#7759 / studio #1387: when a hover-intent preload's cached match is evicted mid-flight
+(user navigates, `router.invalidate()`, cache GC), `load-matches.js` re-read the match
+after an `await` and threw `TypeError: Cannot read properties of undefined (reading
+'_nonReactive')`, which `preloadRoute` then `console.error`'d — polluting Datadog RUM on
+every hover-then-navigate race. The patch turns the eviction into a quiet cancellation
+(resolves the evicted match's controlled promises, aborts it, and `preloadRoute` returns
+undefined). Regression tests: `src/router/__tests__/preloadEvictionRepro.test.ts` — they
+fail on the unpatched package.
+
+On the next `@tanstack/react-router`/`router-core` bump the patch will stop applying
+(pnpm errors on the version mismatch — do not just delete it). Check whether upstream
+shipped #7003/#7006 first; if not, re-create the patch against the new version and keep
+the regression tests green.
+
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
 This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,
