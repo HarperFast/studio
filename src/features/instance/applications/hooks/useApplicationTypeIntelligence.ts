@@ -23,9 +23,13 @@
  * package) changes, stale models are swept — including the previously open
  * file's model, which is still attached while cleanup runs and so is swept a
  * tick later, and models left behind while browsing installed packages (where
- * no intelligence loads at all). Registration is capped by count and total
- * size: unbounded model creation is a listener leak (Monaco warns at 200 live
- * models) and can OOM the language worker (HarperFast/studio#1407).
+ * no intelligence loads at all). The last real project survives a package
+ * peek, so a brief detour doesn't evict and refetch its sibling set. Model
+ * creation is bounded twice over — registration is budgeted by live count and
+ * total size, and a ceiling on editor-created models covers browsing within
+ * one context, which never triggers a sweep: unbounded model creation is a
+ * listener leak (Monaco warns at 200 live models) and can OOM the language
+ * worker (HarperFast/studio#1407).
  */
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { acquireApplicationTypes } from '@/features/instance/applications/components/TextEditorView/harper-language/typeAcquisition';
@@ -33,6 +37,8 @@ import { DirectoryEntry } from '@/features/instance/applications/context/directo
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
 import {
+	enforceModelCeiling,
+	MAX_LIVE_APPLICATION_MODELS,
 	selectFilesWithinModelBudget,
 	sweepStaleApplicationModels,
 } from '@/features/instance/applications/lib/modelHousekeeping';
@@ -150,11 +156,22 @@ function applyProjectPathConfig(project: string, tsconfigText: string | undefine
 }
 
 /**
- * The project whose models the (single) applications editor currently owns.
- * Module-level because the deferred sweep scheduled in an effect's cleanup must
- * honor the project the NEXT effect run claims, not the one being torn down.
+ * The project whose models the (single) applications editor currently wants
+ * kept. Module-level because the deferred sweep scheduled in an effect's
+ * cleanup must honor the project the NEXT effect run claims, not the one being
+ * torn down; after a real unmount nothing re-claims it, so the deferred sweep
+ * releases everything.
  */
 let activeIntelligenceProject: string | undefined;
+
+/**
+ * The (percent-encoded) URI prefix all of a project's models share. Built via
+ * `monaco.Uri` so a project name that needs encoding still matches the
+ * `uri.toString()` output the sweep compares against.
+ */
+function projectUriPrefix(project: string | undefined): string | undefined {
+	return project === undefined ? undefined : monaco.Uri.parse(`file:///${project}/`).toString();
+}
 
 export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined, rootEntries: AnyEntry[]): void {
 	const instanceParams = useInstanceClientIdParams();
@@ -181,12 +198,31 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 	const openPathRef = useRef<string | undefined>(undefined);
 	openPathRef.current = openedEntry?.path;
 
+	// The last real project opened, kept across package peeks so a brief detour
+	// into an installed package doesn't evict the project's sibling models.
+	const lastProjectRef = useRef<string | undefined>(undefined);
+
 	useEffect(() => {
-		activeIntelligenceProject = project;
+		// While peeking at an installed package (or with no file open) keep the
+		// last real project's models alive: the user usually comes right back,
+		// and evicting the sibling set would force a full refetch on return.
+		const keepProject = project ?? lastProjectRef.current;
+		if (project) {
+			lastProjectRef.current = project;
+		}
+		activeIntelligenceProject = keepProject;
 		// The previous context's models are stale now. Sweep everything that is
-		// not this project's and not on screen — including models the editor kept
-		// (`keepCurrentModel`) for files of other projects and installed packages.
-		sweepStaleApplicationModels(monaco.editor.getModels(), project);
+		// not the kept project's and not on screen — including models the editor
+		// kept (`keepCurrentModel`) for files of other projects and packages.
+		sweepStaleApplicationModels(monaco.editor.getModels(), projectUriPrefix(keepProject));
+
+		// No context switch ever fires while browsing within one project (or one
+		// package), so models the editor creates on its own — files the budget
+		// skipped, peeked library declarations — would grow the population
+		// without bound. Retire the oldest detached models as new ones appear.
+		const ceilingEnforcer = monaco.editor.onDidCreateModel(created => {
+			enforceModelCeiling(monaco.editor.getModels(), created.uri.toString(), MAX_LIVE_APPLICATION_MODELS);
+		});
 
 		let cancelled = false;
 
@@ -219,9 +255,17 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 					return;
 				}
 
-				const projectPrefix = `file:///${project}/`;
-				const alreadyLive = monaco.editor.getModels()
-					.filter(model => model.uri.toString().startsWith(projectPrefix)).length;
+				// Seed the budget with everything already alive — this project's
+				// prior registrations, editor-created models, peeked library
+				// declarations — so batches can't stack past the tab-wide limits.
+				let alreadyLiveModels = 0;
+				let alreadyLiveChars = 0;
+				for (const model of monaco.editor.getModels()) {
+					if (model.uri.toString().startsWith('file:///')) {
+						alreadyLiveModels++;
+						alreadyLiveChars += model.getValueLength();
+					}
+				}
 				const registrable: LoadedFile[] = [];
 				for (const file of loaded) {
 					if (file.appPath === openPathRef.current) {
@@ -243,7 +287,7 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 					}
 					registrable.push(file);
 				}
-				const { selected, dropped } = selectFilesWithinModelBudget(registrable, alreadyLive);
+				const { selected, dropped } = selectFilesWithinModelBudget(registrable, alreadyLiveModels, alreadyLiveChars);
 				for (const file of selected) {
 					const uri = monaco.Uri.parse(`file:///${file.appPath}`);
 					monaco.editor.createModel(file.content, modelLanguage(file.appPath), uri);
@@ -271,13 +315,14 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 
 		return () => {
 			cancelled = true;
+			ceilingEnforcer.dispose();
 			activeIntelligenceProject = undefined;
 			// The open file's model is still attached while this cleanup runs (the
 			// editor swaps or disposes it afterwards), so it can't be swept here —
 			// sweep a tick later, by which time the next effect run (if any) has
 			// claimed its own project via `activeIntelligenceProject`.
 			setTimeout(() => {
-				sweepStaleApplicationModels(monaco.editor.getModels(), activeIntelligenceProject);
+				sweepStaleApplicationModels(monaco.editor.getModels(), projectUriPrefix(activeIntelligenceProject));
 			}, 0);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
