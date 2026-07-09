@@ -19,14 +19,23 @@
  * Model lifecycle: the open file's model is owned by `@monaco-editor/react`; we
  * only create the siblings, and the editor is mounted with `keepCurrentModel`
  * so navigating between an application's files does not dispose models the
- * import graph still depends on. We dispose the models we created when the
- * project changes.
+ * import graph still depends on. When the open file's context (project or
+ * package) changes, stale models are swept — including the previously open
+ * file's model, which is still attached while cleanup runs and so is swept a
+ * tick later, and models left behind while browsing installed packages (where
+ * no intelligence loads at all). Registration is capped by count and total
+ * size: unbounded model creation is a listener leak (Monaco warns at 200 live
+ * models) and can OOM the language worker (HarperFast/studio#1407).
  */
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { acquireApplicationTypes } from '@/features/instance/applications/components/TextEditorView/harper-language/typeAcquisition';
 import { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import {
+	selectFilesWithinModelBudget,
+	sweepStaleApplicationModels,
+} from '@/features/instance/applications/lib/modelHousekeeping';
 import { getComponentFileQueryOptions } from '@/integrations/api/instance/applications/getComponentFile';
 import { typescript } from '@/lib/monaco/languageServices';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
@@ -140,6 +149,13 @@ function applyProjectPathConfig(project: string, tsconfigText: string | undefine
 	}
 }
 
+/**
+ * The project whose models the (single) applications editor currently owns.
+ * Module-level because the deferred sweep scheduled in an effect's cleanup must
+ * honor the project the NEXT effect run claims, not the one being torn down.
+ */
+let activeIntelligenceProject: string | undefined;
+
 export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined, rootEntries: AnyEntry[]): void {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
@@ -147,6 +163,11 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 	// Only intelligence-load the user's own applications. Installed packages can
 	// be large dependency trees and are read-only.
 	const project = openedEntry && !openedEntry.package ? openedEntry.project : undefined;
+	// The top-level entry the open file lives under — set for installed packages
+	// too. Context changes re-run the housekeeping effect so models the editor
+	// accumulated in the previous context (via `keepCurrentModel`) get swept
+	// even where no intelligence loads.
+	const context = openedEntry?.project;
 
 	const sourceFiles = useMemo(
 		() => (project ? collectProjectSourceFiles(rootEntries, project) : []),
@@ -161,81 +182,104 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 	openPathRef.current = openedEntry?.path;
 
 	useEffect(() => {
-		if (!project || sourceFiles.length === 0) {
-			return;
-		}
+		activeIntelligenceProject = project;
+		// The previous context's models are stale now. Sweep everything that is
+		// not this project's and not on screen — including models the editor kept
+		// (`keepCurrentModel`) for files of other projects and installed packages.
+		sweepStaleApplicationModels(monaco.editor.getModels(), project);
+
 		let cancelled = false;
 
-		void (async () => {
-			// Fetch with a small concurrency cap rather than all at once, so large
-			// projects don't open dozens of simultaneous requests. Files are
-			// best-effort: a failed fetch is skipped, not fatal.
-			const loaded: LoadedFile[] = [];
-			const queue = [...sourceFiles];
-			const fetchNext = async (): Promise<void> => {
-				while (!cancelled) {
-					const appPath = queue.shift();
-					if (!appPath) {
-						return;
+		if (project && sourceFiles.length > 0) {
+			void (async () => {
+				// Fetch with a small concurrency cap rather than all at once, so large
+				// projects don't open dozens of simultaneous requests. Files are
+				// best-effort: a failed fetch is skipped, not fatal.
+				const loaded: LoadedFile[] = [];
+				const queue = [...sourceFiles];
+				const fetchNext = async (): Promise<void> => {
+					while (!cancelled) {
+						const appPath = queue.shift();
+						if (!appPath) {
+							return;
+						}
+						const fileWithinProject = appPath.split('/').slice(1).join('/');
+						try {
+							const response = await queryClient.fetchQuery(
+								getComponentFileQueryOptions({ ...instanceParams, project, file: fileWithinProject }),
+							);
+							loaded.push({ appPath, fileWithinProject, content: response.message ?? '' });
+						} catch {
+							// Skip files that fail to load.
+						}
 					}
-					const fileWithinProject = appPath.split('/').slice(1).join('/');
-					try {
-						const response = await queryClient.fetchQuery(
-							getComponentFileQueryOptions({ ...instanceParams, project, file: fileWithinProject }),
-						);
-						loaded.push({ appPath, fileWithinProject, content: response.message ?? '' });
-					} catch {
-						// Skip files that fail to load.
+				};
+				await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, sourceFiles.length) }, fetchNext));
+				if (cancelled) {
+					return;
+				}
+
+				const projectPrefix = `file:///${project}/`;
+				const alreadyLive = monaco.editor.getModels()
+					.filter(model => model.uri.toString().startsWith(projectPrefix)).length;
+				const registrable: LoadedFile[] = [];
+				for (const file of loaded) {
+					if (file.appPath === openPathRef.current) {
+						continue;
 					}
+					// Don't register oversized files: their full text would be cloned to
+					// the language worker (see MAX_WORKER_MODEL_CHARS) and can crash it.
+					if (file.content.length > MAX_WORKER_MODEL_CHARS) {
+						continue;
+					}
+					const existing = monaco.editor.getModel(monaco.Uri.parse(`file:///${file.appPath}`));
+					if (existing) {
+						// A kept model can outlive its file's content (e.g. the file was
+						// deleted and recreated) — refresh it, unless the editor owns it.
+						if (!existing.isAttachedToEditor() && existing.getValue() !== file.content) {
+							existing.setValue(file.content);
+						}
+						continue;
+					}
+					registrable.push(file);
 				}
-			};
-			await Promise.all(Array.from({ length: Math.min(FETCH_CONCURRENCY, sourceFiles.length) }, fetchNext));
-			if (cancelled) {
-				return;
-			}
+				const { selected, dropped } = selectFilesWithinModelBudget(registrable, alreadyLive);
+				for (const file of selected) {
+					const uri = monaco.Uri.parse(`file:///${file.appPath}`);
+					monaco.editor.createModel(file.content, modelLanguage(file.appPath), uri);
+				}
+				if (dropped > 0) {
+					console.info(
+						`[harper] type intelligence: skipped ${dropped} of ${registrable.length} project files (model budget)`,
+					);
+				}
 
-			for (const file of loaded) {
-				if (file.appPath === openPathRef.current) {
-					continue;
-				}
-				// Don't register oversized files: their full text would be cloned to
-				// the language worker (see MAX_WORKER_MODEL_CHARS) and can crash it.
-				if (file.content.length > MAX_WORKER_MODEL_CHARS) {
-					continue;
-				}
-				const uri = monaco.Uri.parse(`file:///${file.appPath}`);
-				if (monaco.editor.getModel(uri)) {
-					continue;
-				}
-				monaco.editor.createModel(file.content, modelLanguage(file.appPath), uri);
-			}
+				const tsconfig = loaded.find(file => TSCONFIG.test(file.fileWithinProject));
+				applyProjectPathConfig(project, tsconfig?.content);
 
-			const tsconfig = loaded.find(file => TSCONFIG.test(file.fileWithinProject));
-			applyProjectPathConfig(project, tsconfig?.content);
-
-			// Acquire npm @types for the packages these files import. Scan scripts
-			// only — declaration and JSON files don't introduce new dependencies.
-			const scriptSources = loaded
-				.filter(file =>
-					/\.(tsx?|jsx?|mjs|cjs|mts|cts)$/i.test(file.appPath) && !/\.d\.ts$/i.test(file.appPath)
-					&& file.content.length <= MAX_WORKER_MODEL_CHARS
-				)
-				.map(file => file.content);
-			void acquireApplicationTypes(scriptSources);
-		})();
+				// Acquire npm @types for the packages these files import. Scan scripts
+				// only — declaration and JSON files don't introduce new dependencies.
+				const scriptSources = loaded
+					.filter(file =>
+						/\.(tsx?|jsx?|mjs|cjs|mts|cts)$/i.test(file.appPath) && !/\.d\.ts$/i.test(file.appPath)
+						&& file.content.length <= MAX_WORKER_MODEL_CHARS
+					)
+					.map(file => file.content);
+				void acquireApplicationTypes(scriptSources);
+			})();
+		}
 
 		return () => {
 			cancelled = true;
-			// Dispose this project's models (ours and any the editor opened) so
-			// switching applications doesn't accumulate stale models. Leave any
-			// model the editor is currently showing.
-			const prefix = `file:///${project}/`;
-			for (const model of monaco.editor.getModels()) {
-				if (model.uri.toString().startsWith(prefix) && !model.isAttachedToEditor()) {
-					model.dispose();
-				}
-			}
+			activeIntelligenceProject = undefined;
+			// The open file's model is still attached while this cleanup runs (the
+			// editor swaps or disposes it afterwards), so it can't be swept here —
+			// sweep a tick later, by which time the next effect run (if any) has
+			// claimed its own project via `activeIntelligenceProject`.
+			setTimeout(() => {
+				sweepStaleApplicationModels(monaco.editor.getModels(), activeIntelligenceProject);
+			}, 0);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [project, filesKey]);
+	}, [project, context, filesKey]);
 }
