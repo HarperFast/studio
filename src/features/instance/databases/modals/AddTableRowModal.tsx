@@ -165,7 +165,6 @@ export function AddTableRowModal({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"
-							className="rounded-full"
 							onClick={onSubmitClick}
 							accessKey="s"
 							disabled={!addTableRecordData || !isValidJSON || isAddTableRecordsPending}

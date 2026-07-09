@@ -89,7 +89,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
 			<DialogTrigger asChild>
 				<div className="shrink-0 py-4">
-					<Button variant="positiveOutline" className="w-full rounded-full" size="lg" accessKey="t">
+					<Button variant="positiveOutline" className="w-full" size="lg" accessKey="t">
 						<Plus />
 						<span>
 							Create a <u>T</u>able
@@ -175,7 +175,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 							)}
 						/>
 						<DialogFooter>
-							<Button type="submit" variant="submit" className="rounded-full">
+							<Button type="submit" variant="submit">
 								<Table />
 								Create New Table
 							</Button>

@@ -118,7 +118,7 @@ export function ResetPassword() {
 							</FormItem>
 						)}
 					/>
-					<Button variant="submit" type="submit" disabled={isPending} className="w-full my-2 rounded-full">
+					<Button variant="submit" type="submit" disabled={isPending} className="w-full my-2">
 						Submit New Password
 					</Button>
 				</form>

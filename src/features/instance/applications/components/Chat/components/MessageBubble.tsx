@@ -1,6 +1,8 @@
 import { isTextUIPart, isToolUIPart, type UIMessage } from 'ai';
 import { Bot, User } from 'lucide-react';
 import { motion } from 'motion/react';
+import { groupMessageParts } from './groupMessageParts';
+import { ToolCallGroup } from './ToolCallGroup';
 import { ToolInvocation } from './ToolInvocation';
 
 interface MessageBubbleProps {
@@ -14,6 +16,13 @@ interface MessageBubbleProps {
 export function MessageBubble(
 	{ message: m, onApprove, onDeny, onAlwaysApprove, approvingToolCallIds }: MessageBubbleProps,
 ) {
+	// An assistant message exists before any of its parts stream in; hide the empty bubble
+	// so the thinking indicator stands alone until there is real content.
+	const hasVisibleContent = m.parts?.some(part => (isTextUIPart(part) && part.text.length > 0) || isToolUIPart(part));
+	if (!hasVisibleContent) {
+		return null;
+	}
+
 	return (
 		<motion.div
 			key={m.id}
@@ -25,15 +34,29 @@ export function MessageBubble(
 				{m.role === 'user' ? <User size={18} /> : <Bot size={18} />}
 			</div>
 			<div className="content">
-				{m.parts?.map((part, i) => {
+				{groupMessageParts(m.parts).map(item => {
+					if (item.kind === 'tool-group') {
+						return (
+							<ToolCallGroup
+								key={item.parts[0].toolCallId}
+								parts={item.parts}
+								onApprove={onApprove}
+								onDeny={onDeny}
+								onAlwaysApprove={onAlwaysApprove}
+								approvingToolCallIds={approvingToolCallIds}
+							/>
+						);
+					}
+
+					const { part, index } = item;
 					if (isTextUIPart(part)) {
-						return <div key={i} className="text-block">{part.text}</div>;
+						return <div key={index} className="text-block">{part.text}</div>;
 					}
 
 					if (isToolUIPart(part)) {
 						return (
 							<ToolInvocation
-								key={i}
+								key={index}
 								part={part}
 								onApprove={onApprove}
 								onDeny={onDeny}

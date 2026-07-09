@@ -83,13 +83,13 @@ export function DownloadApplicationModal() {
 				</Label>
 
 				<div className="flex w-full gap-4">
-					<Button type="button" variant="ghostOutline" className="w-full rounded-full" onClick={closeModal}>
+					<Button type="button" variant="ghostOutline" className="w-full" onClick={closeModal}>
 						Cancel
 					</Button>
 					<Button
 						variant="positive"
 						type="button"
-						className="w-full rounded-full"
+						className="w-full"
 						disabled={isPending}
 						autoFocus={true}
 						onClick={onClickYes}

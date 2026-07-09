@@ -62,12 +62,11 @@ export function ConfirmDeletionModal({
 				)}
 				<DialogFooter>
 					<div className="flex justify-center space-x-5">
-						<Button type="button" className="rounded-full" onClick={() => setIsModalOpen(false)}>
+						<Button type="button" onClick={() => setIsModalOpen(false)}>
 							<ArrowLeft /> Cancel
 						</Button>
 						<Button
 							variant="destructive"
-							className="rounded-full"
 							onClick={deletionConfirmed}
 							disabled={deletionPending}
 						>

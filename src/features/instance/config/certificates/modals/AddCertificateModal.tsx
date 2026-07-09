@@ -241,7 +241,6 @@ export function AddCertificateModal({
 								<Button
 									variant="destructiveOutline"
 									type="button"
-									className="rounded-full"
 									onClick={onClickCancel}
 									disabled={isPending}
 								>
@@ -250,7 +249,6 @@ export function AddCertificateModal({
 								<Button
 									type="submit"
 									variant="submit"
-									className="rounded-full"
 									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
 								>
 									<Save /> Add Certificate

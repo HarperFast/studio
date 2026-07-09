@@ -1,8 +1,7 @@
 import { cva } from 'class-variance-authority';
 
-const hoverBounce = 'hover:-translate-y-1 transition duration-200';
 const outlineCommon =
-	'border bg-transparent border-2 text-foreground shadow-xs hover:bg-accent/60 dark:text-white dark:hover:bg-grey-700/40';
+	'bg-transparent text-foreground shadow-xs transition-colors duration-200 hover:bg-accent/60 dark:text-white dark:hover:bg-grey-700/40';
 export const buttonVariants = cva(
 	`inline-flex
   items-center
@@ -38,16 +37,16 @@ export const buttonVariants = cva(
 				link: 'text-primary underline-offset-4 hover:underline',
 				positive: 'bg-green text-white shadow-xs hover:bg-green/90',
 				warning: 'bg-yellow text-white shadow-xs hover:bg-yellow/90',
-				outline: `${outlineCommon} ${hoverBounce}`,
-				ghostOutline: `${outlineCommon} ${hoverBounce} border-none`,
-				positiveOutline: `${outlineCommon} ${hoverBounce} border-green`,
-				destructiveOutline: `${outlineCommon} ${hoverBounce} border-destructive`,
-				defaultOutline: `${outlineCommon} ${hoverBounce} border-primary`,
+				outline: `border-2 ${outlineCommon}`,
+				ghostOutline: outlineCommon,
+				positiveOutline: `border-2 border-green ${outlineCommon}`,
+				destructiveOutline: `border-2 border-destructive ${outlineCommon}`,
+				defaultOutline: `border-2 border-primary ${outlineCommon}`,
 			},
 			size: {
 				default: 'h-9 px-4 py-2 has-[>svg]:px-3',
-				sm: 'h-8 rounded-md px-3 has-[>svg]:px-2.5',
-				lg: 'h-10 rounded-md px-6 has-[>svg]:px-4 text-md',
+				sm: 'h-8 px-3 has-[>svg]:px-2.5',
+				lg: 'h-10 px-6 has-[>svg]:px-4 text-md',
 				icon: 'size-9',
 			},
 		},

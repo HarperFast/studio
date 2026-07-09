@@ -174,7 +174,6 @@ export function ProfileIndex() {
 						<Button
 							type="submit"
 							variant="submit"
-							className="rounded-full"
 							disabled={isUpdatePending || !isDirty || !isValid}
 						>
 							<Save /> Update Profile

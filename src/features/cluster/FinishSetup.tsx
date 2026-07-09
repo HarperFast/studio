@@ -167,7 +167,7 @@ export function FinishSetup() {
 								)}
 							/>
 
-							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2 rounded-full">
+							<Button disabled={isPending} type="submit" variant="submit" className="w-full my-2">
 								Create Admin User
 							</Button>
 						</form>

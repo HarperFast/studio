@@ -173,7 +173,7 @@ export function RedeployApplicationModal() {
 							<Button
 								type="button"
 								variant="ghostOutline"
-								className="w-full rounded-full"
+								className="w-full"
 								onClick={closeModal}
 								disabled={isPending}
 							>
@@ -227,7 +227,7 @@ export function RedeployApplicationModal() {
 									<Button
 										variant="positiveOutline"
 										type="submit"
-										className="w-full rounded-full"
+										className="w-full"
 										disabled={isPending}
 									>
 										<RefreshCwIcon /> Redeploy Application
@@ -235,7 +235,7 @@ export function RedeployApplicationModal() {
 									<Button
 										type="button"
 										variant="ghostOutline"
-										className="w-full rounded-full"
+										className="w-full"
 										onClick={closeModal}
 										disabled={isPending}
 									>

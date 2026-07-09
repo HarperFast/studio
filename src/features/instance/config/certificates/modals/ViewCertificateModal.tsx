@@ -145,7 +145,6 @@ export function ViewCertificateModal({
 								<Button
 									type="button"
 									variant="destructiveOutline"
-									className="rounded-full"
 									onClick={onCertificateRemoveClicked}
 									disabled={isRemovePending}
 								>
@@ -155,7 +154,6 @@ export function ViewCertificateModal({
 								<Button
 									type="button"
 									variant="defaultOutline"
-									className="rounded-full"
 									onClick={() => closeModal()}
 								>
 									Close

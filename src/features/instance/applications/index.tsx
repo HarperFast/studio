@@ -11,7 +11,6 @@ import { EditorViewProvider } from './context/EditorViewProvider';
 import { AddDirectoryOrFileModal } from './modals/AddDirectoryOrFileModal';
 import { DeleteDirectoryOrFileModal } from './modals/DeleteDirectoryOrFileModal';
 import { DownloadApplicationModal } from './modals/DownloadApplicationModal';
-import { NewTableModal } from './modals/NewTableModal';
 import { OverwriteConfirmModal } from './modals/OverwriteConfirmModal';
 import { RedeployApplicationModal } from './modals/RedeployApplicationModal';
 import { RenameFileModal } from './modals/RenameFileModal';
@@ -64,7 +63,6 @@ export function ApplicationsEditor() {
 			</div>
 
 			<AddDirectoryOrFileModal />
-			<NewTableModal />
 			<DeleteDirectoryOrFileModal />
 			<DownloadApplicationModal />
 			<RedeployApplicationModal />

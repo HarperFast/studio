@@ -30,9 +30,15 @@ export interface DeploymentEventLogEntry {
 export interface DeploymentPeerResult {
 	node: string;
 	status?: string;
-	error?: string;
+	/** Harper >= 5.1 records `{ message, code }`; raw replicator results can be a bare string. */
+	error?: string | DeploymentPeerError | null;
 	started_at?: number;
 	completed_at?: number;
+}
+
+export interface DeploymentPeerError {
+	message?: string;
+	code?: string | number;
 }
 
 export interface DeploymentError {

@@ -6,7 +6,6 @@ describe('getMediaFileType', () => {
 		expect(getMediaFileType('logo.png')).toEqual({ kind: 'image', mime: 'image/png' });
 		expect(getMediaFileType('photo.jpg')).toEqual({ kind: 'image', mime: 'image/jpeg' });
 		expect(getMediaFileType('photo.jpeg')).toEqual({ kind: 'image', mime: 'image/jpeg' });
-		expect(getMediaFileType('icon.svg')).toEqual({ kind: 'image', mime: 'image/svg+xml' });
 		expect(getMediaFileType('favicon.ico')).toEqual({ kind: 'image', mime: 'image/x-icon' });
 		expect(getMediaFileType('next-gen.avif')).toEqual({ kind: 'image', mime: 'image/avif' });
 	});
@@ -28,6 +27,10 @@ describe('getMediaFileType', () => {
 		expect(getMediaFileType('README')).toBeUndefined();
 		expect(getMediaFileType('')).toBeUndefined();
 		expect(getMediaFileType(undefined)).toBeUndefined();
+	});
+
+	it('does not treat SVG as base64 media — it is markup, handled by getMarkupImageType', () => {
+		expect(getMediaFileType('icon.svg')).toBeUndefined();
 	});
 });
 

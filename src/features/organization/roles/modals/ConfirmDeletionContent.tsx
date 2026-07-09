@@ -18,14 +18,12 @@ export function ConfirmDeletionContent({
 				<Button
 					type="button"
 					variant="defaultOutline"
-					className="rounded-full"
 					onClick={() => setIsConfirmingRoleDeletion(false)}
 				>
 					Cancel
 				</Button>
 				<Button
 					variant="destructiveOutline"
-					className="rounded-full"
 					onClick={onRoleDeleteClick}
 					disabled={isRoleDeletionPending}
 				>

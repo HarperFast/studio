@@ -299,7 +299,6 @@ function EditOrganizationRoleModalContent({
 										<Button
 											type="button"
 											variant="destructiveOutline"
-											className="rounded-full"
 											onClick={() => setIsConfirmingRoleDeletion(true)}
 											disabled={isRoleUpdatePending}
 										>
@@ -309,7 +308,6 @@ function EditOrganizationRoleModalContent({
 									{update && (
 										<Button
 											variant="submit"
-											className="rounded-full"
 											disabled={!isValidJSON || isRoleUpdatePending || !form.formState.isValid
 												|| (!form.formState.isDirty && !isPermissionsDirty)}
 										>

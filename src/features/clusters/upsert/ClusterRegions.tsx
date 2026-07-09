@@ -104,7 +104,6 @@ export function ClusterRegions({
 					<Button
 						type="button"
 						variant="positiveOutline"
-						className="rounded-full"
 						onClick={onAddARegionClick}
 					>
 						<PlusIcon />

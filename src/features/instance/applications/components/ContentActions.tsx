@@ -86,7 +86,7 @@ export function ContentActions({
 	const onRedeployClick = useSetWatchedValue('ShowRedeployApplicationModal', true);
 	const onSaveClick = useEmitToListeners('SaveFile', true);
 	const onRevertChangesClicked = useEmitToListeners('RevertChanges', true);
-	const onNewTableClick = useEmitToListeners('ShowNewTableModal', true);
+	const onNewTableClick = useEmitToListeners('AddSchemaTable', true);
 	const onNavigateBackClick = useEmitToListeners('NavigateBack', true);
 	const onNavigateForwardClick = useEmitToListeners('NavigateForward', true);
 	const canNavigateBack = useWatchedValue('CanNavigateBack', false).value;

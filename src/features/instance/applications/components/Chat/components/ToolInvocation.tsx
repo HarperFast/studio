@@ -105,7 +105,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 								type="button"
 								size="sm"
 								variant="outline"
-								className="h-8 text-xs"
+								className="h-8 text-xs approval-outline"
 								onClick={() => onAlwaysApprove?.(part.toolCallId)}
 								disabled={isApproving}
 							>
@@ -115,7 +115,7 @@ export function ToolInvocation({ part, onApprove, onDeny, onAlwaysApprove, isApp
 								type="button"
 								size="sm"
 								variant="outline"
-								className="h-8 text-xs"
+								className="h-8 text-xs approval-outline"
 								onClick={() => onDeny?.(part.toolCallId)}
 								disabled={isApproving}
 							>

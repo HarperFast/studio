@@ -46,7 +46,6 @@ export function ClusterBilling({
 				<Button
 					type="button"
 					variant="defaultOutline"
-					className="rounded-full"
 					disabled={isPending}
 					onClick={onGoBackToDetails}
 				>
@@ -56,7 +55,6 @@ export function ClusterBilling({
 					disabled={isPending || !hasValidPaymentMethod || replacingPaymentMethod}
 					type="submit"
 					variant="submit"
-					className="rounded-full"
 					onClick={onSubmit}
 				>
 					{clusterId ? 'Edit Cluster' : 'Create New Cluster'} <ArrowRightIcon />
