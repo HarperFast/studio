@@ -1,5 +1,5 @@
 diff --git a/dist/cjs/load-matches.cjs b/dist/cjs/load-matches.cjs
-index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee3361927e93a 100644
+index c09976a80c2c112b7dac6f941e643c81eeaf8d52..9858f1f29c91f4e859ad4cf1e586722730c44754 100644
 --- a/dist/cjs/load-matches.cjs
 +++ b/dist/cjs/load-matches.cjs
 @@ -5,6 +5,31 @@ const require_root = require("./root.cjs");
@@ -13,7 +13,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
 +		this.name = "MatchCancel";
 +	}
 +}
-+const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError;
++const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError || err instanceof Error && err.name === "MatchCancel";
 +const getMatchOrThrowCancelled = (inner, matchId, cleanupMatch) => {
 +	const match = inner.router.getMatch(matchId);
 +	if (match) return match;
@@ -34,7 +34,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  const triggerOnReady = (inner) => {
  	if (!inner.rendered) {
  		inner.rendered = true;
-@@ -435,46 +460,50 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -435,46 +460,51 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  		loaderShouldRunAsync = status === "success" && (invalid || (shouldReload ?? staleMatchShouldReload));
  		if (preload && route.options.preload === false) {} else if (loaderShouldRunAsync && !inner.sync && shouldReloadInBackground) {
  			loaderIsRunningAsync = true;
@@ -74,6 +74,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  	} else {
 -		const prevMatch = inner.router.getMatch(matchId);
 +		const prevMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++		cleanupMatch = prevMatch;
  		const activeIdAtIndex = inner.router.stores.matchesId.get()[index];
  		const previousRouteMatchId = (activeIdAtIndex && inner.router.stores.matchStores.get(activeIdAtIndex) || null)?.routeId === routeId ? activeIdAtIndex : inner.router.stores.matches.get().find((d) => d.routeId === routeId)?.id;
  		const preload = resolvePreload(inner, matchId);
@@ -94,7 +95,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  			match._nonReactive.loaderPromise = require_utils.createControlledPromise();
  			if (nextPreload !== match.preload) inner.updateMatch(matchId, (prev) => ({
  				...prev,
-@@ -483,7 +512,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -483,7 +513,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  			await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
  		}
  	}
@@ -103,7 +104,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  	if (!loaderIsRunningAsync) {
  		match._nonReactive.loaderPromise?.resolve();
  		match._nonReactive.loadPromise?.resolve();
-@@ -500,8 +529,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -500,8 +530,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  			isFetching: nextIsFetching,
  			invalid: false
  		}));
@@ -114,7 +115,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  };
  async function loadMatches(arg) {
  	const inner = arg;
-@@ -525,6 +554,7 @@ async function loadMatches(arg) {
+@@ -525,6 +555,7 @@ async function loadMatches(arg) {
  	const maxIndexExclusive = beforeLoadNotFound && inner.preload ? 0 : boundaryIndex !== void 0 ? Math.min(boundaryIndex + 1, baseMaxIndexExclusive) : baseMaxIndexExclusive;
  	let firstNotFound;
  	let firstUnhandledRejection;
@@ -122,7 +123,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  	for (let i = 0; i < maxIndexExclusive; i++) matchPromises.push(loadRouteMatch(inner, matchPromises, i));
  	try {
  		await Promise.all(matchPromises);
-@@ -533,10 +563,15 @@ async function loadMatches(arg) {
+@@ -533,10 +564,15 @@ async function loadMatches(arg) {
  		for (const result of settled) {
  			if (result.status !== "rejected") continue;
  			const reason = result.reason;
@@ -138,7 +139,7 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..a07b029f79682a0d84d9e69cea1ee336
  		if (firstUnhandledRejection !== void 0) throw firstUnhandledRejection;
  	}
  	const notFoundToThrow = firstNotFound ?? (beforeLoadNotFound && !inner.preload ? beforeLoadNotFound : void 0);
-@@ -651,6 +686,7 @@ const componentTypes = [
+@@ -651,6 +687,7 @@ const componentTypes = [
  	"notFoundComponent"
  ];
  //#endregion
@@ -159,7 +160,7 @@ index b928d955ea81a572f2770baf30bfc9001e4a9011..c9f95fdc964f0bb03474c8b4c3914b73
  					if (err.options.reloadDocument) return;
  					return await this.preloadRoute({
 diff --git a/dist/esm/load-matches.js b/dist/esm/load-matches.js
-index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a86412098544b60ab12 100644
+index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f8253bec33e2b4aba3e412b1195c4cfbb9e68a70 100644
 --- a/dist/esm/load-matches.js
 +++ b/dist/esm/load-matches.js
 @@ -5,6 +5,31 @@ import { rootRouteId } from "./root.js";
@@ -173,7 +174,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
 +		this.name = "MatchCancel";
 +	}
 +}
-+const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError;
++const isMatchLoadCancelledError = (err) => err instanceof MatchLoadCancelledError || err instanceof Error && err.name === "MatchCancel";
 +const getMatchOrThrowCancelled = (inner, matchId, cleanupMatch) => {
 +	const match = inner.router.getMatch(matchId);
 +	if (match) return match;
@@ -194,7 +195,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  const triggerOnReady = (inner) => {
  	if (!inner.rendered) {
  		inner.rendered = true;
-@@ -435,46 +460,50 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -435,46 +460,51 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  		loaderShouldRunAsync = status === "success" && (invalid || (shouldReload ?? staleMatchShouldReload));
  		if (preload && route.options.preload === false) {} else if (loaderShouldRunAsync && !inner.sync && shouldReloadInBackground) {
  			loaderIsRunningAsync = true;
@@ -234,6 +235,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  	} else {
 -		const prevMatch = inner.router.getMatch(matchId);
 +		const prevMatch = getMatchOrThrowCancelled(inner, matchId, cleanupMatch);
++		cleanupMatch = prevMatch;
  		const activeIdAtIndex = inner.router.stores.matchesId.get()[index];
  		const previousRouteMatchId = (activeIdAtIndex && inner.router.stores.matchStores.get(activeIdAtIndex) || null)?.routeId === routeId ? activeIdAtIndex : inner.router.stores.matches.get().find((d) => d.routeId === routeId)?.id;
  		const preload = resolvePreload(inner, matchId);
@@ -254,7 +256,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  			match._nonReactive.loaderPromise = createControlledPromise();
  			if (nextPreload !== match.preload) inner.updateMatch(matchId, (prev) => ({
  				...prev,
-@@ -483,7 +512,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -483,7 +513,7 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  			await handleLoader(preload, prevMatch, previousRouteMatchId, match, route);
  		}
  	}
@@ -263,7 +265,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  	if (!loaderIsRunningAsync) {
  		match._nonReactive.loaderPromise?.resolve();
  		match._nonReactive.loadPromise?.resolve();
-@@ -500,8 +529,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
+@@ -500,8 +530,8 @@ const loadRouteMatch = async (inner, matchPromises, index) => {
  			isFetching: nextIsFetching,
  			invalid: false
  		}));
@@ -274,7 +276,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  };
  async function loadMatches(arg) {
  	const inner = arg;
-@@ -525,6 +554,7 @@ async function loadMatches(arg) {
+@@ -525,6 +555,7 @@ async function loadMatches(arg) {
  	const maxIndexExclusive = beforeLoadNotFound && inner.preload ? 0 : boundaryIndex !== void 0 ? Math.min(boundaryIndex + 1, baseMaxIndexExclusive) : baseMaxIndexExclusive;
  	let firstNotFound;
  	let firstUnhandledRejection;
@@ -282,7 +284,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  	for (let i = 0; i < maxIndexExclusive; i++) matchPromises.push(loadRouteMatch(inner, matchPromises, i));
  	try {
  		await Promise.all(matchPromises);
-@@ -533,10 +563,15 @@ async function loadMatches(arg) {
+@@ -533,10 +564,15 @@ async function loadMatches(arg) {
  		for (const result of settled) {
  			if (result.status !== "rejected") continue;
  			const reason = result.reason;
@@ -298,7 +300,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f393043a1ced515b8bd16a8641209854
  		if (firstUnhandledRejection !== void 0) throw firstUnhandledRejection;
  	}
  	const notFoundToThrow = firstNotFound ?? (beforeLoadNotFound && !inner.preload ? beforeLoadNotFound : void 0);
-@@ -651,6 +686,6 @@ const componentTypes = [
+@@ -651,6 +687,6 @@ const componentTypes = [
  	"notFoundComponent"
  ];
  //#endregion
