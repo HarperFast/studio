@@ -42,14 +42,17 @@ export function installStaleDeployReload(reload: () => void = () => window.locat
 	window.addEventListener('vite:preloadError', () => {
 		// sessionStorage can be unavailable (disabled storage, some private modes);
 		// treat that as "recently reloaded" and don't risk a reload loop.
-		let reloadedAt: number;
 		try {
-			reloadedAt = Number(sessionStorage.getItem(RELOADED_AT_KEY) ?? 0);
+			const reloadedAt = Number(sessionStorage.getItem(RELOADED_AT_KEY) ?? 0);
+			if (Date.now() - reloadedAt < RELOAD_AT_MOST_EVERY_MS) {
+				return;
+			}
+			// Stamp only when actually reloading — a fixed cooldown from the last
+			// reload. Stamping on every event would slide the window forward and
+			// suppress recovery indefinitely while failures keep arriving (e.g. a
+			// reload that landed on another stale copy of the app).
 			sessionStorage.setItem(RELOADED_AT_KEY, String(Date.now()));
 		} catch {
-			return;
-		}
-		if (Date.now() - reloadedAt < RELOAD_AT_MOST_EVERY_MS) {
 			return;
 		}
 		state.reload();
