@@ -10,51 +10,55 @@
  * bounded:
  *
  *   - `selectFilesWithinModelBudget` caps how many sibling models
- *     `useApplicationTypeIntelligence` registers for one project, by model
- *     count and by total characters.
- *   - `sweepStaleApplicationModels` disposes `file:///` models that no longer
- *     belong to the active project and are not attached to an editor — the
- *     models that `keepCurrentModel` and cross-project navigation would
- *     otherwise leave behind forever.
+ *     `useApplicationTypeIntelligence` registers, by live model count and by
+ *     total characters across live models.
+ *   - `sweepStaleApplicationModels` disposes `file:///` models outside the
+ *     kept URI prefix that are not attached to an editor — the models that
+ *     `keepCurrentModel` and cross-project navigation would otherwise leave
+ *     behind forever.
+ *   - `enforceModelCeiling` holds the total live `file:///` model population
+ *     at the ceiling as editors create models of their own (browsing files
+ *     the budget skipped, peeked library declarations), which no batch budget
+ *     can see coming.
  */
 
 /**
- * Ceiling for sibling models registered per project, counting the project
- * models already alive. Monaco's listener-leak warning fires at 200 live
- * models; 150 leaves headroom for the open file, models the editor creates on
- * its own (e.g. peeked library declarations), and other editors on the page.
+ * Ceiling for live `file:///` models, tab-wide. Monaco's listener-leak
+ * warning fires at 200 live models; 150 leaves headroom for the open file,
+ * `inmemory://` editors elsewhere on the page, and transient churn.
  */
-export const MAX_PROJECT_SIBLING_MODELS = 150;
+export const MAX_LIVE_APPLICATION_MODELS = 150;
 
 /**
- * Total-character budget across one project's registered sibling models, so
- * the eager worker sync can't accumulate an out-of-memory clone volume even
- * when every individual file is under `MAX_WORKER_MODEL_CHARS`.
+ * Total-character budget across live `file:///` models, so the eager worker
+ * sync can't accumulate an out-of-memory clone volume even when every
+ * individual file is under `MAX_WORKER_MODEL_CHARS`.
  */
-export const MAX_SIBLING_MODEL_CHARS_TOTAL = 4 * 1024 * 1024;
+export const MAX_APPLICATION_MODEL_CHARS_TOTAL = 4 * 1024 * 1024;
 
 export interface SiblingFileLike {
 	content: string;
 }
 
 /**
- * Pick which sibling files fit within the model budget, given how many project
- * models are already alive. Files that don't fit are skipped (not truncated) —
- * a skipped sibling degrades to "cannot find module" for its importers, which
- * beats degrading the whole tab.
+ * Pick which sibling files fit within the model budget, given how many models
+ * are already alive and how many characters they already hold. Files that
+ * don't fit are skipped (not truncated) — a skipped sibling degrades to
+ * "cannot find module" for its importers, which beats degrading the whole tab.
  */
 export function selectFilesWithinModelBudget<T extends SiblingFileLike>(
 	files: readonly T[],
 	alreadyLiveModels: number,
+	alreadyLiveChars: number,
 ): { selected: T[]; dropped: number } {
 	const selected: T[] = [];
 	let dropped = 0;
 	let liveModels = alreadyLiveModels;
-	let totalChars = 0;
+	let totalChars = alreadyLiveChars;
 	for (const file of files) {
 		if (
-			liveModels >= MAX_PROJECT_SIBLING_MODELS
-			|| totalChars + file.content.length > MAX_SIBLING_MODEL_CHARS_TOTAL
+			liveModels >= MAX_LIVE_APPLICATION_MODELS
+			|| totalChars + file.content.length > MAX_APPLICATION_MODEL_CHARS_TOTAL
 		) {
 			dropped++;
 			continue;
@@ -75,14 +79,17 @@ export interface ApplicationModelLike {
 
 /**
  * Dispose every `file:///` model that is not attached to an editor and does
- * not belong to `keepProject`. Non-`file` schemes (`inmemory://` modals, the
+ * not start with `keepPrefix`. Non-`file` schemes (`inmemory://` modals, the
  * config editor, …) are never touched. Returns how many models were disposed.
+ *
+ * `keepPrefix` must be built with `monaco.Uri` (see `projectUriPrefix` in
+ * `useApplicationTypeIntelligence`): `uri.toString()` percent-encodes, so a
+ * raw string literal would never match a name that needs encoding.
  */
 export function sweepStaleApplicationModels(
 	models: readonly ApplicationModelLike[],
-	keepProject: string | undefined,
+	keepPrefix: string | undefined,
 ): number {
-	const keepPrefix = keepProject ? `file:///${keepProject}/` : undefined;
 	let swept = 0;
 	for (const model of models) {
 		const uri = model.uri.toString();
@@ -96,6 +103,43 @@ export function sweepStaleApplicationModels(
 			continue;
 		}
 		model.dispose();
+		swept++;
+	}
+	return swept;
+}
+
+/**
+ * Hold the live `file:///` model population at `ceiling` as models are
+ * created outside the budgeted registration pass — the editor makes models of
+ * its own for files the budget skipped and for peeked library declarations,
+ * so browsing many files within one project would otherwise grow the
+ * population without bound (no context switch ever triggers a sweep).
+ *
+ * Called from an `onDidCreateModel` listener: retires the oldest detached
+ * models first, and never touches the just-created model (it is still
+ * detached at creation time) or anything attached to an editor. Returns how
+ * many models were disposed.
+ */
+export function enforceModelCeiling(
+	models: readonly ApplicationModelLike[],
+	justCreatedUri: string,
+	ceiling: number,
+): number {
+	const fileModels = models.filter(model => model.uri.toString().startsWith('file:///'));
+	let excess = fileModels.length - ceiling;
+	if (excess <= 0) {
+		return 0;
+	}
+	let swept = 0;
+	for (const model of fileModels) {
+		if (excess <= 0) {
+			break;
+		}
+		if (model.uri.toString() === justCreatedUri || model.isAttachedToEditor()) {
+			continue;
+		}
+		model.dispose();
+		excess--;
 		swept++;
 	}
 	return swept;
