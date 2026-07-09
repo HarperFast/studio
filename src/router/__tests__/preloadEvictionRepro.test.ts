@@ -87,4 +87,32 @@ describe('preloadRoute survives its match being evicted mid-flight', () => {
 
 		expect(consoleErrorSpy).not.toHaveBeenCalled();
 	});
+
+	test('eviction during concurrent preloads of the same route cleans up without errors or hangs', async () => {
+		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		let resolveLoader: ((value: { ok: true }) => void) | undefined;
+		const { router } = setup(
+			() =>
+				new Promise((resolve) => {
+					resolveLoader = resolve;
+				}),
+		);
+
+		// second preload of the same route joins the first one's in-flight
+		// loaderPromise (the concurrent-load branch of loadRouteMatch)
+		const firstPreload = router.preloadRoute({ to: '/foo' });
+		await Promise.resolve();
+		const secondPreload = router.preloadRoute({ to: '/foo' });
+		await Promise.resolve();
+
+		router.clearExpiredCache();
+
+		resolveLoader?.({ ok: true });
+		// both preloads must settle (eviction cleanup resolves the controlled
+		// promises the second preload is parked on) and neither may console.error
+		await expect(firstPreload).resolves.toBeUndefined();
+		await expect(secondPreload).resolves.toBeUndefined();
+
+		expect(consoleErrorSpy).not.toHaveBeenCalled();
+	});
 });
