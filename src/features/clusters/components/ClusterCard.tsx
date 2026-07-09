@@ -12,6 +12,7 @@ import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
+import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
@@ -36,6 +37,7 @@ import {
 	GlobeIcon,
 	KeyIcon,
 	LifeBuoyIcon,
+	Loader2,
 	PlayIcon,
 	RocketIcon,
 	RotateCwIcon,
@@ -62,6 +64,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const [isTerminateClusterModalOpen, setIsTerminateClusterModalOpen] = useState(false);
 	const [stopConfirmOpen, setStopConfirmOpen] = useState(false);
 	const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+	const [safeModeAction, setSafeModeAction] = useState<'start' | 'restart' | null>(null);
 	const { run: runClusterOp, isPending: isClusterOpPending } = useClusterContainerOps(cluster);
 
 	// Container-op availability by cluster state (see the per-instance menu for the same idea):
@@ -70,6 +73,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const isClusterRunning = cluster.status === 'RUNNING';
 	const isClusterStopped = cluster.status === 'STOPPED';
 	const isClusterPartial = cluster.status === 'PARTIAL';
+
+	// Temporary status badge on the card for container-op states. Transitional states tell the user
+	// what's happening (Stopping/Starting/Restarting) and clear on their own as the clusters list
+	// polls; STOPPED/PARTIAL are resting labels. RUNNING stays clean (no badge) on this route.
+	const isClusterTransitioning = cluster.status === 'STOPPING' || cluster.status === 'STARTING'
+		|| cluster.status === 'RESTARTING';
+	const showContainerOpBadge = isClusterTransitioning || isClusterStopped || isClusterPartial;
 
 	const isActive = useMemo(
 		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
@@ -238,15 +248,14 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		update && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
-			onClick: () => void runClusterOp('start', { strategy: 'parallel' }),
+			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
 		update && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
-			onClick: () =>
-				void runClusterOp('start', { safeMode: true, strategy: 'parallel', label: 'Starting in safe mode' }),
+			onClick: () => setSafeModeAction('start'),
 			icon: <LifeBuoyIcon />,
 			label: 'Start in safe mode',
 		},
@@ -260,8 +269,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		update && isClusterRunning && {
 			key: 'container-restart-safe',
 			disabled: isClusterOpPending,
-			onClick: () =>
-				void runClusterOp('restart', { safeMode: true, strategy: 'parallel', label: 'Restarting in safe mode' }),
+			onClick: () => setSafeModeAction('restart'),
 			icon: <LifeBuoyIcon />,
 			label: 'Restart in safe mode',
 		},
@@ -365,6 +373,12 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				<CardContent className="flex items-center justify-between gap-2">
 					<ClusterProgress cluster={cluster} />
 					{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
+					{showContainerOpBadge && cluster.status && (
+						<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
+							{isClusterTransitioning && <Loader2 className="animate-spin" />}
+							{capitalizeWords(cluster.status)}
+						</Badge>
+					)}
 					{clusterHasFailed && cluster.status && (
 						<>
 							<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
@@ -398,7 +412,28 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 					setRestartOpen={setRestartDialogOpen}
 					onConfirmRestart={(strategy: ContainerStrategy) => {
 						setRestartDialogOpen(false);
-						void runClusterOp('restart', { strategy });
+						void runClusterOp('restart', { safeMode: false, strategy });
+					}}
+				/>
+
+				<SafeModeConfirmDialog
+					open={safeModeAction !== null}
+					setOpen={(isOpen) => {
+						if (!isOpen) { setSafeModeAction(null); }
+					}}
+					action={safeModeAction ?? 'restart'}
+					clusterName={cluster.name}
+					isPending={isClusterOpPending}
+					onConfirm={() => {
+						const action = safeModeAction;
+						setSafeModeAction(null);
+						if (action) {
+							void runClusterOp(action, {
+								safeMode: true,
+								strategy: 'parallel',
+								label: action === 'start' ? 'Starting in safe mode' : 'Restarting in safe mode',
+							});
+						}
 					}}
 				/>
 			</Card>
