@@ -36,6 +36,8 @@ export interface SecretMetadata {
 	kid: string | null;
 	/** Component names allowed to receive this secret at load time. */
 	grants: string[];
+	/** Materialize into every component's process.env instead of per-component grants (mutually exclusive with grants). */
+	processEnv?: boolean;
 	metadata: Record<string, unknown>;
 	/** Stored without key-identity verification (kid-less envelope, or no custody at write time). */
 	unverified: boolean;

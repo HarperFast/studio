@@ -8,7 +8,16 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useLoaderData, useParams } from '@tanstack/react-router';
-import { GlobeIcon, HandshakeIcon, KeyIcon, LockIcon, PieChartIcon, RocketIcon, ShieldCheckIcon, UsersIcon } from 'lucide-react';
+import {
+	GlobeIcon,
+	HandshakeIcon,
+	KeyIcon,
+	LockIcon,
+	PieChartIcon,
+	RocketIcon,
+	ShieldCheckIcon,
+	UsersIcon,
+} from 'lucide-react';
 import { ReactNode, Suspense } from 'react';
 
 const sharedClasses = 'flex items-center p-2 rounded-lg group';
@@ -25,8 +34,9 @@ export function ConfigIndex() {
 	const certsAvailable = wasAReleasedBeforeB('4.6.0', version);
 	const deploymentsAvailable = wasAReleasedBeforeB('5.1.0', version);
 	// The hdb_secret store and its operations (list_secrets / set_secret / …) ship in Harper 5.2
-	// (harper#1554's upgrade directive is tagged 5.2.0 — revisit if it ships in a different release).
-	const secretsSupported = wasAReleasedBeforeB('5.2.0', version);
+	// (harper#1554). Floor at the earliest 5.2 prerelease so alpha/beta dev builds pass too — a
+	// plain '5.2.0' gate would exclude every prerelease (SemVer ranks prereleases below the release).
+	const secretsSupported = wasAReleasedBeforeB('5.2.0-alpha.1', version);
 
 	const { clusterId } = params;
 	const canManage = useInstanceManagePermission();
