@@ -92,6 +92,53 @@ export function syntheticAttributeNames(
 		.map((attribute) => attribute.attribute);
 }
 
+/**
+ * The stored foreign-key attribute a relationship reads from, inferred by naming convention —
+ * `product` → `productId`, `pets` → `petIds` — since describe_table does not expose the
+ * `@relationship(from/to)` mapping. Browse collapses the pair into just the relationship column
+ * (the chips show the same key values), with the foreign key re-showable from the Columns picker
+ * in case the inference is wrong for an unconventionally named key.
+ */
+export function relationshipForeignKeyName(
+	attributeName: string,
+	info: RelationshipAttributeInfo,
+	attributes: InstanceAttribute[],
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): string | undefined {
+	const bases = [attributeName];
+	if (info.isToMany && attributeName.endsWith('s')) {
+		bases.push(attributeName.slice(0, -1));
+	}
+	const suffixes = info.isToMany ? ['ids', '_ids'] : ['id', '_id'];
+	const candidates = new Set(bases.flatMap((base) => suffixes.map((suffix) => (base + suffix).toLowerCase())));
+	return attributes.find((attribute) =>
+		!attribute.is_primary_key
+		&& !attribute.computed
+		&& !getRelationshipInfo(attribute, databaseTables)
+		&& candidates.has(attribute.attribute.toLowerCase())
+	)?.attribute;
+}
+
+/** Foreign-key column names browse hides by default because a relationship column covers them. */
+export function collapsedForeignKeyNames(
+	instanceTable: InstanceTable | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): string[] {
+	const attributes = instanceTable?.attributes ?? [];
+	const names = new Set<string>();
+	for (const attribute of attributes) {
+		const info = getRelationshipInfo(attribute, databaseTables);
+		if (!info) {
+			continue;
+		}
+		const foreignKey = relationshipForeignKeyName(attribute.attribute, info, attributes, databaseTables);
+		if (foreignKey) {
+			names.add(foreignKey);
+		}
+	}
+	return [...names];
+}
+
 export type GetAttribute = string | { name: string; select: string[] };
 
 /**
