@@ -106,4 +106,30 @@ describe('installStaleDeployReload', () => {
 		delete (window as Window & { __harperStaleDeployReloadState__?: unknown }).__harperStaleDeployReloadState__;
 		expect(() => reportPossibleStaleDeploy()).not.toThrow();
 	});
+
+	it('does not reload when sessionStorage is unavailable', () => {
+		// Disabled storage / some private modes throw on access — bail rather than
+		// reload blind (which could loop with no persisted cooldown to stop it).
+		const reload = vi.fn();
+		installStaleDeployReload(reload);
+		const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new Error('storage disabled');
+		});
+		try {
+			firePreloadError();
+			expect(reload).not.toHaveBeenCalled();
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it('installs with the default window.location.reload when no callback is given', () => {
+		// Exercises the default argument; a persisted cooldown suppresses the actual
+		// reload so jsdom never attempts navigation.
+		sessionStorage.setItem('Studio:StaleDeployReloadedAt', String(Date.now()));
+		expect(() => {
+			installStaleDeployReload();
+			firePreloadError();
+		}).not.toThrow();
+	});
 });
