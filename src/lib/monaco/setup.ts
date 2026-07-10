@@ -17,6 +17,7 @@
  * This module has side effects and must run before the first `<Editor>` mounts,
  * so it is imported at the top of `main.tsx`.
  */
+import { reportPossibleStaleDeploy } from '@/lib/installStaleDeployReload';
 import { loader } from '@monaco-editor/react';
 // Typed Monaco API namespace.
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
@@ -53,27 +54,39 @@ import yamlWorker from 'monaco-yaml/yaml.worker?worker';
 
 const globalScope = globalThis as unknown as { MonacoEnvironment?: monaco.Environment };
 
+function createLanguageWorker(label: string): Worker {
+	switch (label) {
+		case 'json':
+			return new jsonWorker();
+		case 'css':
+		case 'scss':
+		case 'less':
+			return new cssWorker();
+		case 'html':
+		case 'handlebars':
+		case 'razor':
+			return new htmlWorker();
+		case 'typescript':
+		case 'javascript':
+			return new tsWorker();
+		case 'yaml':
+			return new yamlWorker();
+		default:
+			return new editorWorker();
+	}
+}
+
 globalScope.MonacoEnvironment = {
 	getWorker(_workerId: string, label: string): Worker {
-		switch (label) {
-			case 'json':
-				return new jsonWorker();
-			case 'css':
-			case 'scss':
-			case 'less':
-				return new cssWorker();
-			case 'html':
-			case 'handlebars':
-			case 'razor':
-				return new htmlWorker();
-			case 'typescript':
-			case 'javascript':
-				return new tsWorker();
-			case 'yaml':
-				return new yamlWorker();
-			default:
-				return new editorWorker();
-		}
+		const worker = createLanguageWorker(label);
+		// A worker whose hashed chunk 404s after a redeploy fails to load and
+		// fires its own `error` event — NOT Vite's `vite:preloadError`, so the
+		// window listener never sees it. Left unhandled, Monaco silently swaps in
+		// a degraded main-thread fallback for the rest of the session (issue
+		// #1406). Route the failure into the same one-shot, rate-limited reload
+		// recovery so the session heals on the fresh chunks instead.
+		worker.addEventListener('error', () => reportPossibleStaleDeploy());
+		return worker;
 	},
 };
 

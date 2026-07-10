@@ -115,10 +115,16 @@ export function sweepStaleApplicationModels(
  * so browsing many files within one project would otherwise grow the
  * population without bound (no context switch ever triggers a sweep).
  *
- * Called from an `onDidCreateModel` listener: retires the oldest detached
- * models first, and never touches the just-created model (it is still
- * detached at creation time) or anything attached to an editor. Returns how
- * many models were disposed.
+ * Called from an `onDidCreateModel` listener: retires detached models in the
+ * order `getModels()` returns them — Monaco preserves model-creation order, so
+ * that is effectively oldest-first — and never touches the just-created model
+ * (it is still detached at creation time) or anything attached to an editor.
+ * Returns how many models were disposed.
+ *
+ * The per-call `filter` is an O(live-models) pass, bounded by the ceiling
+ * (150), so it stays sub-millisecond; a running counter would scale better if
+ * the ceiling is ever raised substantially, but isn't worth the extra state
+ * (models are also disposed from the sweep and by Monaco itself) here.
  */
 export function enforceModelCeiling(
 	models: readonly ApplicationModelLike[],
