@@ -45,40 +45,9 @@ export function ConfigIndex() {
 	);
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
 
+	// Overview lives at the top (rendered by the nav bars below); the rest are kept alphabetical.
 	const children = canManage && (
 		<>
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'config/users')}
-					className={sharedClasses}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<UsersIcon className="hidden md:inline-block" /> <span className="ms-3">Users</span>
-				</Link>
-			</li>
-			<li>
-				<Link
-					to={buildAbsoluteLinkToPage(params, 'config/roles')}
-					className={sharedClasses}
-					inactiveProps={inactiveProps}
-					activeProps={activeProps}
-				>
-					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
-				</Link>
-			</li>
-			{deploymentsAvailable && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/deployments')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<RocketIcon className="hidden md:inline-block" /> <span className="ms-3">Deployments</span>
-					</Link>
-				</li>
-			)}
 			{certsAvailable && (
 				<li>
 					<Link
@@ -88,6 +57,18 @@ export function ConfigIndex() {
 						activeProps={activeProps}
 					>
 						<ShieldCheckIcon className="hidden md:inline-block" /> <span className="ms-3">Certificates</span>
+					</Link>
+				</li>
+			)}
+			{deploymentsAvailable && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/deployments')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<RocketIcon className="hidden md:inline-block" /> <span className="ms-3">Deployments</span>
 					</Link>
 				</li>
 			)}
@@ -103,18 +84,16 @@ export function ConfigIndex() {
 					</Link>
 				</li>
 			)}
-			{certsAvailable && (
-				<li>
-					<Link
-						to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
-						className={sharedClasses}
-						inactiveProps={inactiveProps}
-						activeProps={activeProps}
-					>
-						<KeyIcon className="hidden md:inline-block" /> <span className="ms-3">SSH Keys</span>
-					</Link>
-				</li>
-			)}
+			<li>
+				<Link
+					to={buildAbsoluteLinkToPage(params, 'config/roles')}
+					className={sharedClasses}
+					inactiveProps={inactiveProps}
+					activeProps={activeProps}
+				>
+					<HandshakeIcon className="hidden md:inline-block" /> <span className="ms-3">Roles</span>
+				</Link>
+			</li>
 			{
 				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
 			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated
@@ -133,6 +112,28 @@ export function ConfigIndex() {
 					</Link>
 				</li>
 			)}
+			{certsAvailable && (
+				<li>
+					<Link
+						to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
+						className={sharedClasses}
+						inactiveProps={inactiveProps}
+						activeProps={activeProps}
+					>
+						<KeyIcon className="hidden md:inline-block" /> <span className="ms-3">SSH Keys</span>
+					</Link>
+				</li>
+			)}
+			<li>
+				<Link
+					to={buildAbsoluteLinkToPage(params, 'config/users')}
+					className={sharedClasses}
+					inactiveProps={inactiveProps}
+					activeProps={activeProps}
+				>
+					<UsersIcon className="hidden md:inline-block" /> <span className="ms-3">Users</span>
+				</Link>
+			</li>
 		</>
 	);
 
