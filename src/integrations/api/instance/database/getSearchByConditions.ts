@@ -221,6 +221,14 @@ function translateRelationshipColumnFilter(
 	const [, subProperty, rest] = match;
 	const subAttribute = relationshipInfo.relatedAttributes.find((related) => related.attribute === subProperty);
 	const condition = translateColumnFilterToSearchCondition(subProperty, rest, subAttribute);
+	if (subProperty === relationshipInfo.relatedPrimaryKey && relationshipInfo.foreignKeyAttribute) {
+		// The stored foreign key holds exactly the related primary key: query it directly (uses
+		// its index, and works on servers whose operations API can't execute relationship joins).
+		return {
+			...condition,
+			search_attribute: relationshipInfo.foreignKeyAttribute,
+		};
+	}
 	return {
 		...condition,
 		search_attribute: [key, subProperty],

@@ -28,18 +28,25 @@ export function relationshipKeyValues(value: unknown, info: RelationshipAttribut
 
 export function RelationshipCell({
 	value,
-	rowKeyValue,
+	record,
+	primaryKey,
 	info,
 }: {
 	value: unknown;
-	/** This row's primary key value, for reverse-key links into the related table. */
-	rowKeyValue?: unknown;
+	/** The full row, for the stored foreign key and the primary key (reverse-key links). */
+	record?: Record<string, unknown>;
+	primaryKey?: string;
 	info: RelationshipAttributeInfo;
 }) {
 	const params: { organizationId?: string; clusterId?: string; instanceId?: string; databaseName?: string } = useParams(
 		{ strict: false },
 	);
-	const keyValues = relationshipKeyValues(value, info);
+	const rowKeyValue = primaryKey ? record?.[primaryKey] : undefined;
+	let keyValues = relationshipKeyValues(value, info);
+	if (!keyValues.length && info.foreignKeyAttribute && record) {
+		// Unresolved by the server, but the stored foreign key holds the related key(s) directly.
+		keyValues = relationshipKeyValues(record[info.foreignKeyAttribute], info);
+	}
 	const relatedTableLink = buildAbsoluteLinkToDatabasePage({ ...params, tableName: info.relatedTableName });
 	// Filter on the related table's own key pointing back at this row: all related records at once.
 	const reverseSearch = info.reverseForeignKey && rowKeyValue != null

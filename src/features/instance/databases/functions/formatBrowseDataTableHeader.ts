@@ -1,9 +1,6 @@
 import { RelationshipCell } from '@/features/instance/databases/components/RelationshipCell';
-import {
-	getRelationshipInfo,
-	RelationshipAttributeInfo,
-} from '@/features/instance/databases/functions/relationshipAttributes';
-import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
+import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
+import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
 import { CellContext, ColumnDef } from '@tanstack/react-table';
 import { createElement } from 'react';
 
@@ -17,7 +14,7 @@ declare module '@tanstack/react-table' {
 
 export function formatBrowseDataTableHeader(
 	instanceTable?: InstanceTable,
-	databaseTables?: InstanceDatabaseTableMap,
+	relationshipInfoMap: Record<string, RelationshipAttributeInfo> = {},
 ): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
 	primaryKey: string;
@@ -34,9 +31,19 @@ export function formatBrowseDataTableHeader(
 	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const normalColumns: ColumnDef<Record<string, unknown>>[] = [];
 	const timeColumns: ColumnDef<Record<string, unknown>>[] = [];
+
+	const relationshipCell =
+		(info: RelationshipAttributeInfo) => (context: CellContext<Record<string, unknown>, unknown>) =>
+			createElement(RelationshipCell, {
+				value: context.getValue(),
+				record: context.row.original,
+				primaryKey,
+				info,
+			});
+
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
-		const relationshipInfo = getRelationshipInfo(attributes[i], databaseTables, instanceTable);
+		const relationshipInfo = relationshipInfoMap[attribute];
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
@@ -47,14 +54,7 @@ export function formatBrowseDataTableHeader(
 			enableColumnFilter: Boolean(is_primary_key || indexed || relationshipInfo),
 			// enableResizing: true,
 			size: sizeByAttributeType(type),
-			cell: relationshipInfo
-				? (context: CellContext<Record<string, unknown>, unknown>) =>
-					createElement(RelationshipCell, {
-						value: context.getValue(),
-						rowKeyValue: context.row.original[primaryKey],
-						info: relationshipInfo,
-					})
-				: renderPlainCell,
+			cell: relationshipInfo ? relationshipCell(relationshipInfo) : renderPlainCell,
 			meta: relationshipInfo ? { relationshipInfo } : undefined,
 		};
 		if (is_primary_key) {
@@ -67,6 +67,26 @@ export function formatBrowseDataTableHeader(
 			normalColumns.push(dataTableColumn);
 		}
 	}
+
+	// Relationships known only from component schemas (Harper 5.1 omits relationship attributes
+	// from describe) get a synthesized column: rows carry no value for them, so the cell renders
+	// from the stored foreign key or the reverse-key link.
+	const describedAttributes = new Set(attributes.map((attribute) => attribute.attribute));
+	for (const [attribute, relationshipInfo] of Object.entries(relationshipInfoMap)) {
+		if (describedAttributes.has(attribute)) {
+			continue;
+		}
+		normalColumns.push({
+			header: attribute,
+			accessorKey: attribute,
+			enableSorting: false,
+			enableColumnFilter: true,
+			size: sizeByAttributeType('String'),
+			cell: relationshipCell(relationshipInfo),
+			meta: { relationshipInfo },
+		});
+	}
+
 	return {
 		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...timeColumns],
 		primaryKey,

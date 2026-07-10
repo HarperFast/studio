@@ -1,3 +1,4 @@
+import { SchemaRelationship } from '@/features/instance/databases/functions/schemaRelationships';
 import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 
 /**
@@ -17,12 +18,18 @@ export interface RelationshipAttributeInfo {
 	relatedAttributes: InstanceAttribute[];
 	/** True for one-to-many/many-to-many (the value is an array of related records). */
 	isToMany: boolean;
-	/** False when describe carried no element type (legacy attribute registries): the values
-	 * can't be requested via a nested select, so cells fall back to the reverse-key link. */
+	/** False when the server can't resolve the values via a nested select (the attribute is
+	 * missing from describe, or describe carried no element type): cells fall back to the
+	 * stored foreign key or the reverse-key link. */
 	resolvable: boolean;
 	/** Attribute on the related table pointing back at this row's primary key (e.g. Tracks.albumId
 	 * for Albums.tracks). Lets cells link to the related table filtered to this row's records. */
 	reverseForeignKey?: string;
+	/** Stored attribute on this table holding the related key(s) (e.g. Product.categoryId for
+	 * Product.category). Exact when it comes from `@relationship(from:)` in a component schema,
+	 * inferred by naming convention otherwise. Backs the column collapse, unresolved-cell
+	 * rendering, and primary-key filter shortcicuits. */
+	foreignKeyAttribute?: string;
 }
 
 /** The table another attribute's type points at, if any: `type` for to-one, `elements` for to-many. */
@@ -70,20 +77,39 @@ export function getRelationshipInfo(
 		return undefined;
 	}
 	const isToMany = attribute.type === 'array';
-	return {
+	const info: RelationshipAttributeInfo = {
 		relatedTableName,
 		relatedPrimaryKey,
-		// Exclude the related table's own relationship/computed attributes: filters join one hop
-		// (`[column, subProperty]`), so deeper synthetic attributes can't be queried through here.
-		relatedAttributes: (relatedTable.attributes ?? []).filter(
-			(related) => !related.computed && !relatedTableNameOf(related, databaseTables),
-		),
+		relatedAttributes: joinableAttributes(relatedTable, databaseTables),
 		isToMany,
 		resolvable: !isToMany || Boolean(attribute.elements),
 		reverseForeignKey: isToMany && ownerTable
 			? inferReverseForeignKey(ownerTable, relatedTable, databaseTables)
 			: undefined,
 	};
+	if (ownerTable) {
+		info.foreignKeyAttribute = relationshipForeignKeyName(
+			attribute.attribute,
+			info,
+			ownerTable.attributes ?? [],
+			databaseTables,
+		);
+	}
+	return info;
+}
+
+/**
+ * The related table's attributes that filters can join through. Excludes its own
+ * relationship/computed attributes: filters join one hop (`[column, subProperty]`), so deeper
+ * synthetic attributes can't be queried through here.
+ */
+function joinableAttributes(
+	relatedTable: InstanceTable,
+	databaseTables: InstanceDatabaseTableMap,
+): InstanceAttribute[] {
+	return (relatedTable.attributes ?? []).filter(
+		(related) => !related.computed && !relatedTableNameOf(related, databaseTables),
+	);
 }
 
 /**
@@ -123,10 +149,18 @@ function inferReverseForeignKey(
 	)?.attribute;
 }
 
-/** Map of attribute name → relationship info for every relationship attribute of a table. */
+/**
+ * Map of attribute name → relationship info for every relationship attribute of a table.
+ *
+ * Two sources merge here: attributes reported by describe (detected by their table-named
+ * type/elements, keys inferred by convention), and relationships declared in component schema
+ * files (`schemaRelationships`) — the only source on Harper 5.1, and authoritative for the
+ * `from:`/`to:` key mappings wherever available.
+ */
 export function getRelationshipInfoMap(
 	instanceTable: InstanceTable | undefined,
 	databaseTables: InstanceDatabaseTableMap | undefined,
+	schemaRelationships?: SchemaRelationship[],
 ): Record<string, RelationshipAttributeInfo> {
 	const map: Record<string, RelationshipAttributeInfo> = {};
 	for (const attribute of instanceTable?.attributes ?? []) {
@@ -134,6 +168,24 @@ export function getRelationshipInfoMap(
 		if (info) {
 			map[attribute.attribute] = info;
 		}
+	}
+	for (const declared of schemaRelationships ?? []) {
+		const relatedTable = databaseTables?.[declared.relatedTableName];
+		const relatedPrimaryKey = relatedTable?.primary_key ?? relatedTable?.hash_attribute;
+		if (!relatedTable || !relatedPrimaryKey || !databaseTables) {
+			continue;
+		}
+		const detected = map[declared.attribute];
+		map[declared.attribute] = {
+			relatedTableName: declared.relatedTableName,
+			relatedPrimaryKey,
+			relatedAttributes: joinableAttributes(relatedTable, databaseTables),
+			isToMany: declared.isToMany,
+			// Nested selects only resolve when the server reports the attribute in describe.
+			resolvable: detected?.resolvable ?? false,
+			reverseForeignKey: (declared.isToMany ? declared.to : undefined) ?? detected?.reverseForeignKey,
+			foreignKeyAttribute: declared.from ?? detected?.foreignKeyAttribute,
+		};
 	}
 	return map;
 }
@@ -188,19 +240,12 @@ export function relationshipForeignKeyName(
 
 /** Foreign-key column names browse hides by default because a relationship column covers them. */
 export function collapsedForeignKeyNames(
-	instanceTable: InstanceTable | undefined,
-	databaseTables: InstanceDatabaseTableMap | undefined,
+	relationshipInfoMap: Record<string, RelationshipAttributeInfo>,
 ): string[] {
-	const attributes = instanceTable?.attributes ?? [];
 	const names = new Set<string>();
-	for (const attribute of attributes) {
-		const info = getRelationshipInfo(attribute, databaseTables);
-		if (!info) {
-			continue;
-		}
-		const foreignKey = relationshipForeignKeyName(attribute.attribute, info, attributes, databaseTables);
-		if (foreignKey) {
-			names.add(foreignKey);
+	for (const info of Object.values(relationshipInfoMap)) {
+		if (info.foreignKeyAttribute) {
+			names.add(info.foreignKeyAttribute);
 		}
 	}
 	return [...names];
