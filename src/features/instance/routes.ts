@@ -5,6 +5,7 @@ import { createBrowseRouteTree } from '@/features/instance/databases/routes';
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
 import { createLogRouteTree } from '@/features/instance/log/routes';
 import { createStatusRouteTree } from '@/features/instance/status/routes';
+import { createTerminalRouteTree } from '@/features/instance/terminal/routes';
 
 export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') {
 	const instanceLayoutRoute = createInstanceLayoutRoute(mode);
@@ -16,6 +17,7 @@ export function createInstanceRouteTree(mode: 'local' | 'cluster' | 'instance') 
 		createStatusRouteTree(instanceLayoutRoute),
 		createConfigRouteTree(instanceLayoutRoute),
 		createBrowseRouteTree(instanceLayoutRoute),
+		createTerminalRouteTree(instanceLayoutRoute),
 	];
 
 	return instanceLayoutRoute.addChildren(children);

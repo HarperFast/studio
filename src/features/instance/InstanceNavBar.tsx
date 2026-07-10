@@ -18,7 +18,16 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLoaderData, useParams } from '@tanstack/react-router';
-import { DatabaseIcon, GaugeIcon, Menu, NotepadTextIcon, PackageIcon, ServerIcon, SettingsIcon } from 'lucide-react';
+import {
+	DatabaseIcon,
+	GaugeIcon,
+	Menu,
+	NotepadTextIcon,
+	PackageIcon,
+	ServerIcon,
+	SettingsIcon,
+	SquareTerminalIcon,
+} from 'lucide-react';
 import { ReactNode, useMemo } from 'react';
 
 interface Link {
@@ -81,6 +90,12 @@ export function InstanceNavBar() {
 				to: buildAbsoluteLinkToPage(params, 'config'),
 				icon: <SettingsIcon className="inline-block" />,
 				name: 'Config',
+			},
+			// PROTOTYPE: super_user-only interactive terminal. canManage === super_user here.
+			canManage && {
+				to: buildAbsoluteLinkToPage(params, 'terminal'),
+				icon: <SquareTerminalIcon className="inline-block" />,
+				name: 'Terminal',
 			},
 		].filter(excludeFalsy) satisfies Link[], [canManage, params, apisAvailable, statusAvailable]);
 	return (
