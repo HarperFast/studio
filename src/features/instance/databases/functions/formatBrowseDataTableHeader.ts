@@ -36,7 +36,7 @@ export function formatBrowseDataTableHeader(
 	const timeColumns: ColumnDef<Record<string, unknown>>[] = [];
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
-		const relationshipInfo = getRelationshipInfo(attributes[i], databaseTables);
+		const relationshipInfo = getRelationshipInfo(attributes[i], databaseTables, instanceTable);
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
@@ -49,7 +49,11 @@ export function formatBrowseDataTableHeader(
 			size: sizeByAttributeType(type),
 			cell: relationshipInfo
 				? (context: CellContext<Record<string, unknown>, unknown>) =>
-					createElement(RelationshipCell, { value: context.getValue(), info: relationshipInfo })
+					createElement(RelationshipCell, {
+						value: context.getValue(),
+						rowKeyValue: context.row.original[primaryKey],
+						info: relationshipInfo,
+					})
 				: renderPlainCell,
 			meta: relationshipInfo ? { relationshipInfo } : undefined,
 		};
