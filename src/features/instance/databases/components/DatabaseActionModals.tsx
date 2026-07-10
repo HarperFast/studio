@@ -69,6 +69,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	return (
 		<>
 			<CreateNewTableModal
+				key={createTarget ? `create-${createTarget.databaseName ?? ''}` : 'create-closed'}
 				isModalOpen={!!createTarget}
 				setIsModalOpen={open => setWatchedValue('ShowCreateTable', open ? (createTarget || {}) : false)}
 				databaseName={createTarget ? createTarget.databaseName : undefined}
@@ -76,6 +77,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 			/>
 			{addTarget && addInstanceTable && (
 				<AddTableRowModal
+					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
 					isModalOpen
 					setIsModalOpen={open => {
@@ -90,6 +92,9 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				/>
 			)}
 			<ImportDataModal
+				key={importTarget
+					? `import-${importTarget.databaseName ?? ''}/${importTarget.tableName ?? ''}`
+					: 'import-closed'}
 				isModalOpen={!!importTarget}
 				setIsModalOpen={open => setWatchedValue('ShowImportData', open ? (importTarget || {}) : false)}
 				instanceDatabaseMap={instanceDatabaseMap}

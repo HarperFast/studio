@@ -23,7 +23,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { Table } from 'lucide-react';
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -50,6 +49,8 @@ export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName,
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	const router = useRouter();
+	// The action-modal hub remounts this per target (via a `key`), so the form's defaultValues seed the
+	// prefilled database correctly on each open -- no manual reset effect needed.
 	const form = useForm({
 		resolver: zodResolver(CreateTableSchema),
 		defaultValues: {
@@ -58,16 +59,6 @@ export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName,
 			primaryKey: '',
 		},
 	});
-
-	// This modal is mounted persistently (not remounted per trigger), so re-seed the form with the
-	// target database each time it opens -- otherwise a right-click on a different database would keep
-	// the previously-prefilled name.
-	const { reset } = form;
-	useEffect(() => {
-		if (isModalOpen) {
-			reset({ databaseName: databaseName || '', tableName: '', primaryKey: '' });
-		}
-	}, [isModalOpen, databaseName, reset]);
 
 	const { mutate: submitNewTableData } = useCreateTableMutation();
 

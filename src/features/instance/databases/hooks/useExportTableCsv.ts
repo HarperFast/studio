@@ -53,7 +53,9 @@ export function useExportTableCsv() {
 				downloadLink.href = url;
 				downloadLink.setAttribute('download', `${databaseName}.${tableName}.${new Date().toISOString()}.csv`);
 				downloadLink.click();
-				URL.revokeObjectURL(url);
+				// Defer revocation: revoking synchronously can cancel the download before some browsers
+				// (Firefox, iOS Safari) have started fetching the blob.
+				setTimeout(() => URL.revokeObjectURL(url), 1000);
 				toast.success('CSV Exported!', { id });
 			} catch (err) {
 				toast.error(err instanceof Error ? err.message : 'Failed to export CSV', { id });
