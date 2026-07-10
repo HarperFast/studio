@@ -155,7 +155,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		allParams,
 	);
 
-	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName]);
+	// Reset to the first page when the table changes OR the applied filter changes. Without the
+	// filter dependency a stale page (e.g. page 3 -> offset 40) would be sent with the new filter,
+	// and a filter that matches fewer rows than that offset comes back empty (#1463).
+	const [pageIndex, setPageIndex] = useEffectedState(0, [databaseName, tableName, appliedSearchConditions]);
 	const [pageSize, setPageSize] = useState(20);
 
 	// The count comes from whichever describe carries it: the map when the server still returns counts
