@@ -17,6 +17,12 @@ export interface RelationshipAttributeInfo {
 	relatedAttributes: InstanceAttribute[];
 	/** True for one-to-many/many-to-many (the value is an array of related records). */
 	isToMany: boolean;
+	/** False when describe carried no element type (legacy attribute registries): the values
+	 * can't be requested via a nested select, so cells fall back to the reverse-key link. */
+	resolvable: boolean;
+	/** Attribute on the related table pointing back at this row's primary key (e.g. Tracks.albumId
+	 * for Albums.tracks). Lets cells link to the related table filtered to this row's records. */
+	reverseForeignKey?: string;
 }
 
 /** The table another attribute's type points at, if any: `type` for to-one, `elements` for to-many. */
@@ -24,13 +30,32 @@ function relatedTableNameOf(
 	attribute: InstanceAttribute,
 	databaseTables: InstanceDatabaseTableMap,
 ): string | undefined {
-	const typeName = attribute.type === 'array' ? attribute.elements : attribute.type;
-	return typeName && databaseTables[typeName] ? typeName : undefined;
+	if (attribute.type === 'array') {
+		if (attribute.elements) {
+			return databaseTables[attribute.elements] ? attribute.elements : undefined;
+		}
+		// Tables created before Harper 5 can carry legacy relationship attributes whose describe
+		// output is just {type: 'array'} with no element type. Fall back to matching the attribute
+		// name against sibling table names (tracks → Tracks / Track).
+		return findSiblingTableByName(databaseTables, attribute.attribute);
+	}
+	return attribute.type && databaseTables[attribute.type] ? attribute.type : undefined;
+}
+
+function findSiblingTableByName(
+	databaseTables: InstanceDatabaseTableMap,
+	attributeName: string,
+): string | undefined {
+	const lowered = attributeName.toLowerCase();
+	const variants = new Set([lowered, `${lowered}s`, lowered.replace(/s$/, '')]);
+	return Object.keys(databaseTables).find((tableName) => variants.has(tableName.toLowerCase()));
 }
 
 export function getRelationshipInfo(
 	attribute: InstanceAttribute,
 	databaseTables: InstanceDatabaseTableMap | undefined,
+	/** The table the attribute belongs to; when given, to-many infos get a `reverseForeignKey`. */
+	ownerTable?: InstanceTable,
 ): RelationshipAttributeInfo | undefined {
 	if (!databaseTables || attribute.is_primary_key || attribute.computed) {
 		return undefined;
@@ -44,6 +69,7 @@ export function getRelationshipInfo(
 	if (!relatedPrimaryKey) {
 		return undefined;
 	}
+	const isToMany = attribute.type === 'array';
 	return {
 		relatedTableName,
 		relatedPrimaryKey,
@@ -52,8 +78,49 @@ export function getRelationshipInfo(
 		relatedAttributes: (relatedTable.attributes ?? []).filter(
 			(related) => !related.computed && !relatedTableNameOf(related, databaseTables),
 		),
-		isToMany: attribute.type === 'array',
+		isToMany,
+		resolvable: !isToMany || Boolean(attribute.elements),
+		reverseForeignKey: isToMany && ownerTable
+			? inferReverseForeignKey(ownerTable, relatedTable, databaseTables)
+			: undefined,
 	};
+}
+
+/**
+ * The attribute on the related table that points back at the owner table's primary key —
+ * Tracks.albumId for Albums.tracks. Preferred source: a to-one relationship on the related table
+ * whose target is the owner table (its foreign key is the reverse key by definition). Fallback:
+ * the `<singular owner table>Id` naming convention.
+ */
+function inferReverseForeignKey(
+	ownerTable: InstanceTable,
+	relatedTable: InstanceTable,
+	databaseTables: InstanceDatabaseTableMap,
+): string | undefined {
+	const relatedAttributes = relatedTable.attributes ?? [];
+	for (const attribute of relatedAttributes) {
+		const backReference = getRelationshipInfo(attribute, databaseTables);
+		if (backReference && !backReference.isToMany && backReference.relatedTableName === ownerTable.name) {
+			const foreignKey = relationshipForeignKeyName(
+				attribute.attribute,
+				backReference,
+				relatedAttributes,
+				databaseTables,
+			);
+			if (foreignKey) {
+				return foreignKey;
+			}
+		}
+	}
+	const base = ownerTable.name.toLowerCase();
+	const candidates = new Set(
+		[base, base.replace(/s$/, '')].flatMap((name) => [`${name}id`, `${name}_id`]),
+	);
+	return relatedAttributes.find((attribute) =>
+		!attribute.is_primary_key
+		&& !attribute.computed
+		&& candidates.has(attribute.attribute.toLowerCase())
+	)?.attribute;
 }
 
 /** Map of attribute name → relationship info for every relationship attribute of a table. */
@@ -63,7 +130,7 @@ export function getRelationshipInfoMap(
 ): Record<string, RelationshipAttributeInfo> {
 	const map: Record<string, RelationshipAttributeInfo> = {};
 	for (const attribute of instanceTable?.attributes ?? []) {
-		const info = getRelationshipInfo(attribute, databaseTables);
+		const info = getRelationshipInfo(attribute, databaseTables, instanceTable);
 		if (info) {
 			map[attribute.attribute] = info;
 		}
@@ -155,7 +222,7 @@ export function buildRelationshipGetAttributes(
 	const selects: GetAttribute[] = [];
 	for (const attribute of instanceTable?.attributes ?? []) {
 		const info = getRelationshipInfo(attribute, databaseTables);
-		if (info) {
+		if (info?.resolvable) {
 			selects.push({ name: attribute.attribute, select: [info.relatedPrimaryKey] });
 		}
 	}

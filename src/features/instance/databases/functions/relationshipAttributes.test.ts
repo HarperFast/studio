@@ -159,3 +159,64 @@ describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
 		expect(collapsedForeignKeyNames(undefined, tables)).toEqual([]);
 	});
 });
+
+describe('legacy elements-less relationships and reverse foreign keys', () => {
+	// Shapes copied from a live 5.1.18 cluster whose Albums/Tracks tables were created under an
+	// older Harper: the legacy attribute registry kept `tracks` but without its element type.
+	const albums = {
+		schema: 'data',
+		name: 'Albums',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String', indexed: {} },
+			{ attribute: 'tracks', type: 'array' },
+		],
+	} as InstanceTable;
+	const tracksTable = {
+		schema: 'data',
+		name: 'Tracks',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'albumId', type: 'ID', indexed: {} },
+			{ attribute: 'name', type: 'String', indexed: {} },
+		],
+	} as InstanceTable;
+	const albumTables: InstanceDatabaseTableMap = { Albums: albums, Tracks: tracksTable };
+
+	it('detects an elements-less array by matching its name against sibling tables', () => {
+		const info = getRelationshipInfo(albums.attributes[2], albumTables, albums);
+		expect(info).toMatchObject({
+			relatedTableName: 'Tracks',
+			isToMany: true,
+			resolvable: false,
+			reverseForeignKey: 'albumId',
+		});
+	});
+
+	it('does not treat scalar arrays as relationships even if a table shares their name', () => {
+		const withTagsTable: InstanceDatabaseTableMap = {
+			...albumTables,
+			Tags: tracksTable,
+		};
+		expect(getRelationshipInfo({ attribute: 'tags', type: 'array', elements: 'String' }, withTagsTable))
+			.toBeUndefined();
+	});
+
+	it('omits unresolvable relationships from get_attributes', () => {
+		expect(buildRelationshipGetAttributes(albums, albumTables)).toBeUndefined();
+	});
+
+	it('only infers the reverse key when the owner table is known', () => {
+		expect(getRelationshipInfo(albums.attributes[2], albumTables)?.reverseForeignKey).toBeUndefined();
+	});
+
+	it('finds the reverse key through the related table back-reference relationship', () => {
+		// RelProduct.reviews: RelReview carries `product` (to-one back at RelProduct) whose
+		// foreign key is productId — the naming convention (relproductid) would never match.
+		const info = getRelationshipInfo(relProduct.attributes[4], tables, relProduct);
+		expect(info?.reverseForeignKey).toBe('productId');
+		expect(info?.resolvable).toBe(true);
+	});
+});
