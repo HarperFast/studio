@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 // Regression coverage for issue #1406: a redeploy invalidates this tab's hashed
-// chunks ("Failed to fetch dynamically imported module"), wedging routes and
-// Monaco's language workers. Vite reports each failure as `vite:preloadError`;
-// we recover by reloading once, without looping when reloading can't help.
+// chunks, wedging routes and Monaco's language workers. Two distinct signals
+// reach us — Vite's `vite:preloadError` (failed dynamic import) and a Monaco
+// worker's own `error` event (failed `new Worker()`, which does NOT fire
+// `vite:preloadError`) — and both funnel into one rate-limited reload.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { installStaleDeployReload } from './installStaleDeployReload';
+import { installStaleDeployReload, reportPossibleStaleDeploy } from './installStaleDeployReload';
 
 function firePreloadError() {
 	window.dispatchEvent(new Event('vite:preloadError'));
@@ -77,5 +78,32 @@ describe('installStaleDeployReload', () => {
 		installStaleDeployReload(reload);
 		firePreloadError();
 		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	// Regression for the gap Kris flagged in #1435: a stale Monaco worker chunk
+	// fires the worker's own `error` event, not `vite:preloadError`. The worker
+	// hook in `@/lib/monaco/setup` calls `reportPossibleStaleDeploy` directly.
+	it('reloads when the worker hook reports a stale deploy directly', () => {
+		const reload = vi.fn();
+		installStaleDeployReload(reload);
+		reportPossibleStaleDeploy();
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('shares one rate-limit budget across preload and worker signals', () => {
+		// A single stale deploy fails both a dynamic import and a worker load; the
+		// two signals must not each earn their own reload.
+		const reload = vi.fn();
+		installStaleDeployReload(reload);
+		firePreloadError();
+		reportPossibleStaleDeploy();
+		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	it('is a no-op before install (worker error before main.tsx wired it up)', () => {
+		// reportPossibleStaleDeploy must not throw if a worker somehow errors
+		// before installStaleDeployReload has run.
+		delete (window as Window & { __harperStaleDeployReloadState__?: unknown }).__harperStaleDeployReloadState__;
+		expect(() => reportPossibleStaleDeploy()).not.toThrow();
 	});
 });
