@@ -6,10 +6,11 @@ import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/g
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type StatusTabId, validateStatusSearch } from '../statusSearch.ts';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint.tsx';
 import { TimeRangePicker } from './components/TimeRangePicker.tsx';
 import { type AnalyticsContextValue, AnalyticsProvider } from './context/AnalyticsContext.tsx';
-import { DEFAULT_PRESET_ID, DEFAULT_REFRESH_MS, getPreset, type TimePresetId } from './context/timePresets.ts';
+import { getPreset, type TimePresetId } from './context/timePresets.ts';
 import { useAnalyticsCapability } from './hooks/useAnalyticsCapability.ts';
 import { DatabaseTab } from './tabs/DatabaseTab.tsx';
 import { HealthTab } from './tabs/HealthTab.tsx';
@@ -24,6 +25,8 @@ interface Props {
 	isLocalStudio: boolean;
 }
 
+// Labels for the tab ids the route's search schema defines; `satisfies`
+// keeps this list and STATUS_TAB_IDS from drifting apart.
 const TAB_DEFS = [
 	{ id: 'health', label: 'Health' },
 	{ id: 'traffic', label: 'Traffic' },
@@ -32,9 +35,9 @@ const TAB_DEFS = [
 	{ id: 'replication', label: 'Replication' },
 	{ id: 'storage', label: 'Storage' },
 	{ id: 'overview', label: 'Overview' },
-] as const;
+] as const satisfies readonly { id: StatusTabId; label: string }[];
 
-type TabId = (typeof TAB_DEFS)[number]['id'];
+type TabId = StatusTabId;
 
 export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 	const capability = useAnalyticsCapability(instanceParams);
@@ -69,14 +72,11 @@ export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
 
 function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 	const navigate = useNavigate();
-	const raw: { tab?: string; range?: string; refresh?: string | number } = useSearch({ strict: false });
-	const tab: TabId = TAB_DEFS.some((t) => t.id === raw.tab) ? (raw.tab as TabId) : 'health';
-	const presetId: TimePresetId = raw.range && VALID_PRESETS.includes(raw.range)
-		? (raw.range as TimePresetId)
-		: DEFAULT_PRESET_ID;
-	const refreshMs: number = raw.refresh !== undefined && VALID_REFRESH.includes(Number(raw.refresh))
-		? Number(raw.refresh)
-		: DEFAULT_REFRESH_MS;
+	// The route's validateSearch already normalized these; re-validating here
+	// only narrows the `strict: false` typing to the same single source of
+	// truth (statusSearch.ts) instead of hand-rolled casts.
+	const raw = useSearch({ strict: false });
+	const { tab, range: presetId, refresh: refreshMs } = validateStatusSearch(raw as Record<string, unknown>);
 
 	// The analytics window is a fixed [start, end] snapshot baked into every
 	// panel's query key, so "refresh" means sliding the window forward to a
@@ -135,15 +135,6 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 	const updateRefreshMs = useCallback((ms: number) => {
 		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms } });
 	}, [navigate, tab, presetId]);
-
-	// Strip our query params on unmount so they don't bleed into sibling
-	// routes (e.g. navigating from /status to /databases shouldn't carry
-	// tab/range/refresh forward).
-	useEffect(() => {
-		return () => {
-			void navigate({ search: undefined, replace: true });
-		};
-	}, [navigate]);
 
 	const ctxValue = useMemo<AnalyticsContextValue>(() => {
 		const preset = getPreset(presetId);
@@ -261,6 +252,3 @@ function TabBody({ picker, children }: { picker: React.ReactNode; children: Reac
 		</>
 	);
 }
-
-const VALID_PRESETS: readonly string[] = ['1h', '6h', '24h', '7d', '30d'];
-const VALID_REFRESH: readonly number[] = [0, 30_000, 60_000, 300_000];
