@@ -32,13 +32,12 @@ export function StorageTab() {
 }
 
 function TableSizePanels() {
-	const { timeRange, bucketMs, refreshIntervalMs, theme, instanceParams } = useAnalyticsContext();
+	const { timeRange, bucketMs, theme, instanceParams } = useAnalyticsContext();
 	const { data, isLoading, isError } = useAnalyticsRecords({
 		metric: 'table-size',
 		startTime: timeRange.startTime,
 		endTime: timeRange.endTime,
 		instanceParams,
-		refetchIntervalMs: refreshIntervalMs,
 		bucketMs,
 	});
 

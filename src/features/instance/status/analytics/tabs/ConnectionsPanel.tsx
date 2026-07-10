@@ -30,7 +30,7 @@ export function ConnectionsPanel() {
 }
 
 function ConnectionsPanelInner() {
-	const { timeRange, bucketMs, refreshIntervalMs, theme, instanceParams } = useAnalyticsContext();
+	const { timeRange, bucketMs, theme, instanceParams } = useAnalyticsContext();
 	// Chart-only ref; capturing the whole Card would include the action buttons
 	// in the exported PNG.
 	const chartRef = useRef<HTMLDivElement>(null);
@@ -40,7 +40,6 @@ function ConnectionsPanelInner() {
 		startTime: timeRange.startTime,
 		endTime: timeRange.endTime,
 		instanceParams,
-		refetchIntervalMs: refreshIntervalMs,
 		bucketMs,
 	});
 	const ws = useAnalyticsRecords({
@@ -48,7 +47,6 @@ function ConnectionsPanelInner() {
 		startTime: timeRange.startTime,
 		endTime: timeRange.endTime,
 		instanceParams,
-		refetchIntervalMs: refreshIntervalMs,
 		bucketMs,
 	});
 

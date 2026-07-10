@@ -4,7 +4,7 @@ import {
 	getRawAnalyticsQueryOptions,
 } from '@/integrations/api/instance/status/getAnalytics.ts';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { AnalyticsDataPoint } from '../types/analytics.ts';
 
 export interface UseAnalyticsRecordsArgs {
@@ -13,8 +13,6 @@ export interface UseAnalyticsRecordsArgs {
 	endTime: number;
 	conditions?: AnalyticsCondition[];
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
-	/** Polling cadence in ms. Set to 0 to disable. */
-	refetchIntervalMs?: number;
 	/** Required keys this metric's spec depends on. Missing keys surface via
 	 *  `missingFields`, which the renderer can use to show a precise empty
 	 *  state instead of a blank chart. */
@@ -46,27 +44,24 @@ const RESERVED = new Set(['time', 'node']);
 const EMPTY: readonly AnalyticsDataPoint[] = Object.freeze([]);
 
 /** Adapter from studio's `get_analytics` operation to the analytics-viz spec
- *  pipeline. Passes rows through verbatim, exposes a schema-drift signal so
- *  callers can render an explicit "field unavailable" state, and applies
- *  small jitter to the polling start time so a tab's many concurrent specs
- *  do not fire in lockstep on every refresh tick. */
+ *  pipeline. Passes rows through verbatim and exposes a schema-drift signal so
+ *  callers can render an explicit "field unavailable" state.
+ *
+ *  This hook never polls: a `[startTime, endTime]` window is a fixed snapshot
+ *  (it participates in the query key), so re-fetching it can only return the
+ *  same range. Auto-refresh works by the caller sliding the window forward
+ *  (see `StatusTabsInner`), which produces a new query key and one fresh
+ *  fetch per panel; `keepPreviousData` keeps the old series on screen while
+ *  the new window loads. */
 export function useAnalyticsRecords({
 	metric,
 	startTime,
 	endTime,
 	conditions,
 	instanceParams,
-	refetchIntervalMs = 60_000,
 	requiredFields,
 	bucketMs,
 }: UseAnalyticsRecordsArgs): UseAnalyticsRecordsResult {
-	// Per-spec startup jitter (0–500 ms) so 5–7 concurrent specs in one tab
-	// do not refire in the same render frame on auto-refresh.
-	const jitterRef = useRef<number | null>(null);
-	if (jitterRef.current === null) {
-		jitterRef.current = Math.floor(Math.random() * 500);
-	}
-
 	const queryOpts = getRawAnalyticsQueryOptions({
 		metric,
 		startTime,
@@ -78,17 +73,21 @@ export function useAnalyticsRecords({
 
 	const query = useQuery({
 		...queryOpts,
-		staleTime: refetchIntervalMs > 0 ? refetchIntervalMs : Infinity,
-		refetchInterval: refetchIntervalMs > 0 ? refetchIntervalMs + jitterRef.current : false,
+		// A fixed window's data is effectively immutable (Harper may still be
+		// aggregating the newest bucket, but the next window slide re-fetches
+		// it anyway), so never treat a cached window as stale — remounts and
+		// tab switches within one refresh period are served from cache.
+		staleTime: Infinity,
+		// …but do bound retention: every window slide strands the previous
+		// snapshot (up to the row cap) as an inactive cache entry, and the
+		// default 5-minute gcTime would hold a rolling backlog of them on a
+		// fast refresh cadence. One minute is enough for keepPreviousData to
+		// bridge the swap and for quick tab flips to hit cache.
+		gcTime: 60_000,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		placeholderData: keepPreviousData,
 	});
-
-	// React Query already pauses interval refetching when the tab is hidden;
-	// we don't add a visibility-driven refetch ourselves because that turns
-	// every alt-tab into a synchronized N-panel POST burst on the customer's
-	// Harper, bypassing staleTime entirely.
 
 	const data = (query.data ?? EMPTY) as AnalyticsDataPoint[];
 
