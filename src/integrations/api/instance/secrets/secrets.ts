@@ -119,6 +119,15 @@ export function listSecretsQueryOptions(params: InstanceClientIdConfig) {
 export interface SetSecretArgs extends SecretsPublicKeySource {
 	name: string;
 	value: string;
+	/**
+	 * Delivery tier. true → materialized onto `process.env` for every component (global); false →
+	 * scoped, exposed only to granted components via the `secrets` accessor. Omit to preserve the
+	 * stored tier (the backend defaults a brand-new secret to scoped). processEnv and grants are
+	 * mutually exclusive — a processEnv secret is global, so it rejects grants.
+	 */
+	processEnv?: boolean;
+	/** Initial grants for a scoped secret (the add flow; edit manages grants via grant/revoke). */
+	grants?: string[];
 }
 
 async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs, isRetry: boolean): Promise<{
@@ -135,6 +144,10 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 			operation: 'set_secret',
 			name: args.name,
 			envelope,
+			// Only send the tier fields when the caller set them, so a plain value rotation preserves
+			// the stored tier (the backend falls back to the existing row otherwise).
+			...(args.processEnv !== undefined ? { processEnv: args.processEnv } : {}),
+			...(args.grants !== undefined ? { grants: args.grants } : {}),
 		});
 		return data;
 	} catch (error) {

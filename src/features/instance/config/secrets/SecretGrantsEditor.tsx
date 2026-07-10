@@ -69,7 +69,8 @@ export function SecretGrantsEditor({
 		<div className="grid gap-2">
 			<span className="text-sm font-medium">Granted applications</span>
 			<p className="text-sm text-muted-foreground">
-				Only granted applications receive this secret in their environment. Changes apply immediately.
+				Only granted applications can read this secret through the <code className="font-mono">secrets</code>{' '}
+				accessor. Changes apply immediately.
 			</p>
 			{grants.length > 0 && (
 				<div className="flex flex-wrap gap-1">
