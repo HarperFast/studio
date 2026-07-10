@@ -62,6 +62,9 @@ export function FileTreeContextMenu({
 }) {
 	const { setOpenedEntry, setFocusedItem, setSelectedItems, selectedItems } = useEditorView();
 	const [target, setTarget] = useState<ContextTarget | undefined>(undefined);
+	// Bumped to the cursor position on every right-click so the content remounts and re-anchors there
+	// (see onContextMenu) -- without it Radix leaves an already-open menu at its first position.
+	const [anchorKey, setAnchorKey] = useState('');
 	const { canRename, canAddEntries, canDeleteEntry, canDownload, canRedeploy } = useEntryActions(target?.entry);
 
 	const focusTarget = useCallback((next: ContextTarget) => {
@@ -105,6 +108,10 @@ export function FileTreeContextMenu({
 		// multi-delete still spans every selected row); otherwise target just this one.
 		const next: ContextTarget = { entry, id, selection: selectedItems.includes(id) ? selectedItems : [id] };
 		setTarget(next);
+		// Radix keeps an already-open context menu anchored to its first position (its exit animation
+		// prevents a re-measure on reopen), so remount the content -- keyed by the cursor point -- to
+		// force it to re-anchor where you actually right-clicked.
+		setAnchorKey(`${event.clientX},${event.clientY}`);
 	}, [items, selectedItems]);
 
 	// Re-assert the target as the action fires. This runs in the same React batch
@@ -139,7 +146,11 @@ export function FileTreeContextMenu({
 				</div>
 			</ContextMenuTrigger>
 			{target && (
-				<ContextMenuContent className="min-w-44" onCloseAutoFocus={event => event.preventDefault()}>
+				<ContextMenuContent
+					key={anchorKey}
+					className="min-w-44"
+					onCloseAutoFocus={event => event.preventDefault()}
+				>
 					<ContextMenuItem onSelect={() => copy(target.entry.name)}>
 						<CopyIcon />
 						Copy Name

@@ -9,12 +9,13 @@ import { useRouter } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
-export function DeleteTableModal({ databaseName, tableName, onDeleted }: {
-	readonly databaseName: string;
-	readonly tableName: string;
-	readonly onDeleted: (deleted: 'table' | 'database') => void;
+export function DeleteTableModal({ onDeleted }: {
+	readonly onDeleted: (dropped: { databaseName: string; tableName: string }) => void;
 }) {
-	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteTable', false);
+	const { value: target, trigger } = useWatchedValue('ShowDeleteTable', false);
+	const isModalOpen = !!target;
+	const databaseName = target ? target.databaseName : '';
+	const tableName = target ? target.tableName : '';
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteTable', false);
 		attemptToRestoreFocus(trigger);
@@ -43,7 +44,7 @@ export function DeleteTableModal({ databaseName, tableName, onDeleted }: {
 					});
 					await router.invalidate();
 					toast.success(`Table ${tableName} dropped successfully`);
-					onDeleted('table');
+					onDeleted({ databaseName, tableName });
 				},
 			},
 		);

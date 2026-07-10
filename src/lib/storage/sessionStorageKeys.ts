@@ -8,6 +8,7 @@ export interface SessionStorageKeys {
 	'EditorFileContent/{entityId}/{path}': true;
 	'FolderOpened/{entityId}': true;
 	'FileSelected/{entityId}': true;
+	'DatabaseTreeExpanded/{entityId}': true;
 	'ColumnDisplayed/{database}/{table}': true;
 	'ShowAllOrganizations': true;
 }

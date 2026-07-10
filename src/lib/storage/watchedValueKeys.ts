@@ -14,8 +14,13 @@ export interface WatchedValuesTypeMap {
 	ShowDownloadApplicationModal: boolean;
 	ShowRedeployApplicationModal: boolean;
 	ShowRenameFileModal: boolean;
-	ShowDeleteDatabase: boolean;
-	ShowDeleteTable: boolean;
+	// Database/table action triggers carry their target in the payload so the (single, always-mounted)
+	// modal hub can act on any tree item -- not just the currently-open table. `false` means "closed".
+	ShowDeleteDatabase: { databaseName: string } | false;
+	ShowDeleteTable: { databaseName: string; tableName: string } | false;
+	ShowCreateTable: { databaseName?: string } | false;
+	ShowAddTableRecords: { databaseName: string; tableName: string } | false;
+	ShowImportData: { databaseName?: string; tableName?: string } | false;
 	'Session:{key}': unknown;
 	ReloadApplicationRootEntries: true;
 	FocusEditor: true;
