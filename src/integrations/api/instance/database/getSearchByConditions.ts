@@ -1,4 +1,8 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import {
+	GetAttribute,
+	RelationshipAttributeInfo,
+} from '@/features/instance/databases/functions/relationshipAttributes';
 import { InstanceAttribute } from '@/integrations/api/api.patch';
 import { translateKnownBooleanTypedValue } from '@/lib/boolean/translateKnownBooleanTypedValue';
 import { autoCast } from '@/lib/casting/autoCast';
@@ -13,6 +17,8 @@ interface GetSearchByConditionsParams extends InstanceClientIdConfig {
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
+	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
+	getAttributes?: GetAttribute[];
 	headers?: Record<string, any>;
 }
 
@@ -31,7 +37,9 @@ type Comparator =
 	| 'starts_with';
 
 export interface SearchCondition {
-	search_attribute: string;
+	/** A single attribute, or a path into a relationship (e.g. `['owner', 'name']`) which the
+	 * server executes as a join against the related table. */
+	search_attribute: string | string[];
 	search_type: Comparator;
 	search_value: unknown;
 }
@@ -44,7 +52,7 @@ interface SearchByConditionsRequest {
 	sort?: { attribute: string; descending: boolean };
 	offset: number;
 	limit: number;
-	get_attributes?: string[];
+	get_attributes?: GetAttribute[];
 	onlyIfCached: boolean;
 	noCacheStore: boolean;
 }
@@ -60,6 +68,7 @@ export function getSearchByConditionsOptions(params: GetSearchByConditionsParams
 		pageIndex,
 		pageSize,
 		onlyIfCached,
+		getAttributes,
 	} = params;
 	// starts_with, equals, etc
 	return queryOptions({
@@ -75,6 +84,7 @@ export function getSearchByConditionsOptions(params: GetSearchByConditionsParams
 			pageIndex || 0,
 			pageSize || 0,
 			onlyIfCached,
+			getAttributes ?? null,
 		] as const,
 		staleTime: 60_000,
 		gcTime: 5_000,
@@ -92,13 +102,14 @@ export function getSearchByConditions<T = Record<string, unknown>>({
 	pageIndex,
 	pageSize,
 	onlyIfCached,
+	getAttributes,
 	headers,
 }: Omit<GetSearchByConditionsParams, 'enabled'>) {
 	return instanceClient.post<T[]>(
 		'/',
 		{
 			operation: 'search_by_conditions',
-			get_attributes: ['*'],
+			get_attributes: getAttributes ?? ['*'],
 			database: databaseName,
 			table: tableName,
 			conditions: conditions!,
@@ -116,18 +127,23 @@ export function translateColumnFilterToSearchConditions(
 	key: string,
 	rawValues: string,
 	attribute: InstanceAttribute | undefined,
+	relationshipInfo?: RelationshipAttributeInfo,
 ): SearchCondition[] {
 	const split = rawValues.split(/ & /);
-	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute));
+	return split.map(rawValue => translateColumnFilterToSearchCondition(key, rawValue, attribute, relationshipInfo));
 }
 
 export function translateColumnFilterToSearchCondition(
 	key: string,
 	rawValue: string,
 	attribute: InstanceAttribute | undefined,
+	relationshipInfo?: RelationshipAttributeInfo,
 ): SearchCondition {
 	if (rawValue.startsWith(key)) {
 		rawValue = rawValue.substring(key.length);
+	}
+	if (relationshipInfo) {
+		return translateRelationshipColumnFilter(key, rawValue, relationshipInfo);
 	}
 	const { comparator, value } = parseComparator(rawValue);
 	switch (attribute?.type) {
@@ -183,6 +199,32 @@ export function translateColumnFilterToSearchCondition(
 				search_value: autoCast(value),
 			};
 	}
+}
+
+/**
+ * A relationship column filters on a sub-property of the related table — `.name Anvil`,
+ * `.rating >=4` — which the server runs as a join (`search_attribute: [column, subProperty]`).
+ * Filtering the relationship itself has no meaning to the server, so a missing `.subProperty`
+ * prefix is an error rather than a silently empty result.
+ */
+function translateRelationshipColumnFilter(
+	key: string,
+	rawValue: string,
+	relationshipInfo: RelationshipAttributeInfo,
+): SearchCondition {
+	const match = rawValue.match(/^\s*\.([^.\s]+)\s*(.*)$/);
+	if (!match) {
+		throw new Error(
+			`Filter ${key} on a property of ${relationshipInfo.relatedTableName}, e.g. ".${relationshipInfo.relatedPrimaryKey} value".`,
+		);
+	}
+	const [, subProperty, rest] = match;
+	const subAttribute = relationshipInfo.relatedAttributes.find((related) => related.attribute === subProperty);
+	const condition = translateColumnFilterToSearchCondition(subProperty, rest, subAttribute);
+	return {
+		...condition,
+		search_attribute: [key, subProperty],
+	};
 }
 
 const comparatorEqualityPrefixMappings: Record<string, Comparator> = {

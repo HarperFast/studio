@@ -2,8 +2,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { isSyntheticAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
-import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
+import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { useInsertTableRecords } from '@/integrations/api/instance/database/insertTableRecords';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { pluralize } from '@/lib/pluralize';
@@ -15,10 +16,12 @@ import { toast } from 'sonner';
 export function AddTableRowModal({
 	isModalOpen,
 	instanceTable,
+	databaseTables,
 	setIsModalOpen,
 	refreshTable,
 }: {
 	instanceTable: InstanceTable;
+	databaseTables?: InstanceDatabaseTableMap;
 	isModalOpen: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	refreshTable: () => void;
@@ -38,13 +41,16 @@ export function AddTableRowModal({
 			if (
 				attribute.is_primary_key || attribute.attribute === '__createdtime__'
 				|| attribute.attribute === '__updatedtime__'
+				// Relationship/computed attributes are read-only: the server rejects records that
+				// assign them, even with null.
+				|| isSyntheticAttribute(attribute, databaseTables)
 			) {
 				continue;
 			}
 			sample[attribute.attribute] = defaultByAttributeType(attribute.type);
 		}
 		return JSON.stringify(sample, null, 4);
-	}, [instanceTable]);
+	}, [instanceTable, databaseTables]);
 
 	const onValidate = useCallback((markers: unknown[]) => {
 		setMadeChanges(true);

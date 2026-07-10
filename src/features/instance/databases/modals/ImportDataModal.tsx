@@ -177,7 +177,10 @@ export function ImportDataModal({
 	const tableWillBeCreated = !!instanceDatabaseMap && !!watchedTable && !tableExists;
 	// Random data needs existing columns to model values on, so the option only appears
 	// when the target table already has some beyond the primary key and system fields.
-	const fillableAttributes = randomizableAttributes(targetTable?.attributes);
+	const fillableAttributes = randomizableAttributes(
+		targetTable?.attributes,
+		instanceDatabaseMap?.[watchedDatabase || 'data'],
+	);
 	const canGenerateRandom = fillableAttributes.length > 0;
 	const isRandomDataset = datasetId === RANDOM_DATASET_ID;
 
@@ -230,7 +233,10 @@ export function ImportDataModal({
 
 		let source: ImportSource;
 		if (values.method === 'sample' && values.datasetId === RANDOM_DATASET_ID) {
-			const attributes = randomizableAttributes(instanceDatabaseMap?.[database]?.[table]?.attributes);
+			const attributes = randomizableAttributes(
+				instanceDatabaseMap?.[database]?.[table]?.attributes,
+				instanceDatabaseMap?.[database],
+			);
 			if (attributes.length === 0) {
 				form.setError('datasetId', {
 					message: 'Random data needs an existing table with columns — pick a table that has some.',

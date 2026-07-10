@@ -1,0 +1,116 @@
+import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
+
+/**
+ * Relationship attributes (`@relationship` in a table schema) are computed at read time from a
+ * foreign key: they cannot be written, and `describe_table` carries no explicit flag for them.
+ * The detectable signal is their type: a to-one relationship's `type` is the related table's
+ * name, and a to-many relationship is an `array` whose `elements` is the related table's name.
+ * Newer Harper versions (5.1+) omit relationship attributes from describe entirely, in which
+ * case none of this activates and browse behaves as before.
+ */
+export interface RelationshipAttributeInfo {
+	/** Name of the related table (within the same database). */
+	relatedTableName: string;
+	/** Primary key attribute of the related table. */
+	relatedPrimaryKey: string;
+	/** Attributes of the related table, for sub-property pickers and filter value casting. */
+	relatedAttributes: InstanceAttribute[];
+	/** True for one-to-many/many-to-many (the value is an array of related records). */
+	isToMany: boolean;
+}
+
+/** The table another attribute's type points at, if any: `type` for to-one, `elements` for to-many. */
+function relatedTableNameOf(
+	attribute: InstanceAttribute,
+	databaseTables: InstanceDatabaseTableMap,
+): string | undefined {
+	const typeName = attribute.type === 'array' ? attribute.elements : attribute.type;
+	return typeName && databaseTables[typeName] ? typeName : undefined;
+}
+
+export function getRelationshipInfo(
+	attribute: InstanceAttribute,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): RelationshipAttributeInfo | undefined {
+	if (!databaseTables || attribute.is_primary_key || attribute.computed) {
+		return undefined;
+	}
+	const relatedTableName = relatedTableNameOf(attribute, databaseTables);
+	const relatedTable = relatedTableName ? databaseTables[relatedTableName] : undefined;
+	if (!relatedTableName || !relatedTable) {
+		return undefined;
+	}
+	const relatedPrimaryKey = relatedTable.primary_key ?? relatedTable.hash_attribute;
+	if (!relatedPrimaryKey) {
+		return undefined;
+	}
+	return {
+		relatedTableName,
+		relatedPrimaryKey,
+		// Exclude the related table's own relationship/computed attributes: filters join one hop
+		// (`[column, subProperty]`), so deeper synthetic attributes can't be queried through here.
+		relatedAttributes: (relatedTable.attributes ?? []).filter(
+			(related) => !related.computed && !relatedTableNameOf(related, databaseTables),
+		),
+		isToMany: attribute.type === 'array',
+	};
+}
+
+/** Map of attribute name → relationship info for every relationship attribute of a table. */
+export function getRelationshipInfoMap(
+	instanceTable: InstanceTable | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): Record<string, RelationshipAttributeInfo> {
+	const map: Record<string, RelationshipAttributeInfo> = {};
+	for (const attribute of instanceTable?.attributes ?? []) {
+		const info = getRelationshipInfo(attribute, databaseTables);
+		if (info) {
+			map[attribute.attribute] = info;
+		}
+	}
+	return map;
+}
+
+/**
+ * Attributes the server computes and refuses to accept in writes: `@computed` attributes and
+ * relationship attributes. Including one in an insert/update — even as `null` — fails with
+ * "Computed property X may not be directly assigned a value".
+ */
+export function isSyntheticAttribute(
+	attribute: InstanceAttribute,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): boolean {
+	return Boolean(attribute.computed) || getRelationshipInfo(attribute, databaseTables) !== undefined;
+}
+
+export function syntheticAttributeNames(
+	attributes: InstanceAttribute[] | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): string[] {
+	return (attributes ?? [])
+		.filter((attribute) => isSyntheticAttribute(attribute, databaseTables))
+		.map((attribute) => attribute.attribute);
+}
+
+export type GetAttribute = string | { name: string; select: string[] };
+
+/**
+ * `get_attributes` list that resolves relationship attributes to their related records' primary
+ * keys. Plain `['*']` returns raw records with relationship attributes missing (blank cells);
+ * naming them with a nested select resolves them. The `'*'` must come last: a leading `'*'`
+ * makes the server return raw records and ignore the rest of the list.
+ * Returns undefined when the table has no relationship attributes (callers fall back to `['*']`).
+ */
+export function buildRelationshipGetAttributes(
+	instanceTable: InstanceTable | undefined,
+	databaseTables: InstanceDatabaseTableMap | undefined,
+): GetAttribute[] | undefined {
+	const selects: GetAttribute[] = [];
+	for (const attribute of instanceTable?.attributes ?? []) {
+		const info = getRelationshipInfo(attribute, databaseTables);
+		if (info) {
+			selects.push({ name: attribute.attribute, select: [info.relatedPrimaryKey] });
+		}
+	}
+	return selects.length ? [...selects, '*'] : undefined;
+}

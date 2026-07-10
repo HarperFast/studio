@@ -121,3 +121,26 @@ To drive a Radix dropdown/menu (e.g. `src/components/ui/dropdownMenu.tsx`) in js
   is `menu`. Disabled items have `aria-disabled="true"` and/or `data-disabled`.
 
 Working example: `src/features/instance/databases/components/PickColumnsDropdown.test.tsx`.
+
+## Browse — relationship/computed attributes vary by Harper version
+
+`@relationship` and `@computed` attributes are read-only: Harper rejects any insert/update
+whose record merely CONTAINS the key ("Computed property X may not be directly assigned a
+value", even for `null`). Strip them from record-editor JSON (see
+`functions/relationshipAttributes.ts`).
+
+What `describe_table` reports differs by server version (verified empirically, Jul 2026):
+
+- **Harper 4.7**: relationship attrs ARE listed — to-one as `{attribute, type: '<RelatedTable>',
+  properties: [...]}`, to-many as `{type: 'array', elements: '<RelatedTable>'}` — but there is
+  NO explicit relationship flag: the only signal is that `type`/`elements` names a sibling
+  table. `@computed` attrs are omitted.
+- **Harper 5.1**: relationship attrs are omitted entirely (they're runtime-only, never persisted
+  to the attribute registry); `@computed` attrs appear only with `include_computed: true`, and
+  carry `computed: true`. On 5.1 the relationship browse features simply never activate.
+
+Search wire contract (works on 4.7; validated-but-unresolved on 5.1): `get_attributes` accepts
+nested selects `{name, select: [...]}` to resolve relationships, but a LEADING `'*'` makes the
+server return raw records and ignore the rest of the list — relationship selects must come
+before the `'*'`. `search_by_conditions` accepts `search_attribute: ['rel', 'subProp']` as a
+join into the related table (querying the relationship attribute itself returns nothing/errors).

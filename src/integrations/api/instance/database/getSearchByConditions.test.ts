@@ -333,3 +333,80 @@ describe('translateColumnFilterToSearchCondition', () => {
 		return { attribute: 'col', type };
 	}
 });
+
+describe('translateColumnFilterToSearchCondition for relationship columns', () => {
+	const relationshipInfo = {
+		relatedTableName: 'RelProduct',
+		relatedPrimaryKey: 'id',
+		relatedAttributes: [
+			{ attribute: 'id', type: 'ID' },
+			{ attribute: 'name', type: 'String' },
+			{ attribute: 'rating', type: 'Int' },
+		],
+		isToMany: false,
+	};
+
+	it('translates ".subProperty value" into a join path condition', () => {
+		expect(
+			translateColumnFilterToSearchCondition('product', '.name Anvil', undefined, relationshipInfo),
+		).toEqual({
+			search_attribute: ['product', 'name'],
+			search_type: 'equals',
+			search_value: 'Anvil',
+		});
+	});
+
+	it('casts the value by the sub-property type and honors comparators', () => {
+		expect(
+			translateColumnFilterToSearchCondition('product', '.rating >= 4', undefined, relationshipInfo),
+		).toEqual({
+			search_attribute: ['product', 'rating'],
+			search_type: 'greater_than_equal',
+			search_value: 4,
+		});
+	});
+
+	it('supports starts_with on sub-properties', () => {
+		expect(
+			translateColumnFilterToSearchCondition('product', '.name Anv*', undefined, relationshipInfo),
+		).toEqual({
+			search_attribute: ['product', 'name'],
+			search_type: 'starts_with',
+			search_value: 'Anv',
+		});
+	});
+
+	it('strips a redundant leading column name (product.name value)', () => {
+		expect(
+			translateColumnFilterToSearchCondition('product', 'product.name Anvil', undefined, relationshipInfo),
+		).toEqual({
+			search_attribute: ['product', 'name'],
+			search_type: 'equals',
+			search_value: 'Anvil',
+		});
+	});
+
+	it('auto-casts unknown sub-properties', () => {
+		expect(
+			translateColumnFilterToSearchCondition('product', '.custom 42', undefined, relationshipInfo),
+		).toEqual({
+			search_attribute: ['product', 'custom'],
+			search_type: 'equals',
+			search_value: 42,
+		});
+	});
+
+	it('requires a sub-property prefix', () => {
+		expect(() => translateColumnFilterToSearchCondition('product', 'Anvil', undefined, relationshipInfo))
+			.toThrowError(/\.id value/);
+	});
+
+	it('splits multiple conditions with & like plain columns', () => {
+		expect(
+			translateColumnFilterToSearchConditions('product', '.rating >= 4 & .rating < 9', undefined, relationshipInfo),
+		).toEqual([
+			{ search_attribute: ['product', 'rating'], search_type: 'greater_than_equal', search_value: 4 },
+			{ search_attribute: ['product', 'rating'], search_type: 'less_than', search_value: 9 },
+		]);
+	});
+});
