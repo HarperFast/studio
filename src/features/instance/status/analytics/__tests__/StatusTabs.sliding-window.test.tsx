@@ -152,14 +152,14 @@ describe('StatusTabs sliding refresh window', () => {
 		const afterReturn = latestEndTime();
 		expect(afterReturn).toBeGreaterThanOrEqual(initialEnd + 2 * DEFAULT_REFRESH_MS);
 
-		// The next scheduled interval tick lands half a period after the
-		// catch-up; the elapsed guard must swallow it (no back-to-back burst)…
+		// The catch-up restarts the interval, so no tick fires at the old
+		// half-period-away boundary (no back-to-back burst)…
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(0.5 * DEFAULT_REFRESH_MS + 5);
 		});
 		expect(latestEndTime()).toBe(afterReturn);
 
-		// …while the tick after that (a full period since catch-up) fires.
+		// …and the next tick fires a full period after the catch-up.
 		await act(async () => {
 			await vi.advanceTimersByTimeAsync(DEFAULT_REFRESH_MS);
 		});

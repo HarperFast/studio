@@ -93,13 +93,16 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 
 	useEffect(() => {
 		if (refreshMs <= 0) { return; }
-		// Tick guards, in order:
+		// `tick` in the deps restarts the interval on EVERY refresh (scheduled,
+		// manual, or visibility catch-up), so the next scheduled tick is always
+		// exactly refreshMs after the last actual refresh — no elapsed-time
+		// bookkeeping and no double-fetch when refresh sources land close
+		// together.
+		void tick;
+		// Tick guards:
 		//  - hidden tab: fetching for an invisible dashboard is pure load on
 		//    the customer's Harper; the visibility handler below catches up
 		//    once on return if at least one full period elapsed.
-		//  - elapsed: coalesces near-simultaneous refresh sources — a catch-up
-		//    or manual refresh just before a scheduled tick would otherwise
-		//    double-fetch every panel back-to-back.
 		//  - in-flight: when Harper is slower than the cadence, sliding the
 		//    window again would key a fresh POST batch on top of the running
 		//    one (new key = no dedupe); skip until the current batch settles.
@@ -107,7 +110,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 			!document.hidden
 			&& queryClient.isFetching({ queryKey: [ANALYTICS_QUERY_KEY_PREFIX] }) === 0;
 		const intervalId = setInterval(() => {
-			if (canTick() && Date.now() - lastRefreshRef.current >= refreshMs - 1000) { refresh(); }
+			if (canTick()) { refresh(); }
 		}, refreshMs);
 		const onVisibilityChange = () => {
 			if (canTick() && Date.now() - lastRefreshRef.current >= refreshMs) { refresh(); }
@@ -117,7 +120,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 			clearInterval(intervalId);
 			document.removeEventListener('visibilitychange', onVisibilityChange);
 		};
-	}, [refreshMs, refresh, queryClient]);
+	}, [refreshMs, refresh, queryClient, tick]);
 
 	const theme = useSystemTheme();
 
