@@ -17,7 +17,6 @@ export function makeContextValue(overrides: Partial<AnalyticsContextValue> = {})
 	return {
 		timeRange: { startTime: 0, endTime: 60_000 },
 		bucketMs: 60_000,
-		refreshIntervalMs: 0,
 		theme: 'light',
 		instanceParams: makeInstanceParams(),
 		...overrides,

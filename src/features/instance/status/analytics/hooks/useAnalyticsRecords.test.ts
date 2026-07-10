@@ -48,7 +48,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams(rows),
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -66,7 +65,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams([]),
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -88,7 +86,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams([]),
-					refetchIntervalMs: 0,
 					requiredFields: ['p95', 'path'],
 				}),
 			{ wrapper: Wrapper },
@@ -111,7 +108,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams(rows),
-					refetchIntervalMs: 0,
 					requiredFields: ['p95', 'p99'],
 				}),
 			{ wrapper: Wrapper },
@@ -133,7 +129,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: paramsA,
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -144,7 +139,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: paramsB,
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -172,7 +166,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams([], { throwError: new Error('boom') }),
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -191,7 +184,6 @@ describe('useAnalyticsRecords', () => {
 					endTime: 10_000,
 					instanceParams: params,
 					conditions: [{ attribute: 'path', value: '/api/x' }],
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -215,7 +207,6 @@ describe('useAnalyticsRecords', () => {
 					endTime: 10_000,
 					instanceParams: params,
 					bucketMs: 60_000,
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -239,7 +230,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 0,
 					endTime: 10_000,
 					instanceParams: makeInstanceParams([]),
-					refetchIntervalMs: 0,
 				}),
 			{ wrapper: Wrapper },
 		);
@@ -260,7 +250,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 100,
 					endTime: 200,
 					instanceParams: makeInstanceParams(driftRows),
-					refetchIntervalMs: 0,
 					requiredFields: ['user'],
 				}),
 			{ wrapper: W2 },
@@ -277,7 +266,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: 200,
 					endTime: 300,
 					instanceParams: makeInstanceParams([]),
-					refetchIntervalMs: 0,
 					requiredFields: ['user'],
 				}),
 			{ wrapper: W3 },
@@ -294,7 +282,7 @@ describe('useAnalyticsRecords', () => {
 		warn.mockRestore();
 	});
 
-	it('refetchIntervalMs=0 disables polling (no extra fetch after initial)', async () => {
+	it('never polls — no extra fetch after the initial one', async () => {
 		vi.useFakeTimers();
 		try {
 			const { Wrapper } = wrapper();
@@ -306,7 +294,6 @@ describe('useAnalyticsRecords', () => {
 						startTime: 0,
 						endTime: 10_000,
 						instanceParams: params,
-						refetchIntervalMs: 0,
 					}),
 				{ wrapper: Wrapper },
 			);
@@ -334,7 +321,6 @@ describe('useAnalyticsRecords', () => {
 					startTime: args.startTime,
 					endTime: args.endTime,
 					instanceParams: params,
-					refetchIntervalMs: 0,
 				}),
 			{
 				wrapper: Wrapper,

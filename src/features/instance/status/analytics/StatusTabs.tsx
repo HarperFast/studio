@@ -2,8 +2,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
 import { useSystemTheme } from '@/hooks/useSystemTheme';
+import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics.ts';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint.tsx';
 import { TimeRangePicker } from './components/TimeRangePicker.tsx';
 import { type AnalyticsContextValue, AnalyticsProvider } from './context/AnalyticsContext.tsx';
@@ -76,9 +78,46 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 		? Number(raw.refresh)
 		: DEFAULT_REFRESH_MS;
 
-	// Manual refresh ticks bump this to force a fresh window when the user
-	// clicks the refresh button.
+	// The analytics window is a fixed [start, end] snapshot baked into every
+	// panel's query key, so "refresh" means sliding the window forward to a
+	// new snapshot — re-fetching the old one could only return the same data.
+	// `tick` bumps recompute the window below; the interval drives it when
+	// auto-refresh is on, and the manual refresh button shares the same path.
 	const [tick, setTick] = useState(0);
+	const queryClient = useQueryClient();
+	const lastRefreshRef = useRef(Date.now());
+	const refresh = useCallback(() => {
+		lastRefreshRef.current = Date.now();
+		setTick((t) => t + 1);
+	}, []);
+
+	useEffect(() => {
+		if (refreshMs <= 0) { return; }
+		// Tick guards, in order:
+		//  - hidden tab: fetching for an invisible dashboard is pure load on
+		//    the customer's Harper; the visibility handler below catches up
+		//    once on return if at least one full period elapsed.
+		//  - elapsed: coalesces near-simultaneous refresh sources — a catch-up
+		//    or manual refresh just before a scheduled tick would otherwise
+		//    double-fetch every panel back-to-back.
+		//  - in-flight: when Harper is slower than the cadence, sliding the
+		//    window again would key a fresh POST batch on top of the running
+		//    one (new key = no dedupe); skip until the current batch settles.
+		const canTick = () =>
+			!document.hidden
+			&& queryClient.isFetching({ queryKey: [ANALYTICS_QUERY_KEY_PREFIX] }) === 0;
+		const intervalId = setInterval(() => {
+			if (canTick() && Date.now() - lastRefreshRef.current >= refreshMs - 1000) { refresh(); }
+		}, refreshMs);
+		const onVisibilityChange = () => {
+			if (canTick() && Date.now() - lastRefreshRef.current >= refreshMs) { refresh(); }
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		return () => {
+			clearInterval(intervalId);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
+	}, [refreshMs, refresh, queryClient]);
 
 	const theme = useSystemTheme();
 
@@ -107,17 +146,16 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 		const preset = getPreset(presetId);
 		const endTime = Date.now();
 		const startTime = endTime - preset.durationMs;
-		// `tick` participates in memo deps so a manual refresh produces a fresh
-		// window even if the user did not change presets.
+		// `tick` participates in memo deps so every refresh (interval or manual)
+		// produces a fresh window even if the user did not change presets.
 		void tick;
 		return {
 			timeRange: { startTime, endTime },
 			bucketMs: preset.bucketMs,
-			refreshIntervalMs: refreshMs,
 			theme,
 			instanceParams,
 		};
-	}, [presetId, refreshMs, theme, instanceParams, tick]);
+	}, [presetId, theme, instanceParams, tick]);
 
 	const showTimePicker = tab !== 'overview';
 	const picker = showTimePicker
@@ -127,7 +165,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 				onPresetChange={updatePreset}
 				refreshMs={refreshMs}
 				onRefreshChange={updateRefreshMs}
-				onManualRefresh={() => setTick((t) => t + 1)}
+				onManualRefresh={refresh}
 			/>
 		)
 		: null;

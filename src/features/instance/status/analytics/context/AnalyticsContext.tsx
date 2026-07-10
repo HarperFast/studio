@@ -7,7 +7,6 @@ export type AnalyticsTheme = 'light' | 'dark';
 export interface AnalyticsContextValue {
 	timeRange: TimeRange;
 	bucketMs: number;
-	refreshIntervalMs: number;
 	theme: AnalyticsTheme;
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }
@@ -24,7 +23,6 @@ export function AnalyticsProvider({ value, children }: ProviderProps) {
 		value.timeRange.startTime,
 		value.timeRange.endTime,
 		value.bucketMs,
-		value.refreshIntervalMs,
 		value.theme,
 		value.instanceParams.entityId,
 	]);
