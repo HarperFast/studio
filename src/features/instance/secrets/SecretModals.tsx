@@ -30,6 +30,17 @@ import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { SecretTier } from './accessExample';
+import { PendingGrantsInput } from './PendingGrantsInput';
+import { SecretDeliveryPicker } from './SecretDeliveryPicker';
+
+/** What the add/edit dialogs report back on submit, beyond the key/value pair. */
+export interface SecretDeliveryOptions {
+	/** true → global (`process.env`); false → scoped; undefined → preserve the stored tier. */
+	processEnv?: boolean;
+	/** Initial grants for a scoped secret (add flow only; edit manages grants live). */
+	grants?: string[];
+}
 
 const secretKeySchema = z
 	.string()
@@ -44,15 +55,21 @@ export function AddSecretModal({
 	onSubmit,
 	isModalOpen,
 	setIsModalOpen,
+	delivery = false,
+	defaultTier = 'scoped',
 }: {
 	description: ReactNode;
 	valueDescription?: ReactNode;
 	/** Keys that already exist — adding one of these is rejected (edit it instead). */
 	existingKeys?: string[];
 	/** Persist the new secret; reject to keep the dialog open and surface the error. */
-	onSubmit: (data: { key: string; value: string }) => Promise<unknown>;
+	onSubmit: (data: { key: string; value: string } & SecretDeliveryOptions) => Promise<unknown>;
 	isModalOpen: boolean;
 	setIsModalOpen: (open: boolean) => void;
+	/** Show the delivery-tier chooser (process.env vs scoped) + grants + a live access example. */
+	delivery?: boolean;
+	/** Tier pre-selected when the dialog opens (defaults to the safer scoped tier). */
+	defaultTier?: SecretTier;
 }) {
 	const schema = useMemo(
 		() =>
@@ -71,24 +88,40 @@ export function AddSecretModal({
 	// Destructured unconditionally so react-hook-form tracks all three (see EditSecretModal).
 	const { isDirty, isValid, isSubmitting: isPending } = form.formState;
 
+	// Delivery tier + initial grants live outside the value form (they aren't validated fields).
+	const [tier, setTier] = useState<SecretTier>(defaultTier);
+	const [grants, setGrants] = useState<string[]>([]);
+	const liveName = form.watch('key');
+
+	const resetDelivery = useCallback(() => {
+		setTier(defaultTier);
+		setGrants([]);
+	}, [defaultTier]);
+
 	const onSubmitClick = useCallback(
 		async (formData: z.infer<typeof schema>) => {
+			// Scoped is the default tier server-side; only send delivery fields when the chooser is on.
+			const deliveryFields: SecretDeliveryOptions = delivery
+				? { processEnv: tier === 'processEnv', grants: tier === 'scoped' ? grants : undefined }
+				: {};
 			try {
-				await onSubmit(formData);
+				await onSubmit({ ...formData, ...deliveryFields });
 				form.reset();
+				resetDelivery();
 				toast.success(`Secret "${formData.key}" saved.`);
 				setIsModalOpen(false);
 			} catch (error) {
 				toast.error(String(error));
 			}
 		},
-		[onSubmit, form, setIsModalOpen],
+		[onSubmit, form, setIsModalOpen, delivery, tier, grants, resetDelivery],
 	);
 
 	const onClickCancel = useCallback(() => {
 		form.reset();
+		resetDelivery();
 		setIsModalOpen(false);
-	}, [form, setIsModalOpen]);
+	}, [form, setIsModalOpen, resetDelivery]);
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -134,6 +167,16 @@ export function AddSecretModal({
 							)}
 						/>
 
+						{delivery && (
+							<SecretDeliveryPicker
+								name={liveName}
+								tier={tier}
+								onTierChange={setTier}
+								disabled={isPending}
+								grantsSlot={<PendingGrantsInput grants={grants} onChange={setGrants} disabled={isPending} />}
+							/>
+						)}
+
 						<DialogFooter>
 							<div className="flex justify-between w-full">
 								<Button
@@ -171,6 +214,8 @@ export function EditSecretModal({
 	onDelete,
 	closeModal,
 	children,
+	delivery = false,
+	currentTier = 'scoped',
 }: {
 	name: string;
 	description: ReactNode;
@@ -182,12 +227,16 @@ export function EditSecretModal({
 	 */
 	currentValue?: string;
 	/** Persist the replacement value; reject to keep the dialog open and surface the error. */
-	onSave: (value: string) => Promise<unknown>;
+	onSave: (value: string, options?: SecretDeliveryOptions) => Promise<unknown>;
 	/** Remove the secret entirely (second click confirms). Omit to hide the delete button. */
 	onDelete?: () => Promise<unknown>;
 	closeModal: () => void;
-	/** Extra content rendered between the value field and the footer (e.g. a grants editor). */
+	/** Extra content rendered between the value field and the footer (e.g. a live grants editor). */
 	children?: ReactNode;
+	/** Show the delivery-tier chooser + access example; `children` becomes the scoped grants slot. */
+	delivery?: boolean;
+	/** The secret's stored tier, pre-selected in the chooser. */
+	currentTier?: SecretTier;
 }) {
 	const form = useForm({ resolver: zodResolver(EditSecretSchema), defaultValues: { value: '' } });
 	// Destructured unconditionally: react-hook-form only tracks formState fields that are actually
@@ -197,6 +246,11 @@ export function EditSecretModal({
 	const { isDirty, isValid, isSubmitting } = form.formState;
 	const [isDeleting, setIsDeleting] = useState(false);
 	const busy = isSubmitting || isDeleting;
+
+	// The stored tier can be changed here, but only by re-supplying the value: set_secret always
+	// re-writes the envelope, and an encrypted value can't be read back to re-encrypt automatically.
+	const [tier, setTier] = useState<SecretTier>(currentTier);
+	const tierChanged = delivery && tier !== currentTier;
 
 	// Revealing fills the field with the current value without marking the form dirty, so Save
 	// stays disabled until the user actually changes something.
@@ -209,14 +263,14 @@ export function EditSecretModal({
 	const onSubmitClick = useCallback(
 		async (formData: z.infer<typeof EditSecretSchema>) => {
 			try {
-				await onSave(formData.value);
+				await onSave(formData.value, delivery ? { processEnv: tier === 'processEnv' } : undefined);
 				toast.success(`Secret "${name}" updated.`);
 				closeModal();
 			} catch (error) {
 				toast.error(String(error));
 			}
 		},
-		[onSave, name, closeModal],
+		[onSave, name, closeModal, delivery, tier],
 	);
 
 	// Deleting a secret can break running applications, so require a second click to confirm.
@@ -275,7 +329,27 @@ export function EditSecretModal({
 							)}
 						/>
 
-						{children}
+						{delivery
+							? (
+								<>
+									<SecretDeliveryPicker
+										name={name}
+										tier={tier}
+										onTierChange={setTier}
+										disabled={busy}
+										// The live grants editor (grant_secret/revoke_secret) only applies to scoped
+										// secrets — the picker shows it under the scoped option and hides it for env vars.
+										grantsSlot={children}
+									/>
+									{tierChanged && !isDirty && (
+										<p className="text-sm text-amber-600 dark:text-amber-500">
+											Re-enter the value above to save this change — a stored secret can’t be read back to re-encrypt
+											automatically.
+										</p>
+									)}
+								</>
+							)
+							: children}
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">

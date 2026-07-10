@@ -39,7 +39,12 @@ export function ConfigSecretsIndex() {
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
-		() => (secrets ?? []).map((secret) => ({ name: secret.name, warning: warningFor(secret, data) })),
+		() =>
+			(secrets ?? []).map((secret) => ({
+				name: secret.name,
+				processEnv: secret.processEnv,
+				warning: warningFor(secret, data),
+			})),
 		[secrets, data],
 	);
 	const selectedName = useMemo(() => secrets?.find((s) => s.name === secretName)?.name, [secrets, secretName]);
@@ -55,10 +60,13 @@ export function ConfigSecretsIndex() {
 	const { mutateAsync: setSecret } = useSetSecret();
 	const { mutateAsync: deleteSecret } = useDeleteSecret();
 
-	const onSet = useCallback(async (name: string, value: string) => {
-		await setSecret({ ...keySource, name, value });
-		await refetch();
-	}, [setSecret, keySource, refetch]);
+	const onSet = useCallback(
+		async (name: string, value: string, options?: { processEnv?: boolean; grants?: string[] }) => {
+			await setSecret({ ...keySource, name, value, processEnv: options?.processEnv, grants: options?.grants });
+			await refetch();
+		},
+		[setSecret, keySource, refetch],
+	);
 
 	const onDelete = useCallback(async (name: string) => {
 		await deleteSecret({ ...instanceParams, name });
@@ -84,8 +92,9 @@ export function ConfigSecretsIndex() {
 				selectedName={selectedName}
 				onSelectName={onSelectName}
 				nameHeader="Secret"
+				delivery={true}
 				addDescription="The value is encrypted in your browser against the cluster's secrets key — plaintext never reaches the API, the operation log, or disk. It can be replaced or deleted, but never read back."
-				editDescription="The current value can't be shown — it's stored encrypted. Enter a new value to replace it, adjust which applications receive it, or delete the secret."
+				editDescription="The current value can't be shown — it's stored encrypted. Enter a new value to replace it, adjust how applications read it, or delete the secret."
 				valueDescription="Encrypted client-side before it leaves this page."
 				onSet={onSet}
 				onDelete={onDelete}

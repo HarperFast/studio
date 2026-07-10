@@ -11,7 +11,8 @@ import { ENV_VALUE_MASK } from '@/lib/env/envFile';
 import { ColumnDef, Row } from '@tanstack/react-table';
 import { EyeIcon, EyeOffIcon, PlusIcon, RefreshCwIcon, TriangleAlertIcon } from 'lucide-react';
 import { MouseEvent, ReactNode, useCallback, useMemo, useState } from 'react';
-import { AddSecretModal, EditSecretModal } from './SecretModals';
+import { SecretTier } from './accessExample';
+import { AddSecretModal, EditSecretModal, SecretDeliveryOptions } from './SecretModals';
 
 export interface SecretRow {
 	name: string;
@@ -23,6 +24,12 @@ export interface SecretRow {
 	value?: string;
 	/** A per-row caution (e.g. "encrypted under a stale key"), shown as an alert icon. */
 	warning?: string;
+	/**
+	 * The row's delivery tier, when the store supports one (the cluster hdb_secret store): true =
+	 * materialized onto `process.env` (global), false/undefined = scoped to granted apps. Only read
+	 * when `delivery` is enabled.
+	 */
+	processEnv?: boolean;
 }
 
 export function SecretsManager({
@@ -40,6 +47,8 @@ export function SecretsManager({
 	onDelete,
 	renderEditExtras,
 	children,
+	delivery = false,
+	deliveryDefaultTier = 'scoped',
 }: {
 	rows: SecretRow[];
 	isFetching?: boolean;
@@ -54,14 +63,21 @@ export function SecretsManager({
 	addDescription: ReactNode;
 	editDescription: ReactNode;
 	valueDescription?: ReactNode;
-	/** Persist a key/value pair — both adding a new secret and replacing an existing value. */
-	onSet: (key: string, value: string) => Promise<unknown>;
+	/**
+	 * Persist a key/value pair — both adding a new secret and replacing an existing value. The
+	 * third argument carries delivery-tier choices when `delivery` is enabled (ignored otherwise).
+	 */
+	onSet: (key: string, value: string, options?: SecretDeliveryOptions) => Promise<unknown>;
 	/** Remove a secret by key. Omit to hide the delete affordance. */
 	onDelete?: (key: string) => Promise<unknown>;
-	/** Extra per-secret content for the edit dialog (e.g. a grants editor). */
+	/** Extra per-secret content for the edit dialog (e.g. a live grants editor). */
 	renderEditExtras?: (name: string) => ReactNode;
 	/** Extra toolbar actions, rendered after Refresh/Add. */
 	children?: ReactNode;
+	/** Enable the delivery-tier chooser (process.env vs scoped) + access examples in the dialogs. */
+	delivery?: boolean;
+	/** Tier pre-selected in the Add dialog (defaults to the safer scoped tier). */
+	deliveryDefaultTier?: SecretTier;
 }) {
 	const columns = useMemo<Array<ColumnDef<SecretRow>>>(() => [
 		{
@@ -131,7 +147,9 @@ export function SecretsManager({
 					description={addDescription}
 					valueDescription={valueDescription}
 					existingKeys={existingKeys}
-					onSubmit={({ key, value }) => onSet(key, value)}
+					delivery={delivery}
+					defaultTier={deliveryDefaultTier}
+					onSubmit={({ key, value, ...options }) => onSet(key, value, options)}
 				/>
 			)}
 			{selectedName && selectedRow && (
@@ -141,7 +159,9 @@ export function SecretsManager({
 					description={editDescription}
 					valueDescription={valueDescription}
 					currentValue={selectedRow.value}
-					onSave={(value) => onSet(selectedRow.name, value)}
+					delivery={delivery}
+					currentTier={selectedRow.processEnv ? 'processEnv' : 'scoped'}
+					onSave={(value, options) => onSet(selectedRow.name, value, options)}
 					onDelete={onDelete && (() => onDelete(selectedRow.name))}
 					closeModal={() => onSelectName(undefined)}
 				>
