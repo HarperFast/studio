@@ -12,6 +12,7 @@ export function EditTableRowModal({
 	setIsModalOpen,
 	isModalOpen,
 	primaryKey,
+	syntheticAttributes,
 	data,
 	onSaveChanges,
 	onDeleteRecord,
@@ -23,6 +24,9 @@ export function EditTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	primaryKey: string;
+	/** Relationship/computed attribute names — read-only, so they are hidden from the editable JSON
+	 * (saving a record that assigns one fails, even with null). */
+	syntheticAttributes?: string[];
 	data: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
 	onDeleteRecord: (data: unknown[]) => void;
@@ -35,9 +39,14 @@ export function EditTableRowModal({
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
 
 	const value = useMemo(() => {
-		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => rowWithoutTime);
+		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => {
+			for (const synthetic of syntheticAttributes ?? []) {
+				delete rowWithoutTime[synthetic];
+			}
+			return rowWithoutTime;
+		});
 		return JSON.stringify(dataWithoutTimes, null, 4);
-	}, [data]);
+	}, [data, syntheticAttributes]);
 	const onValidate = useCallback((markers: unknown[]) => {
 		setMadeChanges(true);
 		setIsValidJSON(markers.length === 0);

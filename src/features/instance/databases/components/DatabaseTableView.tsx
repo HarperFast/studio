@@ -2,6 +2,11 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
+import {
+	buildRelationshipGetAttributes,
+	getRelationshipInfoMap,
+	syntheticAttributeNames,
+} from '@/features/instance/databases/functions/relationshipAttributes';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
@@ -33,7 +38,7 @@ import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
 	BrushCleaningIcon,
@@ -51,7 +56,7 @@ import {
 	Trash2Icon,
 	TrashIcon,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
@@ -91,9 +96,25 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// describe_table backfills this table's count asynchronously. Render schema from whichever arrives first
 	// -- the map is usually ready before describe_table -- so columns and records are never gated on the
 	// (slower) count scan. describe_table wins once present: it's the per-table, refresh-invalidated copy.
-	const tableFromMap = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const databaseTables = instanceDatabaseMap?.[databaseName];
+	const tableFromMap = databaseTables?.[tableName];
 	const instanceTable = describeTableData ?? tableFromMap;
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
+	// Relationship attributes (when the server's describe reports them) get resolved cell values,
+	// link chips, and sub-property filters; they are also excluded from record add/edit JSON since
+	// the server rejects writes that assign them.
+	const relationshipInfoMap = useMemo(
+		() => getRelationshipInfoMap(instanceTable, databaseTables),
+		[instanceTable, databaseTables],
+	);
+	const relationshipGetAttributes = useMemo(
+		() => buildRelationshipGetAttributes(instanceTable, databaseTables),
+		[instanceTable, databaseTables],
+	);
+	const syntheticAttributes = useMemo(
+		() => syntheticAttributeNames(instanceTable?.attributes, databaseTables),
+		[instanceTable, databaseTables],
+	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -116,22 +137,28 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		tableName,
 	]);
 
-	const applyFilters = useCallback(() => {
+	const translateFilterValues = useCallback((values: Record<string, string | undefined>) => {
 		const conditions: SearchCondition[] = [];
-		for (const key in columnFiltersValues) {
-			if (columnFiltersValues[key]?.length) {
+		for (const key in values) {
+			const value = values[key];
+			if (value?.length) {
 				try {
 					conditions.push(
-						...translateColumnFilterToSearchConditions(key, columnFiltersValues[key], attributesMap[key]),
+						...translateColumnFilterToSearchConditions(key, value, attributesMap[key], relationshipInfoMap[key]),
 					);
 				} catch (err) {
 					toast.error(String(err));
 				}
 			}
 		}
+		return conditions;
+	}, [attributesMap, relationshipInfoMap]);
+
+	const applyFilters = useCallback(() => {
+		const conditions = translateFilterValues(columnFiltersValues);
 		setAppliedSearchConditions(conditions.length ? conditions : null);
 		resetFiltersForm({ ...columnFiltersValues });
-	}, [attributesMap, resetFiltersForm, columnFiltersValues]);
+	}, [translateFilterValues, resetFiltersForm, columnFiltersValues]);
 	const clearFilters = useCallback(() => {
 		// Note sure why we need to resetFiltersForm twice here...
 		resetFiltersForm({}, { keepValues: false, keepDirtyValues: false, keepDefaultValues: false });
@@ -144,7 +171,32 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		return clearFilters();
 	}, [allParams, clearFilters]);
 
-	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable);
+	// Deep links can carry filters (?filters={column: "value"}) — relationship cell chips use this
+	// to land on the related table filtered to the linked record. Applied once per distinct search,
+	// after the schema arrives (translation needs attribute types).
+	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
+	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
+	const appliedUrlFiltersKey = useRef<string | null>(null);
+	useEffect(function applyFiltersFromUrl() {
+		if (!urlFilters || !instanceTable || appliedUrlFiltersKey.current === urlFiltersKey) {
+			return;
+		}
+		appliedUrlFiltersKey.current = urlFiltersKey;
+		resetFiltersForm({ ...urlFilters });
+		const conditions = translateFilterValues(urlFilters);
+		setAppliedSearchConditions(conditions.length ? conditions : null);
+		showFilters();
+	}, [
+		urlFilters,
+		urlFiltersKey,
+		instanceTable,
+		resetFiltersForm,
+		translateFilterValues,
+		setAppliedSearchConditions,
+		showFilters,
+	]);
+
+	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, databaseTables);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportDataModalOpen, setIsImportDataModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
@@ -199,6 +251,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
+		getAttributes: relationshipGetAttributes,
 	};
 	const searchByValueOptions = getSearchByValueOptions(searchByValueParams);
 	const { data: fullTableData, isFetching: tableDataFetching } = useQuery(searchByValueOptions);
@@ -214,6 +267,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		pageSize,
 		pageIndex,
 		onlyIfCached,
+		getAttributes: relationshipGetAttributes,
 	};
 	const searchByConditionsOptions = getSearchByConditionsOptions(searchByConditionsParams);
 	const { data: filteredTableData, isFetching: tableConditionsDataFetching } = useQuery(searchByConditionsOptions);
@@ -269,6 +323,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		const allResultsAsCSV = {
 			pageIndex: 0,
 			pageSize: 1_000_000,
+			// Raw records only: resolved relationship objects don't serialize usefully into CSV cells.
+			getAttributes: undefined,
 			headers: {
 				Accept: 'text/csv',
 			},
@@ -543,6 +599,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			{canAddRecords && instanceTable && isAddModalOpen && (
 				<AddTableRowModal
 					instanceTable={instanceTable}
+					databaseTables={databaseTables}
 					isModalOpen={isAddModalOpen}
 					refreshTable={refreshTable}
 					setIsModalOpen={setIsAddModalOpen}
@@ -554,6 +611,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}
+				syntheticAttributes={syntheticAttributes}
 				data={searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}

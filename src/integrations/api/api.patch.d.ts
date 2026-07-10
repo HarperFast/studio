@@ -164,8 +164,15 @@ export interface InstanceTable {
 
 export interface InstanceAttribute {
 	attribute: string;
+	/** Scalar type name, `'array'`, or — for relationship attributes — the related table's type name. */
 	type?: 'ID' | 'String' | 'Int' | 'Long' | 'Float' | 'BigInt' | 'Boolean' | 'Any' | 'Date' | 'Bytes' | 'Blob' | string;
+	/** Element type of an `array` attribute: a scalar name, or a table name for to-many relationships. */
+	elements?: string;
 	is_primary_key?: boolean;
 	indexed?: boolean | unknown;
 	nullable?: boolean;
+	/** True for `@computed` attributes (server only returns them when asked with `include_computed`). */
+	computed?: boolean;
+	/** Sub-fields of an object-typed attribute (includes to-one relationship targets on Harper 4.x). */
+	properties?: Array<{ name: string; type?: string }>;
 }

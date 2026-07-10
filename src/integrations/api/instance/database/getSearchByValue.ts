@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { GetAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetSearchByValueParams extends InstanceClientIdConfig {
@@ -10,6 +11,8 @@ interface GetSearchByValueParams extends InstanceClientIdConfig {
 	pageIndex: number;
 	pageSize: number;
 	onlyIfCached: boolean;
+	/** Defaults to `['*']` (raw records). Pass nested selects to resolve relationship attributes. */
+	getAttributes?: GetAttribute[];
 	headers?: Record<string, any>;
 }
 
@@ -22,7 +25,7 @@ interface SearchByValueRequest {
 	sort?: { attribute: string; descending: boolean };
 	offset: number;
 	limit: number;
-	get_attributes?: string[];
+	get_attributes?: GetAttribute[];
 	onlyIfCached: boolean;
 	noCacheStore: boolean;
 }
@@ -38,6 +41,7 @@ export function getSearchByValueOptions(params: GetSearchByValueParams) {
 		pageIndex,
 		pageSize,
 		onlyIfCached,
+		getAttributes,
 	} = params;
 	return queryOptions({
 		enabled,
@@ -52,6 +56,7 @@ export function getSearchByValueOptions(params: GetSearchByValueParams) {
 			pageIndex || 0,
 			pageSize || 0,
 			onlyIfCached,
+			getAttributes ?? null,
 		] as const,
 		retry: false,
 		staleTime: 60_000,
@@ -69,6 +74,7 @@ export async function getSearchByValue<T = Record<string, unknown>>({
 	pageIndex,
 	pageSize,
 	onlyIfCached,
+	getAttributes,
 	headers,
 }: Omit<GetSearchByValueParams, 'enabled'>) {
 	const customizedSort = sort.attribute.length && !(sort.attribute === searchAttribute && !sort.descending);
@@ -76,7 +82,7 @@ export async function getSearchByValue<T = Record<string, unknown>>({
 		'/',
 		{
 			operation: 'search_by_value',
-			get_attributes: ['*'],
+			get_attributes: getAttributes ?? ['*'],
 			database: databaseName,
 			table: tableName,
 			search_attribute: searchAttribute,

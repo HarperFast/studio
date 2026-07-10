@@ -1,7 +1,24 @@
-import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
-import { ColumnDef } from '@tanstack/react-table';
+import { RelationshipCell } from '@/features/instance/databases/components/RelationshipCell';
+import {
+	getRelationshipInfo,
+	RelationshipAttributeInfo,
+} from '@/features/instance/databases/functions/relationshipAttributes';
+import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
+import { CellContext, ColumnDef } from '@tanstack/react-table';
+import { createElement } from 'react';
 
-export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
+declare module '@tanstack/react-table' {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	interface ColumnMeta<TData, TValue> {
+		/** Set on relationship columns; drives the cell renderer and the sub-property filter UI. */
+		relationshipInfo?: RelationshipAttributeInfo;
+	}
+}
+
+export function formatBrowseDataTableHeader(
+	instanceTable?: InstanceTable,
+	databaseTables?: InstanceDatabaseTableMap,
+): {
 	dataTableColumns: Array<ColumnDef<Record<string, unknown>>>;
 	primaryKey: string;
 } {
@@ -19,14 +36,22 @@ export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
 	const timeColumns: ColumnDef<Record<string, unknown>>[] = [];
 	for (let i = attributes.length - 1; i >= 0; i--) {
 		const { attribute, type, is_primary_key, indexed } = attributes[i];
+		const relationshipInfo = getRelationshipInfo(attributes[i], databaseTables);
 
 		const dataTableColumn: ColumnDef<Record<string, unknown>> = {
 			header: attribute,
 			accessorKey: attribute,
 			enableSorting: Boolean(is_primary_key || indexed),
-			enableColumnFilter: Boolean(is_primary_key || indexed),
+			// Relationship columns are filterable via sub-properties (`.name value`), which the
+			// server executes as a join against the related table.
+			enableColumnFilter: Boolean(is_primary_key || indexed || relationshipInfo),
 			// enableResizing: true,
 			size: sizeByAttributeType(type),
+			cell: relationshipInfo
+				? (context: CellContext<Record<string, unknown>, unknown>) =>
+					createElement(RelationshipCell, { value: context.getValue(), info: relationshipInfo })
+				: renderPlainCell,
+			meta: relationshipInfo ? { relationshipInfo } : undefined,
 		};
 		if (is_primary_key) {
 			primaryKeyColumns.push(dataTableColumn);
@@ -42,6 +67,21 @@ export function formatBrowseDataTableHeader(instanceTable?: InstanceTable): {
 		dataTableColumns: [...primaryKeyColumns, ...sortableColumns, ...normalColumns, ...timeColumns],
 		primaryKey,
 	};
+}
+
+/**
+ * Default cell: objects and arrays render as JSON instead of the default renderer's
+ * `[object Object]`/blank output, and booleans render as text (React renders `false` as nothing).
+ */
+function renderPlainCell(context: CellContext<Record<string, unknown>, unknown>) {
+	const value = context.getValue();
+	if (value == null) {
+		return null;
+	}
+	if (typeof value === 'object') {
+		return JSON.stringify(value);
+	}
+	return String(value);
 }
 
 function sizeByAttributeType(type: InstanceAttribute['type']) {

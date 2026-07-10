@@ -188,9 +188,8 @@ function TableBodyRowCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
 			style={{ width: `${cell.column.getSize()}px` }}
 			className="px-2 py-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap"
 		>
-			{cell.getValue() == '[object Object]'
-				? JSON.stringify(cell.getValue())
-				: flexRender(cell.column.columnDef.cell, cell.getContext())}
+			{/* Object/array stringification lives in the column defs (renderPlainCell / RelationshipCell). */}
+			{flexRender(cell.column.columnDef.cell, cell.getContext())}
 		</TableCell>
 	);
 }

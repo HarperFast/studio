@@ -1,4 +1,5 @@
-import { InstanceAttribute } from '@/integrations/api/api.patch';
+import { isSyntheticAttribute } from '@/features/instance/databases/functions/relationshipAttributes';
+import { InstanceAttribute, InstanceDatabaseTableMap } from '@/integrations/api/api.patch';
 
 const FIRST_NAMES = [
 	'Ada',
@@ -142,14 +143,19 @@ function randomValue(attribute: InstanceAttribute): unknown {
 }
 
 /** Attributes that random rows should fill: everything except the primary key (Harper
- * auto-assigns it on insert), system timestamps, and binary columns. */
-export function randomizableAttributes(attributes: InstanceAttribute[] | undefined): InstanceAttribute[] {
+ * auto-assigns it on insert), system timestamps, binary columns, and relationship/computed
+ * attributes (the server rejects records that assign those). */
+export function randomizableAttributes(
+	attributes: InstanceAttribute[] | undefined,
+	databaseTables?: InstanceDatabaseTableMap,
+): InstanceAttribute[] {
 	return (attributes ?? []).filter((attr) =>
 		!attr.is_primary_key
 		&& attr.attribute !== '__createdtime__'
 		&& attr.attribute !== '__updatedtime__'
 		&& attr.type !== 'Bytes'
 		&& attr.type !== 'Blob'
+		&& !isSyntheticAttribute(attr, databaseTables)
 	);
 }
 
