@@ -7,6 +7,7 @@ const info: RelationshipAttributeInfo = {
 	relatedPrimaryKey: 'id',
 	relatedAttributes: [],
 	isToMany: false,
+	resolvable: true,
 };
 
 describe('relationshipKeyValues', () => {

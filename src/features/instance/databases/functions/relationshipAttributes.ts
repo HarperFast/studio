@@ -26,9 +26,9 @@ export interface RelationshipAttributeInfo {
 	 * for Albums.tracks). Lets cells link to the related table filtered to this row's records. */
 	reverseForeignKey?: string;
 	/** Stored attribute on this table holding the related key(s) (e.g. Product.categoryId for
-	 * Product.category). Exact when it comes from `@relationship(from:)` in a component schema,
-	 * inferred by naming convention otherwise. Backs the column collapse, unresolved-cell
-	 * rendering, and primary-key filter shortcicuits. */
+	 * Product.category), taken EXACTLY from `@relationship(from:)` in a component schema — never
+	 * guessed by naming convention, so the column collapse, unresolved-cell rendering, and
+	 * primary-key filter shortcut never act on a column the relationship doesn't actually read. */
 	foreignKeyAttribute?: string;
 }
 
@@ -77,7 +77,12 @@ export function getRelationshipInfo(
 		return undefined;
 	}
 	const isToMany = attribute.type === 'array';
-	const info: RelationshipAttributeInfo = {
+	// foreignKeyAttribute is intentionally NOT inferred here: describe alone can't tell which stored
+	// column a relationship reads from, and guessing by name convention risks collapsing/reading an
+	// unrelated column. It is set only from an exact schema `@relationship(from:)` in
+	// getRelationshipInfoMap. Describe-reported relationships resolve their values via nested select
+	// (resolvable), so they never need it.
+	return {
 		relatedTableName,
 		relatedPrimaryKey,
 		relatedAttributes: joinableAttributes(relatedTable, databaseTables),
@@ -87,15 +92,6 @@ export function getRelationshipInfo(
 			? inferReverseForeignKey(ownerTable, relatedTable, databaseTables)
 			: undefined,
 	};
-	if (ownerTable) {
-		info.foreignKeyAttribute = relationshipForeignKeyName(
-			attribute.attribute,
-			info,
-			ownerTable.attributes ?? [],
-			databaseTables,
-		);
-	}
-	return info;
 }
 
 /**
@@ -184,7 +180,8 @@ export function getRelationshipInfoMap(
 			// Nested selects only resolve when the server reports the attribute in describe.
 			resolvable: detected?.resolvable ?? false,
 			reverseForeignKey: (declared.isToMany ? declared.to : undefined) ?? detected?.reverseForeignKey,
-			foreignKeyAttribute: declared.from ?? detected?.foreignKeyAttribute,
+			// Only the exact declared key — describe-detected relationships carry none (see above).
+			foreignKeyAttribute: declared.from,
 		};
 	}
 	return map;
@@ -212,11 +209,11 @@ export function syntheticAttributeNames(
 }
 
 /**
- * The stored foreign-key attribute a relationship reads from, inferred by naming convention —
- * `product` → `productId`, `pets` → `petIds` — since describe_table does not expose the
- * `@relationship(from/to)` mapping. Browse collapses the pair into just the relationship column
- * (the chips show the same key values), with the foreign key re-showable from the Columns picker
- * in case the inference is wrong for an unconventionally named key.
+ * Guess the stored foreign-key attribute a relationship reads from by naming convention —
+ * `product` → `productId`, `pets` → `petIds`. Used only as a heuristic to locate the REVERSE key
+ * of a to-many relationship (see `inferReverseForeignKey`), where a wrong guess merely yields a
+ * link that filters to nothing. The forward foreign key that drives column collapse and cell
+ * rendering is NEVER guessed — it comes only from an exact schema `@relationship(from:)`.
  */
 export function relationshipForeignKeyName(
 	attributeName: string,

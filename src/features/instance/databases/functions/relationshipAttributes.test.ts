@@ -153,9 +153,15 @@ describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
 		expect(relationshipForeignKeyName('product', info, attributes, tables)).toBeUndefined();
 	});
 
-	it('collects collapsed keys from the relationship info map', () => {
-		expect(collapsedForeignKeyNames(getRelationshipInfoMap(relReview, tables))).toEqual(['productId']);
-		expect(collapsedForeignKeyNames(getRelationshipInfoMap(relProduct, tables))).toEqual([]);
+	it('collapses only exact schema foreign keys, never convention-guessed ones', () => {
+		// Describe-only (no schema): the foreign key is not known exactly, so nothing collapses —
+		// a real column is never hidden on a naming-convention guess.
+		expect(collapsedForeignKeyNames(getRelationshipInfoMap(relReview, tables))).toEqual([]);
+		// With the schema's exact `from:`, the backing key collapses.
+		const withSchema = getRelationshipInfoMap(relReview, tables, [
+			{ attribute: 'product', relatedTableName: 'RelProduct', isToMany: false, from: 'productId' },
+		]);
+		expect(collapsedForeignKeyNames(withSchema)).toEqual(['productId']);
 		expect(collapsedForeignKeyNames({})).toEqual([]);
 	});
 });
