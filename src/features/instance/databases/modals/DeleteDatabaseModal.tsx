@@ -9,11 +9,12 @@ import { useRouter } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 
-export function DeleteDatabaseModal({ databaseName, onDeleted }: {
-	readonly databaseName: string;
-	readonly onDeleted: (deleted: 'table' | 'database') => void;
+export function DeleteDatabaseModal({ onDeleted }: {
+	readonly onDeleted: (dropped: { databaseName: string }) => void;
 }) {
-	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteDatabase', false);
+	const { value: target, trigger } = useWatchedValue('ShowDeleteDatabase', false);
+	const isModalOpen = !!target;
+	const databaseName = target ? target.databaseName : '';
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDatabase', false);
 		attemptToRestoreFocus(trigger);
@@ -39,7 +40,7 @@ export function DeleteDatabaseModal({ databaseName, onDeleted }: {
 				});
 				await router.invalidate();
 				toast.success(`Database ${databaseName} dropped successfully`);
-				onDeleted('database');
+				onDeleted({ databaseName });
 			},
 		});
 	}, [closeModal, databaseName, deleteDatabase, instanceParams, onDeleted, queryClient, router]);

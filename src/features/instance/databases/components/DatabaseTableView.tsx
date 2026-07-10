@@ -9,11 +9,8 @@ import {
 	syntheticAttributeNames,
 } from '@/features/instance/databases/functions/relationshipAttributes';
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
-import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
-import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
-import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
+import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
-import { ImportDataModal } from '@/features/instance/databases/modals/ImportDataModal';
 import { useAdminMode } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
@@ -25,22 +22,20 @@ import { useCleanupOrphanBlobsMutation } from '@/integrations/api/instance/datab
 import { useDeleteTableRecords } from '@/integrations/api/instance/database/deleteTableRecords';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import {
-	getSearchByConditions,
 	getSearchByConditionsOptions,
 	SearchCondition,
 	translateColumnFilterToSearchConditions,
 } from '@/integrations/api/instance/database/getSearchByConditions';
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
-import { getSearchByValue, getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
+import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
 import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
-import { useSetWatchedValue } from '@/lib/events/watcher';
+import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
-import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Row, VisibilityState } from '@tanstack/react-table';
 import {
 	BrushCleaningIcon,
@@ -75,7 +70,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		instanceId?: string;
 	} = useParams({ strict: false });
 
-	const navigate = useNavigate();
 	const instanceParams = useInstanceClientIdParams();
 	const { clusterId, instanceId } = allParams;
 
@@ -214,8 +208,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	]);
 
 	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
-	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-	const [isImportDataModalOpen, setIsImportDataModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
 		{
 			attribute: primaryKey,
@@ -333,38 +325,19 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		});
 	}, [cleanupOrphanBlobs, databaseName, instanceParams, refreshTable]);
 
-	const [isExportingCSV, setisExportingCSV] = useState(false);
-	const onExportCSVClicked = useCallback(async () => {
-		if (!primaryKey) {
-			return;
-		}
-		const id = toast.loading('Loading CSV...');
-		setisExportingCSV(true);
-		const allResultsAsCSV = {
-			pageIndex: 0,
-			pageSize: 1_000_000,
-			// Raw records only: resolved relationship objects don't serialize usefully into CSV cells.
-			getAttributes: undefined,
-			headers: {
-				Accept: 'text/csv',
-			},
-		};
-		const response = await (
-			useFilteredList
-				? getSearchByConditions({ ...searchByConditionsParams, ...allResultsAsCSV })
-				: getSearchByValue({ ...searchByValueParams, ...allResultsAsCSV })
-		);
-		toast.loading('Preparing CSV...', { id });
-		const content = response.data as unknown as string;
-		const blob = new Blob([content], { type: 'text/csv' });
-		const url = URL.createObjectURL(blob);
-		const downloadLink = document.createElement('a');
-		downloadLink.href = url;
-		downloadLink.setAttribute('download', `${databaseName}.${tableName}.${new Date().toISOString()}.csv`);
-		downloadLink.click();
-		toast.success('CSV Exported!', { id });
-		setisExportingCSV(false);
-	}, [databaseName, tableName, searchByValueOptions, searchByConditionsOptions]);
+	// The toolbar exports what's on screen (active filters + sort); the tree/overview export the whole
+	// table. Both go through the shared hook, which fetches raw records (no relationship get_attributes)
+	// -- resolved relationship objects don't serialize usefully into CSV cells.
+	const { exportCsv, isExporting: isExportingCSV } = useExportTableCsv();
+	const onExportCSVClicked = useCallback(() => {
+		void exportCsv({
+			databaseName,
+			tableName,
+			primaryKey,
+			sort,
+			conditions: useFilteredList ? appliedSearchConditions : null,
+		});
+	}, [exportCsv, databaseName, tableName, primaryKey, sort, useFilteredList, appliedSearchConditions]);
 
 	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
@@ -402,25 +375,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		);
 	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
-	const onImported = useCallback(async (importedDatabase: string, importedTable: string) => {
-		// The import may have created a new table (or even database), so refresh the tree too.
-		await queryClient.invalidateQueries({
-			queryKey: [instanceParams.entityId, 'describe_all'],
-			refetchType: 'all',
-		});
-		if (importedDatabase === databaseName && importedTable === tableName) {
-			void refreshTable();
-		} else {
-			void navigate({
-				to: buildAbsoluteLinkToDatabasePage({
-					...allParams,
-					databaseName: importedDatabase,
-					tableName: importedTable,
-				}),
-			});
-		}
-	}, [queryClient, instanceParams.entityId, databaseName, tableName, refreshTable, navigate, allParams]);
-
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		setSelectedIds([rowData.original[primaryKey]]);
 		setIsEditModalOpen(!isEditModalOpen);
@@ -434,17 +388,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const onRefreshClick = useRefreshClick(refreshTable);
 
 	const onAddClicked = useCallback(() => {
-		setIsAddModalOpen(true);
-	}, [setIsAddModalOpen]);
+		setWatchedValue('ShowAddTableRecords', { databaseName, tableName });
+	}, [databaseName, tableName]);
 
 	const onImportDataClicked = useCallback(() => {
-		setIsImportDataModalOpen(true);
-	}, [setIsImportDataModalOpen]);
-
-	const onDeleted = useCallback(
-		(deleted: 'table' | 'database') => void navigate({ to: deleted === 'table' ? '../' : '../../' }),
-		[navigate],
-	);
+		setWatchedValue('ShowImportData', { databaseName, tableName });
+	}, [databaseName, tableName]);
 
 	const [storedColumnVisibility, setColumnVisibility] = useSessionStorage(
 		`ColumnDisplayed/${databaseName}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
@@ -458,9 +407,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		...storedColumnVisibility,
 	}), [relationshipInfoMap, storedColumnVisibility]);
 
-	const openDeleteTable = useSetWatchedValue('ShowDeleteTable', true);
-	const openDeleteDatabase = useSetWatchedValue('ShowDeleteDatabase', true);
-
 	return (
 		<>
 			<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4 pr-4">
@@ -469,7 +415,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						<Button
 							variant="positiveOutline"
 							onClick={onAddClicked}
-							disabled={isAddModalOpen}
 							accessKey="n"
 						>
 							<PlusIcon />
@@ -482,7 +427,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						<Button
 							variant="positiveOutline"
 							onClick={onImportDataClicked}
-							disabled={isImportDataModalOpen}
 							accessKey="i"
 						>
 							<CloudUploadIcon />
@@ -583,14 +527,20 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 								</DropdownMenuItem>
 							)}
 							{canManageBrowseInstance && !isLastTableInDatabase && (
-								<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteTable}>
+								<DropdownMenuItem
+									className="focus:bg-red/70 focus:text-white"
+									onClick={() => setWatchedValue('ShowDeleteTable', { databaseName, tableName })}
+								>
 									<TrashIcon className="inline-block " />
 									Drop Table
 								</DropdownMenuItem>
 							)}
 							{canManageBrowseInstance
 								&& (
-									<DropdownMenuItem className="focus:bg-red/70 focus:text-white" onClick={openDeleteDatabase}>
+									<DropdownMenuItem
+										className="focus:bg-red/70 focus:text-white"
+										onClick={() => setWatchedValue('ShowDeleteDatabase', { databaseName })}
+									>
 										<Trash2Icon />
 										Drop Database
 									</DropdownMenuItem>
@@ -623,15 +573,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setPageIndex={setPageIndex}
 				setPageSize={setPageSize}
 			/>
-			{canAddRecords && instanceTable && isAddModalOpen && (
-				<AddTableRowModal
-					instanceTable={instanceTable}
-					databaseTables={databaseTables}
-					isModalOpen={isAddModalOpen}
-					refreshTable={refreshTable}
-					setIsModalOpen={setIsAddModalOpen}
-				/>
-			)}
 			<EditTableRowModal
 				canEditRecords={canEditRecords}
 				canDeleteRecords={canDeleteRecords}
@@ -644,18 +585,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				onDeleteRecord={onDeleteRecord}
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending}
 				isDeleteTableRecordsPending={isDeleteTableRecordsPending}
-			/>
-
-			<DeleteDatabaseModal databaseName={databaseName} onDeleted={onDeleted} />
-			<DeleteTableModal databaseName={databaseName} tableName={tableName} onDeleted={onDeleted} />
-
-			<ImportDataModal
-				isModalOpen={isImportDataModalOpen}
-				setIsModalOpen={setIsImportDataModalOpen}
-				instanceDatabaseMap={instanceDatabaseMap}
-				databaseName={databaseName}
-				tableName={tableName}
-				onImported={onImported}
 			/>
 		</>
 	);

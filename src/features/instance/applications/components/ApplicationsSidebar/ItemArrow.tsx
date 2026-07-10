@@ -1,5 +1,3 @@
-import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
-import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { cn } from '@/lib/cn';
 import type { TreeItem } from 'react-complex-tree';
 import type { TreeItemRenderContext } from 'react-complex-tree/src/types';
@@ -22,7 +20,9 @@ import type { TreeItemRenderContext } from 'react-complex-tree/src/types';
  * class) so the visuals are unchanged. The enlarged hit area lives in CSS.
  */
 export function ItemArrow({ item, context }: {
-	item: TreeItem<DirectoryEntry | FileEntry | undefined>;
+	// Data-agnostic on purpose: reads only `item.isFolder`, so both the applications and databases
+	// trees reuse it. (Typed as the library default `TreeItem` = `TreeItem<any>`.)
+	item: TreeItem;
 	context: TreeItemRenderContext;
 }) {
 	if (!item.isFolder) {

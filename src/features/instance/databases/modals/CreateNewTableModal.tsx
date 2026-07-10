@@ -6,7 +6,6 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -23,8 +22,8 @@ import { tableNameSchema } from '@/integrations/api/instance/database/tableNameS
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
-import { Plus, Table } from 'lucide-react';
-import { useState } from 'react';
+import { Table } from 'lucide-react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -42,14 +41,15 @@ const CreateTableSchema = z.object({
 		}),
 });
 
-export function CreateNewTableModal({ databaseName, onSelectTable }: {
+export function CreateNewTableModal({ isModalOpen, setIsModalOpen, databaseName, onCreated }: {
+	readonly isModalOpen: boolean;
+	readonly setIsModalOpen: (open: boolean) => void;
 	readonly databaseName: string | undefined;
-	readonly onSelectTable: (databaseName: string | undefined, tableName: string | undefined) => void;
+	readonly onCreated: (databaseName: string, tableName: string) => void;
 }) {
 	const queryClient = useQueryClient();
 	const instanceParams = useInstanceClientIdParams();
 	const router = useRouter();
-	const [isModalOpen, setIsModalOpen] = useState(false);
 	const form = useForm({
 		resolver: zodResolver(CreateTableSchema),
 		defaultValues: {
@@ -58,6 +58,16 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 			primaryKey: '',
 		},
 	});
+
+	// This modal is mounted persistently (not remounted per trigger), so re-seed the form with the
+	// target database each time it opens -- otherwise a right-click on a different database would keep
+	// the previously-prefilled name.
+	const { reset } = form;
+	useEffect(() => {
+		if (isModalOpen) {
+			reset({ databaseName: databaseName || '', tableName: '', primaryKey: '' });
+		}
+	}, [isModalOpen, databaseName, reset]);
 
 	const { mutate: submitNewTableData } = useCreateTableMutation();
 
@@ -79,7 +89,7 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 				toast.success(`Table ${tableName} created successfully`);
 				setIsModalOpen(false);
 				form.reset();
-				onSelectTable(databaseName, tableName);
+				onCreated(databaseName, tableName);
 				await router.invalidate();
 			},
 		});
@@ -87,16 +97,6 @@ export function CreateNewTableModal({ databaseName, onSelectTable }: {
 
 	return (
 		<Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-			<DialogTrigger asChild>
-				<div className="shrink-0 py-4">
-					<Button variant="positiveOutline" className="w-full" size="lg" accessKey="t">
-						<Plus />
-						<span>
-							Create a <u>T</u>able
-						</span>
-					</Button>
-				</div>
-			</DialogTrigger>
 			<DialogContent className="sm:max-w-[425px]">
 				<DialogHeader>
 					<DialogTitle>Create a New Table</DialogTitle>

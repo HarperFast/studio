@@ -186,7 +186,7 @@ export function useInstanceSchemaTablePermission(
 		return true;
 	}
 	const specificPermission = permission[databaseName];
-	return specificPermission?.tables?.[tableName][action] === true;
+	return specificPermission?.tables?.[tableName]?.[action] === true;
 }
 
 export function useInstanceSchemaTableAttributePermission(
@@ -208,7 +208,7 @@ export function useInstanceSchemaTableAttributePermission(
 		return true;
 	}
 	const specificPermission = permission[databaseName];
-	if (specificPermission?.tables?.[tableName][action] === true) {
+	if (specificPermission?.tables?.[tableName]?.[action] === true) {
 		return true;
 	}
 	const table = specificPermission?.tables?.[tableName];
