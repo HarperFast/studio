@@ -108,7 +108,7 @@ export function UpsertCluster() {
 	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
 	// the current target as a recovery path.
 	const partialUpgrade = useMemo(
-		() => detectPartialUpgrade(cluster?.instances?.map(i => i.version) ?? []),
+		() => detectPartialUpgrade(cluster?.instances ?? []),
 		[cluster],
 	);
 
