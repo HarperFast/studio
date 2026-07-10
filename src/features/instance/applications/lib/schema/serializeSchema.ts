@@ -60,11 +60,24 @@ function serializeDirectives(directives: Directive[], order: string[]): string {
 		.join(' ');
 }
 
+/** Re-indent a stored comment/description block to the canonical indent, one line at a time. */
+function indentCommentLines(comment: string, indent: string): string[] {
+	return comment.split('\n').map(rawLine => {
+		// Strip any indentation the line already carried (e.g. interior lines of a
+		// multi-line """description""") before applying the canonical indent, so
+		// re-editing a table doesn't compound the indentation each time. Blank
+		// lines stay blank.
+		const line = rawLine.replace(/\r$/, '').replace(/^[ \t]+/, '');
+		return line ? `${indent}${line}` : '';
+	});
+}
+
 /** Generate the canonical `type … { … }` text for an edited or new table. */
 function generateTable(table: TableModel, doc: SchemaDocument): string {
 	const { indent, newline } = doc;
 	const directives = serializeDirectives(table.directives, TABLE_DIRECTIVE_ORDER);
-	const lines: string[] = [`type ${table.typeName}${directives ? ` ${directives}` : ''} {`];
+	const header = `type ${table.typeName}${directives ? ` ${directives}` : ''} {`;
+	const lines: string[] = [table.headerComment ? `${header} ${table.headerComment}` : header];
 
 	for (const field of table.fields) {
 		// An added-but-unnamed field would emit invalid SDL (`\t: String`); skip it
@@ -73,18 +86,17 @@ function generateTable(table: TableModel, doc: SchemaDocument): string {
 			continue;
 		}
 		for (const comment of field.leadingComments) {
-			for (const rawLine of comment.split('\n')) {
-				// Strip any indentation the line already carried (e.g. interior lines of a
-				// multi-line """description""") before applying the canonical indent, so
-				// re-editing a table doesn't compound the indentation each time. Blank
-				// lines stay blank.
-				const line = rawLine.replace(/\r$/, '').replace(/^[ \t]+/, '');
-				lines.push(line ? `${indent}${line}` : '');
-			}
+			lines.push(...indentCommentLines(comment, indent));
 		}
 		const fieldDirectives = serializeDirectives(field.directives, FIELD_DIRECTIVE_ORDER);
 		const suffix = [fieldDirectives, field.lineComment].filter(Boolean).join(' ');
 		lines.push(`${indent}${field.name}: ${formatTypeRef(field.type)}${suffix ? ` ${suffix}` : ''}`);
+	}
+
+	// Comments that trailed the last field, before `}` — preserved so an edit
+	// doesn't silently drop them.
+	for (const comment of table.trailingComments) {
+		lines.push(...indentCommentLines(comment, indent));
 	}
 
 	return `${lines.join(newline)}${newline}}`;

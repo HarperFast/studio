@@ -89,6 +89,7 @@ export function TableCard({
 							{fieldCount} field{fieldCount === 1 ? '' : 's'}
 							{exported ? ' · REST' : ''}
 							{nameError ? ' · ⚠ invalid name' : ''}
+							{fieldCount === 0 ? ' · ⚠ needs a field' : ''}
 						</span>
 					</button>
 					<Button
@@ -229,6 +230,11 @@ export function TableCard({
 
 						<div>
 							<h4 className="mb-2 text-sm font-medium">Fields</h4>
+							{fieldCount === 0 && (
+								<p className="mb-2 text-xs text-destructive">
+									A table needs at least one field to be valid. Add one below.
+								</p>
+							)}
 							<div className="flex flex-col gap-2">
 								{table.fields.map((field, index) => (
 									<FieldRow
@@ -236,6 +242,7 @@ export function TableCard({
 										field={field}
 										typeNames={typeNames}
 										readOnly={readOnly}
+										disableRemove={fieldCount === 1}
 										onChange={next =>
 											onChange({ ...table, fields: table.fields.map((f, i) => i === index ? next : f) })}
 										onRemove={() => onChange({ ...table, fields: table.fields.filter((_, i) => i !== index) })}

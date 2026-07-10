@@ -347,8 +347,12 @@ function skipInlineWhitespace(src: string, i: number): number {
 	return j;
 }
 
-/** Parse the fields between a type body's braces; return null if anything is malformed. */
-function parseFields(body: string): FieldModel[] | null {
+/**
+ * Parse the fields between a type body's braces; return null if anything is
+ * malformed. Comment/description lines that trail the last field (no field
+ * follows them) are returned as `trailingComments` so they survive regeneration.
+ */
+function parseFields(body: string): { fields: FieldModel[]; trailingComments: string[] } | null {
 	const fields: FieldModel[] = [];
 	let pendingComments: string[] = [];
 	let i = 0;
@@ -429,7 +433,26 @@ function parseFields(body: string): FieldModel[] | null {
 		});
 		pendingComments = [];
 	}
-	return fields;
+	// Anything still pending never found a field to attach to — it's trailing
+	// trivia inside the body (after the last field, before `}`).
+	return { fields, trailingComments: pendingComments };
+}
+
+/**
+ * Peel a header-line `# …` comment off the body. `body` is the text after the
+ * opening `{`, so its first line is the remainder of the `type … {` line; if that
+ * line is a comment it belongs to the header, not the first field.
+ */
+function splitHeaderComment(body: string): { headerComment?: string; body: string } {
+	const newlineIndex = body.indexOf('\n');
+	if (newlineIndex < 0) {
+		return { body };
+	}
+	const firstLine = body.slice(0, newlineIndex);
+	if (firstLine.replace(/^[ \t,]+/, '').startsWith('#')) {
+		return { headerComment: firstLine.replace(/\r$/, '').trim(), body: body.slice(newlineIndex + 1) };
+	}
+	return { body };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -459,11 +482,22 @@ function parseTypeBlock(blockSrc: string, id: string): TableModel | null {
 	if (bodyEnd < braceStart) {
 		return null;
 	}
-	const fields = parseFields(blockSrc.slice(braceStart + 1, bodyEnd));
-	if (!fields) {
+	const { headerComment, body } = splitHeaderComment(blockSrc.slice(braceStart + 1, bodyEnd));
+	const parsed = parseFields(body);
+	if (!parsed) {
 		return null;
 	}
-	return { id, leading: '', typeName, directives, fields, raw: blockSrc, edited: false };
+	return {
+		id,
+		leading: '',
+		typeName,
+		headerComment,
+		directives,
+		fields: parsed.fields,
+		trailingComments: parsed.trailingComments,
+		raw: blockSrc,
+		edited: false,
+	};
 }
 
 /**
