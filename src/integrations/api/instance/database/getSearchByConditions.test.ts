@@ -344,6 +344,7 @@ describe('translateColumnFilterToSearchCondition for relationship columns', () =
 			{ attribute: 'rating', type: 'Int' },
 		],
 		isToMany: false,
+		resolvable: true,
 	};
 
 	it('translates ".subProperty value" into a join path condition', () => {
@@ -408,5 +409,30 @@ describe('translateColumnFilterToSearchCondition for relationship columns', () =
 			{ search_attribute: ['product', 'rating'], search_type: 'greater_than_equal', search_value: 4 },
 			{ search_attribute: ['product', 'rating'], search_type: 'less_than', search_value: 9 },
 		]);
+	});
+
+	it('queries the local foreign key directly when filtering by the related primary key', () => {
+		// With a known stored foreign key, filtering `product` by its id resolves to the FK column
+		// (indexed, and works on servers whose ops API cannot execute relationship joins) rather
+		// than the `[relationship, subProperty]` join path.
+		const withForeignKey = { ...relationshipInfo, foreignKeyAttribute: 'productId' };
+		expect(
+			translateColumnFilterToSearchCondition('product', '.id p1', undefined, withForeignKey),
+		).toEqual({
+			search_attribute: 'productId',
+			search_type: 'equals',
+			search_value: 'p1',
+		});
+	});
+
+	it('still joins for non-primary-key sub-properties even when the foreign key is known', () => {
+		const withForeignKey = { ...relationshipInfo, foreignKeyAttribute: 'productId' };
+		expect(
+			translateColumnFilterToSearchCondition('product', '.name Anvil', undefined, withForeignKey),
+		).toEqual({
+			search_attribute: ['product', 'name'],
+			search_type: 'equals',
+			search_value: 'Anvil',
+		});
 	});
 });
