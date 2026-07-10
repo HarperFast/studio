@@ -153,10 +153,10 @@ describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
 		expect(relationshipForeignKeyName('product', info, attributes, tables)).toBeUndefined();
 	});
 
-	it('collects collapsed keys per table', () => {
-		expect(collapsedForeignKeyNames(relReview, tables)).toEqual(['productId']);
-		expect(collapsedForeignKeyNames(relProduct, tables)).toEqual([]);
-		expect(collapsedForeignKeyNames(undefined, tables)).toEqual([]);
+	it('collects collapsed keys from the relationship info map', () => {
+		expect(collapsedForeignKeyNames(getRelationshipInfoMap(relReview, tables))).toEqual(['productId']);
+		expect(collapsedForeignKeyNames(getRelationshipInfoMap(relProduct, tables))).toEqual([]);
+		expect(collapsedForeignKeyNames({})).toEqual([]);
 	});
 });
 
@@ -218,5 +218,76 @@ describe('legacy elements-less relationships and reverse foreign keys', () => {
 		const info = getRelationshipInfo(relProduct.attributes[4], tables, relProduct);
 		expect(info?.reverseForeignKey).toBe('productId');
 		expect(info?.resolvable).toBe(true);
+	});
+});
+
+describe('getRelationshipInfoMap with schema-declared relationships', () => {
+	// Harper 5.1 regime: describe reports only stored attributes; the component schema declares
+	// category/products with exact from/to mappings.
+	const category = {
+		schema: 'data',
+		name: 'Category',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String', indexed: {} },
+		],
+	} as InstanceTable;
+	const product = {
+		schema: 'data',
+		name: 'Product',
+		primary_key: 'id',
+		attributes: [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'name', type: 'String', indexed: {} },
+			{ attribute: 'categoryId', type: 'ID', indexed: {} },
+		],
+	} as InstanceTable;
+	const catalogTables: InstanceDatabaseTableMap = { Category: category, Product: product };
+
+	it('adds a to-one relationship with its exact stored key', () => {
+		const map = getRelationshipInfoMap(product, catalogTables, [
+			{ attribute: 'category', relatedTableName: 'Category', isToMany: false, from: 'categoryId' },
+		]);
+		expect(map.category).toMatchObject({
+			relatedTableName: 'Category',
+			relatedPrimaryKey: 'id',
+			isToMany: false,
+			resolvable: false,
+			foreignKeyAttribute: 'categoryId',
+		});
+		expect(collapsedForeignKeyNames(map)).toEqual(['categoryId']);
+	});
+
+	it('adds a reverse to-many relationship with its exact reverse key', () => {
+		const map = getRelationshipInfoMap(category, catalogTables, [
+			{ attribute: 'products', relatedTableName: 'Product', isToMany: true, to: 'categoryId' },
+		]);
+		expect(map.products).toMatchObject({
+			relatedTableName: 'Product',
+			isToMany: true,
+			resolvable: false,
+			reverseForeignKey: 'categoryId',
+		});
+		expect(map.products.foreignKeyAttribute).toBeUndefined();
+	});
+
+	it('keeps resolvable=true when describe also reports the attribute (Harper 4.x)', () => {
+		const describedProduct = {
+			...product,
+			attributes: [...product.attributes, { attribute: 'category', type: 'Category' }],
+		};
+		const map = getRelationshipInfoMap(describedProduct, catalogTables, [
+			{ attribute: 'category', relatedTableName: 'Category', isToMany: false, from: 'categoryId' },
+		]);
+		expect(map.category.resolvable).toBe(true);
+		expect(map.category.foreignKeyAttribute).toBe('categoryId');
+	});
+
+	it('skips declarations whose related table is unknown', () => {
+		const map = getRelationshipInfoMap(product, catalogTables, [
+			{ attribute: 'vendor', relatedTableName: 'Vendor', isToMany: false, from: 'vendorId' },
+		]);
+		expect(map.vendor).toBeUndefined();
 	});
 });

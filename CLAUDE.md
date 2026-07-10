@@ -135,12 +135,30 @@ What `describe_table` reports differs by server version (verified empirically, J
   properties: [...]}`, to-many as `{type: 'array', elements: '<RelatedTable>'}` — but there is
   NO explicit relationship flag: the only signal is that `type`/`elements` names a sibling
   table. `@computed` attrs are omitted.
-- **Harper 5.1**: relationship attrs are omitted entirely (they're runtime-only, never persisted
-  to the attribute registry); `@computed` attrs appear only with `include_computed: true`, and
-  carry `computed: true`. On 5.1 the relationship browse features simply never activate.
+- **Harper 5.1**: relationship attrs are omitted from describe entirely; `@computed` attrs appear
+  only with `include_computed: true`, and carry `computed: true`.
 
-Search wire contract (works on 4.7; validated-but-unresolved on 5.1): `get_attributes` accepts
-nested selects `{name, select: [...]}` to resolve relationships, but a LEADING `'*'` makes the
-server return raw records and ignore the rest of the list — relationship selects must come
-before the `'*'`. `search_by_conditions` accepts `search_attribute: ['rel', 'subProp']` as a
-join into the related table (querying the relationship attribute itself returns nothing/errors).
+The 5.1 omission is an **unintentional regression**, not a deliberate change (traced in the Harper
+source, Jul 2026). describe's `pushAtt` never filtered relationships and hasn't changed; what
+changed is the v5.0 "big lift" rewrite made describe read `table.attributes` rebuilt from the
+persisted attribute registry (`attributesDbi`), and relationships are runtime-only — `table()`'s
+persistence loop `continue`s past them so they're never written to the registry (same in 4.7, but
+4.7's describe read the schema-applied in-memory list that still held them). Harper commit
+`3017e097c` (RE-7 / #1183) treats this as a bug but only partially fixes it, and there is NO
+`include_relationships`-style flag to re-surface them.
+
+Because of that, browse ALSO reads relationships from the component `schema.graphql` files
+(`functions/schemaRelationships.ts` → `get_components` + `get_component_file`, parsed with the
+applications schema parser). This is the ONLY source on 5.1, and it's authoritative for the exact
+`@relationship(from:/to:)` key mappings even on 4.7. A schema-only relationship (not in describe)
+renders as a synthesized column: to-one reads the stored foreign key (`from:`) directly from the
+row; to-many links to the related table filtered by the reverse key (`to:`). `getRelationshipInfoMap`
+merges the describe-detected and schema-declared sources.
+
+Search wire contract (works on 4.7; describe-resolvable there, FK-based on 5.1): `get_attributes`
+accepts nested selects `{name, select: [...]}` to resolve relationships, but a LEADING `'*'` makes
+the server return raw records and ignore the rest of the list — relationship selects must come
+before the `'*'`. `search_by_conditions` accepts `search_attribute: ['rel', 'subProp']` as a join
+into the related table; when the sub-property IS the related primary key AND we know the local
+foreign key, we query the FK directly instead (indexed, and works on 5.1's ops API which can't
+execute relationship joins).

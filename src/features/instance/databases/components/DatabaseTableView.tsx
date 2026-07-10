@@ -8,6 +8,7 @@ import {
 	getRelationshipInfoMap,
 	syntheticAttributeNames,
 } from '@/features/instance/databases/functions/relationshipAttributes';
+import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { AddTableRowModal } from '@/features/instance/databases/modals/AddTableRowModal';
 import { DeleteDatabaseModal } from '@/features/instance/databases/modals/DeleteDatabaseModal';
 import { DeleteTableModal } from '@/features/instance/databases/modals/DeleteTableModal';
@@ -101,12 +102,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const tableFromMap = databaseTables?.[tableName];
 	const instanceTable = describeTableData ?? tableFromMap;
 	const attributesMap = useMemo(() => keyBy(instanceTable?.attributes ?? [], 'attribute'), [instanceTable]);
-	// Relationship attributes (when the server's describe reports them) get resolved cell values,
-	// link chips, and sub-property filters; they are also excluded from record add/edit JSON since
-	// the server rejects writes that assign them.
+	// Newer Harper servers omit relationship attributes from describe entirely; the component
+	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
+	const { data: schemaRelationshipMap } = useQuery(getSchemaRelationshipsQueryOptions(instanceParams));
+	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
+	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
+	// they are also excluded from record add/edit JSON since the server rejects writes that
+	// assign them.
 	const relationshipInfoMap = useMemo(
-		() => getRelationshipInfoMap(instanceTable, databaseTables),
-		[instanceTable, databaseTables],
+		() => getRelationshipInfoMap(instanceTable, databaseTables, schemaRelationships),
+		[instanceTable, databaseTables, schemaRelationships],
 	);
 	const relationshipGetAttributes = useMemo(
 		() => buildRelationshipGetAttributes(instanceTable, databaseTables),
@@ -174,19 +179,29 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	// Deep links can carry filters (?filters={column: "value"}) — relationship cell chips use this
 	// to land on the related table filtered to the linked record. Applied once per distinct search,
-	// after the schema arrives (translation needs attribute types).
+	// after the schema arrives (translation needs attribute types). When the URL filters go away
+	// (navigating to another table, or back to the bare table), the filter inputs are cleared too
+	// so they don't linger stale — `appliedSearchConditions` already resets on table change, and
+	// the visible inputs should stay in step with it.
 	const { filters: urlFilters }: { filters?: Record<string, string> } = useSearch({ strict: false });
 	const urlFiltersKey = JSON.stringify([databaseName, tableName, urlFilters ?? null]);
 	const appliedUrlFiltersKey = useRef<string | null>(null);
-	useEffect(function applyFiltersFromUrl() {
-		if (!urlFilters || !instanceTable || appliedUrlFiltersKey.current === urlFiltersKey) {
+	useEffect(function syncFiltersFromUrl() {
+		if (!instanceTable || appliedUrlFiltersKey.current === urlFiltersKey) {
 			return;
 		}
+		const isInitialSync = appliedUrlFiltersKey.current === null;
 		appliedUrlFiltersKey.current = urlFiltersKey;
-		resetFiltersForm({ ...urlFilters });
-		const conditions = translateFilterValues(urlFilters);
-		setAppliedSearchConditions(conditions.length ? conditions : null);
-		showFilters();
+		if (urlFilters) {
+			resetFiltersForm({ ...urlFilters });
+			const conditions = translateFilterValues(urlFilters);
+			setAppliedSearchConditions(conditions.length ? conditions : null);
+			showFilters();
+		} else if (!isInitialSync) {
+			// Skip the initial mount (nothing to clear yet); otherwise drop the stale inputs a
+			// prior URL filter (or another table) left behind.
+			clearFilters();
+		}
 	}, [
 		urlFilters,
 		urlFiltersKey,
@@ -195,9 +210,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		translateFilterValues,
 		setAppliedSearchConditions,
 		showFilters,
+		clearFilters,
 	]);
 
-	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, databaseTables);
+	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
 	const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 	const [isImportDataModalOpen, setIsImportDataModalOpen] = useState(false);
 	const [sort, setSort] = useEffectedState(
@@ -438,9 +454,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// them), so the foreign-key column is collapsed away by default. The user's own choices win:
 	// re-showing it from the Columns picker stores an explicit `true` that overrides the default.
 	const columnVisibility = useMemo((): VisibilityState => ({
-		...Object.fromEntries(collapsedForeignKeyNames(instanceTable, databaseTables).map((name) => [name, false])),
+		...Object.fromEntries(collapsedForeignKeyNames(relationshipInfoMap).map((name) => [name, false])),
 		...storedColumnVisibility,
-	}), [instanceTable, databaseTables, storedColumnVisibility]);
+	}), [relationshipInfoMap, storedColumnVisibility]);
 
 	const openDeleteTable = useSetWatchedValue('ShowDeleteTable', true);
 	const openDeleteDatabase = useSetWatchedValue('ShowDeleteDatabase', true);
