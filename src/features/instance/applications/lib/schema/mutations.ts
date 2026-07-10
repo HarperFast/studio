@@ -53,6 +53,7 @@ export function createTable(id: string): TableModel {
 				directives: [{ name: 'primaryKey', args: [], hadParens: false }],
 			},
 		],
+		trailingComments: [],
 		raw: '',
 		edited: true,
 	};

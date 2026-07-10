@@ -80,8 +80,21 @@ export interface TableModel {
 	 */
 	leading: string;
 	typeName: string;
+	/**
+	 * A `# …` comment written on the type's header line, right after the opening
+	 * brace (e.g. `type Dog @table { # note`). Captured so it isn't relocated to a
+	 * standalone line above the first field when the table is regenerated.
+	 */
+	headerComment?: string;
 	directives: Directive[];
 	fields: FieldModel[];
+	/**
+	 * Comment (`# …`) and description (`"""…"""`) lines that sit inside the body
+	 * after the last field, before the closing `}` — each captured verbatim
+	 * (without the structural indent). Re-emitted before `}` when the table is
+	 * regenerated so trailing trivia isn't silently dropped on edit.
+	 */
+	trailingComments: string[];
 	/**
 	 * The exact original source of `type … { … }` (excluding {@link leading}).
 	 * Emitted verbatim while {@link edited} is false, guaranteeing untouched

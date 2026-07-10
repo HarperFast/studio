@@ -100,6 +100,40 @@ describe('serializeSchema description (""") handling', () => {
 	});
 });
 
+describe('serializeSchema preserves in-body comments when a table is edited', () => {
+	it('keeps a comment trailing the last field instead of dropping it on edit', () => {
+		const source = 'type Dog @table {\n\tid: ID @primaryKey\n\t# trailing note about the table\n}\n';
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		expect(serializeSchema(doc)).toBe(source);
+	});
+
+	it('keeps a header-line comment on the header line instead of relocating it on edit', () => {
+		const source = 'type Dog @table { # the dogs table\n\tid: ID @primaryKey\n}\n';
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		expect(serializeSchema(doc)).toBe(source);
+	});
+
+	it('preserves a comments-only table body on edit (does not silently drop the comment)', () => {
+		const source = 'type Dog @table {\n\t# just a note, no fields yet\n}\n';
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		expect(serializeSchema(doc)).toContain('# just a note, no fields yet');
+	});
+
+	it('re-editing a table with a trailing multi-line description block stays idempotent', () => {
+		const source = 'type Dog @table {\n\tid: ID @primaryKey\n\t"""\n\tA trailing note.\n\tOn two lines.\n\t"""\n}\n';
+		const doc = parse(source);
+		firstTable(doc).edited = true;
+		const once = serializeSchema(doc);
+		expect(once).toBe(source);
+		const twice = parse(once);
+		firstTable(twice).edited = true;
+		expect(serializeSchema(twice)).toBe(source);
+	});
+});
+
 describe('serializeSchema canonical generation for edited tables', () => {
 	it('regenerates directives and args in canonical order, preserving unknown ones', () => {
 		const doc = parse(

@@ -57,6 +57,14 @@ describe('parseSchema round-trip fidelity', () => {
 		);
 	});
 
+	it('round-trips a comment trailing the last field, before the closing brace', () => {
+		expectRoundTrip('type Dog @table {\n\tid: ID @primaryKey\n\t# trailing note about the table\n}\n');
+	});
+
+	it('round-trips a comment on the type header line, after the opening brace', () => {
+		expectRoundTrip('type Dog @table { # the dogs table\n\tid: ID @primaryKey\n}\n');
+	});
+
 	it('leaves an empty document empty', () => {
 		expectRoundTrip('');
 	});
@@ -97,6 +105,24 @@ describe('parseSchema structure', () => {
 		const [t] = tables('type T @table {\n\t# the id\n\tid: ID @primaryKey # inline\n}\n');
 		expect(t.fields[0].leadingComments).toEqual(['# the id']);
 		expect(t.fields[0].lineComment).toBe('# inline');
+	});
+
+	it('captures a comment trailing the last field as trailingComments, not a leading comment', () => {
+		const [t] = tables('type T @table {\n\tid: ID @primaryKey\n\t# trailing note\n}\n');
+		expect(t.fields[0].leadingComments).toEqual([]);
+		expect(t.trailingComments).toEqual(['# trailing note']);
+	});
+
+	it('captures a header-line comment separately from the first field', () => {
+		const [t] = tables('type T @table { # header note\n\tid: ID @primaryKey\n}\n');
+		expect(t.headerComment).toBe('# header note');
+		expect(t.fields[0].leadingComments).toEqual([]);
+	});
+
+	it("keeps a comment on its own line before the first field as that field's leading comment", () => {
+		const [t] = tables('type T @table {\n\t# not a header comment\n\tid: ID @primaryKey\n}\n');
+		expect(t.headerComment).toBeUndefined();
+		expect(t.fields[0].leadingComments).toEqual(['# not a header comment']);
 	});
 });
 

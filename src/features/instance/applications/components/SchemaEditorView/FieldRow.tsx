@@ -41,12 +41,15 @@ export function FieldRow({
 	field,
 	typeNames,
 	readOnly,
+	disableRemove,
 	onChange,
 	onRemove,
 }: {
 	field: FieldModel;
 	typeNames: string[];
 	readOnly: boolean;
+	/** True when this is the table's only field: a GraphQL type needs at least one, so removal is blocked. */
+	disableRemove?: boolean;
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;
 }) {
@@ -107,9 +110,9 @@ export function FieldRow({
 					variant="destructiveGhost"
 					size="icon"
 					className="self-end"
-					disabled={readOnly}
+					disabled={readOnly || disableRemove}
 					onClick={onRemove}
-					title="Remove field"
+					title={disableRemove ? 'A table needs at least one field' : 'Remove field'}
 				>
 					<TrashIcon />
 				</Button>
