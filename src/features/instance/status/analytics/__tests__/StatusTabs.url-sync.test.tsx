@@ -122,7 +122,10 @@ describe('StatusTabs URL sync', () => {
 		}, { timeout: 2000 });
 	});
 
-	it('clears search params on unmount so sibling routes do not inherit them', async () => {
+	it('does not navigate on unmount (params are route-scoped, #1440)', async () => {
+		// The old navigate-on-unmount cleanup fired after the destination route
+		// committed and could clobber its search params; scoping now lives on
+		// the route via validateSearch + stripSearchParams.
 		currentSearch = { tab: 'requests', range: '24h' };
 		const { unmount } = mount();
 		await waitFor(() => {
@@ -134,8 +137,6 @@ describe('StatusTabs URL sync', () => {
 		});
 		navigateMock.mockClear();
 		unmount();
-		expect(navigateMock).toHaveBeenCalledWith(
-			expect.objectContaining({ search: undefined, replace: true }),
-		);
+		expect(navigateMock).not.toHaveBeenCalled();
 	});
 });
