@@ -2,9 +2,11 @@ import { InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.
 import { describe, expect, it } from 'vitest';
 import {
 	buildRelationshipGetAttributes,
+	collapsedForeignKeyNames,
 	getRelationshipInfo,
 	getRelationshipInfoMap,
 	isSyntheticAttribute,
+	relationshipForeignKeyName,
 	syntheticAttributeNames,
 } from './relationshipAttributes';
 
@@ -108,5 +110,52 @@ describe('buildRelationshipGetAttributes', () => {
 		const plain = { ...relProduct, attributes: relProduct.attributes.slice(0, 4) };
 		expect(buildRelationshipGetAttributes(plain, tables)).toBeUndefined();
 		expect(buildRelationshipGetAttributes(undefined, tables)).toBeUndefined();
+	});
+});
+
+describe('relationshipForeignKeyName / collapsedForeignKeyNames', () => {
+	it('pairs a to-one relationship with its conventional foreign key', () => {
+		const info = getRelationshipInfo(relReview.attributes[3], tables)!;
+		expect(relationshipForeignKeyName('product', info, relReview.attributes, tables)).toBe('productId');
+	});
+
+	it('matches snake_case foreign keys case-insensitively', () => {
+		const attributes = [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'product_id', type: 'ID', indexed: {} },
+			{ attribute: 'product', type: 'RelProduct' },
+		];
+		const info = getRelationshipInfo(attributes[2], tables)!;
+		expect(relationshipForeignKeyName('product', info, attributes, tables)).toBe('product_id');
+	});
+
+	it('pairs a many-to-many relationship with its plural/singular id-array key', () => {
+		const attributes = [
+			{ attribute: 'id', type: 'ID', is_primary_key: true },
+			{ attribute: 'petIds', type: 'array', elements: 'ID', indexed: {} },
+			{ attribute: 'pets', type: 'array', elements: 'RelReview' },
+		];
+		const info = getRelationshipInfo(attributes[2], tables)!;
+		expect(relationshipForeignKeyName('pets', info, attributes, tables)).toBe('petIds');
+	});
+
+	it('finds nothing for reverse (to:) relationships whose key lives on the other table', () => {
+		const info = getRelationshipInfo(relProduct.attributes[4], tables)!;
+		expect(relationshipForeignKeyName('reviews', info, relProduct.attributes, tables)).toBeUndefined();
+	});
+
+	it('never pairs with the primary key or another relationship', () => {
+		const attributes = [
+			{ attribute: 'productId', type: 'ID', is_primary_key: true },
+			{ attribute: 'product', type: 'RelProduct' },
+		];
+		const info = getRelationshipInfo(attributes[1], tables)!;
+		expect(relationshipForeignKeyName('product', info, attributes, tables)).toBeUndefined();
+	});
+
+	it('collects collapsed keys per table', () => {
+		expect(collapsedForeignKeyNames(relReview, tables)).toEqual(['productId']);
+		expect(collapsedForeignKeyNames(relProduct, tables)).toEqual([]);
+		expect(collapsedForeignKeyNames(undefined, tables)).toEqual([]);
 	});
 });

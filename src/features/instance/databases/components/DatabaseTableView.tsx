@@ -4,6 +4,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import {
 	buildRelationshipGetAttributes,
+	collapsedForeignKeyNames,
 	getRelationshipInfoMap,
 	syntheticAttributeNames,
 } from '@/features/instance/databases/functions/relationshipAttributes';
@@ -426,10 +427,17 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		[navigate],
 	);
 
-	const [columnVisibility, setColumnVisibility] = useSessionStorage(
+	const [storedColumnVisibility, setColumnVisibility] = useSessionStorage(
 		`ColumnDisplayed/${databaseName}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
 		{} satisfies VisibilityState,
 	);
+	// A relationship column shows the same key values as the foreign key backing it (and links
+	// them), so the foreign-key column is collapsed away by default. The user's own choices win:
+	// re-showing it from the Columns picker stores an explicit `true` that overrides the default.
+	const columnVisibility = useMemo((): VisibilityState => ({
+		...Object.fromEntries(collapsedForeignKeyNames(instanceTable, databaseTables).map((name) => [name, false])),
+		...storedColumnVisibility,
+	}), [instanceTable, databaseTables, storedColumnVisibility]);
 
 	const openDeleteTable = useSetWatchedValue('ShowDeleteTable', true);
 	const openDeleteDatabase = useSetWatchedValue('ShowDeleteDatabase', true);
