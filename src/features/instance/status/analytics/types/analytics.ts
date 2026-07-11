@@ -10,21 +10,6 @@ export interface AnalyticsResponse {
 	data: AnalyticsDataPoint[];
 }
 
-export type KnownMetricName =
-	| 'replication-latency'
-	| 'resource-usage'
-	| 'memory'
-	| 'mqtt-connections'
-	| 'ws-connections'
-	| 'main-thread-utilization'
-	| 'bytes-sent'
-	| 'bytes-received'
-	| 'table-size';
-
-// Widened so unspecced Harper metrics type-check through fetchAnalytics. The
-// `(string & {})` intersection preserves IDE autocomplete for known names.
-export type MetricName = KnownMetricName | (string & {});
-
 export interface TableSizeRecord {
 	metric: 'table-size';
 	database: string;
@@ -45,22 +30,9 @@ export interface TimeRange {
 	endTime: number;
 }
 
-export interface PresetOption {
-	label: string;
-	value: string;
-	durationMs: number;
-}
-
 export type ViewMode = 'aggregate' | 'per-node';
 
 export type AutoRefreshInterval = 10_000 | 30_000 | 60_000 | 300_000 | 0;
-
-export interface ChartPanelConfig {
-	title: string;
-	description: string;
-	metric: MetricName;
-	unit: string;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step 1a — Declarative spec types. Unused until Step 1b wires MetricRenderer
@@ -83,7 +55,7 @@ export type Transform =
 	/** Passthrough for [0, 1] fractions; primitives render as percent. */
 	| { kind: 'ratio' }
 	| { kind: 'compose'; steps: Transform[] }
-	/** Lookup in `src/lib/metricSpecs/transforms.ts` — keyof typeof registry. */
+	/** Lookup in `src/features/instance/status/analytics/pipeline/transforms.ts` — keyof typeof registry. */
 	| { kind: 'named'; name: string };
 
 export type Aggregator =
