@@ -9,7 +9,7 @@ import type { FieldExpr, FieldSpec, MetricSpec, Transform } from '../types/analy
  *  the source-record fields the recompute reads. */
 const DERIVED_REQUIRED_FIELDS: Record<string, readonly string[]> = {
 	'request-rate': ['count', 'period'],
-	'error-rate': ['count', 'errors'],
+	'error-rate': ['count', 'total'],
 	// mqtt-traffic-* delegate to runPipeline against bytes-{sent,received}
 	// inner specs, so they are covered transitively through the source spec
 	// and the renderer fetches the source metric directly.

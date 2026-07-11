@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { recomputeErrorRate } from '../pipeline/derived/error-rate.tsx';
+import type { AnalyticsDataPoint, TimeRange } from '../types/analytics.ts';
 import { getSpecRequiredFields } from './specRequiredFields.ts';
 
 describe('getSpecRequiredFields', () => {
@@ -29,6 +31,37 @@ describe('getSpecRequiredFields', () => {
 
 		const errRate = getSpecRequiredFields('error-rate');
 		expect(errRate).toContain('count');
+		expect(errRate).toContain('total');
+	});
+
+	// Pin the error-rate override to what `recomputeErrorRate` actually reads.
+	// The override once listed `errors` (which the recompute never touches),
+	// blanking a working chart on Harpers whose success records lack that
+	// column — while a genuinely missing `total` went unflagged (#1441).
+	describe('error-rate override vs recomputeErrorRate behavior', () => {
+		const window: TimeRange = { startTime: 0, endTime: 60_000 };
+		// Σ-arithmetic fixture from the error-rate spec: baseline ≈ 0.0188.
+		const records: AnalyticsDataPoint[] = [
+			{ time: 1_000, node: 'n1', path: '/api', count: 1000, total: 990, errors: 10 },
+			{ time: 1_000, node: 'n1', path: '/api', count: 10, total: 1, errors: 9 },
+		];
+		const firstY = (recs: AnalyticsDataPoint[]) =>
+			recomputeErrorRate(recs, window, ['n1']).series[0]?.points[0]?.y ?? null;
+		const omit = (field: string) => records.map(({ [field]: _omitted, ...rest }) => rest as AnalyticsDataPoint);
+
+		it('every declared required field is load-bearing for the recompute', () => {
+			const baseline = firstY(records);
+			expect(baseline).toBeCloseTo(1 - 991 / 1010, 6);
+			for (const field of getSpecRequiredFields('error-rate')) {
+				expect(firstY(omit(field)), `dropping required field "${field}" should change the output`)
+					.not.toEqual(baseline);
+			}
+		});
+
+		it('does NOT require `errors` — the recompute never reads it', () => {
+			expect(getSpecRequiredFields('error-rate')).not.toContain('errors');
+			expect(firstY(omit('errors'))).toEqual(firstY(records));
+		});
 	});
 
 	it('returns [] for a derived metric without an explicit override', () => {
