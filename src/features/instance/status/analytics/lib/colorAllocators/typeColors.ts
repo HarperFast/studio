@@ -1,6 +1,6 @@
 /** Protocol / type series colors. Six hues spread across the color wheel for
  *  accessibility and colorblind-friendliness. Disjoint from NODE_PALETTE and
- *  TABLE_PALETTE (enforced in test/colorAllocators/disjoint.test.ts). */
+ *  TABLE_PALETTE (enforced in __tests__/paletteDisjointness.test.ts). */
 export const TYPE_PALETTE: readonly string[] = [
 	'#0d9488', // teal-600
 	'#dc2626', // red-600

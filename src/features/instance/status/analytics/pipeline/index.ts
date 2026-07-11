@@ -1,37 +1,6 @@
-// Spec registry barrel. Step 1 populates this file with per-metric spec imports
-// and a `specRegistry` map. Step 0 ships the scaffold + known-names export so the
-// allowlist codegen can read something.
-
-// When a spec lands at src/lib/metricSpecs/<kebab>.ts it is added to KNOWN_METRICS
-// here. This list is the source of truth for the backend allowlist generator.
-export const KNOWN_METRICS = [
-	'replication-latency',
-	'resource-usage',
-	'memory',
-	'mqtt-connections',
-	'ws-connections',
-	'main-thread-utilization',
-	'bytes-sent',
-	'bytes-received',
-	'table-size',
-	'duration',
-	'success',
-	'transfer',
-	'tls-reused',
-	'connection',
-	'cpu-usage',
-	'db-read',
-	'db-write',
-	'db-message',
-	'response_200',
-	'utilization',
-	'database-size',
-	'storage-volume',
-	'cache-hit',
-	'cache-resolution',
-] as const;
-
-export type KnownMetric = (typeof KNOWN_METRICS)[number];
+// Spec registry barrel. Each metric spec lives in this directory
+// (pipeline/<kebab>.tsx, or .ts for renderer-less specs) and is registered in
+// `specRegistry` below — the registry keys are the canonical metric names.
 
 import type { SpecRegistryEntry } from '../types/analytics.ts';
 import { BytesReceivedRenderer, bytesReceivedSpec } from './bytes-received.tsx';
