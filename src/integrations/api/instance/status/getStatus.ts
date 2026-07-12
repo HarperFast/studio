@@ -39,7 +39,7 @@ interface StatusResponse {
 
 export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig, enabled?: boolean) {
 	return queryOptions({
-		queryKey: [entityId, 'get_status'] as const,
+		queryKey: ['get_status', entityId] as const,
 		staleTime: 9_000,
 		refetchInterval: 10_000,
 		retryDelay: 10_000,

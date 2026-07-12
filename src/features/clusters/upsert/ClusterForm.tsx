@@ -18,6 +18,7 @@ import { collapseKebabsToMaxLength } from '@/lib/string/collapseKebabsToMaxLengt
 import { stringsShareAPrefix } from '@/lib/string/stringsShareAPrefix';
 import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { isPositive } from '@/lib/types/isPositive';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
@@ -340,7 +341,7 @@ export function ClusterForm({
 
 		void queryClient.invalidateQueries({ queryKey: [organizationId], refetchType: 'active' });
 		if (!creating) {
-			void queryClient.invalidateQueries({ queryKey: [clusterId], refetchType: 'active' });
+			void invalidateEntityQueries(queryClient, clusterId, { refetchType: 'active' });
 		}
 
 		void router.invalidate();

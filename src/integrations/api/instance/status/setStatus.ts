@@ -23,6 +23,6 @@ async function setStatus({
 export function useSetStatus() {
 	return useMutation({
 		mutationFn: setStatus,
-		onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: [variables.entityId, 'get_status'] }),
+		onSuccess: (_data, variables) => queryClient.invalidateQueries({ queryKey: ['get_status', variables.entityId] }),
 	});
 }

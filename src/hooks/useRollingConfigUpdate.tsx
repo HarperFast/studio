@@ -122,7 +122,7 @@ export function useRollingConfigUpdate(
 		}
 
 		setIsPending(false);
-		void queryClient.invalidateQueries({ queryKey: [operationsParams.entityId, 'get_configuration'] });
+		void queryClient.invalidateQueries({ queryKey: ['get_configuration', operationsParams.entityId] });
 
 		if (canceled) {
 			toast.error('Cancelled', {

@@ -106,9 +106,11 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 		//  - in-flight: when Harper is slower than the cadence, sliding the
 		//    window again would key a fresh POST batch on top of the running
 		//    one (new key = no dedupe); skip until the current batch settles.
+		//    Scoped to this instance so another instance's open Status page
+		//    can't starve our refresh cadence.
 		const canTick = () =>
 			!document.hidden
-			&& queryClient.isFetching({ queryKey: [ANALYTICS_QUERY_KEY_PREFIX] }) === 0;
+			&& queryClient.isFetching({ queryKey: [ANALYTICS_QUERY_KEY_PREFIX, instanceParams.entityId] }) === 0;
 		const intervalId = setInterval(() => {
 			if (canTick()) { refresh(); }
 		}, refreshMs);
@@ -120,7 +122,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 			clearInterval(intervalId);
 			document.removeEventListener('visibilitychange', onVisibilityChange);
 		};
-	}, [refreshMs, refresh, queryClient, tick]);
+	}, [refreshMs, refresh, queryClient, tick, instanceParams.entityId]);
 
 	const theme = useSystemTheme();
 

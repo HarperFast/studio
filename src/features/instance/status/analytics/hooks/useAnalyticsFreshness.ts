@@ -1,3 +1,4 @@
+import type { EntityIds } from '@/features/auth/store/authStore';
 import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics.ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -18,8 +19,10 @@ export interface AnalyticsFreshness {
 /** Watches the React Query cache for activity on the `get_analytics`
  *  prefix and exposes a busy flag + most-recent-success timestamp. The
  *  TimeRangePicker uses these to show an active/spinning refresh icon
- *  and a "last updated" relative-time label. */
-export function useAnalyticsFreshness(): AnalyticsFreshness {
+ *  and a "last updated" relative-time label. Scoped to `entityId` (key
+ *  position 1, per getAnalytics.ts) so two instance Status pages open
+ *  at once don't reflect each other's fetches. */
+export function useAnalyticsFreshness(entityId: EntityIds): AnalyticsFreshness {
 	const client = useQueryClient();
 	const [isFetching, setIsFetching] = useState(false);
 	const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
@@ -27,7 +30,8 @@ export function useAnalyticsFreshness(): AnalyticsFreshness {
 
 	useEffect(() => {
 		const cache = client.getQueryCache();
-		const isOurs = (q: { queryKey: unknown }) => Array.isArray(q.queryKey) && q.queryKey[0] === PREFIX;
+		const isOurs = (q: { queryKey: unknown }) =>
+			Array.isArray(q.queryKey) && q.queryKey[0] === PREFIX && q.queryKey[1] === entityId;
 		const sync = () => {
 			let fetching = false;
 			let mostRecent: number | null = null;
@@ -53,7 +57,7 @@ export function useAnalyticsFreshness(): AnalyticsFreshness {
 			sync();
 		});
 		return () => unsub();
-	}, [client]);
+	}, [client, entityId]);
 
 	useEffect(() => {
 		// Tick rate adapts to age so we don't burn a 1Hz timer per picker

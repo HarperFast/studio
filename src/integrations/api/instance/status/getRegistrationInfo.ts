@@ -7,7 +7,7 @@ export interface RegistrationInfoResponse {
 
 export function getRegistrationInfoQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [entityId, 'registration_info'] as const,
+		queryKey: ['registration_info', entityId] as const,
 		staleTime: 60_000,
 		gcTime: 5_000,
 		queryFn: async () => {

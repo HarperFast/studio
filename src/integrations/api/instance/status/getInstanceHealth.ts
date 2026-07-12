@@ -6,7 +6,7 @@ export function getInstanceHealthQueryOptions({
 	instanceClient,
 }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [entityId, 'health'] as const,
+		queryKey: ['health', entityId] as const,
 		queryFn: async () => {
 			try {
 				await instanceClient.get('/health');

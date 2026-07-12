@@ -29,7 +29,7 @@ interface UsageLicense {
 
 export function getUsageLicensesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig, enabled: boolean) {
 	return queryOptions({
-		queryKey: [entityId, 'get_usage_licenses'] as const,
+		queryKey: ['get_usage_licenses', entityId] as const,
 		enabled,
 		queryFn: async () => {
 			try {
