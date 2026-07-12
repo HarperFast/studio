@@ -79,11 +79,20 @@ export function runPipeline(
  *  aggregates because nodes reporting at e.g. 1:59:43, 2:00:03, 2:00:16
  *  would split across two buckets. */
 function snapToBucketTime(spec: MetricSpec, record: AnalyticsDataPoint, time: number): number {
-	let period = 0;
-	const p = record.period;
-	if (typeof p === 'number' && Number.isFinite(p) && p > 0) { period = p; }
-	if (period <= 0) { period = spec.bucket?.fallbackMs ?? 60_000; }
+	const period = resolvePeriod(spec, record);
 	return Math.round(time / period) * period;
+}
+
+/** Effective period (ms) for a record: `record.period` when it is a positive
+ *  finite number, else `spec.bucket.fallbackMs ?? 60_000`. Present-but-invalid
+ *  values (0, negative, NaN) get the same fallback as a missing field — a
+ *  Harper build omitting or zeroing `period` should degrade to the spec's
+ *  bucket size (rate transforms compute against it), not silently drop the
+ *  record. */
+function resolvePeriod(spec: MetricSpec, record: AnalyticsDataPoint): number {
+	const p = record.period;
+	if (typeof p === 'number' && Number.isFinite(p) && p > 0) { return p; }
+	return spec.bucket?.fallbackMs ?? 60_000;
 }
 
 /** Resolve the timestamp on a record per `spec.timestamp`. Defaults to 'time'.
@@ -107,14 +116,14 @@ function resolveTime(spec: MetricSpec, record: AnalyticsDataPoint): number | nul
 }
 
 function projectValue(
+	spec: MetricSpec,
 	fieldSpec: FieldSpec,
 	record: AnalyticsDataPoint,
 ): number | null {
 	const raw = typeof fieldSpec.field === 'string'
 		? (typeof record[fieldSpec.field] === 'number' ? (record[fieldSpec.field] as number) : null)
 		: evalFieldExpr(fieldSpec.field as FieldExpr, record);
-	const period = typeof record.period === 'number' ? record.period : 0;
-	return runTransform(fieldSpec.transform ?? { kind: 'raw' }, raw, period);
+	return runTransform(fieldSpec.transform ?? { kind: 'raw' }, raw, resolvePeriod(spec, record));
 }
 
 interface NodeBucket {
@@ -138,7 +147,7 @@ function runGroupBy(
 	for (const r of records) {
 		const dimVal = r[src.dimension];
 		if (typeof dimVal !== 'string' && typeof dimVal !== 'number') { continue; }
-		const v = projectValue(src.field, r);
+		const v = projectValue(spec, src.field, r);
 		if (v === null) { continue; }
 		const resolvedTime = resolveTime(spec, r);
 		if (resolvedTime === null) {
@@ -346,7 +355,7 @@ function runFieldSpecs(
 				}
 				continue;
 			}
-			const v = projectValue(f, r);
+			const v = projectValue(spec, f, r);
 			if (v === null) { continue; }
 			const recordCount = typeof r.count === 'number' && Number.isFinite(r.count) ? r.count : 1;
 			const node = typeof r.node === 'string' ? r.node : '_no_node';

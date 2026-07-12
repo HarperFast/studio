@@ -1,8 +1,11 @@
 import type { Transform } from '../types/analytics.ts';
 import { type NamedTransformKey, namedTransforms } from './transforms.ts';
 
-/** Apply a Transform to a scalar. `period` is the record's `period` field in
- *  ms; only `rate` consults it. Null input short-circuits to null. */
+/** Apply a Transform to a scalar. `period` is the record's period in ms; only
+ *  `rate` consults it. Null input short-circuits to null. The pipeline resolves
+ *  missing/invalid record periods to the spec's bucket fallback before calling
+ *  this (see `resolvePeriod` in pipeline.ts), so the non-positive guard on
+ *  `rate` is a backstop for direct callers, not a drop path in practice. */
 export function runTransform(
 	transform: Transform,
 	value: number | null,

@@ -40,12 +40,13 @@ describe('bytes-received spec — runPipeline', () => {
 		expect(mqtt.points[0].y, 'sum/sum across two nodes = 100 B/s').toBe(100);
 	});
 
-	it('drops records with period <= 0 (rate transform null guard)', () => {
+	it('falls back to bucket.fallbackMs for records with period <= 0 (#1444)', () => {
 		const records: AnalyticsDataPoint[] = [
 			{ time: 100_000, node: 'n1', type: 'mqtt', count: 60, mean: 50, period: 0 } as any,
 		];
 		const out = runPipeline(bytesReceivedSpec, records, window, ['n1']);
 		const mqtt = out.series.find((s) => s.key === 'mqtt')!;
-		expect(mqtt, 'no series when only record has period=0').toBe(undefined);
+		// 3000 bytes over the spec's 60 s fallback = 50 B/s — not dropped.
+		expect(mqtt.points[0].y, 'rate computed with fallbackMs when period=0').toBe(50);
 	});
 });
