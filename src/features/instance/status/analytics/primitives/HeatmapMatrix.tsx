@@ -293,8 +293,12 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 	const svgWidth = ROW_LABEL_WIDTH + gridWidth + 8;
 	const svgHeight = HEADER_HEIGHT + gridHeight + 8;
 
-	// Roving tabindex state: [rowIdx, colIdx]
+	// Roving tabindex state: [rowIdx, colIdx]. Clamped at render time so the
+	// active cell stays in range when rows/cols shrink after a data refresh
+	// (otherwise no cell gets tabIndex=0 and the grid leaves the tab order).
 	const [active, setActive] = useState<[number, number]>([0, 0]);
+	const activeRow = Math.min(active[0], rows.length - 1);
+	const activeCol = Math.min(active[1], cols.length - 1);
 	const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
 
 	const focusCell = useCallback((r: number, c: number) => {
@@ -504,7 +508,7 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 									const cy = y;
 									const aria = cellAriaLabel(row, col, cell, confidence, unit, suppressBelow, approx);
 
-									const isActive = active[0] === ri && active[1] === ci;
+									const isActive = activeRow === ri && activeCol === ci;
 
 									// Visual fill
 									let fill = 'transparent';
