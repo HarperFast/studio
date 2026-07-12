@@ -80,6 +80,26 @@ describe('useAnalyticsCapability', () => {
 		}
 	});
 
+	it.each([401, 403])(
+		'bails immediately on %i without walking the metric list or backing off, and flags isAuthError',
+		async (status) => {
+			// Expired credentials fail every metric identically — walking the
+			// list would just burn 3 more requests, and backoff retries can't
+			// fix auth. One call, immediate error, auth-flavored flag.
+			const post = vi.fn(async () => {
+				const err = new Error('unauthorized') as Error & { status?: number };
+				err.status = status;
+				throw err;
+			});
+			const { Wrapper } = wrap();
+			const { result } = renderHook(() => useAnalyticsCapability(makeParams(post)), { wrapper: Wrapper });
+			await waitFor(() => expect(result.current.error).toBeTruthy());
+			expect(post).toHaveBeenCalledTimes(1);
+			expect(result.current.isAuthError).toBe(true);
+			expect(result.current.supported).toBe(false);
+		},
+	);
+
 	it('reports an error when every probe metric throws', async () => {
 		vi.useFakeTimers();
 		try {
@@ -93,6 +113,7 @@ describe('useAnalyticsCapability', () => {
 			});
 			expect(result.current.error).toBeTruthy();
 			expect(result.current.supported).toBe(false);
+			expect(result.current.isAuthError).toBe(false);
 			expect(result.current.error?.message).toMatch(/analytics disabled/);
 		} finally {
 			vi.useRealTimers();
