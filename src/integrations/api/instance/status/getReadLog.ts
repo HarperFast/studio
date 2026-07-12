@@ -71,8 +71,8 @@ export function getReadLogQueryOptions(params: GetReadLogParams & InstanceClient
 	const logFilters = params.logFilters;
 	return queryOptions({
 		queryKey: [
-			params.entityId,
 			'read_log',
+			params.entityId,
 			logFilters.limit,
 			logFilters.level,
 			logFilters.from,

@@ -5,6 +5,7 @@ import { useSupportsDeploymentSSE } from '@/features/instance/applications/hooks
 import { reportDeployHealth } from '@/features/instance/applications/modals/reportDeployHealth';
 import { useDeployComponentMutation } from '@/integrations/api/instance/applications/deployComponent';
 import { SSEInconclusiveError } from '@/integrations/api/sse/errors';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -32,7 +33,7 @@ export function useImportApplication(
 
 	const onImported = useCallback((project: string) => {
 		setIsReloading(true);
-		void queryClient.invalidateQueries({ queryKey: [instanceParams.entityId] });
+		void invalidateEntityQueries(queryClient, instanceParams.entityId);
 		void reloadRootEntries();
 		setFocusedItem(project);
 		setSelectedItems([project]);

@@ -16,7 +16,7 @@ interface ConfigurationInfoResponse {
 
 export function getConfigurationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [entityId, 'get_configuration'] as const,
+		queryKey: ['get_configuration', entityId] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post('/', {
 				operation: 'get_configuration',

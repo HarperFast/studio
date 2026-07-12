@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/cn';
 import { RefreshCw } from 'lucide-react';
+import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
 import { REFRESH_OPTIONS, TIME_PRESETS, type TimePresetId } from '../context/timePresets.ts';
 import { formatRelativeUpdate, useAnalyticsFreshness } from '../hooks/useAnalyticsFreshness.ts';
 
@@ -20,7 +21,8 @@ export function TimeRangePicker({
 	onRefreshChange,
 	onManualRefresh,
 }: Props) {
-	const { isFetching, lastFetchedAt, now } = useAnalyticsFreshness();
+	const { instanceParams } = useAnalyticsContext();
+	const { isFetching, lastFetchedAt, now } = useAnalyticsFreshness(instanceParams.entityId);
 	const updatedLabel = formatRelativeUpdate(lastFetchedAt, now);
 
 	return (

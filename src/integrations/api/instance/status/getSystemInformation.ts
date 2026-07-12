@@ -98,7 +98,7 @@ interface SystemInformationResponse {
 
 export function getSystemInformationQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
-		queryKey: [entityId, 'system_information'] as const,
+		queryKey: ['system_information', entityId] as const,
 		queryFn: async () => {
 			const { data } = await instanceClient.post<SystemInformationResponse>('/', {
 				operation: 'system_information',

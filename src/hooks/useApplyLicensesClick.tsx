@@ -95,7 +95,7 @@ export function useApplyLicensesClick({ licenses }: ApplyLicensesClickParams): A
 		}
 
 		await queryClient.invalidateQueries({
-			queryKey: [instanceParams.entityId, 'get_usage_licenses'],
+			queryKey: ['get_usage_licenses', instanceParams.entityId],
 			refetchType: 'active',
 		});
 		setIsApplyLicensesPending(false);

@@ -1,6 +1,7 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -44,8 +45,8 @@ export function useRestartInstanceClick({
 				replicated: operation === 'restart_service' && targetNoun === 'Cluster',
 				instanceClient,
 			});
-			void queryClient.invalidateQueries({ queryKey: [clusterId] });
-			void queryClient.invalidateQueries({ queryKey: [instanceId] });
+			void invalidateEntityQueries(queryClient, clusterId);
+			void invalidateEntityQueries(queryClient, instanceId);
 			toast.dismiss(toastId);
 			toast.success('Success', {
 				description: `${targetNoun} restarted!`,

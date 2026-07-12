@@ -8,6 +8,7 @@ import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
 import { sleep } from '@/lib/sleep';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
@@ -112,7 +113,7 @@ export function useRestartClusterClick(
 		}
 
 		setIsRestartPending(false);
-		void queryClient.invalidateQueries({ queryKey: [clusterId] });
+		void invalidateEntityQueries(queryClient, clusterId);
 
 		if (canceled) {
 			toast.error('Cancelled', {
