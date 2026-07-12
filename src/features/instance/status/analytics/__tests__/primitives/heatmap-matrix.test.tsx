@@ -132,6 +132,46 @@ describe('HeatmapMatrix primitive', () => {
 		expect(legend.getAttribute('aria-label') ?? '').not.toMatch(/count-weighted-mean.*approx/i);
 	});
 
+	it('clamps the roving tabindex when the matrix shrinks (regression #1443)', () => {
+		const { rerender } = render(<HeatmapMatrix data={data} theme="light" />);
+		// Move the active cell to the last row/col via keyboard: End then
+		// ArrowDown lands on src-2 → dest-c ([1, 2]).
+		const cells = screen.getAllByRole('gridcell');
+		const first = cells.find((c) => /src-1.*dest-a/.test(c.getAttribute('aria-label') ?? ''))!;
+		expect(first).toBeTruthy();
+		(first as HTMLElement).focus();
+		fireEvent.keyDown(first, { key: 'End' });
+		const rowEnd = cells.find((c) => /src-1.*dest-c/.test(c.getAttribute('aria-label') ?? ''))!;
+		fireEvent.keyDown(rowEnd, { key: 'ArrowDown' });
+		const corner = cells.find((c) => /src-2.*dest-c/.test(c.getAttribute('aria-label') ?? ''))!;
+		expect(corner.getAttribute('tabindex')).toBe('0');
+
+		// Shrink to a 1×2 matrix — the stored active cell [1, 2] is now out of range.
+		const shrunk: HeatmapData = {
+			...data,
+			rows: ['src-1'],
+			cols: ['dest-a', 'dest-b'],
+			cells: [
+				{ row: 'src-1', col: 'dest-a', value: 30, count: 500 },
+				{ row: 'src-1', col: 'dest-b', value: 60, count: 300 },
+			],
+		};
+		rerender(<HeatmapMatrix data={shrunk} theme="light" />);
+
+		const shrunkCells = screen.getAllByRole('gridcell');
+		expect(shrunkCells.length).toBe(2);
+		const tabbable = shrunkCells.filter((c) => c.getAttribute('tabindex') === '0');
+		expect(tabbable.length, 'exactly one gridcell keeps tabIndex=0').toBe(1);
+		// Clamped to the last row/col that still exists: src-1 → dest-b.
+		expect(tabbable[0].getAttribute('aria-label')).toMatch(/src-1.*dest-b/);
+
+		// Keyboard nav still works from the clamped cell.
+		(tabbable[0] as HTMLElement).focus();
+		fireEvent.keyDown(tabbable[0], { key: 'ArrowLeft' });
+		const shrunkFirst = shrunkCells.find((c) => /src-1.*dest-a/.test(c.getAttribute('aria-label') ?? ''));
+		expect(document.activeElement).toBe(shrunkFirst);
+	});
+
 	it('exposes data-cell-size attribute as a number on the SVG root', () => {
 		const { container } = render(<HeatmapMatrix data={data} theme="light" />);
 		const svg = container.querySelector('svg[role="grid"]');
