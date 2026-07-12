@@ -27,7 +27,13 @@ vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
 }));
 
 vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
-	useAnalyticsCapability: () => ({ supported: true, isLoading: false, retry: vi.fn() }),
+	useAnalyticsCapability: () => ({
+		supported: true,
+		isLoading: false,
+		isFetching: false,
+		isAuthError: false,
+		retry: vi.fn(),
+	}),
 }));
 
 let currentSearch: Record<string, unknown> = {};

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
@@ -5,13 +6,13 @@ import { useSystemTheme } from '@/hooks/useSystemTheme';
 import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics.ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type StatusTabId, validateStatusSearch } from '../statusSearch.ts';
 import { AnalyticsOnboardingHint } from './components/AnalyticsOnboardingHint.tsx';
 import { TimeRangePicker } from './components/TimeRangePicker.tsx';
 import { type AnalyticsContextValue, AnalyticsProvider } from './context/AnalyticsContext.tsx';
 import { getPreset, type TimePresetId } from './context/timePresets.ts';
-import { useAnalyticsCapability } from './hooks/useAnalyticsCapability.ts';
+import { type AnalyticsCapability, useAnalyticsCapability } from './hooks/useAnalyticsCapability.ts';
 import { DatabaseTab } from './tabs/DatabaseTab.tsx';
 import { HealthTab } from './tabs/HealthTab.tsx';
 import { OverviewTab } from './tabs/OverviewTab.tsx';
@@ -40,37 +41,67 @@ const TAB_DEFS = [
 type TabId = StatusTabId;
 
 export function StatusTabs({ instanceParams, isLocalStudio }: Props) {
+	// The capability probe only gates the analytics-backed chart tabs —
+	// Overview reads get_status / get_system_information and must stay
+	// usable even when get_analytics is failing (#1442). The tab strip
+	// always renders; chart tab bodies swap to a probe / error notice.
 	const capability = useAnalyticsCapability(instanceParams);
-
-	if (capability.isLoading) {
-		return (
-			<div role="status" aria-live="polite" className="px-4 py-8 text-sm text-muted-foreground">
-				Checking analytics availability…
-			</div>
-		);
-	}
-
-	if (capability.error) {
-		return (
-			<div role="alert" className="px-4 py-8 text-sm text-muted-foreground">
-				<p className="mb-1 font-medium text-foreground">Analytics unavailable on this instance.</p>
-				<p>
-					The Harper instance returned an error from{' '}
-					<code>get_analytics</code>. Check that the instance is reachable and that analytics is enabled, then reload.
-				</p>
-			</div>
-		);
-	}
 
 	return (
 		<StatusTabsInner
 			instanceParams={instanceParams}
 			isLocalStudio={isLocalStudio}
+			capability={capability}
 		/>
 	);
 }
 
-function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
+/** Explains a failed capability probe inside a chart tab's body and offers
+ *  the Retry the hook promises. 401/403 get an auth-flavored message —
+ *  "analytics unavailable" would misdirect the user toward the instance
+ *  when their credentials are the problem. */
+function AnalyticsUnavailableNotice({ capability }: { capability: AnalyticsCapability }) {
+	return (
+		<div role="alert" className="px-4 py-8 text-sm text-muted-foreground">
+			{capability.isAuthError
+				? (
+					<>
+						<p className="mb-1 font-medium text-foreground">Analytics request was not authorized.</p>
+						<p>
+							The Harper instance rejected <code>get_analytics</code>{' '}
+							as unauthorized. Your credentials for this instance may have expired — re-enter them, then retry.
+						</p>
+					</>
+				)
+				: (
+					<>
+						<p className="mb-1 font-medium text-foreground">Analytics unavailable on this instance.</p>
+						<p>
+							The Harper instance returned an error from{' '}
+							<code>get_analytics</code>. Check that the instance is reachable and that analytics is enabled, then
+							retry.
+						</p>
+					</>
+				)}
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				className="mt-3"
+				onClick={capability.retry}
+				disabled={capability.isFetching}
+			>
+				{capability.isFetching ? 'Retrying…' : 'Retry'}
+			</Button>
+		</div>
+	);
+}
+
+interface InnerProps extends Props {
+	capability: AnalyticsCapability;
+}
+
+function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerProps) {
 	const navigate = useNavigate();
 	// The route's validateSearch already normalized these; re-validating here
 	// only narrows the `strict: false` typing to the same single source of
@@ -136,6 +167,24 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 		void navigate({ to: '.', search: { tab, range: presetId, refresh: ms } });
 	}, [navigate, tab, presetId]);
 
+	// When the probe fails while a chart tab is selected, land on Overview so
+	// the page opens on live data instead of an error. One-shot per failure —
+	// mark the error handled even when already on Overview, or the first
+	// click into a chart tab would bounce straight back; the user can always
+	// visit chart tabs to see the unavailable notice and its Retry button.
+	const landedOnOverviewRef = useRef(false);
+	useEffect(() => {
+		if (!capability.error) {
+			landedOnOverviewRef.current = false;
+			return;
+		}
+		if (landedOnOverviewRef.current) { return; }
+		landedOnOverviewRef.current = true;
+		if (tab !== 'overview') {
+			void navigate({ to: '.', search: { tab: 'overview', range: presetId, refresh: refreshMs }, replace: true });
+		}
+	}, [capability.error, tab, navigate, presetId, refreshMs]);
+
 	const ctxValue = useMemo<AnalyticsContextValue>(() => {
 		const preset = getPreset(presetId);
 		const endTime = Date.now();
@@ -164,6 +213,22 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 		)
 		: null;
 
+	// Chart tabs need get_analytics; substitute their bodies while the probe
+	// is pending / failed. Overview renders unconditionally below.
+	const chartBody = (content: ReactNode) => {
+		if (capability.isLoading) {
+			return (
+				<div role="status" aria-live="polite" className="px-4 py-8 text-sm text-muted-foreground">
+					Checking analytics availability…
+				</div>
+			);
+		}
+		if (capability.error) {
+			return <AnalyticsUnavailableNotice capability={capability} />;
+		}
+		return <TabBody picker={picker}>{content}</TabBody>;
+	};
+
 	return (
 		<AnalyticsProvider value={ctxValue}>
 			<Tabs value={tab} onValueChange={(v) => updateTab(v as TabId)} className="px-4 py-2">
@@ -171,7 +236,7 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 					/* Hint applies to chart interactions; hide it on Overview which
 				    has none of those affordances. */
 				}
-				{tab !== 'overview' && <AnalyticsOnboardingHint />}
+				{tab !== 'overview' && !capability.isLoading && !capability.error && <AnalyticsOnboardingHint />}
 				{
 					/*
 					 * Tab strip layout:
@@ -199,34 +264,22 @@ function StatusTabsInner({ instanceParams, isLocalStudio }: Props) {
 				</TabsList>
 
 				<TabsContent value="health">
-					<TabBody picker={picker}>
-						<HealthTab />
-					</TabBody>
+					{chartBody(<HealthTab />)}
 				</TabsContent>
 				<TabsContent value="traffic">
-					<TabBody picker={picker}>
-						<TrafficTab />
-					</TabBody>
+					{chartBody(<TrafficTab />)}
 				</TabsContent>
 				<TabsContent value="requests">
-					<TabBody picker={picker}>
-						<RequestsTab />
-					</TabBody>
+					{chartBody(<RequestsTab />)}
 				</TabsContent>
 				<TabsContent value="database">
-					<TabBody picker={picker}>
-						<DatabaseTab />
-					</TabBody>
+					{chartBody(<DatabaseTab />)}
 				</TabsContent>
 				<TabsContent value="replication">
-					<TabBody picker={picker}>
-						<ReplicationTab />
-					</TabBody>
+					{chartBody(<ReplicationTab />)}
 				</TabsContent>
 				<TabsContent value="storage">
-					<TabBody picker={picker}>
-						<StorageTab />
-					</TabBody>
+					{chartBody(<StorageTab />)}
 				</TabsContent>
 				<TabsContent value="overview">
 					<OverviewTab instanceParams={instanceParams} isLocalStudio={isLocalStudio} />

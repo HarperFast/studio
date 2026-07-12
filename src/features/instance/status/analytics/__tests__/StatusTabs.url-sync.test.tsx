@@ -21,7 +21,13 @@ vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
 // Capability probe must succeed so the inner StatusTabs renders (vs. the
 // fallback path).
 vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
-	useAnalyticsCapability: () => ({ supported: true, isLoading: false, retry: vi.fn() }),
+	useAnalyticsCapability: () => ({
+		supported: true,
+		isLoading: false,
+		isFetching: false,
+		isAuthError: false,
+		retry: vi.fn(),
+	}),
 }));
 
 // Stub the TanStack Router hooks so we can drive search state in tests
