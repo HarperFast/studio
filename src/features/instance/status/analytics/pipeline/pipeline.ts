@@ -92,7 +92,10 @@ function snapToBucketTime(spec: MetricSpec, record: AnalyticsDataPoint, time: nu
 function resolvePeriod(spec: MetricSpec, record: AnalyticsDataPoint): number {
 	const p = record.period;
 	if (typeof p === 'number' && Number.isFinite(p) && p > 0) { return p; }
-	return spec.bucket?.fallbackMs ?? 60_000;
+	// A misconfigured non-positive fallbackMs gets the same treatment as a
+	// bad record period — rates must never divide by zero or flip sign.
+	const fallback = spec.bucket?.fallbackMs;
+	return typeof fallback === 'number' && Number.isFinite(fallback) && fallback > 0 ? fallback : 60_000;
 }
 
 /** Resolve the timestamp on a record per `spec.timestamp`. Defaults to 'time'.

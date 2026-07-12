@@ -37,6 +37,17 @@ describe('rate transform period fallback (groupBy)', () => {
 		expect(mqtt?.points).toEqual([{ x: 1_000_000, y: 2000, count: 1 }]);
 	});
 
+	it('treats a non-positive fallbackMs as misconfigured and uses the 60s default', () => {
+		const spec: MetricSpec = { ...groupBySpec, bucket: { source: 'period-field', fallbackMs: 0 } };
+		const records: AnalyticsDataPoint[] = [
+			{ time: 1_000_000, node: 'n1', type: 'mqtt', bytes: 120_000 },
+		];
+		const out = runPipeline(spec, records, window, ['n1']);
+		const mqtt = out.series.find((s) => s.key === 'mqtt');
+		// fallbackMs: 0 must not reintroduce the divide-by-zero drop — 60 s default applies.
+		expect(mqtt?.points).toEqual([{ x: 1_000_000, y: 2000, count: 1 }]);
+	});
+
 	it('treats period: 0 the same as a missing period', () => {
 		const records: AnalyticsDataPoint[] = [
 			{ time: 1_000_000, node: 'n1', type: 'mqtt', bytes: 120_000, period: 0 },
