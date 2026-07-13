@@ -7,6 +7,7 @@ import { DatabaseActionModals } from './components/DatabaseActionModals';
 import { DatabaseOverview } from './components/DatabaseOverview';
 import { DatabasesSidebar } from './components/DatabasesSidebar';
 import { DatabaseTableView } from './components/DatabaseTableView';
+import { resolveDatabasesRedirect } from './functions/resolveDatabasesRedirect';
 
 export function Databases() {
 	const params: {
@@ -24,29 +25,16 @@ export function Databases() {
 		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true }),
 	);
 
-	if (instanceDatabaseMap) {
-		// Land on the first database's overview when nothing is selected, and recover from a stale link to
-		// a database that no longer exists (e.g. just dropped) by falling back to the first one.
-		const databaseExists = params.databaseName && instanceDatabaseMap[params.databaseName];
-		if (!databaseExists) {
-			const firstDatabaseName = Object.keys(instanceDatabaseMap).sort()[0];
-			if (firstDatabaseName && firstDatabaseName !== params.databaseName) {
-				return (
-					<Navigate
-						to={buildAbsoluteLinkToDatabasePage({ ...params, databaseName: firstDatabaseName, tableName: undefined })}
-						replace={true}
-					/>
-				);
-			}
-		} else if (params.tableName && !instanceDatabaseMap[params.databaseName!][params.tableName]) {
-			// Database exists but the table doesn't (stale link / dropped table): show the DB overview.
-			return (
-				<Navigate
-					to={buildAbsoluteLinkToDatabasePage({ ...params, tableName: undefined })}
-					replace={true}
-				/>
-			);
-		}
+	// Land on the first database's overview when nothing is selected, and recover from stale links to a
+	// dropped database/table (see resolveDatabasesRedirect for the exact rules + loop-freedom).
+	const redirect = resolveDatabasesRedirect(instanceDatabaseMap, params);
+	if (redirect) {
+		return (
+			<Navigate
+				to={buildAbsoluteLinkToDatabasePage({ ...params, ...redirect })}
+				replace={true}
+			/>
+		);
 	}
 
 	return (

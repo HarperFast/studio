@@ -212,6 +212,9 @@ export function useInstanceSchemaTableAttributePermission(
 		return true;
 	}
 	const table = specificPermission?.tables?.[tableName];
+	if (!table) {
+		return false;
+	}
 	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions
 		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions).find(a => a.attribute_name === attributeName);
 	return attributePermission?.[action] === true;
