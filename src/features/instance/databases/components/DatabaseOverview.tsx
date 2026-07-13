@@ -5,10 +5,10 @@ import { TableRowContextMenu } from '@/features/instance/databases/components/Ta
 import { formatBytes } from '@/features/instance/status/analytics/lib/time';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
-import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
+import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { CloudUploadIcon, EllipsisIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useCallback } from 'react';
@@ -38,18 +38,31 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 	const tables = instanceDatabaseMap?.[databaseName] ?? {};
 	const tableNames = Object.keys(tables).sort();
 
-	// Sizes are already in the fast (count-skipping) map. Record counts are not, so fetch describe_all
-	// WITH counts separately (distinct cache key) and backfill them as they arrive.
-	const { data: countedMap } = useQuery(getDescribeAllQueryOptions({ ...instanceParams }));
-	const countedTables = countedMap?.[databaseName];
+	// Sizes/schema are already in the fast (count-skipping) map, so they render instantly. Row counts
+	// aren't, so fetch them per-table via describe_table's cheap estimate path -- but only for the
+	// tables in THIS database, not the whole instance. These share React Query's cache with the table
+	// view, so counts stay consistent and opening a table is instant.
+	const countQueries = useQueries({
+		queries: tableNames.map((tableName) =>
+			getDescribeTableQueryOptions({ ...instanceParams, databaseName, tableName })
+		),
+	});
+	const countByTable: Record<string, { recordCount?: number; estimated: boolean }> = {};
+	tableNames.forEach((tableName, index) => {
+		const data = countQueries[index]?.data;
+		if (data) {
+			countByTable[tableName] = { recordCount: data.record_count, estimated: !!data.estimated_record_range };
+		}
+	});
+	const allCountsLoaded = countQueries.every((query) => !!query.data);
 
 	// Every table in a database shares the same underlying store, so db_size/db_audit_size are the same
 	// on each -- read them off any table.
 	const anyTable = tableNames.length ? tables[tableNames[0]] : undefined;
 	const dbSize = anyTable?.db_size ?? 0;
 	const auditSize = anyTable?.db_audit_size ?? 0;
-	const totalRecords = countedTables
-		? Object.values(countedTables).reduce((sum, table) => sum + (table.record_count ?? 0), 0)
+	const totalRecords = allCountsLoaded
+		? tableNames.reduce((sum, tableName) => sum + (countByTable[tableName]?.recordCount ?? 0), 0)
 		: undefined;
 
 	const goToTable = useCallback((tableName: string) => {
@@ -129,12 +142,11 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 								<tbody>
 									{tableNames.map((tableName) => {
 										const table = tables[tableName];
-										const counted = countedTables?.[tableName];
+										const counted = countByTable[tableName];
 										const primaryKey = table.primary_key ?? table.hash_attribute ?? '—';
-										const recordCount = counted?.record_count;
-										const recordLabel = recordCount === undefined
+										const recordLabel = counted?.recordCount === undefined
 											? '…'
-											: `${counted?.estimated_record_range ? '~' : ''}${recordCount.toLocaleString()}`;
+											: `${counted.estimated ? '~' : ''}${counted.recordCount.toLocaleString()}`;
 										return (
 											<tr
 												key={tableName}

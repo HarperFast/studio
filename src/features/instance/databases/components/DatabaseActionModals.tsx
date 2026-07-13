@@ -9,7 +9,8 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 
 /**
  * Single, always-mounted home for every database/table action modal. The tree context menu and the
@@ -42,6 +43,15 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 	const addInstanceTable = addTarget
 		? instanceDatabaseMap?.[addTarget.databaseName]?.[addTarget.tableName]
 		: undefined;
+	// The Add Records modal needs the table's schema from the fast map. If the target isn't there
+	// (e.g. a stale map after the table was dropped elsewhere), tell the user instead of silently
+	// doing nothing, and clear the trigger.
+	useEffect(() => {
+		if (addTarget && !addInstanceTable) {
+			toast.error(`Couldn't open "${addTarget.tableName}" — it may have just been removed. Try refreshing.`);
+			setWatchedValue('ShowAddTableRecords', false);
+		}
+	}, [addTarget, addInstanceTable]);
 
 	const onImported = useCallback(async (databaseName: string, tableName: string) => {
 		// The import may have created a new table (or even database), so refresh the tree too.
