@@ -3,9 +3,10 @@
 // matches TypeFilterChipRow used by the Traffic tab — minimal inline-flex
 // text + a tiny colored bar — so chip selectors look the same across
 // every analytics dashboard. Behaviorally still a radiogroup: one value
-// active at a time, arrow keys move focus and selection.
+// active at a time, arrow keys move focus and selection
+// (useRovingRadioGroup).
 
-import { type KeyboardEvent, useEffect, useRef } from 'react';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
 
 interface DimensionChipRowProps {
 	/** Selectable dimension values, in display order. */
@@ -33,38 +34,7 @@ export function DimensionChipRow({
 	colorFor,
 	ariaLabel = 'Dimension selector',
 }: DimensionChipRowProps) {
-	const chipRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-	useEffect(() => {
-		chipRefs.current = chipRefs.current.slice(0, dimensionValues.length);
-	}, [dimensionValues.length]);
-
-	const activeIdx = dimensionValues.indexOf(selected);
-	const tabbableIdx = activeIdx >= 0 ? activeIdx : 0;
-
-	function handleKeyDown(e: KeyboardEvent<HTMLButtonElement>, idx: number) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onSelect(dimensionValues[idx]);
-			return;
-		}
-		if (
-			e.key !== 'ArrowLeft'
-			&& e.key !== 'ArrowRight'
-			&& e.key !== 'ArrowDown'
-			&& e.key !== 'ArrowUp'
-		) {
-			return;
-		}
-		e.preventDefault();
-		const n = dimensionValues.length;
-		if (n === 0) { return; }
-		let next = idx;
-		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { next = (idx + 1) % n; }
-		if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { next = (idx - 1 + n) % n; }
-		chipRefs.current[next]?.focus();
-		onSelect(dimensionValues[next]);
-	}
+	const { getRadioProps } = useRovingRadioGroup(dimensionValues, selected, onSelect);
 
 	if (dimensionValues.length === 0 && !otherKey) { return null; }
 
@@ -81,18 +51,11 @@ export function DimensionChipRow({
 				return (
 					<button
 						key={value}
-						ref={(el) => {
-							chipRefs.current[idx] = el;
-						}}
 						type="button"
-						role="radio"
-						aria-checked={isSelected}
-						tabIndex={idx === tabbableIdx ? 0 : -1}
+						{...getRadioProps(idx)}
 						data-testid="dimension-chip"
 						data-value={value}
 						title="Click to select"
-						onKeyDown={(e) => handleKeyDown(e, idx)}
-						onClick={() => onSelect(value)}
 						className="inline-flex items-center gap-1.5 cursor-pointer border-none bg-transparent p-0"
 						style={{ color, opacity: isSelected ? 1 : 0.55 }}
 					>
@@ -105,12 +68,20 @@ export function DimensionChipRow({
 				);
 			})}
 			{otherKey && (
-				<span
+				<button
+					type="button"
+					// Disabled radio, not a role-less span: SR users perceive it as
+					// part of the group with an explicit disabled state. Kept out of
+					// the roving tab order (tabIndex=-1) so the group stays a single
+					// tab stop. Mirrors TableSizeChipRow's Other treatment.
+					role="radio"
+					aria-checked={false}
+					aria-disabled="true"
+					tabIndex={-1}
 					data-testid="dimension-chip"
 					data-value={otherKey}
-					aria-disabled="true"
 					title="Aggregate of smaller buckets; not selectable."
-					className="inline-flex items-center gap-1.5 cursor-not-allowed"
+					className="inline-flex items-center gap-1.5 cursor-not-allowed border-none bg-transparent p-0"
 					style={{ color: DEFAULT_COLOR, opacity: 0.4 }}
 				>
 					<span
@@ -118,7 +89,7 @@ export function DimensionChipRow({
 						style={{ backgroundColor: DEFAULT_COLOR }}
 					/>
 					<span>{otherKey}</span>
-				</span>
+				</button>
 			)}
 		</div>
 	);

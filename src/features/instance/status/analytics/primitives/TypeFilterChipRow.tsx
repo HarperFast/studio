@@ -3,55 +3,13 @@
 // state = all chips active; click solos that chip; Ctrl-click toggles
 // individual chips. Mirrors NodeLegend's interaction model so the panel
 // has a consistent dual-legend pattern (TypeFilterChipRow above / below
-// the chart, NodeLegend at the bottom).
-
-import { useCallback, useMemo, useState } from 'react';
+// the chart, NodeLegend at the bottom). State lives in the shared
+// useSoloToggleSelection hook (same one that backs useNodeSelection).
 
 interface Props {
 	values: readonly string[];
 	colorFor?: (value: string) => string;
 	ariaLabel?: string;
-}
-
-export interface TypeFilterState {
-	isActive: (value: string) => boolean;
-	activeValues: readonly string[];
-}
-
-/** Hook holding active-set state + the click handler. Component below
- *  consumes both. Separating them lets the parent renderer use
- *  `isActive` to filter records in the same render pass. */
-export function useTypeFilter(values: readonly string[]) {
-	const [active, setActive] = useState<Set<string> | null>(null);
-
-	const isActive = useCallback((v: string) => active === null || active.has(v), [active]);
-
-	const handleClick = useCallback((v: string, ctrlKey: boolean) => {
-		setActive((prev) => {
-			if (ctrlKey) {
-				if (prev === null) { return new Set(values.filter((x) => x !== v)); }
-				const next = new Set(prev);
-				if (next.has(v)) {
-					next.delete(v);
-					if (next.size === 0) { return null; }
-				} else {
-					next.add(v);
-					if (next.size === values.length) { return null; }
-				}
-				return next;
-			}
-			// Plain click: solo (or reset if already soloed)
-			if (prev !== null && prev.size === 1 && prev.has(v)) { return null; }
-			return new Set([v]);
-		});
-	}, [values]);
-
-	const activeValues = useMemo(
-		() => (active === null ? values : values.filter((v) => active.has(v))),
-		[active, values],
-	);
-
-	return { isActive, handleClick, activeValues };
 }
 
 interface TypeFilterChipRowProps extends Props {

@@ -17,13 +17,15 @@
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
 import { useNodeSelection } from '../hooks/useNodeSelection.ts';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
+import { useSoloToggleSelection } from '../hooks/useSoloToggleSelection.ts';
 import { getTypeColor } from '../lib/colorAllocators/typeColors.ts';
 import { getNodeColor } from '../lib/nodeColors.ts';
 import { runPipeline } from '../pipeline/pipeline.ts';
 import type { AnalyticsDataPoint, MetricSpec, Series, SeriesData, TimeRange } from '../types/analytics.ts';
 import { SmallMultiples } from './SmallMultiples.tsx';
 import { StackedAreaChart } from './StackedAreaChart.tsx';
-import { TypeFilterChipRow, useTypeFilter } from './TypeFilterChipRow.tsx';
+import { TypeFilterChipRow } from './TypeFilterChipRow.tsx';
 
 interface Props {
 	/** Underlying spec (groupBy on `typeField`, primitive `stacked-area`). */
@@ -67,7 +69,7 @@ export function TrafficByTypeRenderer({
 		return [...set].sort();
 	}, [records, typeField]);
 
-	const { isActive, handleClick } = useTypeFilter(types);
+	const { isActive, handleClick } = useSoloToggleSelection(types);
 	const { isActive: isNodeActive, handleLegendClick: handleNodeClick } = useNodeSelection(nodes);
 
 	// "All active" = default state where no chip / node has been soloed.
@@ -184,17 +186,12 @@ const STACK_BY_OPTIONS: ReadonlyArray<{ value: StackBy; label: string }> = [
 	{ value: 'grid', label: 'Per-node grid' },
 ];
 
+const STACK_BY_VALUES: readonly StackBy[] = STACK_BY_OPTIONS.map((o) => o.value);
+
 function StackByToggle({ stackBy, onChange }: StackByToggleProps) {
-	// Roving tabindex pattern: only the active radio is in the tab order; arrow
-	// keys move selection within the group. Matches DimensionChipRow.
-	const activeIdx = Math.max(0, STACK_BY_OPTIONS.findIndex((o) => o.value === stackBy));
-	const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-		if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') { return; }
-		e.preventDefault();
-		const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1;
-		const next = (activeIdx + dir + STACK_BY_OPTIONS.length) % STACK_BY_OPTIONS.length;
-		onChange(STACK_BY_OPTIONS[next].value);
-	};
+	// Shared roving tabindex pattern: only the active radio is in the tab
+	// order; arrow keys move focus and selection within the group.
+	const { getRadioProps } = useRovingRadioGroup(STACK_BY_VALUES, stackBy, onChange);
 	return (
 		<div
 			role="radiogroup"
@@ -208,13 +205,9 @@ function StackByToggle({ stackBy, onChange }: StackByToggleProps) {
 					<button
 						key={opt.value}
 						type="button"
-						role="radio"
-						aria-checked={active}
-						tabIndex={idx === activeIdx ? 0 : -1}
-						onKeyDown={onKeyDown}
+						{...getRadioProps(idx)}
 						data-testid="stack-by-button"
 						data-value={opt.value}
-						onClick={() => onChange(opt.value)}
 						className="inline-flex items-center cursor-pointer border-none bg-transparent p-0 text-(--color-text-secondary)"
 						style={{ opacity: active ? 1 : 0.55 }}
 					>

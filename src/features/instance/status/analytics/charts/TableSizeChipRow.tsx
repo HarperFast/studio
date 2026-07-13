@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useRef } from 'react';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
 import { getTableColor, OTHER_COLOR } from '../lib/tableColors.ts';
 import { OTHER_KEY } from '../lib/tableSize.ts';
 
@@ -25,43 +25,10 @@ export function TableSizeChipRow({
 	selectedTable,
 	onSelectTable,
 }: TableSizeChipRowProps) {
-	const chipRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-	useEffect(() => {
-		chipRefs.current = chipRefs.current.slice(0, tableSet.length);
-	}, [tableSet.length]);
-
-	// Figure out which chip gets tabIndex=0. Default to the selected chip; if
-	// selectedTable is not in tableSet (e.g. transient refetch gap, or selection
-	// is `Other`), fall back to the first chip so the radiogroup stays reachable.
-	const activeIdx = selectedTable === null ? -1 : tableSet.indexOf(selectedTable);
-	const tabbableIdx = activeIdx >= 0 ? activeIdx : 0;
-
-	function handleKeyDown(e: KeyboardEvent<HTMLButtonElement>, idx: number) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onSelectTable(tableSet[idx]);
-			return;
-		}
-
-		if (
-			e.key !== 'ArrowLeft'
-			&& e.key !== 'ArrowRight'
-			&& e.key !== 'ArrowDown'
-			&& e.key !== 'ArrowUp'
-		) {
-			return;
-		}
-
-		e.preventDefault();
-		const n = tableSet.length;
-		if (n === 0) { return; }
-		let next = idx;
-		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { next = (idx + 1) % n; }
-		if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { next = (idx - 1 + n) % n; }
-		chipRefs.current[next]?.focus();
-		onSelectTable(tableSet[next]);
-	}
+	// Roving tabindex: the selected chip gets tabIndex=0; if selectedTable is
+	// not in tableSet (transient refetch gap, or selection is `Other`), the
+	// hook falls back to the first chip so the radiogroup stays reachable.
+	const { getRadioProps } = useRovingRadioGroup(tableSet, selectedTable, onSelectTable);
 
 	if (tableSet.length === 0 && !hasOther) { return null; }
 
@@ -78,16 +45,10 @@ export function TableSizeChipRow({
 				return (
 					<button
 						key={tableKey}
-						ref={(el) => {
-							chipRefs.current[idx] = el;
-						}}
-						role="radio"
-						aria-checked={selected}
-						tabIndex={idx === tabbableIdx ? 0 : -1}
+						type="button"
+						{...getRadioProps(idx)}
 						data-testid="table-size-chip"
 						data-table={tableKey}
-						onKeyDown={(e) => handleKeyDown(e, idx)}
-						onClick={() => onSelectTable(tableKey)}
 						className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
 							selected
 								? 'font-semibold text-(--color-text-primary)'
@@ -103,6 +64,8 @@ export function TableSizeChipRow({
 			{hasOther && (
 				<button
 					type="button"
+					role="radio"
+					aria-checked={false}
 					aria-disabled="true"
 					tabIndex={-1}
 					data-testid="table-size-chip"
