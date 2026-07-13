@@ -1,5 +1,5 @@
 import { createInstanceLayoutRoute } from '@/features/instance/instanceLayoutRoute';
-import { STATUS_SEARCH_DEFAULTS, validateStatusSearch } from '@/features/instance/status/statusSearch.ts';
+import { STATUS_SEARCH_DEFAULTS, validateStatusSearch } from '@/features/instance/status/statusSearch';
 import { createRoute, lazyRouteComponent, stripSearchParams } from '@tanstack/react-router';
 
 export function createStatusRouteTree(instanceLayoutRoute: ReturnType<typeof createInstanceLayoutRoute>) {

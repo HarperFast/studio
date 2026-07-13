@@ -2,9 +2,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/cn';
 import { RefreshCw } from 'lucide-react';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { REFRESH_OPTIONS, TIME_PRESETS, type TimePresetId } from '../context/timePresets.ts';
-import { formatRelativeUpdate, useAnalyticsFreshness } from '../hooks/useAnalyticsFreshness.ts';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { REFRESH_OPTIONS, TIME_PRESETS, type TimePresetId } from '../context/timePresets';
+import { formatRelativeUpdate, useAnalyticsFreshness } from '../hooks/useAnalyticsFreshness';
 
 interface Props {
 	presetId: TimePresetId;

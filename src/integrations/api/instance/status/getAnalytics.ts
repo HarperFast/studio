@@ -1,5 +1,5 @@
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
-import type { AnalyticsDataPoint } from '@/features/instance/status/analytics/types/analytics.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import type { AnalyticsDataPoint } from '@/features/instance/status/analytics/types/analytics';
 import { queryOptions } from '@tanstack/react-query';
 
 // Analytics query feeding the spec-driven pipeline. Returns rows verbatim

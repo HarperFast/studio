@@ -16,8 +16,8 @@ import {
 	type Snapshot,
 	TOP_N,
 	toTableKey,
-} from '../lib/tableSize.ts';
-import type { TableSizeRecord } from '../types/analytics.ts';
+} from '../lib/tableSize';
+import type { TableSizeRecord } from '../types/analytics';
 
 function fixture(name: string): TableSizeRecord[] {
 	const path = join(import.meta.dirname, 'fixtures', 'table-size', `${name}.json`);

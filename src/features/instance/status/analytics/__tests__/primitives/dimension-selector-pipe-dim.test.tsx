@@ -6,8 +6,8 @@
 // reads the structured Series.dim/Series.node fields.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DimensionSelectorRenderer } from '../../primitives/DimensionSelectorRenderer.tsx';
-import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics.ts';
+import { DimensionSelectorRenderer } from '../../primitives/DimensionSelectorRenderer';
+import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics';
 
 const range = { startTime: 0, endTime: 10_000_000 };
 

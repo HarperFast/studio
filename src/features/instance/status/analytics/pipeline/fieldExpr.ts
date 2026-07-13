@@ -1,4 +1,4 @@
-import type { FieldExpr } from '../types/analytics.ts';
+import type { FieldExpr } from '../types/analytics';
 
 export function evalFieldExpr(
 	expr: FieldExpr,

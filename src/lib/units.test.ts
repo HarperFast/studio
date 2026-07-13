@@ -1,4 +1,4 @@
-import { determineUnits, scaleValueToUnits } from '@/lib/units.ts';
+import { determineUnits, scaleValueToUnits } from '@/lib/units';
 import { describe, expect, it } from 'vitest';
 
 describe('determineUnits', () => {

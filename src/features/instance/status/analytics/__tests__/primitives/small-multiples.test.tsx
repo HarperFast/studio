@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SmallMultiples } from '../../primitives/SmallMultiples.tsx';
-import type { AxisSpec, SeriesData } from '../../types/analytics.ts';
+import { SmallMultiples } from '../../primitives/SmallMultiples';
+import type { AxisSpec, SeriesData } from '../../types/analytics';
 
 const panels: { title: string; data: SeriesData; yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec } }[] = [
 	{ title: 'CPU', data: { series: [{ key: 'cpu', label: 'cpu', points: [{ x: 1, y: 10 }] }] } },

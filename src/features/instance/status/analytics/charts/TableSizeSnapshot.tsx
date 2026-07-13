@@ -1,13 +1,13 @@
 import { formatValue } from '@/lib/formatValue';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getTableColor, OTHER_COLOR } from '../lib/tableColors.ts';
-import { OTHER_KEY, type Snapshot } from '../lib/tableSize.ts';
-import { getChartColors, type Theme } from '../lib/theme.ts';
-import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
-import type { ViewMode } from '../types/analytics.ts';
-import { NodeLegend } from './NodeLegend.tsx';
-import { TableSizeChipRow } from './TableSizeChipRow.tsx';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { getTableColor, OTHER_COLOR } from '../lib/tableColors';
+import { OTHER_KEY, type Snapshot } from '../lib/tableSize';
+import { getChartColors } from '../lib/theme';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle';
+import type { ViewMode } from '../types/analytics';
+import { NodeLegend } from './NodeLegend';
+import { TableSizeChipRow } from './TableSizeChipRow';
 
 /** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
@@ -16,10 +16,6 @@ interface Props {
 	snapshot: Snapshot;
 	/** Display mode: 'per-node' → Absolute (raw bytes), 'aggregate' → Normalized (percent of cluster max). */
 	viewMode: ViewMode;
-	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
-	 *  Kept optional only while StorageTab (owned by a parallel refactor)
-	 *  still passes it. */
-	theme?: Theme;
 	/** Snapshot's own highlight — drives chip `aria-checked` + bar-segment outline. */
 	selectedTable: string | null;
 	/** Chip click / Enter / Space / arrow-nav — local to this panel; should NOT

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { TableSizeChipRow } from '../../charts/TableSizeChipRow.tsx';
-import { OTHER_KEY } from '../../lib/tableSize.ts';
+import { TableSizeChipRow } from '../../charts/TableSizeChipRow';
+import { OTHER_KEY } from '../../lib/tableSize';
 
 describe('TableSizeChipRow radiogroup (shared roving-tabindex primitive)', () => {
 	afterEach(() => cleanup());

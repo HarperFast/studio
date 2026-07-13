@@ -3,8 +3,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Download } from 'lucide-react';
 import { type RefObject, useState } from 'react';
 import { toast } from 'sonner';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { downloadChart, makeExportFilename } from '../lib/chartExport.ts';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { downloadChart, makeExportFilename } from '../lib/chartExport';
 
 interface Props {
 	/** The DOM node that should be captured. Usually the chart's outer Card. */

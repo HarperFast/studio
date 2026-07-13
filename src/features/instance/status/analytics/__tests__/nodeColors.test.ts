@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getNodeColor, NODE_PALETTE } from '../lib/nodeColors.ts';
+import { getNodeColor, NODE_PALETTE } from '../lib/nodeColors';
 
 describe('getNodeColor', () => {
 	it('assigns colors based on sorted node order', () => {

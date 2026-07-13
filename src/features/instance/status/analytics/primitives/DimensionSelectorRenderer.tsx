@@ -12,14 +12,14 @@
 //      chart. The pipeline re-runs with the chosen field substituted.
 
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
-import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
-import { runPipeline } from '../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
-import { DimensionChipRow } from './DimensionChipRow.tsx';
-import { DimensionCombobox } from './DimensionCombobox.tsx';
-import { LineChart } from './LineChart.tsx';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
+import { runPipeline } from '../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, SeriesData, TimeRange } from '../types/analytics';
+import { DimensionChipRow } from './DimensionChipRow';
+import { DimensionCombobox } from './DimensionCombobox';
+import { LineChart } from './LineChart';
 
 const OTHER_KEY = 'Other';
 const CHIP_LIMIT = 12;

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useAnalyticsCapability } from './useAnalyticsCapability.ts';
+import { useAnalyticsCapability } from './useAnalyticsCapability';
 
 function makeParams(post: ReturnType<typeof vi.fn>): InstanceClientIdConfig & InstanceTypeConfig {
 	return {

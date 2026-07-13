@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { memorySpec } from '../../pipeline/memory.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics.ts';
+import { memorySpec } from '../../pipeline/memory';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

@@ -2,7 +2,7 @@
 // wrapper because many chart/renderer call sites destructure
 // `handleLegendClick`.
 
-import { useSoloToggleSelection } from './useSoloToggleSelection.ts';
+import { useSoloToggleSelection } from './useSoloToggleSelection';
 
 export function useNodeSelection(nodeIds: string[]) {
 	const { isActive, handleClick, activeSet } = useSoloToggleSelection(nodeIds);

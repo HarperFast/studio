@@ -3,7 +3,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ClipboardCopy } from 'lucide-react';
 import { type RefObject, useState } from 'react';
 import { toast } from 'sonner';
-import { copyChartToClipboard } from '../lib/chartExport.ts';
+import { copyChartToClipboard } from '../lib/chartExport';
 
 interface Props {
 	/** The DOM node that should be captured. Usually the chart's outer Card. */

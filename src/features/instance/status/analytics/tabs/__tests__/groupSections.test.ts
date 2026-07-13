@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupSections } from '../OverviewTab.tsx';
+import { groupSections } from '../OverviewTab';
 
 describe('groupSections', () => {
 	it('returns an empty list for empty input', () => {

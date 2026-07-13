@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { connectionsSpec } from '../../pipeline/connections.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
+import { connectionsSpec } from '../../pipeline/connections';
+import { runPipeline } from '../../pipeline/pipeline';
 
 describe('connections pipeline', () => {
 	// connections is a multi-source merge (mqtt-connections + ws-connections)

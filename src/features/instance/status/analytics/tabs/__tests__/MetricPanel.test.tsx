@@ -6,9 +6,9 @@ vi.mock('../../hooks/useAnalyticsRecords.ts', () => ({
 	useAnalyticsRecords: vi.fn(),
 }));
 
-import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords.ts';
-import { MetricPanel } from '../MetricPanel.tsx';
-import { AnalyticsTestWrapper, makeRows } from './testHelpers.tsx';
+import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords';
+import { MetricPanel } from '../MetricPanel';
+import { AnalyticsTestWrapper, makeRows } from './testHelpers';
 
 const mockHook = vi.mocked(useAnalyticsRecords);
 

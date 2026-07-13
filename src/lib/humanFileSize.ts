@@ -1,4 +1,4 @@
-import { determineUnits, scaleValueToUnits } from '@/lib/units.ts';
+import { determineUnits, scaleValueToUnits } from '@/lib/units';
 
 export function humanFileSize(input: number, multiplierFromBytes: number = 1) {
 	const initialValue = input * multiplierFromBytes;

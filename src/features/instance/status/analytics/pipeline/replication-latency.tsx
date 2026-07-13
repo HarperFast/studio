@@ -1,7 +1,7 @@
 import { type JSX, useMemo, useState } from 'react';
-import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
-import { HeatmapMatrix } from '../primitives/HeatmapMatrix.tsx';
-import { LineChart } from '../primitives/LineChart.tsx';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
+import { HeatmapMatrix } from '../primitives/HeatmapMatrix';
+import { LineChart } from '../primitives/LineChart';
 import type {
 	AnalyticsDataPoint,
 	HeatmapCell,
@@ -11,10 +11,10 @@ import type {
 	SeriesData,
 	SeriesPoint,
 	SpecRegistryRendererProps,
-} from '../types/analytics.ts';
-import { type AggInput, aggregate } from './aggregators.ts';
-import { parseReplicationPath } from './pathParser.ts';
-import { QUANTILE_FIELDS as REPLICATION_QUANTILE_FIELDS, type QuantileField } from './quantileFields.ts';
+} from '../types/analytics';
+import { type AggInput, aggregate } from './aggregators';
+import { parseReplicationPath } from './pathParser';
+import { QUANTILE_FIELDS as REPLICATION_QUANTILE_FIELDS, type QuantileField } from './quantileFields';
 
 export { REPLICATION_QUANTILE_FIELDS };
 export type ReplicationQuantileField = QuantileField['field'];
@@ -320,7 +320,7 @@ function buildLineSeries(
 }
 
 export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JSX.Element {
-	const { records, nodes, theme, timeRange, fillParent } = props;
+	const { records, nodes, timeRange, fillParent } = props;
 
 	const [quantile, setQuantile] = useState<ReplicationQuantileField>('p95');
 
@@ -337,7 +337,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	if (data.rows.length === 0 || data.cols.length === 0) {
 		return (
 			<div>
-				<RecognitionBanner data={data} theme={theme} />
+				<RecognitionBanner data={data} />
 
 				<div>No data in window</div>
 			</div>
@@ -364,7 +364,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 			padding: '4px 8px',
 			fontSize: 12,
 			borderLeft: '3px solid var(--color-warning, #f59e0b)',
-			background: theme === 'dark' ? '#1f2937' : '#fffbeb',
+			background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
 			color: 'currentColor',
 		} as const;
 
@@ -383,7 +383,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 				>
 					Showing as lines
 				</div>
-				<RecognitionBanner data={data} theme={theme} />
+				<RecognitionBanner data={data} />
 				{
 					/* Suppress the omitted-pairs banner when all-dropped fires — the
 				    all-dropped banner already cites the count, so showing both is
@@ -409,7 +409,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 						padding: '4px 8px',
 						fontSize: 12,
 						borderLeft: '3px solid var(--color-info, #3b82f6)',
-						background: theme === 'dark' ? '#0f172a' : '#eff6ff',
+						background: 'color-mix(in srgb, var(--color-accent, #3b82f6) 10%, transparent)',
 						color: 'currentColor',
 					}}
 				>
@@ -433,7 +433,6 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 						<div style={{ marginTop: 20 }}>
 							<LineChart
 								data={seriesData}
-								theme={theme}
 								yAxis={data.axis}
 								height={320}
 								xDomain={[timeRange.startTime, timeRange.endTime]}
@@ -448,14 +447,14 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	return (
 		<div className="flex h-full flex-col">
 			<QuantileSelector value={quantile} onChange={setQuantile} />
-			<RecognitionBanner data={data} theme={theme} />
+			<RecognitionBanner data={data} />
 			<div className="min-h-0 flex-1">
 				{
 					/* Zero the primitive's generic skipped-count banner — the
 				    RecognitionBanner above already reports omissions with
 				    cause-specific copy, so letting both render double-reports. */
 				}
-				<HeatmapMatrix data={{ ...data, skippedRecordsCount: 0 }} theme={theme} title="Replication latency" />
+				<HeatmapMatrix data={{ ...data, skippedRecordsCount: 0 }} title="Replication latency" />
 			</div>
 		</div>
 	);
@@ -463,13 +462,12 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 
 interface RecognitionBannerProps {
 	data: HeatmapData;
-	theme: 'light' | 'dark';
 }
 
 /** Renders a single role='status' banner combining the two omission causes
  *  (unparseable path vs. missing percentile value) and the
  *  heuristic-recovered source count. Any subset may be present. */
-function RecognitionBanner({ data, theme }: RecognitionBannerProps) {
+function RecognitionBanner({ data }: RecognitionBannerProps) {
 	const unparseable = data.unparseablePathCount ?? 0;
 	const missingValue = data.missingValueCount ?? 0;
 	const unrecognized = data.unrecognizedSources ?? [];
@@ -504,7 +502,7 @@ function RecognitionBanner({ data, theme }: RecognitionBannerProps) {
 				padding: '4px 8px',
 				fontSize: 12,
 				borderLeft: '3px solid var(--color-warning, #f59e0b)',
-				background: theme === 'dark' ? '#1f2937' : '#fffbeb',
+				background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
 				color: 'currentColor',
 			}}
 		>

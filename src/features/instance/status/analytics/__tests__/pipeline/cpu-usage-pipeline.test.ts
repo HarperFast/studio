@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { cpuUsageSpec } from '../../pipeline/cpu-usage.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import { QUANTILE_FIELDS } from '../../pipeline/quantileFields.ts';
-import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics.ts';
+import { cpuUsageSpec } from '../../pipeline/cpu-usage';
+import { runPipeline } from '../../pipeline/pipeline';
+import { QUANTILE_FIELDS } from '../../pipeline/quantileFields';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

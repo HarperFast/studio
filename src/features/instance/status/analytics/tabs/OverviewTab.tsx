@@ -1,13 +1,13 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent } from '@/components/ui/card';
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { getStatusQueryOptions } from '@/integrations/api/instance/status/getStatus';
 import { getSystemInformationQueryOptions } from '@/integrations/api/instance/status/getSystemInformation';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Suspense, useMemo } from 'react';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { crawlData, hasTitle } from './crawlData.ts';
-import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { crawlData, hasTitle } from './crawlData';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 
 interface Props {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;

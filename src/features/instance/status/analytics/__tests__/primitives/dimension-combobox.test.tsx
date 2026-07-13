@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DimensionCombobox } from '../../primitives/DimensionCombobox.tsx';
+import { DimensionCombobox } from '../../primitives/DimensionCombobox';
 
 function Harness(props: { values: readonly string[]; initial: string; otherKey?: string }) {
 	const [sel, setSel] = useState(props.initial);

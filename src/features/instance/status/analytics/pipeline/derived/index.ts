@@ -6,11 +6,11 @@
 // Step 6A adds `request-rate` (from `duration`) and `error-rate` (from
 // `success`) — the first derived metrics that read raw columns directly
 // instead of delegating to runPipeline.
-import type { DerivedMetricSpec } from '../../types/analytics.ts';
-import { errorRateDerived } from './error-rate.tsx';
-import { mqttTrafficReceivedDerived, mqttTrafficSentDerived } from './mqtt-traffic.tsx';
-import { requestRateDerived } from './request-rate.tsx';
-import { transactionLogGrowthDerived } from './transaction-log-growth.tsx';
+import type { DerivedMetricSpec } from '../../types/analytics';
+import { errorRateDerived } from './error-rate';
+import { mqttTrafficReceivedDerived, mqttTrafficSentDerived } from './mqtt-traffic';
+import { requestRateDerived } from './request-rate';
+import { transactionLogGrowthDerived } from './transaction-log-growth';
 
 export const derivedRegistry: Record<string, DerivedMetricSpec> = {
 	'mqtt-traffic-sent': mqttTrafficSentDerived,

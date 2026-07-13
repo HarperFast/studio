@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildFallbackPanels } from '../../primitives/FallbackRenderer.tsx';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { buildFallbackPanels } from '../../primitives/FallbackRenderer';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 describe('buildFallbackPanels', () => {
 	it('drops records lacking a numeric time instead of plotting them at x=0 (1970)', () => {

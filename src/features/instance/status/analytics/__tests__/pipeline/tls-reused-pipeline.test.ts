@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import { tlsReusedSpec } from '../../pipeline/tls-reused.ts';
-import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics.ts';
+import { runPipeline } from '../../pipeline/pipeline';
+import { tlsReusedSpec } from '../../pipeline/tls-reused';
+import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

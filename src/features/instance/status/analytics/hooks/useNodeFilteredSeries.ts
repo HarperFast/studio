@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import { shortenNodeLabel } from '../lib/nodeLabels.ts';
-import type { SeriesData } from '../types/analytics.ts';
-import { useNodeSelection } from './useNodeSelection.ts';
+import { getNodeColor } from '../lib/nodeColors';
+import { shortenNodeLabel } from '../lib/nodeLabels';
+import type { SeriesData } from '../types/analytics';
+import { useNodeSelection } from './useNodeSelection';
 
 /** Shared per-node scaffolding for chip-selector panels (connection, memory,
  *  main-thread, DimensionSelectorRenderer): relabels each per-node series

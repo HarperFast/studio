@@ -2,9 +2,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { errorText } from '@/lib/errorText';
 import { type ReactNode, useRef } from 'react';
-import { ChartCopyButton } from '../components/ChartCopyButton.tsx';
-import { ChartExpandButton } from '../components/ChartExpandButton.tsx';
-import { ChartExportButton } from '../components/ChartExportButton.tsx';
+import { ChartCopyButton } from '../components/ChartCopyButton';
+import { ChartExpandButton } from '../components/ChartExpandButton';
+import { ChartExportButton } from '../components/ChartExportButton';
 
 interface PanelCardProps {
 	title: string;

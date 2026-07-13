@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { aggregateReplicationMatrix, bucketLineSeries } from '../../pipeline/replication-latency.tsx';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { aggregateReplicationMatrix, bucketLineSeries } from '../../pipeline/replication-latency';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 const multi = JSON.parse(
 	readFileSync(join(import.meta.dirname, '../fixtures/replication-latency/multi-source.json'), 'utf8'),

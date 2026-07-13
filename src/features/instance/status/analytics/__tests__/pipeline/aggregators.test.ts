@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type AggInput, aggregate } from '../../pipeline/aggregators.ts';
+import { type AggInput, aggregate } from '../../pipeline/aggregators';
 
 describe('aggregate', () => {
 	it('sum', () => {

@@ -31,8 +31,8 @@ vi.mock('@/integrations/api/instance/status/getStatus', () => ({
 	}),
 }));
 
-import { OverviewTab } from '../OverviewTab.tsx';
-import { AnalyticsTestWrapper } from './testHelpers.tsx';
+import { OverviewTab } from '../OverviewTab';
+import { AnalyticsTestWrapper } from './testHelpers';
 
 const instanceParams = {
 	instanceClient: { post: vi.fn() } as never,

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useAnalyticsRecords } from './useAnalyticsRecords.ts';
+import { useAnalyticsRecords } from './useAnalyticsRecords';
 
 interface AxiosLike {
 	post: ReturnType<typeof vi.fn>;

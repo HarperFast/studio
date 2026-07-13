@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { makeSeriesKey, runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics.ts';
+import { makeSeriesKey, runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

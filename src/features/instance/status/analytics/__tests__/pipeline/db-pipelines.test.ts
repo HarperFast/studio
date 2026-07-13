@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { dbMessageSpec } from '../../pipeline/db-message.tsx';
-import { dbReadSpec } from '../../pipeline/db-read.tsx';
-import { dbWriteSpec } from '../../pipeline/db-write.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics.ts';
+import { dbMessageSpec } from '../../pipeline/db-message';
+import { dbReadSpec } from '../../pipeline/db-read';
+import { dbWriteSpec } from '../../pipeline/db-write';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

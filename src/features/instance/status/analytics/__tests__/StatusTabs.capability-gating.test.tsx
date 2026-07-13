@@ -76,7 +76,7 @@ beforeEach(() => {
 	});
 });
 
-import { StatusTabs } from '../StatusTabs.tsx';
+import { StatusTabs } from '../StatusTabs';
 
 const instanceParams = {
 	instanceClient: { post: vi.fn(async () => ({ data: [] })) } as never,

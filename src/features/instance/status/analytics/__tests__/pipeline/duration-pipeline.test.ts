@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { labelWithApprox } from '../../pipeline/approxLabel.ts';
-import { durationSpec } from '../../pipeline/duration.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics.ts';
+import { labelWithApprox } from '../../pipeline/approxLabel';
+import { durationSpec } from '../../pipeline/duration';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

@@ -1,4 +1,4 @@
-import type { MetricSpec } from '../types/analytics.ts';
+import type { MetricSpec } from '../types/analytics';
 
 type Confidence = NonNullable<MetricSpec['confidence']>;
 export type ConfidenceClass = 'ok' | 'grey' | 'suppress';

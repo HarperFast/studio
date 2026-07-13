@@ -6,7 +6,7 @@
 // active at a time, arrow keys move focus and selection
 // (useRovingRadioGroup).
 
-import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
 
 interface DimensionChipRowProps {
 	/** Selectable dimension values, in display order. */

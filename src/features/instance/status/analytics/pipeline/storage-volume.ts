@@ -1,4 +1,4 @@
-import type { MetricSpec } from '../types/analytics.ts';
+import type { MetricSpec } from '../types/analytics';
 
 export const storageVolumeSpec: MetricSpec = {
 	title: 'Storage volume (available)',

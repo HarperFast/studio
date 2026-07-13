@@ -1,15 +1,15 @@
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize.ts';
-import { getChartColors, type Theme } from '../lib/theme.ts';
-import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
-import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
-import type { TimeRange, ViewMode } from '../types/analytics.ts';
-import { NodeLegend } from './NodeLegend.tsx';
-import { TableSizeChipRow } from './TableSizeChipRow.tsx';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { getNodeColor } from '../lib/nodeColors';
+import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize';
+import { getChartColors } from '../lib/theme';
+import { formatAxisTick, formatTooltipTime } from '../lib/time';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle';
+import type { TimeRange, ViewMode } from '../types/analytics';
+import { NodeLegend } from './NodeLegend';
+import { TableSizeChipRow } from './TableSizeChipRow';
 
 /** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
@@ -17,10 +17,6 @@ const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 interface Props {
 	derived: TableSizeDerived;
 	viewMode: ViewMode;
-	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
-	 *  Kept optional only while StorageTab (owned by a parallel refactor)
-	 *  still passes it. */
-	theme?: Theme;
 	selectedTable: string | null;
 	/** Trend chip click — local to this panel; should NOT touch the Snapshot. */
 	onChipSelect: (tableKey: string) => void;

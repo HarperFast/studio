@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { recomputeErrorRate } from '../pipeline/derived/error-rate.tsx';
-import type { AnalyticsDataPoint, TimeRange } from '../types/analytics.ts';
-import { getSpecRequiredFields } from './specRequiredFields.ts';
+import { recomputeErrorRate } from '../pipeline/derived/error-rate';
+import type { AnalyticsDataPoint, TimeRange } from '../types/analytics';
+import { getSpecRequiredFields } from './specRequiredFields';
 
 describe('getSpecRequiredFields', () => {
 	it('returns [] for an unknown metric', () => {

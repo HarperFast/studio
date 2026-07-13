@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTableColor, OTHER_COLOR, TABLE_PALETTE } from '../lib/tableColors.ts';
+import { getTableColor, OTHER_COLOR, TABLE_PALETTE } from '../lib/tableColors';
 
 describe('getTableColor', () => {
 	it('returns distinct colors for the first 8 indices', () => {

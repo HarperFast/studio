@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { derivedRegistry } from '../../pipeline/derived/index.ts';
-import { specRegistry } from '../../pipeline/index.ts';
+import { derivedRegistry } from '../../pipeline/derived/index';
+import { specRegistry } from '../../pipeline/index';
 
 // Pins the full registry contents so a typo in the wrapperMetrics factory
 // table (or a dropped line in the registry) can't silently lose a metric.

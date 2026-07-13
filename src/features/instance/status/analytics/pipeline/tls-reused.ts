@@ -1,4 +1,4 @@
-import type { MetricSpec } from '../types/analytics.ts';
+import type { MetricSpec } from '../types/analytics';
 
 export const tlsReusedSpec: MetricSpec = {
 	title: 'TLS session reuse ratio',

@@ -49,8 +49,8 @@ vi.mock('@tanstack/react-router', () => ({
 	useNavigate: () => navigateMock,
 }));
 
-import { DEFAULT_REFRESH_MS } from '../context/timePresets.ts';
-import { StatusTabs } from '../StatusTabs.tsx';
+import { DEFAULT_REFRESH_MS } from '../context/timePresets';
+import { StatusTabs } from '../StatusTabs';
 
 const instanceParams = {
 	instanceClient: { post: vi.fn(async () => ({ data: [] })) } as never,

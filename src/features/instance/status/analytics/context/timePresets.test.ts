@@ -6,7 +6,7 @@ import {
 	REFRESH_OPTIONS,
 	TIME_PRESETS,
 	type TimePresetId,
-} from './timePresets.ts';
+} from './timePresets';
 
 describe('timePresets', () => {
 	it('exposes all five preset ids in stable order', () => {

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
-import { DimensionChipRow } from '../primitives/DimensionChipRow.tsx';
-import { LineChart } from '../primitives/LineChart.tsx';
-import type { AnalyticsDataPoint, MetricSpec, SeriesData, Threshold, TimeRange } from '../types/analytics.ts';
-import { runPipeline } from './pipeline.ts';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries';
+import { DimensionChipRow } from '../primitives/DimensionChipRow';
+import { LineChart } from '../primitives/LineChart';
+import type { AnalyticsDataPoint, MetricSpec, SeriesData, Threshold, TimeRange } from '../types/analytics';
+import { runPipeline } from './pipeline';
 
 const COMPOSITE_FIELD = 'pathMethod';
 const SEPARATOR = ' · ';
@@ -49,7 +49,6 @@ interface RendererProps {
 	records: AnalyticsDataPoint[];
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	fillParent?: boolean;
 }
@@ -90,7 +89,7 @@ function preprocess(records: AnalyticsDataPoint[]): Preprocessed {
 }
 
 export function ConnectionRenderer(
-	{ records, timeRange, nodes, theme, viewMode = 'per-node', fillParent }: RendererProps,
+	{ records, timeRange, nodes, viewMode = 'per-node', fillParent }: RendererProps,
 ) {
 	const perNode = viewMode === 'per-node';
 	const { records: processed, dimParts } = useMemo(() => preprocess(records), [records]);
@@ -146,7 +145,6 @@ export function ConnectionRenderer(
 			<div className="min-h-0 flex-1" style={{ marginTop: 8 }}>
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={connectionSpec.yAxis}
 					xDomain={[timeRange.startTime, timeRange.endTime]}
 					fillParent={fillParent}

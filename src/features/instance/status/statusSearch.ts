@@ -4,7 +4,7 @@ import {
 	REFRESH_OPTIONS,
 	TIME_PRESETS,
 	type TimePresetId,
-} from './analytics/context/timePresets.ts';
+} from './analytics/context/timePresets';
 
 /** Search-param schema for the instance Status route (`?tab&range&refresh`).
  *  Lives outside analytics/ so the route definition can validate search

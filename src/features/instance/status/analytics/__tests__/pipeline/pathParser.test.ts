@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReplicationPath } from '../../pipeline/pathParser.ts';
+import { parseReplicationPath } from '../../pipeline/pathParser';
 
 const NODES = [
 	'xb6-us-west-1.prod.ibm.harperfabric.com',

@@ -1,5 +1,5 @@
-import type { Transform } from '../types/analytics.ts';
-import { type NamedTransformKey, namedTransforms } from './transforms.ts';
+import type { Transform } from '../types/analytics';
+import { type NamedTransformKey, namedTransforms } from './transforms';
 
 /** Apply a Transform to a scalar. `period` is the record's period in ms; only
  *  `rate` consults it. Null input short-circuits to null. The pipeline resolves

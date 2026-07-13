@@ -1,4 +1,4 @@
-import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics.ts';
+import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics';
 
 /**
  * Derived metric: per-database transaction-log write rate (bytes/sec).

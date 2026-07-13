@@ -6,22 +6,18 @@
 // the path-discovery + viewMode threading.
 
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import { shortenNodeLabel } from '../lib/nodeLabels.ts';
-import type { AnalyticsDataPoint, AxisSpec, SeriesData, Threshold, TimeRange } from '../types/analytics.ts';
-import { DimensionChipRow } from './DimensionChipRow.tsx';
-import { LineChart } from './LineChart.tsx';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { getNodeColor } from '../lib/nodeColors';
+import { shortenNodeLabel } from '../lib/nodeLabels';
+import type { AnalyticsDataPoint, AxisSpec, SeriesData, Threshold, TimeRange } from '../types/analytics';
+import { DimensionChipRow } from './DimensionChipRow';
+import { LineChart } from './LineChart';
 
 interface Props {
 	records: AnalyticsDataPoint[];
 	timeRange?: TimeRange;
 	nodes: string[];
-	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
-	 *  Kept optional only while pipeline renderers (owned by a parallel
-	 *  refactor) still pass it. */
-	theme?: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	thresholds?: Threshold[];

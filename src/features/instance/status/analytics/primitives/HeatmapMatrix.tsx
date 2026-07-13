@@ -1,18 +1,13 @@
 import { formatValue } from '@/lib/formatValue';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { useResolvedTheme } from '../lib/theme.ts';
-import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics.ts';
-import { computeCellSize } from './computeCellSize.ts';
-export { computeCellSize } from './computeCellSize.ts';
+import { useResolvedTheme } from '../lib/theme';
+import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics';
+import { computeCellSize } from './computeCellSize';
+export { computeCellSize } from './computeCellSize';
 
 interface Props {
 	data: HeatmapData;
-	/** @deprecated Ignored — the color-stop ramp branches on the resolved app
-	 *  theme via useResolvedTheme(), and the confidence greys are
-	 *  `--chart-heatmap-*` CSS tokens. Kept optional only while the pipeline
-	 *  renderers (owned by a parallel refactor) still pass it. */
-	theme?: 'light' | 'dark';
 	title?: string;
 	height?: number;
 }

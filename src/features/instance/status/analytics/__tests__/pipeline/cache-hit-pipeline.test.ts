@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cacheHitSpec } from '../../pipeline/cache-hit.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { cacheHitSpec } from '../../pipeline/cache-hit';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 // Synthetic rows shaped like the real Harper response:
 //   { time, node, path, period, count, total, ratio }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { databaseSizeSpec } from '../../pipeline/database-size.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics.ts';
+import { databaseSizeSpec } from '../../pipeline/database-size';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 10_000_000 };
 

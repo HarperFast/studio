@@ -1,5 +1,5 @@
 import type { EntityIds } from '@/features/auth/store/authStore';
-import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics.ts';
+import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 

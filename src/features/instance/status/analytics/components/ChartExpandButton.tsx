@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Maximize2 } from 'lucide-react';
 import { type ReactNode, useRef, useState } from 'react';
-import { ChartCopyButton } from './ChartCopyButton.tsx';
-import { ChartExportButton } from './ChartExportButton.tsx';
+import { ChartCopyButton } from './ChartCopyButton';
+import { ChartExportButton } from './ChartExportButton';
 
 interface Props {
 	/** Slug for the export filename if the user exports from the expanded view. */

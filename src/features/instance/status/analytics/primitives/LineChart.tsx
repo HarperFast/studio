@@ -10,18 +10,14 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
-import { NODE_PALETTE } from '../lib/nodeColors.ts';
-import { getChartColors } from '../lib/theme.ts';
-import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
-import type { AxisSpec, SeriesData, Threshold } from '../types/analytics.ts';
-import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle.ts';
+import { NODE_PALETTE } from '../lib/nodeColors';
+import { getChartColors } from '../lib/theme';
+import { formatAxisTick, formatTooltipTime } from '../lib/time';
+import type { AxisSpec, SeriesData, Threshold } from '../types/analytics';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle';
 
 interface Props {
 	data: SeriesData;
-	/** @deprecated Ignored — colors resolve via `--chart-*` CSS tokens, so the
-	 *  chart re-themes with the app automatically. Kept optional only while
-	 *  the pipeline renderers (owned by a parallel refactor) still pass it. */
-	theme?: 'light' | 'dark';
 	yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	height?: number;
 	/** Optional accessible label override; otherwise composed from series labels. */

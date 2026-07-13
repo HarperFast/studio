@@ -3,7 +3,7 @@
 // p50 of [10, 20] = 10 (the lower of two medians). No interpolation. If a
 // future spec needs interpolated quantiles, add `p50-interp` etc. to the
 // Aggregator union rather than silently changing this behavior.
-import type { Aggregator } from '../types/analytics.ts';
+import type { Aggregator } from '../types/analytics';
 
 export interface AggInput {
 	value: number | null;

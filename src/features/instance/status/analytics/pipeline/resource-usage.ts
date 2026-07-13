@@ -1,4 +1,4 @@
-import type { MetricSpec } from '../types/analytics.ts';
+import type { MetricSpec } from '../types/analytics';
 
 // Per-field `crossNode` aggregator overrides (e.g. cpuUtilization's
 // `crossNode: 'max'`) are honored by pipeline.ts as of Step 4.5: the

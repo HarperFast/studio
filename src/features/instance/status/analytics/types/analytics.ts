@@ -295,7 +295,6 @@ export interface SpecRegistryRendererProps {
 	/** Renamed from `window` to avoid shadowing the DOM `window`. */
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	/** When true, charts fill parent vertical space (expand dialog). */
 	fillParent?: boolean;
