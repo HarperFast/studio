@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { errorText } from '@/lib/errorText';
 import { type ReactNode, useRef } from 'react';
 import { ChartCopyButton } from '../components/ChartCopyButton.tsx';
 import { ChartExpandButton } from '../components/ChartExpandButton.tsx';
@@ -105,7 +106,7 @@ export function PanelStateOrChart({
 	if (isError) {
 		return (
 			<div className="h-64 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive flex flex-col items-start justify-center gap-3">
-				<div>{`Failed to load: ${error?.message ?? 'unknown error'}`}</div>
+				<div>{`Failed to load: ${errorText(error) ?? 'unknown error'}`}</div>
 				<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button>
 			</div>
 		);
