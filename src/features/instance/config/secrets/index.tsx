@@ -28,14 +28,21 @@ export function ConfigSecretsIndex() {
 
 	// Fabric-managed clusters get their public key from central-manager (the custodian — it mints
 	// the keypair on first use, central-manager#409); self-hosted/local nodes serve their own.
-	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	const clusterQuery = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	const cluster = clusterQuery.data;
 	const isSelfManaged = cluster === undefined || clusterIsSelfManaged(cluster);
 	const managedClusterId = !isSelfManaged ? clusterId : undefined;
 	const keySource = useMemo(() => ({ ...instanceParams, managedClusterId }), [instanceParams, managedClusterId]);
 
 	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted,
-	// so the store is browsable read-only.
-	const publicKeyQuery = useQuery(secretsPublicKeyQueryOptions(keySource));
+	// so the store is browsable read-only. Wait for the cluster lookup to settle before fetching:
+	// until it does, `cluster` is undefined ⇒ we'd assume self-managed and fetch the key from the
+	// node, which fails on a CM-custody cluster and flashes the read-only banner until the lookup
+	// resolves. When there's no clusterId (local Studio) the node is the right target immediately.
+	const publicKeyQuery = useQuery({
+		...secretsPublicKeyQueryOptions(keySource),
+		enabled: !clusterId || !clusterQuery.isPending,
+	});
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
@@ -57,15 +64,20 @@ export function ConfigSecretsIndex() {
 		[navigate, secretName],
 	);
 
-	const { mutateAsync: setSecret } = useSetSecret();
+	const { mutateAsync: setSecret, reset: resetSetSecret } = useSetSecret();
 	const { mutateAsync: deleteSecret } = useDeleteSecret();
 
 	const onSet = useCallback(
 		async (name: string, value: string, options?: { processEnv?: boolean; grants?: string[] }) => {
-			await setSecret({ ...keySource, name, value, processEnv: options?.processEnv, grants: options?.grants });
+			try {
+				await setSecret({ ...keySource, name, value, processEnv: options?.processEnv, grants: options?.grants });
+			} finally {
+				// Drop the plaintext `value` that lingers in the mutation's `variables` after the call.
+				resetSetSecret();
+			}
 			await refetch();
 		},
-		[setSecret, keySource, refetch],
+		[setSecret, resetSetSecret, keySource, refetch],
 	);
 
 	const onDelete = useCallback(async (name: string) => {
