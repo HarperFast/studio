@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatValue } from '../../primitives/formatValue.ts';
+import { formatValue } from './formatValue';
 
 describe('formatValue count-si', () => {
 	it('renders single-digit values without suffix', () => {

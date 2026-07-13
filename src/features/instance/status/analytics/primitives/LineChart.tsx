@@ -1,3 +1,4 @@
+import { formatValue } from '@/lib/formatValue';
 import {
 	CartesianGrid,
 	Legend,
@@ -13,7 +14,6 @@ import { NODE_PALETTE } from '../lib/nodeColors.ts';
 import { getChartColors } from '../lib/theme.ts';
 import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics.ts';
-import { formatValue } from './formatValue.ts';
 import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle.ts';
 
 interface Props {

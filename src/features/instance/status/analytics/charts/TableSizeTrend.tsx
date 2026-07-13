@@ -1,3 +1,4 @@
+import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useNodeSelection } from '../hooks/useNodeSelection.ts';
@@ -5,13 +6,12 @@ import { getNodeColor } from '../lib/nodeColors.ts';
 import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize.ts';
 import { getChartColors, type Theme } from '../lib/theme.ts';
 import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
-import { formatValue } from '../primitives/formatValue.ts';
 import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
 import type { TimeRange, ViewMode } from '../types/analytics.ts';
 import { NodeLegend } from './NodeLegend.tsx';
 import { TableSizeChipRow } from './TableSizeChipRow.tsx';
 
-/** One byte-format path for every chart — see primitives/formatValue.ts. */
+/** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
 interface Props {

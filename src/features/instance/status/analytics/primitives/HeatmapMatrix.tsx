@@ -1,9 +1,9 @@
+import { formatValue } from '@/lib/formatValue';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useResolvedTheme } from '../lib/theme.ts';
 import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics.ts';
 import { computeCellSize } from './computeCellSize.ts';
-import { formatValue } from './formatValue.ts';
 export { computeCellSize } from './computeCellSize.ts';
 
 interface Props {

@@ -1,11 +1,11 @@
-import type { AxisSpec } from '../types/analytics.ts';
+export type ValueFormatter = 'bytes-si' | 'bytes-iec' | 'ms' | 'percent' | 'cores' | 'count' | 'count-si';
 
 /**
- * THE value formatter for chart axes and tooltips in Status analytics. Every
+ * THE value formatter for chart axes and tooltips. Every Status-analytics
  * chart — metric panels and the table-size charts alike — formats through
  * this one code path, so the same byte/count value can never render two
- * different ways on two panels (lib/time.ts used to carry a duplicate
- * `formatBytes` with different rounding; it's gone).
+ * different ways on two panels — and it lives in src/lib because other
+ * features (e.g. the databases overview) format the same values.
  *
  * Deliberately NOT delegated to the app-wide helpers
  * (src/lib/humanFileSize.ts / src/lib/humanNumber.ts): those are
@@ -16,7 +16,7 @@ import type { AxisSpec } from '../types/analytics.ts';
  */
 export function formatValue(
 	v: number,
-	formatter?: AxisSpec['formatter'],
+	formatter?: ValueFormatter,
 	unitSuffix?: string,
 ): string {
 	if (v === null || v === undefined || !Number.isFinite(v)) { return '—'; }
@@ -29,7 +29,7 @@ export function formatValue(
 	return unitSuffix ? `${base}${unitSuffix}` : base;
 }
 
-function formatBase(v: number, formatter?: AxisSpec['formatter']): string {
+function formatBase(v: number, formatter?: ValueFormatter): string {
 	switch (formatter) {
 		case 'percent':
 			return `${(v * 100).toFixed(1)}%`;
