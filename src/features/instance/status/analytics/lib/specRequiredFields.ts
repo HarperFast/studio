@@ -28,6 +28,8 @@ const DERIVED_REQUIRED_FIELDS: Record<string, readonly string[]> = {
  *  excluded — surfacing them as "missing" produces false positives that
  *  blank an otherwise-fine chart (we hit this with cpu-usage, which has a
  *  quantile picker but ships zero quantile fields by default). */
+const requiredFieldsCache = new Map<string, readonly string[]>();
+
 export function getSpecRequiredFields(metric: string): readonly string[] {
 	let fields = requiredFieldsCache.get(metric);
 	if (!fields) {
@@ -40,7 +42,6 @@ export function getSpecRequiredFields(metric: string): readonly string[] {
 /** Results are deterministic per metric (the registries are static module
  *  state), so cache them — panels call this every render and a fresh array
  *  identity would churn downstream memos. */
-const requiredFieldsCache = new Map<string, readonly string[]>();
 
 function computeRequiredFields(metric: string): readonly string[] {
 	const override = DERIVED_REQUIRED_FIELDS[metric];
