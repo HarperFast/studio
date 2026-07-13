@@ -54,14 +54,18 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 			countByTable[tableName] = { recordCount: data.record_count, estimated: !!data.estimated_record_range };
 		}
 	});
-	const allCountsLoaded = countQueries.every((query) => !!query.data);
+	// Settled, not "has data": describe_table uses retry:false, so a single failed/never-resolving count
+	// would otherwise hang the total on "…" forever even though every other table counted fine. Sum the
+	// ones that resolved, and flag the total as an estimate if any contributing count was estimated.
+	const allCountsSettled = countQueries.every((query) => !query.isPending);
+	const anyEstimated = tableNames.some((tableName) => countByTable[tableName]?.estimated);
 
 	// Every table in a database shares the same underlying store, so db_size/db_audit_size are the same
 	// on each -- read them off any table.
 	const anyTable = tableNames.length ? tables[tableNames[0]] : undefined;
 	const dbSize = anyTable?.db_size ?? 0;
 	const auditSize = anyTable?.db_audit_size ?? 0;
-	const totalRecords = allCountsLoaded
+	const totalRecords = allCountsSettled
 		? tableNames.reduce((sum, tableName) => sum + (countByTable[tableName]?.recordCount ?? 0), 0)
 		: undefined;
 
@@ -113,7 +117,10 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 
 			<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-6">
 				<Stat label="Tables" value={tableNames.length.toLocaleString()} />
-				<Stat label="Records" value={totalRecords === undefined ? '…' : totalRecords.toLocaleString()} />
+				<Stat
+					label="Records"
+					value={totalRecords === undefined ? '…' : `${anyEstimated ? '~' : ''}${totalRecords.toLocaleString()}`}
+				/>
 				<Stat label="Size" value={formatBytes(dbSize)} />
 				<Stat label="Audit Size" value={formatBytes(auditSize)} />
 			</div>

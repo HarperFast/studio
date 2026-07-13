@@ -2,7 +2,6 @@ import { ConfirmDeletionModal } from '@/components/ConfirmDeletionModal';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useDeleteDatabaseMutation } from '@/integrations/api/instance/database/deleteDatabase';
-import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
@@ -12,13 +11,14 @@ import { toast } from 'sonner';
 export function DeleteDatabaseModal({ onDeleted }: {
 	readonly onDeleted: (dropped: { databaseName: string }) => void;
 }) {
-	const { value: target, trigger } = useWatchedValue('ShowDeleteDatabase', false);
+	const { value: target } = useWatchedValue('ShowDeleteDatabase', false);
 	const isModalOpen = !!target;
 	const databaseName = target ? target.databaseName : '';
+	// The confirmation dialog (Radix) restores focus to the invoking control on close on its own; no
+	// manual trigger plumbing needed now that callers fire this via a target payload.
 	const closeModal = useCallback(() => {
 		setWatchedValue('ShowDeleteDatabase', false);
-		attemptToRestoreFocus(trigger);
-	}, [trigger]);
+	}, []);
 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 	const queryClient = useQueryClient();
