@@ -13,8 +13,7 @@
 
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
 import { runPipeline } from '../pipeline/pipeline.ts';
 import type { AnalyticsDataPoint, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
 import { DimensionChipRow } from './DimensionChipRow.tsx';
@@ -38,14 +37,6 @@ interface Props {
 	/** When true, the chart inside this renderer fills its parent's
 	 *  vertical space — used by the expand-to-fullscreen dialog. */
 	fillParent?: boolean;
-}
-
-/** Last segment of an FQDN as a stable short label.
- *  e.g. 'xb6-us-west-1.prod.ibm.harperfabric.com' → 'xb6-us-west-1'.
- *  Falls back to the full string if there's no dot. */
-function shortenNodeLabel(node: string): string {
-	const dot = node.indexOf('.');
-	return dot === -1 ? node : node.slice(0, dot);
 }
 
 export function DimensionSelectorRenderer({
@@ -88,51 +79,30 @@ export function DimensionSelectorRenderer({
 		[runtimeSpec, records, timeRange, nodes, perNode],
 	);
 
-	// In perNode mode series keys are `${dim}|${node}`. Build the dimension
-	// list (the chip-row values) by collecting the prefix part of each key,
-	// excluding the special OTHER aggregate.
+	// Build the dimension list (the chip-row values) from each series's
+	// structured `dim` field, excluding the special OTHER aggregate.
 	const dimValues = useMemo(() => {
 		const seen = new Set<string>();
 		for (const s of fullData.series) {
-			if (s.key === OTHER_KEY) { continue; }
-			const sep = s.key.indexOf('|');
-			seen.add(sep === -1 ? s.key : s.key.slice(0, sep));
+			const dim = s.dim ?? s.key;
+			if (dim === OTHER_KEY) { continue; }
+			seen.add(dim);
 		}
 		return [...seen];
 	}, [fullData.series]);
 
-	const hasOther = fullData.series.some((s) => s.key === OTHER_KEY);
+	const hasOther = fullData.series.some((s) => (s.dim ?? s.key) === OTHER_KEY);
 	const [selectedDim, setSelectedDim] = useState<string>(() => dimValues[0] ?? '');
 	const effectiveDim = dimValues.includes(selectedDim) ? selectedDim : (dimValues[0] ?? '');
 
-	// Per-node legend filter — shared across this panel's lines so the
-	// per-Recharts <Legend> can be hidden and the chart area gets full
-	// vertical real estate.
-	const { isActive, handleLegendClick } = useNodeSelection(nodes);
-
-	// Filter to (dim|*) prefix; apply per-node coloring so the same node
-	// keeps the same hue across panels. Then filter by the active-node set.
-	const filteredData: SeriesData = useMemo(() => {
-		const prefix = `${effectiveDim}|`;
-		const filtered = fullData.series
-			.filter((s) => s.key === effectiveDim || s.key.startsWith(prefix))
-			.map((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				if (!node) { return s; }
-				return {
-					...s,
-					label: shortenNodeLabel(node),
-					color: getNodeColor(node, nodes),
-				};
-			})
-			.filter((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				return node === '' || isActive(node);
-			});
-		return { ...fullData, series: filtered };
-	}, [fullData, effectiveDim, nodes, isActive]);
+	// Keep only the selected dimension's series, then apply the shared
+	// per-node relabel/color/legend-filter scaffolding — the per-Recharts
+	// <Legend> is hidden so the chart area gets full vertical real estate.
+	const dimFilteredData: SeriesData = useMemo(() => ({
+		...fullData,
+		series: fullData.series.filter((s) => (s.dim ?? s.key) === effectiveDim),
+	}), [fullData, effectiveDim]);
+	const { data: filteredData, isActive, handleLegendClick } = useNodeFilteredSeries(dimFilteredData, nodes);
 
 	return (
 		<div className="flex h-full flex-col">

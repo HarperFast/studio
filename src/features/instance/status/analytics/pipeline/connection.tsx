@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
 import { DimensionChipRow } from '../primitives/DimensionChipRow.tsx';
 import { LineChart } from '../primitives/LineChart.tsx';
 import type { AnalyticsDataPoint, MetricSpec, SeriesData, Threshold, TimeRange } from '../types/analytics.ts';
@@ -61,13 +60,25 @@ function compositeKey(path: unknown, method: unknown): string | null {
 	return `${path}${SEPARATOR}${method}`;
 }
 
-function preprocess(records: AnalyticsDataPoint[]): AnalyticsDataPoint[] {
+interface Preprocessed {
+	records: AnalyticsDataPoint[];
+	/** Composite chip value → its source dimensions. The composite string is
+	 *  display-only; recovering {path, method} from it by splitting on ' · '
+	 *  would corrupt values that contain the separator, so carry the parts. */
+	dimParts: Map<string, Record<string, string>>;
+}
+
+function preprocess(records: AnalyticsDataPoint[]): Preprocessed {
 	const out: AnalyticsDataPoint[] = [];
+	const dimParts = new Map<string, Record<string, string>>();
 	for (const r of records) {
 		const path = (r as any).path;
 		const method = (r as any).method;
 		const key = compositeKey(path, method);
 		if (key === null) { continue; }
+		if (!dimParts.has(key)) {
+			dimParts.set(key, { path: String(path), method: String(method) });
+		}
 		const total = (r as any).total;
 		const count = (r as any).count;
 		const nullGap = total === 0 && typeof count === 'number' && count > 0;
@@ -77,79 +88,53 @@ function preprocess(records: AnalyticsDataPoint[]): AnalyticsDataPoint[] {
 			ratio: nullGap ? null : (r as any).ratio,
 		} as any);
 	}
-	return out;
-}
-
-function shortenNodeLabel(node: string): string {
-	const dot = node.indexOf('.');
-	return dot === -1 ? node : node.slice(0, dot);
+	return { records: out, dimParts };
 }
 
 export function ConnectionRenderer(
 	{ records, timeRange, nodes, theme, viewMode = 'per-node', fillParent }: RendererProps,
 ) {
 	const perNode = viewMode === 'per-node';
-	const processed = useMemo(() => preprocess(records), [records]);
+	const { records: processed, dimParts } = useMemo(() => preprocess(records), [records]);
 
 	const fullData = useMemo<SeriesData>(
 		() => runPipeline(connectionSpec, processed, timeRange, nodes, { perNode, snapToPeriod: true }),
 		[processed, timeRange, nodes, perNode],
 	);
 
-	// Per-node series keys are `${pathMethod}|${node}`. The chip selector
-	// picks one composite (pathMethod) value; filter by prefix.
+	// The chip selector picks one composite (pathMethod) dimension value;
+	// per-node series carry it on the structured `dim` field.
 	const selectable = useMemo(() => {
 		const seen = new Set<string>();
 		for (const s of fullData.series) {
-			const sep = s.key.indexOf('|');
-			seen.add(sep === -1 ? s.key : s.key.slice(0, sep));
+			seen.add(s.dim ?? s.key);
 		}
 		return [...seen];
 	}, [fullData.series]);
 	const [selected, setSelected] = useState<string>(() => selectable[0] ?? '');
 	const effectiveSelected = selectable.includes(selected) ? selected : (selectable[0] ?? '');
 
-	const selectedDims = useMemo(() => {
-		if (!effectiveSelected) { return null; }
-		const [path, method] = effectiveSelected.split(SEPARATOR);
-		return { path, method } as Record<string, string>;
-	}, [effectiveSelected]);
+	const selectedDims = dimParts.get(effectiveSelected) ?? null;
 
-	const { isActive, handleLegendClick } = useNodeSelection(nodes);
-
-	const filteredData: SeriesData = useMemo(() => {
+	const dimFilteredData: SeriesData = useMemo(() => {
 		function thresholdMatches(t: Threshold): boolean {
-			if (!selectedDims) { return false; }
+			// Scope-less thresholds are global — keep them even when the
+			// selected dim has no dimParts entry (e.g. an Other bucket).
 			if (!t.scope) { return true; }
+			if (!selectedDims) { return false; }
 			for (const [dim, want] of Object.entries(t.scope)) {
 				if (selectedDims[dim] !== want) { return false; }
 			}
 			return true;
 		}
-		const prefix = `${effectiveSelected}|`;
-		const series = fullData.series
-			.filter((s) => s.key === effectiveSelected || s.key.startsWith(prefix))
-			.map((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				if (!node) { return s; }
-				return {
-					...s,
-					label: shortenNodeLabel(node),
-					color: getNodeColor(node, nodes),
-				};
-			})
-			.filter((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				return node === '' || isActive(node);
-			});
 		return {
 			...fullData,
-			series,
+			series: fullData.series.filter((s) => (s.dim ?? s.key) === effectiveSelected),
 			thresholds: (fullData.thresholds ?? []).filter(thresholdMatches),
 		};
-	}, [fullData, effectiveSelected, selectedDims, nodes, isActive]);
+	}, [fullData, effectiveSelected, selectedDims]);
+
+	const { data: filteredData, isActive, handleLegendClick } = useNodeFilteredSeries(dimFilteredData, nodes);
 
 	return (
 		<div className="flex h-full flex-col">

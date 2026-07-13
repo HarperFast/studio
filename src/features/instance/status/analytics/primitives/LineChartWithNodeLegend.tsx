@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
 import { useNodeSelection } from '../hooks/useNodeSelection.ts';
 import { getNodeColor } from '../lib/nodeColors.ts';
-import type { AxisSpec, SeriesData } from '../types/analytics.ts';
+import type { AxisSpec, Series, SeriesData } from '../types/analytics.ts';
 import { LineChart } from './LineChart.tsx';
 
 interface Props {
@@ -19,23 +19,24 @@ interface Props {
 	fillParent?: boolean;
 }
 
-function extractNode(seriesKey: string): string | null {
-	const sep = seriesKey.indexOf('|');
-	if (sep !== -1) { return seriesKey.slice(sep + 1); }
-	// Some specs (utilization, tls-reused, storage-volume) groupBy 'node'
-	// directly — the series key IS the node id, no separator.
-	return seriesKey;
+/** Legend/filter group for a series: the structured `node` when present
+ *  (per-node pipeline output — including groupBy-'node' specs like
+ *  utilization / tls-reused / storage-volume), else the whole key. The
+ *  fallback is deliberate: generic 'line' dispatch also feeds this wrapper
+ *  cluster-aggregate series keyed by dimension value (e.g. database-size
+ *  groupBy 'database' with perNode=false) and derived per-node series keyed
+ *  by node id — both want one legend chip per key. Contrast SmallMultiples,
+ *  which legends per-node series only. */
+function legendGroup(s: Series): string {
+	return s.node ?? s.key;
 }
 
 export function LineChartWithNodeLegend({ data, theme, yAxis, xDomain, fillParent }: Props) {
-	// All series are per-node when this component is used (either via
-	// pipeline perNode mode or groupBy:'node'). Collect node ids from
-	// series keys.
 	const nodeIds = useMemo(() => {
 		const set = new Set<string>();
 		for (const s of data.series) {
-			const node = extractNode(s.key);
-			if (node) { set.add(node); }
+			const group = legendGroup(s);
+			if (group) { set.add(group); }
 		}
 		return [...set].sort();
 	}, [data]);
@@ -46,13 +47,13 @@ export function LineChartWithNodeLegend({ data, theme, yAxis, xDomain, fillParen
 		...data,
 		series: data.series
 			.filter((s) => {
-				const node = extractNode(s.key);
-				return node === null || isActive(node);
+				const group = legendGroup(s);
+				return group === '' || isActive(group);
 			})
 			.map((s) => {
-				const node = extractNode(s.key);
-				if (!node) { return s; }
-				return { ...s, color: s.color ?? getNodeColor(node, nodeIds) };
+				const group = legendGroup(s);
+				if (!group) { return s; }
+				return { ...s, color: s.color ?? getNodeColor(group, nodeIds) };
 			}),
 	}), [data, isActive, nodeIds]);
 

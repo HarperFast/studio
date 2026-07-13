@@ -41,9 +41,10 @@ import { runTransform } from './runTransform.ts';
 
 export interface RunPipelineOptions {
 	/** When true, runGroupBy emits one Series per (dim, node) instead of
-	 *  collapsing nodes via the crossNode aggregator. The series key is
-	 *  `${dim}|${node}` so consumers (e.g. DimensionSelectorRenderer) can
-	 *  filter by selected dim while keeping per-node detail. No-op for
+	 *  collapsing nodes via the crossNode aggregator. Each series carries
+	 *  structured `dim`/`node` fields so consumers (e.g.
+	 *  DimensionSelectorRenderer) can filter by selected dim while keeping
+	 *  per-node detail. No-op for
 	 *  `kind: 'field'` series sources or for the OTHER bucket.
 	 *  Used by chip-selector panels (duration, success, transfer, db-*,
 	 *  connection, response_200) so the operator can spot a hot node
@@ -57,6 +58,14 @@ export interface RunPipelineOptions {
 	 *  rendering; pipeline tests that use synthetic small-integer times
 	 *  leave it off so they keep their distinct buckets. */
 	snapToPeriod?: boolean;
+}
+
+/** Composite string key for a per-node series — React key / recharts name
+ *  only. Never split it back apart: a dimension value containing '|' (URL
+ *  paths can) makes the string ambiguous. Consumers read the structured
+ *  `Series.dim` / `Series.node` fields instead. */
+export function makeSeriesKey(dim: string, node: string): string {
+	return `${dim}|${node}`;
 }
 
 export function runPipeline(
@@ -226,8 +235,8 @@ function runGroupBy(
 		if (perNode && !dimensionIsNode) {
 			// Emit one Series per (dim, node). Skip the crossNode pass; each
 			// node's points come from the inner temporal aggregation alone.
-			// Series key is `${dim}|${node}` so renderers can filter by dim
-			// prefix; label is the node name.
+			// Renderers filter/color via the structured dim/node fields; the
+			// composite key only keeps React/recharts ids unique.
 			const nodeBuckets = new Map<string, Map<number, NodeBucket>>();
 			for (const [time, byNode] of perTime) {
 				for (const [node, nb] of byNode) {
@@ -248,8 +257,10 @@ function runGroupBy(
 					points.push({ x: time, y, count: nb.totalCount });
 				}
 				series.push({
-					key: `${String(key)}|${node}`,
+					key: makeSeriesKey(String(key), node),
 					label: labelWithApprox(node, tempAgg),
+					dim: String(key),
+					node,
 					points,
 					approx: isApprox,
 				});
@@ -267,6 +278,10 @@ function runGroupBy(
 			series.push({
 				key: String(key),
 				label: labelWithApprox(String(key), tempAgg),
+				dim: String(key),
+				// For groupBy-'node' specs each dimension value IS a node id —
+				// surface it so node legends need no key heuristics.
+				...(dimensionIsNode ? { node: String(key) } : {}),
 				points,
 				approx: isApprox,
 			});
@@ -317,6 +332,7 @@ function runGroupBy(
 			series.push({
 				key: 'Other',
 				label: labelWithApprox('Other', tempAgg),
+				dim: 'Other',
 				points: otherPoints,
 				approx: isApprox,
 			});
@@ -382,9 +398,9 @@ function runFieldSpecs(
 		const fieldKey = typeof f.field === 'string' ? f.field : f.label;
 
 		if (perNode) {
-			// Emit one Series per (field, node). Series key is
-			// `${fieldKey}|${node}` so callers can identify both axes; label is
-			// `${fieldLabel} — ${node}` so legends stay readable.
+			// Emit one Series per (field, node) — both axes carried on the
+			// structured dim/node fields; label is `${fieldLabel} — ${node}`
+			// so legends stay readable.
 			const nodeBuckets = new Map<string, Map<number, NodeBucket>>();
 			for (const [time, byNode] of buckets) {
 				for (const [node, nb] of byNode) {
@@ -406,8 +422,10 @@ function runFieldSpecs(
 					points.push({ x: time, y, count: nb.totalCount });
 				}
 				out.push({
-					key: `${fieldKey}|${node}`,
+					key: makeSeriesKey(fieldKey, node),
 					label: labelWithApprox(`${f.label} — ${node}`, tempAgg),
+					dim: fieldKey,
+					node,
 					axis: f.axis,
 					points,
 					approx: isApprox,
@@ -427,6 +445,7 @@ function runFieldSpecs(
 		return [{
 			key: fieldKey,
 			label: labelWithApprox(f.label, tempAgg),
+			dim: fieldKey,
 			axis: f.axis,
 			points,
 			approx: isApprox,

@@ -192,8 +192,20 @@ export interface SeriesPoint {
 }
 
 export interface Series {
+	/** Unique id within a SeriesData — used as React key / recharts series
+	 *  name. For per-node pipeline output it is `makeSeriesKey(dim, node)`;
+	 *  never parse it back (a dim containing '|' makes the string ambiguous).
+	 *  Read the structured `dim`/`node` fields instead. */
 	key: string;
 	label: string;
+	/** Dimension value (groupBy) or field key (field mode) this series was
+	 *  bucketed under. Always set by runPipeline; may be absent on series
+	 *  built outside the generic pipeline (derived metrics). */
+	dim?: string;
+	/** Node id when this series is a per-node breakdown (pipeline perNode
+	 *  mode, or a groupBy-'node' spec where each dimension value IS a node).
+	 *  Unset on cluster-aggregate series. */
+	node?: string;
 	color?: string;
 	axis?: 'left' | 'right';
 	points: SeriesPoint[];
