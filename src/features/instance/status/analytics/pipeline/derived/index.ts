@@ -8,8 +8,7 @@
 // instead of delegating to runPipeline.
 import type { DerivedMetricSpec } from '../../types/analytics.ts';
 import { errorRateDerived } from './error-rate.tsx';
-import { mqttTrafficReceivedDerived } from './mqtt-traffic-received.tsx';
-import { mqttTrafficSentDerived } from './mqtt-traffic-sent.tsx';
+import { mqttTrafficReceivedDerived, mqttTrafficSentDerived } from './mqtt-traffic.tsx';
 import { requestRateDerived } from './request-rate.tsx';
 import { transactionLogGrowthDerived } from './transaction-log-growth.tsx';
 
