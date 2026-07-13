@@ -34,15 +34,23 @@ export function ConfigSecretsIndex() {
 	const managedClusterId = !isSelfManaged ? clusterId : undefined;
 	const keySource = useMemo(() => ({ ...instanceParams, managedClusterId }), [instanceParams, managedClusterId]);
 
-	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted,
-	// so the store is browsable read-only. Wait for the cluster lookup to settle before fetching:
-	// until it does, `cluster` is undefined ⇒ we'd assume self-managed and fetch the key from the
-	// node, which fails on a CM-custody cluster and flashes the read-only banner until the lookup
-	// resolves. When there's no clusterId (local Studio) the node is the right target immediately.
+	// The key source (node vs central-manager) depends on the cluster tier, so it isn't known until
+	// the cluster lookup SUCCEEDS. `cluster === undefined` covers both the load window and a failed
+	// fetch (getClusterInfoQuery has retry:false, so `data` stays undefined on error) — treating
+	// either as self-managed would route a managed cluster to the node key: a transient banner flash
+	// while loading, and a non-self-healing mis-route on error (set_secret would then encrypt against
+	// the wrong key and fail a kid mismatch the retry can't heal). So gate the fetch on isSuccess,
+	// and only skip the gate when there's no clusterId (local Studio — the node is always right).
+	const clusterTierKnown = !clusterId || clusterQuery.isSuccess;
+	// Without a secrets key (no custody registered, or CM unreachable) nothing can be encrypted, so
+	// the store stays browsable read-only.
 	const publicKeyQuery = useQuery({
 		...secretsPublicKeyQueryOptions(keySource),
-		enabled: !clusterId || !clusterQuery.isPending,
+		enabled: clusterTierKnown,
 	});
+	// A failed cluster lookup is a distinct degraded state from "no secrets key" — surface it as such
+	// instead of leaving the page silently read-only (or, worse, guessing the wrong custody).
+	const clusterInfoUnavailable = !!clusterId && clusterQuery.isError;
 
 	const secrets = data?.secrets;
 	const rows = useMemo<SecretRow[]>(
@@ -87,15 +95,25 @@ export function ConfigSecretsIndex() {
 
 	return (
 		<>
-			{publicKeyQuery.isError && (
-				<p className="flex items-start gap-2 text-sm text-muted-foreground border border-amber-500/50 rounded-md p-3 mb-4">
-					<TriangleAlertIcon className="size-4 text-amber-500 shrink-0 mt-0.5" />
-					<span>
-						Secrets are read-only right now: this cluster has no secrets key, so values can't be encrypted. Key custody
-						is provided by the Harper secret-custody component — once it's active, refresh this page.
-					</span>
-				</p>
-			)}
+			{clusterInfoUnavailable
+				? (
+					<p className="flex items-start gap-2 text-sm text-muted-foreground border border-amber-500/50 rounded-md p-3 mb-4">
+						<TriangleAlertIcon className="size-4 text-amber-500 shrink-0 mt-0.5" />
+						<span>
+							Secrets are read-only right now: this cluster's info couldn't be loaded, so its secret custody is unknown.
+							Refresh once cluster info is available.
+						</span>
+					</p>
+				)
+				: publicKeyQuery.isError && (
+					<p className="flex items-start gap-2 text-sm text-muted-foreground border border-amber-500/50 rounded-md p-3 mb-4">
+						<TriangleAlertIcon className="size-4 text-amber-500 shrink-0 mt-0.5" />
+						<span>
+							Secrets are read-only right now: this cluster has no secrets key, so values can't be encrypted. Key
+							custody is provided by the Harper secret-custody component — once it's active, refresh this page.
+						</span>
+					</p>
+				)}
 			<SecretsManager
 				rows={rows}
 				isFetching={isFetching}

@@ -60,6 +60,18 @@ function operationErrorMessage(error: unknown): string {
 	return body?.error ?? body?.message ?? String(error);
 }
 
+/**
+ * CROSS-REPO CONTRACT with harper#1554: set_secret rejects an envelope whose sealed kid doesn't
+ * match the cluster's current secrets key with a message containing this phrase. The rotation
+ * self-heal below keys off it, so it's pinned here in one place rather than inlined — if harper
+ * rewords the message this is the single line to update. harper#1554 does not (yet) expose a
+ * stable error `code`; switch this to a code check the moment it does, and this substring can go.
+ */
+const KID_MISMATCH_ERROR_PHRASE = 'does not match';
+function isKidMismatchError(message: string): boolean {
+	return message.includes(KID_MISMATCH_ERROR_PHRASE);
+}
+
 async function getSecretsPublicKeyFromNode({ instanceClient }: InstanceClientIdConfig): Promise<SecretsPublicKey> {
 	const { data } = await instanceClient.post<{ public_key: string; fingerprint: string }>('/', {
 		operation: 'get_secrets_public_key',
@@ -155,7 +167,7 @@ async function encryptAndSetSecret(queryClient: QueryClient, args: SetSecretArgs
 		// A kid mismatch means our cached public key is stale (the custody key rotated). Drop the
 		// cached key (ensureQueryData returns stale entries, so invalidation isn't enough) and
 		// re-encrypt once; anything else (or a second mismatch) surfaces to the caller.
-		if (!isRetry && message.includes('does not match')) {
+		if (!isRetry && isKidMismatchError(message)) {
 			queryClient.removeQueries({ queryKey: secretsPublicKeyQueryOptions(args).queryKey });
 			return encryptAndSetSecret(queryClient, args, true);
 		}
