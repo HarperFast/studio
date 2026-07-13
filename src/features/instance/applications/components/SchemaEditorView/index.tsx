@@ -9,16 +9,19 @@
  * projection re-derived from the buffer on mount, on revert, and whenever we
  * return from the text editor (so manual text edits are never lost).
  */
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { parseSchema } from '@/features/instance/applications/lib/schema/parseSchema';
 import { serializeSchema } from '@/features/instance/applications/lib/schema/serializeSchema';
+import { validateSchema } from '@/features/instance/applications/lib/schema/validateSchema';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { useListener } from '@/lib/events/listener';
+import { setWatchedValue } from '@/lib/events/watcher';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
-import { CodeIcon, PlusIcon, Table2Icon } from 'lucide-react';
+import { CodeIcon, PlusIcon, Table2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { TextEditorView } from '../TextEditorView';
 import { documentTables, hasUnmodeledContent, parseDocument, schemaEditorReducer } from './schemaEditorReducer';
@@ -80,6 +83,11 @@ export function SchemaEditorView() {
 			if (showSource || !openedEntry || isSavingFile || updatedFileContent === undefined) {
 				return;
 			}
+			// Never write a schema the visual editor knows is invalid — it would break
+			// the whole file's load. The banner tells the user what to fix.
+			if (validateSchema(doc).length > 0) {
+				return;
+			}
 			saveFile(
 				{
 					...instanceParams,
@@ -90,7 +98,7 @@ export function SchemaEditorView() {
 				openedEntry.path,
 			);
 		},
-		[showSource, openedEntry, instanceParams, updatedFileContent, isSavingFile],
+		[showSource, openedEntry, instanceParams, updatedFileContent, isSavingFile, doc],
 	);
 
 	useListener(
@@ -121,6 +129,31 @@ export function SchemaEditorView() {
 	const tables = useMemo(() => documentTables(doc), [doc]);
 	const typeNames = useMemo(() => tables.map(table => table.typeName).filter(Boolean), [tables]);
 	const showPreservedHint = useMemo(() => hasUnmodeledContent(doc), [doc]);
+
+	// Invalid states (empty tables, bad/duplicate names) would serialize to SDL
+	// Harper rejects, breaking the whole schema. Surface them and block Save so the
+	// GUI can't write a file that fails to load.
+	const errors = useMemo(() => validateSchema(doc), [doc]);
+	const errorsByTable = useMemo(() => {
+		const grouped = new Map<string, typeof errors>();
+		for (const error of errors) {
+			const existing = grouped.get(error.tableId);
+			if (existing) {
+				existing.push(error);
+			} else {
+				grouped.set(error.tableId, [error]);
+			}
+		}
+		return grouped;
+	}, [errors]);
+
+	// Keep the toolbar's Save button in sync with visual-editor validity. The
+	// SaveFile listener below is the hard guard; this just reflects it in the UI.
+	const saveBlocked = !showSource && !readOnly && errors.length > 0;
+	useEffect(() => {
+		setWatchedValue('EditorSaveBlocked', saveBlocked);
+		return () => setWatchedValue('EditorSaveBlocked', false);
+	}, [saveBlocked]);
 
 	if (!openedEntry) {
 		return null;
@@ -156,6 +189,25 @@ export function SchemaEditorView() {
 						</p>
 					</div>
 
+					{errors.length > 0 && (
+						<Alert variant="destructive">
+							<TriangleAlertIcon />
+							<AlertTitle>Fix {errors.length === 1 ? 'this issue' : 'these issues'} before saving</AlertTitle>
+							<AlertDescription>
+								<ul className="list-disc pl-4">
+									{errors.map((error, index) => (
+										<li key={`${error.tableId}-${error.code}-${error.fieldKey ?? ''}-${index}`}>
+											<span className="font-medium">
+												{error.tableName || 'Untitled table'}
+												{error.fieldName ? ` → ${error.fieldName}` : ''}
+											</span>: {error.message}
+										</li>
+									))}
+								</ul>
+							</AlertDescription>
+						</Alert>
+					)}
+
 					{tables.length === 0 && (
 						<div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
 							<p>No tables yet.</p>
@@ -169,6 +221,7 @@ export function SchemaEditorView() {
 							table={table}
 							typeNames={typeNames}
 							readOnly={readOnly}
+							errors={errorsByTable.get(table.id) ?? []}
 							defaultCollapsed={!table.id.startsWith('new-')}
 							onChange={next => dispatch({ type: 'updateTable', id: table.id, table: next })}
 							onRemove={() => dispatch({ type: 'removeTable', id: table.id })}

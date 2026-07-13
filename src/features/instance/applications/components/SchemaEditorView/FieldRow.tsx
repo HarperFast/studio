@@ -7,7 +7,6 @@
  */
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GRAPHQL_NAME_HINT, isValidGraphqlName } from '@/features/instance/applications/lib/schema/graphqlName';
 import {
 	buildType,
 	fieldBaseType,
@@ -42,6 +41,7 @@ export function FieldRow({
 	typeNames,
 	readOnly,
 	disableRemove,
+	error,
 	onChange,
 	onRemove,
 }: {
@@ -50,6 +50,8 @@ export function FieldRow({
 	readOnly: boolean;
 	/** True when this is the table's only field: a GraphQL type needs at least one, so removal is blocked. */
 	disableRemove?: boolean;
+	/** Validation message for this field (bad or duplicate name), shown inline. */
+	error?: string;
 	onChange: (field: FieldModel) => void;
 	onRemove: () => void;
 }) {
@@ -68,7 +70,6 @@ export function FieldRow({
 	const required = fieldIsNonNull(field);
 	const indexed = hasDirective(field.directives, 'indexed');
 
-	const nameError = field.name && !isValidGraphqlName(field.name) ? GRAPHQL_NAME_HINT : undefined;
 	const preserved = field.directives.filter(directive => !KNOWN_FIELD_DIRECTIVES.has(directive.name));
 
 	return (
@@ -78,8 +79,8 @@ export function FieldRow({
 					label="Field name"
 					value={field.name}
 					disabled={readOnly}
-					invalid={!!nameError}
-					error={nameError}
+					invalid={!!error}
+					error={error}
 					onChange={name => onChange({ ...field, name })}
 				/>
 				<div className="flex flex-col gap-1">

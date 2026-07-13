@@ -132,6 +132,20 @@ describe('serializeSchema preserves in-body comments when a table is edited', ()
 		firstTable(twice).edited = true;
 		expect(serializeSchema(twice)).toBe(source);
 	});
+
+	it('keeps header and trailing comments anchored through a field rename and a table rename', () => {
+		// The design keys these comments to the table object, not to a field or a
+		// position — so renaming either must not strand or relocate them.
+		const source = 'type Dog @table { # the dogs table\n\tid: ID @primaryKey\n\t# trailing note\n}\n';
+		const doc = parse(source);
+		const table = firstTable(doc);
+		table.edited = true;
+		table.typeName = 'Canine';
+		table.fields[0] = { ...table.fields[0], name: 'identifier' };
+		expect(serializeSchema(doc)).toBe(
+			'type Canine @table { # the dogs table\n\tidentifier: ID @primaryKey\n\t# trailing note\n}\n',
+		);
+	});
 });
 
 describe('serializeSchema canonical generation for edited tables', () => {

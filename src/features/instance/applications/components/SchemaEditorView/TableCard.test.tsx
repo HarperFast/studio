@@ -26,6 +26,7 @@ function renderCard(overrides: Partial<Parameters<typeof TableCard>[0]> = {}) {
 			table={makeTable()}
 			typeNames={['Dog']}
 			readOnly={false}
+			errors={[]}
 			defaultCollapsed={false}
 			onChange={vi.fn()}
 			onRemove={vi.fn()}
@@ -60,6 +61,39 @@ describe('TableCard', () => {
 		renderCard({ readOnly: true });
 		expect((screen.getByLabelText('Table (type) name') as HTMLInputElement).disabled).toBe(true);
 		expect((screen.getByRole('button', { name: /Remove table/ }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('surfaces validation errors: an issue count in the header and the message inline on the field', () => {
+		const table = makeTable();
+		renderCard({
+			table,
+			errors: [{
+				tableId: table.id,
+				tableName: table.typeName,
+				fieldKey: table.fields[0].key,
+				fieldName: table.fields[0].name,
+				code: 'INVALID_FIELD_NAME',
+				message: 'Bad field name.',
+			}],
+		});
+		expect(screen.getByText(/1 issue/)).toBeTruthy();
+		expect(screen.getByText('Bad field name.')).toBeTruthy();
+	});
+
+	it('warns and blocks last-field removal when a table has a NO_FIELDS error', () => {
+		const table = makeTable();
+		renderCard({
+			table,
+			errors: [{
+				tableId: table.id,
+				tableName: table.typeName,
+				code: 'NO_FIELDS',
+				message: 'A table needs at least one field.',
+			}],
+		});
+		expect(screen.getByText(/needs at least one field/)).toBeTruthy();
+		// The sole field's remove button is disabled so the user can't reach zero fields.
+		expect((screen.getByTitle('A table needs at least one field') as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it('starts collapsed (body hidden) and expands on header click', () => {
