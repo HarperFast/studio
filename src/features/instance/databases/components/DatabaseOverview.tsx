@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { TableRowContextMenu } from '@/features/instance/databases/components/TableRowContextMenu';
-import { formatBytes } from '@/features/instance/status/analytics/lib/time';
+import { formatValue } from '@/features/instance/status/analytics/primitives/formatValue';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
@@ -12,6 +12,9 @@ import { useQueries } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { CloudUploadIcon, EllipsisIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useCallback } from 'react';
+
+/** One byte-format path for every chart — see status/analytics/primitives/formatValue.ts. */
+const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
 function Stat({ label, value }: { label: string; value: string }) {
 	return (
