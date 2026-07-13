@@ -123,7 +123,8 @@ export function ConnectionRenderer(
 			if (!t.scope) { return true; }
 			if (!selectedDims) { return false; }
 			for (const [dim, want] of Object.entries(t.scope)) {
-				if (selectedDims[dim] !== want) { return false; }
+				// dimParts values are String()-cast; Threshold.scope allows numbers.
+				if (selectedDims[dim] !== String(want)) { return false; }
 			}
 			return true;
 		}
