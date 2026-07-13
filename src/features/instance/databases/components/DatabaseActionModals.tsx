@@ -89,6 +89,7 @@ export function DatabaseActionModals({ instanceDatabaseMap }: { instanceDatabase
 				<AddTableRowModal
 					key={`add-${addTarget.databaseName}/${addTarget.tableName}`}
 					instanceTable={addInstanceTable}
+					databaseTables={instanceDatabaseMap?.[addTarget.databaseName]}
 					isModalOpen
 					setIsModalOpen={open => {
 						if (!open) {
