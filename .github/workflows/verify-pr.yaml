@@ -26,6 +26,12 @@ jobs:
         run: echo "HUSKY=0" >> $GITHUB_ENV
       - name: Install dependencies
         run: pnpm install
+      # Whole-app type-check: vitest only type-checks what tests import, so a
+      # cross-feature break (e.g. an import of a symbol another in-flight PR
+      # deleted) can pass tests and reach stage via the merge queue. tsc -b
+      # sees the merged combination.
+      - name: Type-check
+        run: pnpm exec tsc -b
       - name: Run unit tests
         run: pnpm test:coverage
       - name: Report coverage
