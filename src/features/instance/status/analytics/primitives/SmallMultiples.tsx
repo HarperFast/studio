@@ -24,22 +24,17 @@ interface Props {
 	fillParent?: boolean;
 }
 
-function extractNode(seriesKey: string): string | null {
-	const sep = seriesKey.indexOf('|');
-	return sep === -1 ? null : seriesKey.slice(sep + 1);
-}
-
 export function SmallMultiples(
 	{ panels, theme, minPanelWidth = 320, panelHeight = 240, xDomain, fillParent }: Props,
 ) {
-	// Union of node ids across all panels' per-node series. Cluster-aggregate
-	// series (no '|') don't participate in the legend.
+	// Union of node ids across all panels' per-node series (structured
+	// `Series.node`). Cluster-aggregate series (no `node`) don't participate
+	// in the legend.
 	const nodeIds = useMemo(() => {
 		const set = new Set<string>();
 		for (const p of panels) {
 			for (const s of p.data.series) {
-				const node = extractNode(s.key);
-				if (node) { set.add(node); }
+				if (s.node) { set.add(s.node); }
 			}
 		}
 		return [...set].sort();
@@ -53,15 +48,8 @@ export function SmallMultiples(
 			data: {
 				...p.data,
 				series: p.data.series
-					.filter((s) => {
-						const node = extractNode(s.key);
-						return node === null || isActive(node);
-					})
-					.map((s) => {
-						const node = extractNode(s.key);
-						if (!node) { return s; }
-						return { ...s, color: s.color ?? getNodeColor(node, nodeIds) };
-					}),
+					.filter((s) => s.node === undefined || isActive(s.node))
+					.map((s) => s.node === undefined ? s : { ...s, color: s.color ?? getNodeColor(s.node, nodeIds) }),
 			},
 		})), [panels, isActive, nodeIds]);
 

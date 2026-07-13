@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
 import { DimensionChipRow } from '../primitives/DimensionChipRow.tsx';
 import { LineChart } from '../primitives/LineChart.tsx';
 import type { AnalyticsDataPoint, FieldSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
@@ -45,11 +44,6 @@ interface RendererProps {
 	fillParent?: boolean;
 }
 
-function shortenNodeLabel(node: string): string {
-	const dot = node.indexOf('.');
-	return dot === -1 ? node : node.slice(0, dot);
-}
-
 const FIELD_LABELS = MEMORY_FIELDS.map((f) => f.label);
 
 export function MemoryRenderer(
@@ -68,23 +62,7 @@ export function MemoryRenderer(
 		return runPipeline(innerSpec, records, timeRange, nodes, { perNode, snapToPeriod: true });
 	}, [selectedField, records, timeRange, nodes, perNode]);
 
-	const { isActive, handleLegendClick } = useNodeSelection(nodes);
-
-	const filteredData: SeriesData = useMemo(() => ({
-		...data,
-		series: data.series
-			.map((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				if (!node) { return s; }
-				return { ...s, label: shortenNodeLabel(node), color: getNodeColor(node, nodes) };
-			})
-			.filter((s) => {
-				const sep = s.key.indexOf('|');
-				const node = sep === -1 ? '' : s.key.slice(sep + 1);
-				return node === '' || isActive(node);
-			}),
-	}), [data, nodes, isActive]);
+	const { data: filteredData, isActive, handleLegendClick } = useNodeFilteredSeries(data, nodes);
 
 	return (
 		<div className="flex h-full flex-col">

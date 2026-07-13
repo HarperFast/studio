@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
 import { useNodeSelection } from '../hooks/useNodeSelection.ts';
 import { getNodeColor } from '../lib/nodeColors.ts';
+import { shortenNodeLabel } from '../lib/nodeLabels.ts';
 import type { AnalyticsDataPoint, AxisSpec, SeriesData, Threshold, TimeRange } from '../types/analytics.ts';
 import { DimensionChipRow } from './DimensionChipRow.tsx';
 import { LineChart } from './LineChart.tsx';
@@ -30,11 +31,6 @@ interface Props {
 		records: AnalyticsDataPoint[],
 		options: { perNode: boolean; selectedPath: string | null },
 	) => SeriesData;
-}
-
-function shortenNodeLabel(node: string): string {
-	const dot = node.indexOf('.');
-	return dot === -1 ? node : node.slice(0, dot);
 }
 
 export function PerPathRateRenderer({
