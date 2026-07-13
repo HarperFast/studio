@@ -408,7 +408,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 						marginBottom: 8,
 						padding: '4px 8px',
 						fontSize: 12,
-						borderLeft: '3px solid var(--color-info, #3b82f6)',
+						borderLeft: '3px solid var(--color-accent, #3b82f6)',
 						background: 'color-mix(in srgb, var(--color-accent, #3b82f6) 10%, transparent)',
 						color: 'currentColor',
 					}}
