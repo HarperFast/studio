@@ -91,6 +91,9 @@ export function ContentActions({
 	const onNavigateForwardClick = useEmitToListeners('NavigateForward', true);
 	const canNavigateBack = useWatchedValue('CanNavigateBack', false).value;
 	const canNavigateForward = useWatchedValue('CanNavigateForward', false).value;
+	// The visual schema editor sets this when it has validation errors, so we can't
+	// save a schema that would serialize to invalid SDL and break the whole file.
+	const saveBlocked = useWatchedValue('EditorSaveBlocked', false).value;
 	const editorCommandShortcuts = useEditorShortcutLabels();
 
 	const fileIsClean = updatedFileContent === undefined || updatedFileContent === openedEntryContents;
@@ -227,7 +230,11 @@ export function ContentActions({
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="start">
 								{canEditFile && (
-									<DropdownMenuItem onSelect={onSaveClick} disabled={fileIsClean || isSavingFile}>
+									<DropdownMenuItem
+										onSelect={onSaveClick}
+										disabled={fileIsClean || isSavingFile || saveBlocked}
+										title={saveBlocked ? 'Fix the schema errors before saving' : undefined}
+									>
 										<SaveIcon />
 										Save
 										<DropdownMenuShortcut>{SHORTCUTS.save}</DropdownMenuShortcut>

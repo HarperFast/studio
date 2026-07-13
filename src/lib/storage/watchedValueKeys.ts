@@ -8,6 +8,8 @@ export interface WatchedValuesTypeMap {
 	RunEditorAction: string;
 	ShowAddDirectoryOrFileModalType: 'file' | 'directory' | false;
 	AddSchemaTable: true;
+	/** True while the visual schema editor has validation errors that must block Save. */
+	EditorSaveBlocked: boolean;
 	ShowDeleteDirectoryOrFileModal: boolean;
 	ShowDownloadApplicationModal: boolean;
 	ShowRedeployApplicationModal: boolean;

@@ -8,7 +8,6 @@
  */
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { GRAPHQL_NAME_HINT, isValidGraphqlName } from '@/features/instance/applications/lib/schema/graphqlName';
 import {
 	createField,
 	getArgValue,
@@ -25,6 +24,7 @@ import {
 	stringArgValue,
 	TableModel,
 } from '@/features/instance/applications/lib/schema/types';
+import { SchemaValidationError } from '@/features/instance/applications/lib/schema/validateSchema';
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon, TrashIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Disclosure, NumberField, SwitchField, TextField } from './controls';
@@ -36,6 +36,7 @@ export function TableCard({
 	table,
 	typeNames,
 	readOnly,
+	errors,
 	defaultCollapsed,
 	onChange,
 	onRemove,
@@ -43,6 +44,8 @@ export function TableCard({
 	table: TableModel;
 	typeNames: string[];
 	readOnly: boolean;
+	/** Validation errors for this table (from `validateSchema`), used for inline highlighting. */
+	errors: SchemaValidationError[];
 	/** Existing tables open collapsed; freshly-added ones open expanded for editing. */
 	defaultCollapsed: boolean;
 	onChange: (table: TableModel) => void;
@@ -65,7 +68,9 @@ export function TableCard({
 		boolArgValue(getArgValue(table.directives, dir, arg)) ?? fallback;
 
 	const exported = hasDirective(table.directives, 'export');
-	const nameError = table.typeName && !isValidGraphqlName(table.typeName) ? GRAPHQL_NAME_HINT : undefined;
+	const nameError = errors.find(e => e.code === 'INVALID_TABLE_NAME' || e.code === 'DUPLICATE_TABLE_NAME')?.message;
+	const noFieldsError = errors.some(e => e.code === 'NO_FIELDS');
+	const fieldErrors = new Map(errors.filter(e => e.fieldKey).map(e => [e.fieldKey, e.message]));
 	const preserved = table.directives.filter(directive => !KNOWN_TABLE_DIRECTIVES.has(directive.name));
 	const fieldCount = table.fields.length;
 
@@ -88,9 +93,12 @@ export function TableCard({
 						<span className="text-xs text-muted-foreground">
 							{fieldCount} field{fieldCount === 1 ? '' : 's'}
 							{exported ? ' · REST' : ''}
-							{nameError ? ' · ⚠ invalid name' : ''}
-							{fieldCount === 0 ? ' · ⚠ needs a field' : ''}
 						</span>
+						{errors.length > 0 && (
+							<span className="text-xs font-medium text-destructive">
+								⚠ {errors.length} issue{errors.length === 1 ? '' : 's'}
+							</span>
+						)}
 					</button>
 					<Button
 						type="button"
@@ -230,7 +238,7 @@ export function TableCard({
 
 						<div>
 							<h4 className="mb-2 text-sm font-medium">Fields</h4>
-							{fieldCount === 0 && (
+							{noFieldsError && (
 								<p className="mb-2 text-xs text-destructive">
 									A table needs at least one field to be valid. Add one below.
 								</p>
@@ -243,6 +251,7 @@ export function TableCard({
 										typeNames={typeNames}
 										readOnly={readOnly}
 										disableRemove={fieldCount === 1}
+										error={field.key ? fieldErrors.get(field.key) : undefined}
 										onChange={next =>
 											onChange({ ...table, fields: table.fields.map((f, i) => i === index ? next : f) })}
 										onRemove={() => onChange({ ...table, fields: table.fields.filter((_, i) => i !== index) })}
