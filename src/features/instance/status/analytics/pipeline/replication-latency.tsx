@@ -1,4 +1,5 @@
 import { type JSX, useMemo, useState } from 'react';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
 import { HeatmapMatrix } from '../primitives/HeatmapMatrix.tsx';
 import { LineChart } from '../primitives/LineChart.tsx';
 import type {
@@ -481,19 +482,22 @@ interface QuantileSelectorProps {
 }
 
 function QuantileSelector({ value, onChange }: QuantileSelectorProps) {
+	const { getRadioProps } = useRovingRadioGroup(
+		REPLICATION_QUANTILE_FIELDS.map((q) => q.field),
+		value,
+		onChange,
+	);
 	return (
 		<div role="radiogroup" aria-label="Quantile" className="flex flex-wrap gap-1 pb-2">
-			{REPLICATION_QUANTILE_FIELDS.map((q) => {
+			{REPLICATION_QUANTILE_FIELDS.map((q, idx) => {
 				const active = q.field === value;
 				return (
 					<button
 						key={q.field}
 						type="button"
-						role="radio"
-						aria-checked={active}
 						data-testid="quantile-button"
 						data-value={q.field}
-						onClick={() => onChange(q.field)}
+						{...getRadioProps(idx)}
 						className={`rounded px-2 py-0.5 text-[11px] ${
 							active
 								? 'bg-(--color-accent)/20 text-(--color-text-primary) font-semibold'
