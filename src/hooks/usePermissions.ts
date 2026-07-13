@@ -1,4 +1,5 @@
 import { EntityIds } from '@/features/auth/store/authStore';
+import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import { isAdminMode, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
@@ -176,17 +177,7 @@ export function useInstanceSchemaTablePermission(
 ): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
-	const permission = user?.role?.permission;
-	if (!permission) {
-		// If we don't yet have record of their permission, deny access.
-		// (We're probably still loading the user.)
-		return false;
-	}
-	if (permission.super_user === true || permission.structure_user === true) {
-		return true;
-	}
-	const specificPermission = permission[databaseName];
-	return specificPermission?.tables?.[tableName]?.[action] === true;
+	return checkSchemaTablePermission(user?.role?.permission, databaseName, tableName, action);
 }
 
 export function useInstanceSchemaTableAttributePermission(
