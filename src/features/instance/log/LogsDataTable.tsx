@@ -6,10 +6,10 @@ import { cn } from '@/lib/cn';
 import { ColumnDef, flexRender, getCoreRowModel, Row, useReactTable } from '@tanstack/react-table';
 import { Ref } from 'react';
 
-interface DataTableProps<TData extends ReadLogItem, TValue> {
-	columns: ColumnDef<ReadLogItem, TValue>[];
-	data: TData[];
-	onRowClick?: (row: Row<TData>) => void;
+interface DataTableProps {
+	columns: ColumnDef<ReadLogItem>[];
+	data: ReadLogItem[];
+	onRowClick?: (row: Row<ReadLogItem>) => void;
 	containerClassName?: string;
 	containerRef?: Ref<HTMLDivElement>;
 }
@@ -28,12 +28,12 @@ function getLogLevelAccent(level: ReadLogItem['level']) {
 	}
 }
 
-export function LogsDataTable<TData extends ReadLogItem, TValue>({
+export function LogsDataTable({
 	columns,
 	data,
 	onRowClick,
 	containerRef,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps) {
 	const table = useReactTable({
 		data,
 		columns,
@@ -74,7 +74,7 @@ export function LogsDataTable<TData extends ReadLogItem, TValue>({
 									getLogLevelAccent(row.original.level),
 									onRowClick && 'cursor-pointer',
 								)}
-								onClick={() => onRowClick?.(row as Row<TData>)}
+								onClick={() => onRowClick?.(row)}
 							>
 								{row.getVisibleCells().map((cell) => (
 									<TableCell key={cell.id} className="p-2">
