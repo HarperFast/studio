@@ -83,7 +83,7 @@ function makeLatencyQuantileMetric(
 		timestamp: 'time',
 		bucket: { source: 'period-field', fallbackMs: 60000 },
 		aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-		confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+		confidence: { greyBelow: 40, suppressBelow: 100 },
 		primitive: 'line',
 		yAxis: { unit: '', formatter: 'ms' },
 		quantileSelector: { fields: QUANTILE_FIELDS, default: QUANTILE_DEFAULT },
@@ -197,7 +197,7 @@ export const wrapperMetrics = {
 		aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
 		// Same gating as duration / transfer — sample-thin paths grey out
 		// rather than dragging the chart with one-off readings.
-		confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+		confidence: { greyBelow: 40, suppressBelow: 100 },
 		primitive: 'line',
 		yAxis: { unit: '', formatter: 'percent', domain: [0, 1] },
 	}),
@@ -219,7 +219,7 @@ export const wrapperMetrics = {
 		timestamp: 'time',
 		bucket: { source: 'period-field', fallbackMs: 60000 },
 		aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-		confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+		confidence: { greyBelow: 40, suppressBelow: 100 },
 		primitive: 'line',
 		yAxis: { unit: '', formatter: 'percent' },
 		quantileSelector: { fields: QUANTILE_FIELDS, default: QUANTILE_DEFAULT },
@@ -256,7 +256,7 @@ export const wrapperMetrics = {
 		timestamp: 'time',
 		bucket: { source: 'period-field', fallbackMs: 60000 },
 		aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-		confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+		confidence: { greyBelow: 40, suppressBelow: 100 },
 		primitive: 'line',
 		yAxis: { unit: '', formatter: 'percent' },
 		thresholds: [
@@ -292,7 +292,7 @@ export const wrapperMetrics = {
 		timestamp: 'time',
 		bucket: { source: 'period-field', fallbackMs: 60000 },
 		aggregator: { temporal: 'mean', crossNode: 'count-weighted-mean' },
-		confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+		confidence: { greyBelow: 40, suppressBelow: 100 },
 		primitive: 'line',
 		yAxis: { unit: '', formatter: 'percent' },
 		thresholds: [

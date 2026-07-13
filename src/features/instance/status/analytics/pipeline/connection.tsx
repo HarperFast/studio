@@ -24,7 +24,7 @@ export const connectionSpec: MetricSpec = {
 	timestamp: 'time',
 	bucket: { source: 'period-field', fallbackMs: 60000 },
 	aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-	confidence: { field: 'count', greyBelow: 100, suppressBelow: 500 },
+	confidence: { greyBelow: 100, suppressBelow: 500 },
 	primitive: 'line',
 	yAxis: { unit: '', formatter: 'percent' },
 	thresholds: [
@@ -72,21 +72,19 @@ function preprocess(records: AnalyticsDataPoint[]): Preprocessed {
 	const out: AnalyticsDataPoint[] = [];
 	const dimParts = new Map<string, Record<string, string>>();
 	for (const r of records) {
-		const path = (r as any).path;
-		const method = (r as any).method;
+		const { path, method } = r;
 		const key = compositeKey(path, method);
 		if (key === null) { continue; }
 		if (!dimParts.has(key)) {
 			dimParts.set(key, { path: String(path), method: String(method) });
 		}
-		const total = (r as any).total;
-		const count = (r as any).count;
+		const { total, count } = r;
 		const nullGap = total === 0 && typeof count === 'number' && count > 0;
 		out.push({
 			...r,
 			[COMPOSITE_FIELD]: key,
-			ratio: nullGap ? null : (r as any).ratio,
-		} as any);
+			ratio: nullGap ? null : r.ratio,
+		});
 	}
 	return { records: out, dimParts };
 }

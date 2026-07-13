@@ -13,7 +13,7 @@ export const tlsReusedSpec: MetricSpec = {
 	timestamp: 'time',
 	bucket: { source: 'period-field', fallbackMs: 60000 },
 	aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-	confidence: { field: 'count', greyBelow: 20, suppressBelow: 50 },
+	confidence: { greyBelow: 20, suppressBelow: 50 },
 	primitive: 'line',
 	yAxis: { unit: '', formatter: 'percent' },
 	thresholds: [

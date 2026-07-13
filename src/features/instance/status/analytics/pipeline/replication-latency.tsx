@@ -14,10 +14,21 @@ import type {
 } from '../types/analytics.ts';
 import { type AggInput, aggregate } from './aggregators.ts';
 import { parseReplicationPath } from './pathParser.ts';
+import { QUANTILE_FIELDS as REPLICATION_QUANTILE_FIELDS, type QuantileField } from './quantileFields.ts';
+
+export { REPLICATION_QUANTILE_FIELDS };
+export type ReplicationQuantileField = QuantileField['field'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Spec
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Confidence tiers shared by the heatmap cells, the line fallback, and the
+ *  spec itself: below `greyBelow` a cell/pair is suppressed, between the two
+ *  it renders dimmed.
+ *  TODO(spec): calibrated for high-volume clusters. Real Harper data with
+ *  per-record count 2-14 may need re-tuning. See Step 2.5 follow-up. */
+export const REPLICATION_CONFIDENCE = { greyBelow: 40, suppressBelow: 100 } as const;
 
 export const replicationLatencySpec: MetricSpec = {
 	title: 'Replication latency',
@@ -33,9 +44,7 @@ export const replicationLatencySpec: MetricSpec = {
 	timestamp: 'time',
 	bucket: { source: 'period-field', fallbackMs: 60000 },
 	aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
-	// TODO(spec): {greyBelow:40, suppressBelow:100} are calibrated for high-volume clusters.
-	// Real Harper data with per-record count 2-14 may need re-tuning. See Step 2.5 follow-up.
-	confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+	confidence: REPLICATION_CONFIDENCE,
 	primitive: 'heatmap',
 	yAxis: { unit: '', formatter: 'ms' },
 };
@@ -53,19 +62,30 @@ interface ParsedRecord {
 	destination: string;
 	value: number;
 	count: number;
-	time: number;
+	/** Null when the record carried no numeric `time` — the matrix ignores
+	 *  time, but line series must skip these (an x of 0 plots at 1970). */
+	time: number | null;
 }
 
-import { QUANTILE_FIELDS as REPLICATION_QUANTILE_FIELDS, type QuantileField } from './quantileFields.ts';
-export { REPLICATION_QUANTILE_FIELDS };
-export type ReplicationQuantileField = QuantileField['field'];
+interface ParseResult {
+	parsed: ParsedRecord[];
+	/** Records dropped because `path` didn't parse into source/db/table. */
+	unparseablePathCount: number;
+	/** Records dropped because the selected quantile carried no finite value. */
+	missingValueCount: number;
+	unrecognizedSources: string[];
+}
 
+/** Single parse pass shared by the matrix and the line fallback — the
+ *  renderer parses each record exactly once per (records, nodes, quantile)
+ *  instead of re-parsing per surviving cell. */
 function parseRecords(
 	records: AnalyticsDataPoint[],
 	nodes: readonly string[],
 	quantileField: ReplicationQuantileField,
-): { parsed: ParsedRecord[]; skipped: number; unrecognizedSources: string[] } {
-	let skipped = 0;
+): ParseResult {
+	let unparseablePathCount = 0;
+	let missingValueCount = 0;
 	const parsed: ParsedRecord[] = [];
 	const unrecognized = new Set<string>();
 	const knownSet = new Set(nodes);
@@ -73,7 +93,7 @@ function parseRecords(
 		const path = typeof r.path === 'string' ? r.path : '';
 		const parsedPath = parseReplicationPath(path, nodes);
 		if (!parsedPath) {
-			skipped++;
+			unparseablePathCount++;
 			continue;
 		}
 		// pathParser falls back to a heuristic split when no known-node
@@ -87,7 +107,7 @@ function parseRecords(
 		const value = typeof v === 'number' ? v : NaN;
 		const count = typeof r.count === 'number' ? r.count : 0;
 		if (!Number.isFinite(value)) {
-			skipped++;
+			missingValueCount++;
 			continue;
 		}
 		parsed.push({
@@ -95,18 +115,15 @@ function parseRecords(
 			destination: r.node,
 			value,
 			count,
-			time: typeof r.time === 'number' ? r.time : 0,
+			time: typeof r.time === 'number' ? r.time : null,
 		});
 	}
-	return { parsed, skipped, unrecognizedSources: [...unrecognized].sort() };
+	return { parsed, unparseablePathCount, missingValueCount, unrecognizedSources: [...unrecognized].sort() };
 }
 
-export function aggregateReplicationMatrix(
-	records: AnalyticsDataPoint[],
-	nodes: readonly string[],
-	quantileField: ReplicationQuantileField = 'p95',
-): HeatmapData {
-	const { parsed, skipped, unrecognizedSources } = parseRecords(records, nodes, quantileField);
+function matrixFromParsed(result: ParseResult): HeatmapData {
+	const { parsed, unparseablePathCount, missingValueCount, unrecognizedSources } = result;
+	const skipped = unparseablePathCount + missingValueCount;
 
 	if (parsed.length === 0) {
 		return {
@@ -114,10 +131,12 @@ export function aggregateReplicationMatrix(
 			cols: [],
 			cells: [],
 			axis: { unit: '', formatter: 'ms' },
-			confidence: { greyBelow: 40, suppressBelow: 100 },
+			confidence: REPLICATION_CONFIDENCE,
 			rowAxisLabel: 'Source',
 			colAxisLabel: 'Destination',
 			skippedRecordsCount: skipped,
+			unparseablePathCount,
+			missingValueCount,
 			unrecognizedSources,
 			approx: true,
 		};
@@ -167,13 +186,23 @@ export function aggregateReplicationMatrix(
 		cols,
 		cells,
 		axis: { unit: '', formatter: 'ms' },
-		confidence: { greyBelow: 40, suppressBelow: 100 },
+		confidence: REPLICATION_CONFIDENCE,
 		rowAxisLabel: 'Source',
 		colAxisLabel: 'Destination',
 		skippedRecordsCount: skipped,
+		unparseablePathCount,
+		missingValueCount,
 		unrecognizedSources,
 		approx,
 	};
+}
+
+export function aggregateReplicationMatrix(
+	records: AnalyticsDataPoint[],
+	nodes: readonly string[],
+	quantileField: ReplicationQuantileField = 'p95',
+): HeatmapData {
+	return matrixFromParsed(parseRecords(records, nodes, quantileField));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,23 +218,18 @@ export function bucketLineSeries(
 	nodes: readonly string[],
 	quantileField: ReplicationQuantileField = 'p95',
 ): { points: SeriesPoint[]; approx: boolean } {
-	const matching: { time: number; value: number; count: number }[] = [];
-	for (const r of records) {
-		if (r.node !== dest) { continue; }
-		const path = typeof r.path === 'string' ? r.path : '';
-		const parsed = parseReplicationPath(path, nodes);
-		if (!parsed || parsed.source !== source) { continue; }
-		if (typeof r.time !== 'number') { continue; }
-		const v = (r as Record<string, unknown>)[quantileField];
-		const value = typeof v === 'number' ? v : NaN;
-		if (!Number.isFinite(value)) { continue; }
-		const count = typeof r.count === 'number' ? r.count : 0;
-		matching.push({ time: r.time, value, count });
-	}
+	// Pre-filter on destination (`node`) so the standalone entry point keeps
+	// its old skip-before-parse fast path; the renderer itself goes through
+	// buildLineSeries, which shares one parse across all pairs.
+	const { parsed } = parseRecords(records.filter((r) => r.node === dest), nodes, quantileField);
+	return lineSeriesFromParsed(parsed.filter((p) => p.source === source));
+}
 
+function lineSeriesFromParsed(matching: ParsedRecord[]): { points: SeriesPoint[]; approx: boolean } {
 	const bucketsByTime = new Map<number, AggInput[]>();
 	const totalCountByTime = new Map<number, number>();
 	for (const m of matching) {
+		if (m.time === null) { continue; }
 		let bucket = bucketsByTime.get(m.time);
 		if (!bucket) {
 			bucket = [];
@@ -238,13 +262,24 @@ export function bucketLineSeries(
 const FALLBACK_MAX_CELLS = 12;
 
 function buildLineSeries(
-	records: AnalyticsDataPoint[],
-	nodes: readonly string[],
+	parsed: ParsedRecord[],
 	data: HeatmapData,
-	quantileField: ReplicationQuantileField,
 ): { seriesData: SeriesData; omittedPairsCount: number } {
 	const greyBelow = data.confidence?.greyBelow ?? 0;
 	const suppressBelow = data.confidence?.suppressBelow ?? Infinity;
+
+	// Group the (already-parsed) records by pair once, instead of re-scanning
+	// every record per surviving cell.
+	const byPair = new Map<string, ParsedRecord[]>();
+	for (const p of parsed) {
+		const key = `${p.source}|${p.destination}`;
+		let group = byPair.get(key);
+		if (!group) {
+			group = [];
+			byPair.set(key, group);
+		}
+		group.push(p);
+	}
 
 	const series: Series[] = [];
 	let omittedPairsCount = 0;
@@ -259,7 +294,7 @@ function buildLineSeries(
 			omittedPairsCount += 1;
 			continue;
 		}
-		const out = bucketLineSeries(records, cell.row, cell.col, nodes, quantileField);
+		const out = lineSeriesFromParsed(byPair.get(`${cell.row}|${cell.col}`) ?? []);
 		if (out.points.length === 0) { continue; }
 		const key = `${cell.row}→${cell.col}`;
 		if (count < suppressBelow) {
@@ -289,10 +324,13 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 
 	const [quantile, setQuantile] = useState<ReplicationQuantileField>('p95');
 
-	const data = useMemo(
-		() => aggregateReplicationMatrix(records, nodes, quantile),
+	// Parse once per (records, nodes, quantile); the matrix and the line
+	// fallback both consume the same parsed records.
+	const parseResult = useMemo(
+		() => parseRecords(records, nodes, quantile),
 		[records, nodes, quantile],
 	);
+	const data = useMemo(() => matrixFromParsed(parseResult), [parseResult]);
 
 	// Empty state — still surface skipped-records banner so users see the cause
 	// when 100% of records had unparseable source nodes.
@@ -312,8 +350,8 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	const useFallback = tooFewDimensions || tooManyCells;
 
 	if (useFallback) {
-		const { seriesData, omittedPairsCount } = buildLineSeries(records, nodes, data, quantile);
-		const greyBelow = data.confidence?.greyBelow ?? 40;
+		const { seriesData, omittedPairsCount } = buildLineSeries(parseResult.parsed, data);
+		const greyBelow = data.confidence?.greyBelow ?? REPLICATION_CONFIDENCE.greyBelow;
 		const message = tooManyCells
 			? 'Too many source-destination pairs for a heatmap — showing as lines.'
 			: 'Only one source node emitted data in this window. This is typical for clusters with a single write origin — each line below shows latency from that source to one destination.';
@@ -345,22 +383,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 				>
 					Showing as lines
 				</div>
-				{data.skippedRecordsCount > 0
-					? (
-						<div
-							key={data.skippedRecordsCount}
-							role="status"
-							aria-atomic="true"
-							style={warningStyle}
-						>
-							{data.unrecognizedSources && data.unrecognizedSources.length > 0
-								? `${data.skippedRecordsCount} record(s) omitted (no value for the selected percentile). Sources recovered via heuristic: ${
-									data.unrecognizedSources.join(', ')
-								}.`
-								: `${data.skippedRecordsCount} record(s) omitted (no value for the selected percentile).`}
-						</div>
-					)
-					: null}
+				<RecognitionBanner data={data} theme={theme} />
 				{
 					/* Suppress the omitted-pairs banner when all-dropped fires — the
 				    all-dropped banner already cites the count, so showing both is
@@ -427,7 +450,12 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 			<QuantileSelector value={quantile} onChange={setQuantile} />
 			<RecognitionBanner data={data} theme={theme} />
 			<div className="min-h-0 flex-1">
-				<HeatmapMatrix data={data} theme={theme} title="Replication latency" />
+				{
+					/* Zero the primitive's generic skipped-count banner — the
+				    RecognitionBanner above already reports omissions with
+				    cause-specific copy, so letting both render double-reports. */
+				}
+				<HeatmapMatrix data={{ ...data, skippedRecordsCount: 0 }} theme={theme} title="Replication latency" />
 			</div>
 		</div>
 	);
@@ -438,16 +466,25 @@ interface RecognitionBannerProps {
 	theme: 'light' | 'dark';
 }
 
-/** Renders a single role='status' banner combining skipped-record count
- *  and heuristic-recovered source count. Either or both may be present. */
+/** Renders a single role='status' banner combining the two omission causes
+ *  (unparseable path vs. missing percentile value) and the
+ *  heuristic-recovered source count. Any subset may be present. */
 function RecognitionBanner({ data, theme }: RecognitionBannerProps) {
-	const skipped = data.skippedRecordsCount;
+	const unparseable = data.unparseablePathCount ?? 0;
+	const missingValue = data.missingValueCount ?? 0;
 	const unrecognized = data.unrecognizedSources ?? [];
-	if (skipped === 0 && unrecognized.length === 0) { return null; }
+	if (unparseable === 0 && missingValue === 0 && unrecognized.length === 0) { return null; }
 
 	const parts: string[] = [];
-	if (skipped > 0) {
-		parts.push(`${skipped} record${skipped === 1 ? '' : 's'} omitted (no value for the selected percentile).`);
+	if (unparseable > 0) {
+		parts.push(
+			`${unparseable} ${pluralize(unparseable, 'record', 'records')} omitted (unparseable replication path).`,
+		);
+	}
+	if (missingValue > 0) {
+		parts.push(
+			`${missingValue} ${pluralize(missingValue, 'record', 'records')} omitted (no value for the selected percentile).`,
+		);
 	}
 	if (unrecognized.length > 0) {
 		parts.push(
@@ -459,7 +496,7 @@ function RecognitionBanner({ data, theme }: RecognitionBannerProps) {
 
 	return (
 		<div
-			key={`${skipped}-${unrecognized.length}`}
+			key={`${unparseable}-${missingValue}-${unrecognized.length}`}
 			role="status"
 			aria-atomic="true"
 			style={{

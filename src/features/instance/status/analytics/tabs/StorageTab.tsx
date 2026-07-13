@@ -9,12 +9,12 @@ import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
 import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords.ts';
 import { buildDerived, type RankBy, type TableSizeDerived } from '../lib/tableSize.ts';
 import type { TableSizeRecord } from '../types/analytics.ts';
+import { MetricPanel } from './MetricPanel.tsx';
+import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
 
 function derivedClusterNodes(derived: TableSizeDerived): string[] {
 	return derived.snapshot.byNode.map((b) => b.node);
 }
-import { MetricPanel } from './MetricPanel.tsx';
-import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
 
 export function StorageTab() {
 	return (
@@ -69,14 +69,17 @@ function TableSizePanels() {
 	}, [data]);
 	const derived = useMemo(() => buildDerived(raw, timeRange), [raw, timeRange.startTime, timeRange.endTime]);
 
-	const rankBy: RankBy = 'bytes';
+	// Backs TableSizeTrend's rank toggle — the trend chart renders bytes/%
+	// buttons and reports clicks via onRankChange (previously wired to a
+	// no-op, leaving dead toggle UI).
+	const [rankBy, setRankBy] = useState<RankBy>('bytes');
 	const [selected, setSelected] = useState<string | null>(null);
 	const snapshotCardRef = useRef<HTMLDivElement>(null);
 	const trendCardRef = useRef<HTMLDivElement>(null);
 	const effectiveSelection = useMemo(() => {
 		if (selected && derived.snapshot.tableSet.includes(selected)) { return selected; }
 		return derived.defaultSelection(rankBy);
-	}, [selected, derived]);
+	}, [selected, derived, rankBy]);
 
 	if (isLoading) {
 		return (
@@ -151,7 +154,7 @@ function TableSizePanels() {
 					range={timeRange}
 					clusterNodeIds={derivedClusterNodes(derived)}
 					rankBy={rankBy}
-					onRankChange={() => {}}
+					onRankChange={setRankBy}
 				/>
 			)
 			: (

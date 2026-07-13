@@ -19,13 +19,29 @@ export interface ParsedReplicationPath {
  *
  *  Returns null only when the path is empty, < 3 segments, or has empty
  *  trailing segments. */
+/** Longest-first orderings memoized per knownNodes array identity — callers
+ *  parse thousands of records against the same (referentially stable) node
+ *  list, and re-sorting per record was O(records × n log n). Assumes the
+ *  array is not mutated in place after first use (node lists come from
+ *  props/memos, which replace the array on change). */
+const sortedNodesCache = new WeakMap<readonly string[], readonly string[]>();
+
+function sortedByLengthDesc(knownNodes: readonly string[]): readonly string[] {
+	let sorted = sortedNodesCache.get(knownNodes);
+	if (!sorted) {
+		sorted = [...knownNodes].sort((a, b) => b.length - a.length);
+		sortedNodesCache.set(knownNodes, sorted);
+	}
+	return sorted;
+}
+
 export function parseReplicationPath(
 	path: string,
 	knownNodes: readonly string[],
 ): ParsedReplicationPath | null {
 	if (typeof path !== 'string' || path.length === 0) { return null; }
 
-	const sorted = [...knownNodes].sort((a, b) => b.length - a.length);
+	const sorted = sortedByLengthDesc(knownNodes);
 
 	for (const node of sorted) {
 		if (!path.startsWith(node + '.')) { continue; }

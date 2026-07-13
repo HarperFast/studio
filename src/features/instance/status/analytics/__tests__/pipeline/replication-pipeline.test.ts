@@ -63,6 +63,33 @@ describe('aggregateReplicationMatrix', () => {
 		expect(out.skippedRecordsCount).toBe(1);
 	});
 
+	it('tracks unparseable-path and missing-percentile omissions separately', () => {
+		const withBothCauses = [
+			...multi,
+			// Cause 1: path does not parse into source/db/table.
+			{
+				time: 0,
+				node: 'dest-a.prod.ibm.harperfabric.com',
+				path: 'garbage',
+				count: 5,
+				p95: 1,
+				period: 60000,
+			} as AnalyticsDataPoint,
+			// Cause 2: parseable path but no value for the selected percentile.
+			{
+				time: 0,
+				node: 'dest-a.prod.ibm.harperfabric.com',
+				path: 'xb6-us-west-1.prod.ibm.harperfabric.com.db.events',
+				count: 5,
+				period: 60000,
+			} as AnalyticsDataPoint,
+		];
+		const out = aggregateReplicationMatrix(withBothCauses, NODES);
+		expect(out.unparseablePathCount).toBe(1);
+		expect(out.missingValueCount).toBe(1);
+		expect(out.skippedRecordsCount).toBe(2);
+	});
+
 	it('recovers known-shape-but-unknown-node paths via heuristic + lists them as unrecognized', () => {
 		// pathParser falls back to "last 2 segments are db.table" when no
 		// known-node prefix matches. This recovers records from sources not
@@ -134,5 +161,15 @@ describe('bucketLineSeries', () => {
 		expect(out.points[1].x).toBe(2000);
 		expect(out.points[1].y).toBe(200);
 		expect(out.approx).toBe(true);
+	});
+
+	it('skips records without a numeric time (no x=0/1970 bucket)', () => {
+		const records = [
+			{ node: 'd1', path: 's1.db.t1', count: 5, p95: 10, period: 60000 },
+			{ time: 1000, node: 'd1', path: 's1.db.t1', count: 5, p95: 20, period: 60000 },
+		];
+		const out = bucketLineSeries(records as unknown as AnalyticsDataPoint[], 's1', 'd1', ['s1']);
+		expect(out.points.length).toBe(1);
+		expect(out.points[0].x).toBe(1000);
 	});
 });

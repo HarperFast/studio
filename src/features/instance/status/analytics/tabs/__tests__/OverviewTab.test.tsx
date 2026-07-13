@@ -6,13 +6,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // OverviewTab calls useSuspenseQuery against these query factories. Mock the
 // factories to return a query that resolves synchronously so the component
 // renders inside its Suspense boundary.
+const mockState = vi.hoisted(() => ({ failSystemInfo: false }));
+
 vi.mock('@/integrations/api/instance/status/getSystemInformation', () => ({
 	getSystemInformationQueryOptions: () => ({
-		queryKey: ['mock-system-info'],
-		queryFn: async () => ({
-			system: { hostname: 'test-host', version: '4.7.0' },
-			cpu: { cores: 8 },
-		}),
+		queryKey: ['mock-system-info', mockState.failSystemInfo],
+		queryFn: async () => {
+			if (mockState.failSystemInfo) { throw new Error('system_information failed'); }
+			return {
+				system: { hostname: 'test-host', version: '4.7.0' },
+				cpu: { cores: 8 },
+			};
+		},
 	}),
 }));
 
@@ -35,7 +40,10 @@ const instanceParams = {
 	entityType: 'instance' as const,
 };
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	mockState.failSystemInfo = false;
+});
 
 describe('OverviewTab smoke', () => {
 	it('renders the local system_information branch', async () => {
@@ -61,6 +69,26 @@ describe('OverviewTab smoke', () => {
 			</AnalyticsTestWrapper>,
 		);
 		expect((await findAllByText(/cluster/i)).length).toBeGreaterThan(0);
+	});
+
+	it('contains a query error in the panel error boundary instead of unmounting the tab', async () => {
+		mockState.failSystemInfo = true;
+		// React logs the caught error via console.error — silence it so the
+		// suite output stays clean; the assertion below proves containment.
+		const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const { findByText } = render(
+				<AnalyticsTestWrapper>
+					<Suspense fallback={<div>loading</div>}>
+						<OverviewTab instanceParams={instanceParams} isLocalStudio />
+					</Suspense>
+				</AnalyticsTestWrapper>,
+			);
+			expect(await findByText(/Panel "overview" is unavailable/)).toBeTruthy();
+			expect(await findByText(/system_information failed/)).toBeTruthy();
+		} finally {
+			errSpy.mockRestore();
+		}
 	});
 
 	it('exposes a "View raw JSON" toggle', async () => {
