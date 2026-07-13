@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import { useResolvedTheme } from '../lib/theme.ts';
 import { derivedRegistry } from '../pipeline/derived/index.ts';
 import { specRegistry } from '../pipeline/index.ts';
 import { runPipeline } from '../pipeline/pipeline.ts';
@@ -11,21 +12,17 @@ import { StackedAreaChart } from './StackedAreaChart.tsx';
 function renderPrimitive(
 	primitive: MetricSpec['primitive'],
 	data: SeriesData,
-	theme: 'light' | 'dark',
 	yAxis: MetricSpec['yAxis'],
 	xDomain?: [number, number],
 	fillParent?: boolean,
 ) {
 	switch (primitive) {
 		case 'line':
-			return (
-				<LineChartWithNodeLegend data={data} theme={theme} yAxis={yAxis} xDomain={xDomain} fillParent={fillParent} />
-			);
+			return <LineChartWithNodeLegend data={data} yAxis={yAxis} xDomain={xDomain} fillParent={fillParent} />;
 		case 'stacked-area':
 			return (
 				<StackedAreaChart
 					data={data}
-					theme={theme}
 					yAxis={yAxis as AxisSpec}
 					xDomain={xDomain}
 					fillParent={fillParent}
@@ -38,6 +35,43 @@ function renderPrimitive(
 		default:
 			throw new Error(`Unknown primitive: ${primitive as string}`);
 	}
+}
+
+// ─── Generic-dispatch predicates ─────────────────────────────────────────────
+// Named guards for the spec-dispatch branches below, so each condition reads
+// as intent instead of a wall of `&&`s.
+
+/** Stacked-area spec grouped on a non-node dimension while the user asked for
+ *  per-node view — restack the same field by node instead. */
+function wantsStackedAreaNodeRemap(spec: MetricSpec, isPerNodeMode: boolean): boolean {
+	return spec.primitive === 'stacked-area'
+		&& isPerNodeMode
+		&& spec.series.kind === 'groupBy'
+		&& spec.series.dimension !== 'node';
+}
+
+/** Line spec grouped BY node while the user asked for the aggregate view —
+ *  fold the nodes into a single cluster-wide line. */
+function wantsClusterLineFold(spec: MetricSpec, isPerNodeMode: boolean): boolean {
+	return spec.primitive === 'line'
+		&& !isPerNodeMode
+		&& spec.series.kind === 'groupBy'
+		&& spec.series.dimension === 'node';
+}
+
+/** Line spec grouped on a non-node dimension (e.g. database-size groupBy
+ *  'database'). The default per-node split emits one series per (dim, node)
+ *  and the LineChartWithNodeLegend wrapper extracts only the node id from the
+ *  key — so two dimension values on a single-node Harper render as two lines
+ *  sharing the same color and a single legend entry. Run the pipeline with
+ *  perNode=false so series keys are just the dimension values; the wrapper
+ *  then renders one legend chip per dimension value (colored via
+ *  getNodeColor's deterministic hash). The crossNode aggregator on the spec
+ *  folds nodes into the cluster-wide line per dimension. */
+function wantsDimensionLineSplit(spec: MetricSpec): boolean {
+	return spec.primitive === 'line'
+		&& spec.series.kind === 'groupBy'
+		&& spec.series.dimension !== 'node';
 }
 
 interface MetricErrorBoundaryProps {
@@ -63,7 +97,6 @@ interface Props {
 	records: AnalyticsDataPoint[];
 	window: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	/** When true, the chart fills its parent's vertical space (used by the
 	 *  expand-to-fullscreen dialog). The parent must be a definite-height
@@ -76,17 +109,20 @@ export function MetricRenderer({
 	records,
 	window: timeRange,
 	nodes,
-	theme,
 	viewMode,
 	fillParent,
 }: Props) {
+	// Only the registry Renderers still take a theme prop (their signatures
+	// live in pipeline/, owned by a parallel refactor); primitives re-theme
+	// via CSS tokens and need nothing passed.
+	const theme = useResolvedTheme();
+
 	const errorFallback = (
 		<FallbackRenderer
 			metric={metric}
 			records={records}
 			window={timeRange}
 			nodes={nodes}
-			theme={theme}
 			hint="Render failed — showing fallback."
 		/>
 	);
@@ -108,7 +144,7 @@ export function MetricRenderer({
 			);
 		} else {
 			const seriesData = derived.recompute(records, timeRange, nodes, viewMode);
-			body = renderPrimitive(derived.primitive, seriesData, theme, derived.yAxis, xDomain, fillParent);
+			body = renderPrimitive(derived.primitive, seriesData, derived.yAxis, xDomain, fillParent);
 		}
 	} else {
 		const entry = specRegistry[metric];
@@ -146,62 +182,37 @@ export function MetricRenderer({
 						yAxis: field.yAxis ?? outerSpec.yAxis,
 					};
 				});
-				body = <SmallMultiples panels={panels} theme={theme} xDomain={xDomain} fillParent={fillParent} />;
-			} else if (
-				entry.spec.primitive === 'stacked-area'
-				&& isPerNodeMode
-				&& entry.spec.series.kind === 'groupBy'
-				&& entry.spec.series.dimension !== 'node'
-			) {
+				body = <SmallMultiples panels={panels} xDomain={xDomain} fillParent={fillParent} />;
+			} else if (wantsStackedAreaNodeRemap(entry.spec, isPerNodeMode) && entry.spec.series.kind === 'groupBy') {
 				const remapped: MetricSpec = {
 					...entry.spec,
 					series: { ...entry.spec.series, dimension: 'node' },
 				};
 				const seriesData = runPipeline(remapped, records, timeRange, nodes, { snapToPeriod: true });
-				body = renderPrimitive('stacked-area', seriesData, theme, entry.spec.yAxis, xDomain, fillParent);
-			} else if (
-				entry.spec.primitive === 'line'
-				&& !isPerNodeMode
-				&& entry.spec.series.kind === 'groupBy'
-				&& entry.spec.series.dimension === 'node'
-			) {
+				body = renderPrimitive('stacked-area', seriesData, entry.spec.yAxis, xDomain, fillParent);
+			} else if (wantsClusterLineFold(entry.spec, isPerNodeMode) && entry.spec.series.kind === 'groupBy') {
 				const groupSrc = entry.spec.series;
 				const inner: MetricSpec = {
 					...entry.spec,
 					series: { kind: 'field', fields: [{ ...groupSrc.field, label: 'cluster' }] },
 				};
 				const seriesData = runPipeline(inner, records, timeRange, nodes, { snapToPeriod: true });
-				body = renderPrimitive(entry.spec.primitive, seriesData, theme, entry.spec.yAxis, xDomain, fillParent);
-			} else if (
-				// `primitive: 'line'` + `groupBy` on a non-node dimension (e.g.
-				// database-size groupBy 'database'). The default per-node split
-				// emits one series per (dim, node) and the LineChartWithNodeLegend
-				// wrapper extracts only the node id from the key — so two
-				// dimension values on a single-node Harper render as two lines
-				// sharing the same color and a single legend entry. Run the
-				// pipeline with perNode=false so series keys are just the
-				// dimension values; the wrapper then renders one legend chip
-				// per dimension value (colored via getNodeColor's deterministic
-				// hash). The crossNode aggregator on the spec folds nodes into
-				// the cluster-wide line per dimension.
-				entry.spec.primitive === 'line'
-				&& entry.spec.series.kind === 'groupBy'
-				&& entry.spec.series.dimension !== 'node'
-			) {
+				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
+			} else if (wantsDimensionLineSplit(entry.spec)) {
 				const seriesData = runPipeline(entry.spec, records, timeRange, nodes, {
 					perNode: false,
 					snapToPeriod: true,
 				});
-				body = renderPrimitive('line', seriesData, theme, entry.spec.yAxis, xDomain, fillParent);
+				body = renderPrimitive('line', seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else {
 				const seriesData = runPipeline(entry.spec, records, timeRange, nodes, {
 					perNode: isPerNodeMode,
 					snapToPeriod: true,
 				});
-				body = renderPrimitive(entry.spec.primitive, seriesData, theme, entry.spec.yAxis, xDomain, fillParent);
+				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			}
 		} else {
-			body = <FallbackRenderer metric={metric} records={records} window={timeRange} nodes={nodes} theme={theme} />;
+			body = <FallbackRenderer metric={metric} records={records} window={timeRange} nodes={nodes} />;
 		}
 	}
 

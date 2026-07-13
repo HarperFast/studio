@@ -26,3 +26,24 @@ describe('formatValue count-si', () => {
 		expect(formatValue(1.5, 'count-si')).toBe('1.5');
 	});
 });
+
+describe('formatValue bytes (shared by metric and table-size charts)', () => {
+	it('keeps one decimal below 10 in the scaled unit', () => {
+		expect(formatValue(1_500_000_000, 'bytes-si')).toBe('1.5 GB');
+		expect(formatValue(2.5, 'bytes-si')).toBe('2.5 B');
+	});
+	it('rounds to integers at 10+ in the scaled unit (adaptive precision)', () => {
+		expect(formatValue(512_000_000, 'bytes-si')).toBe('512 MB');
+		expect(formatValue(15_000_000_000, 'bytes-si')).toBe('15 GB');
+	});
+	it('renders zero without a decimal', () => {
+		expect(formatValue(0, 'bytes-si')).toBe('0 B');
+	});
+	it('uses IEC units with base 1024 for bytes-iec', () => {
+		expect(formatValue(1024 * 1024, 'bytes-iec')).toBe('1.0 MiB');
+		expect(formatValue(512 * 1024 * 1024, 'bytes-iec')).toBe('512 MiB');
+	});
+	it('composes the unit suffix after the byte unit', () => {
+		expect(formatValue(1_500_000, 'bytes-si', '/s')).toBe('1.5 MB/s');
+	});
+});

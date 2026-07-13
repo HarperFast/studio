@@ -29,7 +29,6 @@ interface Props {
 	records: AnalyticsDataPoint[];
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	ariaLabel?: string;
 	/** 'per-node' (default) breaks each chip-selected dimension into one
 	 *  line per node; 'aggregate' folds nodes into one cluster series per
@@ -45,7 +44,6 @@ export function DimensionSelectorRenderer({
 	records,
 	timeRange,
 	nodes,
-	theme,
 	ariaLabel = 'Dimension',
 	viewMode = 'per-node',
 	fillParent,
@@ -169,7 +167,6 @@ export function DimensionSelectorRenderer({
 			<div className="min-h-0 flex-1" style={{ marginTop: 8 }}>
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={spec.yAxis}
 					xDomain={[timeRange.startTime, timeRange.endTime]}
 					fillParent={fillParent}

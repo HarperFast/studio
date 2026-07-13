@@ -35,7 +35,6 @@ interface Props {
 	records: AnalyticsDataPoint[];
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	/** Initial stack-by mode. Defaults to 'type' so the chart matches the
 	 *  panel name's "by type" framing. The user-facing toggle is rendered
 	 *  inside the renderer when nodes.length > 1. */
@@ -51,7 +50,6 @@ export function TrafficByTypeRenderer({
 	records,
 	timeRange,
 	nodes,
-	theme,
 	viewMode = 'aggregate',
 	fillParent,
 }: Props) {
@@ -138,6 +136,10 @@ export function TrafficByTypeRenderer({
 
 	const showStackByToggle = nodes.length > 1;
 	const xDomain: [number, number] = [timeRange.startTime, timeRange.endTime];
+	// Stacked-area specs always carry a single AxisSpec, but MetricSpec.yAxis
+	// is a union with the dual-axis form — narrow to the left axis instead of
+	// casting.
+	const yAxis = 'left' in spec.yAxis ? spec.yAxis.left : spec.yAxis;
 
 	return (
 		<div className="flex h-full flex-col">
@@ -154,7 +156,6 @@ export function TrafficByTypeRenderer({
 					? (
 						<SmallMultiples
 							panels={gridPanels}
-							theme={theme}
 							xDomain={xDomain}
 							fillParent={fillParent}
 						/>
@@ -162,8 +163,7 @@ export function TrafficByTypeRenderer({
 					: (
 						<StackedAreaChart
 							data={coloredData}
-							theme={theme}
-							yAxis={spec.yAxis as any}
+							yAxis={yAxis}
 							xDomain={xDomain}
 							fillParent={fillParent}
 							lineOnly={lineOnly}

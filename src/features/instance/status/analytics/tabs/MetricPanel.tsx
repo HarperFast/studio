@@ -26,7 +26,7 @@ export function MetricPanel({ metric, titleOverride }: Props) {
 }
 
 function MetricPanelInner({ metric, titleOverride }: Props) {
-	const { timeRange, bucketMs, theme, instanceParams } = useAnalyticsContext();
+	const { timeRange, bucketMs, instanceParams } = useAnalyticsContext();
 	const sourceMetric = derivedRegistry[metric]?.sourceMetric ?? metric;
 	const requiredFields = getSpecRequiredFields(metric);
 	const { data, isLoading, isError, error, isEmpty, missingFields, refetch } = useAnalyticsRecords({
@@ -51,7 +51,6 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 			records={data}
 			window={timeRange}
 			nodes={nodes}
-			theme={theme}
 			fillParent={opts.fillParent}
 		/>
 	);

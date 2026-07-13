@@ -18,7 +18,10 @@ interface Props {
 	records: AnalyticsDataPoint[];
 	timeRange?: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
+	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
+	 *  Kept optional only while pipeline renderers (owned by a parallel
+	 *  refactor) still pass it. */
+	theme?: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	thresholds?: Threshold[];
@@ -37,7 +40,6 @@ export function PerPathRateRenderer({
 	records,
 	timeRange,
 	nodes,
-	theme,
 	viewMode = 'per-node',
 	yAxis,
 	thresholds,
@@ -105,7 +107,6 @@ export function PerPathRateRenderer({
 			<div className="min-h-0 flex-1" style={{ marginTop: paths.length > 0 ? 8 : 0 }}>
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={yAxis}
 					xDomain={xDomain}
 					fillParent={fillParent}

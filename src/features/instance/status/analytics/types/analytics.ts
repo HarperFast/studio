@@ -282,6 +282,11 @@ export interface HeatmapData {
 	 *  (e.g. count-weighted-mean). Primitive does not introspect the
 	 *  aggregator — the renderer sets this. */
 	approx?: boolean;
+	/** What the cells measure, for the color-scale legend and description
+	 *  (e.g. "p95 latency", "p50 latency"). Defaults to "p95 latency" in the
+	 *  primitive for backward compatibility; renderers with a quantile
+	 *  selector should set it to match the selected quantile. */
+	measureLabel?: string;
 }
 
 export interface SpecRegistryRendererProps {

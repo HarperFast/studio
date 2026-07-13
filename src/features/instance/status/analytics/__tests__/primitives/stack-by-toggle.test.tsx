@@ -42,7 +42,6 @@ function renderToggle() {
 			records={records}
 			timeRange={range}
 			nodes={['n1', 'n2']}
-			theme="light"
 		/>,
 	);
 	return screen.getAllByTestId('stack-by-button');

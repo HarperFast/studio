@@ -22,33 +22,33 @@ describe('StackedAreaChart primitive', () => {
 	afterEach(() => cleanup());
 
 	it('exposes role=img with composed aria-label', () => {
-		render(<StackedAreaChart data={stacked} theme="light" />);
+		render(<StackedAreaChart data={stacked} />);
 		const img = screen.getByRole('img');
 		expect(img.getAttribute('aria-label') ?? '').toMatch(/Stacked area chart with 3 series/);
 	});
 
 	it('empty-state uses role=status for live-region announcement', () => {
-		render(<StackedAreaChart data={{ series: [] }} theme="light" />);
+		render(<StackedAreaChart data={{ series: [] }} />);
 		const status = screen.getByRole('status');
 		expect(status.textContent ?? '').toMatch(/no data in window/i);
 	});
 
 	it.skip('mounts an svg container', async () => {
-		render(<StackedAreaChart data={stacked} theme="light" />);
+		render(<StackedAreaChart data={stacked} />);
 		await waitFor(() => {
 			const svg = document.querySelector('.recharts-wrapper svg');
 			expect(svg, 'Recharts svg rendered').toBeTruthy();
 		});
 	});
 	it.skip('renders three area layers', async () => {
-		render(<StackedAreaChart data={stacked} theme="light" />);
+		render(<StackedAreaChart data={stacked} />);
 		await waitFor(() => {
 			const areas = document.querySelectorAll('.recharts-area');
 			expect(areas.length).toBe(3);
 		});
 	});
 	it('renders empty-state when series is empty', () => {
-		render(<StackedAreaChart data={{ series: [] }} theme="light" />);
+		render(<StackedAreaChart data={{ series: [] }} />);
 		expect(screen.getByText(/no data in window/i)).toBeTruthy();
 	});
 	it.skip('honors per-series color on the rendered area', async () => {
@@ -57,7 +57,7 @@ describe('StackedAreaChart primitive', () => {
 				{ key: 'a', label: 'A', color: '#ff00ff', points: [{ x: 1, y: 10 }, { x: 2, y: 20 }] },
 			],
 		};
-		const { container } = render(<StackedAreaChart data={data} theme="light" />);
+		const { container } = render(<StackedAreaChart data={data} />);
 		await waitFor(() => {
 			const area = container.querySelector('.recharts-area-area');
 			expect(area, 'area path rendered').toBeTruthy();
@@ -68,7 +68,7 @@ describe('StackedAreaChart primitive', () => {
 	it.skip('appends unit suffix to Y-axis tick labels', async () => {
 		const data: SeriesData = { series: [{ key: 'a', label: 'A', points: [{ x: 0, y: 1024 * 1024 }] }] };
 		const { container } = render(
-			<StackedAreaChart data={data} theme="light" yAxis={{ unit: '/s', formatter: 'bytes-si' }} />,
+			<StackedAreaChart data={data} yAxis={{ unit: '/s', formatter: 'bytes-si' }} />,
 		);
 		await waitFor(() => {
 			const tickEls = container.querySelectorAll('.recharts-cartesian-axis-tick-value, .recharts-yAxis text');
@@ -84,7 +84,7 @@ describe('StackedAreaChart primitive', () => {
 			...stacked,
 			ceiling: { key: 'cap', label: 'Max', points: [{ x: 1, y: 100 }, { x: 2, y: 100 }] },
 		};
-		const { container } = render(<StackedAreaChart data={withCeiling} theme="light" />);
+		const { container } = render(<StackedAreaChart data={withCeiling} />);
 		await waitFor(() => {
 			// Without ceiling, StackedAreaChart renders N area paths. With ceiling,
 			// there should be at least one additional `.recharts-line`.
@@ -113,7 +113,7 @@ describe('StackedAreaChart Step 3.5 polish', () => {
 				{ key: 'b', label: 'B', points: [{ x: 0, y: 20 }, { x: 1, y: 22 }] },
 			],
 		};
-		const { container } = render(<StackedAreaChart data={data} theme="light" />);
+		const { container } = render(<StackedAreaChart data={data} />);
 		await waitFor(() => {
 			const areas = Array.from(container.querySelectorAll<SVGPathElement>('.recharts-area-area, path'));
 			const opacities = areas.map((p) => p.getAttribute('fill-opacity') ?? p.style.fillOpacity ?? '');
@@ -123,14 +123,18 @@ describe('StackedAreaChart Step 3.5 polish', () => {
 	});
 
 	it.skip('renders <Area> with fillOpacity 0.5 in dark theme', async () => {
+		// Dark mode resolves from the app's `.dark` root class (useResolvedTheme),
+		// not a prop.
+		document.documentElement.classList.add('dark');
 		const data: SeriesData = { series: [{ key: 'a', label: 'A', points: [{ x: 0, y: 10 }, { x: 1, y: 12 }] }] };
-		const { container } = render(<StackedAreaChart data={data} theme="dark" />);
+		const { container } = render(<StackedAreaChart data={data} />);
 		await waitFor(() => {
 			const areas = Array.from(container.querySelectorAll<SVGPathElement>('.recharts-area-area, path'));
 			const opacities = areas.map((p) => p.getAttribute('fill-opacity') ?? p.style.fillOpacity ?? '');
 			expect(opacities.some((o) => o === '0.5' || o === '.5'), `expected 0.5; got ${JSON.stringify(opacities)}`)
 				.toBeTruthy();
 		});
+		document.documentElement.classList.remove('dark');
 	});
 });
 

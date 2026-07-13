@@ -13,7 +13,6 @@ interface Panel {
 
 interface Props {
 	panels: Panel[];
-	theme: 'light' | 'dark';
 	/** Minimum width per mini-panel (px). Grid auto-fits. Default 320. */
 	minPanelWidth?: number;
 	/** Height per mini-panel (px). Default 240. */
@@ -25,7 +24,7 @@ interface Props {
 }
 
 export function SmallMultiples(
-	{ panels, theme, minPanelWidth = 320, panelHeight = 240, xDomain, fillParent }: Props,
+	{ panels, minPanelWidth = 320, panelHeight = 240, xDomain, fillParent }: Props,
 ) {
 	// Union of node ids across all panels' per-node series (structured
 	// `Series.node`). Cluster-aggregate series (no `node`) don't participate
@@ -76,7 +75,6 @@ export function SmallMultiples(
 							</div>
 							<LineChart
 								data={panel.data}
-								theme={theme}
 								yAxis={panel.yAxis}
 								xDomain={xDomain}
 								height={panelHeight}

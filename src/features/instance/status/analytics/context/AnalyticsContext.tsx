@@ -7,6 +7,11 @@ export type AnalyticsTheme = 'light' | 'dark';
 export interface AnalyticsContextValue {
 	timeRange: TimeRange;
 	bucketMs: number;
+	/** Resolved app theme. Chart primitives no longer read this — they theme
+	 *  via `--chart-*` CSS tokens (and useResolvedTheme() for the few JS
+	 *  branches). Kept only for StorageTab / ConnectionsPanel, which still
+	 *  pass it into the pipeline-owned renderer signatures; remove once that
+	 *  parallel refactor drops their `theme` props. */
 	theme: AnalyticsTheme;
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
 }

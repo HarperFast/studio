@@ -13,7 +13,6 @@ import { LineChart } from './LineChart.tsx';
 
 interface Props {
 	data: SeriesData;
-	theme: 'light' | 'dark';
 	yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	xDomain?: [number, number];
 	fillParent?: boolean;
@@ -31,7 +30,7 @@ function legendGroup(s: Series): string {
 	return s.node ?? s.key;
 }
 
-export function LineChartWithNodeLegend({ data, theme, yAxis, xDomain, fillParent }: Props) {
+export function LineChartWithNodeLegend({ data, yAxis, xDomain, fillParent }: Props) {
 	const nodeIds = useMemo(() => {
 		const set = new Set<string>();
 		for (const s of data.series) {
@@ -46,15 +45,8 @@ export function LineChartWithNodeLegend({ data, theme, yAxis, xDomain, fillParen
 	const filteredData = useMemo<SeriesData>(() => ({
 		...data,
 		series: data.series
-			.filter((s) => {
-				const group = legendGroup(s);
-				return group === '' || isActive(group);
-			})
-			.map((s) => {
-				const group = legendGroup(s);
-				if (!group) { return s; }
-				return { ...s, color: s.color ?? getNodeColor(group, nodeIds) };
-			}),
+			.filter((s) => isActive(legendGroup(s)))
+			.map((s) => ({ ...s, color: s.color ?? getNodeColor(legendGroup(s), nodeIds) })),
 	}), [data, isActive, nodeIds]);
 
 	return (
@@ -62,7 +54,6 @@ export function LineChartWithNodeLegend({ data, theme, yAxis, xDomain, fillParen
 			<div className="min-h-0 flex-1">
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={yAxis}
 					xDomain={xDomain}
 					fillParent={fillParent}

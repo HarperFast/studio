@@ -1,13 +1,15 @@
 /** Protocol / type series colors. Six hues spread across the color wheel for
- *  accessibility and colorblind-friendliness. Disjoint from NODE_PALETTE and
- *  TABLE_PALETTE (enforced in __tests__/paletteDisjointness.test.ts). */
+ *  accessibility and colorblind-friendliness; values live as `--chart-type-*`
+ *  CSS vars in src/index.css. Disjoint from NODE_PALETTE and TABLE_PALETTE
+ *  (enforced in __tests__/paletteDisjointness.test.ts against the CSS
+ *  definitions). */
 export const TYPE_PALETTE: readonly string[] = [
-	'#0d9488', // teal-600
-	'#dc2626', // red-600
-	'#7c3aed', // violet-600
-	'#d97706', // amber-600
-	'#db2777', // pink-600
-	'#0284c7', // sky-600
+	'var(--chart-type-1)', // teal-600
+	'var(--chart-type-2)', // red-600
+	'var(--chart-type-3)', // violet-600
+	'var(--chart-type-4)', // amber-600
+	'var(--chart-type-5)', // pink-600
+	'var(--chart-type-6)', // sky-600
 ];
 
 export function getTypeColor(typeKey: string, allKeys: readonly string[]): string {

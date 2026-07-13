@@ -31,7 +31,6 @@ interface Props {
 	 *  those callsites are next touched. */
 	window?: TimeRange;
 	nodes?: string[];
-	theme: 'light' | 'dark';
 	/** Optional inline banner shown above the dev hint — used by callers that
 	 *  fell through to FallbackRenderer for a known reason (e.g. legacy chart
 	 *  failed to load), so users see the cause. */
@@ -83,7 +82,7 @@ export function buildFallbackPanels(
 	return { panels, overflowCount: fields.length - visibleFields.length };
 }
 
-export function FallbackRenderer({ metric, records, theme, hint }: Props) {
+export function FallbackRenderer({ metric, records, hint }: Props) {
 	const { panels, overflowCount: overflow } = buildFallbackPanels(records);
 
 	const kebab = metric.replace(/_/g, '-');
@@ -125,7 +124,7 @@ export function FallbackRenderer({ metric, records, theme, hint }: Props) {
 					{banner}
 				</div>
 			)}
-			<SmallMultiples panels={panels} theme={theme} />
+			<SmallMultiples panels={panels} />
 			{overflow > 0 && (
 				<div style={{ fontSize: 11, marginTop: 4, opacity: 0.7 }}>
 					{`… and ${overflow} more fields not shown. Add a spec at src/features/instance/status/analytics/pipeline/${kebab}.tsx to customize.`}

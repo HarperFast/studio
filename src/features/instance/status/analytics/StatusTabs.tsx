@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
-import { useSystemTheme } from '@/hooks/useSystemTheme';
 import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics.ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -13,6 +12,7 @@ import { TimeRangePicker } from './components/TimeRangePicker.tsx';
 import { type AnalyticsContextValue, AnalyticsProvider } from './context/AnalyticsContext.tsx';
 import { getPreset, type TimePresetId } from './context/timePresets.ts';
 import { type AnalyticsCapability, useAnalyticsCapability } from './hooks/useAnalyticsCapability.ts';
+import { useResolvedTheme } from './lib/theme.ts';
 import { DatabaseTab } from './tabs/DatabaseTab.tsx';
 import { HealthTab } from './tabs/HealthTab.tsx';
 import { OverviewTab } from './tabs/OverviewTab.tsx';
@@ -85,7 +85,7 @@ function AnalyticsUnavailableNotice({ capability }: { capability: AnalyticsCapab
 				)}
 			<Button
 				type="button"
-				variant="outline"
+				variant="defaultOutline"
 				size="sm"
 				className="mt-3"
 				onClick={capability.retry}
@@ -155,7 +155,11 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		};
 	}, [refreshMs, refresh, queryClient, tick, instanceParams.entityId]);
 
-	const theme = useSystemTheme();
+	// Resolved app theme (user's explicit choice, not raw OS preference) —
+	// kept in the context only for the consumers that still read it there
+	// (StorageTab's table-size charts, ConnectionsPanel). Chart primitives
+	// re-theme via `--chart-*` CSS tokens without any prop.
+	const theme = useResolvedTheme();
 
 	const updatePreset = useCallback((id: TimePresetId) => {
 		void navigate({ to: '.', search: { tab, range: id, refresh: refreshMs } });

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { NODE_PALETTE } from '../lib/nodeColors.ts';
+import { getChartColors, useResolvedTheme } from '../lib/theme.ts';
 import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
 import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics.ts';
 import { formatValue } from './formatValue.ts';
@@ -8,7 +10,6 @@ import { tooltipContentStyle, tooltipLabelStyle } from './tooltipStyle.ts';
 
 interface Props {
 	data: SeriesData;
-	theme: 'light' | 'dark';
 	yAxis?: AxisSpec;
 	height?: number;
 	/** Optional accessible label override; otherwise composed from series labels. */
@@ -90,9 +91,12 @@ export function StackedAreaTooltip({ active, payload, label, formatter, unitSuff
 }
 
 export function StackedAreaChart(
-	{ data, theme, yAxis, height = 240, ariaLabel, xDomain, fillParent, lineOnly }: Props,
+	{ data, yAxis, height = 240, ariaLabel, xDomain, fillParent, lineOnly }: Props,
 ) {
 	const sortedSeries = useMemo(() => sortByMagnitude(data.series), [data.series]);
+	// Fill opacity is the one genuinely theme-branched value here — dark mode
+	// needs denser fills to stay legible against the dark card surface.
+	const theme = useResolvedTheme();
 
 	if (data.series.length === 0) {
 		return (
@@ -102,7 +106,7 @@ export function StackedAreaChart(
 		);
 	}
 
-	const colors = ['#58a6ff', '#3fb950', '#f0883e', '#bc8cff', '#f778ba', '#79c0ff'];
+	const chartColors = getChartColors();
 
 	// Merge points by x across series. Series often emit at slightly
 	// staggered timestamps (e.g. Harper emits per-node records at different
@@ -156,17 +160,19 @@ export function StackedAreaChart(
 			<div aria-hidden="true" style={{ width: '100%', height: '100%' }}>
 				<ResponsiveContainer width="100%" height="100%">
 					<AreaChart data={merged}>
-						<CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+						<CartesianGrid stroke={chartColors.gridColor} strokeDasharray="3 3" />
 						<XAxis
 							dataKey="x"
 							type="number"
 							domain={xDomain ?? ['dataMin', 'dataMax']}
 							allowDataOverflow={!!xDomain}
 							tickFormatter={formatAxisTick}
+							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
 						/>
 						<YAxis
 							tickFormatter={(v) => formatValue(v, resolvedFormatter, resolvedUnit)}
+							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
 							width={70}
 						/>
@@ -179,9 +185,9 @@ export function StackedAreaChart(
 								dataKey={s.key}
 								name={s.label}
 								stackId="1"
-								stroke={s.color ?? colors[idx % colors.length]}
+								stroke={s.color ?? NODE_PALETTE[idx % NODE_PALETTE.length]}
 								strokeWidth={lineOnly ? 2 : 1}
-								fill={lineOnly ? 'none' : (s.color ?? colors[idx % colors.length])}
+								fill={lineOnly ? 'none' : (s.color ?? NODE_PALETTE[idx % NODE_PALETTE.length])}
 								fillOpacity={lineOnly ? 0 : fillOpacity}
 								connectNulls={false}
 							/>
@@ -192,7 +198,7 @@ export function StackedAreaChart(
 									type="monotone"
 									dataKey="__ceiling__"
 									name={data.ceiling.label}
-									stroke="#8b949e"
+									stroke={chartColors.axisColor}
 									strokeWidth={2}
 									strokeDasharray="6 3"
 									dot={false}
