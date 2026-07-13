@@ -14,6 +14,7 @@
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend.tsx';
 import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
 import { runPipeline } from '../pipeline/pipeline.ts';
 import type { AnalyticsDataPoint, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
 import { DimensionChipRow } from './DimensionChipRow.tsx';
@@ -58,6 +59,15 @@ export function DimensionSelectorRenderer({
 	const effectiveQuantile = quantileFields?.some((q) => q.field === quantile)
 		? quantile
 		: (spec.quantileSelector?.default ?? '');
+
+	// Roving-tabindex radiogroup behavior for the quantile picker (single tab
+	// stop, arrow keys move focus + selection).
+	const quantileValues = useMemo(() => quantileFields?.map((q) => q.field) ?? [], [quantileFields]);
+	const { getRadioProps: getQuantileRadioProps } = useRovingRadioGroup(
+		quantileValues,
+		effectiveQuantile,
+		setQuantile,
+	);
 
 	// Build the runtime spec — substitute the chosen percentile field if a
 	// quantile selector is active. groupBy specs only.
@@ -119,17 +129,15 @@ export function DimensionSelectorRenderer({
 					aria-label="Quantile"
 					className="flex flex-wrap justify-center gap-x-3 gap-y-1 pt-2 text-[11px]"
 				>
-					{quantileFields.map((q) => {
+					{quantileFields.map((q, idx) => {
 						const active = q.field === effectiveQuantile;
 						return (
 							<button
 								key={q.field}
 								type="button"
-								role="radio"
-								aria-checked={active}
+								{...getQuantileRadioProps(idx)}
 								data-testid="quantile-button"
 								data-value={q.field}
-								onClick={() => setQuantile(q.field)}
 								className="inline-flex items-center cursor-pointer border-none bg-transparent p-0 text-(--color-text-secondary)"
 								style={{ opacity: active ? 1 : 0.3 }}
 							>

@@ -20,10 +20,11 @@ function Harness(props: { values: readonly string[]; initial: string; otherKey?:
 // WAI-ARIA APG button-pattern combobox: the popup-trigger is a <button> with
 // aria-haspopup='listbox' (NOT role='combobox'); when open, the searchbox
 // inside the popup is the actual role='combobox' with aria-activedescendant
-// driving option highlight. Tests target the trigger by its aria-label and
-// the searchbox by role='combobox' (only present while open).
+// driving option highlight. Tests target the trigger by its aria-label —
+// which composes the current selection into the accessible name — and the
+// searchbox by role='combobox' (only present while open).
 function getTrigger() {
-	return screen.getByRole('button', { name: 'Path' });
+	return screen.getByRole('button', { name: /^Path/ });
 }
 
 describe('DimensionCombobox primitive', () => {
@@ -36,6 +37,18 @@ describe('DimensionCombobox primitive', () => {
 		expect(trigger.textContent ?? '').toMatch(/\/b/);
 		expect(trigger.getAttribute('aria-expanded')).toBe('false');
 		expect(trigger.getAttribute('aria-haspopup')).toBe('listbox');
+	});
+
+	it('trigger accessible name contains the current selection (and tracks it)', () => {
+		const values = ['/users', '/orders', '/health'];
+		render(<Harness values={values} initial="/users" />);
+		// aria-label composes label + selection so SR users hear the value.
+		expect(screen.getByRole('button', { name: 'Path: /users' })).toBeTruthy();
+		fireEvent.click(getTrigger());
+		const input = screen.getByRole('combobox') as HTMLInputElement;
+		fireEvent.change(input, { target: { value: 'ord' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		expect(screen.getByRole('button', { name: 'Path: /orders' })).toBeTruthy();
 	});
 
 	it('opens the listbox on click; Escape closes', () => {

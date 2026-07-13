@@ -73,24 +73,44 @@ describe('DimensionChipRow primitive', () => {
 		expect(picks).toEqual(['/api/orders', '/api/products']);
 	});
 
-	it('Other chip is non-interactive (aria-disabled, no role=radio, not in roving tab order)', () => {
+	it('Other chip is a disabled radio (aria-disabled, never checked, not in roving tab order)', () => {
+		const picks: string[] = [];
 		render(
 			<DimensionChipRow
 				dimensionValues={values}
 				selected={'/api/users'}
 				otherKey="Other"
-				onSelect={() => {}}
+				onSelect={(v) => picks.push(v)}
 			/>,
 		);
-		// Only the selectable values are role=radio.
+		// The Other chip participates in the group as a perceivable, disabled radio.
 		const radios = screen.getAllByRole('radio');
-		expect(radios.length).toBe(3);
-		// The Other chip exists with aria-disabled and tabIndex=-1.
+		expect(radios.length).toBe(4);
 		const chips = screen.getAllByTestId('dimension-chip');
 		const otherChip = chips.find((c) => c.getAttribute('data-value') === 'Other');
 		expect(otherChip, 'Other chip rendered').toBeTruthy();
+		expect(otherChip!.getAttribute('role')).toBe('radio');
 		expect(otherChip!.getAttribute('aria-disabled')).toBe('true');
-		expect(otherChip!.getAttribute('role')).toBe(null);
+		expect(otherChip!.getAttribute('aria-checked')).toBe('false');
 		expect((otherChip as HTMLButtonElement).tabIndex).toBe(-1);
+		// Arrow keys never land on it: from the last selectable chip, Right
+		// wraps to the first selectable chip.
+		fireEvent.keyDown(chips[2], { key: 'ArrowRight' });
+		expect(picks).toEqual(['/api/users']);
+	});
+
+	it('the group is a single tab stop (exactly one chip with tabIndex=0), even with Other', () => {
+		render(
+			<DimensionChipRow
+				dimensionValues={values}
+				selected={'/api/orders'}
+				otherKey="Other"
+				onSelect={() => {}}
+			/>,
+		);
+		const chips = screen.getAllByTestId('dimension-chip');
+		const tabbable = chips.filter((c) => (c as HTMLButtonElement).tabIndex === 0);
+		expect(tabbable.length).toBe(1);
+		expect(tabbable[0].getAttribute('data-value')).toBe('/api/orders');
 	});
 });

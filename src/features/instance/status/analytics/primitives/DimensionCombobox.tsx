@@ -110,7 +110,10 @@ export function DimensionCombobox({
 				// aria-haspopup='listbox' but is NOT itself role='combobox'.
 				// The searchbox below is the actual combobox element with
 				// aria-activedescendant for option highlight tracking.
-				aria-label={ariaLabel}
+				// Compose the selection into the accessible name — a bare
+				// aria-label would mask the visible value, so SR users would
+				// never hear the current selection.
+				aria-label={selected ? `${ariaLabel}: ${selected}` : ariaLabel}
 				aria-expanded={open}
 				aria-controls={listboxId}
 				aria-haspopup="listbox"
