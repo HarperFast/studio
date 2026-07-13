@@ -1,15 +1,15 @@
+import { formatValue } from '@/lib/formatValue';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useNodeSelection } from '../hooks/useNodeSelection.ts';
 import { getTableColor, OTHER_COLOR } from '../lib/tableColors.ts';
 import { OTHER_KEY, type Snapshot } from '../lib/tableSize.ts';
 import { getChartColors, type Theme } from '../lib/theme.ts';
-import { formatValue } from '../primitives/formatValue.ts';
 import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
 import type { ViewMode } from '../types/analytics.ts';
 import { NodeLegend } from './NodeLegend.tsx';
 import { TableSizeChipRow } from './TableSizeChipRow.tsx';
 
-/** One byte-format path for every chart — see primitives/formatValue.ts. */
+/** One byte-format path for every chart — see src/lib/formatValue.ts. */
 const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
 interface Props {

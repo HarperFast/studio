@@ -1,3 +1,4 @@
+import type { ValueFormatter } from '@/lib/formatValue';
 import type { ComponentType, JSX } from 'react';
 
 export interface AnalyticsDataPoint {
@@ -81,7 +82,7 @@ export interface Threshold {
 	scope?: Partial<Record<string, string | number>>;
 }
 
-export type AxisFormatter = 'bytes-si' | 'bytes-iec' | 'ms' | 'percent' | 'cores' | 'count' | 'count-si';
+export type AxisFormatter = ValueFormatter;
 
 export interface AxisSpec {
 	unit: string;
