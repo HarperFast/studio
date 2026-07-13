@@ -131,15 +131,16 @@ function resolveTime(spec: MetricSpec, record: AnalyticsDataPoint): number | nul
  *  warn with a count and a sample instead of one warn per unique (dim, time)
  *  — the old per-key dedup Set grew unboundedly on long windows. */
 function resolveTimes(where: string, spec: MetricSpec, records: AnalyticsDataPoint[]): (number | null)[] {
-	const resolved = records.map((r) => resolveTime(spec, r));
 	let dropped = 0;
 	let sample: AnalyticsDataPoint | undefined;
-	for (let i = 0; i < resolved.length; i++) {
-		if (resolved[i] === null) {
+	const resolved = records.map((r) => {
+		const time = resolveTime(spec, r);
+		if (time === null) {
 			dropped++;
-			sample ??= records[i];
+			sample ??= r;
 		}
-	}
+		return time;
+	});
 	if (dropped > 0) {
 		console.warn(`[${where}] Dropping ${dropped} record(s) with no resolvable timestamp:`, {
 			sample: sample && { time: sample.time, id: sample.id, node: sample.node },
