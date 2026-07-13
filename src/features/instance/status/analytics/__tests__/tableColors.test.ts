@@ -18,7 +18,7 @@ describe('getTableColor', () => {
 		expect(getTableColor(3)).toBe(getTableColor(3));
 	});
 
-	it('exports OTHER_COLOR as a neutral greyscale value', () => {
-		expect(OTHER_COLOR).toMatch(/^#[0-9a-f]{6}$/i);
+	it('exports OTHER_COLOR as a chart-token reference (value checked in paletteDisjointness)', () => {
+		expect(OTHER_COLOR).toMatch(/^var\(--chart-[\w-]+\)$/);
 	});
 });

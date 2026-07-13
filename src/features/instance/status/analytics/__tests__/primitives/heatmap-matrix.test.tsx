@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { HeatmapMatrix } from '../../primitives/HeatmapMatrix.tsx';
 import type { HeatmapData } from '../../types/analytics.ts';
@@ -177,5 +177,64 @@ describe('HeatmapMatrix primitive', () => {
 		const svg = container.querySelector('svg[role="grid"]');
 		const cellSize = Number(svg?.getAttribute('data-cell-size'));
 		expect(Number.isFinite(cellSize) && cellSize >= 40 && cellSize <= 80).toBeTruthy();
+	});
+
+	it('uses the light color ramp by default and the dark ramp when the app root has .dark', () => {
+		// The ramp branches on the resolved app theme (the `.dark` class the
+		// ThemeProvider toggles on <html>) — not on a prop or the OS setting.
+		const { container, unmount } = render(<HeatmapMatrix data={data} />);
+		const lightStops = Array.from(container.querySelectorAll('linearGradient stop'))
+			.map((el) => el.getAttribute('stop-color'));
+		expect(lightStops[0]).toBe('#fef3c7'); // LIGHT_STOPS ramp start (pale)
+		expect(lightStops.at(-1)).toBe('#7f1d1d'); // deep red
+		unmount();
+
+		document.documentElement.classList.add('dark');
+		try {
+			const { container: darkContainer } = render(<HeatmapMatrix data={data} />);
+			const darkStops = Array.from(darkContainer.querySelectorAll('linearGradient stop'))
+				.map((el) => el.getAttribute('stop-color'));
+			expect(darkStops[0]).toBe('#713f12'); // DARK_STOPS ramp start (muted amber)
+			expect(darkStops.at(-1)).toBe('#fef3c7'); // cream
+		} finally {
+			document.documentElement.classList.remove('dark');
+		}
+	});
+
+	it('re-renders onto the other ramp when .dark is toggled while mounted', async () => {
+		const { container } = render(<HeatmapMatrix data={data} />);
+		document.documentElement.classList.add('dark');
+		try {
+			// The MutationObserver → setState round-trip is async; poll for it.
+			await waitFor(() => {
+				const stops = Array.from(container.querySelectorAll('linearGradient stop'))
+					.map((el) => el.getAttribute('stop-color'));
+				expect(stops[0]).toBe('#713f12');
+			});
+		} finally {
+			document.documentElement.classList.remove('dark');
+		}
+	});
+
+	it('confidence-state greys come from --chart-heatmap-* tokens (theme-agnostic markup)', () => {
+		render(<HeatmapMatrix data={data} />);
+		const absent = screen.getAllByRole('gridcell')
+			.find((c) => (c.getAttribute('aria-label') ?? '').includes('no data'))!;
+		const rect = absent.querySelector('rect');
+		expect(rect?.getAttribute('stroke')).toBe('var(--chart-heatmap-muted-stroke, #9ca3af)');
+	});
+
+	it('takes the measure label from data.measureLabel (legend, description, and cell labels)', () => {
+		render(<HeatmapMatrix data={{ ...data, approx: false, measureLabel: 'p50 latency' }} />);
+		const legend = screen.getByRole('img', { name: /p50 latency/i });
+		expect(legend).toBeTruthy();
+		const desc = screen.getByTestId('heatmap-desc');
+		expect(desc.textContent ?? '').toMatch(/p50 latency/);
+		// Populated cells must announce the same quantile as the legend —
+		// contradictory copy would misinform screen-reader users.
+		const okCell = screen.getAllByRole('gridcell')
+			.find((c) => /src-1.*dest-a/.test(c.getAttribute('aria-label') ?? ''))!;
+		expect(okCell.getAttribute('aria-label')).toMatch(/p50 latency/);
+		expect(okCell.getAttribute('aria-label')).not.toMatch(/p95/);
 	});
 });

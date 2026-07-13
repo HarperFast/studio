@@ -45,7 +45,6 @@ describe('DimensionSelectorRenderer with a dimension value containing "|"', () =
 				records={records}
 				timeRange={range}
 				nodes={['n1.example.com', 'n2.example.com']}
-				theme="light"
 			/>,
 		);
 		const chips = await screen.findAllByRole('radio');
@@ -62,7 +61,6 @@ describe('DimensionSelectorRenderer with a dimension value containing "|"', () =
 				records={records}
 				timeRange={range}
 				nodes={['n1.example.com', 'n2.example.com']}
-				theme="light"
 			/>,
 		);
 		const pipeChip = await screen.findByRole('radio', { name: PIPE_PATH });

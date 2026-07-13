@@ -4,15 +4,23 @@ import { useNodeSelection } from '../hooks/useNodeSelection.ts';
 import { getNodeColor } from '../lib/nodeColors.ts';
 import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize.ts';
 import { getChartColors, type Theme } from '../lib/theme.ts';
-import { formatAxisTick, formatBytes, formatTooltipTime } from '../lib/time.ts';
+import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
+import { formatValue } from '../primitives/formatValue.ts';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
 import type { TimeRange, ViewMode } from '../types/analytics.ts';
 import { NodeLegend } from './NodeLegend.tsx';
 import { TableSizeChipRow } from './TableSizeChipRow.tsx';
 
+/** One byte-format path for every chart — see primitives/formatValue.ts. */
+const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
+
 interface Props {
 	derived: TableSizeDerived;
 	viewMode: ViewMode;
-	theme: Theme;
+	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
+	 *  Kept optional only while StorageTab (owned by a parallel refactor)
+	 *  still passes it. */
+	theme?: Theme;
 	selectedTable: string | null;
 	/** Trend chip click — local to this panel; should NOT touch the Snapshot. */
 	onChipSelect: (tableKey: string) => void;
@@ -32,7 +40,6 @@ interface Props {
 export function TableSizeTrend({
 	derived,
 	viewMode,
-	theme,
 	selectedTable,
 	onChipSelect,
 	manualSelection,
@@ -41,7 +48,7 @@ export function TableSizeTrend({
 	rankBy,
 	onRankChange,
 }: Props) {
-	const colors = getChartColors(theme);
+	const colors = getChartColors();
 
 	const points = useMemo(
 		() => (selectedTable ? derived.trend(selectedTable) : []),
@@ -168,12 +175,9 @@ export function TableSizeTrend({
 							allowDataOverflow
 						/>
 						<Tooltip
-							contentStyle={{
-								backgroundColor: colors.tooltipBg,
-								border: `1px solid ${colors.tooltipBorder}`,
-								borderRadius: 8,
-								fontSize: 12,
-							}}
+							contentStyle={tooltipContentStyle}
+							labelStyle={tooltipLabelStyle}
+							itemStyle={tooltipItemStyle}
 							labelFormatter={(label) => formatTooltipTime(Number(label))}
 							formatter={(value) => formatBytes(Number(value))}
 						/>

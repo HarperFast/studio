@@ -1,5 +1,19 @@
 import type { AxisSpec } from '../types/analytics.ts';
 
+/**
+ * THE value formatter for chart axes and tooltips in Status analytics. Every
+ * chart — metric panels and the table-size charts alike — formats through
+ * this one code path, so the same byte/count value can never render two
+ * different ways on two panels (lib/time.ts used to carry a duplicate
+ * `formatBytes` with different rounding; it's gone).
+ *
+ * Deliberately NOT delegated to the app-wide helpers
+ * (src/lib/humanFileSize.ts / src/lib/humanNumber.ts): those are
+ * prose-oriented — they round to integers and insert locale group separators
+ * via Intl ("1,234 MB"), which is right for body copy but wrong for axis
+ * ticks, where compact fixed-precision short forms ("1.2 GB", "50k") keep
+ * tick labels aligned and unambiguous at small font sizes.
+ */
 export function formatValue(
 	v: number,
 	formatter?: AxisSpec['formatter'],
@@ -52,7 +66,12 @@ function formatBase(v: number, formatter?: AxisSpec['formatter']): string {
 				scaled /= base;
 				i++;
 			}
-			return `${scaled.toFixed(1)} ${units[i]}`;
+			// Adaptive precision: one decimal only where it carries signal
+			// (|scaled| < 10, e.g. "1.5 GB"); integers above that ("512 MB")
+			// and for exact zero ("0 B"). Matches the rounding the table-size
+			// charts always used, now shared by every byte axis/tooltip.
+			const digits = scaled !== 0 && Math.abs(scaled) < 10 ? 1 : 0;
+			return `${scaled.toFixed(digits)} ${units[i]}`;
 		}
 		default:
 			return `${v}`;

@@ -42,12 +42,3 @@ export function getTimezoneAbbr(): string {
 	const tz = parts.find((p) => p.type === 'timeZoneName');
 	return tz?.value ?? 'UTC';
 }
-
-export function formatBytes(bytes: number): string {
-	if (bytes === 0) { return '0 B'; }
-	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-	const k = 1000; // SI
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	const value = bytes / k ** i;
-	return `${value.toFixed(value < 10 ? 1 : 0)} ${units[i]}`;
-}

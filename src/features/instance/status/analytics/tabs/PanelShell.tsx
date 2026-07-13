@@ -107,7 +107,7 @@ export function PanelStateOrChart({
 		return (
 			<div className="h-64 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive flex flex-col items-start justify-center gap-3">
 				<div>{`Failed to load: ${errorText(error) ?? 'unknown error'}`}</div>
-				<Button variant="outline" size="sm" onClick={onRetry}>Retry</Button>
+				<Button variant="defaultOutline" size="sm" onClick={onRetry}>Retry</Button>
 			</div>
 		);
 	}

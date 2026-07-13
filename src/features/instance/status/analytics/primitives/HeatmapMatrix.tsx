@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useResolvedTheme } from '../lib/theme.ts';
 import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics.ts';
 import { computeCellSize } from './computeCellSize.ts';
 import { formatValue } from './formatValue.ts';
@@ -7,13 +8,29 @@ export { computeCellSize } from './computeCellSize.ts';
 
 interface Props {
 	data: HeatmapData;
-	theme: 'light' | 'dark';
+	/** @deprecated Ignored — the color-stop ramp branches on the resolved app
+	 *  theme via useResolvedTheme(), and the confidence greys are
+	 *  `--chart-heatmap-*` CSS tokens. Kept optional only while the pipeline
+	 *  renderers (owned by a parallel refactor) still pass it. */
+	theme?: 'light' | 'dark';
 	title?: string;
 	height?: number;
 }
 
+/** Confidence-state greys — CSS tokens defined per theme in src/index.css
+ *  (`--chart-heatmap-*`), so suppressed/absent/grey cells re-theme without a
+ *  JS branch. Hex fallbacks are the light-theme values, for non-DOM tests. */
+const MUTED_BG = 'var(--chart-heatmap-muted-bg, #f3f4f6)';
+const MUTED_STROKE = 'var(--chart-heatmap-muted-stroke, #9ca3af)';
+const GREY_STROKE = 'var(--chart-heatmap-grey-stroke, #9ca3af)';
+
 type Confidence = 'ok' | 'grey' | 'suppress' | 'absent';
 
+// Color-ramp stops stay literal hex (not CSS vars): the cell fill is
+// interpolated between stops in JS (interpolateStops) and the focus-halo
+// color is derived from the fill's WCAG relative luminance — both need
+// concrete RGB values, which `var(--…)` strings can't provide. The
+// light/dark ramp is selected via useResolvedTheme().
 // Light theme: pale → deep red (low → high latency).
 const LIGHT_STOPS = ['#fef3c7', '#fcd34d', '#f59e0b', '#dc2626', '#7f1d1d'];
 // Dark theme: muted amber → cream.
@@ -98,6 +115,7 @@ function cellAriaLabel(
 	unit: string,
 	suppressBelow: number,
 	approx: boolean,
+	measureLabel: string,
 ): string {
 	const prefix = `${row} → ${col}: `;
 	const approxTag = approx ? ' (approx)' : '';
@@ -110,9 +128,9 @@ function cellAriaLabel(
 	const value = cell?.value ?? 0;
 	const count = cell?.count ?? 0;
 	if (confidence === 'grey') {
-		return `${prefix}${value} ${unit} p95 (approx, low-confidence: ${count} samples below threshold)`;
+		return `${prefix}${value} ${unit} ${measureLabel} (approx, low-confidence: ${count} samples below threshold)`;
 	}
-	return `${prefix}${value} ${unit} p95${approxTag}, ${count} samples`;
+	return `${prefix}${value} ${unit} ${measureLabel}${approxTag}, ${count} samples`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -126,16 +144,18 @@ interface LegendProps {
 	width: number;
 	axis?: AxisSpec;
 	approx: boolean;
+	/** What the cells measure (e.g. "p95 latency"). */
+	measureLabel: string;
 }
 
-function HeatmapColorLegend({ stops, vmin, vmax, width, axis, approx }: LegendProps) {
+function HeatmapColorLegend({ stops, vmin, vmax, width, axis, approx, measureLabel }: LegendProps) {
 	const gradientId = useId();
 	const unit = axis?.unit ?? '';
 	const fmt = (v: number) => formatValue(v, axis?.formatter);
 	const median = (vmin + vmax) / 2;
 	const stripWidth = Math.max(200, Math.min(width, 480));
 	const stripHeight = 12;
-	const labelPrefix = approx ? 'p95 latency (count-weighted-mean, approx)' : 'p95 latency';
+	const labelPrefix = approx ? `${measureLabel} (count-weighted-mean, approx)` : measureLabel;
 	const label = `${labelPrefix}: ${fmt(vmin)}–${fmt(vmax)} ${unit}. Higher value = worse latency.`;
 	return (
 		<svg
@@ -219,16 +239,21 @@ const CELL_GAP = 4;
 const HEADER_HEIGHT = 72; // reserved for rotated column headers
 const ROW_LABEL_WIDTH = 200;
 
-export function HeatmapMatrix({ data, theme, title, height }: Props) {
+export function HeatmapMatrix({ data, title, height }: Props) {
 	const titleId = useId();
 	const descId = useId();
 	const suppressPatternId = useId();
+	const theme = useResolvedTheme();
 
 	const greyBelow = data.confidence?.greyBelow ?? 0;
 	const suppressBelow = data.confidence?.suppressBelow ?? 0;
 	const stops = theme === 'dark' ? DARK_STOPS : LIGHT_STOPS;
 	const approx = data.approx === true;
 	const unit = data.axis?.unit ?? '';
+	// What the cells measure. Falls back to the historical copy; renderers
+	// can override via HeatmapData.measureLabel (e.g. when a quantile
+	// selector swaps p95 for p50/p99).
+	const measureLabel = data.measureLabel ?? 'p95 latency';
 
 	// Build a (row,col) -> cell index for O(1) lookup.
 	const cellMap = useMemo(() => {
@@ -296,9 +321,11 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 	// Roving tabindex state: [rowIdx, colIdx]. Clamped at render time so the
 	// active cell stays in range when rows/cols shrink after a data refresh
 	// (otherwise no cell gets tabIndex=0 and the grid leaves the tab order).
+	// The Math.max(0, …) keeps the derived indices valid positions even when
+	// rows/cols are momentarily empty (Math.min alone would yield -1).
 	const [active, setActive] = useState<[number, number]>([0, 0]);
-	const activeRow = Math.min(active[0], rows.length - 1);
-	const activeCol = Math.min(active[1], cols.length - 1);
+	const activeRow = Math.max(0, Math.min(active[0], rows.length - 1));
+	const activeCol = Math.max(0, Math.min(active[1], cols.length - 1));
 	const cellRefs = useRef<Map<string, HTMLElement>>(new Map());
 
 	const focusCell = useCallback((r: number, c: number) => {
@@ -411,8 +438,8 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 			>
 				{(() => {
 					const descPrefix = approx
-						? 'Cells show count-weighted-mean p95 latency (approx).'
-						: 'Cells show p95 latency.';
+						? `Cells show count-weighted-mean ${measureLabel} (approx).`
+						: `Cells show ${measureLabel}.`;
 					return `${descPrefix} Cells with fewer than ${suppressBelow} samples are blank; ${greyBelow}–${
 						suppressBelow - 1
 					} render grey.`;
@@ -438,13 +465,13 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 							height={8}
 							patternTransform="rotate(45)"
 						>
-							<rect width={8} height={8} fill={theme === 'dark' ? '#1f2937' : '#f3f4f6'} />
+							<rect width={8} height={8} fill={MUTED_BG} />
 							<line
 								x1={0}
 								y1={0}
 								x2={0}
 								y2={8}
-								stroke={theme === 'dark' ? '#4b5563' : '#9ca3af'}
+								stroke={MUTED_STROKE}
 								strokeWidth={2}
 							/>
 						</pattern>
@@ -506,7 +533,7 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 									const confidence = classifyCell(cell, greyBelow, suppressBelow);
 									const cx = ROW_LABEL_WIDTH + ci * (cellSize + CELL_GAP);
 									const cy = y;
-									const aria = cellAriaLabel(row, col, cell, confidence, unit, suppressBelow, approx);
+									const aria = cellAriaLabel(row, col, cell, confidence, unit, suppressBelow, approx, measureLabel);
 
 									const isActive = activeRow === ri && activeCol === ci;
 
@@ -520,12 +547,12 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 									if (confidence === 'absent') {
 										fill = 'transparent';
 										strokeDasharray = '3 3';
-										stroke = theme === 'dark' ? '#4b5563' : '#9ca3af';
+										stroke = MUTED_STROKE;
 										rectStrokeWidth = 1;
 									} else if (confidence === 'suppress') {
 										fill = `url(#${suppressPatternId})`;
 										strokeDasharray = '3 3';
-										stroke = theme === 'dark' ? '#4b5563' : '#9ca3af';
+										stroke = MUTED_STROKE;
 										rectStrokeWidth = 1;
 									} else {
 										const t = vmax > vmin ? ((cell?.value ?? 0) - vmin) / (vmax - vmin) : 0;
@@ -533,7 +560,7 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 										if (confidence === 'grey') {
 											opacity = 0.55;
 											strokeDasharray = '4 2';
-											stroke = theme === 'dark' ? '#6b7280' : '#9ca3af';
+											stroke = GREY_STROKE;
 											rectStrokeWidth = 1;
 										}
 									}
@@ -623,6 +650,7 @@ export function HeatmapMatrix({ data, theme, title, height }: Props) {
 					width={gridWidth}
 					axis={data.axis}
 					approx={approx}
+					measureLabel={measureLabel}
 				/>
 			</div>
 		</div>

@@ -9,6 +9,8 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
+import { NODE_PALETTE } from '../lib/nodeColors.ts';
+import { getChartColors } from '../lib/theme.ts';
 import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics.ts';
 import { formatValue } from './formatValue.ts';
@@ -16,7 +18,10 @@ import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tool
 
 interface Props {
 	data: SeriesData;
-	theme: 'light' | 'dark';
+	/** @deprecated Ignored — colors resolve via `--chart-*` CSS tokens, so the
+	 *  chart re-themes with the app automatically. Kept optional only while
+	 *  the pipeline renderers (owned by a parallel refactor) still pass it. */
+	theme?: 'light' | 'dark';
 	yAxis?: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	height?: number;
 	/** Optional accessible label override; otherwise composed from series labels. */
@@ -63,7 +68,7 @@ function composeAriaLabel(data: SeriesData): string {
 }
 
 export function LineChart(
-	{ data, theme: _theme, yAxis, height = 240, ariaLabel, hideLegend, xDomain, fillParent }: Props,
+	{ data, yAxis, height = 240, ariaLabel, hideLegend, xDomain, fillParent }: Props,
 ) {
 	if (data.series.length === 0) {
 		return (
@@ -80,7 +85,7 @@ export function LineChart(
 	const leftAxis = isDual ? yAxis.left : (yAxis as AxisSpec | undefined);
 	const rightAxis = isDual ? yAxis.right : undefined;
 
-	const colors = ['#58a6ff', '#3fb950', '#f0883e', '#bc8cff', '#f778ba'];
+	const chartColors = getChartColors();
 
 	return (
 		<div
@@ -98,7 +103,7 @@ export function LineChart(
 			<div aria-hidden="true" style={{ width: '100%', height: '100%' }}>
 				<ResponsiveContainer width="100%" height="100%">
 					<RLineChart margin={{ top: 12, right: 12, bottom: 8, left: 8 }}>
-						<CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+						<CartesianGrid stroke={chartColors.gridColor} strokeDasharray="3 3" />
 						<XAxis
 							dataKey="x"
 							type="number"
@@ -106,6 +111,7 @@ export function LineChart(
 							allowDataOverflow={!!xDomain}
 							allowDuplicatedCategory={false}
 							tickFormatter={formatAxisTick}
+							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
 						/>
 						<YAxis
@@ -113,6 +119,7 @@ export function LineChart(
 							tickFormatter={(v) => formatValue(v, leftAxis?.formatter, leftAxis?.unit)}
 							scale={leftAxis?.scale ?? 'linear'}
 							domain={leftAxis?.domain as [number | string, number | string] | undefined}
+							stroke={chartColors.axisColor}
 							tick={{ fontSize: 11 }}
 							// Wider than Recharts' ~60px default so e.g. '2400.0 ms'
 							// or '1.5 GB' doesn't wrap onto two lines per tick.
@@ -126,6 +133,7 @@ export function LineChart(
 									tickFormatter={(v) => formatValue(v, rightAxis.formatter, rightAxis.unit)}
 									scale={rightAxis.scale ?? 'linear'}
 									domain={rightAxis.domain as [number | string, number | string] | undefined}
+									stroke={chartColors.axisColor}
 									tick={{ fontSize: 11 }}
 									width={70}
 								/>
@@ -181,7 +189,7 @@ export function LineChart(
 									dataKey="y"
 									name={s.label}
 									yAxisId={s.axis === 'right' ? 'right' : 'left'}
-									stroke={s.color ?? colors[idx % colors.length]}
+									stroke={s.color ?? NODE_PALETTE[idx % NODE_PALETTE.length]}
 									strokeWidth={2}
 									strokeOpacity={s.opacity ?? 1}
 									dot={showDots ? { r: 2 } : false}

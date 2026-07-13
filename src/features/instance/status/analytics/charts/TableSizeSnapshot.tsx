@@ -3,16 +3,23 @@ import { useNodeSelection } from '../hooks/useNodeSelection.ts';
 import { getTableColor, OTHER_COLOR } from '../lib/tableColors.ts';
 import { OTHER_KEY, type Snapshot } from '../lib/tableSize.ts';
 import { getChartColors, type Theme } from '../lib/theme.ts';
-import { formatBytes } from '../lib/time.ts';
+import { formatValue } from '../primitives/formatValue.ts';
+import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle.ts';
 import type { ViewMode } from '../types/analytics.ts';
 import { NodeLegend } from './NodeLegend.tsx';
 import { TableSizeChipRow } from './TableSizeChipRow.tsx';
+
+/** One byte-format path for every chart — see primitives/formatValue.ts. */
+const formatBytes = (bytes: number) => formatValue(bytes, 'bytes-si');
 
 interface Props {
 	snapshot: Snapshot;
 	/** Display mode: 'per-node' → Absolute (raw bytes), 'aggregate' → Normalized (percent of cluster max). */
 	viewMode: ViewMode;
-	theme: Theme;
+	/** @deprecated Ignored — theming resolves via `--chart-*` CSS tokens.
+	 *  Kept optional only while StorageTab (owned by a parallel refactor)
+	 *  still passes it. */
+	theme?: Theme;
 	/** Snapshot's own highlight — drives chip `aria-checked` + bar-segment outline. */
 	selectedTable: string | null;
 	/** Chip click / Enter / Space / arrow-nav — local to this panel; should NOT
@@ -60,13 +67,12 @@ function toRows(
 export function TableSizeSnapshot({
 	snapshot,
 	viewMode,
-	theme,
 	selectedTable,
 	onChipSelect,
 	onBarClick,
 	allOtherHint,
 }: Props) {
-	const colors = getChartColors(theme);
+	const colors = getChartColors();
 	// The full cluster node list, used both for the legend and for color
 	// assignment so the same node gets the same color on both panels.
 	const clusterNodeIds = snapshot.byNode.map((n) => n.node);
@@ -109,12 +115,9 @@ export function TableSizeSnapshot({
 							domain={normalized ? [0, clusterMaxTotal] : ['auto', 'auto']}
 						/>
 						<Tooltip
-							contentStyle={{
-								backgroundColor: colors.tooltipBg,
-								border: `1px solid ${colors.tooltipBorder}`,
-								borderRadius: 8,
-								fontSize: 12,
-							}}
+							contentStyle={tooltipContentStyle}
+							labelStyle={tooltipLabelStyle}
+							itemStyle={tooltipItemStyle}
 							formatter={(value, name, ctx) => {
 								const nameStr = String(name);
 								const label = nameStr === OTHER_KEY ? 'Other' : nameStr;

@@ -20,12 +20,12 @@ describe('SmallMultiples primitive', () => {
 	afterEach(() => cleanup());
 
 	it('renders one mini-panel per input entry', () => {
-		render(<SmallMultiples panels={panels} theme="light" />);
+		render(<SmallMultiples panels={panels} />);
 		const headings = document.querySelectorAll('[data-testid="small-multiple-title"]');
 		expect(headings.length).toBe(3);
 	});
 	it('includes each panel title', () => {
-		const { container } = render(<SmallMultiples panels={panels} theme="light" />);
+		const { container } = render(<SmallMultiples panels={panels} />);
 		expect(
 			container.querySelector('[data-testid="small-multiple-title"]:first-child')
 				|| container.textContent?.includes('CPU'),
@@ -42,7 +42,7 @@ describe('SmallMultiples primitive', () => {
 				yAxis: { unit: '/s', formatter: 'count' },
 			},
 		];
-		const { container } = render(<SmallMultiples panels={perAxisPanels} theme="light" />);
+		const { container } = render(<SmallMultiples panels={perAxisPanels} />);
 		await waitFor(() => {
 			const tickEls = container.querySelectorAll('.recharts-cartesian-axis-tick-value, .recharts-yAxis text');
 			const labels = Array.from(tickEls).map((t) => t.textContent ?? '');

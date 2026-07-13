@@ -48,7 +48,6 @@ describe('DimensionSelectorRenderer chip↔combobox auto-switch', () => {
 				records={recordsForN(12)}
 				timeRange={range}
 				nodes={['n1']}
-				theme="light"
 			/>,
 		);
 		const chips = await screen.findAllByRole('radio');
@@ -64,7 +63,6 @@ describe('DimensionSelectorRenderer chip↔combobox auto-switch', () => {
 				records={recordsForN(13)}
 				timeRange={range}
 				nodes={['n1']}
-				theme="light"
 			/>,
 		);
 		// DimensionCombobox uses APG button-pattern: trigger is a button with
@@ -101,7 +99,6 @@ describe('DimensionSelectorRenderer quantile picker radiogroup', () => {
 				records={recordsForN(3)}
 				timeRange={range}
 				nodes={['n1']}
-				theme="light"
 			/>,
 		);
 		return screen.getAllByTestId('quantile-button');

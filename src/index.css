@@ -98,6 +98,49 @@
 	--chart-tooltip-bg: var(--popover);
 	--chart-tooltip-fg: var(--popover-foreground);
 
+	/* Categorical chart palettes (Status analytics). Three disjoint palettes
+	 * so the three categorical encodings (nodes / tables / protocol types)
+	 * never collide visually — enforced by
+	 * src/features/instance/status/analytics/__tests__/paletteDisjointness.test.ts,
+	 * which parses these definitions. Values are shared by light and dark
+	 * (chosen for AA contrast against both --card surfaces); override in
+	 * .dark if the palettes ever need to diverge per theme. */
+	--chart-node-1: #58a6ff;   /* blue */
+	--chart-node-2: #3fb950;   /* green */
+	--chart-node-3: #f0883e;   /* orange */
+	--chart-node-4: #bc8cff;   /* purple */
+	--chart-node-5: #f778ba;   /* pink */
+	--chart-node-6: #79c0ff;   /* light blue */
+	--chart-node-7: #d2a8ff;   /* lavender */
+	--chart-node-8: #ffa657;   /* amber */
+	--chart-node-9: #ff7b72;   /* red */
+	--chart-node-10: #7ee787;  /* lime */
+
+	--chart-table-1: #e45756;  /* red */
+	--chart-table-2: #f58518;  /* orange */
+	--chart-table-3: #eeca3b;  /* yellow */
+	--chart-table-4: #54a24b;  /* green */
+	--chart-table-5: #4c78a8;  /* blue */
+	--chart-table-6: #b279a2;  /* mauve */
+	--chart-table-7: #9d755d;  /* brown */
+	--chart-table-8: #17becf;  /* cyan */
+	--chart-table-9: #72b7b2;  /* teal */
+	--chart-table-10: #bab0ac; /* grey */
+
+	--chart-type-1: #0d9488;   /* teal-600 */
+	--chart-type-2: #dc2626;   /* red-600 */
+	--chart-type-3: #7c3aed;   /* violet-600 */
+	--chart-type-4: #d97706;   /* amber-600 */
+	--chart-type-5: #db2777;   /* pink-600 */
+	--chart-type-6: #0284c7;   /* sky-600 */
+
+	/* Rolled-up "Other" stack — neutral grey so it reads as an aggregate. */
+	--chart-other: #6b7280;
+
+	/* Heatmap confidence-state greys (suppressed hatch / absent-cell strokes). */
+	--chart-heatmap-muted-bg: #f3f4f6;
+	--chart-heatmap-muted-stroke: #9ca3af;
+	--chart-heatmap-grey-stroke: #9ca3af;
 }
 
 .dark {
@@ -139,6 +182,13 @@
 		--chart-axis: hsl(0 0% 70%);
 		--chart-tooltip-bg: var(--popover);
 		--chart-tooltip-fg: var(--popover-foreground);
+
+		/* Categorical palettes (--chart-node/table/type/other) are inherited
+		 * from :root — the same values are contrast-checked for both surfaces.
+		 * Heatmap confidence greys do differ per theme: */
+		--chart-heatmap-muted-bg: #1f2937;
+		--chart-heatmap-muted-stroke: #4b5563;
+		--chart-heatmap-grey-stroke: #6b7280;
 
 		--shadow-deep: 0 2px 8px 0 rgba(0,0,0,0.4), 0 1px 2px 0 rgba(0,0,0,0.3);
 }
