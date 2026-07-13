@@ -16,6 +16,9 @@ export function useResolvedTheme(): Theme {
 	);
 	useEffect(() => {
 		const root = document.documentElement;
+		// Re-sync on mount: a theme toggle between the lazy initializer and
+		// the observer attaching would otherwise be missed.
+		setDark(root.classList.contains('dark'));
 		const observer = new MutationObserver(() => {
 			setDark(root.classList.contains('dark'));
 		});
