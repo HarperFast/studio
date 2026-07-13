@@ -15,7 +15,7 @@ export type ValueFormatter = 'bytes-si' | 'bytes-iec' | 'ms' | 'percent' | 'core
  * tick labels aligned and unambiguous at small font sizes.
  */
 export function formatValue(
-	v: number,
+	v: number | null | undefined,
 	formatter?: ValueFormatter,
 	unitSuffix?: string,
 ): string {
