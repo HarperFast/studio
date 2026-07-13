@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../hooks/useAnalyticsRecords.ts', () => ({
@@ -40,14 +40,17 @@ describe('MetricPanel', () => {
 		expect(screen.getByLabelText('Loading')).toBeTruthy();
 	});
 
-	it('renders an error message when isError', () => {
-		setHookResult({ isError: true, error: new Error('boom') });
+	it('renders an error message with a Retry button when isError', () => {
+		const refetch = vi.fn();
+		setHookResult({ isError: true, error: new Error('boom'), refetch });
 		render(
 			<AnalyticsTestWrapper>
 				<MetricPanel metric="cpu-usage" />
 			</AnalyticsTestWrapper>,
 		);
 		expect(screen.getByText(/Failed to load: boom/)).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+		expect(refetch).toHaveBeenCalledTimes(1);
 	});
 
 	it('renders generic empty copy when no data and no missing fields', () => {

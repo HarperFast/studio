@@ -29,6 +29,20 @@ const DERIVED_REQUIRED_FIELDS: Record<string, readonly string[]> = {
  *  blank an otherwise-fine chart (we hit this with cpu-usage, which has a
  *  quantile picker but ships zero quantile fields by default). */
 export function getSpecRequiredFields(metric: string): readonly string[] {
+	let fields = requiredFieldsCache.get(metric);
+	if (!fields) {
+		fields = computeRequiredFields(metric);
+		requiredFieldsCache.set(metric, fields);
+	}
+	return fields;
+}
+
+/** Results are deterministic per metric (the registries are static module
+ *  state), so cache them — panels call this every render and a fresh array
+ *  identity would churn downstream memos. */
+const requiredFieldsCache = new Map<string, readonly string[]>();
+
+function computeRequiredFields(metric: string): readonly string[] {
 	const override = DERIVED_REQUIRED_FIELDS[metric];
 	if (override) { return override; }
 	const derived = derivedRegistry[metric];

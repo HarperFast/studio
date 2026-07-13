@@ -24,6 +24,11 @@ describe('getSpecRequiredFields', () => {
 		expect(fields).toContain('period');
 	});
 
+	it('returns a stable array identity per metric (cached — panels call this every render)', () => {
+		expect(getSpecRequiredFields('db-read')).toBe(getSpecRequiredFields('db-read'));
+		expect(getSpecRequiredFields('not-a-metric')).toBe(getSpecRequiredFields('not-a-metric'));
+	});
+
 	it('uses derived-metric overrides for metrics not in the spec registry', () => {
 		const reqRate = getSpecRequiredFields('request-rate');
 		expect(reqRate).toContain('count');
