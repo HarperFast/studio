@@ -79,6 +79,9 @@ export function PendingGrantsInput({
 					value={component}
 					onChange={(event) => setComponent(event.target.value)}
 					onKeyDown={onKeyDown}
+					// Commit a typed-but-not-added name on blur too, so submitting the Add-secret form (which
+					// blurs this field first) doesn't silently drop it. add() no-ops on empty/duplicate.
+					onBlur={add}
 					disabled={disabled}
 				/>
 				<Button

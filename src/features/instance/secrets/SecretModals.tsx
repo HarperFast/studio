@@ -339,7 +339,16 @@ export function EditSecretModal({
 										disabled={busy}
 										// The live grants editor (grant_secret/revoke_secret) only applies to scoped
 										// secrets — the picker shows it under the scoped option and hides it for env vars.
-										grantsSlot={children}
+										// On an *unsaved* switch to scoped the secret is still processEnv server-side, so
+										// grant_secret would be rejected: show a hint until the scoped save lands, rather than
+										// a live editor that fires a doomed request.
+										grantsSlot={tierChanged
+											? (
+												<p className="text-sm text-muted-foreground">
+													Save this as a scoped secret first, then you can grant applications.
+												</p>
+											)
+											: children}
 									/>
 									{tierChanged && !isDirty && (
 										<p className="text-sm text-amber-600 dark:text-amber-500">

@@ -117,7 +117,9 @@ export function ConfigIndex() {
 			)}
 			{
 				/* Secrets (the replicated hdb_secret store): any instance or cluster on a supported
-			    version — key custody may be file-based (self-hosted) or injected (Fabric). */
+			    version — key custody may be file-based (self-hosted) or injected (Fabric). Manage-gated
+			    like every entry here (it lives under the `canManage` block above); the secret operations
+			    are additionally super_user-only server-side, so a deep-link by a lesser role lists nothing. */
 			}
 			{secretsSupported && (
 				<li>

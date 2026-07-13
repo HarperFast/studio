@@ -119,11 +119,32 @@ describe('SecretsManager delivery tier — Edit', () => {
 		expect(onSet).toHaveBeenCalledWith('TOKEN', 'rotated', { processEnv: true });
 	});
 
-	it('a scoped row shows the accessor example', async () => {
+	it('a scoped row shows the accessor example and the live grants editor', async () => {
 		renderManager({
 			rows: [{ name: 'DB_PASSWORD', processEnv: false }],
 			selectedName: 'DB_PASSWORD',
+			renderEditExtras: () => <div data-testid="live-grants">grants</div>,
 		});
 		await waitFor(() => expect(exampleText()).toContain('const { DB_PASSWORD } = secrets;'));
+		// Tier matches what's stored (scoped, unchanged), so the live grant_secret editor is safe.
+		expect(screen.getByTestId('live-grants')).toBeTruthy();
+	});
+
+	it('hides the live grants editor on an unsaved switch from processEnv to scoped', async () => {
+		renderManager({
+			rows: [{ name: 'TOKEN', processEnv: true }],
+			selectedName: 'TOKEN',
+			renderEditExtras: () => <div data-testid="live-grants">grants</div>,
+		});
+		await waitFor(() => expect(exampleText()).toContain('process.env.TOKEN'));
+		// processEnv secret: no scoped grants slot at all.
+		expect(screen.queryByTestId('live-grants')).toBeNull();
+
+		// Flip to scoped without saving: the secret is still processEnv server-side, so a live
+		// grant_secret would be rejected — show the "save first" hint instead of the editor.
+		fireEvent.click(screen.getAllByRole('radio')[0]);
+		await waitFor(() => expect(exampleText()).toContain('const { TOKEN } = secrets;'));
+		expect(screen.queryByTestId('live-grants')).toBeNull();
+		expect(screen.getByText(/save this as a scoped secret first/i)).toBeTruthy();
 	});
 });
