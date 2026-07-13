@@ -88,8 +88,8 @@ function collectFromSpec(spec: MetricSpec): string[] {
 	if (referencesRate) { fields.add('period'); }
 
 	// NOT required and intentionally excluded:
-	//   - `spec.confidence.field`: confidence gating greys low-count cells but
-	//     a record without it just renders ungated, not blank.
+	//   - `count` (confidence gating): greys low-count cells but a record
+	//     without it just renders ungated, not blank.
 	//   - `spec.primaryDimension` / `spec.subDimension`: documentation /
 	//     subgroup labels, not always read by the rendering path. Including
 	//     them mis-flags specs whose visible field is something else (we hit

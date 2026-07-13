@@ -9,7 +9,7 @@ const STORAGE_KEY = 'studio:analytics:onboarding-dismissed:v1';
 
 /** First-visit hint explaining the chart interactions that aren't visually
  *  discoverable: click a legend entry to solo a node, ⌘/Ctrl-click to
- *  multi-select, and click bar segments / heatmap cells for drilldown.
+ *  multi-select, and click a storage bar segment to pin its table's trend.
  *  Dismissal is persisted to localStorage so it doesn't reappear. */
 export function AnalyticsOnboardingHint() {
 	const [dismissed, setDismissed] = useState<boolean | null>(null);
@@ -44,7 +44,7 @@ export function AnalyticsOnboardingHint() {
 				<kbd className="rounded border border-border px-1 py-0.5 text-xs">⌘</kbd>
 				{' / '}
 				<kbd className="rounded border border-border px-1 py-0.5 text-xs">Ctrl</kbd>
-				{'-click to compare a few. Bar segments and heatmap cells are clickable for drilldown.'}
+				{"-click to compare a few. In the storage charts, click a bar segment to pin that table's trend."}
 			</div>
 			<Button
 				variant="ghost"

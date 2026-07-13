@@ -5,7 +5,9 @@ import { getStatusQueryOptions } from '@/integrations/api/instance/status/getSta
 import { getSystemInformationQueryOptions } from '@/integrations/api/instance/status/getSystemInformation';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Suspense, useMemo } from 'react';
-import { crawlData, hasTitle } from '../lib/crawlData.ts';
+import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
+import { crawlData, hasTitle } from './crawlData.ts';
+import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
 
 interface Props {
 	instanceParams: InstanceClientIdConfig & InstanceTypeConfig;
@@ -13,12 +15,24 @@ interface Props {
 }
 
 export function OverviewTab({ instanceParams, isLocalStudio }: Props) {
+	// useSuspenseQuery throws query errors during render — without a boundary
+	// a failed get_status/system_information request unmounted the whole tab
+	// tree. Same containment pattern (and time-range resetKey) as the chart
+	// tabs' panels: an auto-refresh window slide or preset change clears the
+	// failed state and remounts the query, so a transient failure doesn't
+	// leave the tab permanently unavailable.
+	const { timeRange } = useAnalyticsContext();
 	return (
-		<Suspense fallback={<OverviewSkeleton />}>
-			{isLocalStudio
-				? <LocalOverview instanceParams={instanceParams} />
-				: <CloudOverview instanceParams={instanceParams} />}
-		</Suspense>
+		<PanelErrorBoundary
+			metric="overview"
+			resetKey={`${String(instanceParams.entityId)}-${timeRange.startTime}-${timeRange.endTime}`}
+		>
+			<Suspense fallback={<OverviewSkeleton />}>
+				{isLocalStudio
+					? <LocalOverview instanceParams={instanceParams} />
+					: <CloudOverview instanceParams={instanceParams} />}
+			</Suspense>
+		</PanelErrorBoundary>
 	);
 }
 

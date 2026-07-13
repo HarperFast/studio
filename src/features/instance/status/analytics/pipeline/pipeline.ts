@@ -25,7 +25,6 @@
 import type {
 	Aggregator,
 	AnalyticsDataPoint,
-	FieldExpr,
 	FieldSpec,
 	MetricSpec,
 	Series,
@@ -117,14 +116,37 @@ function resolveTime(spec: MetricSpec, record: AnalyticsDataPoint): number | nul
 		return typeof t === 'number' && Number.isFinite(t) ? t : null;
 	}
 	if (which === 'id') {
-		const t = (record as any).id;
+		const t = record.id;
 		return typeof t === 'number' && Number.isFinite(t) ? t : null;
 	}
 	// 'time-or-id'
 	const t = record.time;
 	if (typeof t === 'number' && Number.isFinite(t)) { return t; }
-	const id = (record as any).id;
+	const id = record.id;
 	return typeof id === 'number' && Number.isFinite(id) ? id : null;
+}
+
+/** Resolve every record's timestamp up front (`resolveTime` per record).
+ *  Records that resolve to null are dropped by the callers; emit ONE summary
+ *  warn with a count and a sample instead of one warn per unique (dim, time)
+ *  — the old per-key dedup Set grew unboundedly on long windows. */
+function resolveTimes(where: string, spec: MetricSpec, records: AnalyticsDataPoint[]): (number | null)[] {
+	const resolved = records.map((r) => resolveTime(spec, r));
+	let dropped = 0;
+	let sample: AnalyticsDataPoint | undefined;
+	for (let i = 0; i < resolved.length; i++) {
+		if (resolved[i] === null) {
+			dropped++;
+			sample ??= records[i];
+		}
+	}
+	if (dropped > 0) {
+		console.warn(`[${where}] Dropping ${dropped} record(s) with no resolvable timestamp:`, {
+			sample: sample && { time: sample.time, id: sample.id, node: sample.node },
+			timestamp: spec.timestamp ?? 'time',
+		});
+	}
+	return resolved;
 }
 
 function projectValue(
@@ -134,7 +156,7 @@ function projectValue(
 ): number | null {
 	const raw = typeof fieldSpec.field === 'string'
 		? (typeof record[fieldSpec.field] === 'number' ? (record[fieldSpec.field] as number) : null)
-		: evalFieldExpr(fieldSpec.field as FieldExpr, record);
+		: evalFieldExpr(fieldSpec.field, record);
 	return runTransform(fieldSpec.transform ?? { kind: 'raw' }, raw, resolvePeriod(spec, record));
 }
 
@@ -155,26 +177,15 @@ function runGroupBy(
 	// gating.
 	const buckets = new Map<string | number, Map<number, Map<string, NodeBucket>>>();
 	const dimTotals = new Map<string | number, number>();
-	const warnedTimes = new Set<string>();
-	for (const r of records) {
+	const resolvedTimes = resolveTimes('runGroupBy', spec, records);
+	for (let i = 0; i < records.length; i++) {
+		const r = records[i];
 		const dimVal = r[src.dimension];
 		if (typeof dimVal !== 'string' && typeof dimVal !== 'number') { continue; }
 		const v = projectValue(spec, src.field, r);
 		if (v === null) { continue; }
-		const resolvedTime = resolveTime(spec, r);
-		if (resolvedTime === null) {
-			const key = `${String(r[src.dimension])}|${String(r.time)}`;
-			if (!warnedTimes.has(key)) {
-				warnedTimes.add(key);
-				console.warn('[runGroupBy] Dropping record with no resolvable timestamp:', {
-					dimension: r[src.dimension],
-					time: r.time,
-					id: (r as any).id,
-					timestamp: spec.timestamp ?? 'time',
-				});
-			}
-			continue;
-		}
+		const resolvedTime = resolvedTimes[i];
+		if (resolvedTime === null) { continue; }
 		const time = snapToPeriod ? snapToBucketTime(spec, r, resolvedTime) : resolvedTime;
 		const recordCount = typeof r.count === 'number' && Number.isFinite(r.count) ? r.count : 1;
 		const node = typeof r.node === 'string' ? r.node : '_no_node';
@@ -214,13 +225,7 @@ function runGroupBy(
 	const series: Series[] = [];
 	let suppressedSeriesCount = 0;
 	for (const [key, total] of kept) {
-		const confClass = classifyConfidence(
-			total,
-			spec.confidence && {
-				greyBelow: spec.confidence.greyBelow,
-				suppressBelow: spec.confidence.suppressBelow,
-			},
-		);
+		const confClass = classifyConfidence(total, spec.confidence);
 		if (confClass === 'suppress') {
 			suppressedSeriesCount++;
 			continue;
@@ -293,13 +298,7 @@ function runGroupBy(
 	// then run the same two-pass aggregation.
 	if (src.otherBucket && rest.length > 0) {
 		const otherTotal = rest.reduce((acc, [, c]) => acc + c, 0);
-		const confClass = classifyConfidence(
-			otherTotal,
-			spec.confidence && {
-				greyBelow: spec.confidence.greyBelow,
-				suppressBelow: spec.confidence.suppressBelow,
-			},
-		);
+		const confClass = classifyConfidence(otherTotal, spec.confidence);
 		if (confClass !== 'suppress') {
 			const otherPerTime = new Map<number, Map<string, NodeBucket>>();
 			for (const [key] of rest) {
@@ -355,25 +354,16 @@ function runFieldSpecs(
 	perNode: boolean,
 	snapToPeriod: boolean,
 ): SeriesData {
-	const warnedTimes = new Set<string>();
+	// Timestamps don't depend on the field — resolve (and summary-warn) once,
+	// not once per field.
+	const resolvedTimes = resolveTimes('runFieldSpecs', spec, records);
 	const seriesArrays: Series[][] = fields.map((f) => {
 		// time → node → NodeBucket
 		const buckets = new Map<number, Map<string, NodeBucket>>();
-		for (const r of records) {
-			const resolvedTime = resolveTime(spec, r);
-			if (resolvedTime === null) {
-				const key = `${f.label}|${String(r.time)}`;
-				if (!warnedTimes.has(key)) {
-					warnedTimes.add(key);
-					console.warn('[runFieldSpecs] Dropping record with no resolvable timestamp:', {
-						field: f.label,
-						time: r.time,
-						id: (r as any).id,
-						timestamp: spec.timestamp ?? 'time',
-					});
-				}
-				continue;
-			}
+		for (let i = 0; i < records.length; i++) {
+			const r = records[i];
+			const resolvedTime = resolvedTimes[i];
+			if (resolvedTime === null) { continue; }
 			const v = projectValue(spec, f, r);
 			if (v === null) { continue; }
 			const recordCount = typeof r.count === 'number' && Number.isFinite(r.count) ? r.count : 1;

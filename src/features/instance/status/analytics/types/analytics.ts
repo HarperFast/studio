@@ -123,12 +123,18 @@ export interface MetricSpec {
 	subDimension?: string | string[];
 	series: SeriesSource;
 	timestamp?: 'time' | 'id' | 'time-or-id';
-	bucket: { source: 'period-field' | 'observed-interval' | 'fixed'; fallbackMs?: number };
+	/** Bucket sizing. `'period-field'` (read each record's `period`, fall back
+	 *  to `fallbackMs`) is the only implemented source — the type is narrowed
+	 *  to it so spec authors can't select an unimplemented strategy. Widen the
+	 *  union again if/when `observed-interval` or `fixed` land in the pipeline. */
+	bucket: { source: 'period-field'; fallbackMs?: number };
 	/** Required on every committed spec; small-multiples specs often set a no-op
 	 *  default here and override per field. */
 	aggregator: { temporal: Aggregator; crossNode: Aggregator };
-	/** Applied to the post-temporal-aggregation window count (not per-record). */
-	confidence?: { field: string; greyBelow?: number; suppressBelow?: number };
+	/** Applied to the post-temporal-aggregation window count (not per-record).
+	 *  The count always comes from summing `record.count` — there is no
+	 *  configurable source field. */
+	confidence?: { greyBelow?: number; suppressBelow?: number };
 	primitive: 'line' | 'stacked-area' | 'small-multiples' | 'heatmap';
 	yAxis: AxisSpec | { left: AxisSpec; right?: AxisSpec };
 	layout?: { colSpan?: 1 | 2 };
@@ -257,9 +263,16 @@ export interface HeatmapData {
 	/** Axis labels for row/column headers (sighted + AT). */
 	rowAxisLabel?: string;
 	colAxisLabel?: string;
-	/** Count of records the renderer dropped due to unparseable `path` fields
-	 *  (orphan-source scenario). Always populated (0 when none). */
+	/** Total records the renderer dropped, all causes combined
+	 *  (= unparseablePathCount + missingValueCount for replication-latency).
+	 *  Always populated (0 when none). */
 	skippedRecordsCount: number;
+	/** Records dropped because their `path` field could not be parsed into
+	 *  source/db/table (orphan-source scenario). */
+	unparseablePathCount?: number;
+	/** Records dropped because the selected quantile field carried no finite
+	 *  numeric value. */
+	missingValueCount?: number;
 	/** Source-node names recovered by the heuristic fallback in pathParser
 	 *  — present in the data but NOT in the known-node list. Operator may
 	 *  want to confirm these are real cluster peers vs decommissioned /

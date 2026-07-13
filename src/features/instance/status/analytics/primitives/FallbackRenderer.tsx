@@ -26,8 +26,11 @@ const MAX_FALLBACK_PANELS = 8;
 interface Props {
 	metric: string;
 	records: AnalyticsDataPoint[];
-	window: TimeRange;
-	nodes: string[];
+	/** Unused by this renderer — accepted (optionally) only because
+	 *  MetricRenderer's callsites still pass them; drop from both sides when
+	 *  those callsites are next touched. */
+	window?: TimeRange;
+	nodes?: string[];
 	theme: 'light' | 'dark';
 	/** Optional inline banner shown above the dev hint — used by callers that
 	 *  fell through to FallbackRenderer for a known reason (e.g. legacy chart
@@ -52,11 +55,14 @@ function inferNumericFields(records: AnalyticsDataPoint[]): string[] {
 		.map(([key]) => key);
 }
 
-export function FallbackRenderer({ metric, records, theme, hint }: Props) {
+/** Pure panel construction, exported for tests. Records lacking a numeric
+ *  `time` are dropped — mapping them to x=0 plotted at 1970 and dragged the
+ *  chart's x-domain back 56 years. */
+export function buildFallbackPanels(
+	records: AnalyticsDataPoint[],
+): { panels: { title: string; data: SeriesData }[]; overflowCount: number } {
 	const fields = inferNumericFields(records);
 	const visibleFields = fields.slice(0, MAX_FALLBACK_PANELS);
-	const overflow = fields.length - visibleFields.length;
-
 	const panels = visibleFields.map((field) => {
 		const data: SeriesData = {
 			series: [
@@ -64,9 +70,9 @@ export function FallbackRenderer({ metric, records, theme, hint }: Props) {
 					key: field,
 					label: field,
 					points: records
-						.filter((r) => typeof r[field] === 'number')
+						.filter((r) => typeof r[field] === 'number' && typeof r.time === 'number')
 						.map((r) => ({
-							x: typeof r.time === 'number' ? r.time : 0,
+							x: r.time,
 							y: r[field] as number,
 						})),
 				},
@@ -74,6 +80,11 @@ export function FallbackRenderer({ metric, records, theme, hint }: Props) {
 		};
 		return { title: field, data };
 	});
+	return { panels, overflowCount: fields.length - visibleFields.length };
+}
+
+export function FallbackRenderer({ metric, records, theme, hint }: Props) {
+	const { panels, overflowCount: overflow } = buildFallbackPanels(records);
 
 	const kebab = metric.replace(/_/g, '-');
 	const banner = isDev

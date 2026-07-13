@@ -13,7 +13,7 @@ export const utilizationSpec: MetricSpec = {
 	timestamp: 'time',
 	bucket: { source: 'period-field', fallbackMs: 60000 },
 	aggregator: { temporal: 'mean', crossNode: 'max' },
-	confidence: { field: 'count', greyBelow: 40, suppressBelow: 100 },
+	confidence: { greyBelow: 40, suppressBelow: 100 },
 	primitive: 'line',
 	yAxis: { unit: '', formatter: 'percent' },
 };
