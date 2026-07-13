@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import { response200Spec } from '../../pipeline/response-200.tsx';
-import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics.ts';
+import { runPipeline } from '../../pipeline/pipeline';
+import { response200Spec } from '../../pipeline/response-200';
+import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 

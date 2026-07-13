@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isApproxAggregator, labelWithApprox } from '../../pipeline/approxLabel.ts';
+import { isApproxAggregator, labelWithApprox } from '../../pipeline/approxLabel';
 
 describe('approxLabel', () => {
 	it('appends " (approx)" when aggregator is count-weighted-mean', () => {

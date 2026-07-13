@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import type { AxisSpec, SeriesData } from '../types/analytics.ts';
-import { LineChart } from './LineChart.tsx';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { getNodeColor } from '../lib/nodeColors';
+import type { AxisSpec, SeriesData } from '../types/analytics';
+import { LineChart } from './LineChart';
 
 interface Panel {
 	title: string;

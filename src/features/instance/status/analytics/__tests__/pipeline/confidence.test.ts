@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyConfidence } from '../../pipeline/confidence.ts';
+import { classifyConfidence } from '../../pipeline/confidence';
 
 describe('classifyConfidence (post-aggregation windowed count)', () => {
 	const rule = { greyBelow: 40, suppressBelow: 100 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STATUS_SEARCH_DEFAULTS, validateStatusSearch } from './statusSearch.ts';
+import { STATUS_SEARCH_DEFAULTS, validateStatusSearch } from './statusSearch';
 
 describe('validateStatusSearch', () => {
 	it('passes through valid values', () => {

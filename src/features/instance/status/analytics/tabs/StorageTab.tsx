@@ -1,16 +1,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useRef, useState } from 'react';
-import { TableSizeSnapshot } from '../charts/TableSizeSnapshot.tsx';
-import { TableSizeTrend } from '../charts/TableSizeTrend.tsx';
-import { ChartCopyButton } from '../components/ChartCopyButton.tsx';
-import { ChartExpandButton } from '../components/ChartExpandButton.tsx';
-import { ChartExportButton } from '../components/ChartExportButton.tsx';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords.ts';
-import { buildDerived, type RankBy, type TableSizeDerived } from '../lib/tableSize.ts';
-import type { TableSizeRecord } from '../types/analytics.ts';
-import { MetricPanel } from './MetricPanel.tsx';
-import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
+import { TableSizeSnapshot } from '../charts/TableSizeSnapshot';
+import { TableSizeTrend } from '../charts/TableSizeTrend';
+import { ChartCopyButton } from '../components/ChartCopyButton';
+import { ChartExpandButton } from '../components/ChartExpandButton';
+import { ChartExportButton } from '../components/ChartExportButton';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
+import { buildDerived, type RankBy, type TableSizeDerived } from '../lib/tableSize';
+import type { TableSizeRecord } from '../types/analytics';
+import { MetricPanel } from './MetricPanel';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
 
 function derivedClusterNodes(derived: TableSizeDerived): string[] {
 	return derived.snapshot.byNode.map((b) => b.node);
@@ -32,7 +32,7 @@ export function StorageTab() {
 }
 
 function TableSizePanels() {
-	const { timeRange, bucketMs, theme, instanceParams } = useAnalyticsContext();
+	const { timeRange, bucketMs, instanceParams } = useAnalyticsContext();
 	const { data, isLoading, isError } = useAnalyticsRecords({
 		metric: 'table-size',
 		startTime: timeRange.startTime,
@@ -134,7 +134,6 @@ function TableSizePanels() {
 		<TableSizeSnapshot
 			snapshot={derived.snapshot}
 			viewMode="per-node"
-			theme={theme}
 			selectedTable={effectiveSelection}
 			onChipSelect={setSelected}
 			onBarClick={setSelected}
@@ -147,7 +146,6 @@ function TableSizePanels() {
 				<TableSizeTrend
 					derived={derived}
 					viewMode="per-node"
-					theme={theme}
 					selectedTable={effectiveSelection}
 					onChipSelect={setSelected}
 					manualSelection={selected !== null}

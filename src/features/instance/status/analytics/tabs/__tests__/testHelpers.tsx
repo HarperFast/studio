@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { type AnalyticsContextValue, AnalyticsProvider } from '../../context/AnalyticsContext.tsx';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { type AnalyticsContextValue, AnalyticsProvider } from '../../context/AnalyticsContext';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 export function makeInstanceParams(): InstanceClientIdConfig & InstanceTypeConfig {
 	return {
@@ -17,7 +17,6 @@ export function makeContextValue(overrides: Partial<AnalyticsContextValue> = {})
 	return {
 		timeRange: { startTime: 0, endTime: 60_000 },
 		bucketMs: 60_000,
-		theme: 'light',
 		instanceParams: makeInstanceParams(),
 		...overrides,
 	};

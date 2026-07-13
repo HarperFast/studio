@@ -15,17 +15,17 @@
 //     the stack pre-pipeline.
 
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
-import { useSoloToggleSelection } from '../hooks/useSoloToggleSelection.ts';
-import { getTypeColor } from '../lib/colorAllocators/typeColors.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import { runPipeline } from '../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec, Series, SeriesData, TimeRange } from '../types/analytics.ts';
-import { SmallMultiples } from './SmallMultiples.tsx';
-import { StackedAreaChart } from './StackedAreaChart.tsx';
-import { TypeFilterChipRow } from './TypeFilterChipRow.tsx';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
+import { useSoloToggleSelection } from '../hooks/useSoloToggleSelection';
+import { getTypeColor } from '../lib/colorAllocators/typeColors';
+import { getNodeColor } from '../lib/nodeColors';
+import { runPipeline } from '../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, Series, SeriesData, TimeRange } from '../types/analytics';
+import { SmallMultiples } from './SmallMultiples';
+import { StackedAreaChart } from './StackedAreaChart';
+import { TypeFilterChipRow } from './TypeFilterChipRow';
 
 interface Props {
 	/** Underlying spec (groupBy on `typeField`, primitive `stacked-area`). */

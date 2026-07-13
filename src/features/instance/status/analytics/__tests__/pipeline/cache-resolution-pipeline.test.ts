@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cacheResolutionSpec } from '../../pipeline/cache-resolution.tsx';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { cacheResolutionSpec } from '../../pipeline/cache-resolution';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 // Synthetic rows shaped like the real Harper response. The real schema
 // carries a per-bucket count-weighted distribution for each path; the

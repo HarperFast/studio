@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { TrafficByTypeRenderer } from '../../primitives/TrafficByTypeRenderer.tsx';
-import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics.ts';
+import { TrafficByTypeRenderer } from '../../primitives/TrafficByTypeRenderer';
+import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics';
 
 const range = { startTime: 0, endTime: 10_000_000 };
 

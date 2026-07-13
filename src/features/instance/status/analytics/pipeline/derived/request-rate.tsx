@@ -1,5 +1,5 @@
-import { PerPathRateRenderer } from '../../primitives/PerPathRateRenderer.tsx';
-import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics.ts';
+import { PerPathRateRenderer } from '../../primitives/PerPathRateRenderer';
+import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics';
 
 /**
  * Derived: request-rate per (path, time) bucket. Reads raw `count` and `period`
@@ -104,12 +104,11 @@ export const requestRateDerived: DerivedMetricSpec = {
 	tab: 'requests',
 	sourceMetric: 'duration',
 	recompute: recomputeRequestRate,
-	Renderer: ({ records, timeRange, nodes, theme, viewMode }) => (
+	Renderer: ({ records, timeRange, nodes, viewMode }) => (
 		<PerPathRateRenderer
 			records={records}
 			timeRange={timeRange}
 			nodes={nodes}
-			theme={theme}
 			viewMode={viewMode}
 			yAxis={{ unit: '/s', formatter: 'count-si' }}
 			compute={computeForRenderer}

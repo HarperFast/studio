@@ -1,4 +1,4 @@
-import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics.ts';
+import type { AnalyticsDataPoint, DerivedMetricSpec, Series, SeriesData, TimeRange } from '../../types/analytics';
 
 /**
  * Derived: per-(path, time) error rate computed from raw `count` and `total`

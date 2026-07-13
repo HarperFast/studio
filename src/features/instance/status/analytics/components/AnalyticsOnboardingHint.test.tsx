@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AnalyticsOnboardingHint } from './AnalyticsOnboardingHint.tsx';
+import { AnalyticsOnboardingHint } from './AnalyticsOnboardingHint';
 
 const STORAGE_KEY = 'studio:analytics:onboarding-dismissed:v1';
 

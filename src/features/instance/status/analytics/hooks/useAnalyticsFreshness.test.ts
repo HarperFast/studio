@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { formatRelativeUpdate, useAnalyticsFreshness } from './useAnalyticsFreshness.ts';
+import { formatRelativeUpdate, useAnalyticsFreshness } from './useAnalyticsFreshness';
 
 /** Panel-shaped key per getAnalytics.ts: [prefix, entityId, metric, start, end, bucket, conditions]. */
 const analyticsKey = (entityId: string) => ['get_analytics_raw', entityId, 'cpu-usage', 0, 60_000, null, null];

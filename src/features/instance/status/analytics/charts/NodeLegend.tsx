@@ -1,4 +1,4 @@
-import { getNodeColor } from '../lib/nodeColors.ts';
+import { getNodeColor } from '../lib/nodeColors';
 
 interface NodeLegendProps {
 	nodeIds: string[];

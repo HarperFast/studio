@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords.ts';
-import { ConnectionsRenderer } from '../pipeline/connections.tsx';
-import type { AnalyticsDataPoint } from '../types/analytics.ts';
-import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
-import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell.tsx';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
+import { ConnectionsRenderer } from '../pipeline/connections';
+import type { AnalyticsDataPoint } from '../types/analytics';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
+import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell';
 
 /** Some Harper builds split active-session telemetry across two metrics:
  *  `mqtt-connections` (active MQTT sessions) and `ws-connections` (active
@@ -27,7 +27,7 @@ export function ConnectionsPanel() {
 }
 
 function ConnectionsPanelInner() {
-	const { timeRange, bucketMs, theme, instanceParams } = useAnalyticsContext();
+	const { timeRange, bucketMs, instanceParams } = useAnalyticsContext();
 
 	const mqtt = useAnalyticsRecords({
 		metric: 'mqtt-connections',
@@ -64,7 +64,6 @@ function ConnectionsPanelInner() {
 			records={merged}
 			timeRange={timeRange}
 			nodes={nodes}
-			theme={theme}
 			fillParent={opts.fillParent}
 		/>
 	);

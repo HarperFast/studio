@@ -5,11 +5,11 @@
 // behavior as the chip-selector panels and small-multiples grids.
 
 import { useMemo } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeSelection } from '../hooks/useNodeSelection.ts';
-import { getNodeColor } from '../lib/nodeColors.ts';
-import type { AxisSpec, Series, SeriesData } from '../types/analytics.ts';
-import { LineChart } from './LineChart.tsx';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeSelection } from '../hooks/useNodeSelection';
+import { getNodeColor } from '../lib/nodeColors';
+import type { AxisSpec, Series, SeriesData } from '../types/analytics';
+import { LineChart } from './LineChart';
 
 interface Props {
 	data: SeriesData;

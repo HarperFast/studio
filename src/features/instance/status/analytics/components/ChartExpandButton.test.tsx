@@ -13,8 +13,8 @@ vi.mock('sonner', () => ({
 	toast: { success: mocks.toastSuccess, error: mocks.toastError },
 }));
 
-import { AnalyticsTestWrapper } from '../tabs/__tests__/testHelpers.tsx';
-import { ChartExpandButton } from './ChartExpandButton.tsx';
+import { AnalyticsTestWrapper } from '../tabs/__tests__/testHelpers';
+import { ChartExpandButton } from './ChartExpandButton';
 
 afterEach(() => {
 	cleanup();

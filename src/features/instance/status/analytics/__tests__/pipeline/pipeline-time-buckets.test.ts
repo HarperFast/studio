@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics.ts';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec } from '../../types/analytics';
 
 const baseSpec: MetricSpec = {
 	title: 'test',

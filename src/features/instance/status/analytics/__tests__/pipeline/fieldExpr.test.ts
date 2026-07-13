@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evalFieldExpr } from '../../pipeline/fieldExpr.ts';
-import type { FieldExpr } from '../../types/analytics.ts';
+import { evalFieldExpr } from '../../pipeline/fieldExpr';
+import type { FieldExpr } from '../../types/analytics';
 
 const record = {
 	count: 100,

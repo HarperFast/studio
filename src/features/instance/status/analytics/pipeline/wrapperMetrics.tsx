@@ -10,10 +10,10 @@
 // `index.ts#specRegistry`.
 
 import type { ComponentType } from 'react';
-import { DimensionSelectorRenderer } from '../primitives/DimensionSelectorRenderer.tsx';
-import { TrafficByTypeRenderer } from '../primitives/TrafficByTypeRenderer.tsx';
-import type { MetricSpec, SpecRegistryRendererProps } from '../types/analytics.ts';
-import { QUANTILE_DEFAULT, QUANTILE_FIELDS } from './quantileFields.ts';
+import { DimensionSelectorRenderer } from '../primitives/DimensionSelectorRenderer';
+import { TrafficByTypeRenderer } from '../primitives/TrafficByTypeRenderer';
+import type { MetricSpec, SpecRegistryRendererProps } from '../types/analytics';
+import { QUANTILE_DEFAULT, QUANTILE_FIELDS } from './quantileFields';
 
 export interface WrapperMetric {
 	spec: MetricSpec;

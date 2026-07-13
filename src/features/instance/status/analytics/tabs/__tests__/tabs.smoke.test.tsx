@@ -6,14 +6,14 @@ vi.mock('../../hooks/useAnalyticsRecords.ts', () => ({
 	useAnalyticsRecords: vi.fn(),
 }));
 
-import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords.ts';
-import { DatabaseTab } from '../DatabaseTab.tsx';
-import { HealthTab } from '../HealthTab.tsx';
-import { ReplicationTab } from '../ReplicationTab.tsx';
-import { RequestsTab } from '../RequestsTab.tsx';
-import { StorageTab } from '../StorageTab.tsx';
-import { TrafficTab } from '../TrafficTab.tsx';
-import { AnalyticsTestWrapper, makeRows } from './testHelpers.tsx';
+import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords';
+import { DatabaseTab } from '../DatabaseTab';
+import { HealthTab } from '../HealthTab';
+import { ReplicationTab } from '../ReplicationTab';
+import { RequestsTab } from '../RequestsTab';
+import { StorageTab } from '../StorageTab';
+import { TrafficTab } from '../TrafficTab';
+import { AnalyticsTestWrapper, makeRows } from './testHelpers';
 
 const mockHook = vi.mocked(useAnalyticsRecords);
 

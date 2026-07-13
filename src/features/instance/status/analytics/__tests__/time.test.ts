@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAxisTick, formatTooltipTime, getTimezoneAbbr } from '../lib/time.ts';
+import { formatAxisTick, formatTooltipTime, getTimezoneAbbr } from '../lib/time';
 
 describe('formatAxisTick', () => {
 	it('formats a timestamp to local time string', () => {

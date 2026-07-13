@@ -1,5 +1,5 @@
-import { ConnectionsPanel } from './ConnectionsPanel.tsx';
-import { MetricPanel } from './MetricPanel.tsx';
+import { ConnectionsPanel } from './ConnectionsPanel';
+import { MetricPanel } from './MetricPanel';
 
 // Connections is rendered by a custom panel because it merges two source
 // metrics (mqtt-connections + ws-connections) — the generic MetricPanel

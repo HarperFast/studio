@@ -31,12 +31,12 @@ import type {
 	SeriesData,
 	SeriesPoint,
 	TimeRange,
-} from '../types/analytics.ts';
-import { type AggInput, aggregate } from './aggregators.ts';
-import { labelWithApprox } from './approxLabel.ts';
-import { classifyConfidence } from './confidence.ts';
-import { evalFieldExpr } from './fieldExpr.ts';
-import { runTransform } from './runTransform.ts';
+} from '../types/analytics';
+import { type AggInput, aggregate } from './aggregators';
+import { labelWithApprox } from './approxLabel';
+import { classifyConfidence } from './confidence';
+import { evalFieldExpr } from './fieldExpr';
+import { runTransform } from './runTransform';
 
 export interface RunPipelineOptions {
 	/** When true, runGroupBy emits one Series per (dim, node) instead of

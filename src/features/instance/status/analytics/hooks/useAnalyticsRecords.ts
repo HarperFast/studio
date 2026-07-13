@@ -1,11 +1,8 @@
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
-import {
-	type AnalyticsCondition,
-	getRawAnalyticsQueryOptions,
-} from '@/integrations/api/instance/status/getAnalytics.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { type AnalyticsCondition, getRawAnalyticsQueryOptions } from '@/integrations/api/instance/status/getAnalytics';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import type { AnalyticsDataPoint } from '../types/analytics.ts';
+import type { AnalyticsDataPoint } from '../types/analytics';
 
 export interface UseAnalyticsRecordsArgs {
 	metric: string;

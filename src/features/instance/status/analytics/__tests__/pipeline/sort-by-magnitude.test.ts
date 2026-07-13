@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sortByMagnitude } from '../../primitives/sortByMagnitude.ts';
+import { sortByMagnitude } from '../../primitives/sortByMagnitude';
 
 describe('sortByMagnitude', () => {
 	it('orders series by sum across all points (descending)', () => {

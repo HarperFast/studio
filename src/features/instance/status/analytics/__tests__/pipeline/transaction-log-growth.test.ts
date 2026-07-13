@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { recomputeTransactionLogGrowth } from '../../pipeline/derived/transaction-log-growth.tsx';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
+import { recomputeTransactionLogGrowth } from '../../pipeline/derived/transaction-log-growth';
+import type { AnalyticsDataPoint } from '../../types/analytics';
 
 const range = { startTime: 0, endTime: 10_000_000 };
 

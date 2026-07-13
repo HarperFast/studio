@@ -1,4 +1,4 @@
-import type { TableSizeRecord, TimeRange } from '../types/analytics.ts';
+import type { TableSizeRecord, TimeRange } from '../types/analytics';
 
 export type RankBy = 'bytes' | 'percent';
 export type EmptyCause = 'upstream-empty' | 'all-other' | null;

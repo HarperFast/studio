@@ -1,12 +1,12 @@
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { NODE_PALETTE } from '../lib/nodeColors.ts';
-import { getChartColors, useResolvedTheme } from '../lib/theme.ts';
-import { formatAxisTick, formatTooltipTime } from '../lib/time.ts';
-import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics.ts';
-import { sortByMagnitude } from './sortByMagnitude.ts';
-import { tooltipContentStyle, tooltipLabelStyle } from './tooltipStyle.ts';
+import { NODE_PALETTE } from '../lib/nodeColors';
+import { getChartColors, useResolvedTheme } from '../lib/theme';
+import { formatAxisTick, formatTooltipTime } from '../lib/time';
+import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics';
+import { sortByMagnitude } from './sortByMagnitude';
+import { tooltipContentStyle, tooltipLabelStyle } from './tooltipStyle';
 
 interface Props {
 	data: SeriesData;

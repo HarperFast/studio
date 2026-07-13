@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { TYPE_PALETTE } from '../lib/colorAllocators/typeColors.ts';
-import { NODE_PALETTE } from '../lib/nodeColors.ts';
-import { OTHER_COLOR, TABLE_PALETTE } from '../lib/tableColors.ts';
+import { TYPE_PALETTE } from '../lib/colorAllocators/typeColors';
+import { NODE_PALETTE } from '../lib/nodeColors';
+import { OTHER_COLOR, TABLE_PALETTE } from '../lib/tableColors';
 
 // The palettes are now CSS custom properties (`var(--chart-…)`), so the
 // disjointness invariant is enforced against their definitions in

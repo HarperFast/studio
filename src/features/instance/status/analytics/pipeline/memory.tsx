@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
-import { DimensionChipRow } from '../primitives/DimensionChipRow.tsx';
-import { LineChart } from '../primitives/LineChart.tsx';
-import type { AnalyticsDataPoint, FieldSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
-import { runPipeline } from './pipeline.ts';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries';
+import { DimensionChipRow } from '../primitives/DimensionChipRow';
+import { LineChart } from '../primitives/LineChart';
+import type { AnalyticsDataPoint, FieldSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics';
+import { runPipeline } from './pipeline';
 
 // Field-selector pattern (cousin of DimensionSelectorRenderer): chip-row
 // picks one memory field at a time and the chart shows that one with the
@@ -39,7 +39,6 @@ interface RendererProps {
 	records: AnalyticsDataPoint[];
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	fillParent?: boolean;
 }
@@ -47,7 +46,7 @@ interface RendererProps {
 const FIELD_LABELS = MEMORY_FIELDS.map((f) => f.label);
 
 export function MemoryRenderer(
-	{ records, timeRange, nodes, theme, viewMode = 'per-node', fillParent }: RendererProps,
+	{ records, timeRange, nodes, viewMode = 'per-node', fillParent }: RendererProps,
 ) {
 	const perNode = viewMode === 'per-node';
 	const [selectedLabel, setSelectedLabel] = useState<string>(MEMORY_FIELDS[0].label);
@@ -75,7 +74,6 @@ export function MemoryRenderer(
 			<div className="min-h-0 flex-1" style={{ marginTop: 8 }}>
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={memorySpec.yAxis}
 					xDomain={[timeRange.startTime, timeRange.endTime]}
 					fillParent={fillParent}

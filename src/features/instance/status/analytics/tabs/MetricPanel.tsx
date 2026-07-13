@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import { useAnalyticsContext } from '../context/AnalyticsContext.tsx';
-import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords.ts';
-import { getSpecRequiredFields } from '../lib/specRequiredFields.ts';
-import { derivedRegistry } from '../pipeline/derived/index.ts';
-import { specRegistry } from '../pipeline/index.ts';
-import { MetricRenderer } from '../primitives/MetricRenderer.tsx';
-import { PanelErrorBoundary } from './PanelErrorBoundary.tsx';
-import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell.tsx';
+import { useAnalyticsContext } from '../context/AnalyticsContext';
+import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
+import { getSpecRequiredFields } from '../lib/specRequiredFields';
+import { derivedRegistry } from '../pipeline/derived/index';
+import { specRegistry } from '../pipeline/index';
+import { MetricRenderer } from '../primitives/MetricRenderer';
+import { PanelErrorBoundary } from './PanelErrorBoundary';
+import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell';
 
 interface Props {
 	metric: string;

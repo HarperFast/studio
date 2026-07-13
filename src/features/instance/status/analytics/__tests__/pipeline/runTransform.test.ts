@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { runTransform } from '../../pipeline/runTransform.ts';
-import type { Transform } from '../../types/analytics.ts';
+import { runTransform } from '../../pipeline/runTransform';
+import type { Transform } from '../../types/analytics';
 
 describe('runTransform', () => {
 	it('raw returns input unchanged', () => {

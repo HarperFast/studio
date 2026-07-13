@@ -3,8 +3,8 @@
 // transforms. The pipeline resolves the effective period via the same
 // `spec.bucket.fallbackMs ?? 60_000` convention snapToBucketTime uses.
 import { describe, expect, it } from 'vitest';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics.ts';
+import { runPipeline } from '../../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 1_000_000, endTime: 1_060_000 };
 

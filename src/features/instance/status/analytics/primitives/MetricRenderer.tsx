@@ -1,13 +1,12 @@
 import { Component, type ReactNode } from 'react';
-import { useResolvedTheme } from '../lib/theme.ts';
-import { derivedRegistry } from '../pipeline/derived/index.ts';
-import { specRegistry } from '../pipeline/index.ts';
-import { runPipeline } from '../pipeline/pipeline.ts';
-import type { AnalyticsDataPoint, AxisSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
-import { FallbackRenderer } from './FallbackRenderer.tsx';
-import { LineChartWithNodeLegend } from './LineChartWithNodeLegend.tsx';
-import { SmallMultiples } from './SmallMultiples.tsx';
-import { StackedAreaChart } from './StackedAreaChart.tsx';
+import { derivedRegistry } from '../pipeline/derived/index';
+import { specRegistry } from '../pipeline/index';
+import { runPipeline } from '../pipeline/pipeline';
+import type { AnalyticsDataPoint, AxisSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics';
+import { FallbackRenderer } from './FallbackRenderer';
+import { LineChartWithNodeLegend } from './LineChartWithNodeLegend';
+import { SmallMultiples } from './SmallMultiples';
+import { StackedAreaChart } from './StackedAreaChart';
 
 function renderPrimitive(
 	primitive: MetricSpec['primitive'],
@@ -112,17 +111,10 @@ export function MetricRenderer({
 	viewMode,
 	fillParent,
 }: Props) {
-	// Only the registry Renderers still take a theme prop (their signatures
-	// live in pipeline/, owned by a parallel refactor); primitives re-theme
-	// via CSS tokens and need nothing passed.
-	const theme = useResolvedTheme();
-
 	const errorFallback = (
 		<FallbackRenderer
 			metric={metric}
 			records={records}
-			window={timeRange}
-			nodes={nodes}
 			hint="Render failed — showing fallback."
 		/>
 	);
@@ -137,7 +129,6 @@ export function MetricRenderer({
 					records={records}
 					timeRange={timeRange}
 					nodes={nodes}
-					theme={theme}
 					viewMode={viewMode}
 					fillParent={fillParent}
 				/>
@@ -154,7 +145,6 @@ export function MetricRenderer({
 					records={records}
 					timeRange={timeRange}
 					nodes={nodes}
-					theme={theme}
 					viewMode={viewMode}
 					fillParent={fillParent}
 				/>
@@ -212,7 +202,7 @@ export function MetricRenderer({
 				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			}
 		} else {
-			body = <FallbackRenderer metric={metric} records={records} window={timeRange} nodes={nodes} />;
+			body = <FallbackRenderer metric={metric} records={records} />;
 		}
 	}
 

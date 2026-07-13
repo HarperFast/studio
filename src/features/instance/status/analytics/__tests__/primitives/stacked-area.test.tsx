@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StackedAreaChart, StackedAreaTooltip } from '../../primitives/StackedAreaChart.tsx';
-import type { SeriesData } from '../../types/analytics.ts';
+import { StackedAreaChart, StackedAreaTooltip } from '../../primitives/StackedAreaChart';
+import type { SeriesData } from '../../types/analytics';
 
 const stacked: SeriesData = {
 	series: [

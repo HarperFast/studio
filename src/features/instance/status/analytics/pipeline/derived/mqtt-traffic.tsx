@@ -1,6 +1,6 @@
-import { TrafficByTypeRenderer } from '../../primitives/TrafficByTypeRenderer.tsx';
-import type { DerivedMetricSpec, MetricSpec } from '../../types/analytics.ts';
-import { runPipeline } from '../pipeline.ts';
+import { TrafficByTypeRenderer } from '../../primitives/TrafficByTypeRenderer';
+import type { DerivedMetricSpec, MetricSpec } from '../../types/analytics';
+import { runPipeline } from '../pipeline';
 
 interface MqttTrafficConfig {
 	id: string;

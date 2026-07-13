@@ -1,6 +1,6 @@
-import { derivedRegistry } from '../pipeline/derived/index.ts';
-import { specRegistry } from '../pipeline/index.ts';
-import type { FieldExpr, FieldSpec, MetricSpec, Transform } from '../types/analytics.ts';
+import { derivedRegistry } from '../pipeline/derived/index';
+import { specRegistry } from '../pipeline/index';
+import type { FieldExpr, FieldSpec, MetricSpec, Transform } from '../types/analytics';
 
 /** Per-derived-metric required-field overrides. Derived specs read raw
  *  source-metric columns directly (their `recompute` doesn't go through

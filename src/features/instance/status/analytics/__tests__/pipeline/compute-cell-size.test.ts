@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCellSize } from '../../primitives/computeCellSize.ts';
+import { computeCellSize } from '../../primitives/computeCellSize';
 
 describe('computeCellSize', () => {
 	it('returns MAX when container is wide enough', () => {

@@ -6,10 +6,10 @@ vi.mock('../../hooks/useAnalyticsRecords.ts', () => ({
 	useAnalyticsRecords: vi.fn(),
 }));
 
-import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords.ts';
-import type { AnalyticsDataPoint } from '../../types/analytics.ts';
-import { StorageTab } from '../StorageTab.tsx';
-import { AnalyticsTestWrapper } from './testHelpers.tsx';
+import { useAnalyticsRecords } from '../../hooks/useAnalyticsRecords';
+import type { AnalyticsDataPoint } from '../../types/analytics';
+import { StorageTab } from '../StorageTab';
+import { AnalyticsTestWrapper } from './testHelpers';
 
 const mockHook = vi.mocked(useAnalyticsRecords);
 

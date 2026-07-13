@@ -1,6 +1,6 @@
-import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup.ts';
-import { getTableColor, OTHER_COLOR } from '../lib/tableColors.ts';
-import { OTHER_KEY } from '../lib/tableSize.ts';
+import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
+import { getTableColor, OTHER_COLOR } from '../lib/tableColors';
+import { OTHER_KEY } from '../lib/tableSize';
 
 interface TableSizeChipRowProps {
 	/** Selectable table keys, in display order. */

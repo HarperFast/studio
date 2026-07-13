@@ -1,4 +1,4 @@
-import type { Aggregator } from '../types/analytics.ts';
+import type { Aggregator } from '../types/analytics';
 
 export function isApproxAggregator(op: Aggregator): boolean {
 	return op === 'count-weighted-mean';

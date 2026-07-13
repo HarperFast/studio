@@ -7,8 +7,8 @@ vi.mock('../hooks/useAnalyticsFreshness.ts', () => ({
 	formatRelativeUpdate: () => null,
 }));
 
-import { AnalyticsTestWrapper } from '../tabs/__tests__/testHelpers.tsx';
-import { TimeRangePicker } from './TimeRangePicker.tsx';
+import { AnalyticsTestWrapper } from '../tabs/__tests__/testHelpers';
+import { TimeRangePicker } from './TimeRangePicker';
 
 afterEach(cleanup);
 
@@ -63,7 +63,7 @@ describe('TimeRangePicker', () => {
 
 	it('disables the refresh button while a fetch is in flight', async () => {
 		// Re-mock to return isFetching=true for this test only.
-		const { TimeRangePicker: PickerWithFetching } = await vi.importActual<typeof import('./TimeRangePicker.tsx')>(
+		const { TimeRangePicker: PickerWithFetching } = await vi.importActual<typeof import('./TimeRangePicker')>(
 			'./TimeRangePicker.tsx',
 		);
 		// Use the same component but assert via aria-busy — the mock above is

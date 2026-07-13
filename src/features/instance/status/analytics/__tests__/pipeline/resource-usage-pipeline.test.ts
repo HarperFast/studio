@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { runPipeline } from '../../pipeline/pipeline.ts';
-import { resourceUsageSpec } from '../../pipeline/resource-usage.ts';
+import { runPipeline } from '../../pipeline/pipeline';
+import { resourceUsageSpec } from '../../pipeline/resource-usage';
 
 const records = [
 	{

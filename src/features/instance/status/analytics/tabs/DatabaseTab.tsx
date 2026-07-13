@@ -1,4 +1,4 @@
-import { MetricPanel } from './MetricPanel.tsx';
+import { MetricPanel } from './MetricPanel';
 
 const METRICS = ['db-read', 'db-write', 'db-message'] as const;
 

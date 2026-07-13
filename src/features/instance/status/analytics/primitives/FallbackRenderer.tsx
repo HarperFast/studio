@@ -1,5 +1,5 @@
-import type { AnalyticsDataPoint, SeriesData, TimeRange } from '../types/analytics.ts';
-import { SmallMultiples } from './SmallMultiples.tsx';
+import type { AnalyticsDataPoint, SeriesData } from '../types/analytics';
+import { SmallMultiples } from './SmallMultiples';
 
 const isDev = import.meta.env?.DEV ?? false;
 
@@ -26,11 +26,6 @@ const MAX_FALLBACK_PANELS = 8;
 interface Props {
 	metric: string;
 	records: AnalyticsDataPoint[];
-	/** Unused by this renderer — accepted (optionally) only because
-	 *  MetricRenderer's callsites still pass them; drop from both sides when
-	 *  those callsites are next touched. */
-	window?: TimeRange;
-	nodes?: string[];
 	/** Optional inline banner shown above the dev hint — used by callers that
 	 *  fell through to FallbackRenderer for a known reason (e.g. legacy chart
 	 *  failed to load), so users see the cause. */

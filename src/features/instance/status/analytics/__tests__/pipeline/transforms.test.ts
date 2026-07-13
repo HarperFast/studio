@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type NamedTransformKey, namedTransforms } from '../../pipeline/transforms.ts';
+import { type NamedTransformKey, namedTransforms } from '../../pipeline/transforms';
 
 describe('namedTransforms registry', () => {
 	it('exports percent-of-core that multiplies by 100', () => {

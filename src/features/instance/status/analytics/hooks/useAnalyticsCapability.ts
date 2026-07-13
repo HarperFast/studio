@@ -1,4 +1,4 @@
-import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig.ts';
+import type { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
 import { useQuery } from '@tanstack/react-query';
 
 export interface AnalyticsCapability {

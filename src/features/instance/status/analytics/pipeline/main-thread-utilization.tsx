@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { NodeLegend } from '../charts/NodeLegend.tsx';
-import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries.ts';
-import { DimensionChipRow } from '../primitives/DimensionChipRow.tsx';
-import { LineChart } from '../primitives/LineChart.tsx';
-import type { AnalyticsDataPoint, AxisSpec, FieldSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics.ts';
-import { runPipeline } from './pipeline.ts';
+import { NodeLegend } from '../charts/NodeLegend';
+import { useNodeFilteredSeries } from '../hooks/useNodeFilteredSeries';
+import { DimensionChipRow } from '../primitives/DimensionChipRow';
+import { LineChart } from '../primitives/LineChart';
+import type { AnalyticsDataPoint, AxisSpec, FieldSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics';
+import { runPipeline } from './pipeline';
 
 // Field-selector pattern (mirrors memory.tsx). Records expose
 // `active`, `idle`, and `taskQueueLatency`; we surface 4 operator-
@@ -82,13 +82,12 @@ interface RendererProps {
 	records: AnalyticsDataPoint[];
 	timeRange: TimeRange;
 	nodes: string[];
-	theme: 'light' | 'dark';
 	viewMode?: 'per-node' | 'aggregate';
 	fillParent?: boolean;
 }
 
 export function MainThreadRenderer(
-	{ records, timeRange, nodes, theme, viewMode = 'per-node', fillParent }: RendererProps,
+	{ records, timeRange, nodes, viewMode = 'per-node', fillParent }: RendererProps,
 ) {
 	const perNode = viewMode === 'per-node';
 	const [selectedKey, setSelectedKey] = useState<string>(FIELDS[0].key);
@@ -120,7 +119,6 @@ export function MainThreadRenderer(
 			<div className="min-h-0 flex-1" style={{ marginTop: 8 }}>
 				<LineChart
 					data={filteredData}
-					theme={theme}
 					yAxis={selected.yAxis}
 					xDomain={[timeRange.startTime, timeRange.endTime]}
 					fillParent={fillParent}
