@@ -5,12 +5,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 /** Roughly the old fixed `lg:col-span-3` feel, so first load is close to unchanged. */
 export const DEFAULT_DATABASES_SIDEBAR_WIDTH = 320;
 /** Narrowest the sidebar may be dragged — below this the tree labels are unusable. */
-const MIN_SIDEBAR_WIDTH = 200;
+export const MIN_SIDEBAR_WIDTH = 200;
+/** Width nudge per Arrow key press when the separator is focused. */
+const KEYBOARD_STEP = 10;
+
+/** Widest the sidebar may be — half the viewport, so the content pane keeps the larger share. */
+export function maxSidebarWidth(viewportWidth: number): number {
+	return Math.max(MIN_SIDEBAR_WIDTH, Math.floor(viewportWidth / 2));
+}
 
 /** Clamp to a usable range: never below the minimum, never past half the viewport. */
-function clampWidth(width: number, viewportWidth: number): number {
-	const max = Math.max(MIN_SIDEBAR_WIDTH, Math.floor(viewportWidth / 2));
-	return Math.round(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), max));
+export function clampWidth(width: number, viewportWidth: number): number {
+	return Math.round(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), maxSidebarWidth(viewportWidth)));
 }
 
 /**
@@ -43,12 +49,18 @@ export function useResizableDatabasesSidebar() {
 		}
 	}, [persistedWidth, isResizing]);
 
-	// If the viewport shrank since the width was stored, pull it back into range.
+	// On viewport resize, re-clamp only the *rendered* width — never the persisted preference. Writing
+	// localStorage on every resize event stutters, and clamping the stored value down would permanently
+	// lose the user's preferred width once they shrink then re-widen the window.
 	useEffect(() => {
-		const onResize = () => setPersistedWidth((current) => clampWidth(current, window.innerWidth));
+		const onResize = () => {
+			if (!isResizing) {
+				setWidth(clampWidth(persistedWidth, window.innerWidth));
+			}
+		};
 		window.addEventListener('resize', onResize);
 		return () => window.removeEventListener('resize', onResize);
-	}, [setPersistedWidth]);
+	}, [persistedWidth, isResizing]);
 
 	const startResizing = useCallback((event: React.MouseEvent) => {
 		event.preventDefault();
@@ -84,5 +96,16 @@ export function useResizableDatabasesSidebar() {
 		};
 	}, [isResizing, setPersistedWidth]);
 
-	return { width, isResizing, startResizing };
+	// Keyboard resize for the focused separator: Arrow keys nudge the persisted width in fixed steps.
+	const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+		if (event.key === 'ArrowLeft') {
+			event.preventDefault();
+			setPersistedWidth((current) => clampWidth(current - KEYBOARD_STEP, window.innerWidth));
+		} else if (event.key === 'ArrowRight') {
+			event.preventDefault();
+			setPersistedWidth((current) => clampWidth(current + KEYBOARD_STEP, window.innerWidth));
+		}
+	}, [setPersistedWidth]);
+
+	return { width, isResizing, startResizing, handleKeyDown };
 }
