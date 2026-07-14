@@ -148,7 +148,7 @@ export function TableHeadSortable<TData extends RowData>({
 			className={cn('relative', enableSorting ? 'px-0' : 'px-2', className)}
 		>
 			{/* pr leaves room for the right-edge resize handle so the title never sits under it. */}
-			<div className={cn('flex items-center min-w-0 overflow-hidden', enableResizing && 'pr-3')}>
+			<div className={cn('flex items-center min-w-0 overflow-hidden', enableResizing && 'pr-4')}>
 				{enableSorting
 					? (
 						<Button
@@ -175,7 +175,9 @@ export function TableHeadSortable<TData extends RowData>({
 			{enableResizing && (
 				<div
 					aria-hidden
-					className="absolute top-0 right-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center text-gray-600 hover:text-foreground"
+					// w-4 hit area (wider than the visible grip); text-muted-foreground so the grip is
+					// visible at rest in both light and dark themes (was gray-600, near-invisible until hover).
+					className="absolute top-0 right-0 z-10 flex h-full w-4 cursor-col-resize items-center justify-center text-muted-foreground hover:text-foreground"
 					onMouseDown={header.getResizeHandler()} // for desktop
 					onTouchStart={header.getResizeHandler()} // for mobile
 					onDoubleClick={autoFitColumn}

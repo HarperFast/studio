@@ -101,62 +101,91 @@ export function TableView<TData, TValue>({
 		getPaginationRowModel: getPaginationRowModel(),
 	});
 
+	// During a column resize, preview where the new right edge will land with a full-height guide line.
+	// columnResizeMode is 'onEnd', so the column width doesn't change until release -- the guide is the
+	// live feedback. Its x is the sum of column widths up to the resizing one, plus the (clamped) drag delta.
+	const columnSizingInfo = table.getState().columnSizingInfo;
+	const resizingColumnId = columnSizingInfo.isResizingColumn;
+	let resizeGuideLeft: number | null = null;
+	if (resizingColumnId) {
+		const minSize = table.options.defaultColumn?.minSize ?? 20;
+		const startSize = table.getColumn(resizingColumnId)?.getSize() ?? 0;
+		let edge = 0;
+		for (const leafColumn of table.getVisibleLeafColumns()) {
+			edge += leafColumn.getSize();
+			if (leafColumn.id === resizingColumnId) {
+				break;
+			}
+		}
+		// Clamp to match the handle's own preview: the column can't shrink below minSize.
+		resizeGuideLeft = edge + Math.max(columnSizingInfo.deltaOffset ?? 0, minSize - startSize);
+	}
+
 	return (
 		<>
-			<Table
-				containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible"
-				// table-fixed so columns hold their set/resized width exactly (content doesn't stretch
-				// them); the trailing filler column below absorbs any leftover width so the rows still
-				// reach the edge instead of leaving dead space.
-				className="table-fixed"
-			>
-				<TableHeader>
-					{table.getHeaderGroups().map((headerGroup) => (
-						<TableRow key={headerGroup.id} className="border-none">
-							{headerGroup.headers.map((header) => (
-								<TableHeadSortable
-									key={header.id}
-									header={header}
-									onColumnClick={onColumnClick}
-									className="sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
+			<div className="relative flex flex-col grow">
+				<Table
+					containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible"
+					// table-fixed so columns hold their set/resized width exactly (content doesn't stretch
+					// them); the trailing filler column below absorbs any leftover width so the rows still
+					// reach the edge instead of leaving dead space.
+					className="table-fixed"
+				>
+					<TableHeader>
+						{table.getHeaderGroups().map((headerGroup) => (
+							<TableRow key={headerGroup.id} className="border-none">
+								{headerGroup.headers.map((header) => (
+									<TableHeadSortable
+										key={header.id}
+										header={header}
+										onColumnClick={onColumnClick}
+										className="sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
+									/>
+								))}
+								{/* Filler column: takes the remaining width so real columns stay tight. */}
+								<TableHead
+									aria-hidden
+									className="w-full p-0 sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
 								/>
-							))}
-							{/* Filler column: takes the remaining width so real columns stay tight. */}
-							<TableHead
-								aria-hidden
-								className="w-full p-0 sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
-							/>
-						</TableRow>
-					))}
-				</TableHeader>
-				{filtersToggled && (
-					<ColumnFilters
-						applyFilters={applyFilters}
-						columnFiltersForm={columnFiltersForm}
-						headerGroups={table.getHeaderGroups()}
+							</TableRow>
+						))}
+					</TableHeader>
+					{filtersToggled && (
+						<ColumnFilters
+							applyFilters={applyFilters}
+							columnFiltersForm={columnFiltersForm}
+							headerGroups={table.getHeaderGroups()}
+						/>
+					)}
+					<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
+						{table.getRowModel().rows?.length
+							? (table.getRowModel().rows.map((row) => (
+								<TableBodyRow
+									key={row.id}
+									row={row}
+									onRowClick={onRowClick}
+									primaryKey={primaryKey}
+								/>
+							)))
+							: (
+								<TableRow>
+									<TableCell colSpan={columns.length + 1} className="h-24 text-center">
+										{isFetching || data === undefined
+											? <LoadingSubtle className="opacity-50 inline-block" />
+											: <span>No results.</span>}
+									</TableCell>
+								</TableRow>
+							)}
+					</TableBody>
+				</Table>
+				{resizeGuideLeft !== null && (
+					<div
+						aria-hidden
+						className="pointer-events-none absolute top-0 bottom-0 z-20 w-0.5 bg-primary"
+						style={{ left: `${resizeGuideLeft}px` }}
 					/>
 				)}
-				<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
-					{table.getRowModel().rows?.length
-						? (table.getRowModel().rows.map((row) => (
-							<TableBodyRow
-								key={row.id}
-								row={row}
-								onRowClick={onRowClick}
-								primaryKey={primaryKey}
-							/>
-						)))
-						: (
-							<TableRow>
-								<TableCell colSpan={columns.length + 1} className="h-24 text-center">
-									{isFetching || data === undefined
-										? <LoadingSubtle className="opacity-50 inline-block" />
-										: <span>No results.</span>}
-								</TableCell>
-							</TableRow>
-						)}
-				</TableBody>
-			</Table>
+			</div>
 			<TablePagination
 				pageIndex={pageIndex}
 				pageSize={pageSize}
