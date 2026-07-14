@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { bytesReceivedSpec } from '../../pipeline/bytes-received';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const bytesReceivedSpec = wrapperMetrics['bytes-received'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 

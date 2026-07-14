@@ -3,6 +3,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useResolvedTheme } from '../lib/theme';
 import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics';
+import { warningBannerStyle } from './bannerStyle';
 import { computeCellSize } from './computeCellSize';
 export { computeCellSize } from './computeCellSize';
 
@@ -385,14 +386,7 @@ export function HeatmapMatrix({ data, title, height }: Props) {
 						key={data.skippedRecordsCount}
 						role="status"
 						aria-atomic="true"
-						style={{
-							marginBottom: 8,
-							padding: '4px 8px',
-							fontSize: 12,
-							borderLeft: '3px solid var(--color-warning)',
-							background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
-							color: 'currentColor',
-						}}
+						style={warningBannerStyle}
 					>
 						{`${data.skippedRecordsCount} record(s) omitted — source node unrecognized (cluster node list may be outdated).`}
 					</div>

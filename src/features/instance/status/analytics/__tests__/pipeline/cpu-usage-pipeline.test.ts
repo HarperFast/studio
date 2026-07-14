@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cpuUsageSpec } from '../../pipeline/cpu-usage';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const cpuUsageSpec = wrapperMetrics['cpu-usage'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import { QUANTILE_FIELDS } from '../../pipeline/quantileFields';
 import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';

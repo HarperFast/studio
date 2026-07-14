@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { connectionsSpec } from '../../pipeline/connections';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const connectionsSpec = wrapperMetrics['connections'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 
 describe('connections pipeline', () => {

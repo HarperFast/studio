@@ -82,7 +82,7 @@ export function FallbackRenderer({ metric, records, hint }: Props) {
 
 	const kebab = metric.replace(/_/g, '-');
 	const banner = isDev
-		? `Unspecced metric "${metric}" — add a spec at src/features/instance/status/analytics/pipeline/${kebab}.tsx for a tailored view.`
+		? `Unspecced metric "${metric}" — add a spec — a wrapperMetrics.tsx table entry, or pipeline/${kebab}.tsx (.ts if renderer-less) — for a tailored view.`
 		: null;
 
 	return (
@@ -122,7 +122,7 @@ export function FallbackRenderer({ metric, records, hint }: Props) {
 			<SmallMultiples panels={panels} />
 			{overflow > 0 && (
 				<div style={{ fontSize: 11, marginTop: 4, opacity: 0.7 }}>
-					{`… and ${overflow} more fields not shown. Add a spec at src/features/instance/status/analytics/pipeline/${kebab}.tsx to customize.`}
+					{`… and ${overflow} more fields not shown. Add a spec (wrapperMetrics.tsx entry, or pipeline/${kebab}.tsx / .ts) to customize.`}
 				</div>
 			)}
 		</div>

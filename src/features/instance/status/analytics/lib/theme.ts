@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type Theme = 'light' | 'dark';
+type Theme = 'light' | 'dark';
 
 /** Resolved app theme ('light' | 'dark') for the few chart internals that
  *  genuinely branch in JS (heatmap color-stop interpolation, area fill

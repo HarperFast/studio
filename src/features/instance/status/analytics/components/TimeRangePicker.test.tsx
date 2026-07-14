@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../hooks/useAnalyticsFreshness.ts', () => ({
+vi.mock('../hooks/useAnalyticsFreshness', () => ({
 	useAnalyticsFreshness: () => ({ isFetching: false, lastFetchedAt: null, now: 0 }),
 	formatRelativeUpdate: () => null,
 }));
@@ -64,7 +64,7 @@ describe('TimeRangePicker', () => {
 	it('disables the refresh button while a fetch is in flight', async () => {
 		// Re-mock to return isFetching=true for this test only.
 		const { TimeRangePicker: PickerWithFetching } = await vi.importActual<typeof import('./TimeRangePicker')>(
-			'./TimeRangePicker.tsx',
+			'./TimeRangePicker',
 		);
 		// Use the same component but assert via aria-busy — the mock above is
 		// already returning isFetching=false, so for this test we verify the

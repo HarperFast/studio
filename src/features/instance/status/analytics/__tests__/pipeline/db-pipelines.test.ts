@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { dbMessageSpec } from '../../pipeline/db-message';
-import { dbReadSpec } from '../../pipeline/db-read';
-import { dbWriteSpec } from '../../pipeline/db-write';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const dbMessageSpec = wrapperMetrics['db-message'].spec;
+const dbReadSpec = wrapperMetrics['db-read'].spec;
+const dbWriteSpec = wrapperMetrics['db-write'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 

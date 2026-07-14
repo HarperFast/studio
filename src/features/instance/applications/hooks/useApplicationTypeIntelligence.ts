@@ -4,7 +4,7 @@
  * instead of erroring with "cannot find module".
  *
  * The worker only sees the models that exist. Out of the box that is a single
- * model — the open file — so `import { increment } from '@/counter'` has
+ * model — the open file — so `import { increment } from '@/counter.ts'` has
  * nothing to resolve against. While a file is open this hook:
  *
  *   1. fetches the application's other source files and registers each as a

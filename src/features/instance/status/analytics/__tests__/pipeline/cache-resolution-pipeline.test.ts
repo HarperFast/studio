@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cacheResolutionSpec } from '../../pipeline/cache-resolution';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const cacheResolutionSpec = wrapperMetrics['cache-resolution'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import type { AnalyticsDataPoint } from '../../types/analytics';
 

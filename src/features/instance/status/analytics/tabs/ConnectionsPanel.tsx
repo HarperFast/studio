@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useAnalyticsContext } from '../context/AnalyticsContext';
 import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
-import { ConnectionsRenderer } from '../pipeline/connections';
+import { wrapperMetrics } from '../pipeline/wrapperMetrics';
+const ConnectionsRenderer = wrapperMetrics['connections'].Renderer;
 import type { AnalyticsDataPoint } from '../types/analytics';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell';

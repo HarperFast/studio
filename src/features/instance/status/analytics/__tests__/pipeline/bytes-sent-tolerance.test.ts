@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { bytesSentSpec } from '../../pipeline/bytes-sent';
-import { mqttTrafficSentDerived } from '../../pipeline/derived/mqtt-traffic-sent';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const bytesSentSpec = wrapperMetrics['bytes-sent'].spec;
+import { mqttTrafficSentDerived } from '../../pipeline/derived/mqtt-traffic';
 import { runPipeline } from '../../pipeline/pipeline';
 
 describe('bytes-sent tolerance', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runPipeline } from '../../pipeline/pipeline';
-import { response200Spec } from '../../pipeline/response-200';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const response200Spec = wrapperMetrics['response_200'].spec;
 import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };

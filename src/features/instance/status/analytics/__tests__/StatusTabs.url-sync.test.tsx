@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock useAnalyticsRecords so we don't need a real Harper. Each tab still
 // mounts; we're testing the URL-sync layer, not chart rendering.
-vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
+vi.mock('../hooks/useAnalyticsRecords', () => ({
 	useAnalyticsRecords: () => ({
 		data: [],
 		isLoading: false,
@@ -20,7 +20,7 @@ vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
 
 // Capability probe must succeed so the inner StatusTabs renders (vs. the
 // fallback path).
-vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
+vi.mock('../hooks/useAnalyticsCapability', () => ({
 	useAnalyticsCapability: () => ({
 		supported: true,
 		isLoading: false,
