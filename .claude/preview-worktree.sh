@@ -55,12 +55,15 @@ current_major="$(node -v 2>/dev/null | sed 's/^v//; s/\..*//')"
 if [ -z "$current_major" ] || [ "$current_major" -lt 22 ]; then
 	want=""
 	[ -f "$root/.nvmrc" ] && want="$(tr -d '[:space:]' < "$root/.nvmrc")"
+	want="${want#v}" # .nvmrc may write the version with or without a leading `v`.
 	if [ -n "$want" ] && [ -d "$HOME/.nvm/versions/node/v${want}/bin" ]; then
 		PATH="$HOME/.nvm/versions/node/v${want}/bin:$PATH"
 	elif [ -d "$HOME/.nvm/versions/node" ]; then
-		for d in $(ls -1 "$HOME/.nvm/versions/node" | sort -Vr); do
-			if [ "$(echo "$d" | sed 's/^v//; s/\..*//')" -ge 22 ]; then
-				PATH="$HOME/.nvm/versions/node/$d/bin:$PATH"
+		# Newest installed >=22. Portable numeric sort (descending) instead of `sort -V`, which is a
+		# GNU/newer-BSD extension missing from older `sort` (e.g. stock macOS).
+		for v in $(ls -1 "$HOME/.nvm/versions/node" | sed 's/^v//' | sort -t. -k1,1rn -k2,2rn -k3,3rn); do
+			if [ "${v%%.*}" -ge 22 ]; then
+				PATH="$HOME/.nvm/versions/node/v$v/bin:$PATH"
 				break
 			fi
 		done
