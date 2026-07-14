@@ -36,6 +36,7 @@ describe('buildSecretAccessExample', () => {
 		expect(code).toContain('let value = secrets.DB_PASSWORD;');
 		expect(code).toContain("for await (const next of secrets.subscribe('DB_PASSWORD'))");
 		expect(code).toContain('if (next === value) continue;'); // skip the redundant startup rebuild
+		expect(code).toContain('} catch (error) {'); // subscription errors don't become unhandled rejections
 		expect(code).toContain('top level'); // the module-top-level guidance
 		expect(code).not.toContain('process.env');
 	});
