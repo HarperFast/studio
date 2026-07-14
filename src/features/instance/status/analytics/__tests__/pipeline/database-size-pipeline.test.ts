@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
-const databaseSizeSpec = wrapperMetrics['database-size'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
+
+const databaseSizeSpec = wrapperMetrics['database-size'].spec;
 
 const window: TimeRange = { startTime: 0, endTime: 10_000_000 };
 

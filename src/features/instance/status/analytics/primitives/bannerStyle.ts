@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 // The one tinted status-banner surface for status analytics — a colored
 // left border over a translucent tint of the same token. Shared like
 // tooltipStyle.ts so the copies can't drift (they did, in PR #1497).
@@ -5,7 +7,7 @@
 // (chart-export capture, isolated test DOMs), where an unresolvable var()
 // inside color-mix invalidates the whole background declaration.
 
-function bannerStyle(tokenVar: string, fallback: string, mixPercent: number) {
+function bannerStyle(tokenVar: string, fallback: string, mixPercent: number): CSSProperties {
 	return {
 		marginBottom: 8,
 		padding: '4px 8px',
@@ -13,7 +15,7 @@ function bannerStyle(tokenVar: string, fallback: string, mixPercent: number) {
 		borderLeft: `3px solid var(${tokenVar}, ${fallback})`,
 		background: `color-mix(in srgb, var(${tokenVar}, ${fallback}) ${mixPercent}%, transparent)`,
 		color: 'currentColor',
-	} as const;
+	};
 }
 
 export const warningBannerStyle = bannerStyle('--color-warning', '#f59e0b', 12);

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
-const cacheHitSpec = wrapperMetrics['cache-hit'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint } from '../../types/analytics';
+
+const cacheHitSpec = wrapperMetrics['cache-hit'].spec;
 
 // Synthetic rows shaped like the real Harper response:
 //   { time, node, path, period, count, total, ratio }

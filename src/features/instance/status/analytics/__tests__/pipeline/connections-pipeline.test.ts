@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
-const connectionsSpec = wrapperMetrics['connections'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+
+const connectionsSpec = wrapperMetrics['connections'].spec;
 
 describe('connections pipeline', () => {
 	// connections is a multi-source merge (mqtt-connections + ws-connections)

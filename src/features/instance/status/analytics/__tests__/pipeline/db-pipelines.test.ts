@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { runPipeline } from '../../pipeline/pipeline';
 import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
+
 const dbMessageSpec = wrapperMetrics['db-message'].spec;
 const dbReadSpec = wrapperMetrics['db-read'].spec;
 const dbWriteSpec = wrapperMetrics['db-write'].spec;
-import { runPipeline } from '../../pipeline/pipeline';
-import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 
