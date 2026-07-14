@@ -16,7 +16,7 @@
  * blocked CDN, unknown package — is swallowed so it can never break editing.
  */
 import { typescript } from '@/lib/monaco/languageServices';
-import { canAdmitExtraLib } from '@/lib/monaco/workerLimits';
+import { canAdmitExtraLib, MAX_EXTRA_LIB_CHARS_TOTAL } from '@/lib/monaco/workerLimits';
 
 /** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
 const NODE_BUILTINS = new Set([
@@ -157,6 +157,13 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
  */
 export async function acquireApplicationTypes(sources: string[]): Promise<void> {
 	if (sources.length === 0) {
+		return;
+	}
+	// The budget is monotonic and never reclaimed, so once it is spent the
+	// acquisition engine would walk the CDN and parse declarations only for
+	// `receivedFile` to discard every one. Skip the whole pass — including its
+	// network requests — rather than pay for work that can't land.
+	if (acquiredChars >= MAX_EXTRA_LIB_CHARS_TOTAL) {
 		return;
 	}
 	try {
