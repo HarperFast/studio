@@ -1,14 +1,24 @@
 'use client';
 
 import { LoadingSubtle } from '@/components/LoadingSubtle';
-import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableHeadSortable,
+	TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/cn';
 import {
 	Cell,
 	ColumnDef,
+	ColumnSizingState,
 	flexRender,
 	getCoreRowModel,
 	getPaginationRowModel,
+	OnChangeFn,
 	Row,
 	useReactTable,
 	VisibilityState,
@@ -24,6 +34,8 @@ interface BrowseDataTableProps<TData, TValue> {
 	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>;
 	columns: ColumnDef<TData, TValue>[];
 	columnVisibility: VisibilityState;
+	columnSizing: ColumnSizingState;
+	setColumnSizing: OnChangeFn<ColumnSizingState>;
 	data?: TData[];
 	isFetching?: boolean;
 	onColumnClick?: (accessorKey: string, isDescending: boolean) => void;
@@ -48,6 +60,8 @@ export function TableView<TData, TValue>({
 	columnFiltersForm,
 	columns,
 	columnVisibility,
+	columnSizing,
+	setColumnSizing,
 	data,
 	isFetching,
 	onColumnClick,
@@ -72,12 +86,15 @@ export function TableView<TData, TValue>({
 		manualPagination: true,
 		enableColumnResizing: true,
 		columnResizeMode: 'onEnd',
+		onColumnSizingChange: setColumnSizing,
 		pageCount: totalPages,
 		defaultColumn: {
-			minSize: 1,
+			// Wide enough that the header title + sort/resize controls never collide when shrinking.
+			minSize: 80,
 		},
 		state: {
 			columnVisibility,
+			columnSizing,
 		},
 		rowCount: totalRecords,
 		getCoreRowModel: getCoreRowModel(),
@@ -86,7 +103,13 @@ export function TableView<TData, TValue>({
 
 	return (
 		<>
-			<Table containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible">
+			<Table
+				containerClassName="rounded-md bg-card dark:bg-black-dark grow overflow-visible"
+				// table-fixed so columns hold their set/resized width exactly (content doesn't stretch
+				// them); the trailing filler column below absorbs any leftover width so the rows still
+				// reach the edge instead of leaving dead space.
+				className="table-fixed"
+			>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
 						<TableRow key={headerGroup.id} className="border-none">
@@ -98,6 +121,11 @@ export function TableView<TData, TValue>({
 									className="sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
 								/>
 							))}
+							{/* Filler column: takes the remaining width so real columns stay tight. */}
+							<TableHead
+								aria-hidden
+								className="w-full p-0 sticky top-32 z-10 bg-card dark:bg-black-dark border-b border-border"
+							/>
 						</TableRow>
 					))}
 				</TableHeader>
@@ -120,7 +148,7 @@ export function TableView<TData, TValue>({
 						)))
 						: (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center">
+								<TableCell colSpan={columns.length + 1} className="h-24 text-center">
 									{isFetching || data === undefined
 										? <LoadingSubtle className="opacity-50 inline-block" />
 										: <span>No results.</span>}
@@ -178,15 +206,21 @@ function TableBodyRow<TData>(
 			className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}
 		>
 			{cells}
+			{/* Filler cell matching the header's filler column. */}
+			<TableCell aria-hidden className="p-0" />
 		</TableRow>
 	);
 }
 
 function TableBodyRowCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+	const size = cell.column.getSize();
 	return (
 		<TableCell
-			style={{ width: `${cell.column.getSize()}px` }}
-			className="px-2 py-2 overflow-x-hidden max-w-32 text-ellipsis whitespace-nowrap"
+			data-col-id={cell.column.id}
+			// maxWidth pins the cell to the (resizable) column width so wider values truncate instead
+			// of forcing the column open; width keeps narrow columns from collapsing below it.
+			style={{ width: `${size}px`, maxWidth: `${size}px` }}
+			className="px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap"
 		>
 			{/* Object/array stringification lives in the column defs (renderPlainCell / RelationshipCell). */}
 			{flexRender(cell.column.columnDef.cell, cell.getContext())}

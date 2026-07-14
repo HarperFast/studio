@@ -52,7 +52,6 @@ export function formatBrowseDataTableHeader(
 			// Relationship columns are filterable via sub-properties (`.name value`), which the
 			// server executes as a join against the related table.
 			enableColumnFilter: Boolean(is_primary_key || indexed || relationshipInfo),
-			// enableResizing: true,
 			size: sizeByAttributeType(type),
 			cell: relationshipInfo ? relationshipCell(relationshipInfo) : renderPlainCell,
 			meta: relationshipInfo ? { relationshipInfo } : undefined,
@@ -108,21 +107,24 @@ function renderPlainCell(context: CellContext<Record<string, unknown>, unknown>)
 	return String(value);
 }
 
+// Default column widths (px). These are just starting points -- every column is resizable, and a
+// user's adjustments are persisted per table, so these only need to be reasonable defaults.
 function sizeByAttributeType(type: InstanceAttribute['type']) {
 	switch (type) {
 		case 'Id':
 		case 'ID':
-			return 1;
+			return 220;
 		case 'Boolean':
-			return 1;
+			return 90;
 		case 'Int':
 		case 'Long':
 		case 'Float':
 		case 'BigInt':
-			return 1;
+			return 120;
 		case 'Date':
+			return 190;
 		case 'String':
 		default:
-			return Math.round(window.innerWidth * 0.1);
+			return 200;
 	}
 }

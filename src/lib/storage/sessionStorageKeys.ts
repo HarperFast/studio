@@ -10,5 +10,6 @@ export interface SessionStorageKeys {
 	'FileSelected/{entityId}': true;
 	'DatabaseTreeExpanded/{entityId}': true;
 	'ColumnDisplayed/{database}/{table}': true;
+	'ColumnSizing/{database}/{table}': true;
 	'ShowAllOrganizations': true;
 }
