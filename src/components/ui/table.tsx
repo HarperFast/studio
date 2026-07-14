@@ -5,6 +5,14 @@ import { ArrowDown, ArrowUp, ArrowUpDown, GripVerticalIcon } from 'lucide-react'
 import * as React from 'react';
 import { useCallback } from 'react';
 
+// Upper bound for double-click auto-fit so a very long value (e.g. a stringified object) can't
+// stretch a column across the whole viewport.
+const AUTO_FIT_MAX_SIZE = 500;
+// Horizontal cell padding (px-2 => 8px each side) added back after measuring bare content.
+const CELL_HORIZONTAL_PADDING = 16;
+// Width of the right-edge resize handle strip; reserved when auto-fitting so it never overlaps the title.
+const RESIZE_HANDLE_WIDTH = 16;
+
 export interface TableProps extends React.ComponentProps<'table'> {
 	containerClassName?: string;
 	containerRef?: React.Ref<HTMLDivElement>;
@@ -79,58 +87,102 @@ export function TableHeadSortable<TData extends RowData>({
 		onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 	}, [header, onColumnClick]);
 	const enableSorting = header.column.columnDef.enableSorting;
-	const enableResizing = header.column.columnDef.enableResizing;
+	// Respect the table-level `enableColumnResizing` flag (via getCanResize) rather than the
+	// per-column columnDef so resizing turns on without annotating every column definition.
+	const enableResizing = header.column.getCanResize();
 	const content = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext());
-	const resetSize = useCallback(() => {
-		header.column.resetSize();
-	}, [header]);
+	const table = header.getContext().table;
+	const size = header.getSize();
+	const minSize = header.column.columnDef.minSize ?? table.options.defaultColumn?.minSize ?? 20;
+	// Double-click the handle to fit the column to its widest value rather than snapping back to the
+	// default width. Content width is measured with a Range (the tight bounding box of the actual
+	// text) so it works even when the cell is wider than its content; capped by AUTO_FIT_MAX_SIZE so
+	// a huge value can't blow the column out.
+	const autoFitColumn = useCallback((e: React.MouseEvent<HTMLElement>) => {
+		const tableEl = e.currentTarget.closest('table');
+		if (!tableEl) {
+			header.column.resetSize();
+			return;
+		}
+		const selector = `[data-col-id="${CSS.escape(header.column.id)}"]`;
+		const range = document.createRange();
+		const measure = (el: Element) => {
+			range.selectNodeContents(el);
+			return range.getBoundingClientRect().width;
+		};
+		let widest = 0;
+		tableEl.querySelectorAll(`tbody ${selector}`).forEach((cell) => {
+			widest = Math.max(widest, measure(cell));
+		});
+		// The header's flex row fills the cell, so derive its intrinsic width from the title's own
+		// text width plus the width of the sort/resize controls beside it. `controls` is measured as
+		// (all children) - (current title box), which is invariant to the title being truncated.
+		const headerRow = tableEl.querySelector(`thead ${selector} > div`);
+		const titleEl = headerRow?.querySelector('.truncate');
+		if (headerRow && titleEl) {
+			const childrenWidth = Array.from(headerRow.children).reduce(
+				(sum, child) => sum + child.getBoundingClientRect().width,
+				0,
+			);
+			const controls = childrenWidth - titleEl.getBoundingClientRect().width;
+			widest = Math.max(widest, measure(titleEl) + controls + RESIZE_HANDLE_WIDTH);
+		}
+		const fitted = Math.min(Math.max(Math.ceil(widest) + CELL_HORIZONTAL_PADDING, minSize), AUTO_FIT_MAX_SIZE);
+		table.setColumnSizing((old) => ({ ...old, [header.column.id]: fitted }));
+	}, [header, table, minSize]);
+	// Clamp the resize preview so the handle stops at the column's min width instead of sliding left
+	// across the title while dragging (the actual resize commits on release).
+	const previewOffset = header.column.getIsResizing()
+		? Math.max(table.getState().columnSizingInfo.deltaOffset ?? 0, minSize - size)
+		: 0;
 	return (
 		<TableHead
 			{...props}
-			style={{ width: `${header.getSize()}px` }}
-			className={cn(enableSorting ? 'px-0' : 'px-2', className)}
+			data-col-id={header.column.id}
+			style={{ width: `${size}px`, maxWidth: `${size}px` }}
+			// relative (not overflow-hidden) so the absolute resize handle can render past the edge
+			// while dragging; the inner content div does the truncation instead.
+			className={cn('relative', enableSorting ? 'px-0' : 'px-2', className)}
 		>
-			<div className="flex items-center justify-between">
+			{/* pr leaves room for the right-edge resize handle so the title never sits under it. */}
+			<div className={cn('flex items-center min-w-0 overflow-hidden', enableResizing && 'pr-3')}>
 				{enableSorting
 					? (
 						<Button
 							type="button"
 							variant="ghost"
 							className={cn(
-								'rounded-none',
+								'rounded-none min-w-0',
 								!header.column.getIsSorted() || header.column.getIsSorted() === 'asc'
 									? 'cursor-n-resize'
 									: 'cursor-s-resize',
 							)}
 							onClick={onClickSort}
 						>
-							{content}
+							<span className="truncate">{content}</span>
 							{header.column.getIsSorted() === 'asc'
-								? <ArrowUp />
+								? <ArrowUp className="shrink-0" />
 								: header.column.getIsSorted() === 'desc'
-								? <ArrowDown />
-								: <ArrowUpDown className="text-gray-600" />}
+								? <ArrowDown className="shrink-0" />
+								: <ArrowUpDown className="shrink-0 text-gray-600" />}
 						</Button>
 					)
-					: content}
-				{enableResizing && (
-					<Button
-						type="button"
-						variant="ghost"
-						className="cursor-col-resize"
-						onMouseDown={header.getResizeHandler()} // for desktop
-						onTouchStart={header.getResizeHandler()} // for mobile
-						onDoubleClick={resetSize}
-						style={{
-							transform: header.column.getIsResizing()
-								? `translateX(${header.getContext().table.getState().columnSizingInfo.deltaOffset}px)`
-								: '',
-						}}
-					>
-						<GripVerticalIcon />
-					</Button>
-				)}
+					: <span className="truncate">{content}</span>}
 			</div>
+			{enableResizing && (
+				<div
+					aria-hidden
+					className="absolute top-0 right-0 z-10 flex h-full w-3 cursor-col-resize items-center justify-center text-gray-600 hover:text-foreground"
+					onMouseDown={header.getResizeHandler()} // for desktop
+					onTouchStart={header.getResizeHandler()} // for mobile
+					onDoubleClick={autoFitColumn}
+					style={{
+						transform: header.column.getIsResizing() ? `translateX(${previewOffset}px)` : '',
+					}}
+				>
+					<GripVerticalIcon className="size-3.5" />
+				</div>
+			)}
 		</TableHead>
 	);
 }

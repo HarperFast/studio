@@ -36,7 +36,7 @@ import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { Row, VisibilityState } from '@tanstack/react-table';
+import { ColumnSizingState, Row, VisibilityState } from '@tanstack/react-table';
 import {
 	BrushCleaningIcon,
 	CircleCheckBigIcon,
@@ -407,6 +407,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		...storedColumnVisibility,
 	}), [relationshipInfoMap, storedColumnVisibility]);
 
+	const [columnSizing, setColumnSizing] = useSessionStorage(
+		`ColumnSizing/${databaseName}/${tableName}` as 'ColumnSizing/{database}/{table}',
+		{} satisfies ColumnSizingState,
+	);
+
 	return (
 		<>
 			<div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-3 pt-15 pb-4 pr-4">
@@ -557,6 +562,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				filtersToggled={filtersToggled}
 				columns={dataTableColumns}
 				columnVisibility={columnVisibility}
+				columnSizing={columnSizing}
+				setColumnSizing={setColumnSizing}
 				onRowClick={onRowClick}
 				onColumnClick={onColumnClick}
 				totalPages={totalPages}

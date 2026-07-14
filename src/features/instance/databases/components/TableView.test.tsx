@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
-import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { ColumnDef, ColumnSizingState, VisibilityState } from '@tanstack/react-table';
 import { cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -31,12 +32,15 @@ const data: Record<string, unknown>[] = [{ id: 'abc-123', type: 'demo' }];
 
 function Harness({ columnVisibility }: { columnVisibility: VisibilityState }) {
 	const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
+	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	return (
 		<TableView<Record<string, unknown>, unknown>
 			applyFilters={() => undefined}
 			columnFiltersForm={columnFiltersForm}
 			columns={columns}
 			columnVisibility={columnVisibility}
+			columnSizing={columnSizing}
+			setColumnSizing={setColumnSizing}
 			data={data}
 			pageIndex={0}
 			pageSize={20}
@@ -64,5 +68,15 @@ describe('TableView column visibility', () => {
 		// the body row used to keep rendering the stale cell, misaligning columns).
 		expect(screen.queryByText('abc-123')).toBeNull();
 		expect(screen.getByText('demo')).toBeTruthy();
+	});
+});
+
+describe('TableView column resizing', () => {
+	it('renders a resize handle for each column header', () => {
+		// Regression: the handle used to be gated on columnDef.enableResizing (never set), so it
+		// never rendered. It is now gated on getCanResize(), driven by the table-level flag.
+		const { container } = render(<Harness columnVisibility={{}} />);
+		const handles = container.querySelectorAll('svg.lucide-grip-vertical');
+		expect(handles.length).toBe(columns.length);
 	});
 });
