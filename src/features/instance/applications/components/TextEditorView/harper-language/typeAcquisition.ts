@@ -16,6 +16,7 @@
  * blocked CDN, unknown package — is swallowed so it can never break editing.
  */
 import { typescript } from '@/lib/monaco/languageServices';
+import { canAdmitExtraLib } from '@/lib/monaco/workerLimits';
 
 /** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
 const NODE_BUILTINS = new Set([
@@ -107,6 +108,14 @@ function createImportScannerShim(): unknown {
 
 let runnerPromise: Promise<(source: string) => Promise<void>> | undefined;
 const acquiredPaths = new Set<string>();
+/**
+ * Running total of chars handed to the worker as extra libs. Session-lifetime
+ * and monotonic — it mirrors the extra libs actually live on the shared
+ * `typescriptDefaults`/`javascriptDefaults` singletons, which are never removed
+ * — so once the budget is spent it stays spent, which is exactly the backstop
+ * against unbounded cross-project accumulation (HarperFast/studio#1499).
+ */
+let acquiredChars = 0;
 
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
@@ -120,7 +129,17 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 						if (acquiredPaths.has(path)) {
 							return;
 						}
+						// Mark it seen even when rejected, so a skipped lib isn't
+						// reconsidered on every subsequent acquisition pass.
 						acquiredPaths.add(path);
+						// Extra libs are eagerly cloned to the language worker
+						// (setEagerModelSync) and never swept; bound the total so a
+						// large or deep dependency graph — or a long multi-project
+						// session — can't OOM the worker's clone buffer (#1499).
+						if (!canAdmitExtraLib(acquiredChars, code.length)) {
+							return;
+						}
+						acquiredChars += code.length;
 						const uri = `file://${path}`;
 						typescriptDefaults.addExtraLib(code, uri);
 						javascriptDefaults.addExtraLib(code, uri);
