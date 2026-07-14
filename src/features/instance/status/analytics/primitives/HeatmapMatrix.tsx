@@ -1,7 +1,7 @@
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { formatValue } from '@/lib/formatValue';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { useResolvedTheme } from '../lib/theme';
 import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics';
 import { warningBannerStyle } from './bannerStyle';
 import { computeCellSize } from './computeCellSize';

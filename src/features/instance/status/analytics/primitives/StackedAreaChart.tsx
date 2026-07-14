@@ -1,8 +1,9 @@
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { NODE_PALETTE } from '../lib/nodeColors';
-import { getChartColors, useResolvedTheme } from '../lib/theme';
+import { getChartColors } from '../lib/theme';
 import { formatAxisTick, formatTooltipTime } from '../lib/time';
 import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics';
 import { sortByMagnitude } from './sortByMagnitude';
