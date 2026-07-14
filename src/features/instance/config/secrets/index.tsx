@@ -133,6 +133,16 @@ export function ConfigSecretsIndex() {
 				onSelectName={onSelectName}
 				nameHeader="Secret"
 				delivery={true}
+				docsLink={
+					<a
+						className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
+						href="https://docs.harperdb.io/reference/v5/security/secrets"
+						target="_blank"
+						rel="noreferrer"
+					>
+						Secrets Docs
+					</a>
+				}
 				grantableComponents={grantableComponents}
 				addDescription="The value is encrypted in your browser against the cluster's secrets key — plaintext never reaches the API, the operation log, or disk. It can be replaced or deleted, but never read back."
 				editDescription="The current value can't be shown — it's stored encrypted. Enter a new value to replace it, adjust how applications read it, or delete the secret."
@@ -153,16 +163,7 @@ export function ConfigSecretsIndex() {
 						)
 					);
 				}}
-			>
-				<a
-					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
-					href="https://docs.harperdb.io/reference/v5/security/secrets"
-					target="_blank"
-					rel="noreferrer"
-				>
-					Secrets Docs
-				</a>
-			</SecretsManager>
+			/>
 		</>
 	);
 }
