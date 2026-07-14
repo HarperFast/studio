@@ -3,6 +3,7 @@ export const enum LocalStorageKeys {
 	'ApplicationChatWidth' = 'ApplicationChatWidth',
 	'ApplicationsSidebarWidth' = 'ApplicationsSidebarWidth',
 	'ChatAlwaysApprovedTools' = 'ChatAlwaysApprovedTools',
+	'DatabasesSidebarWidth' = 'DatabasesSidebarWidth',
 	'LastUsedSignInMethod' = 'LastUsedSignInMethod',
 	'LogsOrderReversed' = 'LogsOrderReversed',
 	'RememberSignInMethod' = 'RememberSignInMethod',
