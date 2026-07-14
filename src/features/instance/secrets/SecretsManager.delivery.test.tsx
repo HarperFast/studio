@@ -58,10 +58,16 @@ describe('SecretsManager delivery tier — Add', () => {
 		renderManager();
 		await openAddWithKeyValue();
 
-		// Scoped is the default: the example destructures the accessor, never touches process.env.
+		// Scoped is the default: the example reads the live accessor and subscribes for rotations,
+		// never touching process.env.
 		expect(exampleText()).toContain("import { secrets } from 'harper';");
-		expect(exampleText()).toContain('const { NEW_KEY } = secrets;');
+		expect(exampleText()).toContain('let value = secrets.NEW_KEY;');
+		expect(exampleText()).toContain("secrets.subscribe('NEW_KEY')");
 		expect(exampleText()).not.toContain('process.env');
+
+		// The example links out to the Harper secrets docs for deeper reading.
+		const docsLink = screen.getByRole('link', { name: /learn more about secrets/i });
+		expect(docsLink.getAttribute('href')).toBe('https://docs.harperdb.io/reference/v5/security/secrets');
 	});
 
 	it('submits a scoped secret with its pending grants', async () => {
@@ -126,7 +132,7 @@ describe('SecretsManager delivery tier — Edit', () => {
 			selectedName: 'DB_PASSWORD',
 			renderEditExtras: () => <div data-testid="live-grants">grants</div>,
 		});
-		await waitFor(() => expect(exampleText()).toContain('const { DB_PASSWORD } = secrets;'));
+		await waitFor(() => expect(exampleText()).toContain('let value = secrets.DB_PASSWORD;'));
 		// Tier matches what's stored (scoped, unchanged), so the live grant_secret editor is safe.
 		expect(screen.getByTestId('live-grants')).toBeTruthy();
 	});
@@ -144,7 +150,7 @@ describe('SecretsManager delivery tier — Edit', () => {
 		// Flip to scoped without saving: the secret is still processEnv server-side, so a live
 		// grant_secret would be rejected — show the "save first" hint instead of the editor.
 		fireEvent.click(screen.getAllByRole('radio')[0]);
-		await waitFor(() => expect(exampleText()).toContain('const { TOKEN } = secrets;'));
+		await waitFor(() => expect(exampleText()).toContain('let value = secrets.TOKEN;'));
 		expect(screen.queryByTestId('live-grants')).toBeNull();
 		expect(screen.getByText(/save this as a scoped secret first/i)).toBeTruthy();
 	});
