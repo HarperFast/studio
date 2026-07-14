@@ -49,12 +49,15 @@ export function Databases() {
 			<main className="flex flex-col gap-4 md:flex-row md:items-start">
 				<section
 					style={sidebarWidthVar}
-					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-hidden"
+					// overflow-y-clip (not overflow-hidden) so the tree is still clipped vertically while the
+					// resize handle can extend horizontally into the gap between the panes.
+					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
 				>
 					<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 					{
-						/* Drag (or focus + Arrow keys) the right edge to resize the sidebar (md+ only; mobile
-					    stacks full-width). */
+						/* Drag (or focus + Arrow keys) to resize the sidebar (md+ only; mobile stacks full-width).
+					    The grab zone straddles the edge into the inter-pane gap so it doesn't fight the tree's
+					    scrollbar; only the thin centered line is visible (on hover / drag / focus). */
 					}
 					<div
 						role="separator"
@@ -66,12 +69,16 @@ export function Databases() {
 						aria-valuemax={maxSidebarWidth(window.innerWidth)}
 						onMouseDown={startResizing}
 						onKeyDown={handleKeyDown}
-						className={cn(
-							'hidden md:block absolute top-0 right-0 bottom-0 w-1 z-40 cursor-col-resize outline-none',
-							'hover:bg-violet-400/60 dark:hover:bg-violet-500/60 focus-visible:bg-violet-500/80 transition-colors',
-							isResizing && 'bg-violet-400/60 dark:bg-violet-500/60',
-						)}
-					/>
+						className="group hidden md:block absolute top-0 bottom-0 right-0 w-4 translate-x-1/2 z-40 cursor-col-resize outline-none"
+					>
+						<div
+							className={cn(
+								'absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 transition-colors',
+								'group-hover:bg-violet-400/60 dark:group-hover:bg-violet-500/60 group-focus-visible:bg-violet-500/80',
+								isResizing && 'bg-violet-400/60 dark:bg-violet-500/60',
+							)}
+						/>
+					</div>
 				</section>
 				<section className="text-foreground w-full md:flex-1 md:min-w-0 flex flex-col min-h-0">
 					{params.databaseName && params.tableName
