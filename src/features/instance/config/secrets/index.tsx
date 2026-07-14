@@ -153,7 +153,16 @@ export function ConfigSecretsIndex() {
 						)
 					);
 				}}
-			/>
+			>
+				<a
+					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
+					href="https://docs.harperdb.io/reference/v5/security/secrets"
+					target="_blank"
+					rel="noreferrer"
+				>
+					Secrets Docs
+				</a>
+			</SecretsManager>
 		</>
 	);
 }

@@ -9,6 +9,9 @@ import { ReactNode } from 'react';
 import { SecretTier } from './accessExample';
 import { SecretAccessExample } from './SecretAccessExample';
 
+/** The Harper docs hub for the secrets store — the `secrets` accessor, tiers, and change subscriptions. */
+const SECRETS_DOCS_URL = 'https://docs.harperdb.io/reference/v5/security/secrets';
+
 export function SecretDeliveryPicker({
 	name,
 	tier,
@@ -61,6 +64,14 @@ export function SecretDeliveryPicker({
 					How to read it in your component
 				</span>
 				<SecretAccessExample name={name} tier={tier} />
+				<a
+					className="inline-block underline text-sm text-muted-foreground hover:text-foreground"
+					href={SECRETS_DOCS_URL}
+					target="_blank"
+					rel="noreferrer"
+				>
+					Learn more about secrets in the Harper docs
+				</a>
 			</div>
 		</div>
 	);

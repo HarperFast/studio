@@ -30,22 +30,26 @@ describe('buildSecretAccessExample', () => {
 		expect(buildSecretAccessExample('my-key', 'processEnv')).toContain("const value = process.env['my-key'];");
 	});
 
-	it('scoped destructures the secrets accessor for identifier names', () => {
+	it('scoped reads the live accessor and subscribes for identifier names', () => {
 		const code = buildSecretAccessExample('DB_PASSWORD', 'scoped');
 		expect(code).toContain("import { secrets } from 'harper';");
-		expect(code).toContain('const { DB_PASSWORD } = secrets;');
+		expect(code).toContain('let value = secrets.DB_PASSWORD;');
+		expect(code).toContain("for await (const next of secrets.subscribe('DB_PASSWORD'))");
+		expect(code).toContain('if (next === value) continue;'); // skip the redundant startup rebuild
 		expect(code).toContain('top level'); // the module-top-level guidance
 		expect(code).not.toContain('process.env');
 	});
 
 	it('scoped uses bracket access for non-identifier names', () => {
 		const code = buildSecretAccessExample('my.key', 'scoped');
-		expect(code).toContain("const value = secrets['my.key'];");
-		expect(code).not.toContain('const { my.key }');
+		expect(code).toContain("let value = secrets['my.key'];");
+		expect(code).toContain("secrets.subscribe('my.key')");
+		expect(code).not.toContain('secrets.my.key'); // never dot-access a non-identifier name
 	});
 
 	it('falls back to a placeholder name when empty or whitespace', () => {
-		expect(buildSecretAccessExample('', 'scoped')).toContain(`const { ${SECRET_NAME_PLACEHOLDER} } = secrets;`);
+		expect(buildSecretAccessExample('', 'scoped')).toContain(`let value = secrets.${SECRET_NAME_PLACEHOLDER};`);
+		expect(buildSecretAccessExample('', 'scoped')).toContain(`secrets.subscribe('${SECRET_NAME_PLACEHOLDER}')`);
 		expect(buildSecretAccessExample('   ', 'processEnv')).toContain(`process.env.${SECRET_NAME_PLACEHOLDER}`);
 	});
 

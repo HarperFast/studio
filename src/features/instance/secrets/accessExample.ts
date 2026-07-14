@@ -6,7 +6,11 @@
  *  - 'processEnv' — the value is materialized into the real `process.env` at component load and
  *    inherited by child processes (global, `.env` semantics). Read it as `process.env.NAME`.
  *  - 'scoped'     — never placed on `process.env`; exposed only to granted components through the
- *    `secrets` accessor (`import { secrets } from 'harper'`), read at module top level.
+ *    `secrets` accessor (`import { secrets } from 'harper'`), read at module top level. On this tier
+ *    the accessor is live and `secrets.subscribe('NAME')` streams the current value then each
+ *    rotation (harper#1787), so the example reads the value immediately, then subscribes in a
+ *    background task — module load isn't blocked and the component hot-swaps a rotated secret
+ *    without a restart. (The global tier stays reload-only, so its example is just the read.)
  *
  * The two tiers are mutually exclusive server-side (a processEnv secret is global, so scoping it
  * with grants is rejected). The secret-name grammar (`[\w.-]+`) permits `.` and `-`, which aren't
@@ -46,16 +50,24 @@ export function buildSecretAccessExample(name: string, tier: SecretTier): string
 		].join('\n');
 	}
 
-	// Scoped: the `secrets` accessor is bound to the loading component, so it must be read at module
-	// top level (during load) — reading it inside a request handler throws.
-	const read = identifier
-		? `const { ${key} } = secrets;`
-		: `const value = secrets[${quote(key)}];`;
+	// Scoped: the `secrets` accessor is bound to the loading component, so read it at module top
+	// level (during load), not inside a request handler. The accessor is live on this tier, and
+	// `secrets.subscribe(name)` streams the current value then each rotation (harper#1787) — so read
+	// the value immediately, then subscribe in a fire-and-forget task that never blocks module load.
+	const read = identifier ? `secrets.${key}` : `secrets[${quote(key)}]`;
 	return [
 		"import { secrets } from 'harper';",
 		'',
-		'// Read granted secrets at the top level of your component module',
-		'// (the accessor is bound during load, not inside request handlers).',
-		read,
+		"// Use the current value right away — read at your module's top level.",
+		`let value = ${read};`,
+		'',
+		'// Then react to rotations without blocking startup. Subscribing in a background',
+		'// task lets module load finish, so the rest of your app keeps initializing.',
+		'(async () => {',
+		`  for await (const next of secrets.subscribe(${quote(key)})) {`,
+		'    if (next === value) continue; // the first yield is the current value you already have',
+		'    value = next; // rotated — rebuild anything bound to the secret (e.g. an API client) here',
+		'  }',
+		'})();',
 	].join('\n');
 }
