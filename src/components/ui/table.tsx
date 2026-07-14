@@ -87,9 +87,12 @@ export function TableHeadSortable<TData extends RowData>({
 		onColumnClick?.(header.column.columnDef.accessorKey, willSortByAscending);
 	}, [header, onColumnClick]);
 	const enableSorting = header.column.columnDef.enableSorting;
-	// Respect the table-level `enableColumnResizing` flag (via getCanResize) rather than the
-	// per-column columnDef so resizing turns on without annotating every column definition.
-	const enableResizing = header.column.getCanResize();
+	// Only render resize handles for tables that explicitly opt in via `enableColumnResizing`.
+	// TableHeadSortable is shared (e.g. SimpleBrowseDataTable), and TanStack's getCanResize()
+	// defaults to enabled — so gating on getCanResize() alone would sprinkle handles onto every
+	// table that uses this header, not just the browse table that wires up sizing + persistence.
+	const enableResizing = header.getContext().table.options.enableColumnResizing === true
+		&& header.column.getCanResize();
 	const content = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext());
 	const table = header.getContext().table;
 	const size = header.getSize();
