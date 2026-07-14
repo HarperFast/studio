@@ -47,6 +47,23 @@ function exampleText(): string {
 	return document.querySelector('pre code')?.textContent ?? '';
 }
 
+describe('SecretsManager toolbar', () => {
+	it('renders docsLink at the start of the toolbar, before Refresh/Add', () => {
+		renderManager({
+			onRefresh: vi.fn().mockResolvedValue(undefined),
+			docsLink: (
+				<a href="https://docs.example/secrets" target="_blank" rel="noreferrer">
+					Secrets Docs
+				</a>
+			),
+		});
+		const docs = screen.getByRole('link', { name: /secrets docs/i });
+		const refresh = screen.getByRole('button', { name: /refresh/i });
+		// docsLink precedes Refresh in DOM order — it sits at the left, matching the sshKeys/certificates pages.
+		expect(docs.compareDocumentPosition(refresh) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+	});
+});
+
 describe('SecretsManager delivery tier — Add', () => {
 	async function openAddWithKeyValue() {
 		fireEvent.click(screen.getByRole('button', { name: /add/i }));

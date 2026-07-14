@@ -46,6 +46,7 @@ export function SecretsManager({
 	onSet,
 	onDelete,
 	renderEditExtras,
+	docsLink,
 	children,
 	delivery = false,
 	deliveryDefaultTier = 'scoped',
@@ -73,6 +74,8 @@ export function SecretsManager({
 	onDelete?: (key: string) => Promise<unknown>;
 	/** Extra per-secret content for the edit dialog (e.g. a live grants editor). */
 	renderEditExtras?: (name: string) => ReactNode;
+	/** A docs link rendered at the START of the toolbar (before Refresh/Add), matching the sshKeys/certificates config pages. */
+	docsLink?: ReactNode;
 	/** Extra toolbar actions, rendered after Refresh/Add. */
 	children?: ReactNode;
 	/** Enable the delivery-tier chooser (process.env vs scoped) + access examples in the dialogs. */
@@ -115,6 +118,7 @@ export function SecretsManager({
 				isFetching={isFetching}
 				onRowClick={canManage ? onRowClick : undefined}
 			>
+				{docsLink}
 				{onRefresh && (
 					<Button
 						variant="defaultOutline"
