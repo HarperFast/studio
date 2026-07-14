@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // render, the error notice carries a Retry button, and 401/403 get an
 // auth-flavored message instead of "analytics unavailable".
 
-vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
+vi.mock('../hooks/useAnalyticsRecords', () => ({
 	useAnalyticsRecords: () => ({
 		data: [],
 		isLoading: false,
@@ -33,13 +33,13 @@ interface MockCapability {
 	retry: () => void;
 }
 let mockCapability: MockCapability;
-vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
+vi.mock('../hooks/useAnalyticsCapability', () => ({
 	useAnalyticsCapability: () => mockCapability,
 }));
 
 // Overview's real body suspends on get_status; stub it so these tests assert
 // "Overview renders" without plumbing status fixtures.
-vi.mock('../tabs/OverviewTab.tsx', () => ({
+vi.mock('../tabs/OverviewTab', () => ({
 	OverviewTab: () => <div data-testid="overview-content">overview content</div>,
 }));
 

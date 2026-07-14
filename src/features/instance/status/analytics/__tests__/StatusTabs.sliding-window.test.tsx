@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // hook and assert the clock in StatusTabsInner advances them.
 
 const seenWindows: { startTime: number; endTime: number }[] = [];
-vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
+vi.mock('../hooks/useAnalyticsRecords', () => ({
 	useAnalyticsRecords: (args: { startTime: number; endTime: number }) => {
 		seenWindows.push({ startTime: args.startTime, endTime: args.endTime });
 		return {
@@ -26,7 +26,7 @@ vi.mock('../hooks/useAnalyticsRecords.ts', () => ({
 	},
 }));
 
-vi.mock('../hooks/useAnalyticsCapability.ts', () => ({
+vi.mock('../hooks/useAnalyticsCapability', () => ({
 	useAnalyticsCapability: () => ({
 		supported: true,
 		isLoading: false,

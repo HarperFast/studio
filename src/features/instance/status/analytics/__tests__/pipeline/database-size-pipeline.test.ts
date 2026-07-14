@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { databaseSizeSpec } from '../../pipeline/database-size';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const databaseSizeSpec = wrapperMetrics['database-size'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 

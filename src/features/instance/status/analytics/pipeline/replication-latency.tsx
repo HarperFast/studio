@@ -1,5 +1,6 @@
 import { type JSX, useMemo, useState } from 'react';
 import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
+import { infoBannerStyle, warningBannerStyle } from '../primitives/bannerStyle';
 import { HeatmapMatrix } from '../primitives/HeatmapMatrix';
 import { LineChart } from '../primitives/LineChart';
 import type {
@@ -359,15 +360,6 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 		const allDropped = seriesData.series.length === 0 && omittedPairsCount > 0;
 		const noData = seriesData.series.length === 0 && omittedPairsCount === 0;
 
-		const warningStyle = {
-			marginBottom: 8,
-			padding: '4px 8px',
-			fontSize: 12,
-			borderLeft: '3px solid var(--color-warning, #f59e0b)',
-			background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
-			color: 'currentColor',
-		} as const;
-
 		// Banners stack at the top in normal document flow; the chart sits
 		// below with explicit vertical space. No flex height-juggling — the
 		// fixed-height LineChart was clipping/overlapping when it competed
@@ -395,7 +387,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 							key={omittedPairsCount}
 							role="status"
 							aria-atomic="true"
-							style={warningStyle}
+							style={warningBannerStyle}
 						>
 							{`${omittedPairsCount} source-destination ${
 								pluralize(omittedPairsCount, 'pair', 'pairs')
@@ -403,16 +395,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 						</div>
 					)
 					: null}
-				<div
-					style={{
-						marginBottom: 8,
-						padding: '4px 8px',
-						fontSize: 12,
-						borderLeft: '3px solid var(--color-accent, #3b82f6)',
-						background: 'color-mix(in srgb, var(--color-accent, #3b82f6) 10%, transparent)',
-						color: 'currentColor',
-					}}
-				>
+				<div style={infoBannerStyle}>
 					{message}
 				</div>
 				{allDropped
@@ -420,7 +403,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 						<div
 							role="status"
 							aria-atomic="true"
-							style={warningStyle}
+							style={warningBannerStyle}
 						>
 							{`No source-destination pairs cleared the confidence threshold (${greyBelow}+ samples). All ${omittedPairsCount} ${
 								pluralize(omittedPairsCount, 'pair', 'pairs')
@@ -497,14 +480,7 @@ function RecognitionBanner({ data }: RecognitionBannerProps) {
 			key={`${unparseable}-${missingValue}-${unrecognized.length}`}
 			role="status"
 			aria-atomic="true"
-			style={{
-				marginBottom: 8,
-				padding: '4px 8px',
-				fontSize: 12,
-				borderLeft: '3px solid var(--color-warning, #f59e0b)',
-				background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)',
-				color: 'currentColor',
-			}}
+			style={warningBannerStyle}
 		>
 			{parts.join(' ')}
 		</div>

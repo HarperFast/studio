@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { labelWithApprox } from '../../pipeline/approxLabel';
-import { durationSpec } from '../../pipeline/duration';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
+const durationSpec = wrapperMetrics['duration'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import type { AnalyticsDataPoint, TimeRange } from '../../types/analytics';
 
