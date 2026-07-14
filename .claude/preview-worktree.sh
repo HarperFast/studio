@@ -56,20 +56,28 @@ if [ -z "$current_major" ] || [ "$current_major" -lt 22 ]; then
 	want=""
 	[ -f "$root/.nvmrc" ] && want="$(tr -d '[:space:]' < "$root/.nvmrc")"
 	want="${want#v}" # .nvmrc may write the version with or without a leading `v`.
+	adjusted=""
 	if [ -n "$want" ] && [ -d "$HOME/.nvm/versions/node/v${want}/bin" ]; then
 		PATH="$HOME/.nvm/versions/node/v${want}/bin:$PATH"
+		adjusted=1
 	elif [ -d "$HOME/.nvm/versions/node" ]; then
 		# Newest installed >=22. Portable numeric sort (descending) instead of `sort -V`, which is a
 		# GNU/newer-BSD extension missing from older `sort` (e.g. stock macOS).
 		for v in $(ls -1 "$HOME/.nvm/versions/node" | sed 's/^v//' | sort -t. -k1,1rn -k2,2rn -k3,3rn); do
 			if [ "${v%%.*}" -ge 22 ]; then
 				PATH="$HOME/.nvm/versions/node/v$v/bin:$PATH"
+				adjusted=1
 				break
 			fi
 		done
 	fi
-	export PATH
-	echo "[preview] Adjusted PATH to Node $(node -v 2>/dev/null) for pnpm." >&2
+	# Only claim an adjustment when PATH actually changed; otherwise warn (pnpm will likely fail).
+	if [ -n "$adjusted" ]; then
+		export PATH
+		echo "[preview] Adjusted PATH to Node $(node -v 2>/dev/null) for pnpm." >&2
+	else
+		echo "[preview] Warning: Node $(node -v 2>/dev/null) is older than pnpm 11 needs (>=22.13) and no nvm Node >=22 was found — pnpm may fail." >&2
+	fi
 fi
 
 echo "[preview] Serving $(pwd) on port 5173" >&2
