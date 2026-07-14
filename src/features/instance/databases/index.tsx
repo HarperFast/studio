@@ -1,13 +1,16 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
+import { cn } from '@/lib/cn';
 import { buildAbsoluteLinkToDatabasePage } from '@/lib/urls/buildAbsoluteLinkToDatabasePage';
 import { useQuery } from '@tanstack/react-query';
 import { Navigate, useParams } from '@tanstack/react-router';
+import { CSSProperties } from 'react';
 import { DatabaseActionModals } from './components/DatabaseActionModals';
 import { DatabaseOverview } from './components/DatabaseOverview';
 import { DatabasesSidebar } from './components/DatabasesSidebar';
 import { DatabaseTableView } from './components/DatabaseTableView';
 import { resolveDatabasesRedirect } from './functions/resolveDatabasesRedirect';
+import { useResizableDatabasesSidebar } from './hooks/useResizableDatabasesSidebar';
 
 export function Databases() {
 	const params: {
@@ -25,6 +28,10 @@ export function Databases() {
 		getDescribeAllQueryOptions({ ...instanceParams, skipRecordCount: true }),
 	);
 
+	const { width: sidebarWidth, isResizing, startResizing } = useResizableDatabasesSidebar();
+	// Drive the width through a CSS variable so it only applies at md+ (mobile stays full-width, stacked).
+	const sidebarWidthVar = { '--db-sidebar-width': `${sidebarWidth}px` } as CSSProperties;
+
 	// Land on the first database's overview when nothing is selected, and recover from stale links to a
 	// dropped database/table (see resolveDatabasesRedirect for the exact rules + loop-freedom).
 	const redirect = resolveDatabasesRedirect(instanceDatabaseMap, params);
@@ -39,11 +46,26 @@ export function Databases() {
 
 	return (
 		<>
-			<main className="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-start">
-				<section className="col-span-1 text-foreground md:col-span-4 lg:col-span-3 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-hidden">
+			<main className="flex flex-col gap-4 md:flex-row md:items-start">
+				<section
+					style={sidebarWidthVar}
+					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-hidden"
+				>
 					<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
+					{/* Drag the right edge to resize the sidebar (md+ only; mobile stacks full-width). */}
+					<div
+						role="separator"
+						aria-orientation="vertical"
+						aria-label="Resize sidebar"
+						onMouseDown={startResizing}
+						className={cn(
+							'hidden md:block absolute top-0 right-0 bottom-0 w-1 z-40 cursor-col-resize',
+							'hover:bg-violet-400/60 dark:hover:bg-violet-500/60 transition-colors',
+							isResizing && 'bg-violet-400/60 dark:bg-violet-500/60',
+						)}
+					/>
 				</section>
-				<section className="col-span-1 text-foreground md:col-span-8 lg:col-span-9 flex flex-col min-h-0">
+				<section className="text-foreground w-full md:flex-1 md:min-w-0 flex flex-col min-h-0">
 					{params.databaseName && params.tableName
 						? (
 							<DatabaseTableView
