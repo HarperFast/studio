@@ -36,14 +36,66 @@ export const MAX_WORKER_MODEL_CHARS = 512 * 1024;
  */
 export const MAX_EXTRA_LIB_CHARS_TOTAL = 8 * 1024 * 1024;
 
+/** The outcome of offering one acquired declaration to {@link ExtraLibBudget}. */
+export interface ExtraLibAdmission {
+	/** Whether the declaration was admitted (and the running total advanced). */
+	admitted: boolean;
+	/**
+	 * Set only on the single call that first exhausts the aggregate budget, so
+	 * the caller can log the transition once and short-circuit later passes.
+	 */
+	justExhausted: boolean;
+	/**
+	 * Set when the declaration was rejected solely because it exceeds the
+	 * per-file limit — smaller declarations can still be admitted afterward, so
+	 * this does not spend the budget.
+	 */
+	oversize: boolean;
+}
+
 /**
- * Whether an acquired declaration file may be handed to the worker as an extra
- * lib, given the total chars already admitted this session. Rejects a single
- * oversized declaration and anything that would push the running total past the
- * budget. A rejected lib degrades that package to "cannot find module" — the
- * same acceptable degradation `selectFilesWithinModelBudget` chose for skipped
+ * Session-lifetime accounting for the `@types` declarations handed to the
+ * language worker as extra libs (`addExtraLib`). `setEagerModelSync(true)`
+ * clones every extra lib to the worker, the model budget can't see them, and
+ * they are never swept on project switch — so this is the sole bound on their
+ * unbounded, cross-project accumulation (HarperFast/studio#1499).
+ *
+ * Kept free of any Monaco dependency so the accumulation logic is unit-testable
+ * on its own. A rejected declaration degrades its package to "cannot find
+ * module" — the same tradeoff `selectFilesWithinModelBudget` makes for skipped
  * sibling models — which beats crashing the worker for the whole tab.
  */
-export function canAdmitExtraLib(currentTotalChars: number, incomingChars: number): boolean {
-	return incomingChars <= MAX_WORKER_MODEL_CHARS && currentTotalChars + incomingChars <= MAX_EXTRA_LIB_CHARS_TOTAL;
+export class ExtraLibBudget {
+	private totalChars = 0;
+	private spent = false;
+
+	/**
+	 * Whether the aggregate budget is exhausted. Once true it stays true: the
+	 * budget is never reclaimed, so a whole acquisition pass can be skipped
+	 * rather than woken to walk the CDN only for every file to be rejected.
+	 */
+	get isSpent(): boolean {
+		return this.spent;
+	}
+
+	/**
+	 * Offer a declaration of `chars` characters. Admits it (advancing the running
+	 * total) when it fits both the per-file and aggregate limits; otherwise
+	 * reports why it was turned away. The first aggregate overflow seals the
+	 * budget so every later offer is rejected without further arithmetic.
+	 */
+	admit(chars: number): ExtraLibAdmission {
+		if (this.spent) {
+			return { admitted: false, justExhausted: false, oversize: false };
+		}
+		if (chars > MAX_WORKER_MODEL_CHARS) {
+			return { admitted: false, justExhausted: false, oversize: true };
+		}
+		if (this.totalChars + chars > MAX_EXTRA_LIB_CHARS_TOTAL) {
+			this.spent = true;
+			return { admitted: false, justExhausted: true, oversize: false };
+		}
+		this.totalChars += chars;
+		return { admitted: true, justExhausted: false, oversize: false };
+	}
 }

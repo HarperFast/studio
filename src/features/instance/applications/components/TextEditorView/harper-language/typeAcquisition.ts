@@ -16,7 +16,7 @@
  * blocked CDN, unknown package — is swallowed so it can never break editing.
  */
 import { typescript } from '@/lib/monaco/languageServices';
-import { canAdmitExtraLib, MAX_EXTRA_LIB_CHARS_TOTAL } from '@/lib/monaco/workerLimits';
+import { ExtraLibBudget } from '@/lib/monaco/workerLimits';
 
 /** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
 const NODE_BUILTINS = new Set([
@@ -109,13 +109,11 @@ function createImportScannerShim(): unknown {
 let runnerPromise: Promise<(source: string) => Promise<void>> | undefined;
 const acquiredPaths = new Set<string>();
 /**
- * Running total of chars handed to the worker as extra libs. Session-lifetime
- * and monotonic — it mirrors the extra libs actually live on the shared
- * `typescriptDefaults`/`javascriptDefaults` singletons, which are never removed
- * — so once the budget is spent it stays spent, which is exactly the backstop
- * against unbounded cross-project accumulation (HarperFast/studio#1499).
+ * Bounds the chars handed to the worker as extra libs. Session-lifetime and
+ * never reclaimed — the backstop against unbounded cross-project accumulation
+ * that would otherwise OOM the language worker (HarperFast/studio#1499).
  */
-let acquiredChars = 0;
+const extraLibBudget = new ExtraLibBudget();
 
 function getRunner(): Promise<(source: string) => Promise<void>> {
 	if (!runnerPromise) {
@@ -136,10 +134,21 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 						// (setEagerModelSync) and never swept; bound the total so a
 						// large or deep dependency graph — or a long multi-project
 						// session — can't OOM the worker's clone buffer (#1499).
-						if (!canAdmitExtraLib(acquiredChars, code.length)) {
+						const { admitted, justExhausted, oversize } = extraLibBudget.admit(code.length);
+						if (!admitted) {
+							// Leave a breadcrumb: without one, a user whose IntelliSense
+							// quietly stops resolving a package has no signal why.
+							if (justExhausted) {
+								console.warn(
+									'[harper] type acquisition: extra-lib budget exhausted; further packages will report "cannot find module" in this tab',
+								);
+							} else if (oversize) {
+								console.debug(
+									`[harper] type acquisition: skipped oversized declaration ${path} (${code.length} chars)`,
+								);
+							}
 							return;
 						}
-						acquiredChars += code.length;
 						const uri = `file://${path}`;
 						typescriptDefaults.addExtraLib(code, uri);
 						javascriptDefaults.addExtraLib(code, uri);
@@ -159,11 +168,11 @@ export async function acquireApplicationTypes(sources: string[]): Promise<void> 
 	if (sources.length === 0) {
 		return;
 	}
-	// The budget is monotonic and never reclaimed, so once it is spent the
+	// Once the aggregate budget is spent it is never reclaimed, so the
 	// acquisition engine would walk the CDN and parse declarations only for
 	// `receivedFile` to discard every one. Skip the whole pass — including its
 	// network requests — rather than pay for work that can't land.
-	if (acquiredChars >= MAX_EXTRA_LIB_CHARS_TOTAL) {
+	if (extraLibBudget.isSpent) {
 		return;
 	}
 	try {
