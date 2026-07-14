@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { useAnalyticsContext } from '../context/AnalyticsContext';
 import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
 import { wrapperMetrics } from '../pipeline/wrapperMetrics';
-const ConnectionsRenderer = wrapperMetrics['connections'].Renderer;
 import type { AnalyticsDataPoint } from '../types/analytics';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
 import { collectNodes, PanelCard, PanelStateOrChart } from './PanelShell';
+
+const ConnectionsRenderer = wrapperMetrics['connections'].Renderer;
 
 /** Some Harper builds split active-session telemetry across two metrics:
  *  `mqtt-connections` (active MQTT sessions) and `ws-connections` (active

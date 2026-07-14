@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
-const cacheResolutionSpec = wrapperMetrics['cache-resolution'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint } from '../../types/analytics';
+
+const cacheResolutionSpec = wrapperMetrics['cache-resolution'].spec;
 
 // Synthetic rows shaped like the real Harper response. The real schema
 // carries a per-bucket count-weighted distribution for each path; the

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
-const cpuUsageSpec = wrapperMetrics['cpu-usage'].spec;
 import { runPipeline } from '../../pipeline/pipeline';
 import { QUANTILE_FIELDS } from '../../pipeline/quantileFields';
+import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint, MetricSpec, TimeRange } from '../../types/analytics';
+
+const cpuUsageSpec = wrapperMetrics['cpu-usage'].spec;
 
 const window: TimeRange = { startTime: 0, endTime: 1_000_000 };
 
