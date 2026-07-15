@@ -242,8 +242,53 @@ function HeatmapColorLegend({ stops, vmin, vmax, width, axis, approx, measureLab
 const MIN_CELL_SIZE = 40;
 const MAX_CELL_SIZE = 80;
 const CELL_GAP = 4;
-const HEADER_HEIGHT = 72; // reserved for rotated column headers
 const ROW_LABEL_WIDTH = 200;
+
+// ── Rotated column-header geometry ───────────────────────────────────────────
+// Destination labels are drawn diagonally above the grid. They anchor at their
+// END glyph (nearest the cell), sit just above the first cell row, and lean
+// UP-and-to-the-LEFT (rotate +45° with textAnchor="end"). Anchoring the near
+// end means the label's LOWEST point is the anchor baseline — independent of the
+// label's length — so no matter how long a label is it can never dip into the
+// cells; extra length only pushes the far (top) end higher. The header height is
+// sized from the longest rendered label so that far end is never clipped at the
+// top of the SVG. (Was rotate −45° anchored 8px above the grid, which sent the
+// far end DOWN into the first cell row and hid it behind the cells — #1518.)
+const COL_LABEL_FONT_SIZE = 11;
+const COL_LABEL_ANGLE_DEG = 45;
+// Approximate glyph advance at COL_LABEL_FONT_SIZE. Set on the generous side of a
+// mixed-case hostname's average so we over- rather than under-reserve vertical
+// room for the diagonal's top end. It's only an estimate (no DOM text
+// measurement, to keep computeHeaderHeight pure/deterministic), so a label of
+// unusually wide glyphs (all-caps, CJK) could still exceed it — but the near-end
+// anchoring means that only lifts the label's TOP, never its bottom into the
+// cells, and the SVG's `overflow: visible` renders any excess rather than
+// clipping it.
+const COL_LABEL_CHAR_W = 7.2;
+const HEADER_TOP_PAD = 8; // gap above the tallest label's top end
+const HEADER_BOTTOM_PAD = 6; // gap between the label's near end and the cells
+const MIN_HEADER_HEIGHT = 72; // floor, so short-label grids keep their proportions
+
+/** Chars a column label is truncated to before rendering — tighter for narrow
+ *  cells so long FQDNs don't crowd the diagonal. */
+function colTruncateLength(cellSize: number): number {
+	return cellSize < 56 ? 8 : 20;
+}
+
+/** Vertical space the rotated column headers need, sized to the longest label
+ *  that will actually render (post-truncation). The diagonal's vertical extent
+ *  is `width·sin θ + fontSize·cos θ`; we add top/bottom padding and floor it at
+ *  MIN_HEADER_HEIGHT. Kept pure (no DOM text measurement) so it's deterministic
+ *  in tests and SSR. */
+export function computeHeaderHeight(cols: string[], cellSize: number): number {
+	const maxChars = cols.reduce(
+		(m, c) => Math.max(m, Math.min(c.length, colTruncateLength(cellSize))),
+		0,
+	);
+	const rad = (COL_LABEL_ANGLE_DEG * Math.PI) / 180;
+	const vExtent = maxChars * COL_LABEL_CHAR_W * Math.sin(rad) + COL_LABEL_FONT_SIZE * Math.cos(rad);
+	return Math.max(MIN_HEADER_HEIGHT, Math.ceil(vExtent) + HEADER_TOP_PAD + HEADER_BOTTOM_PAD);
+}
 
 export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 	const titleId = useId();
@@ -321,8 +366,9 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 
 	const gridWidth = cols.length * cellSize + (cols.length - 1) * CELL_GAP;
 	const gridHeight = rows.length * cellSize + (rows.length - 1) * CELL_GAP;
+	const headerHeight = computeHeaderHeight(cols, cellSize);
 	const svgWidth = ROW_LABEL_WIDTH + gridWidth + 8;
-	const svgHeight = HEADER_HEIGHT + gridHeight + 8;
+	const svgHeight = headerHeight + gridHeight + 8;
 
 	// Roving tabindex state: [rowIdx, colIdx]. Clamped at render time so the
 	// active cell stays in range when rows/cols shrink after a data refresh
@@ -499,22 +545,26 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 							x={0}
 							y={0}
 							width={ROW_LABEL_WIDTH}
-							height={HEADER_HEIGHT}
+							height={headerHeight}
 							fill="transparent"
 							aria-hidden="true"
 						/>
 						{cols.map((col, ci) => {
 							const cx = ROW_LABEL_WIDTH + ci * (cellSize + CELL_GAP) + cellSize / 2;
-							const cy = HEADER_HEIGHT - 8;
-							const truncateLength = cellSize < 56 ? 8 : 20;
+							// Anchor the label's END glyph just above the first cell row and
+							// lean it up-and-left. The near-end baseline is the label's
+							// lowest point, so it can never reach into the cells regardless
+							// of length; see computeHeaderHeight.
+							const cy = headerHeight - HEADER_BOTTOM_PAD;
+							const truncateLength = colTruncateLength(cellSize);
 							return (
 								<g key={col} role="columnheader" aria-label={col}>
 									<text
 										x={cx}
 										y={cy}
-										fontSize={11}
+										fontSize={COL_LABEL_FONT_SIZE}
 										textAnchor="end"
-										transform={`rotate(-45, ${cx}, ${cy})`}
+										transform={`rotate(${COL_LABEL_ANGLE_DEG}, ${cx}, ${cy})`}
 										fill="currentColor"
 									>
 										{truncate(col, truncateLength)}
@@ -527,7 +577,7 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 
 					{/* Data rows */}
 					{rows.map((row, ri) => {
-						const y = HEADER_HEIGHT + ri * (cellSize + CELL_GAP);
+						const y = headerHeight + ri * (cellSize + CELL_GAP);
 						return (
 							<g key={row} role="row">
 								{/* Row header */}

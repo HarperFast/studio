@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HeatmapMatrix } from '../../primitives/HeatmapMatrix';
+import { computeHeaderHeight, HeatmapMatrix } from '../../primitives/HeatmapMatrix';
 import type { HeatmapData } from '../../types/analytics';
 
 const data: HeatmapData = {
@@ -303,6 +303,83 @@ describe('HeatmapMatrix primitive', () => {
 			unmount();
 			render(<HeatmapMatrix data={data} />);
 			expect(screen.getByTestId('heatmap-desc').textContent ?? '').not.toMatch(/Enter or Space/);
+		});
+	});
+
+	// Regression #1518: the rotated destination (column) labels used to anchor
+	// only 8px above the grid and rotate −45°, sending each label's far end DOWN
+	// into the first cell row where the cells painted over it. The fix anchors the
+	// label's END glyph just above the grid and leans it UP-and-left (+45°), so the
+	// anchor baseline is the label's lowest point and it never enters the cells;
+	// the header is sized so the far (top) end is never clipped either.
+	describe('column-label geometry (#1518)', () => {
+		const firstCellY = () => {
+			const rect = screen.getAllByRole('gridcell')[0].querySelector('rect')!;
+			return Number(rect.getAttribute('y'));
+		};
+		const colHeaderTexts = () => screen.getAllByRole('columnheader').map((g) => g.querySelector('text')!);
+
+		it('anchors every column label above the first cell row (no overlap)', () => {
+			render(<HeatmapMatrix data={data} />);
+			const cellY = firstCellY();
+			for (const t of colHeaderTexts()) {
+				// The label's near-end baseline (its lowest point once rotated +45°)
+				// sits strictly above where the cells begin.
+				expect(Number(t.getAttribute('y'))).toBeLessThan(cellY);
+			}
+		});
+
+		it('rotates the labels UP-left (+45°), not the old down-left −45°', () => {
+			render(<HeatmapMatrix data={data} />);
+			for (const t of colHeaderTexts()) {
+				const transform = t.getAttribute('transform') ?? '';
+				expect(transform).toMatch(/rotate\(\s*45\s*,/);
+				expect(transform).not.toMatch(/rotate\(\s*-45/);
+			}
+		});
+
+		it('reserves header room that matches computeHeaderHeight, and the viewBox contains it', () => {
+			const { container } = render(<HeatmapMatrix data={data} />);
+			const svg = container.querySelector('svg[role="grid"]')!;
+			const cellSize = Number(svg.getAttribute('data-cell-size'));
+			// The first cell row starts exactly at the reserved header height.
+			expect(firstCellY()).toBe(computeHeaderHeight(data.cols, cellSize));
+			// viewBox is "0 0 W H"; H must be tall enough to contain the header
+			// plus at least the first cell row — nothing clipped top or bottom.
+			const [minX, minY, , vbHeight] = (svg.getAttribute('viewBox') ?? '').split(/\s+/).map(Number);
+			expect(minX).toBe(0);
+			expect(minY).toBe(0);
+			expect(vbHeight).toBeGreaterThan(firstCellY());
+		});
+	});
+
+	describe('computeHeaderHeight', () => {
+		it('floors short-label grids at the minimum header height (72)', () => {
+			expect(computeHeaderHeight(['a', 'bb', 'ccc'], 40)).toBe(72);
+			expect(computeHeaderHeight([], 80)).toBe(72);
+		});
+
+		it('grows to contain long labels rotated 45° so the far end is not clipped', () => {
+			const longCols = ['node-alpha.us-east-1.example.internal', 'n2.example.internal'];
+			const wide = computeHeaderHeight(longCols, 80); // wide cells → 20-char truncation
+			expect(wide).toBeGreaterThan(72);
+			// Must reserve at least the diagonal's vertical extent of a 20-char label
+			// (20 · 6.6 · sin45 ≈ 93px) so the up-left far end clears y=0.
+			expect(wide).toBeGreaterThanOrEqual(93);
+		});
+
+		it('is monotonic in the longest label length', () => {
+			const short = computeHeaderHeight(['abcdefghijklmnop'], 80);
+			const longer = computeHeaderHeight(['abcdefghijklmnopqrst'], 80);
+			expect(longer).toBeGreaterThanOrEqual(short);
+		});
+
+		it('caps growth via the per-cellSize truncation (narrow cells truncate to 8 chars)', () => {
+			const label = ['a-very-long-destination-label-that-exceeds-limits'];
+			// Narrow cells truncate to 8 chars, so the header stays at the floor.
+			expect(computeHeaderHeight(label, 40)).toBe(72);
+			// Wide cells truncate to 20 chars, so the header grows past the floor.
+			expect(computeHeaderHeight(label, 80)).toBeGreaterThan(72);
 		});
 	});
 
