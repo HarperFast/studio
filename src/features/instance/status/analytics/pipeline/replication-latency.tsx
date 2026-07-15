@@ -1,4 +1,4 @@
-import { type JSX, useMemo, useState } from 'react';
+import { type JSX, useMemo, useRef, useState } from 'react';
 import { HeatmapDrilldownDialog } from '../components/HeatmapDrilldownDialog';
 import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
 import { infoBannerStyle, warningBannerStyle } from '../primitives/bannerStyle';
@@ -321,6 +321,12 @@ function buildLineSeries(
 	return { seriesData: { series }, omittedPairsCount };
 }
 
+interface DrilldownData {
+	suppressed: boolean;
+	sampleCount: number;
+	seriesData: SeriesData;
+}
+
 export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JSX.Element {
 	const { records, nodes, timeRange, fillParent } = props;
 
@@ -343,22 +349,30 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	// quantile/window, so the open dialog tracks the selectors — and re-applies
 	// the confidence gate: a refresh can drop the pair below `greyBelow`, and
 	// the dialog must then hide the series just like the heatmap cell does.
+	// Once closed, background refreshes skip the recompute (drillPair is kept
+	// for the Radix exit animation, so without the gate every refresh would
+	// re-filter all records for an invisible dialog forever); the ref serves
+	// the last computed content to the exit animation instead.
+	const lastDrilldownRef = useRef<DrilldownData | null>(null);
 	const drilldown = useMemo(() => {
 		if (!drillPair) { return null; }
+		if (!drillOpen) { return lastDrilldownRef.current; }
 		const matching = parseResult.parsed.filter(
 			(p) => p.source === drillPair.source && p.destination === drillPair.dest,
 		);
 		const sampleCount = matching.reduce((sum, p) => sum + p.count, 0);
 		const { points, approx } = lineSeriesFromParsed(matching);
 		const label = `${drillPair.source} → ${drillPair.dest}`;
-		return {
+		const result: DrilldownData = {
 			suppressed: sampleCount < REPLICATION_CONFIDENCE.greyBelow,
 			sampleCount,
 			// Empty points (e.g. every record lacked a numeric `time`) fall
 			// through to LineChart's "No data in window" state inside the dialog.
 			seriesData: { series: points.length === 0 ? [] : [{ key: label, label, points, approx }] } as SeriesData,
 		};
-	}, [drillPair, parseResult]);
+		lastDrilldownRef.current = result;
+		return result;
+	}, [drillPair, drillOpen, parseResult]);
 
 	const quantileLabel = REPLICATION_QUANTILE_FIELDS.find((q) => q.field === quantile)?.label ?? quantile;
 
