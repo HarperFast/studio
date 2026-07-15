@@ -1,4 +1,5 @@
 import { App } from '@/App';
+import { installApiUnauthorizedRedirect } from '@/lib/installApiUnauthorizedRedirect';
 import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
 import { installStaleDeployReload } from '@/lib/installStaleDeployReload';
 import { addReactError } from '@datadog/browser-rum-react';
@@ -12,6 +13,9 @@ installBrowserTranslationDomGuard();
 // Reload once when a redeploy invalidates this tab's hashed chunks, instead of
 // leaving routes and Monaco language workers broken for the session (issue #1406).
 installStaleDeployReload();
+// Redirect to /sign-in when a CM call returns 401 (lost/expired session), instead
+// of leaving the SPA on a stale user while every data call fails.
+installApiUnauthorizedRedirect();
 
 createRoot(
 	document.getElementById('root')!,
