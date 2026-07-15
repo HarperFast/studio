@@ -145,7 +145,8 @@ export function TableHeadSortable<TData extends RowData>({
 			style={{ width: `${size}px`, maxWidth: `${size}px` }}
 			// relative (not overflow-hidden) so the absolute resize handle can render past the edge
 			// while dragging; the inner content div does the truncation instead.
-			className={cn('relative', enableSorting ? 'px-0' : 'px-2', className)}
+			// select-none on resizable headers so dragging the handle can't text-select the title.
+			className={cn('relative', enableResizing && 'select-none', enableSorting ? 'px-0' : 'px-2', className)}
 		>
 			{/* pr leaves room for the right-edge resize handle so the title never sits under it. */}
 			<div className={cn('flex items-center min-w-0 overflow-hidden', enableResizing && 'pr-4')}>
