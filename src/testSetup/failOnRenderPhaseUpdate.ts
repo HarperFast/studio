@@ -38,17 +38,25 @@ beforeEach(() => {
 	};
 });
 
-afterEach(() => {
-	if (interceptedError) {
-		console.error = interceptedError;
+afterEach((context) => {
+	const original = interceptedError;
+	if (original) {
+		console.error = original;
 		interceptedError = undefined;
 	}
 	if (offenders.length > 0) {
 		const details = offenders.join('\n  ');
 		offenders = [];
-		throw new Error(
+		const message =
 			`React render-phase update detected — a component setState'd (or notified a store subscriber) while another component was rendering. `
-				+ `Defer the notification (see useAnalyticsFreshness / notifyManager.batchCalls for the pattern):\n  ${details}`,
-		);
+			+ `Defer the notification (see useAnalyticsFreshness / notifyManager.batchCalls for the pattern):\n  ${details}`;
+		// If the test body already failed, don't throw from the hook — a hook
+		// error would shadow the primary assertion failure in the report. The
+		// offender detail still reaches the log; the test is red either way.
+		if (context.task.result?.state === 'fail') {
+			original?.(`[failOnRenderPhaseUpdate] ${message}`);
+			return;
+		}
+		throw new Error(message);
 	}
 });
