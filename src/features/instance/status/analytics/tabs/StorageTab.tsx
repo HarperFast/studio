@@ -67,7 +67,12 @@ function TableSizePanels() {
 		}
 		return cleaned;
 	}, [data]);
-	const derived = useMemo(() => buildDerived(raw, timeRange), [raw, timeRange.startTime, timeRange.endTime]);
+	// bucketMs aligns the trend's bucket grid with the metric panels' so the
+	// value-synced crosshair matches across the tab (see computeBucketMs).
+	const derived = useMemo(
+		() => buildDerived(raw, timeRange, bucketMs),
+		[raw, timeRange.startTime, timeRange.endTime, bucketMs],
+	);
 
 	// Backs TableSizeTrend's rank toggle — the trend chart renders bytes/%
 	// buttons and reports clicks via onRankChange (previously wired to a
