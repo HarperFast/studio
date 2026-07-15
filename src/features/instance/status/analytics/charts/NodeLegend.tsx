@@ -1,4 +1,5 @@
 import { getNodeColor } from '../lib/nodeColors';
+import { shortNodeLabelMap } from '../lib/nodeLabels';
 
 interface NodeLegendProps {
 	nodeIds: string[];
@@ -10,6 +11,10 @@ interface NodeLegendProps {
 }
 
 export function NodeLegend({ nodeIds, isActive, onClickNode, disabled }: NodeLegendProps) {
+	// Show collision-aware short names (matching the chart series + tooltip),
+	// keeping the full FQDN on `title` for hover. Chips previously rendered the
+	// raw FQDN, so series read short while their own filter read long (#1515).
+	const shortLabels = shortNodeLabelMap(nodeIds);
 	return (
 		<div
 			role="group"
@@ -39,7 +44,7 @@ export function NodeLegend({ nodeIds, isActive, onClickNode, disabled }: NodeLeg
 						// remove the element from focus order entirely, so SR users
 						// couldn't discover what the legend means on this tab.
 						aria-disabled={disabled ? 'true' : undefined}
-						title={disabled ? "Per-node filter unavailable on this tab's panels" : undefined}
+						title={disabled ? "Per-node filter unavailable on this tab's panels" : node}
 						onClick={(e) => {
 							if (disabled) { return; }
 							onClickNode(node, e.ctrlKey || e.metaKey);
@@ -51,7 +56,7 @@ export function NodeLegend({ nodeIds, isActive, onClickNode, disabled }: NodeLeg
 							className="inline-block h-[3px] w-3 rounded"
 							style={{ backgroundColor: color }}
 						/>
-						<span>{node}</span>
+						<span>{shortLabels.get(node) ?? node}</span>
 					</button>
 				);
 			})}
