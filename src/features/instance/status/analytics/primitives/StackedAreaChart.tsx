@@ -7,7 +7,7 @@ import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData } from '../types/analytics';
-import { ChartTooltip } from './ChartTooltip';
+import { ChartTooltip, useTooltipGate } from './ChartTooltip';
 import { sortByMagnitude } from './sortByMagnitude';
 
 interface Props {
@@ -50,6 +50,9 @@ export function StackedAreaChart(
 	// `fillParent` caller) gets its own scope so it never drives the panels
 	// behind the overlay. See useChartSyncProps for the full rationale.
 	const syncProps = useChartSyncProps(!!fillParent);
+	// Tooltip box only on the chart under the pointer — synced siblings keep
+	// the cursor line but render no box (see useTooltipGate/ChartTooltip).
+	const { hovered, gateProps } = useTooltipGate();
 
 	if (data.series.length === 0) {
 		return (
@@ -113,6 +116,7 @@ export function StackedAreaChart(
 			style={fillParent
 				? { width: '100%', height: '100%', minHeight: 0, flex: '1 1 auto', display: 'flex', flexDirection: 'column' }
 				: { width: '100%', height }}
+			{...gateProps}
 		>
 			<div aria-hidden="true" style={{ width: '100%', height: '100%' }}>
 				<ResponsiveContainer width="100%" height="100%">
@@ -134,8 +138,12 @@ export function StackedAreaChart(
 							width={70}
 						/>
 						<Tooltip
+							// No enter/move easing: with syncId every synced chart
+							// animates on each mouse-move, making the tab visibly jerk.
+							isAnimationActive={false}
 							content={
 								<ChartTooltip
+									hidden={!hovered}
 									formatter={resolvedFormatter}
 									unitSuffix={resolvedUnit}
 									nodeNames={nodeNames}

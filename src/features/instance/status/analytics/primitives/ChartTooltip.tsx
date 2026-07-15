@@ -1,5 +1,5 @@
 import { formatValue, type ValueFormatter } from '@/lib/formatValue';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { shortNodeLabelMap } from '../lib/nodeLabels';
 import { formatTooltipTime } from '../lib/time';
 import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle';
@@ -39,6 +39,53 @@ interface Props {
 	/** Append the stacked charts' summed Total row (ported from the old
 	 *  StackedAreaTooltip; hidden for single-entry payloads). */
 	showTotal?: boolean;
+	/** Render nothing even while Recharts reports `active` — set by charts in
+	 *  a crosshair-sync group that are NOT under the pointer (useTooltipGate).
+	 *  Recharts still draws the Tooltip `cursor` line when the content renders
+	 *  null, so non-hovered synced charts keep the crosshair without stacking
+	 *  a screenful of tooltip boxes. */
+	hidden?: boolean;
+}
+
+export interface TooltipGateProps {
+	onMouseEnter: () => void;
+	onMouseLeave: () => void;
+	onTouchStart: () => void;
+	onFocus: () => void;
+	onBlur: () => void;
+}
+
+/** Per-chart hover gate for synced tooltips: spread `gateProps` on the chart's
+ *  container and pass `hidden={!hovered}` to <ChartTooltip>. With Recharts'
+ *  syncId every synced chart activates its own full tooltip; this keeps the
+ *  box on the chart being interacted with while the others retain the synced
+ *  cursor.
+ *
+ *  Non-mouse input opens the gate too — Recharts activates tooltips from
+ *  touch events and (via its accessibility layer) from arrow keys on a
+ *  focused chart, so gating on mouse hover alone would blank tooltips for
+ *  those users entirely. Touch has no "leave", so the gate stays open until
+ *  the next mouse/focus interaction closes it — after tapping two synced
+ *  charts both may show a box, which simply matches pre-gate behavior. */
+export function useTooltipGate(): {
+	hovered: boolean;
+	gateProps: TooltipGateProps;
+} {
+	const [hovered, setHovered] = useState(false);
+	const gateProps = useMemo(() => {
+		const open = () => setHovered(true);
+		const close = () => setHovered(false);
+		return {
+			onMouseEnter: open,
+			onMouseLeave: close,
+			onTouchStart: open,
+			// React's onFocus/onBlur map to focusin/focusout, so focus moving
+			// anywhere inside the chart container keeps the gate open.
+			onFocus: open,
+			onBlur: close,
+		};
+	}, []);
+	return { hovered, gateProps };
 }
 
 /** THE tooltip content for every synced cartesian chart on the Status tabs
@@ -46,7 +93,7 @@ interface Props {
  *  time header, node-name shortening, and value formatting can't drift
  *  between chart types. */
 export function ChartTooltip(
-	{ active, payload, label, formatter, unitSuffix, resolveEntryFormat, nodeNames, showTotal }: Props,
+	{ active, payload, label, formatter, unitSuffix, resolveEntryFormat, nodeNames, showTotal, hidden }: Props,
 ) {
 	const shortLabels = useMemo(() => {
 		const map = shortNodeLabelMap(nodeNames ?? []);
@@ -56,7 +103,7 @@ export function ChartTooltip(
 		return { map, fullNames };
 	}, [nodeNames]);
 
-	if (!active || !payload || payload.length === 0) { return null; }
+	if (hidden || !active || !payload || payload.length === 0) { return null; }
 
 	const displayName = (raw: string): string => {
 		let out = raw;
