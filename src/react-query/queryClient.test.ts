@@ -23,7 +23,11 @@ describe('errorHandler', () => {
 	});
 
 	afterEach(() => {
-		consoleMock.mockReset();
+		// mockRestore (not mockReset) un-installs the spy so the global
+		// render-phase-update tripwire's console.error wrapper is back in place
+		// at teardown — mockReset leaves a swallowing no-op spy installed, which
+		// the tripwire self-check (failOnRenderPhaseUpdate #1520) flags.
+		consoleMock.mockRestore();
 	});
 
 	it('should display default error message when no specific error info is available', () => {
