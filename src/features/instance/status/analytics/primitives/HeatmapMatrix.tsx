@@ -2,6 +2,7 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { formatValue } from '@/lib/formatValue';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { shortenNodeLabel } from '../lib/nodeLabels';
 import type { AxisSpec, HeatmapCell, HeatmapData } from '../types/analytics';
 import { warningBannerStyle } from './bannerStyle';
 import { computeCellSize } from './computeCellSize';
@@ -332,6 +333,13 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 	const rows = data.rows;
 	const cols = data.cols;
 
+	// Source/destination axis labels are node FQDNs; show the short node name
+	// (first DNS segment) instead of a blunt mid-string character truncation.
+	// The full FQDN stays on each label's <title> and aria-label. (#1515)
+	// TODO: once shortNodeLabelMap (collision-aware, added in #1522) lands on
+	// stage, swap to it so two sources sharing a first segment stay distinct.
+	const shortColLabels = useMemo(() => cols.map(shortenNodeLabel), [cols]);
+
 	// Responsive cell sizing: measure wrapper width, clamp to [MIN, MAX].
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const [cellSize, setCellSize] = useState<number>(MAX_CELL_SIZE);
@@ -366,7 +374,7 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 
 	const gridWidth = cols.length * cellSize + (cols.length - 1) * CELL_GAP;
 	const gridHeight = rows.length * cellSize + (rows.length - 1) * CELL_GAP;
-	const headerHeight = computeHeaderHeight(cols, cellSize);
+	const headerHeight = computeHeaderHeight(shortColLabels, cellSize);
 	const svgWidth = ROW_LABEL_WIDTH + gridWidth + 8;
 	const svgHeight = headerHeight + gridHeight + 8;
 
@@ -567,7 +575,7 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 										transform={`rotate(${COL_LABEL_ANGLE_DEG}, ${cx}, ${cy})`}
 										fill="currentColor"
 									>
-										{truncate(col, truncateLength)}
+										{truncate(shortenNodeLabel(col), truncateLength)}
 										<title>{col}</title>
 									</text>
 								</g>
@@ -589,7 +597,7 @@ export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 										textAnchor="end"
 										fill="currentColor"
 									>
-										{truncate(row, 24)}
+										{truncate(shortenNodeLabel(row), 24)}
 										<title>{row}</title>
 									</text>
 								</g>
