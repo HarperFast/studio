@@ -27,6 +27,10 @@ export function AnalyticsProvider({ value, children }: ProviderProps) {
 		value.timeRange.endTime,
 		value.bucketMs,
 		value.instanceParams.entityId,
+		// The client is memoized per route mount (useInstanceClientIdParams),
+		// so this dep is inert today — it exists so a future client rebuild
+		// with the same entityId propagates instead of serving a stale one.
+		value.instanceParams.instanceClient,
 		value.syncId,
 	]);
 	return <Ctx.Provider value={memo}>{children}</Ctx.Provider>;
