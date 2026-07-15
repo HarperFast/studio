@@ -13,9 +13,9 @@ import {
 import { useChartSyncProps } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
-import { formatAxisTick, formatTooltipTime } from '../lib/time';
+import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics';
-import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from './tooltipStyle';
+import { ChartTooltip, type ChartTooltipEntry } from './ChartTooltip';
 
 interface Props {
 	data: SeriesData;
@@ -90,6 +90,10 @@ export function LineChart(
 
 	const chartColors = getChartColors();
 
+	// Full node FQDNs on this chart — the shared tooltip shortens them in
+	// displayed series names (display-layer only; `label` stays untouched).
+	const nodeNames = [...new Set(data.series.flatMap((s) => (s.node !== undefined ? [s.node] : [])))];
+
 	return (
 		<div
 			role="img"
@@ -143,16 +147,17 @@ export function LineChart(
 							)
 							: null}
 						<Tooltip
-							labelFormatter={(label) => formatTooltipTime(Number(label))}
-							formatter={(val, name) => {
-								const nameStr = String(name);
-								const series = data.series.find((s) => s.label === nameStr || s.key === nameStr);
-								const axisSpec = series?.axis === 'right' ? rightAxis : leftAxis;
-								return [formatValue(Number(val), axisSpec?.formatter, axisSpec?.unit), nameStr];
-							}}
-							contentStyle={tooltipContentStyle}
-							labelStyle={tooltipLabelStyle}
-							itemStyle={tooltipItemStyle}
+							content={
+								<ChartTooltip
+									nodeNames={nodeNames}
+									resolveEntryFormat={(entry: ChartTooltipEntry) => {
+										const nameStr = String(entry.name ?? '');
+										const series = data.series.find((s) => s.label === nameStr || s.key === nameStr);
+										const axisSpec = series?.axis === 'right' ? rightAxis : leftAxis;
+										return { formatter: axisSpec?.formatter, unitSuffix: axisSpec?.unit };
+									}}
+								/>
+							}
 						/>
 						{!hideLegend && <Legend />}
 						{data.thresholds?.map((t: Threshold, i: number) => {

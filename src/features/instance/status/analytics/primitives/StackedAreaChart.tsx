@@ -5,10 +5,10 @@ import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tool
 import { useChartSyncProps } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
-import { formatAxisTick, formatTooltipTime } from '../lib/time';
-import type { AxisFormatter, AxisSpec, SeriesData } from '../types/analytics';
+import { formatAxisTick } from '../lib/time';
+import type { AxisSpec, SeriesData } from '../types/analytics';
+import { ChartTooltip } from './ChartTooltip';
 import { sortByMagnitude } from './sortByMagnitude';
-import { tooltipContentStyle, tooltipLabelStyle } from './tooltipStyle';
 
 interface Props {
 	data: SeriesData;
@@ -37,59 +37,6 @@ function composeAriaLabel(data: SeriesData): string {
 	return `Stacked area chart with ${seriesNames.length} series: ${seriesNames.slice(0, 5).join(', ')}${
 		seriesNames.length > 5 ? '…' : ''
 	}`;
-}
-
-interface TooltipPayloadEntry {
-	dataKey: string;
-	name: string;
-	value: number | null;
-	color: string;
-}
-
-interface StackedAreaTooltipProps {
-	active?: boolean;
-	payload?: readonly TooltipPayloadEntry[];
-	label?: number;
-	formatter?: AxisFormatter;
-	unitSuffix?: string;
-}
-
-export function StackedAreaTooltip({ active, payload, label, formatter, unitSuffix }: StackedAreaTooltipProps) {
-	if (!active || !payload || payload.length === 0) { return null; }
-	const total = payload.reduce((s, p) => s + (typeof p.value === 'number' ? p.value : 0), 0);
-	// count-si rounds at tick level; use raw 'count' for tooltip total to preserve precision.
-	const totalFormatter: AxisFormatter | undefined = formatter === 'count-si' ? 'count' : formatter;
-	return (
-		<div style={tooltipContentStyle}>
-			<div style={tooltipLabelStyle}>
-				{label !== undefined ? formatTooltipTime(Number(label)) : ''}
-			</div>
-			{payload.map((p) => (
-				<div key={p.dataKey} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-					<span style={{ color: p.color }}>{p.name}</span>
-					<span>{formatValue(typeof p.value === 'number' ? p.value : 0, formatter, unitSuffix)}</span>
-				</div>
-			))}
-			{payload.length > 1
-				? (
-					<div
-						style={{
-							display: 'flex',
-							justifyContent: 'space-between',
-							gap: 12,
-							marginTop: 4,
-							paddingTop: 4,
-							borderTop: '1px solid var(--border)',
-							fontWeight: 600,
-						}}
-					>
-						<span>Total</span>
-						<span>{formatValue(total, totalFormatter, unitSuffix)}</span>
-					</div>
-				)
-				: null}
-		</div>
-	);
 }
 
 export function StackedAreaChart(
@@ -155,6 +102,10 @@ export function StackedAreaChart(
 	const resolvedUnit = yAxis?.unit;
 	const fillOpacity = theme === 'dark' ? 0.5 : 0.35;
 
+	// Full node FQDNs on this chart — the shared tooltip shortens them in
+	// displayed series names (display-layer only; `label` stays untouched).
+	const nodeNames = [...new Set(data.series.flatMap((s) => (s.node !== undefined ? [s.node] : [])))];
+
 	return (
 		<div
 			role="img"
@@ -182,7 +133,16 @@ export function StackedAreaChart(
 							tick={{ fontSize: 11 }}
 							width={70}
 						/>
-						<Tooltip content={<StackedAreaTooltip formatter={resolvedFormatter} unitSuffix={resolvedUnit} />} />
+						<Tooltip
+							content={
+								<ChartTooltip
+									formatter={resolvedFormatter}
+									unitSuffix={resolvedUnit}
+									nodeNames={nodeNames}
+									showTotal
+								/>
+							}
+						/>
 						<Legend />
 						{sortedSeries.map((s, idx) => (
 							<Area
