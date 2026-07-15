@@ -49,15 +49,21 @@ export function KpiSparkline({ points, xDomain }: Props) {
 			aria-hidden="true"
 			focusable="false"
 		>
-			<path
-				d={toPath(coords.slice(0, -1))}
-				fill="none"
-				stroke="currentColor"
-				strokeWidth={1.5}
-				vectorEffect="non-scaling-stroke"
-				strokeLinejoin="round"
-				strokeLinecap="round"
-			/>
+			{
+				/* Two points = only the accent segment below; a one-coord path
+			    would be an invisible MoveTo-only element. */
+			}
+			{points.length > 2 && (
+				<path
+					d={toPath(coords.slice(0, -1))}
+					fill="none"
+					stroke="currentColor"
+					strokeWidth={1.5}
+					vectorEffect="non-scaling-stroke"
+					strokeLinejoin="round"
+					strokeLinecap="round"
+				/>
+			)}
 			<path
 				d={toPath(coords.slice(-2))}
 				fill="none"

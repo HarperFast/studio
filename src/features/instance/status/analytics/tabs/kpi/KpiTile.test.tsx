@@ -281,7 +281,9 @@ describe('KpiSparkline', () => {
 			<KpiSparkline points={[{ x: 0, y: 5 }, { x: 100, y: 5 }]} xDomain={[0, 100]} />,
 		);
 		const paths = container.querySelectorAll('path');
-		expect(paths.length).toBe(2);
+		// Two points render only the accent segment (the base path would be a
+		// MoveTo-only element).
+		expect(paths.length).toBe(1);
 		for (const d of [...paths].map((p) => p.getAttribute('d') ?? '')) {
 			// VIEW_H / 2 = 16 for every y coordinate.
 			expect(d.match(/,(\d+\.\d+)/g)?.every((m) => m === ',16.00')).toBe(true);
