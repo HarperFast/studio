@@ -1,6 +1,7 @@
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useAnalyticsSyncId } from '../context/AnalyticsContext';
 import { useNodeSelection } from '../hooks/useNodeSelection';
 import { getNodeColor } from '../lib/nodeColors';
 import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize';
@@ -31,6 +32,11 @@ interface Props {
 	rankBy: RankBy;
 	/** User toggled the rank. Dashboard persists to localStorage. */
 	onRankChange: (r: RankBy) => void;
+	/** True when rendered inside the expand-to-fullscreen dialog, which gets
+	 *  its own crosshair-sync scope instead of the tab-wide one
+	 *  (TableSizeTrend doesn't implement fillParent sizing — this flag only
+	 *  scopes syncing). */
+	inExpandDialog?: boolean;
 }
 
 export function TableSizeTrend({
@@ -43,8 +49,17 @@ export function TableSizeTrend({
 	clusterNodeIds,
 	rankBy,
 	onRankChange,
+	inExpandDialog,
 }: Props) {
 	const colors = getChartColors();
+	// Tab-scoped crosshair/tooltip sync (same treatment as the LineChart /
+	// StackedAreaChart primitives) — the trend shares the tab's x-domain.
+	// The expand dialog gets its own scope so it never drives the panels
+	// behind the overlay.
+	const tabSyncId = useAnalyticsSyncId();
+	const syncProps = tabSyncId !== undefined
+		? { syncId: inExpandDialog ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' as const }
+		: {};
 
 	const points = useMemo(
 		() => (selectedTable ? derived.trend(selectedTable) : []),
@@ -147,7 +162,7 @@ export function TableSizeTrend({
 
 			<div style={{ width: '100%', height: 300 }}>
 				<ResponsiveContainer width="100%" height="100%" minWidth={0}>
-					<LineChart data={chartData}>
+					<LineChart data={chartData} {...syncProps}>
 						<CartesianGrid stroke={colors.gridColor} strokeDasharray="3 3" />
 						<XAxis
 							dataKey="time"

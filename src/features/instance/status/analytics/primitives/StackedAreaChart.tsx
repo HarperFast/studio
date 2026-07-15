@@ -2,6 +2,7 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useAnalyticsSyncId } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick, formatTooltipTime } from '../lib/time';
@@ -98,6 +99,13 @@ export function StackedAreaChart(
 	// Fill opacity is the one genuinely theme-branched value here — dark mode
 	// needs denser fills to stay legible against the dark card surface.
 	const theme = useResolvedTheme();
+	// Tab-scoped crosshair/tooltip sync; the expand dialog (the only
+	// `fillParent` caller) gets its own scope so it never drives the panels
+	// behind the overlay. See LineChart for the full rationale.
+	const tabSyncId = useAnalyticsSyncId();
+	const syncProps = tabSyncId !== undefined
+		? { syncId: fillParent ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' as const }
+		: {};
 
 	if (data.series.length === 0) {
 		return (
@@ -160,7 +168,7 @@ export function StackedAreaChart(
 		>
 			<div aria-hidden="true" style={{ width: '100%', height: '100%' }}>
 				<ResponsiveContainer width="100%" height="100%">
-					<AreaChart data={merged}>
+					<AreaChart data={merged} {...syncProps}>
 						<CartesianGrid stroke={chartColors.gridColor} strokeDasharray="3 3" />
 						<XAxis
 							dataKey="x"

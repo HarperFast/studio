@@ -195,8 +195,11 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 			timeRange: { startTime, endTime },
 			bucketMs: preset.bucketMs,
 			instanceParams,
+			// Crosshair/tooltip sync is scoped to one instance's current tab —
+			// panels on a tab share an x-domain, other tabs/instances don't.
+			syncId: `${instanceParams.entityId}:${tab}`,
 		};
-	}, [presetId, instanceParams, tick]);
+	}, [presetId, instanceParams, tick, tab]);
 
 	const showTimePicker = tab !== 'overview';
 	const picker = showTimePicker

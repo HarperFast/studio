@@ -10,6 +10,7 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
+import { useAnalyticsSyncId } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick, formatTooltipTime } from '../lib/time';
@@ -66,6 +67,20 @@ function composeAriaLabel(data: SeriesData): string {
 export function LineChart(
 	{ data, yAxis, height = 240, ariaLabel, hideLegend, xDomain, fillParent }: Props,
 ) {
+	// Sync crosshairs/tooltips across every cartesian chart on the current
+	// Status tab. `fillParent` is only ever set by the expand-to-fullscreen
+	// dialog (ChartExpandButton); syncing dialog charts with the tab would
+	// ghost-drive the panels behind the overlay, so the dialog gets its own
+	// scope instead — a SmallMultiples panel expands to several mini-charts
+	// that keep syncing with each other, while a single-chart dialog is a
+	// harmless sync group of one. syncMethod="value" matches by x value; the
+	// default index-based sync mis-aligns sparse series that don't share
+	// point counts.
+	const tabSyncId = useAnalyticsSyncId();
+	const syncProps = tabSyncId !== undefined
+		? { syncId: fillParent ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' as const }
+		: {};
+
 	if (data.series.length === 0) {
 		return (
 			<div role="status" aria-live="polite" className="text-(--color-text-secondary) text-sm p-4">
@@ -98,7 +113,7 @@ export function LineChart(
 			}
 			<div aria-hidden="true" style={{ width: '100%', height: '100%' }}>
 				<ResponsiveContainer width="100%" height="100%">
-					<RLineChart margin={{ top: 12, right: 12, bottom: 8, left: 8 }}>
+					<RLineChart margin={{ top: 12, right: 12, bottom: 8, left: 8 }} {...syncProps}>
 						<CartesianGrid stroke={chartColors.gridColor} strokeDasharray="3 3" />
 						<XAxis
 							dataKey="x"
