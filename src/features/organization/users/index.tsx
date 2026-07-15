@@ -7,6 +7,7 @@ import { getOrganizationRolesQueryOptions } from '@/features/organization/querie
 import { dataTableColumns } from '@/features/organization/users/constants/tableDefinition';
 import { AddUserModal } from '@/features/organization/users/modals/AddUserModal';
 import { EditUserModal } from '@/features/organization/users/modals/EditUserModal';
+import { isAdminRoleName } from '@/features/organization/users/orgUserRemovalPolicy';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaUser } from '@/integrations/api/api.gen';
@@ -40,6 +41,20 @@ export function OrgConfigUsersIndex() {
 			}
 		}
 		return Object.values(users).sort(sortByEmail);
+	}, [organizationRoles]);
+
+	// Distinct members holding an admin role — used to keep the last admin from removing their own
+	// admin role or leaving (which would leave the org with no one able to manage it).
+	const orgAdminCount = useMemo(() => {
+		const adminUserIds = new Set<SchemaUser['id']>();
+		for (const organizationRole of organizationRoles) {
+			if (isAdminRoleName(organizationRole.roleName)) {
+				for (const user of organizationRole.users ?? []) {
+					adminUserIds.add(user.id);
+				}
+			}
+		}
+		return adminUserIds.size;
 	}, [organizationRoles]);
 
 	const selectedUser = useMemo(() => cloudUsers?.find((user) => user.id === orgUserId), [cloudUsers, orgUserId]);
@@ -139,6 +154,8 @@ export function OrgConfigUsersIndex() {
 							data={selectedUser}
 							isModalOpen={isEditModalOpen}
 							onUserUpdated={onUserUpdated}
+							orgUserCount={cloudUsers.length}
+							orgAdminCount={orgAdminCount}
 						/>
 					)}
 				</Suspense>
