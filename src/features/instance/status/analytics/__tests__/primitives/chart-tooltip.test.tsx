@@ -84,6 +84,24 @@ describe('ChartTooltip (shared cartesian chart tooltip)', () => {
 		expect(screen.getByText('node1.eu')).toBeTruthy();
 	});
 
+	it('does not over-shorten when one FQDN sits inside another node short label', () => {
+		// Short labels: acme.com→acme, x.acme.com.foo.net→x.acme.com.foo,
+		// x.acme.com.bar.net→x.acme.com.bar. `acme.com` is a substring of the
+		// `x.acme.com.foo` short label; a bare substring-replace would rewrite
+		// it to `x.acme.foo`. Boundary-anchored replacement leaves it intact.
+		const nodes = ['acme.com', 'x.acme.com.foo.net', 'x.acme.com.bar.net'];
+		const payload = [
+			{ dataKey: 'y', name: 'acme.com', value: 1, color: '#f00' },
+			{ dataKey: 'y', name: 'x.acme.com.foo.net', value: 2, color: '#0f0' },
+		];
+		render(
+			<ChartTooltip active payload={payload} label={1700000000000} formatter="count" nodeNames={nodes} />,
+		);
+		expect(screen.getByText('acme')).toBeTruthy();
+		expect(screen.getByText('x.acme.com.foo')).toBeTruthy();
+		expect(screen.queryByText('x.acme.foo')).toBe(null);
+	});
+
 	it('renders a Total row summing the payload when showTotal is set', () => {
 		const payload = [
 			{ dataKey: 'a', name: 'A', value: 20, color: '#f00' },

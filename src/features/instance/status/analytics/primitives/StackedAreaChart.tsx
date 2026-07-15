@@ -54,6 +54,17 @@ export function StackedAreaChart(
 	// the cursor line but render no box (see useTooltipGate/ChartTooltip).
 	const { hovered, gateProps } = useTooltipGate();
 
+	// Full node FQDNs on this chart — the shared tooltip shortens them in
+	// displayed series names (display-layer only; `label` stays untouched).
+	// Memoized: this chart re-renders on every hover tick (useTooltipGate), and
+	// a fresh array each render would re-run ChartTooltip's shortNodeLabelMap
+	// (keyed on this) on every mouse-move. Kept above the early return so the
+	// hook order stays stable when data is empty.
+	const nodeNames = useMemo(
+		() => [...new Set(data.series.flatMap((s) => (s.node !== undefined ? [s.node] : [])))],
+		[data.series],
+	);
+
 	if (data.series.length === 0) {
 		return (
 			<div role="status" aria-live="polite" className="text-(--color-text-secondary) text-sm p-4">
@@ -104,10 +115,6 @@ export function StackedAreaChart(
 	const resolvedFormatter = yAxis?.formatter;
 	const resolvedUnit = yAxis?.unit;
 	const fillOpacity = theme === 'dark' ? 0.5 : 0.35;
-
-	// Full node FQDNs on this chart — the shared tooltip shortens them in
-	// displayed series names (display-layer only; `label` stays untouched).
-	const nodeNames = [...new Set(data.series.flatMap((s) => (s.node !== undefined ? [s.node] : [])))];
 
 	return (
 		<div

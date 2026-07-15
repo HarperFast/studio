@@ -88,6 +88,10 @@ export function useTooltipGate(): {
 	return { hovered, gateProps };
 }
 
+function escapeRegExp(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** THE tooltip content for every synced cartesian chart on the Status tabs
  *  (LineChart, StackedAreaChart, TableSizeTrend). One implementation so the
  *  time header, node-name shortening, and value formatting can't drift
@@ -95,22 +99,27 @@ export function useTooltipGate(): {
 export function ChartTooltip(
 	{ active, payload, label, formatter, unitSuffix, resolveEntryFormat, nodeNames, showTotal, hidden }: Props,
 ) {
-	const shortLabels = useMemo(() => {
+	const shortReplacers = useMemo(() => {
 		const map = shortNodeLabelMap(nodeNames ?? []);
-		// Longest-first so a node name that contains another node's full name
-		// as a substring can't be half-replaced by the shorter match.
-		const fullNames = [...map.keys()].sort((a, b) => b.length - a.length);
-		return { map, fullNames };
+		// Longest-first so a node name containing another node's FQDN as a
+		// substring is replaced first. Each match is anchored to hostname
+		// boundaries (`[\w.-]` on neither side), so a shorter FQDN can never
+		// match inside an already-shortened prefix — the substring-replace
+		// over-shortening a bare `.split().join()` was prone to.
+		return [...map.entries()]
+			.filter(([full, short]) => short !== full)
+			.sort((a, b) => b[0].length - a[0].length)
+			.map(([full, short]) => ({
+				re: new RegExp(`(?<![\\w.-])${escapeRegExp(full)}(?![\\w.-])`, 'g'),
+				short,
+			}));
 	}, [nodeNames]);
 
 	if (hidden || !active || !payload || payload.length === 0) { return null; }
 
 	const displayName = (raw: string): string => {
 		let out = raw;
-		for (const full of shortLabels.fullNames) {
-			const short = shortLabels.map.get(full)!;
-			if (short !== full && out.includes(full)) { out = out.split(full).join(short); }
-		}
+		for (const { re, short } of shortReplacers) { out = out.replace(re, short); }
 		return out;
 	};
 
