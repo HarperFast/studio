@@ -1,7 +1,7 @@
 import type { EntityIds } from '@/features/auth/store/authStore';
 import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { notifyManager, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 const PREFIX = ANALYTICS_QUERY_KEY_PREFIX;
 
@@ -16,48 +16,68 @@ export interface AnalyticsFreshness {
 	now: number;
 }
 
+interface FreshnessSnapshot {
+	isFetching: boolean;
+	lastFetchedAt: number | null;
+}
+
 /** Watches the React Query cache for activity on the `get_analytics`
  *  prefix and exposes a busy flag + most-recent-success timestamp. The
  *  TimeRangePicker uses these to show an active/spinning refresh icon
  *  and a "last updated" relative-time label. Scoped to `entityId` (key
  *  position 1, per getAnalytics.ts) so two instance Status pages open
- *  at once don't reflect each other's fetches. */
+ *  at once don't reflect each other's fetches.
+ *
+ *  Implemented like RQ's own useIsFetching — `useSyncExternalStore`
+ *  with the store notification routed through `notifyManager.batchCalls`:
+ *  `useQuery` registers new queries *during render* and RQ dispatches
+ *  the cache event synchronously, so notifying React synchronously here
+ *  (setState OR a bare uSES onStoreChange — both schedule a cross-fiber
+ *  update) trips React's "Cannot update a component while rendering a
+ *  different component" error while the mounting component (MetricPanel,
+ *  a KPI tile) renders. batchCalls defers the notification past the
+ *  render; the regression test proves both halves. */
 export function useAnalyticsFreshness(entityId: EntityIds): AnalyticsFreshness {
 	const client = useQueryClient();
-	const [isFetching, setIsFetching] = useState(false);
-	const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
-	const [now, setNow] = useState(() => Date.now());
+	// getSnapshot must return a referentially-stable object while the
+	// underlying values are unchanged, or uSES loops; cache the last one.
+	const snapshotRef = useRef<FreshnessSnapshot>({ isFetching: false, lastFetchedAt: null });
 
-	useEffect(() => {
-		const cache = client.getQueryCache();
-		const isOurs = (q: { queryKey: unknown }) =>
-			Array.isArray(q.queryKey) && q.queryKey[0] === PREFIX && q.queryKey[1] === entityId;
-		const sync = () => {
-			let fetching = false;
-			let mostRecent: number | null = null;
-			for (const q of cache.getAll()) {
-				if (!isOurs(q)) { continue; }
-				if (q.state.fetchStatus === 'fetching') { fetching = true; }
-				if (q.state.dataUpdatedAt > 0 && (mostRecent === null || q.state.dataUpdatedAt > mostRecent)) {
-					mostRecent = q.state.dataUpdatedAt;
-				}
-			}
-			// Only setState when the value actually changed — RQ fires the
-			// subscription on every cache event in the entire app, and a
-			// no-op setState would still trigger a re-render of the picker.
-			setIsFetching((prev) => (prev === fetching ? prev : fetching));
-			setLastFetchedAt((prev) => (prev === mostRecent ? prev : mostRecent));
-		};
-		sync();
-		// Subscribe filter: we only care about events on `get_analytics_raw`
-		// queries. Filter the *event* (not just the post-aggregate) so we
-		// don't recompute the cache scan for every unrelated query mutation.
-		const unsub = cache.subscribe((event) => {
+	const isOurs = useCallback(
+		(q: { queryKey: unknown }) => Array.isArray(q.queryKey) && q.queryKey[0] === PREFIX && q.queryKey[1] === entityId,
+		[entityId],
+	);
+
+	const subscribe = useCallback((onStoreChange: () => void) => {
+		// Subscribe filter: only events on `get_analytics_raw` queries for
+		// this entity wake the picker — not every query mutation in the app.
+		const deferredNotify = notifyManager.batchCalls(onStoreChange);
+		return client.getQueryCache().subscribe((event) => {
 			if (!event?.query || !isOurs(event.query)) { return; }
-			sync();
+			deferredNotify();
 		});
-		return () => unsub();
-	}, [client, entityId]);
+	}, [client, isOurs]);
+
+	const getSnapshot = useCallback((): FreshnessSnapshot => {
+		let fetching = false;
+		let mostRecent: number | null = null;
+		for (const q of client.getQueryCache().getAll()) {
+			if (!isOurs(q)) { continue; }
+			if (q.state.fetchStatus === 'fetching') { fetching = true; }
+			if (q.state.dataUpdatedAt > 0 && (mostRecent === null || q.state.dataUpdatedAt > mostRecent)) {
+				mostRecent = q.state.dataUpdatedAt;
+			}
+		}
+		const prev = snapshotRef.current;
+		if (prev.isFetching !== fetching || prev.lastFetchedAt !== mostRecent) {
+			snapshotRef.current = { isFetching: fetching, lastFetchedAt: mostRecent };
+		}
+		return snapshotRef.current;
+	}, [client, isOurs]);
+
+	const { isFetching, lastFetchedAt } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+	const [now, setNow] = useState(() => Date.now());
 
 	useEffect(() => {
 		// Tick rate adapts to age so we don't burn a 1Hz timer per picker
