@@ -40,8 +40,10 @@ export type ChartCsvData =
  *  spreadsheets import them as text instead of evaluating them as formulas
  *  (labels come from telemetry paths/identifiers — CSV-injection guard).
  *  Numeric cells go through csvNumber and keep their sign. */
-function csvField(value: string): string {
-	const neutralized = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+function csvField(value: string | number | null | undefined): string {
+	if (value === null || value === undefined) { return ''; }
+	const asString = String(value);
+	const neutralized = /^[=+\-@\t\r]/.test(asString) ? `'${asString}` : asString;
 	if (/[",\r\n]/.test(neutralized)) {
 		return `"${neutralized.replace(/"/g, '""')}"`;
 	}
@@ -148,7 +150,9 @@ export function makeCsvFilename(metric: string, range: TimeRange): string {
 }
 
 export function downloadCsv(csv: string, filename: string): void {
-	triggerBlobDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }), filename);
+	// UTF-8 BOM so Excel detects the encoding (the ' · ' connection-path
+	// separator and node names garble without it).
+	triggerBlobDownload(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }), filename);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

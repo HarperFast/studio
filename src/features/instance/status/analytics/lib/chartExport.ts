@@ -43,14 +43,13 @@ export async function captureChartAsBlob(
  *  Shared by the PNG export and the CSV export so they can't drift. */
 export function triggerBlobDownload(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
-	try {
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = filename;
-		a.click();
-	} finally {
-		URL.revokeObjectURL(url);
-	}
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = filename;
+	a.click();
+	// Revoke on a later tick: some browsers (Firefox) start the download
+	// asynchronously, and a synchronous revoke can abort it.
+	window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 export async function downloadChart(chartContainer: HTMLElement, filename: string): Promise<void> {
