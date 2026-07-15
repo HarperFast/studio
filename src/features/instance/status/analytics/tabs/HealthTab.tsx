@@ -1,3 +1,4 @@
+import { KpiStrip } from './kpi/KpiStrip';
 import { MetricPanel } from './MetricPanel';
 
 const METRICS = [
@@ -10,8 +11,11 @@ const METRICS = [
 
 export function HealthTab() {
 	return (
-		<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-			{METRICS.map((m) => <MetricPanel key={m} metric={m} />)}
+		<div className="flex flex-col gap-4">
+			<KpiStrip />
+			<div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+				{METRICS.map((m) => <MetricPanel key={m} metric={m} />)}
+			</div>
 		</div>
 	);
 }
