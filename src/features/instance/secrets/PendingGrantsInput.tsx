@@ -2,47 +2,35 @@
  * A local, API-free grants collector for the Add-secret flow: the secret doesn't exist yet, so
  * grants can't be persisted with grant_secret (as the edit flow's live SecretGrantsEditor does) —
  * they're gathered here and submitted in the initial set_secret call. Chip UI mirrors
- * SecretGrantsEditor so the two read the same.
+ * SecretGrantsEditor so the two read the same, and both pick the target application through the
+ * shared ComponentGrantCombobox.
  */
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { PlusIcon, XIcon } from 'lucide-react';
-import { KeyboardEvent, useCallback, useState } from 'react';
+import { XIcon } from 'lucide-react';
+import { useCallback } from 'react';
+import { ComponentGrantCombobox } from './ComponentGrantCombobox';
 
 export function PendingGrantsInput({
 	grants,
 	onChange,
+	components,
 	disabled,
 }: {
 	grants: string[];
 	onChange: (next: string[]) => void;
+	/** Component names the cluster reports, offered as picker suggestions (empty → free text). */
+	components: string[];
 	disabled?: boolean;
 }) {
-	const [component, setComponent] = useState('');
-
-	const add = useCallback(() => {
-		const target = component.trim();
-		if (!target) {
-			return;
-		}
+	const add = useCallback((target: string) => {
 		if (!grants.includes(target)) {
 			onChange([...grants, target]);
 		}
-		setComponent('');
-	}, [component, grants, onChange]);
+	}, [grants, onChange]);
 
 	const remove = useCallback((target: string) => {
 		onChange(grants.filter((granted) => granted !== target));
 	}, [grants, onChange]);
-
-	// This input lives inside the add form — Enter must add a grant, not submit the secret.
-	const onKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === 'Enter') {
-			event.preventDefault();
-			add();
-		}
-	}, [add]);
 
 	return (
 		<div className="grid gap-2">
@@ -70,29 +58,16 @@ export function PendingGrantsInput({
 					))}
 				</div>
 			)}
-			<div className="flex gap-2">
-				<Input
-					type="text"
-					autoComplete="off"
-					autoCapitalize="off"
-					placeholder="application name"
-					value={component}
-					onChange={(event) => setComponent(event.target.value)}
-					onKeyDown={onKeyDown}
-					// Commit a typed-but-not-added name on blur too, so submitting the Add-secret form (which
-					// blurs this field first) doesn't silently drop it. add() no-ops on empty/duplicate.
-					onBlur={add}
-					disabled={disabled}
-				/>
-				<Button
-					type="button"
-					variant="positiveOutline"
-					onClick={add}
-					disabled={disabled || !component.trim()}
-				>
-					<PlusIcon /> Add
-				</Button>
-			</div>
+			<ComponentGrantCombobox
+				components={components}
+				granted={grants}
+				onAdd={add}
+				disabled={disabled}
+				actionLabel="Add"
+				// Submitting the Add-secret form blurs this field first; commit-on-blur keeps a typed-but-
+				// not-added name from being silently dropped. add() no-ops on empty/duplicate.
+				commitOnBlur
+			/>
 		</div>
 	);
 }

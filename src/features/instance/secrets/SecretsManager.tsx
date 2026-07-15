@@ -49,6 +49,7 @@ export function SecretsManager({
 	children,
 	delivery = false,
 	deliveryDefaultTier = 'scoped',
+	grantableComponents,
 }: {
 	rows: SecretRow[];
 	isFetching?: boolean;
@@ -78,6 +79,8 @@ export function SecretsManager({
 	delivery?: boolean;
 	/** Tier pre-selected in the Add dialog (defaults to the safer scoped tier). */
 	deliveryDefaultTier?: SecretTier;
+	/** Component names the cluster reports, offered as suggestions in the Add dialog's grants picker. */
+	grantableComponents?: string[];
 }) {
 	const columns = useMemo<Array<ColumnDef<SecretRow>>>(() => [
 		{
@@ -149,6 +152,7 @@ export function SecretsManager({
 					existingKeys={existingKeys}
 					delivery={delivery}
 					defaultTier={deliveryDefaultTier}
+					grantableComponents={grantableComponents}
 					onSubmit={({ key, value, ...options }) => onSet(key, value, options)}
 				/>
 			)}

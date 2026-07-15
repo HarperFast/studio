@@ -1,8 +1,11 @@
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { grantableComponentNames } from '@/features/instance/config/secrets/grantableComponents';
 import { SecretGrantsEditor } from '@/features/instance/config/secrets/SecretGrantsEditor';
 import { SecretRow, SecretsManager } from '@/features/instance/secrets/SecretsManager';
+import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
+import { getComponentsQueryOptions } from '@/integrations/api/instance/applications/getComponents';
 import {
 	listSecretsQueryOptions,
 	SecretMetadata,
@@ -25,6 +28,13 @@ export function ConfigSecretsIndex() {
 	const { secretName, clusterId }: { secretName?: string; clusterId?: string } = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const { data, refetch, isFetching } = useQuery(listSecretsQueryOptions(instanceParams));
+
+	// The components the cluster reports feed the grants picker so scoping a secret is a pick, not a
+	// retype. Gated on manage permission (same as the overview page); it degrades to a free-text
+	// field when unavailable (older Harper, no permission), so a failure here never blocks scoping.
+	const canManage = useInstanceManagePermission();
+	const { data: componentsTree } = useQuery(getComponentsQueryOptions({ ...instanceParams, enabled: canManage }));
+	const grantableComponents = useMemo(() => grantableComponentNames(componentsTree), [componentsTree]);
 
 	// Fabric-managed clusters get their public key from central-manager (the custodian — it mints
 	// the keypair on first use, central-manager#409); self-hosted/local nodes serve their own.
@@ -123,6 +133,7 @@ export function ConfigSecretsIndex() {
 				onSelectName={onSelectName}
 				nameHeader="Secret"
 				delivery={true}
+				grantableComponents={grantableComponents}
 				addDescription="The value is encrypted in your browser against the cluster's secrets key — plaintext never reaches the API, the operation log, or disk. It can be replaced or deleted, but never read back."
 				editDescription="The current value can't be shown — it's stored encrypted. Enter a new value to replace it, adjust how applications read it, or delete the secret."
 				valueDescription="Encrypted client-side before it leaves this page."
@@ -136,6 +147,7 @@ export function ConfigSecretsIndex() {
 								key={secret.name}
 								name={secret.name}
 								initialGrants={secret.grants}
+								components={grantableComponents}
 								onChanged={() => void refetch()}
 							/>
 						)

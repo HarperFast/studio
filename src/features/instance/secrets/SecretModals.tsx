@@ -57,6 +57,7 @@ export function AddSecretModal({
 	setIsModalOpen,
 	delivery = false,
 	defaultTier = 'scoped',
+	grantableComponents = [],
 }: {
 	description: ReactNode;
 	valueDescription?: ReactNode;
@@ -70,6 +71,8 @@ export function AddSecretModal({
 	delivery?: boolean;
 	/** Tier pre-selected when the dialog opens (defaults to the safer scoped tier). */
 	defaultTier?: SecretTier;
+	/** Component names the cluster reports, offered as suggestions in the grants picker. */
+	grantableComponents?: string[];
 }) {
 	const schema = useMemo(
 		() =>
@@ -173,7 +176,14 @@ export function AddSecretModal({
 								tier={tier}
 								onTierChange={setTier}
 								disabled={isPending}
-								grantsSlot={<PendingGrantsInput grants={grants} onChange={setGrants} disabled={isPending} />}
+								grantsSlot={
+									<PendingGrantsInput
+										grants={grants}
+										onChange={setGrants}
+										components={grantableComponents}
+										disabled={isPending}
+									/>
+								}
 							/>
 						)}
 
