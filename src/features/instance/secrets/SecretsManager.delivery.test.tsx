@@ -68,10 +68,11 @@ describe('SecretsManager delivery tier — Add', () => {
 		const { onSet } = renderManager();
 		await openAddWithKeyValue();
 
-		// Add one grant (the PendingGrantsInput "Add" button, distinct from "Add Secret").
+		// Add one grant through the component picker. No components are supplied here, so it's a
+		// free-text field; Enter commits the typed name (the chip's Remove button confirms it landed).
 		fireEvent.change(screen.getByPlaceholderText('application name'), { target: { value: 'my-app' } });
-		fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
-		expect(screen.getByText('my-app')).toBeTruthy();
+		fireEvent.keyDown(screen.getByRole('combobox'), { key: 'Enter' });
+		await screen.findByRole('button', { name: /remove my-app/i });
 
 		const submit = screen.getByRole('button', { name: /add secret/i });
 		await waitFor(() => expect(submit.hasAttribute('disabled')).toBe(false));
