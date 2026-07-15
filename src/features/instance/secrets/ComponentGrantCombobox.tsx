@@ -70,6 +70,12 @@ export function ComponentGrantCombobox({
 	const busy = disabled || isCommitting;
 
 	const options = useMemo<Option[]>(() => {
+		// No components reported (older Harper / no permission): stay a plain free-text field — no
+		// dropdown, no "use this" row (there's nothing to disambiguate it from). Enter/Add still commit
+		// the typed value via commitActive's `?? query` fallback.
+		if (components.length === 0) {
+			return [];
+		}
 		const q = query.trim();
 		const qLower = q.toLowerCase();
 		const grantedSet = new Set(granted);
@@ -121,12 +127,14 @@ export function ComponentGrantCombobox({
 			if (event.key === 'ArrowDown') {
 				event.preventDefault();
 				setOpen(true);
-				setActiveIdx((i) => Math.min(i + 1, Math.max(0, options.length - 1)));
+				// Move relative to the row that's actually highlighted (clampedActiveIdx), not the raw
+				// state — which can be stale/out-of-bounds after the list filtered down as you typed.
+				setActiveIdx(Math.min(clampedActiveIdx + 1, Math.max(0, options.length - 1)));
 				return;
 			}
 			if (event.key === 'ArrowUp') {
 				event.preventDefault();
-				setActiveIdx((i) => Math.max(0, i - 1));
+				setActiveIdx(Math.max(0, clampedActiveIdx - 1));
 				return;
 			}
 			if (event.key === 'Escape') {
@@ -144,7 +152,7 @@ export function ComponentGrantCombobox({
 				commitActive();
 			}
 		},
-		[open, options, commitActive],
+		[open, options, clampedActiveIdx, commitActive],
 	);
 
 	const onBlur = useCallback(() => {

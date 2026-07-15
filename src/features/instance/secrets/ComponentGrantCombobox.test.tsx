@@ -95,6 +95,19 @@ describe('ComponentGrantCombobox', () => {
 		await waitFor(() => expect(onAdd).toHaveBeenCalledWith('billing-service'));
 	});
 
+	it('keeps arrow-key navigation aligned after the list filters down', async () => {
+		const { onAdd } = renderCombobox();
+		const input = screen.getByRole('combobox');
+		fireEvent.focus(input);
+		// Highlight the last of three, then filter down to a single match: the active row must track
+		// the shrunk list, so ArrowUp/Enter can't get stuck on a stale out-of-bounds index.
+		fireEvent.keyDown(input, { key: 'ArrowDown' });
+		fireEvent.keyDown(input, { key: 'ArrowDown' });
+		fireEvent.change(input, { target: { value: 'billing' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		await waitFor(() => expect(onAdd).toHaveBeenCalledWith('billing-service'));
+	});
+
 	it('clears the field after a successful commit', async () => {
 		renderCombobox();
 		const input = screen.getByRole('combobox') as HTMLInputElement;
@@ -150,6 +163,9 @@ describe('ComponentGrantCombobox', () => {
 			expect(optionTexts()).toEqual([]); // nothing to suggest
 
 			fireEvent.change(input, { target: { value: 'my-app' } });
+			// A true plain field: no dropdown (not even a "use this" row) when nothing is known.
+			expect(optionTexts()).toEqual([]);
+
 			fireEvent.keyDown(input, { key: 'Enter' });
 			await waitFor(() => expect(onAdd).toHaveBeenCalledWith('my-app'));
 		});
