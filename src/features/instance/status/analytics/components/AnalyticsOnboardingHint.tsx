@@ -5,11 +5,13 @@ import { useEffect, useState } from 'react';
 // Versioned key — bump the suffix to re-show the tip after a major UX
 // change (e.g. when we add a new keyboard shortcut or remove an existing
 // one). Past dismissals at older versions are ignored on purpose.
-const STORAGE_KEY = 'studio:analytics:onboarding-dismissed:v1';
+// v2: added the replication-heatmap cell drilldown (#1455).
+const STORAGE_KEY = 'studio:analytics:onboarding-dismissed:v2';
 
 /** First-visit hint explaining the chart interactions that aren't visually
  *  discoverable: click a legend entry to solo a node, ⌘/Ctrl-click to
- *  multi-select, and click a storage bar segment to pin its table's trend.
+ *  multi-select, click a storage bar segment to pin its table's trend, and
+ *  click a replication-heatmap cell to open that node pair's trend.
  *  Dismissal is persisted to localStorage so it doesn't reappear. */
 export function AnalyticsOnboardingHint() {
 	const [dismissed, setDismissed] = useState<boolean | null>(null);
@@ -44,7 +46,7 @@ export function AnalyticsOnboardingHint() {
 				<kbd className="rounded border border-border px-1 py-0.5 text-xs">⌘</kbd>
 				{' / '}
 				<kbd className="rounded border border-border px-1 py-0.5 text-xs">Ctrl</kbd>
-				{"-click to compare a few. In the storage charts, click a bar segment to pin that table's trend."}
+				{"-click to compare a few. In the storage charts, click a bar segment to pin that table's trend. In the replication heatmap, click a cell to see that node pair's latency over time."}
 			</div>
 			<Button
 				variant="ghost"

@@ -11,6 +11,10 @@ interface Props {
 	data: HeatmapData;
 	title?: string;
 	height?: number;
+	/** Called when a data-bearing cell ('ok'/'grey') is activated — click, or
+	 *  Enter/Space on the focused gridcell. Suppressed/absent cells never fire
+	 *  and render `aria-disabled` while a handler is present. */
+	onCellSelect?: (row: string, col: string) => void;
 }
 
 /** Confidence-state greys — CSS tokens defined per theme in src/index.css
@@ -97,6 +101,12 @@ function classifyCell(
 	if (count < greyBelow) { return 'suppress'; }
 	if (count < suppressBelow) { return 'grey'; }
 	return 'ok';
+}
+
+/** Single guard shared by the click and Enter/Space activation paths so the
+ *  two can never disagree on which cells are drillable. */
+function isActivatable(confidence: Confidence): boolean {
+	return confidence === 'ok' || confidence === 'grey';
 }
 
 function truncate(s: string, max: number): string {
@@ -235,7 +245,7 @@ const CELL_GAP = 4;
 const HEADER_HEIGHT = 72; // reserved for rotated column headers
 const ROW_LABEL_WIDTH = 200;
 
-export function HeatmapMatrix({ data, title, height }: Props) {
+export function HeatmapMatrix({ data, title, height, onCellSelect }: Props) {
 	const titleId = useId();
 	const descId = useId();
 	const suppressPatternId = useId();
@@ -335,6 +345,19 @@ export function HeatmapMatrix({ data, title, height }: Props) {
 	const handleKeyDown = useCallback(
 		(e: ReactKeyboardEvent<SVGGElement>, r: number, c: number) => {
 			const k = e.key;
+			if (k === 'Enter' || k === ' ') {
+				if (!onCellSelect) { return; }
+				// Always consume the key while cells are selectable — Space must
+				// not scroll the page even when the focused cell is disabled.
+				e.preventDefault();
+				e.stopPropagation();
+				const row = rows[r];
+				const col = cols[c];
+				// Same guard as the click path: only data-bearing cells activate.
+				const confidence = classifyCell(cellMap.get(`${row}|${col}`), greyBelow, suppressBelow);
+				if (isActivatable(confidence)) { onCellSelect(row, col); }
+				return;
+			}
 			let handled = false;
 			let nr = r;
 			let nc = c;
@@ -368,7 +391,7 @@ export function HeatmapMatrix({ data, title, height }: Props) {
 			e.stopPropagation();
 			if (nr !== r || nc !== c) { focusCell(nr, nc); }
 		},
-		[rows.length, cols.length, focusCell],
+		[rows, cols, focusCell, cellMap, greyBelow, suppressBelow, onCellSelect],
 	);
 
 	// Focus halo stroke color based on cell fill luminance.
@@ -429,9 +452,12 @@ export function HeatmapMatrix({ data, title, height }: Props) {
 					const descPrefix = approx
 						? `Cells show count-weighted-mean ${measureLabel} (approx).`
 						: `Cells show ${measureLabel}.`;
-					return `${descPrefix} Cells with fewer than ${suppressBelow} samples are blank; ${greyBelow}–${
+					const base = `${descPrefix} Cells with fewer than ${suppressBelow} samples are blank; ${greyBelow}–${
 						suppressBelow - 1
 					} render grey.`;
+					return onCellSelect
+						? `${base} Click a populated cell, or press Enter or Space on it, to open its trend.`
+						: base;
 				})()}
 			</p>
 
@@ -564,17 +590,21 @@ export function HeatmapMatrix({ data, title, height }: Props) {
 										else { cellRefs.current.delete(`${ri}|${ci}`); }
 									};
 
+									const activatable = onCellSelect !== undefined && isActivatable(confidence);
+
 									return (
 										<g
 											key={col}
 											ref={setRef}
 											role="gridcell"
 											aria-label={aria}
+											aria-disabled={onCellSelect !== undefined && !activatable ? true : undefined}
 											data-confidence={confidence}
 											tabIndex={isActive ? 0 : -1}
+											onClick={activatable ? () => onCellSelect(row, col) : undefined}
 											onKeyDown={(e) => handleKeyDown(e, ri, ci)}
 											onFocus={() => setActive([ri, ci])}
-											style={{ outline: 'none', cursor: 'default' }}
+											style={{ outline: 'none', cursor: activatable ? 'pointer' : 'default' }}
 										>
 											<rect
 												x={cx}
