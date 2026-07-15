@@ -29,6 +29,7 @@ function happyState() {
 		isEmpty: false,
 		fieldKeys: new Set(['count', 'mean', 'period', 'p50', 'p95', 'p99']),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 	});
 }
@@ -42,6 +43,7 @@ function loadingState() {
 		isEmpty: true,
 		fieldKeys: new Set(),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 	});
 }
@@ -55,6 +57,7 @@ function emptyMissingFieldsState(missing: string[]) {
 		isEmpty: true,
 		fieldKeys: new Set(),
 		missingFields: missing,
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 	});
 }

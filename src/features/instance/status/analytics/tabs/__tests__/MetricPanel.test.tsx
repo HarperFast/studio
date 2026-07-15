@@ -24,6 +24,7 @@ function setHookResult(overrides: Partial<ReturnType<typeof useAnalyticsRecords>
 		isEmpty: true,
 		fieldKeys: new Set(),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 		...overrides,
 	});
@@ -82,6 +83,35 @@ describe('MetricPanel', () => {
 		);
 		// Card title from the registered cpu-usage spec
 		expect(container.textContent).toMatch(/CPU/i);
+	});
+
+	it('hides the export actions while placeholder (previous-window) rows are shown', () => {
+		// keepPreviousData keeps the old window's rows on screen (isLoading is
+		// false) during a window change — exporting them would label old rows
+		// with the new window's filename/title.
+		setHookResult({ data: makeRows(), isEmpty: false, isPlaceholderData: true });
+		const { container } = render(
+			<AnalyticsTestWrapper>
+				<MetricPanel metric="cpu-usage" />
+			</AnalyticsTestWrapper>,
+		);
+		// The chart still renders…
+		expect(container.textContent).toMatch(/CPU/i);
+		// …but none of the export actions do.
+		expect(screen.queryByLabelText('Download cpu-usage as CSV')).toBeNull();
+		expect(screen.queryByLabelText('Download cpu-usage as PNG')).toBeNull();
+		expect(screen.queryByLabelText('Copy cpu-usage chart to clipboard')).toBeNull();
+	});
+
+	it("shows the export actions once the requested window's rows have settled", () => {
+		setHookResult({ data: makeRows(), isEmpty: false, isPlaceholderData: false });
+		render(
+			<AnalyticsTestWrapper>
+				<MetricPanel metric="cpu-usage" />
+			</AnalyticsTestWrapper>,
+		);
+		expect(screen.getByLabelText('Download cpu-usage as CSV')).toBeTruthy();
+		expect(screen.getByLabelText('Download cpu-usage as PNG')).toBeTruthy();
 	});
 
 	it('uses the metric id as a fallback title when neither spec nor derived registry has it', () => {

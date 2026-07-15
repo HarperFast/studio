@@ -30,6 +30,12 @@ export interface UseAnalyticsRecordsResult {
 	fieldKeys: Set<string>;
 	/** Subset of `requiredFields` that did not appear on any row. */
 	missingFields: string[];
+	/** True while `data` is the previous window's rows held by
+	 *  `keepPreviousData` during an in-flight window change — the rows do
+	 *  NOT belong to the requested [startTime, endTime]. Consumers that
+	 *  pair `data` with the requested window (CSV export filenames,
+	 *  previous-vs-current deltas) must gate on this. */
+	isPlaceholderData: boolean;
 	refetch: () => void;
 }
 
@@ -132,6 +138,7 @@ export function useAnalyticsRecords({
 		isEmpty: data.length === 0,
 		fieldKeys,
 		missingFields,
+		isPlaceholderData: query.isPlaceholderData,
 		refetch: query.refetch,
 	};
 }

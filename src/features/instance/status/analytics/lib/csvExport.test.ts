@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AnalyticsDataPoint, HeatmapData, SeriesData } from '../types/analytics';
-import { computeMetricCsvData, heatmapToCsv, makeCsvFilename, seriesToCsv } from './csvExport';
+import { chartCsv, computeMetricCsvData, heatmapToCsv, makeCsvFilename, seriesToCsv } from './csvExport';
 
 function lines(csv: string): string[] {
 	// Trailing CRLF terminates the last record — strip it before splitting.
@@ -118,6 +118,41 @@ describe('heatmapToCsv', () => {
 		};
 		expect(lines(heatmapToCsv(data))[1]).toBe('"a,b","c""d",1,2');
 	});
+
+	it('names the value column after the exported field when one is supplied', () => {
+		const data: HeatmapData = {
+			rows: ['n1'],
+			cols: ['n2'],
+			cells: [{ row: 'n1', col: 'n2', value: 3, count: 4 }],
+			skippedRecordsCount: 0,
+		};
+		expect(lines(heatmapToCsv(data, 'p95'))[0]).toBe('row,col,p95,count');
+	});
+
+	it('adds a confidence column mirroring the chart tiers, keeping suppressed values', () => {
+		// Tier boundaries mirror classifyCell in primitives/HeatmapMatrix.tsx:
+		// suppress when count < greyBelow, grey when greyBelow ≤ count <
+		// suppressBelow, absent when the cell has no value.
+		const data: HeatmapData = {
+			rows: ['n1', 'n2'],
+			cols: ['n3'],
+			cells: [
+				{ row: 'n1', col: 'n3', value: 12.5, count: 39 }, // below greyBelow
+				{ row: 'n2', col: 'n3', value: 8, count: 40 }, // grey band
+				{ row: 'n3', col: 'n3', value: 5, count: 100 }, // settled
+				{ row: 'n4', col: 'n3', value: null, count: 0 }, // no data
+			],
+			confidence: { greyBelow: 40, suppressBelow: 100 },
+			skippedRecordsCount: 0,
+		};
+		expect(lines(heatmapToCsv(data))).toEqual([
+			'row,col,value,count,confidence',
+			'n1,n3,12.5,39,suppress',
+			'n2,n3,8,40,grey',
+			'n3,n3,5,100,ok',
+			'n4,n3,,0,absent',
+		]);
+	});
 });
 
 describe('makeCsvFilename', () => {
@@ -194,5 +229,21 @@ describe('computeMetricCsvData', () => {
 		];
 		const out = computeMetricCsvData('replication-latency', rows, window, ['n1', 'n2']);
 		expect(out?.kind).toBe('heatmap');
+	});
+
+	it('serializes replication-latency with a p95 value column and confidence tiers', () => {
+		const rows: AnalyticsDataPoint[] = [
+			// count 20 < greyBelow (40) → the chart suppresses this cell; the
+			// CSV keeps the number and flags the row instead.
+			{ time: 60_000, node: 'n2', path: 'n1.db.dogs', p95: 12, count: 20 },
+		];
+		const out = computeMetricCsvData('replication-latency', rows, window, ['n1', 'n2']);
+		expect(out?.kind).toBe('heatmap');
+		if (out?.kind !== 'heatmap') { return; }
+		expect(out.valueColumn).toBe('p95');
+		expect(lines(chartCsv(out))).toEqual([
+			'row,col,p95,count,confidence',
+			'n1,n2,12,20,suppress',
+		]);
 	});
 });

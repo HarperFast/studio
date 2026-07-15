@@ -1,12 +1,20 @@
 // CSV export for Status chart data — serializes the pipeline output shapes
-// (SeriesData / HeatmapData) that the chart primitives render, so the CSV a
-// user downloads carries the same numbers as the chart on screen. No network
-// calls: everything recomputes from the records the panel already fetched.
+// (SeriesData / HeatmapData) that the chart primitives render. Series CSVs
+// carry the same numbers as the chart on screen. The heatmap CSV is
+// self-describing where the renderer has UI-local state the exporter can't
+// see: the value column is named for the quantile actually exported (the
+// spec default, regardless of the on-screen quantile selector), and a
+// `confidence` column mirrors the chart's suppress/grey tiers — cells the
+// chart hides or dims keep their numeric value in the CSV, flagged so the
+// consumer can filter. No network calls: everything recomputes from the
+// records the panel already fetched.
 
+import { preprocessConnectionRecords } from '../pipeline/connection';
 import { derivedRegistry } from '../pipeline/derived/index';
 import { specRegistry } from '../pipeline/index';
 import { runPipeline } from '../pipeline/pipeline';
-import { aggregateReplicationMatrix } from '../pipeline/replication-latency';
+import { aggregateReplicationMatrix, type ReplicationQuantileField } from '../pipeline/replication-latency';
+import { wantsClusterLineFold, wantsDimensionLineSplit, wantsStackedAreaNodeRemap } from '../primitives/MetricRenderer';
 import type { AnalyticsDataPoint, HeatmapData, MetricSpec, Series, SeriesData, TimeRange } from '../types/analytics';
 import { filenameTimestamp, slugifyForFilename, triggerBlobDownload } from './chartExport';
 
@@ -14,7 +22,13 @@ import { filenameTimestamp, slugifyForFilename, triggerBlobDownload } from './ch
  *  shape its primitive renders. */
 export type ChartCsvData =
 	| { kind: 'series'; data: SeriesData }
-	| { kind: 'heatmap'; data: HeatmapData };
+	| {
+		kind: 'heatmap';
+		data: HeatmapData;
+		/** Header for the value column (e.g. the quantile the exporter chose,
+		 *  'p95'). Defaults to 'value'. */
+		valueColumn?: string;
+	};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RFC-4180 serialization
@@ -82,19 +96,49 @@ export function seriesToCsv(data: SeriesData): string {
 	return [header, ...rows].join(CRLF) + CRLF;
 }
 
-/** Serialize HeatmapData to CSV as `row,col,value,count` — one line per
- *  cell, in the primitive's row-major cell order. Absent values/counts are
- *  empty cells. */
-export function heatmapToCsv(data: HeatmapData): string {
-	const header = ['row', 'col', 'value', 'count'].join(',');
-	const rows = data.cells.map((c) =>
-		[csvField(c.row), csvField(c.col), csvNumber(c.value), csvNumber(c.count)].join(',')
-	);
+/** Confidence tier for one heatmap cell. Mirrors classifyCell in
+ *  primitives/HeatmapMatrix.tsx exactly — including the inverted-sounding
+ *  boundaries: 'suppress' when count < greyBelow, 'grey' when
+ *  greyBelow ≤ count < suppressBelow, 'absent' when the cell has no value.
+ *  (Duplicated rather than imported: HeatmapMatrix.tsx is owned by an
+ *  in-flight PR — fold this into an import once that lands.) */
+function heatmapConfidenceTier(
+	value: number | null | undefined,
+	count: number | undefined,
+	greyBelow: number,
+	suppressBelow: number,
+): 'ok' | 'grey' | 'suppress' | 'absent' {
+	if (value === null || value === undefined) { return 'absent'; }
+	const n = count ?? 0;
+	if (n < greyBelow) { return 'suppress'; }
+	if (n < suppressBelow) { return 'grey'; }
+	return 'ok';
+}
+
+/** Serialize HeatmapData to CSV as `row,col,<valueColumn>,count` — one line
+ *  per cell, in the primitive's row-major cell order. Absent values/counts
+ *  are empty cells. When the data carries confidence thresholds, a trailing
+ *  `confidence` column reports the chart's tier for each cell ('ok' / 'grey'
+ *  / 'suppress' / 'absent'); suppressed and grey cells keep their numeric
+ *  value — the chart hides/dims them, the CSV flags them instead. */
+export function heatmapToCsv(data: HeatmapData, valueColumn = 'value'): string {
+	const confidence = data.confidence;
+	const headerCells = ['row', 'col', csvField(valueColumn), 'count'];
+	if (confidence) { headerCells.push('confidence'); }
+	const header = headerCells.join(',');
+	const rows = data.cells.map((c) => {
+		const cells = [csvField(c.row), csvField(c.col), csvNumber(c.value), csvNumber(c.count)];
+		if (confidence) {
+			// Missing thresholds default to 0, matching HeatmapMatrix.
+			cells.push(heatmapConfidenceTier(c.value, c.count, confidence.greyBelow ?? 0, confidence.suppressBelow ?? 0));
+		}
+		return cells.join(',');
+	});
 	return [header, ...rows].join(CRLF) + CRLF;
 }
 
 export function chartCsv(data: ChartCsvData): string {
-	return data.kind === 'heatmap' ? heatmapToCsv(data.data) : seriesToCsv(data.data);
+	return data.kind === 'heatmap' ? heatmapToCsv(data.data, data.valueColumn) : seriesToCsv(data.data);
 }
 
 /** `<metric>-<start>-<end>.csv`, metric slugified and timestamps ISO-8601
@@ -108,51 +152,17 @@ export function downloadCsv(csv: string, filename: string): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Metric → chart-data recompute for the CSV button. Mirrors MetricRenderer's
-// dispatch (primitives/MetricRenderer.tsx — keep the two in sync) minus the
-// renderer-internal UI state: metrics whose custom renderer offers chip
-// filters / quantile selectors export their spec's default, unfiltered view.
+// Metric → chart-data recompute for the CSV button. Dispatches through the
+// same predicates MetricRenderer does (imported from
+// primitives/MetricRenderer.tsx) minus the renderer-internal UI state:
+// metrics whose custom renderer offers chip filters / quantile selectors
+// export their spec's default, unfiltered view.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** The `connection` spec groups on a synthetic `pathMethod` field that only
- *  exists after ConnectionRenderer's preprocessing (pipeline/connection.tsx
- *  — keep in sync): without it every record misses the groupBy dimension and
- *  the CSV would be empty. Mirrors the renderer's compositing and its
- *  total===0/count>0 → null ratio gap. */
-function preprocessConnectionRecords(records: AnalyticsDataPoint[]): AnalyticsDataPoint[] {
-	const out: AnalyticsDataPoint[] = [];
-	for (const r of records) {
-		const { path, method, total, count } = r;
-		if (typeof path !== 'string' && typeof path !== 'number') { continue; }
-		if (typeof method !== 'string' && typeof method !== 'number') { continue; }
-		const nullGap = total === 0 && typeof count === 'number' && count > 0;
-		out.push({ ...r, pathMethod: `${path} · ${method}`, ratio: nullGap ? null : r.ratio });
-	}
-	return out;
-}
-
-/** See MetricRenderer.wantsStackedAreaNodeRemap. */
-function stackedAreaNodeRemap(spec: MetricSpec, isPerNodeMode: boolean): boolean {
-	return spec.primitive === 'stacked-area'
-		&& isPerNodeMode
-		&& spec.series.kind === 'groupBy'
-		&& spec.series.dimension !== 'node';
-}
-
-/** See MetricRenderer.wantsClusterLineFold. */
-function clusterLineFold(spec: MetricSpec, isPerNodeMode: boolean): boolean {
-	return spec.primitive === 'line'
-		&& !isPerNodeMode
-		&& spec.series.kind === 'groupBy'
-		&& spec.series.dimension === 'node';
-}
-
-/** See MetricRenderer.wantsDimensionLineSplit. */
-function dimensionLineSplit(spec: MetricSpec): boolean {
-	return spec.primitive === 'line'
-		&& spec.series.kind === 'groupBy'
-		&& spec.series.dimension !== 'node';
-}
+/** The quantile the heatmap CSV exports — the spec default. The renderer's
+ *  quantile selector is component-local state the exporter can't observe, so
+ *  the CSV always exports this field and names its value column after it. */
+const HEATMAP_CSV_QUANTILE: ReplicationQuantileField = 'p95';
 
 /** Recompute the chart data a panel renders, for CSV serialization.
  *  Returns null when the metric is unknown or there is nothing to export. */
@@ -176,8 +186,13 @@ export function computeMetricCsvData(
 
 	if (spec.primitive === 'heatmap') {
 		// The only heatmap metric is replication-latency; export its default
-		// (p95) matrix — the renderer's quantile selector state is internal.
-		return { kind: 'heatmap', data: aggregateReplicationMatrix(records, nodes) };
+		// quantile's matrix and name the value column after it so the CSV
+		// states what it contains even when the on-screen selector differs.
+		return {
+			kind: 'heatmap',
+			data: aggregateReplicationMatrix(records, nodes, HEATMAP_CSV_QUANTILE),
+			valueColumn: HEATMAP_CSV_QUANTILE,
+		};
 	}
 
 	if (entry.Renderer) {
@@ -185,7 +200,9 @@ export function computeMetricCsvData(
 		// memory, connection, …) layer chip/quantile UI over the spec's own
 		// pipeline. Export the spec's natural grouping — every dimension value,
 		// cluster-aggregated — which is the full dataset behind those views.
-		const rows = metric === 'connection' ? preprocessConnectionRecords(records) : records;
+		// `connection` groups on the synthetic pathMethod field, so it needs
+		// the renderer's own preprocessing first.
+		const rows = metric === 'connection' ? preprocessConnectionRecords(records).records : records;
 		return { kind: 'series', data: runPipeline(spec, rows, timeRange, nodes, { snapToPeriod: true }) };
 	}
 
@@ -212,18 +229,18 @@ export function computeMetricCsvData(
 		return { kind: 'series', data: { series } };
 	}
 
-	if (stackedAreaNodeRemap(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
+	if (wantsStackedAreaNodeRemap(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
 		const remapped: MetricSpec = { ...spec, series: { ...spec.series, dimension: 'node' } };
 		return { kind: 'series', data: runPipeline(remapped, records, timeRange, nodes, { snapToPeriod: true }) };
 	}
-	if (clusterLineFold(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
+	if (wantsClusterLineFold(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
 		const inner: MetricSpec = {
 			...spec,
 			series: { kind: 'field', fields: [{ ...spec.series.field, label: 'cluster' }] },
 		};
 		return { kind: 'series', data: runPipeline(inner, records, timeRange, nodes, { snapToPeriod: true }) };
 	}
-	if (dimensionLineSplit(spec)) {
+	if (wantsDimensionLineSplit(spec)) {
 		return {
 			kind: 'series',
 			data: runPipeline(spec, records, timeRange, nodes, { perNode: false, snapToPeriod: true }),

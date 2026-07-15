@@ -49,6 +49,7 @@ function setHookResult(rows: ReturnType<typeof makeTableSizeRows>) {
 		isEmpty: rows.length === 0,
 		fieldKeys: new Set(['size', 'database', 'table']),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 	});
 }
@@ -63,6 +64,7 @@ describe('StorageTab', () => {
 			isEmpty: true,
 			fieldKeys: new Set(),
 			missingFields: [],
+			isPlaceholderData: false,
 			refetch: vi.fn(),
 		});
 		const { container } = render(

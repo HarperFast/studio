@@ -67,7 +67,12 @@ interface Preprocessed {
 	dimParts: Map<string, Record<string, string>>;
 }
 
-function preprocess(records: AnalyticsDataPoint[]): Preprocessed {
+/** Composite the synthetic `pathMethod` groupBy field onto each record (and
+ *  apply the total===0/count>0 → null ratio gap). Exported so the CSV
+ *  exporter (lib/csvExport.ts) feeds the pipeline the exact records the
+ *  renderer does; CSV callers only need `.records` — `dimParts` is
+ *  chip-selector plumbing. */
+export function preprocessConnectionRecords(records: AnalyticsDataPoint[]): Preprocessed {
 	const out: AnalyticsDataPoint[] = [];
 	const dimParts = new Map<string, Record<string, string>>();
 	for (const r of records) {
@@ -92,7 +97,7 @@ export function ConnectionRenderer(
 	{ records, timeRange, nodes, viewMode = 'per-node', fillParent }: RendererProps,
 ) {
 	const perNode = viewMode === 'per-node';
-	const { records: processed, dimParts } = useMemo(() => preprocess(records), [records]);
+	const { records: processed, dimParts } = useMemo(() => preprocessConnectionRecords(records), [records]);
 
 	const fullData = useMemo<SeriesData>(
 		() => runPipeline(connectionSpec, processed, timeRange, nodes, { perNode, snapToPeriod: true }),

@@ -61,7 +61,11 @@ function ConnectionsPanelInner() {
 	const isEmpty = merged.length === 0;
 	const nodes = useMemo(() => collectNodes(merged), [merged]);
 
-	const canExport = !isLoading && !isError && !isEmpty;
+	// Placeholder rows are the PREVIOUS window's data held on screen during a
+	// window change — exporting them would pair old rows with a filename (and
+	// PNG title) claiming the new window, so hide the export actions until
+	// both sources' requested-window rows arrive.
+	const canExport = !isLoading && !isError && !isEmpty && !mqtt.isPlaceholderData && !ws.isPlaceholderData;
 	const getCsvData = () => computeMetricCsvData('connections', merged, timeRange, nodes);
 	const renderChart = (opts: { fillParent: boolean } = { fillParent: false }) => (
 		<ConnectionsRenderer
