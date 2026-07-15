@@ -7,7 +7,7 @@ import { getNodeColor } from '../lib/nodeColors';
 import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
-import { ChartTooltip } from '../primitives/ChartTooltip';
+import { ChartTooltip, useTooltipGate } from '../primitives/ChartTooltip';
 import type { TimeRange, ViewMode } from '../types/analytics';
 import { NodeLegend } from './NodeLegend';
 import { TableSizeChipRow } from './TableSizeChipRow';
@@ -56,6 +56,9 @@ export function TableSizeTrend({
 	// StackedAreaChart primitives) — the trend shares the tab's x-domain.
 	// See useChartSyncProps for the dialog-scope rationale.
 	const syncProps = useChartSyncProps(!!fillParent);
+	// Tooltip box only on the chart under the pointer — synced siblings keep
+	// the cursor line but render no box (see useTooltipGate/ChartTooltip).
+	const { hovered, gateProps } = useTooltipGate();
 
 	const points = useMemo(
 		() => (selectedTable ? derived.trend(selectedTable) : []),
@@ -156,7 +159,7 @@ export function TableSizeTrend({
 				</div>
 			</div>
 
-			<div style={{ width: '100%', height: 300 }}>
+			<div style={{ width: '100%', height: 300 }} {...gateProps}>
 				<ResponsiveContainer width="100%" height="100%" minWidth={0}>
 					<LineChart data={chartData} {...syncProps}>
 						<CartesianGrid stroke={colors.gridColor} strokeDasharray="3 3" />
@@ -181,7 +184,12 @@ export function TableSizeTrend({
 							domain={viewMode === 'per-node' ? [1, 'auto'] : ['auto', 'auto']}
 							allowDataOverflow
 						/>
-						<Tooltip content={<ChartTooltip formatter="bytes-si" nodeNames={nodesWithData} />} />
+						<Tooltip
+							// No enter/move easing: with syncId every synced chart
+							// animates on each mouse-move, making the tab visibly jerk.
+							isAnimationActive={false}
+							content={<ChartTooltip hidden={!hovered} formatter="bytes-si" nodeNames={nodesWithData} />}
+						/>
 						{nodesWithData
 							.filter((n) => isActive(n))
 							.map((node) => (

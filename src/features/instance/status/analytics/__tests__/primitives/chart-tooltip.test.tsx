@@ -11,6 +11,14 @@ describe('ChartTooltip (shared cartesian chart tooltip)', () => {
 		expect(container.firstChild).toBe(null);
 	});
 
+	it('returns null when hidden, even while Recharts reports active (sync gating)', () => {
+		const payload = [{ dataKey: 'a', name: 'A', value: 1, color: '#f00' }];
+		const { container } = render(
+			<ChartTooltip active payload={payload} label={1700000000000} formatter="count" hidden />,
+		);
+		expect(container.firstChild).toBe(null);
+	});
+
 	it('returns null for an empty payload', () => {
 		const { container } = render(<ChartTooltip active payload={[]} label={1700000000000} />);
 		expect(container.firstChild).toBe(null);

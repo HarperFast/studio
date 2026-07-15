@@ -15,7 +15,7 @@ import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData, Threshold } from '../types/analytics';
-import { ChartTooltip, type ChartTooltipEntry } from './ChartTooltip';
+import { ChartTooltip, type ChartTooltipEntry, useTooltipGate } from './ChartTooltip';
 
 interface Props {
 	data: SeriesData;
@@ -72,6 +72,9 @@ export function LineChart(
 	// dialog (ChartExpandButton), which gets its own sync scope — see
 	// useChartSyncProps for the full rationale.
 	const syncProps = useChartSyncProps(!!fillParent);
+	// Tooltip box only on the chart under the pointer — synced siblings keep
+	// the cursor line but render no box (see useTooltipGate/ChartTooltip).
+	const { hovered, gateProps } = useTooltipGate();
 
 	if (data.series.length === 0) {
 		return (
@@ -101,6 +104,7 @@ export function LineChart(
 			style={fillParent
 				? { width: '100%', height: '100%', minHeight: 0, flex: '1 1 auto', display: 'flex', flexDirection: 'column' }
 				: { width: '100%', height }}
+			{...gateProps}
 		>
 			{
 				/* Inner SVG is decorative once the outer role=img has the
@@ -147,8 +151,12 @@ export function LineChart(
 							)
 							: null}
 						<Tooltip
+							// No enter/move easing: with syncId every synced chart
+							// animates on each mouse-move, making the tab visibly jerk.
+							isAnimationActive={false}
 							content={
 								<ChartTooltip
+									hidden={!hovered}
 									nodeNames={nodeNames}
 									resolveEntryFormat={(entry: ChartTooltipEntry) => {
 										const nameStr = String(entry.name ?? '');
