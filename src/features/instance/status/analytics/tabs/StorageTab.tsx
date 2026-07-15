@@ -127,9 +127,10 @@ function TableSizePanels() {
 	}
 
 	// renderSnapshot/renderTrend accept the opts shape ChartExpandButton passes,
-	// but TableSizeSnapshot/Trend don't yet support fillParent — they render at
-	// their native size in both inline and dialog views. Wiring fillParent into
-	// those charts is a follow-up.
+	// but TableSizeSnapshot/Trend don't yet support fillParent *sizing* — they
+	// render at their native size in both inline and dialog views. Wiring that
+	// in is a follow-up. The trend does consume the flag to move the dialog
+	// instance into the dialog's own crosshair-sync scope.
 	const renderSnapshot = (_opts?: { fillParent: boolean }) => (
 		<TableSizeSnapshot
 			snapshot={derived.snapshot}
@@ -140,7 +141,7 @@ function TableSizePanels() {
 			allOtherHint={derived.emptyCause === 'all-other'}
 		/>
 	);
-	const renderTrend = (_opts?: { fillParent: boolean }) => (
+	const renderTrend = (opts?: { fillParent: boolean }) => (
 		effectiveSelection
 			? (
 				<TableSizeTrend
@@ -153,6 +154,9 @@ function TableSizePanels() {
 					clusterNodeIds={derivedClusterNodes(derived)}
 					rankBy={rankBy}
 					onRankChange={setRankBy}
+					// fillParent here means "rendered in the expand dialog" — the
+					// trend only uses it to scope crosshair sync to the dialog.
+					inExpandDialog={opts?.fillParent ?? false}
 				/>
 			)
 			: (
