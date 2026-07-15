@@ -70,6 +70,29 @@ describe('HeatmapMatrix primitive', () => {
 		expect(screen.getByRole('columnheader', { name: /dest-a/i })).toBeTruthy();
 	});
 
+	it('displays the short node name while keeping the full FQDN in a11y + title', () => {
+		const fqdnData = {
+			...data,
+			rows: ['src-1.us-west.acme.harperfabric.com'],
+			cols: ['dest-a.us-east.acme.harperfabric.com'],
+			cells: [{
+				row: 'src-1.us-west.acme.harperfabric.com',
+				col: 'dest-a.us-east.acme.harperfabric.com',
+				value: 5,
+				count: 200,
+			}],
+		};
+		render(<HeatmapMatrix data={fqdnData} />);
+		// Displayed label text (the <text> node's own value, not the nested
+		// <title>) is the first DNS segment…
+		const col = screen.getByRole('columnheader', { name: 'dest-a.us-east.acme.harperfabric.com' });
+		expect(col.querySelector('text')?.firstChild?.textContent).toBe('dest-a');
+		// …while the <title> and aria-label preserve the full FQDN.
+		expect(col.querySelector('title')?.textContent).toBe('dest-a.us-east.acme.harperfabric.com');
+		const row = screen.getByRole('rowheader', { name: 'src-1.us-west.acme.harperfabric.com' });
+		expect(row.querySelector('text')?.firstChild?.textContent).toBe('src-1');
+	});
+
 	it('renders a color-scale legend', () => {
 		render(<HeatmapMatrix data={data} />);
 		const legend = screen.getByRole('img', { name: /color scale|p95 latency/i });
