@@ -45,7 +45,11 @@ export function KpiTile({ def }: { def: KpiTileDef }) {
 function DeltaRow({ delta, windowMs }: { delta: KpiDelta | null; windowMs: number }) {
 	if (!delta) { return <div className="h-4" aria-hidden="true" />; }
 	const windowLabel = formatWindowLabel(windowMs);
-	const pctText = `${delta.pct >= 0 ? '+' : ''}${delta.pct.toFixed(1)}%`;
+	// Unsign a pct that ROUNDS to zero — "+0.0%" reads as a real move.
+	const rounded = delta.pct.toFixed(1);
+	const pctText = rounded === '0.0' || rounded === '-0.0'
+		? '0.0%'
+		: `${delta.pct >= 0 ? '+' : ''}${rounded}%`;
 	const color = delta.direction === 'up'
 		? 'text-destructive'
 		: delta.direction === 'down'
@@ -54,6 +58,7 @@ function DeltaRow({ delta, windowMs }: { delta: KpiDelta | null; windowMs: numbe
 	const Icon = delta.direction === 'up' ? ArrowUp : delta.direction === 'down' ? ArrowDown : Minus;
 	return (
 		<div
+			role="img"
 			className="flex h-4 items-center gap-1 text-xs"
 			aria-label={`${delta.direction} ${pctText} vs previous ${windowLabel}`}
 		>
