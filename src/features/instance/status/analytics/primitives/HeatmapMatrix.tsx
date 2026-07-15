@@ -286,8 +286,10 @@ export function computeHeaderHeight(cols: string[], cellSize: number): number {
 		(m, c) => Math.max(m, Math.min(c.length, colTruncateLength(cellSize))),
 		0,
 	);
-	const rad = (COL_LABEL_ANGLE_DEG * Math.PI) / 180;
-	const vExtent = maxChars * COL_LABEL_CHAR_W * Math.sin(rad) + COL_LABEL_FONT_SIZE * Math.cos(rad);
+	// COL_LABEL_ANGLE_DEG is 45°, so sin θ = cos θ = √½ — factor it out of the
+	// per-render trig. If the label angle ever stops being 45°, restore the
+	// general `sin(rad)`/`cos(rad)` form.
+	const vExtent = (maxChars * COL_LABEL_CHAR_W + COL_LABEL_FONT_SIZE) * Math.SQRT1_2;
 	return Math.max(MIN_HEADER_HEIGHT, Math.ceil(vExtent) + HEADER_TOP_PAD + HEADER_BOTTOM_PAD);
 }
 
