@@ -91,3 +91,63 @@ describe('formatRelativeUpdate', () => {
 		expect(formatRelativeUpdate(now + 1_000, now)).toBe('just now');
 	});
 });
+
+describe('useAnalyticsFreshness — mid-render query registration (setState-in-render regression)', () => {
+	afterEach(cleanup);
+
+	it('does not warn when a sibling mounts a new analytics query while the hook is subscribed', async () => {
+		const { render } = await import('@testing-library/react');
+		const { useQuery } = await import('@tanstack/react-query');
+		const { useState } = await import('react');
+		const { vi } = await import('vitest');
+
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const errorSpy = vi.spyOn(console, 'error');
+
+		let latest: ReturnType<typeof useAnalyticsFreshness> | undefined;
+		function Picker() {
+			latest = useAnalyticsFreshness('inst-A' as EntityIds);
+			return null;
+		}
+		// Mounting this registers a NEW query in the cache during ITS render.
+		// `initialData` matters: it stamps dataUpdatedAt at build time, so the
+		// 'added' event carries a lastFetchedAt CHANGE (null → ts) — the
+		// mid-render value flip that used to make the picker setState while
+		// this component renders. Without a value change the old code's
+		// functional setState bailed out and React never warned.
+		function LatePanel() {
+			useQuery({
+				queryKey: analyticsKey('inst-A'),
+				queryFn: () => Promise.resolve([] as unknown[]),
+				initialData: [] as unknown[],
+				staleTime: Infinity,
+			});
+			return null;
+		}
+		let mountPanel!: () => void;
+		function Harness() {
+			const [showPanel, setShowPanel] = useState(false);
+			mountPanel = () => setShowPanel(true);
+			return createElement(
+				QueryClientProvider,
+				{ client },
+				createElement(Picker),
+				showPanel ? createElement(LatePanel) : null,
+			);
+		}
+
+		render(createElement(Harness));
+		expect(latest?.isFetching).toBe(false);
+
+		// Picker is subscribed (post-mount); now a sibling render adds a
+		// query whose initialData changes lastFetchedAt mid-render.
+		act(() => mountPanel());
+		await waitFor(() => expect(latest?.lastFetchedAt).not.toBeNull());
+
+		const renderPhaseWarnings = errorSpy.mock.calls.filter((call) =>
+			String(call[0]).includes('Cannot update a component')
+		);
+		expect(renderPhaseWarnings).toEqual([]);
+		errorSpy.mockRestore();
+	});
+});
