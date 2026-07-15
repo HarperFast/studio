@@ -59,7 +59,7 @@ export function EditUserModal({
 			roles.map((role) => removeUserFromRole({ userId: data.id, roleId: role.id })),
 		);
 		const failed = results.some(
-			(result) => result.status === 'rejected' && (result.reason as AxiosError)?.status !== 404,
+			(result) => result.status === 'rejected' && (result.reason as AxiosError)?.response?.status !== 404,
 		);
 		if (failed) {
 			toast.error(
