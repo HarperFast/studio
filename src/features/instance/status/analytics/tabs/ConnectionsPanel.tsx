@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAnalyticsContext } from '../context/AnalyticsContext';
 import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
+import { computeMetricCsvData } from '../lib/csvExport';
 import { wrapperMetrics } from '../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint } from '../types/analytics';
 import { PanelErrorBoundary } from './PanelErrorBoundary';
@@ -61,6 +62,7 @@ function ConnectionsPanelInner() {
 	const nodes = useMemo(() => collectNodes(merged), [merged]);
 
 	const canExport = !isLoading && !isError && !isEmpty;
+	const getCsvData = () => computeMetricCsvData('connections', merged, timeRange, nodes);
 	const renderChart = (opts: { fillParent: boolean } = { fillParent: false }) => (
 		<ConnectionsRenderer
 			records={merged}
@@ -83,6 +85,7 @@ function ConnectionsPanelInner() {
 			exportSlug="connections"
 			canExport={canExport}
 			renderChart={renderChart}
+			getCsvData={getCsvData}
 		>
 			<PanelStateOrChart
 				isLoading={isLoading}

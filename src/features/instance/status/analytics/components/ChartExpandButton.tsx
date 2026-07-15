@@ -3,7 +3,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Maximize2 } from 'lucide-react';
 import { type ReactNode, useRef, useState } from 'react';
+import type { ChartCsvData } from '../lib/csvExport';
 import { ChartCopyButton } from './ChartCopyButton';
+import { ChartCsvButton } from './ChartCsvButton';
 import { ChartExportButton } from './ChartExportButton';
 
 interface Props {
@@ -20,13 +22,17 @@ interface Props {
 	 *  parent and grows the chart. The `fillParent` arg lets primitives
 	 *  switch from a fixed `height` to filling the dialog's `h-[90vh]`. */
 	renderChart: (opts: { fillParent: boolean }) => ReactNode;
+	/** When provided, the dialog's action row also offers a CSV download of
+	 *  the rendered data (same output as the panel-header CSV button, so the
+	 *  filename keeps the plain slug). */
+	getCsvData?: () => ChartCsvData | null;
 }
 
 /** Adds an "Expand" icon next to other panel-header actions. Click opens
  *  a near-fullscreen Radix Dialog containing the same chart re-rendered
  *  at full size, plus its own export button so the capture grabs the
  *  bigger DOM (and therefore produces a higher-resolution PNG). */
-export function ChartExpandButton({ exportSlug, title, description, renderChart }: Props) {
+export function ChartExpandButton({ exportSlug, title, description, renderChart, getCsvData }: Props) {
 	const [open, setOpen] = useState(false);
 	const expandedRef = useRef<HTMLDivElement>(null);
 
@@ -59,6 +65,7 @@ export function ChartExpandButton({ exportSlug, title, description, renderChart 
 							<div className="flex items-center gap-1 shrink-0">
 								<ChartCopyButton captureRef={expandedRef} exportSlug={`${exportSlug}-expanded`} />
 								<ChartExportButton captureRef={expandedRef} exportSlug={`${exportSlug}-expanded`} />
+								{getCsvData && <ChartCsvButton exportSlug={exportSlug} getCsvData={getCsvData} />}
 							</div>
 						</div>
 					</DialogHeader>
