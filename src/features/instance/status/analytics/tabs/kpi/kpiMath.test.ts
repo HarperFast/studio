@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SeriesData } from '../../types/analytics';
 import { collapseSeries, computeDelta, formatWindowLabel, latestValue, windowMean } from './kpiMath';
 
-function seriesData(series: { key: string; points: { x: number; y: number | null }[] }[]): SeriesData {
+function seriesData(series: { key: string; dim?: string; points: { x: number; y: number | null }[] }[]): SeriesData {
 	return { series: series.map((s) => ({ ...s, label: s.key })) };
 }
 
@@ -43,6 +43,28 @@ describe('collapseSeries', () => {
 
 	it('returns [] for empty series data', () => {
 		expect(collapseSeries(seriesData([]), 'sum')).toEqual([]);
+	});
+
+	it('includeDims excludes series outside the declared total', () => {
+		const data = seriesData([
+			{ key: 'harper', dim: 'harper', points: [{ x: 1, y: 0.2 }] },
+			{ key: 'user', dim: 'user', points: [{ x: 1, y: 0.1 }] },
+			// Profiler hot-location series — already counted inside the scopes.
+			{ key: '/some/fn', dim: '/some/fn', points: [{ x: 1, y: 0.15 }] },
+		]);
+		expect(collapseSeries(data, 'sum', ['harper', 'user'])).toEqual([
+			{ x: 1, y: expect.closeTo(0.3, 10) },
+		]);
+	});
+
+	it('includeDims gaps a bucket missing an expected dim instead of summing partially', () => {
+		const data = seriesData([
+			{ key: 'harper', dim: 'harper', points: [{ x: 1, y: 0.2 }, { x: 2, y: 0.4 }] },
+			{ key: 'user', dim: 'user', points: [{ x: 1, y: 0.1 }] },
+		]);
+		expect(collapseSeries(data, 'sum', ['harper', 'user'])).toEqual([
+			{ x: 1, y: expect.closeTo(0.3, 10) },
+		]);
 	});
 });
 

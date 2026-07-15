@@ -31,6 +31,7 @@ function makeResult(overrides: Partial<HookResult> = {}): HookResult {
 		isEmpty: true,
 		fieldKeys: new Set(),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 		...overrides,
 	};
