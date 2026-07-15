@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StackedAreaChart, StackedAreaTooltip } from '../../primitives/StackedAreaChart';
+import { StackedAreaChart } from '../../primitives/StackedAreaChart';
 import type { SeriesData } from '../../types/analytics';
 
 const stacked: SeriesData = {
@@ -135,48 +135,5 @@ describe('StackedAreaChart Step 3.5 polish', () => {
 				.toBeTruthy();
 		});
 		document.documentElement.classList.remove('dark');
-	});
-});
-
-// TODO: the it.skip() cases below are Recharts visual-rendering assertions
-// that depend on real layout (computed width/height, stroke geometry, axis
-// tick text). Both jsdom and happy-dom fall short here even with the
-// getBoundingClientRect / ResizeObserver shim in __tests__/setup.ts. Math is
-// covered by the pipeline + aggregator suites; revisit these visual checks
-// with a Playwright smoke pass once studio adopts E2E.
-describe('StackedAreaTooltip', () => {
-	afterEach(() => cleanup());
-
-	it('renders Total row summing payload values', () => {
-		const payload = [
-			{ dataKey: 'a', name: 'A', value: 20, color: '#f00' },
-			{ dataKey: 'b', name: 'B', value: 15, color: '#0f0' },
-		];
-		render(<StackedAreaTooltip active payload={payload} label={1700000000000} formatter="count" />);
-		expect(screen.getByText(/Total/)).toBeTruthy();
-		expect(screen.getByText(/35/)).toBeTruthy();
-	});
-
-	it('suppresses Total row for single-series payload', () => {
-		const payload = [{ dataKey: 'a', name: 'A', value: 42, color: '#f00' }];
-		render(<StackedAreaTooltip active payload={payload} label={1700000000000} formatter="count" />);
-		expect(screen.queryByText(/Total/)).toBe(null);
-	});
-
-	it('uses raw count formatter for Total on count-si axis (preserve precision)', () => {
-		const payload = [
-			{ dataKey: 'a', name: 'A', value: 12345, color: '#f00' },
-			{ dataKey: 'b', name: 'B', value: 67890, color: '#0f0' },
-		];
-		render(
-			<StackedAreaTooltip active payload={payload} label={1700000000000} formatter="count-si" unitSuffix=" msg/s" />,
-		);
-		// Total = 80235; rendered raw not "80k".
-		expect(screen.getByText(/80235\s*msg\/s/)).toBeTruthy();
-	});
-
-	it('returns null when inactive', () => {
-		const { container } = render(<StackedAreaTooltip active={false} />);
-		expect(container.firstChild).toBe(null);
 	});
 });

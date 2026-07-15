@@ -6,8 +6,8 @@ import { useNodeSelection } from '../hooks/useNodeSelection';
 import { getNodeColor } from '../lib/nodeColors';
 import { computeGrowthAnnotation, type RankBy, type TableSizeDerived } from '../lib/tableSize';
 import { getChartColors } from '../lib/theme';
-import { formatAxisTick, formatTooltipTime } from '../lib/time';
-import { tooltipContentStyle, tooltipItemStyle, tooltipLabelStyle } from '../primitives/tooltipStyle';
+import { formatAxisTick } from '../lib/time';
+import { ChartTooltip } from '../primitives/ChartTooltip';
 import type { TimeRange, ViewMode } from '../types/analytics';
 import { NodeLegend } from './NodeLegend';
 import { TableSizeChipRow } from './TableSizeChipRow';
@@ -181,13 +181,7 @@ export function TableSizeTrend({
 							domain={viewMode === 'per-node' ? [1, 'auto'] : ['auto', 'auto']}
 							allowDataOverflow
 						/>
-						<Tooltip
-							contentStyle={tooltipContentStyle}
-							labelStyle={tooltipLabelStyle}
-							itemStyle={tooltipItemStyle}
-							labelFormatter={(label) => formatTooltipTime(Number(label))}
-							formatter={(value) => formatBytes(Number(value))}
-						/>
+						<Tooltip content={<ChartTooltip formatter="bytes-si" nodeNames={nodesWithData} />} />
 						{nodesWithData
 							.filter((n) => isActive(n))
 							.map((node) => (
