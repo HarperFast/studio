@@ -215,8 +215,6 @@ export function computeTrendFactory(
 	return function trend(selectedTable: string): TrendPoint[] {
 		// Collect the latest sample per (bucket, node) for the selected table.
 		const byBucket = new Map<number, Map<string, { size: number; time: number }>>();
-		// Track each node's last populated bucket to truncate anything trailing it.
-		const lastBucketTime = new Map<string, number>();
 
 		for (const r of normalized) {
 			if (r.tableKey !== selectedTable) { continue; }
@@ -233,8 +231,6 @@ export function computeTrendFactory(
 			if (!prev || r.time >= prev.time) {
 				nodeMap.set(r.node, { size: r.size, time: r.time });
 			}
-			const lastBucket = lastBucketTime.get(r.node) ?? 0;
-			if (bucketTime > lastBucket) { lastBucketTime.set(r.node, bucketTime); }
 		}
 
 		const points: TrendPoint[] = [];
@@ -243,9 +239,6 @@ export function computeTrendFactory(
 			const nodeMap = byBucket.get(bucketTime)!;
 			const values: Record<string, number> = {};
 			for (const [node, { size }] of nodeMap) {
-				// Drop buckets past the node's last populated bucket (truncate trailing).
-				const lastBucket = lastBucketTime.get(node) ?? 0;
-				if (bucketTime > lastBucket) { continue; }
 				values[node] = size;
 			}
 			if (Object.keys(values).length > 0) { points.push({ time: bucketTime, values }); }
