@@ -38,11 +38,12 @@ function renderPrimitive(
 
 // ─── Generic-dispatch predicates ─────────────────────────────────────────────
 // Named guards for the spec-dispatch branches below, so each condition reads
-// as intent instead of a wall of `&&`s.
+// as intent instead of a wall of `&&`s. Exported so the CSV exporter
+// (lib/csvExport.ts) dispatches through the same predicates.
 
 /** Stacked-area spec grouped on a non-node dimension while the user asked for
  *  per-node view — restack the same field by node instead. */
-function wantsStackedAreaNodeRemap(spec: MetricSpec, isPerNodeMode: boolean): boolean {
+export function wantsStackedAreaNodeRemap(spec: MetricSpec, isPerNodeMode: boolean): boolean {
 	return spec.primitive === 'stacked-area'
 		&& isPerNodeMode
 		&& spec.series.kind === 'groupBy'
@@ -51,7 +52,7 @@ function wantsStackedAreaNodeRemap(spec: MetricSpec, isPerNodeMode: boolean): bo
 
 /** Line spec grouped BY node while the user asked for the aggregate view —
  *  fold the nodes into a single cluster-wide line. */
-function wantsClusterLineFold(spec: MetricSpec, isPerNodeMode: boolean): boolean {
+export function wantsClusterLineFold(spec: MetricSpec, isPerNodeMode: boolean): boolean {
 	return spec.primitive === 'line'
 		&& !isPerNodeMode
 		&& spec.series.kind === 'groupBy'
@@ -67,7 +68,7 @@ function wantsClusterLineFold(spec: MetricSpec, isPerNodeMode: boolean): boolean
  *  then renders one legend chip per dimension value (colored via
  *  getNodeColor's deterministic hash). The crossNode aggregator on the spec
  *  folds nodes into the cluster-wide line per dimension. */
-function wantsDimensionLineSplit(spec: MetricSpec): boolean {
+export function wantsDimensionLineSplit(spec: MetricSpec): boolean {
 	return spec.primitive === 'line'
 		&& spec.series.kind === 'groupBy'
 		&& spec.series.dimension !== 'node';

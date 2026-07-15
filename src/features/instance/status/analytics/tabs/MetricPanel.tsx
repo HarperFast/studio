@@ -30,7 +30,7 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	const { timeRange, bucketMs, instanceParams } = useAnalyticsContext();
 	const sourceMetric = derivedRegistry[metric]?.sourceMetric ?? metric;
 	const requiredFields = getSpecRequiredFields(metric);
-	const { data, isLoading, isError, error, isEmpty, missingFields, refetch } = useAnalyticsRecords({
+	const { data, isLoading, isError, error, isEmpty, missingFields, isPlaceholderData, refetch } = useAnalyticsRecords({
 		metric: sourceMetric,
 		startTime: timeRange.startTime,
 		endTime: timeRange.endTime,
@@ -44,7 +44,11 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	const title = titleOverride ?? specEntry?.spec?.title ?? derivedEntry?.title ?? metric;
 	const description = specEntry?.spec?.description ?? derivedEntry?.subtitle;
 	const nodes = useMemo(() => collectNodes(data), [data]);
-	const canExport = !isLoading && !isError && !isEmpty;
+	// Placeholder rows are the PREVIOUS window's data held on screen during a
+	// window change — exporting them would pair old rows with a filename (and
+	// PNG title) claiming the new window, so hide the export actions until the
+	// requested window's rows arrive.
+	const canExport = !isLoading && !isError && !isEmpty && !isPlaceholderData;
 
 	const getCsvData = () => computeMetricCsvData(metric, data, timeRange, nodes);
 

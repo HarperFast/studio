@@ -91,6 +91,23 @@ describe('ConnectionsPanel', () => {
 		expect(screen.getByText(/No active sessions in the selected time range/)).toBeTruthy();
 	});
 
+	it('hides the export actions while either source serves placeholder rows', () => {
+		setHookResults({
+			'mqtt-connections': makeResult({ data: makeRows(), isEmpty: false }),
+			'ws-connections': makeResult({ isPlaceholderData: true }),
+		});
+		render(
+			<AnalyticsTestWrapper>
+				<ConnectionsPanel />
+			</AnalyticsTestWrapper>,
+		);
+		// The chart still renders, but the export row is gated off until both
+		// sources carry the requested window's rows.
+		expect(screen.getByText('Connections')).toBeTruthy();
+		expect(screen.queryByLabelText('Expand connections')).toBeNull();
+		expect(screen.queryByLabelText('Download connections as CSV')).toBeNull();
+	});
+
 	it('renders the merged chart when either source has data', () => {
 		setHookResults({
 			'mqtt-connections': makeResult({ data: makeRows(), isEmpty: false }),
