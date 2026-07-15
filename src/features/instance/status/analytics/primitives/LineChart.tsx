@@ -10,7 +10,7 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
-import { useAnalyticsSyncId } from '../context/AnalyticsContext';
+import { useChartSyncProps } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick, formatTooltipTime } from '../lib/time';
@@ -69,17 +69,9 @@ export function LineChart(
 ) {
 	// Sync crosshairs/tooltips across every cartesian chart on the current
 	// Status tab. `fillParent` is only ever set by the expand-to-fullscreen
-	// dialog (ChartExpandButton); syncing dialog charts with the tab would
-	// ghost-drive the panels behind the overlay, so the dialog gets its own
-	// scope instead — a SmallMultiples panel expands to several mini-charts
-	// that keep syncing with each other, while a single-chart dialog is a
-	// harmless sync group of one. syncMethod="value" matches by x value; the
-	// default index-based sync mis-aligns sparse series that don't share
-	// point counts.
-	const tabSyncId = useAnalyticsSyncId();
-	const syncProps = tabSyncId !== undefined
-		? { syncId: fillParent ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' as const }
-		: {};
+	// dialog (ChartExpandButton), which gets its own sync scope — see
+	// useChartSyncProps for the full rationale.
+	const syncProps = useChartSyncProps(!!fillParent);
 
 	if (data.series.length === 0) {
 		return (
