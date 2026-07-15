@@ -1,7 +1,14 @@
 // Tile definitions for the Health-tab KPI stat strip. Each tile names the
 // Harper metric it queries (the SAME metric string the corresponding panel
-// uses, so the current-window fetch dedupes with the panel's query key) and
-// a cluster-aggregate MetricSpec run through the shared runPipeline.
+// uses, so the current-window key matches the panel's query key) and a
+// cluster-aggregate MetricSpec run through the shared runPipeline.
+//
+// The key match only dedupes the POST when that panel is mounted (or its
+// window is still cached): cpu-usage / memory / main-thread-utilization
+// panels live on the Health tab alongside the strip, but success and
+// duration panels live on the Requests tab — while Health is shown those
+// two current-window fetches are real POSTs (which seed the cache for a
+// Requests visit). See useKpiTileData for the full per-tick accounting.
 //
 // Every vital here is up-is-bad (more CPU / memory / utilization / errors /
 // latency is worse), so KpiTile colors all up-deltas destructive and all
@@ -16,10 +23,16 @@ export interface KpiTileDef {
 	id: string;
 	label: string;
 	/** Harper get_analytics metric name — must match the panel's source
-	 *  metric verbatim so react-query dedupes the current-window POST. */
+	 *  metric verbatim so the current-window query key coincides with the
+	 *  panel's (deduped when that panel is mounted, shared cache otherwise). */
 	metric: string;
 	spec: MetricSpec;
 	combine: KpiCombine;
+	/** For groupBy specs whose dimension carries extra values beyond the
+	 *  ones that add up to the tile's total: the exact dims to collapse.
+	 *  Passed through to collapseSeries — other dims are excluded and a
+	 *  bucket missing any listed dim gaps instead of summing partially. */
+	includeDims?: readonly string[];
 	formatter: ValueFormatter;
 }
 
@@ -48,6 +61,10 @@ export const KPI_TILES: readonly KpiTileDef[] = [
 		// Per-scope (harper/user) count-weighted p95 — the panel's exact
 		// aggregation — then the scope series are SUMMED per bucket so the
 		// tile reads as total process CPU, not a mean of the two scopes.
+		// includeDims pins the sum to those two scopes: the profiler also
+		// emits per-hot-function-location cpu-usage records (>100 hits at
+		// one location) whose samples are ALREADY counted in the harper/user
+		// totals — summing every 'path' dim would double-count them.
 		spec: tileSpec({
 			series: {
 				kind: 'groupBy',
@@ -57,6 +74,7 @@ export const KPI_TILES: readonly KpiTileDef[] = [
 			aggregator: { temporal: 'count-weighted-mean', crossNode: 'count-weighted-mean' },
 		}),
 		combine: 'sum',
+		includeDims: ['harper', 'user'],
 		formatter: 'percent',
 	},
 	{

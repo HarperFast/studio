@@ -18,24 +18,36 @@ export type KpiCombine = 'sum' | 'mean';
 
 /** Collapse cluster-aggregate SeriesData into one point per time bucket.
  *  Non-finite ys are dropped; a bucket with no finite value across all
- *  series is omitted entirely (the sparkline connects across it). */
-export function collapseSeries(data: SeriesData, combine: KpiCombine): KpiPoint[] {
-	const byX = new Map<number, number[]>();
-	for (const s of data.series) {
+ *  series is omitted entirely (the sparkline connects across it).
+ *
+ *  `includeDims` declares the exact dimension values that constitute the
+ *  tile's total: series whose `dim` is not listed are excluded (e.g. the
+ *  profiler's per-hot-function-location cpu-usage records, whose samples are
+ *  already counted inside the harper/user scope totals), and a bucket
+ *  missing any listed dim is omitted rather than collapsed into a partial
+ *  value presented as the total. */
+export function collapseSeries(data: SeriesData, combine: KpiCombine, includeDims?: readonly string[]): KpiPoint[] {
+	const series = includeDims
+		? data.series.filter((s) => s.dim !== undefined && includeDims.includes(s.dim))
+		: data.series;
+	const byX = new Map<number, { ys: number[]; dims: Set<string> }>();
+	for (const s of series) {
 		for (const p of s.points) {
 			if (typeof p.y === 'number' && Number.isFinite(p.y)) {
-				let ys = byX.get(p.x);
-				if (!ys) {
-					ys = [];
-					byX.set(p.x, ys);
+				let bucket = byX.get(p.x);
+				if (!bucket) {
+					bucket = { ys: [], dims: new Set() };
+					byX.set(p.x, bucket);
 				}
-				ys.push(p.y);
+				bucket.ys.push(p.y);
+				if (s.dim !== undefined) { bucket.dims.add(s.dim); }
 			}
 		}
 	}
 	return [...byX.entries()]
+		.filter(([, { dims }]) => !includeDims || dims.size === includeDims.length)
 		.sort((a, b) => a[0] - b[0])
-		.map(([x, ys]) => {
+		.map(([x, { ys }]) => {
 			const total = ys.reduce((a, b) => a + b, 0);
 			return { x, y: combine === 'sum' ? total : total / ys.length };
 		});

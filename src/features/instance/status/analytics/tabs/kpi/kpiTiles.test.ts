@@ -42,8 +42,38 @@ describe('KPI_TILES', () => {
 			{ time: 60_000, node: 'n1', period: 60_000, path: 'harper', count: 50, p95: 0.3 },
 			{ time: 60_000, node: 'n1', period: 60_000, path: 'user', count: 50, p95: 0.2 },
 		];
-		const points = collapseSeries(runPipeline(def.spec, records, WINDOW, []), def.combine);
+		const points = collapseSeries(runPipeline(def.spec, records, WINDOW, []), def.combine, def.includeDims);
 		expect(points).toHaveLength(1);
+		expect(points[0].y).toBeCloseTo(0.5, 10);
+	});
+
+	it('cpu tile excludes hot-function-location records from the scope sum', () => {
+		const def = KPI_TILES.find((t) => t.id === 'cpu')!;
+		const records: AnalyticsDataPoint[] = [
+			{ time: 60_000, node: 'n1', period: 60_000, path: 'harper', count: 50, p95: 0.3 },
+			{ time: 60_000, node: 'n1', period: 60_000, path: 'user', count: 50, p95: 0.2 },
+			// Profiler hot-location record (>100 hits at one code location):
+			// its samples are already counted in the harper/user totals, so
+			// summing its series would double-count CPU on busy nodes.
+			{ time: 60_000, node: 'n1', period: 60_000, path: '/app/resources.js:42', count: 120, p95: 0.25 },
+		];
+		const points = collapseSeries(runPipeline(def.spec, records, WINDOW, []), def.combine, def.includeDims);
+		expect(points).toHaveLength(1);
+		expect(points[0].y).toBeCloseTo(0.5, 10);
+	});
+
+	it('cpu tile gaps a bucket missing one scope instead of reporting a partial sum as the total', () => {
+		const def = KPI_TILES.find((t) => t.id === 'cpu')!;
+		const records: AnalyticsDataPoint[] = [
+			{ time: 60_000, node: 'n1', period: 60_000, path: 'harper', count: 50, p95: 0.3 },
+			{ time: 60_000, node: 'n1', period: 60_000, path: 'user', count: 50, p95: 0.2 },
+			// Second bucket only has the harper scope — harper-alone is not
+			// total process CPU, so the bucket must gap, not read as 0.4.
+			{ time: 120_000, node: 'n1', period: 60_000, path: 'harper', count: 50, p95: 0.4 },
+		];
+		const points = collapseSeries(runPipeline(def.spec, records, WINDOW, []), def.combine, def.includeDims);
+		expect(points).toHaveLength(1);
+		expect(points[0].x).toBe(60_000);
 		expect(points[0].y).toBeCloseTo(0.5, 10);
 	});
 

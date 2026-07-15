@@ -24,6 +24,7 @@ function setHookResult(overrides: Partial<ReturnType<typeof useAnalyticsRecords>
 		isEmpty: true,
 		fieldKeys: new Set(),
 		missingFields: [],
+		isPlaceholderData: false,
 		refetch: vi.fn(),
 		...overrides,
 	});
