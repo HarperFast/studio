@@ -51,7 +51,7 @@ export function Databases() {
 					style={sidebarWidthVar}
 					// overflow-y-clip (not overflow-hidden) so the tree is still clipped vertically while the
 					// resize handle can extend horizontally into the gap between the panes.
-					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
+					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 md:border-r border-border flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
 				>
 					<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 					{
