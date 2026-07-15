@@ -184,22 +184,30 @@ function StatusTabsInner({ instanceParams, isLocalStudio, capability }: InnerPro
 		}
 	}, [capability.error, tab, navigate, presetId, refreshMs]);
 
-	const ctxValue = useMemo<AnalyticsContextValue>(() => {
+	// The window snapshot lives in its own memo keyed ONLY on the preset and
+	// the refresh tick. Nothing else may mint a new window: it is baked into
+	// every panel's query key, so an extra dep (e.g. `tab`) would re-key every
+	// query on that dep's changes and defeat useAnalyticsRecords'
+	// staleTime-Infinity cache that makes tab flips instant.
+	const { timeRange, bucketMs } = useMemo(() => {
 		const preset = getPreset(presetId);
 		const endTime = Date.now();
 		const startTime = endTime - preset.durationMs;
 		// `tick` participates in memo deps so every refresh (interval or manual)
 		// produces a fresh window even if the user did not change presets.
 		void tick;
-		return {
-			timeRange: { startTime, endTime },
-			bucketMs: preset.bucketMs,
-			instanceParams,
-			// Crosshair/tooltip sync is scoped to one instance's current tab —
-			// panels on a tab share an x-domain, other tabs/instances don't.
-			syncId: `${instanceParams.entityId}:${tab}`,
-		};
-	}, [presetId, instanceParams, tick, tab]);
+		return { timeRange: { startTime, endTime }, bucketMs: preset.bucketMs };
+	}, [presetId, tick]);
+
+	const ctxValue = useMemo<AnalyticsContextValue>(() => ({
+		timeRange,
+		bucketMs,
+		instanceParams,
+		// Crosshair/tooltip sync is scoped to one instance's current tab —
+		// panels on a tab share an x-domain, other tabs/instances don't.
+		// Tab switches change only this syncId; the window above stays put.
+		syncId: `${instanceParams.entityId}:${tab}`,
+	}), [timeRange, bucketMs, instanceParams, tab]);
 
 	const showTimePicker = tab !== 'overview';
 	const picker = showTimePicker

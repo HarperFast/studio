@@ -9,6 +9,8 @@ import type { SeriesData } from '../../types/analytics';
 // Capture the props the primitives hand to the Recharts wrapper components.
 // Rendering real Recharts gives no DOM signal for syncId (it lives in
 // Recharts' internal store), so swap the two wrappers for prop recorders.
+// All three charts route through useChartSyncProps (AnalyticsContext.tsx);
+// exercising them here covers the hook's tab/dialog/no-provider branches.
 const lineChartCalls: Record<string, unknown>[] = [];
 const areaChartCalls: Record<string, unknown>[] = [];
 
@@ -144,7 +146,7 @@ describe('tab-scoped chart crosshair sync (syncId)', () => {
 	});
 
 	it('TableSizeTrend in the expand dialog uses the dialog scope, not the tab scope', () => {
-		render(withProvider(<TableSizeTrend {...trendProps} inExpandDialog />, 'test-instance:storage'));
+		render(withProvider(<TableSizeTrend {...trendProps} fillParent />, 'test-instance:storage'));
 		expect(lineChartCalls.length).toBeGreaterThan(0);
 		expect(lineChartCalls[0].syncId).toBe('test-instance:storage:expanded');
 		expect(lineChartCalls[0].syncMethod).toBe('value');

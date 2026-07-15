@@ -45,3 +45,20 @@ export function useAnalyticsContext(): AnalyticsContextValue {
 export function useAnalyticsSyncId(): string | undefined {
 	return useContext(Ctx)?.syncId;
 }
+
+/** Recharts sync props for a cartesian chart on a Status tab: the tab-scoped
+ *  syncId plus syncMethod="value" (matches crosshairs by x value; the default
+ *  index-based sync mis-aligns sparse series that don't share point counts).
+ *  Pass `inDialog: true` from the expand-to-fullscreen dialog — syncing dialog
+ *  charts with the tab would ghost-drive the panels behind the overlay, so
+ *  the dialog gets its own `:expanded` scope instead: a SmallMultiples panel
+ *  expands to several mini-charts that keep syncing with each other, while a
+ *  single-chart dialog is a harmless sync group of one. Returns an empty
+ *  object when no syncId is in context so charts rendered standalone (tests,
+ *  future reuse) simply don't sync. */
+export function useChartSyncProps(inDialog: boolean): { syncId?: string; syncMethod?: 'value' } {
+	const tabSyncId = useAnalyticsSyncId();
+	return tabSyncId !== undefined
+		? { syncId: inDialog ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' }
+		: {};
+}

@@ -2,7 +2,7 @@ import { useResolvedTheme } from '@/hooks/useResolvedTheme';
 import { formatValue } from '@/lib/formatValue';
 import { useMemo } from 'react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useAnalyticsSyncId } from '../context/AnalyticsContext';
+import { useChartSyncProps } from '../context/AnalyticsContext';
 import { NODE_PALETTE } from '../lib/nodeColors';
 import { getChartColors } from '../lib/theme';
 import { formatAxisTick, formatTooltipTime } from '../lib/time';
@@ -101,11 +101,8 @@ export function StackedAreaChart(
 	const theme = useResolvedTheme();
 	// Tab-scoped crosshair/tooltip sync; the expand dialog (the only
 	// `fillParent` caller) gets its own scope so it never drives the panels
-	// behind the overlay. See LineChart for the full rationale.
-	const tabSyncId = useAnalyticsSyncId();
-	const syncProps = tabSyncId !== undefined
-		? { syncId: fillParent ? `${tabSyncId}:expanded` : tabSyncId, syncMethod: 'value' as const }
-		: {};
+	// behind the overlay. See useChartSyncProps for the full rationale.
+	const syncProps = useChartSyncProps(!!fillParent);
 
 	if (data.series.length === 0) {
 		return (

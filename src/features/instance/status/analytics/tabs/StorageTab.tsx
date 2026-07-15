@@ -155,8 +155,9 @@ function TableSizePanels() {
 					rankBy={rankBy}
 					onRankChange={setRankBy}
 					// fillParent here means "rendered in the expand dialog" — the
-					// trend only uses it to scope crosshair sync to the dialog.
-					inExpandDialog={opts?.fillParent ?? false}
+					// trend doesn't implement fillParent sizing yet; it only uses
+					// the flag to scope crosshair sync to the dialog.
+					fillParent={opts?.fillParent ?? false}
 				/>
 			)
 			: (
