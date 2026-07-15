@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HeatmapMatrix } from '../../primitives/HeatmapMatrix';
 import type { HeatmapData } from '../../types/analytics';
 
@@ -222,6 +222,88 @@ describe('HeatmapMatrix primitive', () => {
 			.find((c) => (c.getAttribute('aria-label') ?? '').includes('no data'))!;
 		const rect = absent.querySelector('rect');
 		expect(rect?.getAttribute('stroke')).toBe('var(--chart-heatmap-muted-stroke, #9ca3af)');
+	});
+
+	describe('cell activation (onCellSelect)', () => {
+		const findCell = (re: RegExp) =>
+			screen.getAllByRole('gridcell').find((c) => re.test(c.getAttribute('aria-label') ?? ''))!;
+
+		it('click on a data cell fires onCellSelect with (row, col)', () => {
+			const onCellSelect = vi.fn();
+			render(<HeatmapMatrix data={data} onCellSelect={onCellSelect} />);
+			fireEvent.click(findCell(/src-1.*dest-a/));
+			expect(onCellSelect).toHaveBeenCalledTimes(1);
+			expect(onCellSelect).toHaveBeenCalledWith('src-1', 'dest-a');
+		});
+
+		it('click on a grey (low-confidence) cell still fires — grey cells carry data', () => {
+			const onCellSelect = vi.fn();
+			render(<HeatmapMatrix data={data} onCellSelect={onCellSelect} />);
+			const grey = findCell(/src-2.*dest-a/);
+			expect(grey.getAttribute('data-confidence')).toBe('grey');
+			fireEvent.click(grey);
+			expect(onCellSelect).toHaveBeenCalledWith('src-2', 'dest-a');
+		});
+
+		it('Enter on the focused cell activates and preventDefaults', () => {
+			const onCellSelect = vi.fn();
+			render(<HeatmapMatrix data={data} onCellSelect={onCellSelect} />);
+			const cell = findCell(/src-1.*dest-b/);
+			(cell as HTMLElement).focus();
+			const notPrevented = fireEvent.keyDown(cell, { key: 'Enter' });
+			expect(notPrevented, 'Enter preventDefaulted').toBe(false);
+			expect(onCellSelect).toHaveBeenCalledWith('src-1', 'dest-b');
+		});
+
+		it('Space on the focused cell activates', () => {
+			const onCellSelect = vi.fn();
+			render(<HeatmapMatrix data={data} onCellSelect={onCellSelect} />);
+			const cell = findCell(/src-1.*dest-a/);
+			(cell as HTMLElement).focus();
+			fireEvent.keyDown(cell, { key: ' ' });
+			expect(onCellSelect).toHaveBeenCalledWith('src-1', 'dest-a');
+		});
+
+		it('suppressed and absent cells are aria-disabled and fire on neither click nor Enter', () => {
+			const onCellSelect = vi.fn();
+			render(<HeatmapMatrix data={data} onCellSelect={onCellSelect} />);
+			const suppressed = findCell(/src-2.*dest-b/);
+			const absent = findCell(/src-1.*dest-c/);
+			expect(suppressed.getAttribute('data-confidence')).toBe('suppress');
+			expect(absent.getAttribute('data-confidence')).toBe('absent');
+			for (const cell of [suppressed, absent]) {
+				expect(cell.getAttribute('aria-disabled')).toBe('true');
+				fireEvent.click(cell);
+				(cell as HTMLElement).focus();
+				fireEvent.keyDown(cell, { key: 'Enter' });
+				fireEvent.keyDown(cell, { key: ' ' });
+			}
+			expect(onCellSelect).not.toHaveBeenCalled();
+		});
+
+		it('data cells are not aria-disabled when a handler is present', () => {
+			render(<HeatmapMatrix data={data} onCellSelect={() => {}} />);
+			expect(findCell(/src-1.*dest-a/).getAttribute('aria-disabled')).toBeNull();
+		});
+
+		it('without onCellSelect no cell is aria-disabled and Enter is inert', () => {
+			render(<HeatmapMatrix data={data} />);
+			const cells = screen.getAllByRole('gridcell');
+			expect(cells.every((c) => c.getAttribute('aria-disabled') === null)).toBe(true);
+			const cell = findCell(/src-1.*dest-a/);
+			(cell as HTMLElement).focus();
+			// Should not throw or preventDefault — nothing to activate.
+			const notPrevented = fireEvent.keyDown(cell, { key: 'Enter' });
+			expect(notPrevented).toBe(true);
+		});
+
+		it('grid description mentions activation only when a handler is present', () => {
+			const { unmount } = render(<HeatmapMatrix data={data} onCellSelect={() => {}} />);
+			expect(screen.getByTestId('heatmap-desc').textContent ?? '').toMatch(/Enter or Space/);
+			unmount();
+			render(<HeatmapMatrix data={data} />);
+			expect(screen.getByTestId('heatmap-desc').textContent ?? '').not.toMatch(/Enter or Space/);
+		});
 	});
 
 	it('takes the measure label from data.measureLabel (legend, description, and cell labels)', () => {

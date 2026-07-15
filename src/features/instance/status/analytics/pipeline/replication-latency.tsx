@@ -1,4 +1,5 @@
 import { type JSX, useMemo, useState } from 'react';
+import { HeatmapDrilldownDialog } from '../components/HeatmapDrilldownDialog';
 import { useRovingRadioGroup } from '../hooks/useRovingRadioGroup';
 import { infoBannerStyle, warningBannerStyle } from '../primitives/bannerStyle';
 import { HeatmapMatrix } from '../primitives/HeatmapMatrix';
@@ -324,6 +325,11 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	const { records, nodes, timeRange, fillParent } = props;
 
 	const [quantile, setQuantile] = useState<ReplicationQuantileField>('p95');
+	// Heatmap-cell drilldown target. `drillPair` survives close (open is
+	// tracked separately) so Radix's exit animation keeps its content
+	// instead of unmounting mid-transition.
+	const [drillPair, setDrillPair] = useState<{ source: string; dest: string } | null>(null);
+	const [drillOpen, setDrillOpen] = useState(false);
 
 	// Parse once per (records, nodes, quantile); the matrix and the line
 	// fallback both consume the same parsed records.
@@ -333,6 +339,63 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 	);
 	const data = useMemo(() => matrixFromParsed(parseResult), [parseResult]);
 
+	// Single-pair series for the drilldown dialog. Recomputes with the live
+	// quantile/window, so the open dialog tracks the selectors — and re-applies
+	// the confidence gate: a refresh can drop the pair below `greyBelow`, and
+	// the dialog must then hide the series just like the heatmap cell does.
+	const drilldown = useMemo(() => {
+		if (!drillPair) { return null; }
+		const matching = parseResult.parsed.filter(
+			(p) => p.source === drillPair.source && p.destination === drillPair.dest,
+		);
+		const sampleCount = matching.reduce((sum, p) => sum + p.count, 0);
+		const { points, approx } = lineSeriesFromParsed(matching);
+		const label = `${drillPair.source} → ${drillPair.dest}`;
+		return {
+			suppressed: sampleCount < REPLICATION_CONFIDENCE.greyBelow,
+			sampleCount,
+			// Empty points (e.g. every record lacked a numeric `time`) fall
+			// through to LineChart's "No data in window" state inside the dialog.
+			seriesData: { series: points.length === 0 ? [] : [{ key: label, label, points, approx }] } as SeriesData,
+		};
+	}, [drillPair, parseResult]);
+
+	const quantileLabel = REPLICATION_QUANTILE_FIELDS.find((q) => q.field === quantile)?.label ?? quantile;
+
+	// Rendered in every branch below (heatmap, line fallback, empty state) so
+	// a background refresh that changes the layout doesn't abruptly unmount an
+	// open drilldown.
+	const drilldownDialog = drillPair && drilldown
+		? (
+			<HeatmapDrilldownDialog
+				source={drillPair.source}
+				target={drillPair.dest}
+				open={drillOpen}
+				onOpenChange={(open) => {
+					// Keep drillPair on close — the exit animation needs the content.
+					if (!open) { setDrillOpen(false); }
+				}}
+				description={`${quantileLabel} replication latency over the selected window, count-weighted-mean per time bucket.`}
+			>
+				{drilldown.suppressed
+					? (
+						<div role="status" className="text-(--color-text-secondary) text-sm p-4">
+							{`Fewer than ${REPLICATION_CONFIDENCE.greyBelow} samples for this pair in the current window (${drilldown.sampleCount}) — series hidden.`}
+						</div>
+					)
+					: (
+						<LineChart
+							data={drilldown.seriesData}
+							yAxis={data.axis}
+							height={320}
+							xDomain={[timeRange.startTime, timeRange.endTime]}
+							fillParent
+						/>
+					)}
+			</HeatmapDrilldownDialog>
+		)
+		: null;
+
 	// Empty state — still surface skipped-records banner so users see the cause
 	// when 100% of records had unparseable source nodes.
 	if (data.rows.length === 0 || data.cols.length === 0) {
@@ -341,6 +404,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 				<RecognitionBanner data={data} />
 
 				<div>No data in window</div>
+				{drilldownDialog}
 			</div>
 		);
 	}
@@ -423,6 +487,7 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 							/>
 						</div>
 					)}
+				{drilldownDialog}
 			</div>
 		);
 	}
@@ -437,8 +502,16 @@ export function ReplicationLatencyRenderer(props: SpecRegistryRendererProps): JS
 				    RecognitionBanner above already reports omissions with
 				    cause-specific copy, so letting both render double-reports. */
 				}
-				<HeatmapMatrix data={{ ...data, skippedRecordsCount: 0 }} title="Replication latency" />
+				<HeatmapMatrix
+					data={{ ...data, skippedRecordsCount: 0, measureLabel: `${quantileLabel} latency` }}
+					title="Replication latency"
+					onCellSelect={(row, col) => {
+						setDrillPair({ source: row, dest: col });
+						setDrillOpen(true);
+					}}
+				/>
 			</div>
+			{drilldownDialog}
 		</div>
 	);
 }
