@@ -18,6 +18,7 @@ export default defineConfig({
 			'**/.claude/worktrees/**',
 		],
 		setupFiles: [
+			'./src/testSetup/failOnRenderPhaseUpdate.ts',
 			'./src/features/instance/status/analytics/__tests__/setup.ts',
 			'./src/lib/monaco/__tests__/setup.ts',
 		],
