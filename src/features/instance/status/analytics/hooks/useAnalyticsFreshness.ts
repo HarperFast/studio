@@ -1,7 +1,7 @@
 import type { EntityIds } from '@/features/auth/store/authStore';
 import { ANALYTICS_QUERY_KEY_PREFIX } from '@/integrations/api/instance/status/getAnalytics';
 import { notifyManager, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 const PREFIX = ANALYTICS_QUERY_KEY_PREFIX;
 
@@ -14,11 +14,6 @@ export interface AnalyticsFreshness {
 	/** Bumps every second so consumers can re-render relative time
 	 *  ("updated Xs ago") without subscribing themselves. */
 	now: number;
-}
-
-interface FreshnessSnapshot {
-	isFetching: boolean;
-	lastFetchedAt: number | null;
 }
 
 /** Watches the React Query cache for activity on the `get_analytics`
@@ -39,9 +34,6 @@ interface FreshnessSnapshot {
  *  render; the regression test proves both halves. */
 export function useAnalyticsFreshness(entityId: EntityIds): AnalyticsFreshness {
 	const client = useQueryClient();
-	// getSnapshot must return a referentially-stable object while the
-	// underlying values are unchanged, or uSES loops; cache the last one.
-	const snapshotRef = useRef<FreshnessSnapshot>({ isFetching: false, lastFetchedAt: null });
 
 	const isOurs = useCallback(
 		(q: { queryKey: unknown }) => Array.isArray(q.queryKey) && q.queryKey[0] === PREFIX && q.queryKey[1] === entityId,
@@ -58,24 +50,29 @@ export function useAnalyticsFreshness(entityId: EntityIds): AnalyticsFreshness {
 		});
 	}, [client, isOurs]);
 
-	const getSnapshot = useCallback((): FreshnessSnapshot => {
-		let fetching = false;
+	// Two stores returning primitives: uSES compares snapshots by Object.is,
+	// so primitive snapshots need no referential-stability bookkeeping (an
+	// object snapshot would have to be ref-cached to avoid render loops).
+	const getIsFetching = useCallback((): boolean => {
+		for (const q of client.getQueryCache().getAll()) {
+			if (isOurs(q) && q.state.fetchStatus === 'fetching') { return true; }
+		}
+		return false;
+	}, [client, isOurs]);
+
+	const getLastFetchedAt = useCallback((): number | null => {
 		let mostRecent: number | null = null;
 		for (const q of client.getQueryCache().getAll()) {
 			if (!isOurs(q)) { continue; }
-			if (q.state.fetchStatus === 'fetching') { fetching = true; }
 			if (q.state.dataUpdatedAt > 0 && (mostRecent === null || q.state.dataUpdatedAt > mostRecent)) {
 				mostRecent = q.state.dataUpdatedAt;
 			}
 		}
-		const prev = snapshotRef.current;
-		if (prev.isFetching !== fetching || prev.lastFetchedAt !== mostRecent) {
-			snapshotRef.current = { isFetching: fetching, lastFetchedAt: mostRecent };
-		}
-		return snapshotRef.current;
+		return mostRecent;
 	}, [client, isOurs]);
 
-	const { isFetching, lastFetchedAt } = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+	const isFetching = useSyncExternalStore(subscribe, getIsFetching, getIsFetching);
+	const lastFetchedAt = useSyncExternalStore(subscribe, getLastFetchedAt, getLastFetchedAt);
 
 	const [now, setNow] = useState(() => Date.now());
 
