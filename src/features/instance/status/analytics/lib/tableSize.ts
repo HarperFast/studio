@@ -32,7 +32,10 @@ export interface Snapshot {
 }
 
 export interface TrendPoint {
-	time: number; // bucket start (ms)
+	/** Bucket timestamp (ms) — an epoch-aligned multiple of the bucket size,
+	 *  matching the pipeline's snapToPeriod grid so syncMethod="value"
+	 *  crosshair sync can match this chart's x values against the panels'. */
+	time: number;
 	values: Record<string, /* node */ number /* bytes */>;
 }
 
@@ -53,9 +56,19 @@ export const OTHER_KEY = '__other__';
 /** Threshold below which a table is considered empty/static and excluded from top-N. */
 const MEANINGFUL_SIZE_THRESHOLD = 4096;
 
-/** Compute bucket width (ms) for trend rendering. */
-export function computeBucketMs(windowMs: number): number {
-	return Math.max(60_000, Math.ceil(windowMs / 90));
+/** Compute bucket width (ms) for trend rendering.
+ *
+ *  `alignMs` (the tab's fetch bucket size, AnalyticsContext.bucketMs) rounds
+ *  the width up to a multiple of the metric panels' bucket grid: combined
+ *  with the epoch-aligned snapping in computeTrendFactory, every trend
+ *  timestamp then lands on a panel timestamp, so hovering the trend reliably
+ *  drives the synced crosshair on the other Storage-tab panels (#1514). */
+export function computeBucketMs(windowMs: number, alignMs?: number): number {
+	const base = Math.max(60_000, Math.ceil(windowMs / 90));
+	if (typeof alignMs === 'number' && Number.isFinite(alignMs) && alignMs > 0) {
+		return Math.ceil(base / alignMs) * alignMs;
+	}
+	return base;
 }
 
 /** Build a stable "database.table" key. */
@@ -195,41 +208,47 @@ export function computeSnapshot(
 export function computeTrendFactory(
 	normalized: NormalizedRecord[],
 	range: TimeRange,
+	alignMs?: number,
 ): (selectedTable: string) => TrendPoint[] {
-	const bucketMs = computeBucketMs(range.endTime - range.startTime);
+	const bucketMs = computeBucketMs(range.endTime - range.startTime, alignMs);
 
 	return function trend(selectedTable: string): TrendPoint[] {
 		// Collect the latest sample per (bucket, node) for the selected table.
 		const byBucket = new Map<number, Map<string, { size: number; time: number }>>();
-		// Track each node's last-sample time across the window to truncate trailing buckets.
-		const lastSampleTime = new Map<string, number>();
+		// Track each node's last populated bucket to truncate anything trailing it.
+		const lastBucketTime = new Map<string, number>();
 
 		for (const r of normalized) {
 			if (r.tableKey !== selectedTable) { continue; }
 			if (r.time < range.startTime || r.time > range.endTime) { continue; }
-			const bucketStart = range.startTime + Math.floor((r.time - range.startTime) / bucketMs) * bucketMs;
-			if (!byBucket.has(bucketStart)) { byBucket.set(bucketStart, new Map()); }
-			const nodeMap = byBucket.get(bucketStart)!;
+			// Epoch-aligned, round-to-nearest — the exact convention of the
+			// pipeline's snapToBucketTime. The old grid anchored buckets at
+			// range.startTime, which put trend timestamps on a lattice no other
+			// chart shared, so syncMethod="value" crosshairs never matched the
+			// Storage tab's metric panels (#1514).
+			const bucketTime = Math.round(r.time / bucketMs) * bucketMs;
+			if (!byBucket.has(bucketTime)) { byBucket.set(bucketTime, new Map()); }
+			const nodeMap = byBucket.get(bucketTime)!;
 			const prev = nodeMap.get(r.node);
 			if (!prev || r.time >= prev.time) {
 				nodeMap.set(r.node, { size: r.size, time: r.time });
 			}
-			const lastTime = lastSampleTime.get(r.node) ?? 0;
-			if (r.time > lastTime) { lastSampleTime.set(r.node, r.time); }
+			const lastBucket = lastBucketTime.get(r.node) ?? 0;
+			if (bucketTime > lastBucket) { lastBucketTime.set(r.node, bucketTime); }
 		}
 
 		const points: TrendPoint[] = [];
 		const sortedBuckets = [...byBucket.keys()].sort((a, b) => a - b);
-		for (const bucketStart of sortedBuckets) {
-			const nodeMap = byBucket.get(bucketStart)!;
+		for (const bucketTime of sortedBuckets) {
+			const nodeMap = byBucket.get(bucketTime)!;
 			const values: Record<string, number> = {};
 			for (const [node, { size }] of nodeMap) {
-				// Drop buckets that start after the node's last sample (truncate trailing).
-				const lastTime = lastSampleTime.get(node) ?? 0;
-				if (bucketStart > lastTime) { continue; }
+				// Drop buckets past the node's last populated bucket (truncate trailing).
+				const lastBucket = lastBucketTime.get(node) ?? 0;
+				if (bucketTime > lastBucket) { continue; }
 				values[node] = size;
 			}
-			if (Object.keys(values).length > 0) { points.push({ time: bucketStart, values }); }
+			if (Object.keys(values).length > 0) { points.push({ time: bucketTime, values }); }
 		}
 		return points;
 	};
@@ -307,12 +326,14 @@ export function computeEmptyCause(
 	return null;
 }
 
-/** Assemble a `TableSizeDerived` from raw records + current time range. */
-export function buildDerived(raw: TableSizeRecord[], range: TimeRange): TableSizeDerived {
+/** Assemble a `TableSizeDerived` from raw records + current time range.
+ *  `alignMs` — see computeBucketMs; StorageTab passes the tab's bucketMs so
+ *  the trend's bucket grid coincides with the metric panels'. */
+export function buildDerived(raw: TableSizeRecord[], range: TimeRange, alignMs?: number): TableSizeDerived {
 	const normalized = dedupRecords(normalizeRecords(raw));
 	const { tableSet, hasOther, otherMembers } = computeTableSet(normalized);
 	const byNode = computeSnapshot(normalized, tableSet, hasOther);
-	const trend = computeTrendFactory(normalized, range);
+	const trend = computeTrendFactory(normalized, range, alignMs);
 	const emptyCause = computeEmptyCause(raw.length, tableSet, hasOther);
 
 	// Content signature: window + a cheap digest of the raw input.

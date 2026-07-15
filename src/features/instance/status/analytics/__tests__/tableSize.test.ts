@@ -17,7 +17,8 @@ import {
 	TOP_N,
 	toTableKey,
 } from '../lib/tableSize';
-import type { TableSizeRecord } from '../types/analytics';
+import { runPipeline } from '../pipeline/pipeline';
+import type { AnalyticsDataPoint, MetricSpec, TableSizeRecord } from '../types/analytics';
 
 function fixture(name: string): TableSizeRecord[] {
 	const path = join(import.meta.dirname, 'fixtures', 'table-size', `${name}.json`);
@@ -261,9 +262,12 @@ describe('computeTrendFactory', () => {
 		const normalized = normalizeRecords(fixture('node-drop'));
 		const trend = computeTrendFactory(normalized, range);
 		const points = trend('d.T');
-		// We expect buckets at 1700000000000, 1700000060000, 1700000120000, 1700000180000 (from n1 samples).
+		// Buckets are epoch-aligned (round to the nearest 60s multiple, like the
+		// pipeline's snapToPeriod), NOT anchored at range.startTime: the samples
+		// at 1700000000000 + n*60s sit 20s past the epoch lattice, so they snap
+		// down to 1699999980000 + n*60s.
 		expect(points.length >= 3).toBeTruthy();
-		const first = points.find((p) => p.time === 1_700_000_000_000)!;
+		const first = points.find((p) => p.time === 1_699_999_980_000)!;
 		expect(first).toBeTruthy();
 		expect(first.values.n1).toBe(100000);
 		expect(first.values.n2).toBe(200000);
@@ -283,9 +287,10 @@ describe('computeTrendFactory', () => {
 		const normalized = normalizeRecords(fixture('node-drop'));
 		const trend = computeTrendFactory(normalized, range);
 		const points = trend('d.T');
-		// n2 has its last sample at t=60_000_ms after start. No bucket past that should contain n2.
+		// n2's last sample (t=60s after start) lands in the epoch-aligned bucket
+		// 1699999980000 + 60s. No bucket past that should contain n2.
 		const n2PastLastSample = points
-			.filter((p) => p.time > 1_700_000_060_000)
+			.filter((p) => p.time > 1_700_000_040_000)
 			.some((p) => 'n2' in p.values);
 		expect(n2PastLastSample).toBe(false);
 	});
@@ -303,7 +308,66 @@ describe('computeTrendFactory', () => {
 		];
 		const trend = computeTrendFactory(normalizeRecords(raw), range);
 		const points = trend('d.t');
+		expect(points[0].time).toBe(1_699_999_980_000); // epoch-aligned bucket
 		expect(points[0].values.n1).toBe(200); // latest within bucket wins
+	});
+});
+
+describe('trend bucket grid alignment with the pipeline (#1514)', () => {
+	// Off-lattice window on purpose: the grid must come from the epoch, not
+	// from range.startTime.
+	const range = { startTime: 1_700_000_000_000, endTime: 1_700_000_300_000 }; // 5 min → bucketMs 60_000
+	const times = [1_700_000_010_000, 1_700_000_070_000, 1_700_000_155_000];
+
+	it('trend timestamps are epoch-aligned multiples of the bucket size', () => {
+		const raw: TableSizeRecord[] = times.map((id, i) => (
+			{ metric: 'table-size', database: 'd', table: 't', node: 'n1', id, size: 100 + i }
+		));
+		const trend = computeTrendFactory(normalizeRecords(raw), range);
+		for (const p of trend('d.t')) {
+			expect(p.time % 60_000).toBe(0);
+		}
+	});
+
+	it('two metrics bucket the same instants to identical timestamps (value-sync match)', () => {
+		// Metric A: the table-size trend grid.
+		const raw: TableSizeRecord[] = times.map((id, i) => (
+			{ metric: 'table-size', database: 'd', table: 't', node: 'n1', id, size: 100 + i }
+		));
+		const trendTimes = computeTrendFactory(normalizeRecords(raw), range)('d.t').map((p) => p.time);
+
+		// Metric B: a pipeline metric panel over the same instants, snapped to
+		// the same 60s period (MetricRenderer always enables snapToPeriod).
+		const spec: MetricSpec = {
+			title: 'test',
+			description: '',
+			tab: 'storage',
+			primaryDimension: 'node',
+			series: { kind: 'field', fields: [{ field: 'v', label: 'V' }] },
+			timestamp: 'time',
+			bucket: { source: 'period-field', fallbackMs: 60_000 },
+			aggregator: { temporal: 'mean', crossNode: 'mean' },
+			primitive: 'line',
+			yAxis: { unit: '', formatter: 'count' },
+		};
+		const records: AnalyticsDataPoint[] = times.map((time, i) => (
+			{ time, node: 'n1', v: i, period: 60_000 }
+		));
+		const out = runPipeline(spec, records, range, ['n1'], { snapToPeriod: true });
+		const panelTimes = out.series[0].points.map((p) => p.x);
+
+		expect(trendTimes).toEqual(panelTimes);
+	});
+
+	it('computeBucketMs rounds up to a multiple of alignMs so wide-window grids still coincide', () => {
+		const day = 24 * 60 * 60 * 1000;
+		// 24h window → base bucket 16 min, which is NOT on the 5-min panel grid.
+		expect(computeBucketMs(day)).toBe(960_000);
+		expect(computeBucketMs(day, 300_000)).toBe(1_200_000); // 20 min — multiple of 5 min
+		// Already-aligned and invalid alignments are no-ops.
+		expect(computeBucketMs(300_000, 60_000)).toBe(60_000);
+		expect(computeBucketMs(day, 0)).toBe(960_000);
+		expect(computeBucketMs(day, Number.NaN)).toBe(960_000);
 	});
 });
 
