@@ -39,8 +39,9 @@ export async function captureChartAsBlob(
 	return blob;
 }
 
-export async function downloadChart(chartContainer: HTMLElement, filename: string): Promise<void> {
-	const blob = await captureChartAsBlob(chartContainer);
+/** Trigger a browser download of `blob` as `filename` via a transient anchor.
+ *  Shared by the PNG export and the CSV export so they can't drift. */
+export function triggerBlobDownload(blob: Blob, filename: string): void {
 	const url = URL.createObjectURL(blob);
 	try {
 		const a = document.createElement('a');
@@ -50,6 +51,11 @@ export async function downloadChart(chartContainer: HTMLElement, filename: strin
 	} finally {
 		URL.revokeObjectURL(url);
 	}
+}
+
+export async function downloadChart(chartContainer: HTMLElement, filename: string): Promise<void> {
+	const blob = await captureChartAsBlob(chartContainer);
+	triggerBlobDownload(blob, filename);
 }
 
 /** Capture the chart and write it to the clipboard as a PNG ClipboardItem.
@@ -71,9 +77,17 @@ export async function copyChartToClipboard(chartContainer: HTMLElement): Promise
 	}
 }
 
+/** Slugify a metric/title for use in a download filename. */
+export function slugifyForFilename(prefix: string): string {
+	return prefix.replace(/[^a-z0-9-]+/gi, '-').replace(/(^-|-$)/g, '').toLowerCase();
+}
+
+/** ISO-8601 timestamp with filename-hostile characters (`:` `.`) dashed. */
+export function filenameTimestamp(ms: number): string {
+	return new Date(ms).toISOString().replace(/[:.]/g, '-');
+}
+
 /** Slugify a metric/title for use as a download filename. */
 export function makeExportFilename(prefix: string, range: { startTime: number; endTime: number }): string {
-	const safe = prefix.replace(/[^a-z0-9-]+/gi, '-').replace(/(^-|-$)/g, '').toLowerCase();
-	const stamp = new Date(range.endTime).toISOString().replace(/[:.]/g, '-');
-	return `${safe}-${stamp}.png`;
+	return `${slugifyForFilename(prefix)}-${filenameTimestamp(range.endTime)}.png`;
 }

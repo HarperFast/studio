@@ -3,8 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { errorText } from '@/lib/errorText';
 import { type ReactNode, useRef } from 'react';
 import { ChartCopyButton } from '../components/ChartCopyButton';
+import { ChartCsvButton } from '../components/ChartCsvButton';
 import { ChartExpandButton } from '../components/ChartExpandButton';
 import { ChartExportButton } from '../components/ChartExportButton';
+import type { ChartCsvData } from '../lib/csvExport';
 
 interface PanelCardProps {
 	title: string;
@@ -21,6 +23,9 @@ interface PanelCardProps {
 	/** Chart render function, forwarded to ChartExpandButton so the dialog
 	 *  re-renders the chart at full size. */
 	renderChart: (opts: { fillParent: boolean }) => ReactNode;
+	/** Lazily produces the rendered data for the CSV download button. When
+	 *  omitted the CSV button is not rendered (panel has no tabular data). */
+	getCsvData?: () => ChartCsvData | null;
 	children: ReactNode;
 }
 
@@ -35,6 +40,7 @@ export function PanelCard({
 	exportSlug,
 	canExport,
 	renderChart,
+	getCsvData,
 	children,
 }: PanelCardProps) {
 	// Capture only the chart body, not the whole Card. Otherwise the exported
@@ -54,9 +60,11 @@ export function PanelCard({
 							title={title}
 							description={expandDescription}
 							renderChart={renderChart}
+							getCsvData={getCsvData}
 						/>
 						<ChartCopyButton captureRef={chartRef} exportSlug={exportSlug} />
 						<ChartExportButton captureRef={chartRef} exportSlug={exportSlug} />
+						{getCsvData && <ChartCsvButton exportSlug={exportSlug} getCsvData={getCsvData} />}
 					</div>
 				)}
 			</CardHeader>

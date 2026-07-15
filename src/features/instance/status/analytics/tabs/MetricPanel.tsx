@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useAnalyticsContext } from '../context/AnalyticsContext';
 import { useAnalyticsRecords } from '../hooks/useAnalyticsRecords';
+import { computeMetricCsvData } from '../lib/csvExport';
 import { getSpecRequiredFields } from '../lib/specRequiredFields';
 import { derivedRegistry } from '../pipeline/derived/index';
 import { specRegistry } from '../pipeline/index';
@@ -45,6 +46,8 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 	const nodes = useMemo(() => collectNodes(data), [data]);
 	const canExport = !isLoading && !isError && !isEmpty;
 
+	const getCsvData = () => computeMetricCsvData(metric, data, timeRange, nodes);
+
 	const renderChart = (opts: { fillParent: boolean } = { fillParent: false }) => (
 		<MetricRenderer
 			metric={metric}
@@ -62,6 +65,7 @@ function MetricPanelInner({ metric, titleOverride }: Props) {
 			exportSlug={metric}
 			canExport={canExport}
 			renderChart={renderChart}
+			getCsvData={getCsvData}
 		>
 			<PanelStateOrChart
 				isLoading={isLoading}
