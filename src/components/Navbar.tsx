@@ -9,11 +9,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
-import { useOverallAuth } from '@/hooks/useAuth';
+import { useAdminMode, useOverallAuth } from '@/hooks/useAuth';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
-import { BookOpenTextIcon, BugIcon, LogInIcon, LogOutIcon, Menu, UserIcon, X } from 'lucide-react';
+import { BookOpenTextIcon, BugIcon, LogInIcon, LogOutIcon, Menu, ShieldIcon, UserIcon, X } from 'lucide-react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -23,6 +23,7 @@ export function Navbar() {
 	const { mutate: signOut } = useLogoutMutation();
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
+	const isAdmin = useAdminMode();
 	const router = useRouter();
 
 	const handleSignOut = useCallback(() => {
@@ -50,6 +51,12 @@ export function Navbar() {
 					to: '/profile',
 					icon: <UserIcon />,
 					text: 'Profile',
+					textBreakpoint: 'xl',
+				},
+				!isLocalStudio && isAdmin && {
+					to: '/fabric-admin',
+					icon: <ShieldIcon />,
+					text: 'Fabric Admin',
 					textBreakpoint: 'xl',
 				},
 				{
@@ -80,7 +87,7 @@ export function Navbar() {
 					textBreakpoint: isLocalStudio ? 'md' : 'xl',
 				},
 			].filter(excludeFalsy) satisfies Array<MenuGroup | MenuItem>,
-		[handleSignOut],
+		[handleSignOut, isAdmin],
 	);
 
 	if (!user) {

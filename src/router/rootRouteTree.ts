@@ -3,6 +3,7 @@ import { authRouteTree, localAuthRoutes } from '@/features/auth/routes';
 import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { clusterRoutes } from '@/features/cluster/routes';
 import { clusterEditRoutes, clustersLayoutRoute, clustersRoutes, newClusterRoute } from '@/features/clusters/routes';
+import { fabricAdminLayoutRoute, fabricAdminRoutes } from '@/features/fabricAdmin/routes';
 import { createInstanceRouteTree } from '@/features/instance/routes';
 import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
 import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
@@ -21,6 +22,7 @@ export const rootRouteTree = isLocalStudio
 		authRouteTree,
 		dashboardLayout.addChildren([
 			...profileRoutes,
+			fabricAdminLayoutRoute.addChildren([...fabricAdminRoutes]),
 			orgsLayoutRoute.addChildren([
 				...orgsRoutes,
 				orgLayoutRoute.addChildren([
