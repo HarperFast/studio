@@ -13,11 +13,11 @@ describe('DegradedIntelliSenseBanner (HarperFast/studio#1504)', () => {
 		expect(screen.getByRole('status').getAttribute('aria-live')).toBe('polite');
 	});
 
-	it('explains the budget degradation in terms the user can act on', () => {
+	it('explains the budget degradation and its cause', () => {
 		render(<DegradedIntelliSenseBanner variant="budget" onDismiss={vi.fn()} />);
 		const text = screen.getByRole('status').textContent ?? '';
 		expect(text).toMatch(/cannot find module/i);
-		expect(text).toMatch(/reopening the tab/i);
+		expect(text).toMatch(/references more packages/i);
 	});
 
 	it('explains the oversized-file degradation', () => {
