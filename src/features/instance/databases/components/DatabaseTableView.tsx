@@ -117,6 +117,14 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+	// A row whose declared primary key has no value can't be looked up, edited, or deleted by id --
+	// Harper stored it under a different key, usually because the table's primary key was changed
+	// after the row was created (see #1199). We stash the row the list query already gave us so the
+	// modal can show it read-only instead of firing a doomed search_by_id.
+	const [rowWithoutPrimaryKey, setRowWithoutPrimaryKey] = useEffectedState<Record<string, unknown> | null>(
+		null,
+		allParams,
+	);
 
 	const isLastTableInDatabase = useMemo(() => {
 		const tableNames = databaseName ? Object.keys(instanceDatabaseMap?.[databaseName] || []).sort() : [];
@@ -376,8 +384,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
-		setSelectedIds([rowData.original[primaryKey]]);
-		setIsEditModalOpen(!isEditModalOpen);
+		const primaryKeyValue = primaryKey ? rowData.original[primaryKey] : undefined;
+		if (primaryKeyValue == null) {
+			// No usable primary key: skip the (doomed) fetch and show the row we already have.
+			setSelectedIds(null);
+			setRowWithoutPrimaryKey(rowData.original);
+		} else {
+			setSelectedIds([primaryKeyValue]);
+			setRowWithoutPrimaryKey(null);
+		}
+		setIsEditModalOpen(true);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
 		setSort({
@@ -586,8 +602,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}
+				missingPrimaryKey={!!rowWithoutPrimaryKey}
 				syntheticAttributes={syntheticAttributes}
-				data={searchByIdData?.data}
+				data={rowWithoutPrimaryKey ? [rowWithoutPrimaryKey] : searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending}
