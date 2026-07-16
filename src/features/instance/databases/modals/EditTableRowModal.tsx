@@ -1,9 +1,10 @@
 import { Loading } from '@/components/Loading';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
-import { Save, Trash } from 'lucide-react';
+import { Save, Trash, TriangleAlert } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 export function EditTableRowModal({
@@ -12,6 +13,7 @@ export function EditTableRowModal({
 	setIsModalOpen,
 	isModalOpen,
 	primaryKey,
+	missingPrimaryKey,
 	syntheticAttributes,
 	data,
 	onSaveChanges,
@@ -24,6 +26,9 @@ export function EditTableRowModal({
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	primaryKey: string;
+	/** The clicked row has no value for the declared primary key, so it can't be looked up, edited,
+	 * or deleted by id (see #1199). We still show its contents read-only, with an explanation. */
+	missingPrimaryKey?: boolean;
 	/** Relationship/computed attribute names — read-only, so they are hidden from the editable JSON
 	 * (saving a record that assigns one fails, even with null). */
 	syntheticAttributes?: string[];
@@ -34,6 +39,9 @@ export function EditTableRowModal({
 	isDeleteTableRecordsPending: boolean;
 }) {
 	const monacoTheme = useMonacoTheme();
+	// Without a usable primary key the record can't be saved or deleted individually, so force the
+	// editor read-only and hide the write actions regardless of the user's permissions.
+	const isReadOnly = !canEditRecords || Boolean(missingPrimaryKey);
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [madeChanges, setMadeChanges] = useState(false);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
@@ -58,8 +66,8 @@ export function EditTableRowModal({
 			<DialogContent
 				aria-describedby={undefined}
 				resizable
-				autoFocus={canEditRecords}
-				onEscapeKeyDown={canEditRecords
+				autoFocus={!isReadOnly}
+				onEscapeKeyDown={!isReadOnly
 					? (event) => {
 						if (madeChanges) {
 							event.preventDefault();
@@ -68,8 +76,30 @@ export function EditTableRowModal({
 					: undefined}
 			>
 				<DialogHeader>
-					<DialogTitle>{canEditRecords ? 'Edit' : 'View'} Row</DialogTitle>
+					<DialogTitle>{isReadOnly ? 'View' : 'Edit'} Row</DialogTitle>
 				</DialogHeader>
+				{missingPrimaryKey && (
+					<Alert variant="warning">
+						<TriangleAlert />
+						<AlertTitle>This row has no primary key value</AlertTitle>
+						<AlertDescription>
+							<p>
+								{primaryKey
+									? (
+										<>
+											It has no value for the primary key{' '}
+											<code>{primaryKey}</code>, so it can't be looked up, edited, or deleted individually.
+										</>
+									)
+									: `It has no primary key value, so it can't be looked up, edited, or deleted individually.`}
+							</p>
+							<p>
+								This usually means the table's primary key was changed after the row was created. To remove it, recreate
+								the table or restore the original primary key attribute.
+							</p>
+						</AlertDescription>
+					</Alert>
+				)}
 				{data
 					? (
 						// Wrapper owns the flex sizing: @monaco-editor/react applies `className` to its inner
@@ -80,7 +110,7 @@ export function EditTableRowModal({
 								className="w-full h-full"
 								language="json"
 								theme={monacoTheme}
-								options={{ readOnly: !canEditRecords, automaticLayout: true }}
+								options={{ readOnly: isReadOnly, automaticLayout: true }}
 								value={value}
 								onValidate={onValidate}
 								onChange={(updatedValue) => {
@@ -92,14 +122,14 @@ export function EditTableRowModal({
 					: <Loading />}
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						{canDeleteRecords && (
+						{canDeleteRecords && !missingPrimaryKey && (
 							<Button
 								variant="destructive"
 								type="button"
 								autoFocus={false}
 								onClick={() => {
 									const primaryKeyValue = data[0]?.[primaryKey];
-									if (primaryKeyValue) {
+									if (primaryKeyValue != null) {
 										onDeleteRecord([primaryKeyValue]);
 									}
 								}}
@@ -108,7 +138,7 @@ export function EditTableRowModal({
 								<Trash /> Delete Row
 							</Button>
 						)}
-						{canEditRecords && (
+						{canEditRecords && !missingPrimaryKey && (
 							<Button
 								variant="submit"
 								autoFocus={true}
