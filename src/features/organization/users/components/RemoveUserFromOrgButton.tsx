@@ -73,12 +73,12 @@ export function RemoveUserFromOrgButton({
 				>
 					Cancel
 				</Button>
+				{/* Not autoFocused: focus on the destructive button would let a stray Enter or double-click confirm. */}
 				<Button
 					type="button"
 					variant="destructive"
 					disabled={isPending}
 					onClick={onConfirm}
-					autoFocus
 				>
 					<Icon /> {isPending ? copy.busy : copy.confirm}
 				</Button>
