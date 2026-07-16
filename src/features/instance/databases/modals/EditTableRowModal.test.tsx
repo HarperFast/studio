@@ -75,6 +75,17 @@ describe('EditTableRowModal', () => {
 		expect(screen.queryByRole('button', { name: /Delete Row/i })).toBeNull();
 	});
 
+	it("warns and hides write actions when the record can't be loaded by its primary key", () => {
+		renderModal({ recordUnavailable: true });
+
+		expect(screen.getByText("This row couldn't be loaded")).toBeTruthy();
+		expect(screen.getByText('email')).toBeTruthy();
+		expect(screen.getByRole('heading').textContent).toContain('View');
+		expect(screen.getByTestId('editor').getAttribute('data-readonly')).toBe('true');
+		expect(screen.queryByRole('button', { name: /Save Changes/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /Delete Row/i })).toBeNull();
+	});
+
 	it('lets a normal row be edited and deleted', () => {
 		renderModal();
 

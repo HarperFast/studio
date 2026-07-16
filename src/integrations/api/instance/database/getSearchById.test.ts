@@ -37,7 +37,12 @@ describe('getSearchByIdOptions', () => {
 		});
 		expect(opts.enabled).toBe(true);
 		(opts.queryFn as () => unknown)();
-		expect(post).toHaveBeenCalledWith('/', expect.objectContaining({ ids: ['abc', 5], operation: 'search_by_id' }));
+		expect(post).toHaveBeenCalledWith(
+			'/',
+			// onlyIfCached must be false: the edit fetch needs the real record, not a cache-only hit
+			// that answers "Entry is not cached" on a miss (#1199).
+			expect.objectContaining({ ids: ['abc', 5], operation: 'search_by_id', onlyIfCached: false }),
+		);
 	});
 
 	it('honors a false enabled flag even with valid ids', () => {
