@@ -117,14 +117,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	);
 	const [selectedIds, setSelectedIds] = useEffectedState<null | unknown[]>(null, allParams);
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-	// A row whose declared primary key has no value can't be looked up, edited, or deleted by id --
-	// Harper stored it under a different key, usually because the table's primary key was changed
-	// after the row was created (see #1199). We stash the row the list query already gave us so the
-	// modal can show it read-only instead of firing a doomed search_by_id.
-	const [rowWithoutPrimaryKey, setRowWithoutPrimaryKey] = useEffectedState<Record<string, unknown> | null>(
-		null,
-		allParams,
-	);
+	// The row the user clicked, straight from the list query. We keep it so the edit modal can fall
+	// back to showing it read-only when the record can't be fetched by its declared primary key --
+	// either the row has no value for that key, or it has one but nothing is stored under it (both
+	// happen when a table's primary key was changed after rows existed; see #1199).
+	const [clickedRow, setClickedRow] = useEffectedState<Record<string, unknown> | null>(null, allParams);
 
 	const isLastTableInDatabase = useMemo(() => {
 		const tableNames = databaseName ? Object.keys(instanceDatabaseMap?.[databaseName] || []).sort() : [];
@@ -296,13 +293,28 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const isFetching = tableDataFetching || tableConditionsDataFetching;
 
 	// One by id
-	const { data: searchByIdData } = useQuery(getSearchByIdOptions({
-		...instanceParams,
-		enabled: isEditModalOpen,
-		databaseName: databaseName,
-		tableName: tableName,
-		ids: selectedIds,
-	}));
+	const { data: searchByIdData, isFetching: isSearchByIdFetching, isError: isSearchByIdError } = useQuery(
+		getSearchByIdOptions({
+			...instanceParams,
+			enabled: isEditModalOpen,
+			databaseName: databaseName,
+			tableName: tableName,
+			ids: selectedIds,
+		}),
+	);
+
+	// The clicked row can't be shown from the server in two cases, both stemming from a table whose
+	// declared primary key doesn't match how its rows are actually stored (see #1199):
+	//   - missingPrimaryKey: the row has no value for the declared primary key at all.
+	//   - recordUnavailable: it has a value, we looked it up, but nothing is stored under that key
+	//     (Harper kept keying rows by the original attribute), so the fetch comes back empty.
+	// In both cases we show the row the list already gave us, read-only, with an explanation.
+	const missingPrimaryKey = isEditModalOpen && !!clickedRow && (primaryKey ? clickedRow[primaryKey] == null : true);
+	const fetchedRecord = searchByIdData?.data;
+	const recordUnavailable = !missingPrimaryKey
+		&& !!selectedIds?.length
+		&& !isSearchByIdFetching
+		&& (isSearchByIdError || (Array.isArray(fetchedRecord) && fetchedRecord.length === 0));
 
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
@@ -385,14 +397,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const onRowClick = (rowData: Row<Record<string, unknown>>) => {
 		const primaryKeyValue = primaryKey ? rowData.original[primaryKey] : undefined;
-		if (primaryKeyValue == null) {
-			// No usable primary key: skip the (doomed) fetch and show the row we already have.
-			setSelectedIds(null);
-			setRowWithoutPrimaryKey(rowData.original);
-		} else {
-			setSelectedIds([primaryKeyValue]);
-			setRowWithoutPrimaryKey(null);
-		}
+		setClickedRow(rowData.original);
+		// With no usable primary key there's nothing to look up, so skip the (doomed) fetch; otherwise
+		// fetch the fresh record. Either way the modal can fall back to `clickedRow`.
+		setSelectedIds(primaryKeyValue == null ? null : [primaryKeyValue]);
 		setIsEditModalOpen(true);
 	};
 	const onColumnClick = (accessorKey: string, isAscending: boolean) => {
@@ -602,9 +610,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}
-				missingPrimaryKey={!!rowWithoutPrimaryKey}
+				missingPrimaryKey={missingPrimaryKey}
+				recordUnavailable={recordUnavailable}
 				syntheticAttributes={syntheticAttributes}
-				data={rowWithoutPrimaryKey ? [rowWithoutPrimaryKey] : searchByIdData?.data}
+				data={missingPrimaryKey || recordUnavailable
+					? (clickedRow ? [clickedRow] : undefined)
+					: searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
 				onDeleteRecord={onDeleteRecord}
 				isUpdateTableRecordsPending={isUpdateTableRecordsPending}

@@ -23,7 +23,12 @@ export function getSearchByIdOptions(
 				get_attributes: ['*'],
 				ids: validIds,
 				noCacheStore: true,
-				onlyIfCached: true,
+				// Fetch the actual record, not just a cached copy. Opening a row to view/edit it is a
+				// deliberate lookup of one record, so `onlyIfCached: true` is wrong here -- on a cache
+				// miss the server answers `{message: "Entry is not cached"}`, which the modal then renders
+				// as the "record". With this off, a key that resolves to nothing returns an empty result
+				// the caller can surface cleanly (see #1199).
+				onlyIfCached: false,
 				operation: 'search_by_id',
 				database: databaseName,
 				table: tableName,

@@ -14,6 +14,7 @@ export function EditTableRowModal({
 	isModalOpen,
 	primaryKey,
 	missingPrimaryKey,
+	recordUnavailable,
 	syntheticAttributes,
 	data,
 	onSaveChanges,
@@ -29,6 +30,10 @@ export function EditTableRowModal({
 	/** The clicked row has no value for the declared primary key, so it can't be looked up, edited,
 	 * or deleted by id (see #1199). We still show its contents read-only, with an explanation. */
 	missingPrimaryKey?: boolean;
+	/** The row has a primary-key value, but looking it up returned no record — nothing is stored
+	 * under that key (the table isn't actually keyed by the declared primary key; see #1199). Shown
+	 * read-only with an explanation, since it can't be edited or deleted by that key. */
+	recordUnavailable?: boolean;
 	/** Relationship/computed attribute names — read-only, so they are hidden from the editable JSON
 	 * (saving a record that assigns one fails, even with null). */
 	syntheticAttributes?: string[];
@@ -39,9 +44,11 @@ export function EditTableRowModal({
 	isDeleteTableRecordsPending: boolean;
 }) {
 	const monacoTheme = useMonacoTheme();
-	// Without a usable primary key the record can't be saved or deleted individually, so force the
-	// editor read-only and hide the write actions regardless of the user's permissions.
-	const isReadOnly = !canEditRecords || Boolean(missingPrimaryKey);
+	// A row that can't be addressed by its declared primary key can't be saved or deleted
+	// individually, so force the editor read-only and hide the write actions regardless of the
+	// user's permissions.
+	const unaddressable = Boolean(missingPrimaryKey) || Boolean(recordUnavailable);
+	const isReadOnly = !canEditRecords || unaddressable;
 	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [madeChanges, setMadeChanges] = useState(false);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
@@ -78,24 +85,36 @@ export function EditTableRowModal({
 				<DialogHeader>
 					<DialogTitle>{isReadOnly ? 'View' : 'Edit'} Row</DialogTitle>
 				</DialogHeader>
-				{missingPrimaryKey && (
+				{unaddressable && (
 					<Alert variant="warning">
 						<TriangleAlert />
-						<AlertTitle>This row has no primary key value</AlertTitle>
+						<AlertTitle>
+							{missingPrimaryKey ? 'This row has no primary key value' : "This row couldn't be loaded"}
+						</AlertTitle>
 						<AlertDescription>
 							<p>
-								{primaryKey
-									? (
-										<>
-											It has no value for the primary key{' '}
-											<code>{primaryKey}</code>, so it can't be looked up, edited, or deleted individually.
-										</>
-									)
-									: `It has no primary key value, so it can't be looked up, edited, or deleted individually.`}
+								{missingPrimaryKey
+									? (primaryKey
+										? (
+											<>
+												It has no value for the primary key{' '}
+												<code>{primaryKey}</code>, so it can't be looked up, edited, or deleted individually.
+											</>
+										)
+										: `It has no primary key value, so it can't be looked up, edited, or deleted individually.`)
+									: (primaryKey
+										? (
+											<>
+												Nothing is stored under its primary key{' '}
+												<code>{primaryKey}</code>, so it can't be edited or deleted individually.
+											</>
+										)
+										: `Nothing is stored under its primary key, so it can't be edited or deleted individually.`)}
 							</p>
 							<p>
-								This usually means the table's primary key was changed after the row was created. To remove it, recreate
-								the table or restore the original primary key attribute.
+								This usually means the table's primary key was changed after the row was created, so the value shown
+								here isn't the key the record is actually stored under. To remove it, recreate the table or restore the
+								original primary key attribute.
 							</p>
 						</AlertDescription>
 					</Alert>
@@ -122,7 +141,7 @@ export function EditTableRowModal({
 					: <Loading />}
 				<DialogFooter>
 					<div className="flex justify-between w-full">
-						{canDeleteRecords && !missingPrimaryKey && (
+						{canDeleteRecords && !unaddressable && (
 							<Button
 								variant="destructive"
 								type="button"
@@ -138,7 +157,7 @@ export function EditTableRowModal({
 								<Trash /> Delete Row
 							</Button>
 						)}
-						{canEditRecords && !missingPrimaryKey && (
+						{canEditRecords && !unaddressable && (
 							<Button
 								variant="submit"
 								autoFocus={true}
