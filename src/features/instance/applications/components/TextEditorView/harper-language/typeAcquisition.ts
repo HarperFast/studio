@@ -161,6 +161,17 @@ function getRunner(): Promise<(source: string) => Promise<void>> {
 }
 
 /**
+ * Whether this session's automatic type-acquisition budget is exhausted. Once
+ * true it stays true — the budget is never reclaimed — so further packages are
+ * no longer acquired and their imports report a spurious "cannot find module"
+ * until the tab is reopened. Surfaced (rather than only `console.warn`'d) so the
+ * editor can show a user-facing degradation notice (HarperFast/studio#1504).
+ */
+export function isTypeAcquisitionBudgetSpent(): boolean {
+	return extraLibBudget.isSpent;
+}
+
+/**
  * Acquire npm `@types` for every package imported across the given source files.
  * Best-effort and idempotent; safe to call on each project load.
  */
