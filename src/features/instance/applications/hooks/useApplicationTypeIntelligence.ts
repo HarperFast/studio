@@ -32,7 +32,10 @@
  * worker (HarperFast/studio#1407).
  */
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { acquireApplicationTypes } from '@/features/instance/applications/components/TextEditorView/harper-language/typeAcquisition';
+import {
+	acquireApplicationTypes,
+	isTypeAcquisitionBudgetSpent,
+} from '@/features/instance/applications/components/TextEditorView/harper-language/typeAcquisition';
 import { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
@@ -47,7 +50,16 @@ import { typescript } from '@/lib/monaco/languageServices';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { useQueryClient } from '@tanstack/react-query';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+/** Degradation status the editor surfaces to the user (HarperFast/studio#1504). */
+export interface ApplicationTypeIntelligenceStatus {
+	/**
+	 * The session-wide `@types` budget is spent, so further packages are no longer
+	 * acquired and their imports report a spurious "cannot find module".
+	 */
+	typeAcquisitionBudgetExhausted: boolean;
+}
 
 /** Source files worth registering as models (everything the worker can parse). */
 const LOADABLE_SOURCE = /\.(tsx?|jsx?|mjs|cjs|mts|cts|json)$/i;
@@ -173,9 +185,17 @@ function projectUriPrefix(project: string | undefined): string | undefined {
 	return project === undefined ? undefined : monaco.Uri.parse(`file:///${project}/`).toString();
 }
 
-export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined, rootEntries: AnyEntry[]): void {
+export function useApplicationTypeIntelligence(
+	openedEntry: AnyEntry | undefined,
+	rootEntries: AnyEntry[],
+): ApplicationTypeIntelligenceStatus {
 	const instanceParams = useInstanceClientIdParams();
 	const queryClient = useQueryClient();
+
+	// The budget is module-level and monotonic, so seed from it: a file opened
+	// after a prior project already exhausted the budget shows the notice at once,
+	// without waiting for another (short-circuited) acquisition pass.
+	const [typeAcquisitionBudgetExhausted, setTypeAcquisitionBudgetExhausted] = useState(isTypeAcquisitionBudgetSpent);
 
 	// Only intelligence-load the user's own applications. Installed packages can
 	// be large dependency trees and are read-only.
@@ -309,7 +329,12 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 						&& file.content.length <= MAX_WORKER_MODEL_CHARS
 					)
 					.map(file => file.content);
-				void acquireApplicationTypes(scriptSources);
+				await acquireApplicationTypes(scriptSources);
+				// The pass may have just sealed the budget; surface the current state
+				// so the editor can show (or keep) the degradation notice.
+				if (!cancelled) {
+					setTypeAcquisitionBudgetExhausted(isTypeAcquisitionBudgetSpent());
+				}
 			})();
 		}
 
@@ -327,4 +352,6 @@ export function useApplicationTypeIntelligence(openedEntry: AnyEntry | undefined
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [project, context, filesKey]);
+
+	return { typeAcquisitionBudgetExhausted };
 }
