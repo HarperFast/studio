@@ -23,13 +23,15 @@ const MESSAGES: Record<IntelliSenseDegradation, string> = {
 	oversized: 'This file is large, so it’s shown as plain text without language features.',
 };
 
+export interface DegradedIntelliSenseBannerProps {
+	variant: IntelliSenseDegradation;
+	onDismiss: () => void;
+}
+
 export function DegradedIntelliSenseBanner({
 	variant,
 	onDismiss,
-}: {
-	variant: IntelliSenseDegradation;
-	onDismiss: () => void;
-}) {
+}: DegradedIntelliSenseBannerProps) {
 	const Icon = variant === 'oversized' ? InfoIcon : TriangleAlertIcon;
 	return (
 		<div
