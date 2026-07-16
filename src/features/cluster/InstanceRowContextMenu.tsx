@@ -18,16 +18,19 @@ export function InstanceRowContextMenu({
 	children: ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
-	const items = useInstanceMenuItems(instance, isSelfManaged, open);
+	const { items, dialog } = useInstanceMenuItems(instance, isSelfManaged, open);
 
 	if (!items.length) {
 		return <>{children}</>;
 	}
 
 	return (
-		<ContextMenu onOpenChange={setOpen}>
-			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-			<ContextMenuContent className="min-w-48">{renderEntityMenuItems(items, 'context')}</ContextMenuContent>
-		</ContextMenu>
+		<>
+			<ContextMenu onOpenChange={setOpen}>
+				<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+				<ContextMenuContent className="min-w-48">{renderEntityMenuItems(items, 'context')}</ContextMenuContent>
+			</ContextMenu>
+			{dialog}
+		</>
 	);
 }

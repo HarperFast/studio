@@ -422,7 +422,8 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						if (!isOpen) { setSafeModeAction(null); }
 					}}
 					action={safeModeAction ?? 'restart'}
-					clusterName={cluster.name}
+					targetName={cluster.name}
+					scope="cluster"
 					isPending={isClusterOpPending}
 					onConfirm={() => {
 						const action = safeModeAction;

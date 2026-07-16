@@ -152,7 +152,8 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 					if (!isOpen) { setSafeModeAction(null); }
 				}}
 				action={safeModeAction ?? 'restart'}
-				clusterName={cluster.name}
+				targetName={cluster.name}
+				scope="cluster"
 				isPending={isPending}
 				onConfirm={onConfirmSafeMode}
 			/>

@@ -4,6 +4,7 @@ import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
+import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -27,7 +28,7 @@ import {
 	ShieldXIcon,
 	SquareIcon,
 } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 const READY_STATUSES = ['CLONE_READY', 'RUNNING', 'UPDATED', 'PENDING_UPGRADE'];
 
@@ -44,7 +45,7 @@ export function useInstanceMenuItems(
 	instance: Instance,
 	isSelfManaged: boolean,
 	enabled: boolean,
-): EntityMenuItem[] {
+): { items: EntityMenuItem[]; dialog: ReactNode } {
 	const { user: instanceUser } = useInstanceAuth(instance.id);
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
@@ -60,6 +61,9 @@ export function useInstanceMenuItems(
 	const isUnavailable = systemStatus === 'Unavailable';
 	const { mutate: setStatus, isPending: isSettingStatus } = useSetStatus();
 	const { run: runContainerOp, isPending: isContainerOpPending } = useInstanceContainerOps(instance);
+	// Safe mode is jargon for a recovery action that drops user apps/components — explain it at the
+	// point of use, same as the cluster path. Both safe-mode entries route through one dialog.
+	const [safeModeAction, setSafeModeAction] = useState<'start' | 'restart' | null>(null);
 
 	const fqdn = instance.instanceFqdn;
 	const apiUrl = calculateInstanceFQDN({
@@ -151,7 +155,7 @@ export function useInstanceMenuItems(
 		hasContainerOps && isStopped && {
 			key: 'container-start-safe',
 			disabled: isContainerOpPending,
-			onClick: () => void runContainerOp('start', { safeMode: true, label: 'Starting in safe mode' }),
+			onClick: () => setSafeModeAction('start'),
 			icon: <LifeBuoyIcon />,
 			label: 'Start in safe mode',
 		},
@@ -165,7 +169,7 @@ export function useInstanceMenuItems(
 		hasContainerOps && isRunning && {
 			key: 'container-restart-safe',
 			disabled: isContainerOpPending,
-			onClick: () => void runContainerOp('restart', { safeMode: true, label: 'Restarting in safe mode' }),
+			onClick: () => setSafeModeAction('restart'),
 			icon: <LifeBuoyIcon />,
 			label: 'Restart in safe mode',
 		},
@@ -179,13 +183,39 @@ export function useInstanceMenuItems(
 		},
 	].filter(excludeFalsy);
 
+	const dialog = (
+		<SafeModeConfirmDialog
+			open={safeModeAction !== null}
+			setOpen={(isOpen) => {
+				if (!isOpen) { setSafeModeAction(null); }
+			}}
+			action={safeModeAction ?? 'restart'}
+			targetName={instance.name ?? instance.id}
+			scope="instance"
+			isPending={isContainerOpPending}
+			onConfirm={() => {
+				const action = safeModeAction;
+				setSafeModeAction(null);
+				if (action) {
+					void runContainerOp(action, {
+						safeMode: true,
+						label: action === 'start' ? 'Starting in safe mode' : 'Restarting in safe mode',
+					});
+				}
+			}}
+		/>
+	);
+
 	if (!actions.length) {
-		return [];
+		return { items: [], dialog };
 	}
 
-	return [
-		{ type: 'label', key: 'label', className: 'text-gray-600 text-xs', label: 'Options' },
-		{ type: 'separator', key: 'label-sep' },
-		...actions,
-	];
+	return {
+		items: [
+			{ type: 'label', key: 'label', className: 'text-gray-600 text-xs', label: 'Options' },
+			{ type: 'separator', key: 'label-sep' },
+			...actions,
+		],
+		dialog,
+	};
 }
