@@ -19,7 +19,7 @@ export type IntelliSenseDegradation = 'budget' | 'oversized';
 
 const MESSAGES: Record<IntelliSenseDegradation, string> = {
 	budget:
-		'Type information is limited in this session to keep the editor responsive — some imported packages may show “cannot find module.” Reopening the tab resets this.',
+		'Type information is limited to keep the editor responsive — this application references more packages than the editor can load, so some imports may show “cannot find module.”',
 	oversized: 'This file is large, so it’s shown as plain text without language features.',
 };
 
