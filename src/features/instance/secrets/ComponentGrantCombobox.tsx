@@ -66,6 +66,9 @@ export function ComponentGrantCombobox({
 	// Guards the blur handler while a suggestion is being clicked: onMouseDown fires before blur, so
 	// we suppress the blur-close (and any commitOnBlur) until the click's own commit has run.
 	const clickingOption = useRef(false);
+	// Synchronous re-entrancy guard: `isCommitting` state lags a render, so a burst of Enters (or an
+	// Enter racing the click) could fire onAdd twice before `disabled={busy}` catches up.
+	const committing = useRef(false);
 
 	const busy = disabled || isCommitting;
 
@@ -96,12 +99,16 @@ export function ComponentGrantCombobox({
 
 	const commit = useCallback(
 		async (value: string) => {
+			if (committing.current) {
+				return;
+			}
 			const target = value.trim();
 			// Empty or already-granted: nothing to do, just clear the field (matches the old behaviour).
 			if (!target || granted.includes(target)) {
 				setQuery('');
 				return;
 			}
+			committing.current = true;
 			setIsCommitting(true);
 			try {
 				await onAdd(target);
@@ -110,6 +117,7 @@ export function ComponentGrantCombobox({
 			} catch {
 				// The caller surfaced the error; keep the typed text so the user can retry.
 			} finally {
+				committing.current = false;
 				setIsCommitting(false);
 			}
 		},
@@ -160,10 +168,14 @@ export function ComponentGrantCombobox({
 			return;
 		}
 		setOpen(false);
+		// Commit the same thing Enter/the button would (the highlighted row), not the raw text — so
+		// tabbing away after typing "web" grants "web-app" rather than the typo, and all three commit
+		// paths stay consistent. Still a safety net for the add flow: submitting the surrounding form
+		// blurs this field first, so a typed-but-not-added name isn't silently dropped.
 		if (commitOnBlur && query.trim()) {
-			void commit(query);
+			commitActive();
 		}
-	}, [commitOnBlur, query, commit]);
+	}, [commitOnBlur, query, commitActive]);
 
 	const showDropdown = open && options.length > 0;
 
@@ -174,7 +186,9 @@ export function ComponentGrantCombobox({
 					type="text"
 					role="combobox"
 					aria-expanded={showDropdown}
-					aria-controls={listboxId}
+					// Only point at the listbox while it's actually rendered — otherwise it's a dangling
+					// idref for screen readers.
+					aria-controls={showDropdown ? listboxId : undefined}
 					aria-autocomplete="list"
 					aria-activedescendant={showDropdown && options[clampedActiveIdx]
 						? `${optionIdPrefix}-${clampedActiveIdx}`

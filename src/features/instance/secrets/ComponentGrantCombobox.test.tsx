@@ -143,6 +143,15 @@ describe('ComponentGrantCombobox', () => {
 			await waitFor(() => expect(onAdd).toHaveBeenCalledWith('web-app'));
 		});
 
+		it('on blur commits the highlighted suggestion, same as Enter/the button', async () => {
+			// Consistency: typing a partial then blurring grants the matched component, not the typo.
+			const { onAdd } = renderCombobox({ commitOnBlur: true });
+			const input = screen.getByRole('combobox');
+			fireEvent.change(input, { target: { value: 'web' } });
+			fireEvent.blur(input);
+			await waitFor(() => expect(onAdd).toHaveBeenCalledWith('web-app'));
+		});
+
 		it('does not commit on blur by default', () => {
 			const { onAdd } = renderCombobox();
 			const input = screen.getByRole('combobox');
@@ -150,6 +159,35 @@ describe('ComponentGrantCombobox', () => {
 			fireEvent.blur(input);
 			expect(onAdd).not.toHaveBeenCalled();
 		});
+	});
+
+	it('commits once when Enter is pressed repeatedly before the first add resolves', async () => {
+		// A slow async grant must not fire twice on a burst of Enters (state-based `busy` lags a render).
+		let resolve: (() => void) | undefined;
+		const onAdd = vi.fn().mockReturnValue(
+			new Promise<void>((r) => {
+				resolve = () => r();
+			}),
+		);
+		renderCombobox({ onAdd });
+		const input = screen.getByRole('combobox');
+		fireEvent.change(input, { target: { value: 'web-app' } });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		fireEvent.keyDown(input, { key: 'Enter' });
+		expect(onAdd).toHaveBeenCalledTimes(1);
+		resolve?.();
+		await waitFor(() => expect((input as HTMLInputElement).value).toBe(''));
+	});
+
+	it('only references the listbox via aria-controls while it is open', () => {
+		renderCombobox();
+		const input = screen.getByRole('combobox');
+		expect(input.getAttribute('aria-controls')).toBeNull(); // closed: no dangling idref
+		fireEvent.focus(input);
+		const controls = input.getAttribute('aria-controls');
+		expect(controls).toBeTruthy();
+		expect(document.getElementById(controls!)).not.toBeNull();
 	});
 
 	describe('no components reported (older Harper / no permission)', () => {
