@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useInviteUserToOrganizationRole } from '@/features/organization/mutations/inviteUserToOrganizationRole';
+import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { SchemaUser } from '@/integrations/api/api.gen';
 import { MailIcon } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
@@ -14,6 +15,8 @@ import { toast } from 'sonner';
  * clicking it doesn't also open the edit modal.
  */
 export function ResendInviteButton({ user }: { user: SchemaUser }) {
+	// Reads the org from the current route (same as the page's other permission checks).
+	const { update } = useOrganizationRolePermissions();
 	const { mutate: inviteUser, isPending } = useInviteUserToOrganizationRole();
 	const roleId = user.roles?.[0]?.id;
 
@@ -35,6 +38,12 @@ export function ResendInviteButton({ user }: { user: SchemaUser }) {
 		},
 		[inviteUser, roleId, user.email],
 	);
+
+	// Resending an invite is a write; gate it on the same org-role update permission as the page's
+	// other write affordances (Add user, edit) so view-only users don't see a clickable button.
+	if (!update) {
+		return null;
+	}
 
 	return (
 		<Button

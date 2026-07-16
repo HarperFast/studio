@@ -13,22 +13,25 @@ import { useInstanceMenuItems } from './useInstanceMenuItems';
  */
 export function InstanceActionsMenu({ instance, isSelfManaged }: { instance: Instance; isSelfManaged: boolean }) {
 	const [open, setOpen] = useState(false);
-	const items = useInstanceMenuItems(instance, isSelfManaged, open);
+	const { items, dialog } = useInstanceMenuItems(instance, isSelfManaged, open);
 
 	if (!items.length) {
 		return null;
 	}
 
 	return (
-		<DropdownMenu open={open} onOpenChange={setOpen}>
-			<DropdownMenuTrigger asChild>
-				<Button type="button" variant="ghost" size="icon" aria-label="Instance options">
-					<EllipsisIcon />
-				</Button>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="min-w-48">
-				{renderEntityMenuItems(items, 'dropdown')}
-			</DropdownMenuContent>
-		</DropdownMenu>
+		<>
+			<DropdownMenu open={open} onOpenChange={setOpen}>
+				<DropdownMenuTrigger asChild>
+					<Button type="button" variant="ghost" size="icon" aria-label="Instance options">
+						<EllipsisIcon />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end" className="min-w-48">
+					{renderEntityMenuItems(items, 'dropdown')}
+				</DropdownMenuContent>
+			</DropdownMenu>
+			{dialog}
+		</>
 	);
 }
