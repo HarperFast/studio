@@ -41,6 +41,12 @@ export interface User extends Omit<SchemaUser, 'roles'> {
 	oauthConfigId: string | null;
 }
 
+/** Response of POST /Admin/ApiToken — a short-lived Bearer token for programmatic API access. */
+export interface ApiTokenResult {
+	operationToken: string;
+	expiresAt: string;
+}
+
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
 	settings?: {
