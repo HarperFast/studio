@@ -51,7 +51,7 @@ async function getHarperVersions() {
 	const response = data as HarperVersionsResponse;
 	return {
 		...response,
-		value: dedupeHarperVersionsByTag(response?.value ?? []),
+		value: dedupeHarperVersionsByTag(response.value),
 	} satisfies HarperVersionsResponse;
 }
 
