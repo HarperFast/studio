@@ -1,5 +1,23 @@
-import { describe, expect, it } from 'vitest';
-import { dedupeHarperVersionsByTag, HarperVersion } from './getHarperVersionsQuery';
+import { apiClient } from '@/config/apiClient';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	dedupeHarperVersionsByTag,
+	getHarperVersionsOptions,
+	HarperVersion,
+	HarperVersionsResponse,
+} from './getHarperVersionsQuery';
+
+vi.mock('@/config/apiClient', () => ({
+	apiClient: {
+		get: vi.fn(),
+	},
+}));
+
+const mockedGet = vi.mocked(apiClient.get);
+
+beforeEach(() => {
+	mockedGet.mockReset();
+});
 
 function tags(versions: HarperVersion[]) {
 	return versions.map(({ version, name }) => `${version} ${name}`);
@@ -10,6 +28,14 @@ describe('dedupeHarperVersionsByTag', () => {
 		const result = dedupeHarperVersionsByTag([
 			{ name: 'next', version: '5.1.21' },
 			{ name: 'stable', version: '5.1.21' },
+		]);
+		expect(tags(result)).toEqual(['5.1.21 stable']);
+	});
+
+	it('discards a less-preferred tag that arrives after a more-preferred one', () => {
+		const result = dedupeHarperVersionsByTag([
+			{ name: 'stable', version: '5.1.21' },
+			{ name: 'next', version: '5.1.21' },
 		]);
 		expect(tags(result)).toEqual(['5.1.21 stable']);
 	});
@@ -58,5 +84,41 @@ describe('dedupeHarperVersionsByTag', () => {
 
 	it('handles an empty list', () => {
 		expect(dedupeHarperVersionsByTag([])).toEqual([]);
+	});
+});
+
+describe('getHarperVersionsOptions', () => {
+	it('configures the query to hit the HarperVersions cache key without retrying', () => {
+		const options = getHarperVersionsOptions();
+		expect(options.queryKey).toEqual(['HarperVersions']);
+		expect(options.staleTime).toBe(60_000);
+		expect(options.retry).toBe(false);
+	});
+
+	it('fetches the versions and dedupes overlapping tags, keeping the rest of the response', async () => {
+		mockedGet.mockResolvedValue({
+			data: {
+				name: 'Harper Versions',
+				description: 'Available Harper versions',
+				value: [
+					{ name: 'next', version: '5.1.21' },
+					{ name: 'stable', version: '5.1.21' },
+					{ name: 'beta', version: '5.2.0' },
+				],
+			} satisfies HarperVersionsResponse,
+		});
+
+		const options = getHarperVersionsOptions();
+		const result = await (options.queryFn as () => Promise<HarperVersionsResponse>)();
+
+		expect(mockedGet).toHaveBeenCalledWith('/HarperVersions/');
+		expect(result).toEqual({
+			name: 'Harper Versions',
+			description: 'Available Harper versions',
+			value: [
+				{ name: 'stable', version: '5.1.21' },
+				{ name: 'beta', version: '5.2.0' },
+			],
+		});
 	});
 });
