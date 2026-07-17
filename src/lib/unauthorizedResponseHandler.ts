@@ -17,7 +17,10 @@ import type { AxiosError } from 'axios';
  */
 export function makeUnauthorizedResponseHandler(clearAuth: () => void) {
 	return (error: AxiosError): Promise<never> => {
-		if (error.response?.status === 401) {
+		// `error?.`: axios itself always rejects with an AxiosError, but an upstream
+		// interceptor added later could reject with anything (even undefined) — don't
+		// let this handler replace the rejection reason with its own TypeError.
+		if (error?.response?.status === 401) {
 			clearAuth();
 		}
 		// Re-reject so individual callers still see (and can handle) the error.

@@ -26,4 +26,14 @@ describe('makeUnauthorizedResponseHandler', () => {
 		await expect(makeUnauthorizedResponseHandler(clearAuth)(error)).rejects.toBe(error);
 		expect(clearAuth).not.toHaveBeenCalled();
 	});
+
+	it('passes through an undefined rejection reason without throwing', async () => {
+		// An upstream interceptor could reject with a non-AxiosError (even undefined);
+		// the handler must re-reject with it as-is, not with its own TypeError.
+		const clearAuth = vi.fn();
+		await expect(makeUnauthorizedResponseHandler(clearAuth)(undefined as unknown as AxiosError)).rejects.toBe(
+			undefined,
+		);
+		expect(clearAuth).not.toHaveBeenCalled();
+	});
 });
