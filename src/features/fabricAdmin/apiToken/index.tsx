@@ -6,7 +6,6 @@ import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { ApiTokenResult } from '@/integrations/api/api.patch';
 import { CopyIcon, KeyRoundIcon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
 export function ApiTokenIndex() {
 	const { mutate, isPending } = useGenerateApiTokenMutation();
@@ -14,9 +13,10 @@ export function ApiTokenIndex() {
 	const copyText = useCopyTextToClipboard();
 
 	const onGenerate = () => {
+		// The global MutationCache.onError (react-query/queryClient) already surfaces
+		// failures with a toast, so no local onError.
 		mutate(undefined, {
 			onSuccess: (result) => setToken(result),
-			onError: (error) => toast.error('Failed to generate API token', { description: error.message }),
 		});
 	};
 
