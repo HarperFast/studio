@@ -1,13 +1,13 @@
 import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
-import { isAdminMode, useCloudAuth } from '@/hooks/useAuth';
+import { isFabricAdmin, useCloudAuth } from '@/hooks/useAuth';
 import { Navigate, Outlet } from '@tanstack/react-router';
 import { KeyRoundIcon } from 'lucide-react';
 
 /**
  * Shell for the Fabric Admin section: a responsive sub-nav rail (so future admin
- * endpoints slot in as new items) plus the active page. Render-gated to fabric
- * admins / super users — the dashboard route guard already handles the
- * unauthenticated redirect, so here we only bounce authenticated non-admins.
+ * endpoints slot in as new items) plus the active page. Gated to fabric_admin
+ * (matching the token endpoint's SSO-session contract — see isFabricAdmin); the
+ * dashboard route guard already handles the unauthenticated redirect.
  */
 const items: SubNavItem[] = [
 	{ to: '/fabric-admin', label: 'API Token', icon: KeyRoundIcon, exact: true },
@@ -17,7 +17,7 @@ export function FabricAdminShell() {
 	const { isLoading, user } = useCloudAuth();
 
 	if (isLoading) { return null; }
-	if (!isAdminMode(user)) { return <Navigate to="/" replace />; }
+	if (!isFabricAdmin(user)) { return <Navigate to="/" replace />; }
 
 	return (
 		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">

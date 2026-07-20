@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
-import { useAdminMode, useOverallAuth } from '@/hooks/useAuth';
+import { isFabricAdmin, useOverallAuth } from '@/hooks/useAuth';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
@@ -23,7 +23,9 @@ export function Navbar() {
 	const { mutate: signOut } = useLogoutMutation();
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
-	const isAdmin = useAdminMode();
+	// Derived from the existing subscription — useAdminMode() would add a second
+	// authStore listener per Navbar (review feedback on #1533).
+	const isAdmin = isFabricAdmin(user);
 	const router = useRouter();
 
 	const handleSignOut = useCallback(() => {
