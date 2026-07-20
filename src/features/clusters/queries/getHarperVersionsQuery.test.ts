@@ -90,9 +90,14 @@ describe('dedupeHarperVersionsByTag', () => {
 describe('getHarperVersionsOptions', () => {
 	it('configures the query to hit the HarperVersions cache key without retrying', () => {
 		const options = getHarperVersionsOptions();
-		expect(options.queryKey).toEqual(['HarperVersions']);
+		expect(options.queryKey).toEqual(['HarperVersions', null]);
 		expect(options.staleTime).toBe(60_000);
 		expect(options.retry).toBe(false);
+	});
+
+	it('scopes the cache key to the organization when one is given', () => {
+		const options = getHarperVersionsOptions('org_123');
+		expect(options.queryKey).toEqual(['HarperVersions', 'org_123']);
 	});
 
 	it('fetches the versions and dedupes overlapping tags, keeping the rest of the response', async () => {
@@ -120,6 +125,25 @@ describe('getHarperVersionsOptions', () => {
 				{ name: 'beta', version: '5.2.0' },
 			],
 		});
+	});
+
+	it('passes the organizationId as a query param (url-encoded) when scoped to an org', async () => {
+		mockedGet.mockResolvedValue({
+			data: {
+				name: 'Harper Versions',
+				description: 'Available Harper versions',
+				value: [
+					{ name: 'stable', version: '5.1.21' },
+					{ name: 'deployed', version: '5.0.8' },
+				],
+			} satisfies HarperVersionsResponse,
+		});
+
+		const options = getHarperVersionsOptions('org/1');
+		const result = await (options.queryFn as () => Promise<HarperVersionsResponse>)();
+
+		expect(mockedGet).toHaveBeenCalledWith('/HarperVersions/?organizationId=org%2F1');
+		expect(tags(result.value)).toEqual(['5.1.21 stable', '5.0.8 deployed']);
 	});
 
 	it('surfaces (rather than swallows) a malformed response with no value array', async () => {
