@@ -38,7 +38,7 @@ jobs:
         # Runs on test failure too — coverage is still written thanks to
         # reportOnFailure in vitest.config.ts.
         if: always()
-        uses: davelosert/vitest-coverage-report-action@3c054a2d2e2ca45446417ad5d6d5eb33092af8f1 # v2.12.1
+        uses: davelosert/vitest-coverage-report-action@8b157684c6a6b259b97d45e72b44242865c0f6a5 # v2.12.2
       - name: Run lint
         run: pnpm lint
       - name: Build
