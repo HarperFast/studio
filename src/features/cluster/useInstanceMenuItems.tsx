@@ -85,10 +85,11 @@ export function useInstanceMenuItems(
 
 	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
 	// Only offered from a settled RUNNING/STOPPED state; hidden mid-transition (the instances poll
-	// reveals the resting state and the actions reappear).
+	// reveals the resting state and the actions reappear). Self-hosted clusters have no managed
+	// container lifecycle (Harper doesn't control their runtime), so the group is hidden for them.
 	const isRunning = instance.status === 'RUNNING';
 	const isStopped = instance.status === 'STOPPED';
-	const hasContainerOps = canManage && (isRunning || isStopped);
+	const hasContainerOps = canManage && !isSelfManaged && (isRunning || isStopped);
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
