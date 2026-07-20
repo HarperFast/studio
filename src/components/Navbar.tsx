@@ -56,9 +56,9 @@ export function Navbar() {
 					textBreakpoint: 'xl',
 				},
 				!isLocalStudio && isAdmin && {
-					to: '/fabric-admin',
+					to: '/admin',
 					icon: <ShieldIcon />,
-					text: 'Fabric Admin',
+					text: 'Admin',
 					textBreakpoint: 'xl',
 				},
 				{

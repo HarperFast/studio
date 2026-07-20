@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useGenerateApiTokenMutation } from '@/features/fabricAdmin/apiToken/mutations/useGenerateApiToken';
+import { useGenerateApiTokenMutation } from '@/features/admin/apiToken/mutations/useGenerateApiToken';
 import { useCopyTextToClipboard } from '@/hooks/useCopyToClipboard';
 import { ApiTokenResult } from '@/integrations/api/api.patch';
 import { CopyIcon, KeyRoundIcon } from 'lucide-react';
