@@ -121,4 +121,16 @@ describe('getHarperVersionsOptions', () => {
 			],
 		});
 	});
+
+	it('surfaces (rather than swallows) a malformed response with no value array', async () => {
+		// The endpoint's OpenAPI description is broken, so the `as HarperVersionsResponse` cast is not
+		// schema-backed. If it ever returns a body without `value`, the queryFn throws — React Query's
+		// QueryCache.onError surfaces it and every consumer null-checks `harperVersions?.value`, so it
+		// fails safely rather than silently rendering an empty picker.
+		mockedGet.mockResolvedValue({ data: { name: 'Harper Versions', description: '' } });
+
+		const options = getHarperVersionsOptions();
+
+		await expect((options.queryFn as () => Promise<HarperVersionsResponse>)()).rejects.toThrow();
+	});
 });
