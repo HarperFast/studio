@@ -73,7 +73,7 @@ export function UpsertCluster() {
 	}));
 	const { data: regionLocationsDedicated } = useQuery(getRegionLocationsOptions({ organizationId }));
 
-	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions());
+	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
 		if (cluster) {
 			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
