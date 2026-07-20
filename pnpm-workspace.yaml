@@ -43,4 +43,4 @@ overrides:
   js-yaml: '^4.2.0'
   mdast-util-to-hast: '^13.2.1'
 patchedDependencies:
-  '@tanstack/router-core@1.171.14': patches/@tanstack__router-core@1.171.14.patch
+  '@tanstack/router-core@1.171.15': patches/@tanstack__router-core@1.171.15.patch

@@ -1,5 +1,5 @@
 diff --git a/dist/cjs/load-matches.cjs b/dist/cjs/load-matches.cjs
-index c09976a80c2c112b7dac6f941e643c81eeaf8d52..9858f1f29c91f4e859ad4cf1e586722730c44754 100644
+index c09976a..9858f1f 100644
 --- a/dist/cjs/load-matches.cjs
 +++ b/dist/cjs/load-matches.cjs
 @@ -5,6 +5,31 @@ const require_root = require("./root.cjs");
@@ -148,10 +148,10 @@ index c09976a80c2c112b7dac6f941e643c81eeaf8d52..9858f1f29c91f4e859ad4cf1e5867227
  exports.loadRouteChunk = loadRouteChunk;
  exports.routeNeedsPreload = routeNeedsPreload;
 diff --git a/dist/cjs/router.cjs b/dist/cjs/router.cjs
-index b928d955ea81a572f2770baf30bfc9001e4a9011..c9f95fdc964f0bb03474c8b4c3914b73feb61395 100644
+index 69080aa..e63a3c7 100644
 --- a/dist/cjs/router.cjs
 +++ b/dist/cjs/router.cjs
-@@ -768,6 +768,7 @@ var RouterCore = class {
+@@ -766,6 +766,7 @@ var RouterCore = class {
  				});
  				return matches;
  			} catch (err) {
@@ -160,7 +160,7 @@ index b928d955ea81a572f2770baf30bfc9001e4a9011..c9f95fdc964f0bb03474c8b4c3914b73
  					if (err.options.reloadDocument) return;
  					return await this.preloadRoute({
 diff --git a/dist/esm/load-matches.js b/dist/esm/load-matches.js
-index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f8253bec33e2b4aba3e412b1195c4cfbb9e68a70 100644
+index bcea2e0..f8253be 100644
 --- a/dist/esm/load-matches.js
 +++ b/dist/esm/load-matches.js
 @@ -5,6 +5,31 @@ import { rootRouteId } from "./root.js";
@@ -310,7 +310,7 @@ index bcea2e0d88d037a01b93bf36dd6e643f98028e83..f8253bec33e2b4aba3e412b1195c4cfb
  //# sourceMappingURL=load-matches.js.map
 \ No newline at end of file
 diff --git a/dist/esm/router.js b/dist/esm/router.js
-index 05cd2d21ab580df0956d03e2b4aabb29649edb40..ba24e4a0ef4e7008e3fec5651e6b85b156a01f47 100644
+index 7cd17f8..3be3ef9 100644
 --- a/dist/esm/router.js
 +++ b/dist/esm/router.js
 @@ -7,7 +7,7 @@ import { setupScrollRestoration } from "./scroll-restoration.js";
@@ -322,7 +322,7 @@ index 05cd2d21ab580df0956d03e2b4aabb29649edb40..ba24e4a0ef4e7008e3fec5651e6b85b1
  import { composeRewrites, executeRewriteInput, executeRewriteOutput, rewriteBasepath } from "./rewrite.js";
  import { createRouterStores } from "./stores.js";
  import { createBrowserHistory, parseHref } from "@tanstack/history";
-@@ -768,6 +768,7 @@ var RouterCore = class {
+@@ -766,6 +766,7 @@ var RouterCore = class {
  				});
  				return matches;
  			} catch (err) {
