@@ -16,7 +16,7 @@ overrides:
   mdast-util-to-hast: ^13.2.1
 
 patchedDependencies:
-  '@tanstack/router-core@1.171.14': 5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442
+  '@tanstack/router-core@1.171.15': dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342
 
 importers:
 
@@ -30,7 +30,7 @@ importers:
         version: 7.5.0
       '@datadog/browser-rum-react':
         specifier: ^7.0.0
-        version: 7.5.0(@datadog/browser-rum@7.5.0)(@tanstack/react-router@1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
+        version: 7.5.0(@datadog/browser-rum@7.5.0)(@tanstack/react-router@1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)
       '@harperfast/agent-tools':
         specifier: ^1.2.0
         version: 1.2.0(@harperfast/skills@1.10.8)(create-harper@1.10.6)
@@ -107,11 +107,11 @@ importers:
         specifier: ^5.90.2
         version: 5.101.2(@tanstack/react-query@5.101.2(react@19.2.7))(react@19.2.7)
       '@tanstack/react-router':
-        specifier: 1.170.17
-        version: 1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 1.170.18
+        version: 1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-router-devtools':
         specifier: 1.167.0
-        version: 1.167.0(@tanstack/react-router@1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/router-core@1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442))(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        version: 1.167.0(@tanstack/react-router@1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tanstack/react-table':
         specifier: ^8.21.2
         version: 8.21.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -252,8 +252,8 @@ importers:
         specifier: ^20.9.0
         version: 20.10.6(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       harper:
-        specifier: 5.1.18
-        version: 5.1.18(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
+        specifier: 5.1.21
+        version: 5.1.21(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10))
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -2363,8 +2363,8 @@ packages:
       '@tanstack/router-core':
         optional: true
 
-  '@tanstack/react-router@1.170.17':
-    resolution: {integrity: sha512-ppLkjCfSMaeug9rmFRYzOd4TIqWV+yTE7tzIny7alJsSnM7w4lzEZm6eqCehG0SPetpZ0R3K+UnanSmBgOAVcQ==}
+  '@tanstack/react-router@1.170.18':
+    resolution: {integrity: sha512-wpbGYZEp/fmz1q4bn7BD8VZ+/VZ7GBqSJv5V969pU+chP8y7dquWDmKTFMohvUegb9lg12m1uPVvD6kB2wORvQ==}
     engines: {node: '>=20.19'}
     peerDependencies:
       react: '>=18.0.0 || >=19.0.0'
@@ -2383,8 +2383,8 @@ packages:
       react: '>=16.8'
       react-dom: '>=16.8'
 
-  '@tanstack/router-core@1.171.14':
-    resolution: {integrity: sha512-Mo3hwx0qB0cJsVYGDjG0+Ouf7VV74h/vsoDMGztdlyzDanp4gBA2s7IVvm6hFrmQM6GpD9F0Z7SqD7OldfLE7g==}
+  '@tanstack/router-core@1.171.15':
+    resolution: {integrity: sha512-IILCDcLaItMZQ2jEmCABHY1Nhjjn5XUvwpQp3e4Nmu+vfg0BgYFuu/QASz2SwE2ZNbVMrvt8X/wxa+Gg5aErxA==}
     engines: {node: '>=20.19'}
 
   '@tanstack/router-devtools-core@1.168.0':
@@ -4292,8 +4292,8 @@ packages:
     resolution: {integrity: sha512-6QD0ilzDDt93tX44y8tbmZdAcdTRYDhUP+Asgi6pC8Pp5IA3cvaZGyoVN/EGtlq9ziT65iPuBBn3ASLr6hCgVw==}
     engines: {node: '>=20.0.0'}
 
-  harper@5.1.18:
-    resolution: {integrity: sha512-4XQxwzXGwukAd2q5yHU8zyrBqnsfxZxqxF7UWse/YAUNBLuryij14RLqt/dXlxsVds6EmVPiqfJX/g3BojfKRw==}
+  harper@5.1.21:
+    resolution: {integrity: sha512-/m/TIkcBbKh1KmmSWVC3Eu7Nx5BajNBtPW0twnVlKMoTIoHaAg5xuD2PTmh+CrdtMJlshIx0HhfKkUN0ecWI1A==}
     engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
     peerDependencies:
@@ -7947,14 +7947,14 @@ snapshots:
       '@datadog/browser-core': 7.5.0
       '@datadog/js-core': 0.0.5
 
-  '@datadog/browser-rum-react@7.5.0(@datadog/browser-rum@7.5.0)(@tanstack/react-router@1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
+  '@datadog/browser-rum-react@7.5.0(@datadog/browser-rum@7.5.0)(@tanstack/react-router@1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@datadog/browser-core': 7.5.0
       '@datadog/browser-rum-core': 7.5.0
       '@datadog/js-core': 0.0.5
     optionalDependencies:
       '@datadog/browser-rum': 7.5.0
-      '@tanstack/react-router': 1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@tanstack/react-router': 1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react: 19.2.7
 
   '@datadog/browser-rum@7.5.0':
@@ -9787,22 +9787,22 @@ snapshots:
       '@tanstack/query-core': 5.101.2
       react: 19.2.7
 
-  '@tanstack/react-router-devtools@1.167.0(@tanstack/react-router@1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/router-core@1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442))(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@tanstack/react-router-devtools@1.167.0(@tanstack/react-router@1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
-      '@tanstack/react-router': 1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@tanstack/router-devtools-core': 1.168.0(@tanstack/router-core@1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442))(csstype@3.2.3)
+      '@tanstack/react-router': 1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@tanstack/router-devtools-core': 1.168.0(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
     optionalDependencies:
-      '@tanstack/router-core': 1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442)
+      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
     transitivePeerDependencies:
       - csstype
 
-  '@tanstack/react-router@1.170.17(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@tanstack/react-router@1.170.18(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@tanstack/history': 1.162.0
       '@tanstack/react-store': 0.9.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@tanstack/router-core': 1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442)
+      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
       isbot: 5.1.32
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
@@ -9820,16 +9820,16 @@ snapshots:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@tanstack/router-core@1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442)':
+  '@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)':
     dependencies:
       '@tanstack/history': 1.162.0
       cookie-es: 3.1.1
       seroval: 1.5.4
       seroval-plugins: 1.5.4(seroval@1.5.4)
 
-  '@tanstack/router-devtools-core@1.168.0(@tanstack/router-core@1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442))(csstype@3.2.3)':
+  '@tanstack/router-devtools-core@1.168.0(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)':
     dependencies:
-      '@tanstack/router-core': 1.171.14(patch_hash=5c637ef4d89ce19f66b526ed9d261865a43bcdb3bee998cc4f35a8a8b3584442)
+      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
       clsx: 2.1.1
       goober: 2.1.18(csstype@3.2.3)
     optionalDependencies:
@@ -11834,7 +11834,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  harper@5.1.18(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)):
+  harper@5.1.21(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7)(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.7)(utf-8-validate@5.0.10)):
     dependencies:
       '@aws-sdk/client-s3': 3.1073.0
       '@aws-sdk/lib-storage': 3.1075.0(@aws-sdk/client-s3@3.1073.0)
