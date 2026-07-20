@@ -2,8 +2,11 @@ import type { AxiosError } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import { makeUnauthorizedResponseHandler } from './unauthorizedResponseHandler';
 
-const errorWithStatus = (status?: number) =>
-	({ response: status === undefined ? undefined : { status } }) as AxiosError;
+const errorWithStatus = (status?: number, url?: string) =>
+	({
+		response: status === undefined ? undefined : { status },
+		config: url === undefined ? undefined : { url },
+	}) as AxiosError;
 
 describe('makeUnauthorizedResponseHandler', () => {
 	it('clears auth on 401 and still rejects with the original error', async () => {
@@ -25,6 +28,32 @@ describe('makeUnauthorizedResponseHandler', () => {
 		const error = errorWithStatus(undefined);
 		await expect(makeUnauthorizedResponseHandler(clearAuth)(error)).rejects.toBe(error);
 		expect(clearAuth).not.toHaveBeenCalled();
+	});
+
+	it('does not clear auth on a 401 from an exempt URL (unauthenticated auth flows)', async () => {
+		// A stale reset/verify-email link opened in a second tab 401s with "bad
+		// token" — that must not sign out a live session.
+		const clearAuth = vi.fn();
+		const isExempt = (url: string) => url.startsWith('/ResetPassword/');
+		const error = errorWithStatus(401, '/ResetPassword/');
+		await expect(makeUnauthorizedResponseHandler(clearAuth, isExempt)(error)).rejects.toBe(error);
+		expect(clearAuth).not.toHaveBeenCalled();
+	});
+
+	it('clears auth on a 401 from a non-exempt URL', async () => {
+		const clearAuth = vi.fn();
+		const isExempt = (url: string) => url.startsWith('/ResetPassword/');
+		const error = errorWithStatus(401, '/Organization/');
+		await expect(makeUnauthorizedResponseHandler(clearAuth, isExempt)(error)).rejects.toBe(error);
+		expect(clearAuth).toHaveBeenCalledTimes(1);
+	});
+
+	it('treats a 401 with no request config as non-exempt (fail toward sign-out)', async () => {
+		const clearAuth = vi.fn();
+		const isExempt = (url: string) => url.startsWith('/ResetPassword/');
+		const error = errorWithStatus(401); // no config
+		await expect(makeUnauthorizedResponseHandler(clearAuth, isExempt)(error)).rejects.toBe(error);
+		expect(clearAuth).toHaveBeenCalledTimes(1);
 	});
 
 	it('passes through an undefined rejection reason without throwing', async () => {
