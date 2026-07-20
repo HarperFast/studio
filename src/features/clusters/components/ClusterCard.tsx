@@ -86,6 +86,9 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		[cluster.status],
 	);
 	const isSelfManaged = clusterIsSelfManaged(cluster);
+	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
+	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
+	const showContainerActions = update && !isSelfManaged;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
@@ -233,7 +236,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			icon: <ServerIcon className="text-orange-300" />,
 			label: 'Instances',
 		},
-		isActive && view && {
+		isActive && view && !!auth.user && {
 			key: 'deployments',
 			to: `${cluster.id}/config/deployments`,
 			disabled: signingOut,
@@ -241,39 +244,39 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			label: 'Deployments',
 		},
 
-		update && (isClusterRunning || isClusterStopped || isClusterPartial)
+		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'separator' as const, key: 'container-separator' },
-		update && (isClusterRunning || isClusterStopped || isClusterPartial)
+		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
-		update && (isClusterStopped || isClusterPartial) && {
+		showContainerActions && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
 			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		update && isClusterStopped && {
+		showContainerActions && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('start'),
 			icon: <LifeBuoyIcon />,
 			label: 'Start in safe mode',
 		},
-		update && (isClusterRunning || isClusterPartial) && {
+		showContainerActions && (isClusterRunning || isClusterPartial) && {
 			key: 'container-restart',
 			disabled: isClusterOpPending,
 			onClick: () => setRestartDialogOpen(true),
 			icon: <RotateCwIcon />,
 			label: 'Restart',
 		},
-		update && isClusterRunning && {
+		showContainerActions && isClusterRunning && {
 			key: 'container-restart-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('restart'),
 			icon: <LifeBuoyIcon />,
 			label: 'Restart in safe mode',
 		},
-		update && (isClusterRunning || isClusterPartial) && {
+		showContainerActions && (isClusterRunning || isClusterPartial) && {
 			key: 'container-stop',
 			variant: 'destructive' as const,
 			disabled: isClusterOpPending,
