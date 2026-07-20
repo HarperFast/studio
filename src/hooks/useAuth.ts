@@ -7,7 +7,7 @@ import {
 	EntityIds,
 	OverallAppSignIn,
 } from '@/features/auth/store/authStore';
-import { User } from '@/integrations/api/api.patch';
+import { LocalUser, User } from '@/integrations/api/api.patch';
 import { useParams } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
@@ -44,6 +44,14 @@ export function useAdminMode(): boolean {
 
 export function isAdminMode(user: User | null): boolean {
 	return user?.fabricRole === 'fabric_admin' || user?.fabricRole === 'super_user';
+}
+
+// Narrower than isAdminMode: the Fabric Admin section is fabric_admin-only
+// because its API token endpoint requires a Google SSO session, which only
+// fabric_admin accounts have (super_user may password-login and would 403).
+// Accepts the cloud/local union so callers don't need a type guard.
+export function isFabricAdmin(user: User | LocalUser | null): boolean {
+	return user !== null && 'fabricRole' in user && user.fabricRole === 'fabric_admin';
 }
 
 export function useInstanceAuth(entityId?: EntityIds): AuthenticatedInstanceConnection {
