@@ -24,7 +24,7 @@ test.describe('signup → email verification → login', () => {
 		await deleteAllMail();
 	});
 
-	test('a new user can verify their email and sign in', async ({ page }) => {
+	test('a new user can verify their email and sign in @roundtrip', async ({ page }) => {
 		const email = newTestEmailAddress();
 		const receivedAfter = new Date(Date.now() - 15_000);
 
