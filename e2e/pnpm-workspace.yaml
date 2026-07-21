@@ -1,0 +1,6 @@
+# Makes e2e/ its own pnpm root, independent of the app's pnpm-workspace.yaml one
+# directory up. Without this, `pnpm install` here walks UP to the app workspace and
+# installs the app instead of this harness ("Already up to date", no node_modules).
+# This harness has no child packages — it is just this single project.
+packages:
+  - '.'

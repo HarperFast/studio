@@ -1,0 +1,23 @@
+# Canonical, reproducible test environment. Use this to generate/compare
+# screenshot baselines (they must come from this Linux Chromium, not macOS).
+#
+#   docker compose run --rm e2e                      # run the suite
+#   docker compose run --rm e2e pnpm update-snapshots  # (re)generate baselines
+#
+# For Lane 2 (untrusted PR code), run this on an egress-restricted network that
+# only permits the target UI host + backend, and point PLAYWRIGHT_BASE_URL at a
+# sandboxed build of the PR rather than the shared dev deployment.
+services:
+  e2e:
+    build: .
+    env_file:
+      - path: .env.e2e
+        required: false
+    environment:
+      CI: 'true'
+    volumes:
+      # Persist reports and baselines back to the host. `tests` is mounted so
+      # `pnpm update-snapshots` writes the *-linux baselines into the repo.
+      - ./tests:/e2e/tests
+      - ./playwright-report:/e2e/playwright-report
+      - ./test-results:/e2e/test-results

@@ -16,6 +16,10 @@ export default defineConfig({
 			// Nested git worktrees live under .claude/worktrees/; without this
 			// their test files get swept into runs from the main checkout.
 			'**/.claude/worktrees/**',
+			// The standalone Playwright integration harness under e2e/ has its own
+			// runner; its *.spec.ts import '@playwright/test' and crash vitest's
+			// collector ("test.describe() ... not expected here").
+			'**/e2e/**',
 		],
 		setupFiles: [
 			'./src/testSetup/failOnRenderPhaseUpdate.ts',
