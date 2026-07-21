@@ -50,6 +50,14 @@ export const queryClient = new QueryClient({
 		onError: errorHandler,
 	}),
 	mutationCache: new MutationCache({
-		onError: errorHandler,
+		// Every mutation error routes through the shared toast by default. A mutation can opt out
+		// — to render its own inline UI or redirect instead — with `meta: { skipGlobalErrorToast: true }`
+		// (e.g. the cloud login flow redirects an unverified user to the email-verification page).
+		onError: (error, _variables, _context, mutation) => {
+			if (mutation.meta?.skipGlobalErrorToast) {
+				return;
+			}
+			errorHandler(error);
+		},
 	}),
 });

@@ -119,6 +119,17 @@ describe('errorHandler', () => {
 		);
 	});
 
+	// A mutation can opt out of the global toast to render its own error UX (e.g. the cloud login
+	// flow redirects an unverified user instead of dead-ending on a red toast).
+	it('skips the global toast when the mutation sets meta.skipGlobalErrorToast', async () => {
+		const observer = new MutationObserver(queryClient, {
+			mutationFn: () => Promise.reject(new Error('handled elsewhere')),
+			meta: { skipGlobalErrorToast: true },
+		});
+		await expect(observer.mutate()).rejects.toThrow('handled elsewhere');
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
 	it('should display error message from generic error.message', () => {
 		// Create a generic error with message property
 		const genericError = {
