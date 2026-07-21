@@ -4,6 +4,7 @@ import { useRemoveUserFromOrganizationRole } from '@/features/organization/mutat
 import { getOrganizationRolesQueryOptions } from '@/features/organization/queries/getOrganizationRoles';
 import { OrgUserRoleCheckbox } from '@/features/organization/users/components/OrgUserRoleCheckbox';
 import { RemoveUserFromOrgButton } from '@/features/organization/users/components/RemoveUserFromOrgButton';
+import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
 import { getOrgUserRemovalPolicy, isAdminRoleName } from '@/features/organization/users/orgUserRemovalPolicy';
 import { useCloudAuth } from '@/hooks/useAuth';
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
@@ -107,6 +108,13 @@ export function EditUserModal({
 						setChangesMade={setChangesMade}
 					/>
 				</Suspense>
+
+				{/* Pending users haven't accepted their invite yet — offer the same resend action as the users table row. */}
+				{data.status === 'PENDING' && (
+					<div className="border-t border-border pt-4">
+						<ResendInviteButton user={data} />
+					</div>
+				)}
 
 				{showRemovalAction && (
 					<div className="border-t border-border pt-4">
