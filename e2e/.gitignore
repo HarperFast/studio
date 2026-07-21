@@ -1,0 +1,12 @@
+# local-only test artifacts and secrets
+node_modules
+.env.e2e
+.auth
+test-results
+playwright-report
+blob-report
+
+# Only Linux-container baselines are trusted (see README). Ignore host-generated
+# platform baselines so stray macOS/Windows snapshots aren't committed.
+tests/**/*-darwin.png
+tests/**/*-win32.png

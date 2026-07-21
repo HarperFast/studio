@@ -1,0 +1,27 @@
+{
+	"name": "studio-e2e",
+	"private": true,
+	"version": "0.0.0",
+	"description": "Standalone Playwright integration-test harness for studio. Intentionally NOT part of the app's pnpm workspace — its deps and browser downloads stay out of the app build.",
+	"type": "module",
+	"scripts": {
+		"test": "playwright test --grep-invert @visual",
+		"test:visual": "playwright test --grep @visual",
+		"test:all": "playwright test",
+		"test:headed": "playwright test --headed",
+		"test:ui": "playwright test --ui",
+		"report": "playwright show-report",
+		"codegen": "playwright codegen http://localhost:5173",
+		"install:browser": "playwright install --with-deps chromium",
+		"update-snapshots": "playwright test --grep @visual --update-snapshots",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.55.0",
+		"@types/node": "^24.0.0",
+		"dotenv": "^17.0.0",
+		"mailosaur": "^8.0.0",
+		"typescript": "~7.0.0"
+	},
+	"packageManager": "pnpm@11.13.1"
+}
