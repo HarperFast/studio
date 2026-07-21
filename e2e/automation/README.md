@@ -54,11 +54,26 @@ Save as `~/Library/LaunchAgents/com.harper.studio-e2e.daily.plist`, then
 </plist>
 ```
 
-## Merge-to-`stage` trigger (next increment)
+## Merge-to-`stage` trigger
 
-Same `on-schedule.sh`, gated on a new `stage` SHA: a small poller stores the last-seen
-SHA and only runs when `gh api repos/HarperFast/studio/commits/stage` reports a new one.
-Not yet wired — see the repo roadmap.
+`poll-stage.sh` runs the suite when `stage` advances. Put it on a **frequent** schedule
+(e.g. every 15 min); it reads `stage`'s SHA via `gh`, compares to the last-tested SHA
+(stored in `$STUDIO_E2E_STATE`, default `~/.studio-e2e/`), and only then calls
+`on-schedule.sh`. So the two schedules are:
+
+- daily unconditional run → `on-schedule.sh`
+- every 15 min → `poll-stage.sh` (runs only on a new `stage` commit)
+
+cron example:
+
+<!-- dprint-ignore -->
+```text
+*/15 * * * * /Users/YOU/Code/studio/e2e/automation/poll-stage.sh >> /tmp/studio-e2e.poll.log 2>&1
+```
+
+**Deploy lag.** This assumes dev auto-deploys from stage. A merge may briefly precede dev
+serving the new build, so a run can catch the old build. The app's `dev_<shortsha>` version
+badge is the hook for a future refinement: wait until the deployed SHA matches before running.
 
 ## Notes
 
