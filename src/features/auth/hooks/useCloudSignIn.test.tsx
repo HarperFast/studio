@@ -62,9 +62,28 @@ describe('useCloudSignIn — unverified email', () => {
 
 		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
 		expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL });
-		expect(toast.info).toHaveBeenCalled();
+		// The "we sent a link" toast only fires once the resend actually succeeds.
+		await waitFor(() => expect(toast.info).toHaveBeenCalled());
 		// The dead-end "Error" toast must NOT fire for this case.
 		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	it('still redirects (without claiming a link was sent) when the resend fails', async () => {
+		post.mockImplementation((url: string) => {
+			if (url === '/Login/') {
+				return Promise.reject(axiosError(403, { error: 'User has not verified email address' }));
+			}
+			// Resend fails (e.g. rate-limited) — the user must still reach /verifying, and we must
+			// NOT show a "we sent a link" toast that never happened.
+			return Promise.reject(axiosError(429, { error: 'Too many requests' }));
+		});
+
+		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
+		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/verifying?email=unverified%40example.com' }));
+		await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/ResendVerificationEmail/', { email: EMAIL }));
+		expect(toast.info).not.toHaveBeenCalled();
 	});
 
 	it('shows the standard error toast (no redirect, no resend) for invalid credentials', async () => {
