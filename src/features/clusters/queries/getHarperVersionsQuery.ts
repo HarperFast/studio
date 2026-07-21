@@ -45,14 +45,13 @@ export function dedupeHarperVersionsByTag(versions: HarperVersion[]): HarperVers
 	return [...bestByVersion.values()];
 }
 
-async function getHarperVersions(organizationId?: string) {
+async function getHarperVersions(organizationId: string) {
 	// TODO: OpenAPI from CM is erroring, so this new endpoint isn't described.
-	// When an organizationId is passed, enterprise orgs also get the versions currently
-	// deployed on their clusters (tagged `deployed`) merged into the list server-side.
-	const path = organizationId
-		? `/HarperVersions/?organizationId=${encodeURIComponent(organizationId)}`
-		: `/HarperVersions/`;
-	const { data } = await apiClient.get(path as any);
+	// The list is org-scoped: enterprise orgs also get the versions currently deployed on their
+	// clusters (labeled with the cluster) merged in server-side.
+	const { data } = await apiClient.get(`/HarperVersions/` as any, {
+		params: { organizationId },
+	});
 	const response = data as HarperVersionsResponse;
 	return {
 		...response,
@@ -60,9 +59,9 @@ async function getHarperVersions(organizationId?: string) {
 	} satisfies HarperVersionsResponse;
 }
 
-export function getHarperVersionsOptions(organizationId?: string) {
+export function getHarperVersionsOptions(organizationId: string) {
 	return queryOptions({
-		queryKey: ['HarperVersions', organizationId ?? null],
+		queryKey: ['HarperVersions', organizationId],
 		queryFn: () => getHarperVersions(organizationId),
 		staleTime: 60_000,
 		retry: false,
