@@ -24,33 +24,46 @@ and the untrusted-PR sandbox come later — see "Roadmap".
 
 ## Running it
 
-### 1. Locally on the host (fastest for iterating)
+### 1. During local development — against your running UI (fastest feedback)
+
+While developing studio (with `pnpm dev` running on :5173), point the tests at your local
+UI so regressions surface as you edit:
 
 ```bash
 cd e2e
-cp .env.e2e.example .env.e2e     # fill in a disposable test account (optional for anon specs)
-pnpm install
-pnpm install:browser             # Chromium + deps, one time
+pnpm install && pnpm install:browser   # one time
+pnpm test:local:ui                      # UI mode: watch, pick tests, time-travel debug
+pnpm test:local                         # headless, one-shot
+```
+
+`test:local*` target `http://localhost:5173` and reuse your running dev server (or start one
+if none). The **anon** specs (sign-in, verification screens) need no credentials — ideal for
+spotting UI regressions while you work. Note your local dev server talks to the **stage**
+backend (per `.env.local`), so the **authed** + round-trip specs need a test account valid on
+_that_ backend in `.env.e2e`; without it they skip cleanly. `pnpm test:local:ui` (Playwright
+UI mode) is the tightest loop — live re-run + step-through.
+
+### 2. Headless against the deployed dev app (what the automation runs)
+
+```bash
+cd e2e
+cp .env.e2e.example .env.e2e     # disposable test account + Mailosaur (optional for anon specs)
+pnpm install && pnpm install:browser
 pnpm test                        # runs against https://dev.studio.harperfabric.com by default
 ```
 
-The **anon** specs (sign-in page, verifying screen) run with no credentials. The
-**setup** + **authed** specs (login, org users) skip cleanly until you add a test
-account to `.env.e2e`.
-
-`pnpm test` runs the functional specs (green out of the box); it excludes the
-`@visual` pixel-diff test, which needs a baseline first (see below).
+`pnpm test` runs the functional specs (green out of the box); it excludes the `@visual`
+pixel-diff test, which needs a baseline first (see below).
 
 Useful:
 
 - `pnpm test:visual` — visual regression only (needs baselines)
 - `pnpm test:all` — functional + visual
-- `pnpm test:ui` — interactive runner
-- `pnpm test:headed` — watch it drive the browser
+- `pnpm test:ui` / `pnpm test:headed` — interactive / headed (deployed target)
 - `pnpm report` — open the last HTML report
 - `pnpm codegen` — record selectors against a running target
 
-### 2. In the container (canonical / for baselines)
+### 3. In the container (canonical / for baselines)
 
 ```bash
 cd e2e
