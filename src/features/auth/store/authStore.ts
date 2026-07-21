@@ -421,6 +421,26 @@ class AuthStore {
 		this.updateConnectionIfChanged(id, false, null);
 	}
 
+	/**
+	 * Local-only full sign-out: clears every in-memory connection, Fabric token,
+	 * and flag for ALL entities, plus the cloud slot — WITHOUT posting a logout to
+	 * CM or any instance. For a session already known-dead (e.g. a 401 from CM),
+	 * where the in-memory maps would otherwise survive until a page reload and a
+	 * same-tab re-login could inherit the prior user's connections/tokens/cache.
+	 * Distinct from signOutFromPotentiallyAuthenticatedInstances, which also posts
+	 * per-instance logouts.
+	 */
+	public signOutAllLocally(): void {
+		// Snapshot keys first — signOutLocally mutates the flags as it goes.
+		for (const id of Object.keys(this.potentiallyAuthenticated)) {
+			this.signOutLocally(id);
+		}
+		this.fabricConnectAuth.clear();
+		this.fabricConnectInFlight.clear();
+		this.operationTokenRefreshInFlight.clear();
+		this.setUserForEntity(OverallAppSignIn, null);
+	}
+
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {
 		if (isLocalStudio || entity === OverallAppSignIn) {
 			return OverallAppSignIn;

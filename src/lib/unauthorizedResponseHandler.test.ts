@@ -2,10 +2,10 @@ import type { AxiosError } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import { makeUnauthorizedResponseHandler } from './unauthorizedResponseHandler';
 
-const errorWithStatus = (status?: number, url?: string) =>
+const errorWithStatus = (status?: number, url?: string, config?: Record<string, unknown>) =>
 	({
 		response: status === undefined ? undefined : { status },
-		config: url === undefined ? undefined : { url },
+		config: config ?? (url === undefined ? undefined : { url }),
 	}) as AxiosError;
 
 describe('makeUnauthorizedResponseHandler', () => {
@@ -54,6 +54,35 @@ describe('makeUnauthorizedResponseHandler', () => {
 		const error = errorWithStatus(401); // no config
 		await expect(makeUnauthorizedResponseHandler(clearAuth, isExempt)(error)).rejects.toBe(error);
 		expect(clearAuth).toHaveBeenCalledTimes(1);
+	});
+
+	describe('auth-generation guard (isStillCurrent)', () => {
+		// Simulates the identity stamp: the request carries the user it was sent
+		// under; the handler compares against whoever is current at response time.
+		const handlerFor = (currentUserId: () => string | null, clearAuth = vi.fn()) => ({
+			clearAuth,
+			handler: makeUnauthorizedResponseHandler(
+				clearAuth,
+				() => false,
+				(config) => (config as { authUserAtSend?: string | null } | undefined)?.authUserAtSend === currentUserId(),
+			),
+		});
+
+		it('clears when the identity is unchanged since the request was sent (normal expiry)', async () => {
+			const { clearAuth, handler } = handlerFor(() => 'userA');
+			const error = errorWithStatus(401, undefined, { url: '/Organization/', authUserAtSend: 'userA' });
+			await expect(handler(error)).rejects.toBe(error);
+			expect(clearAuth).toHaveBeenCalledTimes(1);
+		});
+
+		it('does NOT clear when a re-login changed the identity (slow 401 from the old session)', async () => {
+			// A expired → 401 handled → re-login as B. B's earlier in-flight request
+			// (sent as A) now 401s; current identity is B, so it must be ignored.
+			const { clearAuth, handler } = handlerFor(() => 'userB');
+			const staleError = errorWithStatus(401, undefined, { url: '/Organization/', authUserAtSend: 'userA' });
+			await expect(handler(staleError)).rejects.toBe(staleError);
+			expect(clearAuth).not.toHaveBeenCalled();
+		});
 	});
 
 	it('passes through an undefined rejection reason without throwing', async () => {
