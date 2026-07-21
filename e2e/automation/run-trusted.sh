@@ -22,8 +22,10 @@ fi
 
 echo "[run-trusted] node $(node -v 2>/dev/null) | target ${PLAYWRIGHT_BASE_URL:-https://dev.studio.harperfabric.com}"
 
-# Ensure deps + browser are present (no-ops once warmed).
-pnpm install --frozen-lockfile >/dev/null 2>&1 || pnpm install >/dev/null 2>&1
+# Ensure deps + browser are present (no-ops once warmed). --ignore-scripts is
+# defense-in-depth: no e2e dep needs install scripts, and the browser is fetched
+# by the explicit `playwright install` below, not a postinstall.
+pnpm install --frozen-lockfile --ignore-scripts >/dev/null 2>&1 || pnpm install --ignore-scripts >/dev/null 2>&1
 pnpm exec playwright install chromium >/dev/null 2>&1 || true
 
 # Functional suite (excludes @visual, which needs committed baselines).

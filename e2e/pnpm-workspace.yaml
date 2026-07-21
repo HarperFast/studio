@@ -4,3 +4,14 @@
 # This harness has no child packages — it is just this single project.
 packages:
   - '.'
+
+# Supply-chain hardening (this harness runs on the automation laptop with real
+# secrets present, so a compromised dependency is a real threat).
+# - onlyBuiltDependencies: [] — no dependency may run install/build scripts.
+#   pnpm 11 already blocks them by default; this makes the "none allowed" explicit,
+#   so adding a script-running dep later is a conscious, reviewed change.
+# - minimumReleaseAge — don't adopt a version published less than 7 days ago,
+#   which defends future dep updates against just-published malicious releases
+#   (inert while the committed lockfile is used with --frozen-lockfile).
+onlyBuiltDependencies: []
+minimumReleaseAge: 10080
