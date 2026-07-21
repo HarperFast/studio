@@ -78,7 +78,9 @@ export function UpsertCluster() {
 		if (cluster) {
 			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
 			if (newHarperVersions && clusterVersions) {
-				const latestClusterVersion = clusterVersions.sort(compareVersions).pop();
+				// Copy before sort — sort mutates in place, and we reuse the full set below.
+				const latestClusterVersion = [...clusterVersions].sort(compareVersions).pop();
+				const clusterVersionSet = new Set(clusterVersions);
 				return {
 					...newHarperVersions,
 					value: [
@@ -87,13 +89,12 @@ export function UpsertCluster() {
 							version: latestClusterVersion,
 						} as const,
 						...(newHarperVersions?.value || []).filter(v => {
-							// Is our version unique from the latest cluster version?
-							return latestClusterVersion !== v.version
-								// Do we have a cluster version?
-								&& (!latestClusterVersion
-									// Or if we do, have we updated to a higher version already?
-									// This can prevent upgrading to, say, "next" v5, and then downgrading to the "latest" v4.
-									|| wasAReleasedBeforeB(latestClusterVersion, v.version));
+							// Drop any version this cluster already runs: the current version is shown once as
+							// "current" above, and the backend also returns it (and any co-tenant instance's
+							// version, mid-upgrade) as a "deployed on <cluster>" entry we don't want to duplicate.
+							return !clusterVersionSet.has(v.version)
+								// Only offer newer releases — no downgrades (e.g. don't drop from "next" v5 to "stable" v4).
+								&& (!latestClusterVersion || wasAReleasedBeforeB(latestClusterVersion, v.version));
 						}),
 					].filter(excludeFalsy),
 				} satisfies HarperVersionsResponse;
