@@ -5,6 +5,7 @@ node_modules
 test-results
 playwright-report
 blob-report
+results
 
 # Only Linux-container baselines are trusted (see README). Ignore host-generated
 # platform baselines so stray macOS/Windows snapshots aren't committed.

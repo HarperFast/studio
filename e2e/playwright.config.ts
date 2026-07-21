@@ -28,6 +28,8 @@ export default defineConfig({
 	reporter: [
 		['list'],
 		['html', { open: 'never', outputFolder: 'playwright-report' }],
+		// Machine-readable results for the automation triage step (results/results.json).
+		['json', { outputFile: 'results/results.json' }],
 	],
 	timeout: 60_000,
 	expect: {
