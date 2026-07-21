@@ -8,7 +8,7 @@ import { CopyIcon, KeyRoundIcon } from 'lucide-react';
 import { useState } from 'react';
 
 export function ApiTokenIndex() {
-	const { mutate, isPending } = useGenerateApiTokenMutation();
+	const { mutate, isPending, reset } = useGenerateApiTokenMutation();
 	const [token, setToken] = useState<ApiTokenResult | null>(null);
 	const copyText = useCopyTextToClipboard();
 
@@ -16,7 +16,12 @@ export function ApiTokenIndex() {
 		// The global MutationCache.onError (react-query/queryClient) already surfaces
 		// failures with a toast, so no local onError.
 		mutate(undefined, {
-			onSuccess: (result) => setToken(result),
+			onSuccess: (result) => {
+				// Hold the credential in local component state only, then drop it from
+				// the shared MutationCache so it can't be read there or outlive the page.
+				setToken(result);
+				reset();
+			},
 		});
 	};
 
