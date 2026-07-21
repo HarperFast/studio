@@ -50,10 +50,15 @@ export function useCloudSignIn() {
 			onError: (error) => {
 				if (isEmailNotVerifiedError(error)) {
 					// This rejection only happens after central-manager accepts the password, so the
-					// credentials are valid — resending a fresh link here can't be abused for spam.
-					resendEmailVerification({ email: formData.email });
-					toast.info('Verify your email to finish signing in', {
-						description: `We sent a new verification link to ${formData.email}.`,
+					// credentials are valid — resending a fresh link here can't be abused for spam. Only
+					// claim "we sent a link" once the resend actually succeeds; navigate regardless so an
+					// unverified user always lands on /verifying (which offers a manual resend) rather than
+					// dead-ending on the sign-in page.
+					resendEmailVerification({ email: formData.email }, {
+						onSuccess: () =>
+							toast.info('Verify your email to finish signing in', {
+								description: `We sent a new verification link to ${formData.email}.`,
+							}),
 					});
 					void navigate({ to: '/verifying?email=' + encodeURIComponent(formData.email) });
 					return;

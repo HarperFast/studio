@@ -1,5 +1,5 @@
 import { errorText } from '@/lib/errorText';
-import { AxiosError } from 'axios';
+import { isAxiosError } from 'axios';
 
 /**
  * Detects the cloud-login rejection that means "this account exists and the password was
@@ -15,11 +15,10 @@ import { AxiosError } from 'axios';
  * it as proof of valid credentials (e.g. safe to auto-resend a verification link).
  */
 export function isEmailNotVerifiedError(error: unknown): boolean {
-	const axiosError = error as AxiosError<string | { error?: unknown; message?: unknown }>;
-	if (axiosError?.response?.status !== 403) {
+	if (!isAxiosError(error) || error.response?.status !== 403) {
 		return false;
 	}
-	const data = axiosError.response.data;
+	const data = error.response.data as string | { error?: unknown; message?: unknown } | undefined;
 	const message = typeof data === 'string'
 		? data
 		: errorText(data?.error) ?? errorText(data?.message) ?? '';
