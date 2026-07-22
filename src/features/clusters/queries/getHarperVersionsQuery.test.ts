@@ -88,9 +88,10 @@ describe('dedupeHarperVersionsByTag', () => {
 });
 
 describe('getHarperVersionsOptions', () => {
-	it('scopes the cache key to the organization and does not retry', () => {
+	it('scopes the cache key to the organization (org-first) and does not retry', () => {
 		const options = getHarperVersionsOptions('org_123');
-		expect(options.queryKey).toEqual(['HarperVersions', 'org_123']);
+		// Org-first so it participates in org-scoped `invalidateQueries([organizationId])`.
+		expect(options.queryKey).toEqual(['org_123', 'HarperVersions']);
 		expect(options.staleTime).toBe(60_000);
 		expect(options.retry).toBe(false);
 	});

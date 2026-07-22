@@ -61,7 +61,10 @@ async function getHarperVersions(organizationId: string) {
 
 export function getHarperVersionsOptions(organizationId: string) {
 	return queryOptions({
-		queryKey: ['HarperVersions', organizationId],
+		// Org-first, matching the sibling queries (getPlanTypesQuery, getRegionLocationsQuery, …) so
+		// org-scoped invalidations — `queryClient.invalidateQueries({ queryKey: [organizationId] })`,
+		// used after cluster ops that can change deployed versions — also refresh this list.
+		queryKey: [organizationId, 'HarperVersions'],
 		queryFn: () => getHarperVersions(organizationId),
 		staleTime: 60_000,
 		retry: false,
