@@ -49,6 +49,10 @@ export default defineConfig({
 		video: 'retain-on-failure',
 		actionTimeout: 15_000,
 		navigationTimeout: 30_000,
+		// In a hardened container (--cap-drop=ALL) Chromium's own sandbox can't initialize, and
+		// the container already IS the sandbox — so disable Chromium's when PLAYWRIGHT_NO_SANDBOX
+		// is set (the PR-lane sandbox sets it). Never set it for local/CI runs.
+		launchOptions: process.env.PLAYWRIGHT_NO_SANDBOX ? { args: ['--no-sandbox'] } : undefined,
 		// Force a single theme so screenshot baselines are stable regardless of the
 		// runner's OS appearance. (Confirm the app honors this vs. a stored theme —
 		// see the theme note in auth.setup.ts once the login flow is wired.)
