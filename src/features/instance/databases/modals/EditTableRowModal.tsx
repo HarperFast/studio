@@ -37,7 +37,9 @@ export function EditTableRowModal({
 	/** Relationship/computed attribute names — read-only, so they are hidden from the editable JSON
 	 * (saving a record that assigns one fails, even with null). */
 	syntheticAttributes?: string[];
-	data: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown }[];
+	/** Undefined while the record fetch is in flight (the parent passes `searchByIdData?.data`), so
+	 * every read must tolerate it — the editor renders a loading state and the write actions guard it. */
+	data?: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
 	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
@@ -147,7 +149,7 @@ export function EditTableRowModal({
 								type="button"
 								autoFocus={false}
 								onClick={() => {
-									const primaryKeyValue = data[0]?.[primaryKey];
+									const primaryKeyValue = data?.[0]?.[primaryKey];
 									if (primaryKeyValue != null) {
 										onDeleteRecord([primaryKeyValue]);
 									}

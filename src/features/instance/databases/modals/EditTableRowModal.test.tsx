@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 // Monaco can't load in jsdom; stub the editor with a plain element that exposes the value it was
@@ -84,6 +84,20 @@ describe('EditTableRowModal', () => {
 		expect(screen.getByTestId('editor').getAttribute('data-readonly')).toBe('true');
 		expect(screen.queryByRole('button', { name: /Save Changes/i })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Delete Row/i })).toBeNull();
+	});
+
+	it('does not throw when Delete Row is clicked before the record has loaded', () => {
+		// The parent passes `data={searchByIdData?.data}`, which is undefined while the
+		// record fetch is in flight — but the Delete Row button renders regardless. Clicking
+		// it then used to do an unguarded `data[0]` and throw an unhandled
+		// "Cannot read properties of undefined (reading '0')" (RUM, browse table view).
+		const onDeleteRecord = vi.fn();
+		renderModal({ data: undefined, onDeleteRecord });
+
+		const deleteButton = screen.getByRole('button', { name: /Delete Row/i });
+		expect(() => fireEvent.click(deleteButton)).not.toThrow();
+		// Nothing to delete without a loaded record, so the delete is a no-op.
+		expect(onDeleteRecord).not.toHaveBeenCalled();
 	});
 
 	it('lets a normal row be edited and deleted', () => {
