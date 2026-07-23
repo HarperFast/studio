@@ -35,5 +35,14 @@ echo "[on-schedule] suite failed (exit $status) — invoking triage"
 claude -p "$(cat "$DIR/triage.md")" \
 	--add-dir "$DIR/.." \
 	--allowedTools "Read,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)"
+triage_status=$?
 
+if [ "$triage_status" -ne 0 ]; then
+	# Don't let a broken triage (claude not logged in, gh token unreadable, network) look like a
+	# successful run — surface it loudly and exit non-zero so the scheduler/monitoring notices.
+	echo "[on-schedule] TRIAGE FAILED (claude exit $triage_status) — the test failure was NOT reported. Check 'claude' login and 'gh' auth." >&2
+	exit 3
+fi
+
+echo "[on-schedule] triage complete — failure reported to GitHub"
 exit 0
