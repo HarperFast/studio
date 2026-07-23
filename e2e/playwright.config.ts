@@ -82,7 +82,10 @@ export default defineConfig({
 	],
 	// Only when targeting localhost: bring up (or reuse) the app dev server.
 	// When testing a deployed URL (the default), the app is already running.
-	webServer: isLocalTarget
+	// Auto-manage the dev server only when targeting localhost AND not told otherwise. The
+	// PR-lane sandbox serves its own built app (via `vite preview`) and sets
+	// PLAYWRIGHT_NO_WEBSERVER=1, so Playwright must NOT try to spin up `pnpm dev` on :5173.
+	webServer: (isLocalTarget && !process.env.PLAYWRIGHT_NO_WEBSERVER)
 		? {
 			command: 'pnpm --dir .. run dev',
 			url: 'http://localhost:5173',
