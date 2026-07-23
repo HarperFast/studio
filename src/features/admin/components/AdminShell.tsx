@@ -1,7 +1,7 @@
 import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { isFabricAdmin, useCloudAuth } from '@/hooks/useAuth';
 import { Navigate, Outlet } from '@tanstack/react-router';
-import { KeyRoundIcon } from 'lucide-react';
+import { BellIcon, KeyRoundIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -11,6 +11,7 @@ import { KeyRoundIcon } from 'lucide-react';
  */
 const items: SubNavItem[] = [
 	{ to: '/admin', label: 'API Token', icon: KeyRoundIcon, exact: true },
+	{ to: '/admin/notifications', label: 'Notifications', icon: BellIcon },
 ];
 
 export function AdminShell() {

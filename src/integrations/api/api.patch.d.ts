@@ -47,6 +47,24 @@ export interface ApiTokenResult {
 	expiresAt: string;
 }
 
+/**
+ * A row of the central-manager `SystemStatus` table — the backing store for the
+ * notification center (issue #1259). Not in the generated OpenAPI types yet, so
+ * declared here (see the note at the top of this file).
+ */
+export interface SystemStatusNotification {
+	id: string;
+	/** Freeform category, e.g. 'error' | 'warning' | 'maintenance' | 'info'. Treated as serious by default. */
+	type: string;
+	message: string;
+	/** Optional deep link: an absolute URL (external, new tab) or a relative path (internal route). */
+	url?: string | null;
+	/** Start of the active window (UTC). Null/absent = active from the beginning of time. Harper `Date` → ISO string or epoch ms. */
+	startAt?: string | number | null;
+	/** End of the active window (UTC). Null/absent = never expires. Harper `Date` → ISO string or epoch ms. */
+	endAt?: string | number | null;
+}
+
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
 	settings?: {
