@@ -53,6 +53,11 @@ export default defineConfig({
 		// the container already IS the sandbox — so disable Chromium's when PLAYWRIGHT_NO_SANDBOX
 		// is set (the PR-lane sandbox sets it). Never set it for local/CI runs.
 		launchOptions: process.env.PLAYWRIGHT_NO_SANDBOX ? { args: ['--no-sandbox'] } : undefined,
+		// Route the browser through the sandbox's egress proxy so its requests obey the same
+		// allowlist (only the backend). localhost (the served build) bypasses the proxy.
+		proxy: process.env.PLAYWRIGHT_PROXY
+			? { server: process.env.PLAYWRIGHT_PROXY, bypass: 'localhost,127.0.0.1' }
+			: undefined,
 		// Force a single theme so screenshot baselines are stable regardless of the
 		// runner's OS appearance. (Confirm the app honors this vs. a stored theme —
 		// see the theme note in auth.setup.ts once the login flow is wired.)
