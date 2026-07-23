@@ -7,11 +7,13 @@ import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { InstanceAttribute, InstanceDatabaseTableMap, InstanceTable } from '@/integrations/api/api.patch';
 import { useInsertTableRecords } from '@/integrations/api/instance/database/insertTableRecords';
 import { Editor } from '@/lib/monaco/MonacoEditor';
+import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
 import { pluralize } from '@/lib/pluralize';
 import type { EditorProps, OnMount } from '@monaco-editor/react';
 import { Save, TerminalIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { isRecordJsonProbablyValid, tryParseRecordJson } from './recordEditorJson';
 
 export function AddTableRowModal({
 	isModalOpen,
@@ -52,55 +54,57 @@ export function AddTableRowModal({
 		return JSON.stringify(sample, null, 4);
 	}, [instanceTable, databaseTables]);
 
-	const onValidate = useCallback((markers: unknown[]) => {
-		setMadeChanges(true);
-		setIsValidJSON(markers.length === 0);
-	}, [setIsValidJSON]);
-
 	const onSubmitClick = useCallback(() => {
-		if (addTableRecordData && isValidJSON) {
-			const data = JSON.parse(addTableRecordData);
-			const records = Array.isArray(data) ? data : [data];
-			const toastId = toast.loading(`Adding ${records.length} records...`);
-			addTableRecords(
-				{
-					...instanceParams,
-					databaseName: instanceTable.schema,
-					tableName: instanceTable.name,
-					records,
-				},
-				{
-					onSuccess: (response) => {
-						void refreshTable();
-						if (!response.skipped_hashes?.length) {
-							setIsModalOpen(false);
-						}
-						setSkippedHashes(response.skipped_hashes);
-						(response.skipped_hashes?.length > 0 ? toast.warning : toast.success)(
-							response.skipped_hashes?.length > 0 ? 'Warning!' : 'Success!',
-							{
-								id: toastId,
-								description: (
-									<>
-										{response.inserted_hashes.length > 0
-											&& <p>Added {pluralize(response.inserted_hashes.length, 'record', 'records')}</p>}
-										{response.skipped_hashes.length > 0
-											&& <p>Skipped {pluralize(response.skipped_hashes.length, 'record', 'records')}</p>}
-									</>
-								),
-							},
-						);
-					},
-				},
-			);
+		if (!addTableRecordData) {
+			return;
 		}
+		// Authoritative parse: the live check skips oversized content, so a large,
+		// malformed bulk paste can reach here with isValidJSON still true — parse it
+		// in a catch rather than letting Save throw an uncaught SyntaxError.
+		const parsed = tryParseRecordJson(addTableRecordData);
+		if (!parsed.ok) {
+			toast.error("This record isn't valid JSON — fix the syntax and try again.");
+			return;
+		}
+		const records = (Array.isArray(parsed.value) ? parsed.value : [parsed.value]) as object[];
+		const toastId = toast.loading(`Adding ${records.length} records...`);
+		addTableRecords(
+			{
+				...instanceParams,
+				databaseName: instanceTable.schema,
+				tableName: instanceTable.name,
+				records,
+			},
+			{
+				onSuccess: (response) => {
+					void refreshTable();
+					if (!response.skipped_hashes?.length) {
+						setIsModalOpen(false);
+					}
+					setSkippedHashes(response.skipped_hashes);
+					(response.skipped_hashes?.length > 0 ? toast.warning : toast.success)(
+						response.skipped_hashes?.length > 0 ? 'Warning!' : 'Success!',
+						{
+							id: toastId,
+							description: (
+								<>
+									{response.inserted_hashes.length > 0
+										&& <p>Added {pluralize(response.inserted_hashes.length, 'record', 'records')}</p>}
+									{response.skipped_hashes.length > 0
+										&& <p>Skipped {pluralize(response.skipped_hashes.length, 'record', 'records')}</p>}
+								</>
+							),
+						},
+					);
+				},
+			},
+		);
 	}, [
 		addTableRecordData,
 		addTableRecords,
 		instanceParams,
 		instanceTable.name,
 		instanceTable.schema,
-		isValidJSON,
 		refreshTable,
 		setIsModalOpen,
 	]);
@@ -140,11 +144,16 @@ export function AddTableRowModal({
 				<div className="flex-1 min-h-0 w-full">
 					<Editor
 						className="w-full h-full"
-						language="json"
+						// Worker-free JSON: highlighting without a language worker that a large bulk-insert
+						// array pasted here could overflow and crash (studio#1370/#1499).
+						language={WORKER_FREE_JSON_LANGUAGE_ID}
 						theme={monacoTheme}
 						value={sampleJSON}
-						onValidate={onValidate}
-						onChange={setAddTableRecordData}
+						onChange={(updatedValue) => {
+							setAddTableRecordData(updatedValue);
+							setMadeChanges(true);
+							setIsValidJSON(isRecordJsonProbablyValid(updatedValue));
+						}}
 						options={{ minimap: { enabled: false }, automaticLayout: true }}
 						onMount={handleEditorDidMount}
 					/>

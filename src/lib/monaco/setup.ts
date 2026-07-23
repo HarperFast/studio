@@ -18,6 +18,7 @@
  * so it is imported at the top of `main.tsx`.
  */
 import { reportPossibleStaleDeploy } from '@/lib/installStaleDeployReload';
+import { registerWorkerFreeJsonLanguage } from '@/lib/monaco/workerFreeJsonLanguage';
 import { loader } from '@monaco-editor/react';
 // Typed Monaco API namespace.
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
@@ -89,6 +90,11 @@ globalScope.MonacoEnvironment = {
 		return worker;
 	},
 };
+
+// A JSON highlight language with no language worker, for the browse record
+// editors — see `workerFreeJsonLanguage.ts`. Registered here, alongside the
+// built-in `json` contribution above, so it exists before the first editor mounts.
+registerWorkerFreeJsonLanguage(monaco.languages);
 
 // Point @monaco-editor/react at the locally bundled Monaco rather than the CDN.
 loader.config({ monaco });
