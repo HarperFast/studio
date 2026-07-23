@@ -1,7 +1,5 @@
 import { Loading } from '@/components/Loading';
 import { Navbar } from '@/components/Navbar';
-import { NotificationBanner } from '@/components/NotificationBanner';
-import { NotificationsSubscriptionManager } from '@/features/notifications/NotificationsSubscriptionManager';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
@@ -24,14 +22,12 @@ export function Dashboard() {
 
 	return (
 		<>
-			<NotificationsSubscriptionManager />
 			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-gradient-to-r from-violet-100 to-white border-b border-violet-200 dark:from-purple-950 dark:to-zinc-900 dark:border-purple-950 md:px-12">
 				<Navbar />
 			</header>
 			<main>
 				<Outlet />
 			</main>
-			<NotificationBanner />
 		</>
 	);
 }

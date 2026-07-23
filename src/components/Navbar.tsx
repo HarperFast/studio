@@ -190,9 +190,11 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 								)
 								: <DesktopNavItem key={menuItem.text} menuItem={menuItem} />
 						)}
-						<NavigationMenuItem>
-							<NotificationBell />
-						</NavigationMenuItem>
+						{!isLocalStudio && (
+							<NavigationMenuItem>
+								<NotificationBell />
+							</NavigationMenuItem>
+						)}
 						<NavigationMenuItem>
 							<ThemeToggle />
 						</NavigationMenuItem>
@@ -248,7 +250,7 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				</Link>
 				<Version />
 				<div className="flex items-center">
-					<NotificationBell />
+					{!isLocalStudio && <NotificationBell />}
 					<button
 						type="button"
 						className="shadow-xs text-muted-foreground dark:text-grey-400 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-black-dark"
