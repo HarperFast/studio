@@ -29,7 +29,10 @@ pnpm install --frozen-lockfile --ignore-scripts >/dev/null 2>&1 || pnpm install 
 pnpm exec playwright install chromium >/dev/null 2>&1 || true
 
 # Functional suite (excludes @visual, which needs committed baselines).
-pnpm test
+# CI=1 opts into the config's retries (2) + bounded workers, so a transient timeout on a
+# slow deployment self-heals instead of filing a spurious failure issue. A test that fails
+# ALL retries is a genuine failure and still reports non-zero.
+CI=1 pnpm test
 status=$?
 
 echo "[run-trusted] suite exit=$status | results: $E2E_DIR/results/results.json"
