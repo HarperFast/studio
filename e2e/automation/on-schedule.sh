@@ -10,6 +10,12 @@
 #   - `claude` CLI installed and logged in.
 set -uo pipefail
 
+# launchd hands scripts a minimal PATH (no nvm, no Homebrew, no ~/.local/bin). Make the
+# tools this script needs resolvable regardless of how it's invoked: claude (~/.local/bin),
+# gh (Homebrew), node/pnpm (nvm — run-trusted.sh also sources it).
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+[ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
 "$DIR/run-trusted.sh"
