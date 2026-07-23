@@ -5,6 +5,7 @@ import { clusterLayoutRoute } from '@/features/cluster/clusterLayoutRoute';
 import { clusterRoutes } from '@/features/cluster/routes';
 import { clusterEditRoutes, clustersLayoutRoute, clustersRoutes, newClusterRoute } from '@/features/clusters/routes';
 import { createInstanceRouteTree } from '@/features/instance/routes';
+import { notificationsRoutes } from '@/features/notifications/routes';
 import { orgLayoutRoute, orgRoutes } from '@/features/organization/routes';
 import { orgsLayoutRoute, orgsRoutes } from '@/features/organizations/routes';
 import { profileRoutes } from '@/features/profile/routes';
@@ -22,6 +23,7 @@ export const rootRouteTree = isLocalStudio
 		authRouteTree,
 		dashboardLayout.addChildren([
 			...profileRoutes,
+			...notificationsRoutes,
 			adminLayoutRoute.addChildren([...adminRoutes]),
 			orgsLayoutRoute.addChildren([
 				...orgsRoutes,

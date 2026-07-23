@@ -15,5 +15,12 @@ const apiTokenRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/apiToken/index'), 'ApiTokenIndex'),
 });
 
+const notificationsAdminRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: '/notifications',
+	head: () => ({ meta: [{ title: 'Notifications — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/notifications/index'), 'NotificationsAdminIndex'),
+});
+
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
-export const adminRoutes = [apiTokenRoute];
+export const adminRoutes = [apiTokenRoute, notificationsAdminRoute];

@@ -1,4 +1,5 @@
 export const enum LocalStorageKeys {
+	'AckedNotificationIds' = 'AckedNotificationIds',
 	'ApplicationChatPosition' = 'ApplicationChatPosition',
 	'ApplicationChatWidth' = 'ApplicationChatWidth',
 	'ApplicationsSidebarWidth' = 'ApplicationsSidebarWidth',

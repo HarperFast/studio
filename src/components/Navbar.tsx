@@ -1,5 +1,6 @@
 import { DiscordLogo } from '@/components/DiscordLogo';
 import { MainLogo } from '@/components/MainLogo';
+import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { NavigationMenu } from '@/components/ui/navigation/NavigationMenu';
 import { NavigationMenuItem } from '@/components/ui/navigation/NavigationMenuItem';
@@ -190,6 +191,9 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 								: <DesktopNavItem key={menuItem.text} menuItem={menuItem} />
 						)}
 						<NavigationMenuItem>
+							<NotificationBell />
+						</NavigationMenuItem>
+						<NavigationMenuItem>
 							<ThemeToggle />
 						</NavigationMenuItem>
 					</NavigationMenuList>
@@ -243,14 +247,17 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 					<MainLogo />
 				</Link>
 				<Version />
-				<button
-					type="button"
-					className="shadow-xs text-muted-foreground dark:text-grey-400 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-black-dark"
-					onClick={toggleMenu}
-				>
-					<span className="sr-only">{isMenuOpen ? 'Close menu' : 'Open menu'}</span>
-					{isMenuOpen ? <X /> : <Menu />}
-				</button>
+				<div className="flex items-center">
+					<NotificationBell />
+					<button
+						type="button"
+						className="shadow-xs text-muted-foreground dark:text-grey-400 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-black-dark"
+						onClick={toggleMenu}
+					>
+						<span className="sr-only">{isMenuOpen ? 'Close menu' : 'Open menu'}</span>
+						{isMenuOpen ? <X /> : <Menu />}
+					</button>
+				</div>
 			</div>
 			<div
 				className={`${
