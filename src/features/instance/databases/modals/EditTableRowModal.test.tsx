@@ -2,17 +2,36 @@
  * @vitest-environment jsdom
  */
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
+import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
+import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { toast } from 'sonner';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-// Monaco can't load in jsdom; stub the editor with a plain element that exposes the value it was
-// given and whether it was rendered read-only.
+// Monaco can't load in jsdom; stub the editor with a <textarea> that exposes the value and
+// language it was given, is read-only when told, and forwards edits through `onChange` so a
+// test can drive typing/pasting.
 vi.mock('@/lib/monaco/MonacoEditor', () => ({
-	Editor: ({ value, options }: { value?: string; options?: { readOnly?: boolean } }) => (
-		<div data-testid="editor" data-readonly={String(Boolean(options?.readOnly))}>{value}</div>
+	Editor: (
+		{ value, language, options, onChange }: {
+			value?: string;
+			language?: string;
+			options?: { readOnly?: boolean };
+			onChange?: (value: string | undefined) => void;
+		},
+	) => (
+		<textarea
+			data-testid="editor"
+			data-language={language}
+			data-readonly={String(Boolean(options?.readOnly))}
+			readOnly={Boolean(options?.readOnly)}
+			value={value ?? ''}
+			onChange={event => onChange?.(event.target.value)}
+		/>
 	),
 }));
 vi.mock('@/hooks/useMonacoTheme', () => ({ useMonacoTheme: () => 'light' }));
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), loading: vi.fn(), success: vi.fn(), warning: vi.fn() } }));
 
 beforeAll(() => {
 	// Radix Dialog relies on DOM APIs jsdom doesn't implement.
@@ -37,28 +56,30 @@ beforeAll(() => {
 	}
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	vi.clearAllMocks();
+});
 
 const noop = () => {};
 const row = { name: 'Ada Lovelace', city: 'London', id: 'abc-123' };
 
 function renderModal(overrides: Record<string, unknown> = {}) {
-	return render(
-		<EditTableRowModal
-			canEditRecords
-			canDeleteRecords
-			setIsModalOpen={noop}
-			isModalOpen
-			primaryKey="email"
-			syntheticAttributes={[]}
-			data={[row]}
-			onSaveChanges={noop}
-			onDeleteRecord={noop}
-			isUpdateTableRecordsPending={false}
-			isDeleteTableRecordsPending={false}
-			{...overrides}
-		/>,
-	);
+	const props = {
+		canEditRecords: true,
+		canDeleteRecords: true,
+		setIsModalOpen: noop,
+		isModalOpen: true,
+		primaryKey: 'email',
+		syntheticAttributes: [],
+		data: [row],
+		onSaveChanges: noop,
+		onDeleteRecord: noop,
+		isUpdateTableRecordsPending: false,
+		isDeleteTableRecordsPending: false,
+		...overrides,
+	};
+	return render(<EditTableRowModal {...props} />);
 }
 
 describe('EditTableRowModal', () => {
@@ -108,5 +129,67 @@ describe('EditTableRowModal', () => {
 		expect(screen.getByTestId('editor').getAttribute('data-readonly')).toBe('false');
 		expect(screen.getByRole('button', { name: /Save Changes/i })).toBeTruthy();
 		expect(screen.getByRole('button', { name: /Delete Row/i })).toBeTruthy();
+	});
+
+	it('edits with the worker-free JSON language, so no language worker can OOM', () => {
+		renderModal();
+		expect(screen.getByTestId('editor').getAttribute('data-language')).toBe(WORKER_FREE_JSON_LANGUAGE_ID);
+	});
+
+	it('saves the parsed record when the edited JSON is valid', () => {
+		const onSaveChanges = vi.fn();
+		renderModal({ onSaveChanges });
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '[{"name":"Grace"}]' } });
+		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+		expect(onSaveChanges).toHaveBeenCalledWith([{ name: 'Grace' }]);
+		expect(toast.error).not.toHaveBeenCalled();
+	});
+
+	// Regression for the large-paste path: an oversized edit is not live-validated (the button
+	// stays enabled), so a malformed one reaches Save — which must catch it and surface a toast
+	// rather than throw an uncaught SyntaxError.
+	it('shows an error and does not save an oversized, malformed record', () => {
+		const onSaveChanges = vi.fn();
+		renderModal({ onSaveChanges });
+
+		const oversizedMalformed = `[{"blob":"${'x'.repeat(MAX_WORKER_MODEL_CHARS)}`; // unterminated
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: oversizedMalformed } });
+		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledTimes(1);
+	});
+
+	// The modal instance is reused across rows; opening a different record must not carry the
+	// previous row's draft (which would otherwise be saved for the new row).
+	it('resets the draft when a different record is opened', () => {
+		const onSaveChanges = vi.fn();
+		const setIsModalOpen = vi.fn();
+		const { rerender } = renderModal({ onSaveChanges, setIsModalOpen, data: [{ id: 'a', name: 'A' }] });
+
+		// Edit the first row, then open a different row without touching it.
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '[{"name":"edited A"}]' } });
+		rerender(
+			<EditTableRowModal
+				canEditRecords
+				canDeleteRecords
+				setIsModalOpen={setIsModalOpen}
+				isModalOpen
+				primaryKey="email"
+				syntheticAttributes={[]}
+				data={[{ id: 'b', name: 'B' }]}
+				onSaveChanges={onSaveChanges}
+				onDeleteRecord={noop}
+				isUpdateTableRecordsPending={false}
+				isDeleteTableRecordsPending={false}
+			/>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+		// The stale "edited A" draft was discarded, so Save just closes rather than persisting it.
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(setIsModalOpen).toHaveBeenCalledWith(false);
 	});
 });

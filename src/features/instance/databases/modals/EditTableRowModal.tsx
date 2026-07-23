@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
+import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
 import { Save, Trash, TriangleAlert } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { isRecordJsonProbablyValid, tryParseRecordJson } from './recordEditorJson';
 
 export function EditTableRowModal({
 	canEditRecords,
@@ -64,10 +67,19 @@ export function EditTableRowModal({
 		});
 		return JSON.stringify(dataWithoutTimes, null, 4);
 	}, [data, syntheticAttributes]);
-	const onValidate = useCallback((markers: unknown[]) => {
-		setMadeChanges(true);
-		setIsValidJSON(markers.length === 0);
-	}, [setIsValidJSON]);
+
+	// This modal instance is reused across rows (it stays mounted; only `open`
+	// toggles), so the draft/validity have to be reset when a different record is
+	// loaded — otherwise a previous row's edit could be saved for, or classify, the
+	// newly opened row. Resetting during render (not in an effect) avoids a frame
+	// where the stale draft is still live.
+	const [recordSnapshot, setRecordSnapshot] = useState(value);
+	if (value !== recordSnapshot) {
+		setRecordSnapshot(value);
+		setUpdatedTableRecordData(undefined);
+		setIsValidJSON(true);
+		setMadeChanges(false);
+	}
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -129,13 +141,16 @@ export function EditTableRowModal({
 						<div className="flex-1 min-h-0 w-full">
 							<Editor
 								className="w-full h-full"
-								language="json"
+								// Worker-free JSON: highlighting without a language worker that an oversized
+								// record could overflow and crash (studio#1370/#1499).
+								language={WORKER_FREE_JSON_LANGUAGE_ID}
 								theme={monacoTheme}
 								options={{ readOnly: isReadOnly, automaticLayout: true }}
 								value={value}
-								onValidate={onValidate}
 								onChange={(updatedValue) => {
 									setUpdatedTableRecordData(updatedValue);
+									setMadeChanges(true);
+									setIsValidJSON(isRecordJsonProbablyValid(updatedValue));
 								}}
 							/>
 						</div>
@@ -165,11 +180,19 @@ export function EditTableRowModal({
 								autoFocus={true}
 								accessKey="s"
 								onClick={() => {
-									if (updatedTableRecordData && isValidJSON) {
-										onSaveChanges(JSON.parse(updatedTableRecordData));
-									} else {
+									if (!updatedTableRecordData) {
 										setIsModalOpen(false);
+										return;
 									}
+									// Authoritative parse: the live check skips oversized content, so a large,
+									// malformed edit can reach here with isValidJSON still true — parse it in a
+									// catch rather than letting Save throw an uncaught SyntaxError.
+									const parsed = tryParseRecordJson(updatedTableRecordData);
+									if (!parsed.ok) {
+										toast.error("This record isn't valid JSON — fix the syntax and try again.");
+										return;
+									}
+									onSaveChanges(parsed.value as Record<string, unknown>[]);
 								}}
 								disabled={!isValidJSON || isUpdateTableRecordsPending}
 							>
