@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { deleteAllMail, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
 
 /**
@@ -70,8 +70,43 @@ test.describe('signup → email verification → login', () => {
 		await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
 		await page.getByRole('button', { name: 'Sign In' }).click();
 
-		await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
-		await expect(page).not.toHaveURL(/#\/verifying/);
-		await expect(page.getByLabel('Sign Out')).toBeVisible();
+		try {
+			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
+			await expect(page).not.toHaveURL(/#\/verifying/);
+			await expect(page.getByLabel('Sign Out')).toBeVisible();
+		} finally {
+			// Delete the throwaway account so the target env doesn't accumulate test users.
+			await deleteThrowawayAccount(page);
+		}
 	});
 });
+
+/**
+ * Delete the throwaway account created above so the target environment doesn't accumulate
+ * test users. Uses the logged-in session (page.request shares the browser context's cookies):
+ * GET /User/current for the account id, then self-DELETE /User/{id} — allowed because the
+ * account owns the session and, being brand-new (no org), isn't the last admin of anything.
+ * Best-effort: a cleanup failure never fails the test.
+ */
+async function deleteThrowawayAccount(page: Page): Promise<void> {
+	try {
+		const meRes = await page.request.get('/User/current');
+		if (!meRes.ok()) {
+			console.warn(`[cleanup] GET /User/current -> ${meRes.status()}; leaving account`);
+			return;
+		}
+		const { id } = await meRes.json();
+		if (!id) {
+			console.warn('[cleanup] no account id on /User/current; leaving account');
+			return;
+		}
+		const delRes = await page.request.delete(`/User/${id}`);
+		if (delRes.ok()) {
+			console.log(`[cleanup] deleted throwaway account ${id}`);
+		} else {
+			console.warn(`[cleanup] DELETE /User/${id} -> ${delRes.status()}; leaving account`);
+		}
+	} catch (err) {
+		console.warn('[cleanup] account cleanup failed (non-fatal):', err);
+	}
+}
