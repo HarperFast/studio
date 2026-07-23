@@ -19,8 +19,13 @@ context that holds real credentials, email, and network egress.**
 | Isolation | Can run on host                             | Container + egress allowlist           |
 | Output    | Failure → issue/PR you review               | Proposed test diffs → PR **you** merge |
 
-**Slice 1 (this commit) is the trusted lane, run by hand.** The daily/PR automation
-and the untrusted-PR sandbox come later — see "Roadmap".
+The **control plane** that runs these lanes autonomously — the trusted-lane scheduler
+(launchd: daily + merge-to-`stage`), the untrusted-PR sandbox + egress lock, and the LLM
+triage/adapter prompts — lives in a separate repo,
+[`studio-e2e-harness`](https://github.com/HarperFast/studio-e2e-harness), deliberately kept
+out of this repo so a studio PR can't alter what decides whether or how its code is run. The
+**specs stay here**, co-located with the app for local dev; both lanes exercise these same
+files. Run them locally with the commands below.
 
 ## Running it
 
@@ -43,7 +48,7 @@ backend (per `.env.local`), so the **authed** + round-trip specs need a test acc
 _that_ backend in `.env.e2e`; without it they skip cleanly. `pnpm test:local:ui` (Playwright
 UI mode) is the tightest loop — live re-run + step-through.
 
-### 2. Headless against the deployed dev app (what the automation runs)
+### 2. Headless against the deployed dev app (what the trusted lane runs)
 
 ```bash
 cd e2e
@@ -127,10 +132,14 @@ Two operational gotchas:
 
 ## Roadmap
 
+**Automation + PR-lane isolation are built** — they live in the
+[`studio-e2e-harness`](https://github.com/HarperFast/studio-e2e-harness) control plane: a
+launchd trusted lane (daily + merge-to-`stage` poll, LLM triage into issues) and a hardened,
+egress-locked sandbox that builds + tests untrusted PR code, with proposed spec changes landing
+as review PRs (never auto-merged — a malicious PR must not be able to neuter the very test that
+would catch it).
+
+Next, here in the specs:
+
 1. **Resend-invite** — seed a `PENDING` org user fixture, assert the detail-modal flow.
-2. **Automation** — laptop polls for (a) daily, (b) merge-to-`stage`, (c) allowlisted-author
-   PRs; deterministic suite runs, Claude triages failures into issues/PRs.
-3. **PR lane isolation** — run the PR's build in a container on an egress-restricted
-   network; the LLM reading the diff runs confined, and proposed test changes land as
-   PRs you review (never auto-merged — a malicious PR must not be able to neuter the
-   very test that would catch it).
+2. **More coverage** — broaden beyond auth/org-users as the flows the lanes protect grow.
