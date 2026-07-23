@@ -33,13 +33,18 @@ echo "[on-schedule] suite failed (exit $status) — invoking triage"
 # finishes even if a gh call inside it failed (e.g. a 401), so exit code alone is not proof the
 # issue was filed. triage.md must end with `TRIAGE_RESULT: filed|updated|noop|error …`; we
 # require a success marker or treat the run as failed.
-triage_output="$(
-	claude -p "$(cat "$DIR/triage.md")" \
-		--add-dir "$DIR/.." \
-		--allowedTools "Read,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)" 2>&1
-)"
-claude_status=$?
-printf '%s\n' "$triage_output"
+# Stream the triage to a dedicated log so a run is watchable live (`tail -f` the path below)
+# instead of buffered in a command substitution until claude exits — while still capturing it
+# to verify the outcome marker. --verbose surfaces the agent's steps as it works.
+TRIAGE_LOG="${STUDIO_E2E_TRIAGE_LOG:-$HOME/Library/Logs/studio-e2e/triage.last.log}"
+mkdir -p "$(dirname "$TRIAGE_LOG")"
+echo "[on-schedule] triage running — watch live: tail -f $TRIAGE_LOG"
+claude -p "$(cat "$DIR/triage.md")" \
+	--verbose \
+	--add-dir "$DIR/.." \
+	--allowedTools "Read,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)" 2>&1 | tee "$TRIAGE_LOG"
+claude_status=${PIPESTATUS[0]}
+triage_output="$(cat "$TRIAGE_LOG")"
 
 if printf '%s\n' "$triage_output" | grep -qE 'TRIAGE_RESULT: (filed|updated|noop)'; then
 	marker="$(printf '%s\n' "$triage_output" | grep -E 'TRIAGE_RESULT:' | tail -1)"
