@@ -20,7 +20,12 @@ export function NotificationBanner() {
 	if (unacked.length === 0) { return null; }
 
 	return (
-		<div className="fixed inset-x-0 bottom-0 z-50 flex flex-col shadow-[0_-2px_12px_rgba(0,0,0,0.12)]">
+		<div
+			role="region"
+			aria-label="System notifications"
+			aria-live="polite"
+			className="fixed inset-x-0 bottom-0 z-50 flex flex-col shadow-[0_-2px_12px_rgba(0,0,0,0.12)]"
+		>
 			{unacked.map((notification) => <BannerStrip key={notification.id} notification={notification} />)}
 		</div>
 	);
