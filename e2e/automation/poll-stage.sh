@@ -12,6 +12,11 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Make `gh` (and the rest) resolvable under launchd's minimal PATH (see env.sh) — without
+# this, `gh` isn't found, the SHA read returns empty, and the poller silently never triggers.
+. "$DIR/env.sh"
+
 STATE_DIR="${STUDIO_E2E_STATE:-$HOME/.studio-e2e}"
 STATE_FILE="$STATE_DIR/last-stage-sha"
 mkdir -p "$STATE_DIR"
