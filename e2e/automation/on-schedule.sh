@@ -28,21 +28,28 @@ fi
 
 echo "[on-schedule] suite failed (exit $status) — invoking triage"
 
-# Headless Claude Code, scoped to ONLY the tools triage needs. No permission-mode
-# override: default mode + this allowlist means anything unlisted (edits, other repos,
-# arbitrary Bash) is denied rather than auto-approved — the fail-safe posture for an
-# unattended run. triage.md further constrains it to gh issue ops on this repo.
-claude -p "$(cat "$DIR/triage.md")" \
-	--add-dir "$DIR/.." \
-	--allowedTools "Read,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)"
-triage_status=$?
+# Headless Claude Code, scoped to the tools triage needs (Read + gh issue ops on this repo,
+# per triage.md). No permission-mode override: default mode + this allowlist means anything
+# unlisted (edits, other repos, arbitrary Bash) is denied rather than auto-approved.
+#
+# We VERIFY the outcome via a marker, not the exit code: `claude -p` exits 0 when the agent
+# finishes even if a gh call inside it failed (e.g. a 401), so exit code alone is not proof the
+# issue was filed. triage.md must end with `TRIAGE_RESULT: filed|updated|noop|error …`; we
+# require a success marker or treat the run as failed.
+triage_output="$(
+	claude -p "$(cat "$DIR/triage.md")" \
+		--add-dir "$DIR/.." \
+		--allowedTools "Read,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(gh issue comment:*)" 2>&1
+)"
+claude_status=$?
+printf '%s\n' "$triage_output"
 
-if [ "$triage_status" -ne 0 ]; then
-	# Don't let a broken triage (claude not logged in, gh token unreadable, network) look like a
-	# successful run — surface it loudly and exit non-zero so the scheduler/monitoring notices.
-	echo "[on-schedule] TRIAGE FAILED (claude exit $triage_status) — the test failure was NOT reported. Check 'claude' login and 'gh' auth." >&2
-	exit 3
+if printf '%s\n' "$triage_output" | grep -qE 'TRIAGE_RESULT: (filed|updated|noop)'; then
+	marker="$(printf '%s\n' "$triage_output" | grep -E 'TRIAGE_RESULT:' | tail -1)"
+	echo "[on-schedule] triage complete — ${marker#*TRIAGE_RESULT: }"
+	exit 0
 fi
 
-echo "[on-schedule] triage complete — failure reported to GitHub"
-exit 0
+# No success marker: claude errored, or gh failed inside it (auth/401), or the agent bailed.
+echo "[on-schedule] TRIAGE FAILED (claude exit $claude_status; no success marker) — the test failure was NOT reported. Check 'claude' login and 'gh' auth (token must be file-based, not keychain)." >&2
+exit 3
