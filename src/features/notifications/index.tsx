@@ -30,8 +30,11 @@ export function NotificationsCenter() {
 		const severityDelta = SEVERITY_ORDER[getSeverityConfig(a.type).severity]
 			- SEVERITY_ORDER[getSeverityConfig(b.type).severity];
 		if (severityDelta !== 0) { return severityDelta; }
-		// Most recently ending first within a group.
-		return (toMs(b.endAt) ?? Infinity) - (toMs(a.endAt) ?? Infinity);
+		// Most recently ending first within a group. Use MAX_SAFE_INTEGER (not Infinity) as the
+		// open-ended fallback so two never-ending notices compare as 0, not NaN (unstable sort).
+		const endA = toMs(a.endAt) ?? Number.MAX_SAFE_INTEGER;
+		const endB = toMs(b.endAt) ?? Number.MAX_SAFE_INTEGER;
+		return endB - endA;
 	});
 
 	return (

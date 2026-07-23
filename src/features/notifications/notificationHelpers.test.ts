@@ -31,6 +31,11 @@ describe('toMs', () => {
 		expect(toMs('')).toBeNull();
 		expect(toMs('not a date')).toBeNull();
 	});
+
+	it('returns null for unexpected non-string/number types instead of throwing', () => {
+		expect(toMs(true as unknown as string)).toBeNull();
+		expect(toMs({} as unknown as string)).toBeNull();
+	});
 });
 
 describe('isActive', () => {
@@ -79,13 +84,21 @@ describe('parseNotificationLink', () => {
 		expect(parseNotificationLink('   ')).toBeNull();
 	});
 
-	it('classifies absolute URLs and other schemes as external', () => {
+	it('classifies safe-scheme and protocol-relative URLs as external', () => {
 		expect(parseNotificationLink('https://status.harper.io')).toEqual({
 			kind: 'external',
 			href: 'https://status.harper.io',
 		});
 		expect(parseNotificationLink('//cdn.example.com/x')?.kind).toBe('external');
 		expect(parseNotificationLink('mailto:ops@harper.io')?.kind).toBe('external');
+	});
+
+	it('rejects unsafe/unknown schemes (stored-XSS defense) rather than rendering them', () => {
+		expect(parseNotificationLink('javascript:alert(1)')).toBeNull();
+		expect(parseNotificationLink('JavaScript:alert(1)')).toBeNull();
+		expect(parseNotificationLink('data:text/html,<script>alert(1)</script>')).toBeNull();
+		expect(parseNotificationLink('vbscript:msgbox(1)')).toBeNull();
+		expect(parseNotificationLink('ftp://example.com/file')).toBeNull();
 	});
 
 	it('classifies relative paths as internal and normalises the leading slash', () => {

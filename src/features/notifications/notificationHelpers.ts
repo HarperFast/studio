@@ -73,6 +73,8 @@ export { BellIcon };
 export function toMs(value: string | number | null | undefined): number | null {
 	if (value === null || value === undefined) { return null; }
 	if (typeof value === 'number') { return Number.isFinite(value) ? value : null; }
+	// Guard against unexpected API types (boolean/object) so `.trim()` can't throw.
+	if (typeof value !== 'string') { return null; }
 	const trimmed = value.trim();
 	if (!trimmed) { return null; }
 	if (/^\d+$/.test(trimmed)) { return Number(trimmed); }
@@ -120,18 +122,26 @@ export type NotificationLink =
 	| { kind: 'external'; href: string }
 	| { kind: 'internal'; href: string };
 
+// Schemes we'll render in an href. Anything else with a scheme (javascript:, data:, vbscript:, …) is
+// rejected outright — an allowlist rather than a blocklist so unsafe schemes can't slip through as a
+// stored-XSS vector when a notification's URL is authored by an admin (or, later, an org/user).
+const SAFE_EXTERNAL_SCHEMES = new Set(['http', 'https', 'mailto']);
+
 /**
- * Classify a notification's optional deep link. An absolute URL (any scheme, or protocol-relative) is
- * external and opens in a new tab; anything else is treated as an internal router path.
+ * Classify a notification's optional deep link. A protocol-relative URL or one with a safe scheme is
+ * external (opens in a new tab); a scheme-less value is an internal router path; anything with an
+ * unsafe/unknown scheme yields no link.
  */
 export function parseNotificationLink(url: string | null | undefined): NotificationLink | null {
 	if (!url) { return null; }
 	const trimmed = url.trim();
 	if (!trimmed) { return null; }
-	// Protocol-relative (`//host`), or has an explicit scheme (`https:`, `mailto:`, …) → external.
-	if (trimmed.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
-		return { kind: 'external', href: trimmed };
+	// Protocol-relative (`//host`) resolves against https → external.
+	if (trimmed.startsWith('//')) { return { kind: 'external', href: trimmed }; }
+	const scheme = trimmed.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+	if (scheme) {
+		return SAFE_EXTERNAL_SCHEMES.has(scheme) ? { kind: 'external', href: trimmed } : null;
 	}
-	// Internal router path — normalise to a leading slash.
+	// No scheme → internal router path; normalise to a leading slash.
 	return { kind: 'internal', href: trimmed.startsWith('/') ? trimmed : `/${trimmed}` };
 }
