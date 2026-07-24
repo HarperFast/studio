@@ -68,7 +68,10 @@ test.describe('authenticated app', () => {
 					+ 'an org member with users-view (Admin), or point PLAYWRIGHT_ORG_ID at one it can access.',
 			);
 			// Error boundary but NO 403 → the page genuinely broke. Fail red so the suite catches it.
-			expect(saw403, `org-users hit its error boundary with no 403 for ${orgId} — a real failure, not a permission skip`).toBe(true);
+			expect(
+				saw403,
+				`org-users hit its error boundary with no 403 for ${orgId} — a real failure, not a permission skip`,
+			).toBe(true);
 		}
 
 		await expect(table).toBeVisible();
