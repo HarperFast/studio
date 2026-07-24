@@ -73,9 +73,12 @@ export async function checkClusterInstanceAuthenticationBeforeLoad({
 		return;
 	}
 
-	// Wait for the app-level sign-in to resolve before deciding whether to redirect.
-	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection;
-	if (overallAuth?.isLoading) {
+	// Wait for the app-level sign-in to resolve before deciding whether to redirect. If there's no
+	// app-level connection in the context at all, don't redirect from here — another guard owns that
+	// decision, and stacking redirects within one navigation can corrupt router state. Returning also
+	// avoids dereferencing `overallAuth.user` below (which threw "Cannot read properties of undefined").
+	const overallAuth = context.authentication[OverallAppSignIn] as AuthenticatedCloudConnection | undefined;
+	if (!overallAuth || overallAuth.isLoading) {
 		return;
 	}
 
