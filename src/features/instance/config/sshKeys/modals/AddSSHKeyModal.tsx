@@ -36,6 +36,7 @@ export function AddSSHKeyModal({
 }) {
 	const form = useForm({
 		resolver: zodResolver(SSHKeySchema),
+		mode: 'onChange',
 		defaultValues: {
 			name: '',
 			key: '',
