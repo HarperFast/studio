@@ -28,54 +28,58 @@ test.describe('signup → email verification → login', () => {
 		const email = newTestEmailAddress();
 		const receivedAfter = new Date(Date.now() - 15_000);
 
-		// 1. Sign up.
-		await page.goto('/#/sign-up');
-		await page.getByLabel('First Name').fill('Qa');
-		await page.getByLabel('Last Name').fill('Tester');
-		await page.getByLabel('Email').fill(email);
-		await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-		await page.getByLabel('Confirm Password', { exact: true }).fill(PASSWORD);
-		// The accept-terms checkbox is rendered twice; scope to the form's copy.
-		await page.locator('#auth-signup-form').getByRole('checkbox').check();
-
-		const [signupResponse] = await Promise.all([
-			page.waitForResponse((r) => r.url().includes('/User/') && r.request().method() === 'POST'),
-			page.getByRole('button', { name: 'Sign Up For Free' }).click(),
-		]);
-
-		// Some environments gate signup to specific email domains (central-manager
-		// User.allowCreate → ALLOWLIST_EMAIL_DOMAINS). If the target hasn't allowlisted
-		// our Mailosaur server domain, skip rather than fail red — the test starts
-		// passing automatically once the domain is allowlisted.
-		test.skip(
-			signupResponse.status() === 403,
-			"Signup returned 403 — the target env's ALLOWLIST_EMAIL_DOMAINS doesn't include the Mailosaur "
-				+ 'server domain. Add it (or use a Mailosaur custom domain under an allowlisted domain) to enable this test.',
-		);
-		expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
-
-		// 2. Success routes to the "check your email" screen for this address.
-		await page.waitForURL(/#\/verifying/, { timeout: 30_000 });
-
-		// 3. Fetch the verification email and follow its link.
-		const { link } = await waitForVerificationEmail(email, { receivedAfter });
-		await page.goto(link);
-
-		// 4. Verifying the token lands the user back on sign-in.
-		await page.waitForURL(/#\/sign-in/, { timeout: 30_000 });
-
-		// 5. The real proof: logging in now succeeds instead of bouncing to
-		//    /#/verifying (which is what an unverified account would do).
-		await page.getByLabel('Email').fill(email);
-		await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-		await page.getByRole('button', { name: 'Sign In' }).click();
-
+		// Wrap the WHOLE flow so cleanup runs even if an earlier step fails — otherwise a failure
+		// after signup but before the final assertions would leak a throwaway account.
 		try {
+			// 1. Sign up.
+			await page.goto('/#/sign-up');
+			await page.getByLabel('First Name').fill('Qa');
+			await page.getByLabel('Last Name').fill('Tester');
+			await page.getByLabel('Email').fill(email);
+			await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+			await page.getByLabel('Confirm Password', { exact: true }).fill(PASSWORD);
+			// The accept-terms checkbox is rendered twice; scope to the form's copy.
+			await page.locator('#auth-signup-form').getByRole('checkbox').check();
+
+			const [signupResponse] = await Promise.all([
+				page.waitForResponse((r) => r.url().includes('/User/') && r.request().method() === 'POST'),
+				page.getByRole('button', { name: 'Sign Up For Free' }).click(),
+			]);
+
+			// Some environments gate signup to specific email domains (central-manager
+			// User.allowCreate → ALLOWLIST_EMAIL_DOMAINS). If the target hasn't allowlisted
+			// our Mailosaur server domain, skip rather than fail red — the test starts
+			// passing automatically once the domain is allowlisted.
+			test.skip(
+				signupResponse.status() === 403,
+				"Signup returned 403 — the target env's ALLOWLIST_EMAIL_DOMAINS doesn't include the Mailosaur "
+					+ 'server domain. Add it (or use a Mailosaur custom domain under an allowlisted domain) to enable this test.',
+			);
+			expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
+
+			// 2. Success routes to the "check your email" screen for this address.
+			await page.waitForURL(/#\/verifying/, { timeout: 30_000 });
+
+			// 3. Fetch the verification email and follow its link.
+			const { link } = await waitForVerificationEmail(email, { receivedAfter });
+			await page.goto(link);
+
+			// 4. Verifying the token lands the user back on sign-in.
+			await page.waitForURL(/#\/sign-in/, { timeout: 30_000 });
+
+			// 5. The real proof: logging in now succeeds instead of bouncing to
+			//    /#/verifying (which is what an unverified account would do).
+			await page.getByLabel('Email').fill(email);
+			await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+			await page.getByRole('button', { name: 'Sign In' }).click();
+
 			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
 			await expect(page).not.toHaveURL(/#\/verifying/);
 			await expect(page.getByLabel('Sign Out')).toBeVisible();
 		} finally {
-			// Delete the throwaway account so the target env doesn't accumulate test users.
+			// Best-effort cleanup on ANY exit. Self-delete needs a logged-in session, so a failure
+			// BEFORE login has no session and nothing to delete (no-op); a failure at/after login is
+			// still cleaned up. Never fails the test (see deleteThrowawayAccount).
 			await deleteThrowawayAccount(page);
 		}
 	});
