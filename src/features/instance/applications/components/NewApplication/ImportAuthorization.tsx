@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { getSSHKeyQueryOptions } from '@/integrations/api/instance/ssh/getSSHKey';
 import { listSSHKeysQueryOptions } from '@/integrations/api/instance/ssh/listSSHKeys';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { CheckCircle2Icon, TriangleAlertIcon } from 'lucide-react';
 import { ReactNode, useCallback } from 'react';
 import { Control, UseFormSetValue, UseFormWatch } from 'react-hook-form';
@@ -27,6 +28,11 @@ export function ImportAuthorization({
 	setValue: UseFormSetValue<z.infer<typeof NewApplicationSchema>>;
 	watch: UseFormWatch<z.infer<typeof NewApplicationSchema>>;
 }) {
+	const params: {
+		clusterId?: string;
+		instanceId?: string;
+		organizationId?: string;
+	} = useParams({ strict: false });
 	const instanceParams = useInstanceClientIdParams();
 	const requiresAuth = watch('contents.requiresAuth');
 	const ref = watch('contents.ref');
@@ -126,9 +132,10 @@ export function ImportAuthorization({
 			<Alert>
 				<AlertDescription>
 					<span>
-						Manage your SSH keys in <Link to="config" className="underline">Config</Link> &gt;{' '}
-						<Link to="config/ssh-keys" className="underline">SSH Keys</Link>. This enables SSH based auth for private
-						repos, i.e. following the pattern of{' '}
+						Manage your SSH keys in{' '}
+						<Link to={buildAbsoluteLinkToPage(params, 'config')} className="underline">Config</Link> &gt;{' '}
+						<Link to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')} className="underline">SSH Keys</Link>. This
+						enables SSH based auth for private repos, i.e. following the pattern of{' '}
 						<a
 							href="https://github.com/HarperFast/Studio"
 							target="_blank"
