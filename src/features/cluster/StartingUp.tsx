@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouter } from '@tanstack/react-router';
 import { CloudAlertIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
+import { allClusterInstancesRunning } from './allInstancesRunning';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function StartingUp() {
@@ -23,9 +24,12 @@ export function StartingUp() {
 
 	const status = cluster?.status;
 
+	// "Ready" means the cluster is active AND every instance is running — on an initial deploy the
+	// cluster can report RUNNING while instances are still cloning, and the admin user must not be
+	// created until they have all settled (see FinishSetup, which enforces the same gate).
 	const clusterIsActive = useMemo(() => {
-		return status && activeClusterStatuses.includes(status);
-	}, [status]);
+		return status && activeClusterStatuses.includes(status) && allClusterInstancesRunning(cluster);
+	}, [status, cluster]);
 	const clusterHasFailed = isFailed(status);
 	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 

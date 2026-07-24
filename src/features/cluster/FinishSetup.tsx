@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { allClusterInstancesRunning } from './allInstancesRunning';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function FinishSetup() {
@@ -54,12 +55,17 @@ export function FinishSetup() {
 	}, [setFocus]);
 
 	const tempPassword = cluster?.instances?.find(i => i.tempPassword)?.tempPassword;
+	const instancesReady = allClusterInstancesRunning(cluster);
 
 	const { mutate: submitInstanceResetPassword, isPending } = useInstanceResetPasswordMutation();
 
 	const submitForm = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
 		if (!operationsUrl) {
 			toast.error('Cluster is not yet fully loaded, please wait a moment before trying to sign in.');
+			return;
+		}
+		if (!instancesReady) {
+			toast.error('Some instances are still starting up. You can create your admin user once they are all running.');
 			return;
 		}
 		submitInstanceResetPassword({
@@ -81,6 +87,7 @@ export function FinishSetup() {
 		cluster,
 		clusterId,
 		instanceClient,
+		instancesReady,
 		navigate,
 		operationsUrl,
 		redirect,
@@ -91,6 +98,12 @@ export function FinishSetup() {
 
 	if (cluster && !cluster.resetPassword) {
 		return <Navigate to="../sign-in" replace={true} />;
+	}
+
+	// On an initial deploy, hold the admin user creation until every instance is running — creating
+	// it while an instance is still cloning would leave that clone with the replaced credentials.
+	if (cluster && !instancesReady) {
+		return <Navigate to="../starting-up" replace={true} />;
 	}
 
 	return (
