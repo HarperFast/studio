@@ -1,4 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { deleteAllMail, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
 
 /**
@@ -12,7 +13,13 @@ import { deleteAllMail, mailConfigured, newTestEmailAddress, waitForVerification
  * NOTE: each run creates a real account on the target (dev) environment — see the
  * account-churn note in README before wiring this into a daily/CI loop.
  */
-const PASSWORD = 'SuperSecret123!';
+/**
+ * A strong password, unique per run, that always satisfies the signup policy (upper + lower +
+ * digit + symbol). Avoids committing a static credential to a public repo.
+ */
+function randomPassword(): string {
+	return `Qa!${randomUUID().replace(/-/g, '').slice(0, 16)}Zz9`;
+}
 
 test.describe('signup → email verification → login', () => {
 	test.skip(!mailConfigured, 'Mailosaur not configured (see e2e/.env.e2e).');
@@ -26,6 +33,7 @@ test.describe('signup → email verification → login', () => {
 
 	test('a new user can verify their email and sign in @roundtrip', async ({ page }) => {
 		const email = newTestEmailAddress();
+		const password = randomPassword();
 		const receivedAfter = new Date(Date.now() - 15_000);
 
 		// Wrap the WHOLE flow so cleanup runs even if an earlier step fails — otherwise a failure
@@ -36,8 +44,8 @@ test.describe('signup → email verification → login', () => {
 			await page.getByLabel('First Name').fill('Qa');
 			await page.getByLabel('Last Name').fill('Tester');
 			await page.getByLabel('Email').fill(email);
-			await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-			await page.getByLabel('Confirm Password', { exact: true }).fill(PASSWORD);
+			await page.getByLabel('Password', { exact: true }).fill(password);
+			await page.getByLabel('Confirm Password', { exact: true }).fill(password);
 			// The accept-terms checkbox is rendered twice; scope to the form's copy.
 			await page.locator('#auth-signup-form').getByRole('checkbox').check();
 
@@ -70,7 +78,7 @@ test.describe('signup → email verification → login', () => {
 			// 5. The real proof: logging in now succeeds instead of bouncing to
 			//    /#/verifying (which is what an unverified account would do).
 			await page.getByLabel('Email').fill(email);
-			await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
+			await page.getByLabel('Password', { exact: true }).fill(password);
 			await page.getByRole('button', { name: 'Sign In' }).click();
 
 			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
