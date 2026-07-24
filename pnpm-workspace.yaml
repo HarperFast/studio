@@ -41,6 +41,15 @@ overrides:
   form-data: '^4.0.6'
   dompurify: '^3.4.11'
   js-yaml: '^4.2.0'
+  # @semantic-release/release-notes-generator (latest, 14.1.1) still bundles the
+  # Handlebars-based conventional-changelog-writer@8 + conventional-commits-parser@6.
+  # It loads the `conventionalcommits` preset from the project root at runtime, and
+  # @commitlint/config-conventional@21.2.0 bumped that preset to ^10.0.0. Preset v10
+  # rewrote its templates as functions for the new @conventional-changelog/template
+  # engine (writer@9), which writer@8 can't render — so every release note collapsed
+  # to just its header line (regression first shipped in v2.131.0). Hold the preset on
+  # 9.x until release-notes-generator ships a writer@9-based major.
+  'conventional-changelog-conventionalcommits': '^9.3.1'
   mdast-util-to-hast: '^13.2.1'
 patchedDependencies:
   '@tanstack/router-core@1.171.15': patches/@tanstack__router-core@1.171.15.patch
