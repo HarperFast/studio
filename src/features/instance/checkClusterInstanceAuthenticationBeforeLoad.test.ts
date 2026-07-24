@@ -98,4 +98,18 @@ describe('checkClusterInstanceAuthenticationBeforeLoad', () => {
 		).resolves.toBeUndefined();
 		expect(establishSpy).not.toHaveBeenCalled();
 	});
+
+	it('does not redirect or crash when the app-level connection is absent from the context', async () => {
+		// Regression for the RUM "Cannot read properties of undefined (reading 'user')" TypeError thrown
+		// from this beforeLoad: context.authentication has no OverallAppSignIn entry, so overallAuth is
+		// undefined. The guard must neither dereference overallAuth.user nor redirect from here — another
+		// guard owns that redirect, and stacking redirects in one navigation can corrupt router state.
+		// permissions.update is true to prove the manage path is skipped, not taken.
+		permissions = { update: true };
+
+		await expect(
+			checkClusterInstanceAuthenticationBeforeLoad({ context: { authentication: {} }, params: PARAMS }),
+		).resolves.toBeUndefined();
+		expect(establishSpy).not.toHaveBeenCalled();
+	});
 });
