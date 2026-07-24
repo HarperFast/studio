@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
@@ -121,8 +122,12 @@ export function ClusterHome() {
 				</ClusterHomeShell>
 			);
 		}
-		const isActive = cluster.status && activeClusterStatuses.includes(cluster.status);
-		return <Navigate to={`${base}/${isActive ? 'finish-setup' : 'starting-up'}`} replace />;
+		// Hold setup on starting-up until the cluster is active AND every instance is running — on an
+		// initial deploy the cluster can report RUNNING while instances are still cloning, and the
+		// admin credentials must not be set until they have all settled (FinishSetup enforces this too).
+		const readyForSetup = cluster.status && activeClusterStatuses.includes(cluster.status)
+			&& allClusterInstancesRunning(cluster);
+		return <Navigate to={`${base}/${readyForSetup ? 'finish-setup' : 'starting-up'}`} replace />;
 	}
 
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);

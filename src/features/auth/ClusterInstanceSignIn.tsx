@@ -13,6 +13,7 @@ import { calculateCreateClusterDeepLink } from '@/config/deepLinks';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useClusterInstanceSignIn } from '@/features/auth/hooks/useClusterInstanceSignIn';
 import { authStore } from '@/features/auth/store/authStore';
+import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { UsernameSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
@@ -104,11 +105,17 @@ export function ClusterInstanceSignIn() {
 		return <Navigate to="../instances" replace={true} />;
 	}
 
-	if (isActive && cluster?.resetPassword) {
-		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/finish-setup`} replace={true} />;
-	}
-	if (!isActive && cluster?.resetPassword) {
-		return <Navigate to={`/${cluster.organizationId}/${cluster.id}/starting-up`} replace={true} />;
+	// Setup is only ready once the cluster is active AND every instance is running — on an initial
+	// deploy the cluster can report RUNNING while instances are still cloning (FinishSetup enforces
+	// the same gate).
+	if (cluster?.resetPassword) {
+		const readyForSetup = isActive && allClusterInstancesRunning(cluster);
+		return (
+			<Navigate
+				to={`/${cluster.organizationId}/${cluster.id}/${readyForSetup ? 'finish-setup' : 'starting-up'}`}
+				replace={true}
+			/>
+		);
 	}
 
 	return (
