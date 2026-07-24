@@ -22,7 +22,9 @@
 		"prepare": "husky",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"test:coverage": "vitest run --coverage"
+		"test:coverage": "vitest run --coverage",
+		"test:e2e:docker": "cd e2e && docker compose run --rm e2e",
+		"test:e2e:snapshots": "cd e2e && docker compose run --rm e2e pnpm update-snapshots"
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^4.0.0",
