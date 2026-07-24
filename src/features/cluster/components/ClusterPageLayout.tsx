@@ -4,7 +4,7 @@ import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
+import { ChartColumnIncreasing, GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
 /**
@@ -25,6 +25,9 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 
 	const items = [
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
+		// Usage is a read-only monitoring view (like Overview), so it sits with it at the top. Managed
+		// clusters only — self-hosted clusters run under their own license, not a Fabric plan.
+		view && !selfManaged && { to: `${base}/usage`, label: 'Usage', icon: ChartColumnIncreasing },
 		// Scaling and Version open the cluster editor (matching the card's "Edit Scaling" / "Edit
 		// Version"), not the /scaling update-progress screen. Both are exact so /edit/version doesn't
 		// also light up Scaling (/edit). Self-hosted clusters don't scale from here — their editor
