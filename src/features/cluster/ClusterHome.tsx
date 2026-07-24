@@ -6,6 +6,7 @@ import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
+import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -262,6 +263,8 @@ export function ClusterHome() {
 						</div>
 					</div>
 				)}
+
+			<ClusterUsageCard base={base} />
 		</ClusterHomeShell>
 	);
 }

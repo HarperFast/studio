@@ -9,6 +9,7 @@ import { FinishSetup } from './FinishSetup';
 import { Instances } from './Instances';
 import { Scaling } from './Scaling';
 import { StartingUp } from './StartingUp';
+import { UsagePage } from './usage/Page';
 
 const clusterInstancesRoute = createRoute({
 	getParentRoute: () => clusterLayoutRoute,
@@ -36,6 +37,13 @@ const clusterDomainsRoute = createRoute({
 	path: 'domains',
 	head: () => ({ meta: [{ title: 'Domains — Harper Fabric' }] }),
 	component: DomainsPage,
+});
+
+const clusterUsageRoute = createRoute({
+	getParentRoute: () => clusterLayoutRoute,
+	path: 'usage',
+	head: () => ({ meta: [{ title: 'Usage — Harper Fabric' }] }),
+	component: UsagePage,
 });
 
 // These guards intentionally read live `authStore` state rather than the `context.authentication`
@@ -113,6 +121,7 @@ export const clusterRoutes = [
 	clusterStartingUpRoute,
 	clusterScalingRoute,
 	clusterDomainsRoute,
+	clusterUsageRoute,
 	clusterFinishSetupRoute,
 	clusterSignInRoute,
 	instanceSignInRoute,
