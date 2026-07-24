@@ -44,19 +44,32 @@ test.describe('authenticated app', () => {
 			'No accessible organization for this account — add it to an org, or set PLAYWRIGHT_ORG_ID.',
 		);
 
+		// Watch for a 403 during the org-users load. That — NOT the generic error boundary — is the
+		// real "no permission" signal. The app's `Component Error` boundary renders for ANY uncaught
+		// error on the route, so skipping on its text alone would hide a genuine break (JS exception,
+		// broken query, API error) on exactly the page this spec exists to cover.
+		let saw403 = false;
+		page.on('response', (r) => {
+			if (r.status() === 403) { saw403 = true; }
+		});
+
 		await page.goto(`/#/${orgId}/users`);
 
-		// The account may belong to the org but lack users-view permission, or the org
-		// route may 403 on this environment. Wait for EITHER the table or the app's error
-		// boundary, and skip cleanly on the latter rather than failing on a missing table.
+		// Wait for EITHER the users table or the app's error boundary.
 		const table = page.getByRole('table');
 		const errorBoundary = page.getByText('Component Error');
 		await expect(table.or(errorBoundary).first()).toBeVisible();
-		test.skip(
-			await errorBoundary.isVisible().catch(() => false),
-			`This account can't view org users for ${orgId} on this environment (403). Provision it as an `
-				+ 'org member with users-view (Admin), or point PLAYWRIGHT_ORG_ID at one it can access.',
-		);
+
+		if (await errorBoundary.isVisible().catch(() => false)) {
+			// A 403 → this account legitimately lacks users-view on this env: skip, don't fail red.
+			test.skip(
+				saw403,
+				`This account can't view org users for ${orgId} on this environment (403). Provision it as `
+					+ 'an org member with users-view (Admin), or point PLAYWRIGHT_ORG_ID at one it can access.',
+			);
+			// Error boundary but NO 403 → the page genuinely broke. Fail red so the suite catches it.
+			expect(saw403, `org-users hit its error boundary with no 403 for ${orgId} — a real failure, not a permission skip`).toBe(true);
+		}
 
 		await expect(table).toBeVisible();
 		for (const header of ['Email', 'Roles', 'Status']) {
@@ -86,7 +99,8 @@ async function resolveOrgId(page: Page): Promise<string | null> {
 	await page.goto('/#/');
 	await page.waitForLoadState('networkidle');
 
-	for (let i = 0; i < 30; i++) { // up to ~15s
+	// Read either signal once: a single-org URL redirect, or the first org-card link on the picker.
+	const readOrgId = async (): Promise<string | null> => {
 		const fromUrl = firstSegment(page.url());
 		if (fromUrl && !RESERVED.has(fromUrl)) { return fromUrl; }
 
@@ -97,7 +111,20 @@ async function resolveOrgId(page: Page): Promise<string | null> {
 			const m = href.match(/#\/([^/?#]+)/);
 			if (m && !RESERVED.has(m[1])) { return m[1]; }
 		}
-		await page.waitForTimeout(500);
+		return null;
+	};
+
+	// The account's orgs load ASYNCHRONOUSLY into the picker, so poll rather than reading once (under
+	// parallel load the org-card link can appear after `networkidle`). expect.poll auto-waits — no
+	// manual waitForTimeout anti-pattern; on timeout the account truly has no accessible org → null.
+	let orgId: string | null = null;
+	try {
+		await expect.poll(async () => (orgId = await readOrgId()), {
+			timeout: 15_000,
+			intervals: [250, 500, 500, 1000],
+		}).not.toBeNull();
+	} catch {
+		// timed out — nothing showed up in the window
 	}
-	return null;
+	return orgId;
 }
