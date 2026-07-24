@@ -18,8 +18,11 @@ export const fmtHours = (n: number) => `${new Intl.NumberFormat(undefined, { max
 export const fmtBytes = (n: number) => humanFileSize(n);
 
 export function UsageMeter({ label, used, limit, format }: UsageMetric) {
-	const unlimited = limit === null;
-	const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit) * 100));
+	// Treat a negative limit as unlimited too — the server uses -1 for that, so the meter stays correct
+	// even if a raw response reaches it without -1 being mapped to null. Guard limit === 0 so the
+	// percentage never divides by zero (which would render NaN and break the bar).
+	const unlimited = limit === null || limit < 0;
+	const pct = unlimited || limit === 0 ? 0 : Math.min(100, Math.round((used / limit) * 100));
 	const warn = pct >= 90;
 
 	return (
