@@ -75,7 +75,13 @@ cd e2e
 docker compose run --rm e2e
 ```
 
-Use this whenever screenshots are involved — see below.
+Use this whenever screenshots are involved — see below. From the **repo root**, these are also
+exposed as scripts so you don't have to remember the compose invocation:
+
+```bash
+npm run test:e2e:docker      # run the suite in the canonical Linux container
+npm run test:e2e:snapshots   # (re)generate the *-linux screenshot baselines
+```
 
 ## Screenshot baselines
 
