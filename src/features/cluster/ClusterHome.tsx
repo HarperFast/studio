@@ -264,7 +264,7 @@ export function ClusterHome() {
 					</div>
 				)}
 
-			<ClusterUsageCard base={base} />
+			<ClusterUsageCard clusterId={cluster.id} base={base} />
 		</ClusterHomeShell>
 	);
 }
