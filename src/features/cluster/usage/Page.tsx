@@ -1,88 +1,179 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
-import { ClusterUsageRegion, usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
+import {
+	ClusterUsageRegion,
+	UsageRateLimits,
+	UsageResourcesPerInstance,
+	useClusterUsage,
+} from '@/integrations/api/cluster/getClusterUsage';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { useParams } from '@tanstack/react-router';
-import { Loader2 } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ChevronRight, Loader2 } from 'lucide-react';
+import { ReactNode, useState } from 'react';
 
 export function UsagePage() {
 	const { clusterId } = useParams({ strict: false }) as { clusterId?: string };
 	const { data, isLoading } = useClusterUsage(clusterId);
 
+	if (isLoading) {
+		return (
+			<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
+				<h1 className="text-2xl font-light text-foreground">Usage</h1>
+				<div className="flex justify-center py-16 text-muted-foreground">
+					<Loader2 className="size-6 animate-spin" />
+				</div>
+			</ClusterContentWithSubNavMenu>
+		);
+	}
+
+	// Rate limits + per-instance resources are usually identical across a cluster's regions (same plan),
+	// so when they're uniform we show them once in a shared card instead of repeating them per region.
+	const shared = data && !data.selfManaged ? uniformPlanInfo(data.regions) : null;
+
 	return (
-		<ClusterContentWithSubNavMenu className="max-w-4xl">
+		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
 			<h1 className="text-2xl font-light text-foreground">Usage</h1>
-			{isLoading
-				? (
-					<div className="flex justify-center py-16 text-muted-foreground">
-						<Loader2 className="size-6 animate-spin" />
-					</div>
-				)
-				: data?.selfManaged
+			{data?.selfManaged
 				? <Empty>Usage isn't tracked for self-hosted clusters — they run under their own license.</Empty>
 				: !data || data.regions.length === 0
 				? <Empty>No usage has been recorded for the current cycle yet.</Empty>
 				: (
-					<>
-						<p className="mt-1 text-sm text-muted-foreground">{usageSubtitle(data)}</p>
-						{/* Quota is enforced per region — each region is its own set of meters. */}
+					// Quota is enforced per region — each region is its own collapsible group of meters.
+					<div className="mt-5 space-y-3">
 						{data.regions.map((region) => (
-							<RegionSection key={region.region ?? region.regionIds.join()} region={region} />
+							<RegionSection
+								key={region.region ?? region.regionIds.join()}
+								region={region}
+								showPlanInfo={shared == null}
+							/>
 						))}
-					</>
+						{shared && (
+							<CollapsibleCard
+								header={<HeaderText title="Plan limits & resources" />}
+								aside={shared.planId ?? undefined}
+							>
+								<PlanInfo rateLimits={shared.rateLimits} resourcesPerInstance={shared.resourcesPerInstance} />
+							</CollapsibleCard>
+						)}
+					</div>
 				)}
 		</ClusterContentWithSubNavMenu>
 	);
 }
 
-function RegionSection({ region }: { region: ClusterUsageRegion }) {
+function RegionSection({ region, showPlanInfo }: { region: ClusterUsageRegion; showPlanInfo: boolean }) {
 	const meters = METERED_ORDER.map((key) => toMeter(key, region.metrics[key]));
+	const meta = [
+		region.planName ? `${region.planName} plan` : null,
+		region.status === 'exhausted'
+			? 'consumed — awaiting renewal'
+			: region.status === 'lapsed'
+			? 'not renewed'
+			: region.expiresAt
+			? `renews ${fmtDate(region.expiresAt)}`
+			: null,
+	].filter(Boolean).join(' · ');
 
-	const rl = region.rateLimits;
+	return (
+		// Lapsed regions have no live quota — collapse them by default so the active ones lead.
+		<CollapsibleCard
+			defaultOpen={region.status !== 'lapsed'}
+			aside={region.regionIds.length > 0 ? region.regionIds.join(', ') : undefined}
+			header={
+				<HeaderText title={region.region ?? 'Region'} meta={meta}>
+					{region.status === 'exhausted' && (
+						<span className="rounded-full bg-yellow/10 px-2 py-0.5 text-[11px] text-yellow">Cycle exhausted</span>
+					)}
+					{region.status === 'lapsed' && (
+						<span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+							No active license
+						</span>
+					)}
+				</HeaderText>
+			}
+		>
+			<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
+				{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
+			</div>
+			{showPlanInfo && <PlanInfo rateLimits={region.rateLimits} resourcesPerInstance={region.resourcesPerInstance} />}
+		</CollapsibleCard>
+	);
+}
+
+function CollapsibleCard(
+	{ header, aside, defaultOpen = true, children }: {
+		header: ReactNode;
+		aside?: ReactNode;
+		defaultOpen?: boolean;
+		children: ReactNode;
+	},
+) {
+	const [open, setOpen] = useState(defaultOpen);
+	return (
+		<section className="overflow-hidden rounded-xl border border-border">
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				aria-expanded={open}
+				className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/40"
+			>
+				<ChevronRight
+					className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`}
+				/>
+				<div className="min-w-0 flex-1">{header}</div>
+				{aside && (
+					<span className="shrink-0 self-start pt-0.5 font-mono text-[11px] text-muted-foreground/70">{aside}</span>
+				)}
+			</button>
+			{open && <div className="border-t border-border px-4 py-4">{children}</div>}
+		</section>
+	);
+}
+
+function HeaderText({ title, meta, children }: { title: string; meta?: string; children?: ReactNode }) {
+	return (
+		<>
+			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+				<span className="text-sm font-medium text-foreground">{title}</span>
+				{children}
+			</div>
+			{meta && <div className="mt-0.5 text-xs text-muted-foreground">{meta}</div>}
+		</>
+	);
+}
+
+function PlanInfo(
+	{ rateLimits, resourcesPerInstance }: {
+		rateLimits: UsageRateLimits | null;
+		resourcesPerInstance: UsageResourcesPerInstance | null;
+	},
+) {
+	const rl = rateLimits;
 	const rateRows = rl
 		? rowsFrom([
 			['Reads / minute', rl.readsPerMinute, addCommasToNumbers],
+			['Read bandwidth / minute', rl.readsPerMinuteBytes, humanFileSize],
 			['Writes / minute', rl.writesPerMinute, addCommasToNumbers],
+			['Write bandwidth / minute', rl.writesPerMinuteBytes, humanFileSize],
 			['Real-time deliveries / minute', rl.realTimeDeliveriesPerMinute, addCommasToNumbers],
+			['Real-time bandwidth / minute', rl.realTimeDeliveryBytesPerMinute, humanFileSize],
 			['TLS handshakes (cycle)', rl.tlsHandshakes, addCommasToNumbers],
 		])
 		: [];
 
-	const rpi = region.resourcesPerInstance;
+	const rpi = resourcesPerInstance;
 	const perInstanceRows = rpi
 		? rowsFrom([
 			['Storage', rpi.storageGb, (n) => `${addCommasToNumbers(n)} GB`],
-			['Memory', rpi.memoryMb, (n) => humanFileSize(n * 1024 * 1024)],
+			['Memory', rpi.memoryMb, (n) => humanFileSize(n * 1000 * 1000)],
 			['vCPU', rpi.cpuCores, (n) => `${n} ${n === 1 ? 'core' : 'cores'}`],
 			['Threads', rpi.threads, (n) => String(n)],
 		])
 		: [];
 
 	return (
-		<section className="mt-8 border-t border-border/60 pt-6 first:border-t-0 first:pt-0">
-			<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-				<h2 className="text-base font-medium text-foreground">{region.region ?? 'Region'}</h2>
-				{region.exhausted && (
-					<span className="rounded-full bg-yellow/10 px-2 py-0.5 text-[11px] text-yellow">Cycle exhausted</span>
-				)}
-			</div>
-			<p className="mt-0.5 mb-4 text-xs text-muted-foreground">
-				{[
-					region.planName ? `${region.planName} plan` : null,
-					region.exhausted
-						? 'consumed — awaiting renewal'
-						: region.expiresAt
-						? `renews ${fmtDate(region.expiresAt)}`
-						: null,
-				].filter(Boolean).join(' · ')}
-			</p>
-
-			<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
-				{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
-			</div>
-
+		<>
 			{rateRows.length > 0 && (
 				<SubSection
 					title="Rate limits"
@@ -91,18 +182,44 @@ function RegionSection({ region }: { region: ClusterUsageRegion }) {
 					<InfoGrid rows={rateRows} />
 				</SubSection>
 			)}
-
 			{perInstanceRows.length > 0 && (
 				<SubSection title="Per-instance resources" subtitle="Provisioned capacity on each instance.">
 					<InfoGrid rows={perInstanceRows} />
 				</SubSection>
 			)}
-		</section>
+		</>
 	);
 }
 
 function fmtDate(iso: string): string {
 	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
+}
+
+// True (with the shared rate/per-instance) only when every region declares the same, non-empty plan info.
+function uniformPlanInfo(
+	regions: ClusterUsageRegion[],
+):
+	| {
+		rateLimits: UsageRateLimits | null;
+		resourcesPerInstance: UsageResourcesPerInstance | null;
+		planId: string | null;
+	}
+	| null
+{
+	if (regions.length === 0) { return null; }
+	const first = regions[0];
+	if (first.rateLimits == null && first.resourcesPerInstance == null) { return null; }
+	const key = (r: ClusterUsageRegion) => JSON.stringify([r.rateLimits, r.resourcesPerInstance]);
+	const k0 = key(first);
+	// Show the shared plan id only when it's the same across every region too.
+	const samePlan = regions.every((r) => r.planId === first.planId);
+	return regions.every((r) => key(r) === k0)
+		? {
+			rateLimits: first.rateLimits,
+			resourcesPerInstance: first.resourcesPerInstance,
+			planId: samePlan ? first.planId : null,
+		}
+		: null;
 }
 
 // Build label/value rows, dropping any metric the plan didn't declare (null/undefined).
@@ -120,7 +237,7 @@ function Empty({ children }: { children: ReactNode }) {
 
 function SubSection({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
 	return (
-		<div className="mt-6">
+		<div className="mt-6 first:mt-0">
 			<h3 className="text-sm font-medium text-foreground">{title}</h3>
 			<p className="mt-0.5 mb-3 text-xs text-muted-foreground">{subtitle}</p>
 			{children}
