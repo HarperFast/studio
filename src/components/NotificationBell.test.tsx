@@ -2,32 +2,62 @@
  * @vitest-environment jsdom
  */
 import { NotificationBell } from '@/components/NotificationBell';
-import { SystemStatusNotification } from '@/integrations/api/api.patch';
+import { queryClient } from '@/react-query/queryClient';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ReactNode } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const active: SystemStatusNotification[] = [
-	{ id: 'sta-1', type: 'error', message: 'Maintenance tonight', url: 'https://status.harper.io' },
-	{ id: 'sta-2', type: 'info', message: 'New feature shipped' },
-];
+// Fixtures the mocked query serves. `vi.hoisted` so they exist when the hoisted vi.mock factory runs.
+const { NOTIFICATIONS } = vi.hoisted(() => {
+	const now = Date.now();
+	return {
+		NOTIFICATIONS: [
+			{
+				id: 'sta-critical',
+				type: 'error',
+				message: 'Investigating an outage',
+				url: 'https://status.harper.io',
+				startAt: null,
+				endAt: null,
+			},
+			{ id: 'sta-info', type: 'info', message: 'New feature shipped', startAt: null, endAt: null },
+			// Ended yesterday — the real active-window filter must exclude it.
+			{
+				id: 'sta-expired',
+				type: 'warning',
+				message: 'Old maintenance',
+				startAt: new Date(now - 2 * 86_400_000).toISOString(),
+				endAt: new Date(now - 86_400_000).toISOString(),
+			},
+		],
+	};
+});
 
-// Isolate the bell from data + routing; the underlying hooks/helpers are tested separately.
-vi.mock('@/features/notifications/hooks', () => ({
-	useActiveNotifications: () => active,
-	useUnackedActiveNotifications: () => active,
-	useNow: () => Date.UTC(2026, 6, 23, 12, 0, 0),
+// Mock ONLY the query (per review) — everything the bell actually computes (active-window filter,
+// unread count, acked-first + severity sort, ack store) runs for real against a seeded cache.
+vi.mock('@/features/notifications/queries', () => ({
+	systemStatusQueryKey: ['system-status'],
+	getSystemStatusQueryOptions: () => ({
+		queryKey: ['system-status'],
+		queryFn: () => Promise.resolve(NOTIFICATIONS),
+		initialData: NOTIFICATIONS,
+		staleTime: Infinity,
+	}),
 }));
 
-vi.mock('@/features/notifications/acks', () => ({
-	useNotificationAcks: () => new Set<string>(),
-	ackNotification: vi.fn(),
-	unackNotification: vi.fn(),
-}));
-
+// Only routing is stubbed (no RouterProvider in this unit test).
 vi.mock('@tanstack/react-router', () => ({
 	Link: ({ children, to }: { children?: ReactNode; to?: string }) => <a href={to}>{children}</a>,
 }));
+
+function renderBell() {
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<NotificationBell />
+		</QueryClientProvider>,
+	);
+}
 
 // Radix's menu relies on DOM APIs jsdom doesn't implement.
 beforeAll(() => {
@@ -40,20 +70,48 @@ beforeAll(() => {
 	}
 });
 
-afterEach(() => cleanup());
+beforeEach(() => {
+	localStorage.clear();
+	queryClient.clear();
+});
+afterEach(() => {
+	cleanup();
+	queryClient.clear();
+	localStorage.clear();
+});
+
+function openMenu() {
+	fireEvent.pointerDown(screen.getByRole('button', { name: /notifications/i }), { button: 0, ctrlKey: false });
+}
 
 describe('NotificationBell', () => {
-	it('shows the unread count on the bell', () => {
-		render(<NotificationBell />);
-		const trigger = screen.getByRole('button', { name: /notifications \(2 unread\)/i });
-		expect(trigger.textContent).toContain('2');
+	it('counts only active, un-acked notifications (excludes the expired one)', () => {
+		renderBell();
+		// 3 fixtures, but the expired notice is filtered out by the real active-window check → 2 unread.
+		expect(screen.getByRole('button', { name: /notifications \(2 unread\)/i })).toBeTruthy();
 	});
 
-	it('lists active notifications and a view-all link when opened', () => {
-		render(<NotificationBell />);
-		fireEvent.pointerDown(screen.getByRole('button', { name: /notifications/i }), { button: 0, ctrlKey: false });
-		expect(screen.getByText('Maintenance tonight')).toBeTruthy();
+	it('drops an acknowledged notification from the unread count', () => {
+		localStorage.setItem('AckedNotificationIds', JSON.stringify(['sta-info']));
+		renderBell();
+		expect(screen.getByRole('button', { name: /notifications \(1 unread\)/i })).toBeTruthy();
+	});
+
+	it('lists active notices, excludes expired, and orders un-acked before acked', () => {
+		// Ack the critical one so the acked-first branch beats severity ordering.
+		localStorage.setItem('AckedNotificationIds', JSON.stringify(['sta-critical']));
+		renderBell();
+		openMenu();
+
+		expect(screen.getByText('Investigating an outage')).toBeTruthy();
 		expect(screen.getByText('New feature shipped')).toBeTruthy();
+		expect(screen.queryByText('Old maintenance')).toBeNull();
 		expect(screen.getByText(/view all notifications/i)).toBeTruthy();
+
+		const rows = screen.getAllByRole('listitem').map((li) => li.textContent ?? '');
+		const infoIdx = rows.findIndex((t) => t.includes('New feature shipped'));
+		const criticalIdx = rows.findIndex((t) => t.includes('Investigating an outage'));
+		// Un-acked info sorts ahead of the acked critical, even though critical is more severe.
+		expect(infoIdx).toBeLessThan(criticalIdx);
 	});
 });

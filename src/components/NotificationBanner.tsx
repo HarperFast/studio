@@ -1,7 +1,7 @@
 import { ackNotification } from '@/features/notifications/acks';
 import { NotificationLink } from '@/features/notifications/components/NotificationLink';
 import { useUnackedActiveNotifications } from '@/features/notifications/hooks';
-import { getSeverityConfig } from '@/features/notifications/notificationHelpers';
+import { getSeverity, getSeverityConfig } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { XIcon } from 'lucide-react';
@@ -19,11 +19,14 @@ export function NotificationBanner() {
 	const unacked = useUnackedActiveNotifications();
 	if (unacked.length === 0) { return null; }
 
+	// Interrupt the screen reader for a critical notice (outage), but stay polite for info/maintenance.
+	const hasCritical = unacked.some((notification) => getSeverity(notification.type) === 'critical');
+
 	return (
 		<div
 			role="region"
 			aria-label="System notifications"
-			aria-live="polite"
+			aria-live={hasCritical ? 'assertive' : 'polite'}
 			className="fixed inset-x-0 bottom-0 z-50 flex flex-col shadow-[0_-2px_12px_rgba(0,0,0,0.12)]"
 		>
 			{unacked.map((notification) => <BannerStrip key={notification.id} notification={notification} />)}

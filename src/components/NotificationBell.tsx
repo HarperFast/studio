@@ -9,14 +9,12 @@ import {
 	BellIcon,
 	getSeverityConfig,
 	getWindowStatus,
-	type Severity,
+	SEVERITY_ORDER,
 } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-
-const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 
 export function NotificationBell() {
 	const [open, setOpen] = useState(false);

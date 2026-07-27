@@ -64,30 +64,51 @@ export function getSeverityConfig(type: string | null | undefined): SeverityConf
 	return SEVERITY_CONFIG[getSeverity(type)];
 }
 
+/** Sort weight by severity, most serious first. Single source of truth shared by the bell and center. */
+export const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
+
 export { BellIcon };
 
 /**
- * Harper's `Date` scalar can serialise as an ISO string or an epoch-ms number (and numeric strings
- * have been seen in the wild). Normalise any of those to epoch ms, or `null` when absent/unparseable.
+ * Result of parsing a Harper `Date` field: absent (null/empty), a valid instant, or present-but-
+ * unreadable. Distinguishing "absent" from "invalid" lets the active-window checks fail *closed* on a
+ * value we can't trust, rather than treating it as an open bound (which reads as "never expires").
  */
-export function toMs(value: string | number | null | undefined): number | null {
-	if (value === null || value === undefined) { return null; }
-	if (typeof value === 'number') { return Number.isFinite(value) ? value : null; }
+type ParsedInstant = { kind: 'absent' } | { kind: 'valid'; ms: number } | { kind: 'invalid' };
+
+function parseInstant(value: string | number | null | undefined): ParsedInstant {
+	if (value === null || value === undefined) { return { kind: 'absent' }; }
+	if (typeof value === 'number') { return Number.isFinite(value) ? { kind: 'valid', ms: value } : { kind: 'invalid' }; }
 	// Guard against unexpected API types (boolean/object) so `.trim()` can't throw.
-	if (typeof value !== 'string') { return null; }
+	if (typeof value !== 'string') { return { kind: 'invalid' }; }
 	const trimmed = value.trim();
-	if (!trimmed) { return null; }
-	if (/^\d+$/.test(trimmed)) { return Number(trimmed); }
+	if (!trimmed) { return { kind: 'absent' }; }
+	if (/^\d+$/.test(trimmed)) { return { kind: 'valid', ms: Number(trimmed) }; }
 	const parsed = Date.parse(trimmed);
-	return Number.isNaN(parsed) ? null : parsed;
+	return Number.isNaN(parsed) ? { kind: 'invalid' } : { kind: 'valid', ms: parsed };
 }
 
-/** A notification is active when `now` falls within its [startAt, endAt] window (open bounds allowed). */
+/**
+ * Harper's `Date` scalar can serialise as an ISO string or epoch-ms (or a numeric string). Normalise to
+ * epoch ms, or `null` when absent *or* unparseable. Active-window logic uses `parseInstant` directly so
+ * it can tell those apart; `toMs` is for display/sort callers that treat both as "no value".
+ */
+export function toMs(value: string | number | null | undefined): number | null {
+	const parsed = parseInstant(value);
+	return parsed.kind === 'valid' ? parsed.ms : null;
+}
+
+/**
+ * A notification is active when `now` falls within its [startAt, endAt] window (open bounds allowed).
+ * Fails **closed**: an unreadable bound makes the window untrustworthy, so we treat the notice as not
+ * active rather than as "no bound" — otherwise a bad `endAt` would pin a stale notice on-screen forever.
+ */
 export function isActive(notification: SystemStatusNotification, nowMs: number): boolean {
-	const start = toMs(notification.startAt);
-	const end = toMs(notification.endAt);
-	if (start !== null && nowMs < start) { return false; }
-	if (end !== null && nowMs > end) { return false; }
+	const start = parseInstant(notification.startAt);
+	const end = parseInstant(notification.endAt);
+	if (start.kind === 'invalid' || end.kind === 'invalid') { return false; }
+	if (start.kind === 'valid' && nowMs < start.ms) { return false; }
+	if (end.kind === 'valid' && nowMs > end.ms) { return false; }
 	return true;
 }
 
@@ -104,16 +125,20 @@ function formatAbsolute(ms: number): string {
 
 /** Human label describing where `now` sits relative to a notification's active window. */
 export function getWindowStatus(notification: SystemStatusNotification, nowMs: number): WindowStatus {
-	const start = toMs(notification.startAt);
-	const end = toMs(notification.endAt);
-	if (start !== null && nowMs < start) {
-		return { state: 'upcoming', label: `Starts ${formatAbsolute(start)}` };
+	const start = parseInstant(notification.startAt);
+	const end = parseInstant(notification.endAt);
+	// Mirror isActive's fail-closed stance: never advertise an unreadable schedule as "Active".
+	if (start.kind === 'invalid' || end.kind === 'invalid') {
+		return { state: 'expired', label: 'Schedule unavailable' };
 	}
-	if (end !== null && nowMs > end) {
-		return { state: 'expired', label: `Ended ${formatAbsolute(end)}` };
+	if (start.kind === 'valid' && nowMs < start.ms) {
+		return { state: 'upcoming', label: `Starts ${formatAbsolute(start.ms)}` };
 	}
-	if (end !== null) {
-		return { state: 'active', label: `Active until ${formatAbsolute(end)}` };
+	if (end.kind === 'valid' && nowMs > end.ms) {
+		return { state: 'expired', label: `Ended ${formatAbsolute(end.ms)}` };
+	}
+	if (end.kind === 'valid') {
+		return { state: 'active', label: `Active until ${formatAbsolute(end.ms)}` };
 	}
 	return { state: 'active', label: 'Active' };
 }
