@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { isForbiddenError, pollUnlessForbidden } from './pollUnlessForbidden';
+import { isForbiddenError, pollUnlessForbidden, retryUnlessForbidden } from './pollUnlessForbidden';
 
 /** Minimal stand-in for the `query` argument `refetchInterval` receives — the
  *  wrapper only ever reads `state.error`. */
@@ -60,5 +60,30 @@ describe('pollUnlessForbidden', () => {
 
 	it('preserves a custom (non-10s) interval', () => {
 		expect(pollUnlessForbidden(2_000)(queryWithError(null))).toBe(2_000);
+	});
+});
+
+describe('retryUnlessForbidden', () => {
+	it('never retries a 403', () => {
+		// Without this the 403 sits in `failureReason` for three more requests and
+		// `pollUnlessForbidden` cannot see it until ~30s later.
+		expect(retryUnlessForbidden()(1, axiosErrorWithStatus(403))).toBe(false);
+	});
+
+	it('matches the default retry: 3 budget for transient failures', () => {
+		const retry = retryUnlessForbidden();
+		expect(retry(1, axiosErrorWithStatus(503))).toBe(true);
+		expect(retry(2, axiosErrorWithStatus(503))).toBe(true);
+		expect(retry(3, axiosErrorWithStatus(503))).toBe(false);
+	});
+
+	it('still retries a 401, which the auth layer resolves by re-authenticating', () => {
+		expect(retryUnlessForbidden()(1, axiosErrorWithStatus(401))).toBe(true);
+	});
+
+	it('honors a custom retry budget', () => {
+		const retry = retryUnlessForbidden(1);
+		expect(retry(0, new Error('Network Error'))).toBe(true);
+		expect(retry(1, new Error('Network Error'))).toBe(false);
 	});
 });

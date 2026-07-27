@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 interface GetSSHKeyFormData extends InstanceClientIdConfig {
@@ -24,6 +25,7 @@ export function getSSHKeyQueryOptions(params: GetSSHKeyFormData) {
 	return queryOptions({
 		queryKey: [params.entityId, 'get_ssh_key', params.name] as const,
 		queryFn: () => getSSHKey(params),
-		refetchInterval: 10_000,
+		refetchInterval: pollUnlessForbidden(10_000),
+		retry: retryUnlessForbidden(),
 	});
 }

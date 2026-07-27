@@ -1,5 +1,6 @@
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getSearchByValue } from '@/integrations/api/instance/database/getSearchByValue';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 export interface ChallengeCertificate {
@@ -31,7 +32,10 @@ export function getChallengeCertificatesQueryOptions(clusterId?: string) {
 			return data;
 		},
 		enabled: !!clusterId,
-		refetchInterval: 5000,
+		// Same always-on shape as the 10s pollers: gated only on `clusterId`, so a
+		// user without access to the cluster's data 403s every 5s until they navigate.
+		refetchInterval: pollUnlessForbidden(5000),
+		retry: retryUnlessForbidden(),
 	});
 }
 

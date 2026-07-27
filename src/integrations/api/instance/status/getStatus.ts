@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export interface SystemStatus {
@@ -46,6 +46,10 @@ export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClie
 		// timer instead of re-asking every 10s (one such row emitted 348 doomed
 		// requests in under an hour).
 		refetchInterval: pollUnlessForbidden(10_000),
+		// Without this the default `retry: 3` would swallow the first three 403s into
+		// `failureReason`, so the poll above could not stop until ~30s (and 3 more
+		// doomed requests) later, given the 10s retryDelay.
+		retry: retryUnlessForbidden(),
 		retryDelay: 10_000,
 		throwOnError: false,
 		enabled,
