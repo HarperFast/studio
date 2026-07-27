@@ -50,7 +50,11 @@ test.describe('authenticated app', () => {
 		// broken query, API error) on exactly the page this spec exists to cover.
 		let saw403 = false;
 		page.on('response', (r) => {
-			if (r.status() === 403) { saw403 = true; }
+			// Scope to the org-users data fetch: GET /OrganizationRole/{orgId} — the page's ONLY suspense
+			// query (the user list is derived from its response). An unrelated 403 (telemetry, a
+			// feature-flag check, or the roles query's 10s refetch racing something else) must NOT flip
+			// this and mask a real render crash.
+			if (r.status() === 403 && r.url().includes('/OrganizationRole/')) { saw403 = true; }
 		});
 
 		await page.goto(`/#/${orgId}/users`);
