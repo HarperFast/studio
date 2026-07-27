@@ -1,12 +1,16 @@
 import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { LocalUser } from '@/integrations/api/api.patch';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getListUsersQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
 		queryKey: [entityId, 'list_users'] as const,
 		queryFn: () => getListUsers({ instanceClient }),
-		refetchInterval: 10_000,
+		// `list_users` is a superuser-only operation, so a read-only member sitting on
+		// the Users tab 403s on every tick — stop rather than poll it forever.
+		refetchInterval: pollUnlessForbidden(10_000),
+		retry: retryUnlessForbidden(),
 	});
 }
 

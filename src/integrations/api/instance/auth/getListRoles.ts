@@ -1,12 +1,15 @@
 import { InstanceClientConfig, InstanceClientIdConfig } from '@/config/instanceClientConfig';
 import { LocalRole } from '@/integrations/api/api.patch';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export function getListRolesQueryOptions({ entityId, instanceClient }: InstanceClientIdConfig) {
 	return queryOptions({
 		queryKey: [entityId, 'list_roles'] as const,
 		queryFn: () => getListRoles({ instanceClient }),
-		refetchInterval: 10_000,
+		// Superuser-only like `list_users` above — the same 403-forever shape.
+		refetchInterval: pollUnlessForbidden(10_000),
+		retry: retryUnlessForbidden(),
 	});
 }
 

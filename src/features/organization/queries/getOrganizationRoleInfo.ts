@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaRole } from '@/integrations/api/api.gen';
+import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export interface GetOrganizationRoleInfoResponse extends SchemaRole {
@@ -17,7 +18,8 @@ export function getOrganizationRoleInfoQueryOptions({
 	return queryOptions({
 		queryKey: [organizationId, 'roles', roleId] as const,
 		queryFn: () => getOrganizationRoleInfo(roleId),
-		refetchInterval: 10 * 1000,
+		refetchInterval: pollUnlessForbidden(10 * 1000),
+		retry: retryUnlessForbidden(),
 	});
 }
 

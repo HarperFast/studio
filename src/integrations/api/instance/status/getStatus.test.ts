@@ -6,6 +6,12 @@ import { getStatusQueryOptions, getSystemStatusById } from './getStatus';
 /** The subset of `Query` the `refetchInterval` callback reads. */
 type ErrorStateQuery = { state: { error: unknown } };
 
+function httpError(status: number): AxiosError {
+	const err = new AxiosError(`Request failed with status code ${status}`);
+	err.response = { status } as AxiosError['response'];
+	return err;
+}
+
 describe('getStatusQueryOptions polling', () => {
 	function refetchIntervalFor(error: unknown) {
 		const { refetchInterval } = getStatusQueryOptions({
@@ -18,11 +24,7 @@ describe('getStatusQueryOptions polling', () => {
 		return resolve({ state: { error } });
 	}
 
-	function axiosErrorWithStatus(status: number): AxiosError {
-		const err = new AxiosError(`Request failed with status code ${status}`);
-		err.response = { status } as AxiosError['response'];
-		return err;
-	}
+	const axiosErrorWithStatus = httpError;
 
 	it('polls every 10s while healthy', () => {
 		expect(refetchIntervalFor(null)).toBe(10_000);

@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { Organization } from '@/integrations/api/api.patch';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 // `useParams({ strict: false })` can yield `undefined`, and a navigation that
@@ -25,8 +26,10 @@ export function getOrganizationQueryOptions(orgId: string | undefined) {
 	return queryOptions({
 		queryKey: [orgId],
 		queryFn: () => getOrganization(orgId as string),
+		// `retry: false` already surfaces the error on the first failure, so the poll
+		// wrapper below sees a 403 immediately — no `retryUnlessForbidden` needed.
 		retry: false,
 		enabled: isValidOrganizationId(orgId),
-		refetchInterval: 10000,
+		refetchInterval: pollUnlessForbidden(10000),
 	});
 }

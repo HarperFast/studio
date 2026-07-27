@@ -45,3 +45,20 @@ export function isForbiddenError(err: unknown): boolean {
 export function pollUnlessForbidden(interval: number | false | undefined) {
 	return (query: QueryErrorState) => (isForbiddenError(query.state.error) ? false : (interval ?? false));
 }
+
+/**
+ * `retry` predicate that gives up immediately on 403 but otherwise keeps React
+ * Query's default retry count.
+ *
+ * Needed to make `pollUnlessForbidden` engage on the FIRST 403. `state.error` is
+ * only populated once retries are exhausted (until then the failure lives in
+ * `failureReason`), so on a query left at the default `retry: 3` the poll timer
+ * cannot see the 403 until three more doomed requests have gone out — ~30s later
+ * on a query that also sets `retryDelay: 10_000`.
+ *
+ * `failureCount < maxRetries` is exactly the semantics of the numeric form
+ * (`retry: 3`), so transient failures keep the retry behavior they had before.
+ */
+export function retryUnlessForbidden(maxRetries = 3) {
+	return (failureCount: number, error: unknown) => !isForbiddenError(error) && failureCount < maxRetries;
+}

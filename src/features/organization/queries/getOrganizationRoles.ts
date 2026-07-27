@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 async function getOrganizationRoles(organizationId: string): Promise<SchemaOrganizationRole[]> {
@@ -11,7 +12,9 @@ export function getOrganizationRolesQueryOptions(organizationId: string) {
 	return queryOptions({
 		queryKey: [organizationId, 'roles'],
 		queryFn: () => getOrganizationRoles(organizationId),
+		// `retry: false` surfaces the error immediately, so the wrapper sees a 403 on
+		// the first failure without a `retryUnlessForbidden` predicate.
 		retry: false,
-		refetchInterval: 10 * 1000, // 10 seconds
+		refetchInterval: pollUnlessForbidden(10 * 1000), // 10 seconds, until a 403
 	});
 }
