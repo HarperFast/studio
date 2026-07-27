@@ -32,7 +32,7 @@ import {
 } from '@/features/admin/notifications/mutations/useNotificationMutations';
 import { NotificationLink } from '@/features/notifications/components/NotificationLink';
 import { useNotifications } from '@/features/notifications/hooks';
-import { getSeverityConfig, toMs } from '@/features/notifications/notificationHelpers';
+import { getSeverityConfig, parseNotificationLink, toMs } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { ColumnDef } from '@tanstack/react-table';
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
@@ -241,11 +241,18 @@ function NotificationFormDialog({
 			setError('End time must be after start time.');
 			return;
 		}
+		// Validate the link with the same parser the UI renders with, so the form can't save a URL the
+		// notification would then silently drop (an unsafe scheme, or a typo'd `htp://…`).
+		const trimmedUrl = url.trim();
+		if (trimmedUrl && !parseNotificationLink(trimmedUrl)) {
+			setError('Link must be an http(s) URL, a mailto: address, or a path starting with “/”.');
+			return;
+		}
 
 		const draft: NotificationDraft = {
 			type,
 			message: trimmedMessage,
-			url: url.trim() || null,
+			url: trimmedUrl || null,
 			startAt: start,
 			endAt: end,
 		};

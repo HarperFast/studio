@@ -16,12 +16,23 @@ import { useMemo } from 'react';
 export const notificationAcksQueryKey = ['notification-acks'] as const;
 
 function readAcks(): string[] {
-	return getLocalStorage<string[]>(LocalStorageKeys.AckedNotificationIds, []);
+	// safeParse handles malformed JSON, but valid JSON of the wrong shape (e.g. `{}` from an unrelated
+	// writer) would flow through the cast and later throw "not iterable" in `[...]`/`new Set(...)`,
+	// taking down bell, banner, and center at once (all globally mounted). Validate the shape here.
+	const raw = getLocalStorage<unknown>(LocalStorageKeys.AckedNotificationIds, []);
+	return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [];
 }
 
 function writeAcks(ids: string[]): void {
-	setLocalStorage(LocalStorageKeys.AckedNotificationIds, ids);
+	// Update the in-memory cache first so the UI reacts even if persistence fails; then persist. A full
+	// localStorage (Safari private mode has thrown on first write) degrades to "ack didn't survive
+	// reload" rather than throwing out of an onClick and leaving the notice stuck on screen.
 	queryClient.setQueryData(notificationAcksQueryKey, ids);
+	try {
+		setLocalStorage(LocalStorageKeys.AckedNotificationIds, ids);
+	} catch (err) {
+		console.warn('[notifications] could not persist acknowledgements', err);
+	}
 }
 
 export function getNotificationAcksQueryOptions() {

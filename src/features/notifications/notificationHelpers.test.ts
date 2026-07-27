@@ -55,6 +55,12 @@ describe('isActive', () => {
 		expect(isActive(notification({ startAt: NOW - 1000, endAt: NOW + 1000 }), NOW)).toBe(true);
 		expect(isActive(notification({ startAt: NOW, endAt: NOW }), NOW)).toBe(true);
 	});
+
+	it('fails closed on an unparseable bound instead of treating it as open', () => {
+		// A bad endAt must NOT read as "never expires" — that would pin a stale notice on-screen forever.
+		expect(isActive(notification({ endAt: 'not-a-date' }), NOW)).toBe(false);
+		expect(isActive(notification({ startAt: 'garbage', endAt: null }), NOW)).toBe(false);
+	});
 });
 
 describe('getWindowStatus', () => {
@@ -63,6 +69,12 @@ describe('getWindowStatus', () => {
 		expect(getWindowStatus(notification({ endAt: NOW - 1000 }), NOW).state).toBe('expired');
 		expect(getWindowStatus(notification({ startAt: null, endAt: null }), NOW).state).toBe('active');
 		expect(getWindowStatus(notification({ endAt: NOW + 1000 }), NOW).label).toContain('Active until');
+	});
+
+	it('never labels an unreadable schedule as active', () => {
+		const status = getWindowStatus(notification({ endAt: 'not-a-date' }), NOW);
+		expect(status.state).toBe('expired');
+		expect(status.label).toBe('Schedule unavailable');
 	});
 });
 

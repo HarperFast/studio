@@ -7,14 +7,14 @@ import { useNotifications, useNow } from '@/features/notifications/hooks';
 import {
 	getSeverityConfig,
 	getWindowStatus,
-	type Severity,
+	SEVERITY_ORDER,
 	toMs,
 	type WindowState,
 } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
+import { useMemo } from 'react';
 
-const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 const STATE_ORDER: Record<WindowState, number> = { active: 0, upcoming: 1, expired: 2 };
 
 export function NotificationsCenter() {
@@ -22,20 +22,20 @@ export function NotificationsCenter() {
 	const acks = useNotificationAcks();
 	const now = useNow();
 
-	const notifications = data ?? [];
-	const sorted = [...notifications].sort((a, b) => {
-		const stateA = STATE_ORDER[getWindowStatus(a, now).state];
-		const stateB = STATE_ORDER[getWindowStatus(b, now).state];
-		if (stateA !== stateB) { return stateA - stateB; }
-		const severityDelta = SEVERITY_ORDER[getSeverityConfig(a.type).severity]
-			- SEVERITY_ORDER[getSeverityConfig(b.type).severity];
-		if (severityDelta !== 0) { return severityDelta; }
-		// Most recently ending first within a group. Use MAX_SAFE_INTEGER (not Infinity) as the
-		// open-ended fallback so two never-ending notices compare as 0, not NaN (unstable sort).
-		const endA = toMs(a.endAt) ?? Number.MAX_SAFE_INTEGER;
-		const endB = toMs(b.endAt) ?? Number.MAX_SAFE_INTEGER;
-		return endB - endA;
-	});
+	const sorted = useMemo(() =>
+		[...(data ?? [])].sort((a, b) => {
+			const stateA = STATE_ORDER[getWindowStatus(a, now).state];
+			const stateB = STATE_ORDER[getWindowStatus(b, now).state];
+			if (stateA !== stateB) { return stateA - stateB; }
+			const severityDelta = SEVERITY_ORDER[getSeverityConfig(a.type).severity]
+				- SEVERITY_ORDER[getSeverityConfig(b.type).severity];
+			if (severityDelta !== 0) { return severityDelta; }
+			// Most recently ending first within a group. Use MAX_SAFE_INTEGER (not Infinity) as the
+			// open-ended fallback so two never-ending notices compare as 0, not NaN (unstable sort).
+			const endA = toMs(a.endAt) ?? Number.MAX_SAFE_INTEGER;
+			const endB = toMs(b.endAt) ?? Number.MAX_SAFE_INTEGER;
+			return endB - endA;
+		}), [data, now]);
 
 	return (
 		<div className="mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
