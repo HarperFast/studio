@@ -1,5 +1,5 @@
-import type * as Monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
-import { createTokenizationSupport } from 'monaco-editor/esm/vs/language/json/tokenization.js';
+import type * as Monaco from 'monaco-editor/editor';
+import { createTokenizationSupport } from 'monaco-editor/languages/features/json/tokenization.js';
 
 /**
  * Language id for a JSON editor that highlights but never spins up a language

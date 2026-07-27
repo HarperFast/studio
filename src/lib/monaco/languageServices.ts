@@ -4,20 +4,16 @@
  *
  * monaco-editor 0.55 moved these defaults off the `monaco.languages` namespace
  * — now deprecated no-op stubs on the `editor.api` entry — to top-level
- * `typescript` / `json` namespaces. Those fully-typed namespaces are exported
- * only from the package's main entry (`monaco-editor`), which bundles all ~90
- * languages and so is off-limits here (it would defeat the curated build; see
- * `./setup`). The per-language contribution modules we *do* import expose the
- * very same singletons as ESM named exports — but ship empty (`export {}`) type
- * declarations.
+ * `typescript` / `json` namespaces. The package's main entry (`monaco-editor`)
+ * re-exports those namespaces, but it also bundles all ~90 languages, so it is
+ * off-limits here (it would defeat the curated build; see `./setup`).
  *
- * So: take the runtime values from the contribution modules (pulling in no extra
- * languages) and borrow the real types from the main entry via a type-only query
- * (erased at build — zero bundle cost). The two casts below are the single seam
- * where curated runtime meets full types.
+ * 0.56 made that a non-problem: each language feature now has its own public
+ * `register` entry point that exports the very same singletons *with* real type
+ * declarations — so this is a plain re-export, pulling in no extra languages.
+ * These are the same modules `./setup` imports for their registration side
+ * effects; naming them once here keeps the "don't reach for the main entry"
+ * rationale in one place.
  */
-import * as jsonContribution from 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
-import * as typescriptContribution from 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
-
-export const typescript = typescriptContribution as unknown as typeof import('monaco-editor').typescript;
-export const json = jsonContribution as unknown as typeof import('monaco-editor').json;
+export * as json from 'monaco-editor/languages/features/json/register';
+export * as typescript from 'monaco-editor/languages/features/typescript/register';

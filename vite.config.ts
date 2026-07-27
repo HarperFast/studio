@@ -20,28 +20,45 @@ import { defineConfig, type Plugin } from 'vite';
  * "Missing requestHandler or method: <getFoldingRanges|findDocumentSymbols|findLinks|doValidation|getCodeAction>".
  *
  * Monaco's own language workers (css/json/html/ts) sidestep this by importing the
- * identical `initialize` from `monaco-editor/esm/vs/common/initialize.js`, which has no
+ * identical `initialize` from `monaco-editor/internal/common/initialize.js`, which has no
  * such side effect. We rewrite monaco-worker-manager's import to point there too. This is
  * the only consumer of `editor.worker.js`'s `initialize` re-export; the default editor
  * worker still imports `editor.worker.js` directly and keeps its (correct) empty module.
+ *
+ * As of monaco-editor 0.56 the rewrite is load-bearing for a second reason: the package's
+ * new `exports` map re-roots everything at `esm/vs`, so monaco-worker-manager's hard-coded
+ * `monaco-editor/esm/vs/…` specifier no longer resolves at all (it would double the prefix).
+ * 0.56 also guards the empty-module boot behind `isWorkerInitialized()`, but that flag is
+ * only set once monaco's `initialize` has run — which for monaco-worker-manager happens on
+ * the first message, i.e. after the race window — so the workaround still stands on its own.
  *
  * Done at build time rather than via a node_modules patch because the install is shared
  * across git worktrees. monaco-worker-manager is unmaintained at 2.0.1 (no upstream fix).
  * The transform throws if the expected import disappears so a dependency bump can't
  * silently reintroduce the bug.
+ *
+ * Registered in BOTH `plugins` and `worker.plugins` because the two commands reach worker
+ * modules through different pipelines: `vite build` bundles each worker with `worker.plugins`
+ * only, while `vite dev` serves `?worker_file` modules through the main pipeline, where only
+ * the top-level `plugins` run. Registering just one of them leaves the other command broken
+ * — and under 0.56 that is a hard "Failed to resolve import" for the whole YAML worker, not
+ * the subtle provider-drop of #1376. Only one copy matches per command (the main graph never
+ * contains monaco-worker-manager), and the transform is idempotent regardless.
  */
 function fixMonacoYamlWorkerInit(): Plugin {
-	// Allow a trailing query (e.g. Vite's `?v=…` dep-optimizer hash) so the match
-	// isn't silently skipped when the module id carries one.
+	// Allow a trailing query (e.g. Vite's `?v=…` cache hash) so the match isn't
+	// silently skipped when the module id carries one.
 	const TARGET = /monaco-worker-manager\/worker\.js(?:\?|$)/;
 	const FROM = 'monaco-editor/esm/vs/editor/editor.worker.js';
-	const TO = 'monaco-editor/esm/vs/common/initialize.js';
+	const TO = 'monaco-editor/internal/common/initialize.js';
 	return {
 		name: 'fix-monaco-yaml-worker-init',
 		enforce: 'pre',
 		transform(code, id) {
 			if (!TARGET.test(id.replace(/\\/g, '/'))) { return null; }
 			if (!code.includes(FROM)) {
+				// Already rewritten (both plugin registrations saw this module) — leave it be.
+				if (code.includes(TO)) { return null; }
 				throw new Error(
 					`[fix-monaco-yaml-worker-init] Expected import of "${FROM}" in monaco-worker-manager/worker.js `
 						+ 'was not found — the package changed. Re-verify whether studio#1376 (empty-foreign-module '
@@ -63,7 +80,9 @@ const PUBLIC_ENV_MODES = new Set(['dev', 'stage', 'prod', 'localstudio']);
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
 	envDir: PUBLIC_ENV_MODES.has(mode) ? path.resolve(__dirname, '.github/deploy-public-env') : undefined,
-	plugins: [react(), tailwindcss()],
+	// `fixMonacoYamlWorkerInit` is also in `worker.plugins` below; see its doc comment for
+	// why it has to be registered in both places.
+	plugins: [react(), tailwindcss(), fixMonacoYamlWorkerInit()],
 	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
 	// modules; the default 'iife' worker format breaks them. `plugins` here applies to the
 	// worker bundles specifically — Vite does not run the top-level `plugins` against them
@@ -92,12 +111,13 @@ export default defineConfig(({ mode }) => ({
 		sourcemap: true,
 		// Every chunk on the initial critical path is now well under 500 kB. The
 		// chunks that exceed it are all loaded on demand — the Monaco editor core
-		// (~2.2 MB, lazy <MonacoEditor>), swagger-ui (API docs route) and mermaid
+		// (~2.7 MB, lazy <MonacoEditor>), swagger-ui (API docs route) and mermaid
 		// (markdown diagrams) — and can't be split further without loading them all
 		// anyway. Monaco's language workers are larger still but run off-thread and
 		// don't count toward this limit. Raise the threshold above the largest of
-		// these so the warning only fires on genuinely new bloat.
-		chunkSizeWarningLimit: 2500,
+		// these so the warning only fires on genuinely new bloat. (monaco-editor
+		// 0.56 grew the editor core from ~2.2 MB to ~2.7 MB.)
+		chunkSizeWarningLimit: 2800,
 		rollupOptions: {
 			external: ['**/*.test.*', '**/*.spec.*'],
 			output: {
