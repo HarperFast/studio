@@ -1,6 +1,6 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
-import { fmtBytes, fmtCount, fmtHours, UsageMeter, UsageMetric } from '@/features/cluster/components/UsageMeter';
-import { ClusterUsage, usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
+import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
+import { ClusterUsageRegion, usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
 import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { humanFileSize } from '@/lib/humanFileSize';
 import { useParams } from '@tanstack/react-router';
@@ -22,28 +22,25 @@ export function UsagePage() {
 				)
 				: data?.selfManaged
 				? <Empty>Usage isn't tracked for self-hosted clusters — they run under their own license.</Empty>
-				: !data?.totals
+				: !data || data.regions.length === 0
 				? <Empty>No usage has been recorded for the current cycle yet.</Empty>
-				: <UsageContent data={data} />}
+				: (
+					<>
+						<p className="mt-1 text-sm text-muted-foreground">{usageSubtitle(data)}</p>
+						{/* Quota is enforced per region — each region is its own set of meters. */}
+						{data.regions.map((region) => (
+							<RegionSection key={region.region ?? region.regionIds.join()} region={region} />
+						))}
+					</>
+				)}
 		</ClusterContentWithSubNavMenu>
 	);
 }
 
-function UsageContent({ data }: { data: ClusterUsage }) {
-	const t = data.totals;
-	if (!t) { return null; }
-	const metered: UsageMetric[] = [
-		{ label: 'Reads', used: t.reads.used, limit: t.reads.limit, format: fmtCount },
-		{ label: 'Read data', used: t.readBytes.used, limit: t.readBytes.limit, format: fmtBytes },
-		{ label: 'Writes', used: t.writes.used, limit: t.writes.limit, format: fmtCount },
-		{ label: 'Write data', used: t.writeBytes.used, limit: t.writeBytes.limit, format: fmtBytes },
-		{ label: 'Real-time messages', used: t.realTimeMessages.used, limit: t.realTimeMessages.limit, format: fmtCount },
-		{ label: 'Real-time data', used: t.realTimeBytes.used, limit: t.realTimeBytes.limit, format: fmtBytes },
-		{ label: 'Compute', used: t.cpuTimeHours.used, limit: t.cpuTimeHours.limit, format: fmtHours },
-		{ label: 'Storage', used: t.storageBytes.used, limit: t.storageBytes.limit, format: fmtBytes },
-	];
+function RegionSection({ region }: { region: ClusterUsageRegion }) {
+	const meters = METERED_ORDER.map((key) => toMeter(key, region.metrics[key]));
 
-	const rl = data.regions[0]?.rateLimits;
+	const rl = region.rateLimits;
 	const rateRows = rl
 		? rowsFrom([
 			['Reads / minute', rl.readsPerMinute, addCommasToNumbers],
@@ -53,7 +50,7 @@ function UsageContent({ data }: { data: ClusterUsage }) {
 		])
 		: [];
 
-	const rpi = data.regions[0]?.resourcesPerInstance;
+	const rpi = region.resourcesPerInstance;
 	const perInstanceRows = rpi
 		? rowsFrom([
 			['Storage', rpi.storageGb, (n) => `${addCommasToNumbers(n)} GB`],
@@ -64,34 +61,48 @@ function UsageContent({ data }: { data: ClusterUsage }) {
 		: [];
 
 	return (
-		<>
-			<p className="mt-1 text-sm text-muted-foreground">{usageSubtitle(data)}</p>
+		<section className="mt-8 border-t border-border/60 pt-6 first:border-t-0 first:pt-0">
+			<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+				<h2 className="text-base font-medium text-foreground">{region.region ?? 'Region'}</h2>
+				{region.exhausted && (
+					<span className="rounded-full bg-yellow/10 px-2 py-0.5 text-[11px] text-yellow">Cycle exhausted</span>
+				)}
+			</div>
+			<p className="mt-0.5 mb-4 text-xs text-muted-foreground">
+				{[
+					region.planName ? `${region.planName} plan` : null,
+					region.exhausted
+						? 'consumed — awaiting renewal'
+						: region.expiresAt
+						? `renews ${fmtDate(region.expiresAt)}`
+						: null,
+				].filter(Boolean).join(' · ')}
+			</p>
 
-			<Section
-				title="This cycle"
-				subtitle="Consumption against your plan's allotment. Renews (and re-bills) when full."
-			>
-				<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
-					{metered.map((m) => <UsageMeter key={m.label} {...m} />)}
-				</div>
-			</Section>
+			<div className="grid grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2">
+				{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
+			</div>
 
 			{rateRows.length > 0 && (
-				<Section
+				<SubSection
 					title="Rate limits"
-					subtitle="Throughput ceilings — not part of the cycle allotment, and not currently metered."
+					subtitle="Throughput ceilings — not part of the cycle allotment, and not metered."
 				>
 					<InfoGrid rows={rateRows} />
-				</Section>
+				</SubSection>
 			)}
 
 			{perInstanceRows.length > 0 && (
-				<Section title="Per-instance resources" subtitle="Provisioned capacity on each instance.">
+				<SubSection title="Per-instance resources" subtitle="Provisioned capacity on each instance.">
 					<InfoGrid rows={perInstanceRows} />
-				</Section>
+				</SubSection>
 			)}
-		</>
+		</section>
 	);
+}
+
+function fmtDate(iso: string): string {
+	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
 
 // Build label/value rows, dropping any metric the plan didn't declare (null/undefined).
@@ -107,13 +118,13 @@ function Empty({ children }: { children: ReactNode }) {
 	return <p className="mt-3 text-sm text-muted-foreground">{children}</p>;
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+function SubSection({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
 	return (
-		<section className="mt-8">
-			<h2 className="text-sm font-medium text-foreground">{title}</h2>
-			<p className="mt-0.5 mb-4 text-xs text-muted-foreground">{subtitle}</p>
+		<div className="mt-6">
+			<h3 className="text-sm font-medium text-foreground">{title}</h3>
+			<p className="mt-0.5 mb-3 text-xs text-muted-foreground">{subtitle}</p>
 			{children}
-		</section>
+		</div>
 	);
 }
 
