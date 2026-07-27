@@ -35,8 +35,13 @@ export function errorHandler(rawErr: unknown) {
 	// queries can timeout in parallel and stack up identical toasts; collapse
 	// them onto a single id so the user sees one instead of a wall.
 	const isTimeout = axiosWrappedErr?.code === 'ECONNABORTED' || axiosWrappedErr?.code === 'ETIMEDOUT';
+	// Same collapse for 403s. `pollUnlessForbidden` stops polls that 403, but other
+	// repeat sources remain (route preloads and background queries firing while
+	// signed out, #1546), and a permission failure repeated N times is still one
+	// thing for the user to know.
+	const isForbidden = axiosWrappedErr?.response?.status === 403;
 	toast.error(errorTitle, {
-		id: isTimeout ? 'request-timeout' : undefined,
+		id: isTimeout ? 'request-timeout' : isForbidden ? 'request-forbidden' : undefined,
 		description: errorMsg,
 		action: {
 			label: 'Dismiss',
