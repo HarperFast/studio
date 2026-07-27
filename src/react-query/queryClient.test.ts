@@ -182,4 +182,29 @@ describe('errorHandler', () => {
 			expect.objectContaining({ description: '{"code":500}' }),
 		);
 	});
+
+	it('collapses repeated 403s onto one toast id (RUM 2026-07-27)', () => {
+		const forbidden = {
+			response: { status: 403, data: 'Forbidden' },
+		} as AxiosError<string>;
+
+		errorHandler(forbidden);
+		errorHandler(forbidden);
+
+		// A stable id means sonner replaces the toast instead of stacking — one
+		// session produced 525 of these in under an hour before polling was capped.
+		expect(toast.error).toHaveBeenCalledTimes(2);
+		for (const call of (toast.error as unknown as { mock: { calls: unknown[][] } }).mock.calls) {
+			expect(call[1]).toEqual(expect.objectContaining({ id: 'request-forbidden' }));
+		}
+	});
+
+	it('leaves non-403, non-timeout errors un-collapsed so distinct failures all show', () => {
+		errorHandler({ response: { status: 500, data: 'Server Error' } } as AxiosError<string>);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'Error',
+			expect.objectContaining({ id: undefined }),
+		);
+	});
 });

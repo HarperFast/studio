@@ -1,5 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/integrations/api/api.patch';
+import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
@@ -14,10 +15,14 @@ export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?:
 		retry: false,
 		staleTime: 1_900,
 		enabled: !!clusterId,
-		refetchInterval: refetch
-			? refetch === true
-				? 10_000
-				: refetch
-			: undefined,
+		// A cluster the user can't read answers 403 on every poll — stop the timer
+		// rather than retrying it every 10s for the life of the page.
+		refetchInterval: pollUnlessForbidden(
+			refetch
+				? refetch === true
+					? 10_000
+					: refetch
+				: undefined,
+		),
 	});
 }
