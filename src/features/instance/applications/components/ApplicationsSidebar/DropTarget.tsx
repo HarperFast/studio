@@ -40,10 +40,16 @@ export function DropTarget() {
 		currentDirectory = parts[parts.length - (currentPathIsDirectory ? 1 : 2)];
 	}
 
+	// react-dropzone 19 types `onDrop`'s first argument as `<T extends File>`, so a handler that
+	// declares the narrower `FileWithPath[]` no longer satisfies the contract. The runtime value is
+	// still `FileWithPath[]`: react-dropzone reads every drop/selection through file-selector's
+	// `fromEvent`, which defines `path` and `relativePath` on each file (falling back to
+	// `./<name>` when the browser reports no relative path). So widen at the boundary, narrow here.
 	const onUploadDrop = useCallback(async (
-		rawAcceptedFiles: FileWithPath[],
+		acceptedFiles: File[],
 		rawRejectedFiles: FileRejection[],
 	) => {
+		const rawAcceptedFiles = acceptedFiles as FileWithPath[];
 		const dragItemId = dragTarget?.getAttribute?.('data-rct-item-id')?.split?.('/');
 		const targetProject = dragItemId?.length ? dragItemId[0] : canUpload ? currentProject : false;
 		const targetPath = dragItemId?.length ? dragItemId.slice(1).join('/') : canUpload ? currentPath : false;
