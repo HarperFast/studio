@@ -2,11 +2,17 @@ import { apiClient } from '@/config/apiClient';
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 // Response of central-manager's GET /Cluster/:id/usage (HarperFast/central-manager#503).
-// `limit === null` means the plan allows unlimited (server sends -1, or the limit is unknown).
+// Quota is enforced per region, so per-region `metrics` are the real meters; `totals` carries absolute
+// consumption only (no cluster-wide ceiling), and `mostConstrained` is the single tightest region×metric.
 
 export interface UsageValue {
 	used: number;
+	/** null when `unlimited` OR `!limitKnown` */
 	limit: number | null;
+	/** plan grants no ceiling (server sentinel -1) */
+	unlimited: boolean;
+	/** false when the plan couldn't be resolved — render "—", never "Unlimited" */
+	limitKnown: boolean;
 }
 
 export interface UsageMetrics {
@@ -19,6 +25,8 @@ export interface UsageMetrics {
 	cpuTimeHours: UsageValue;
 	storageBytes: UsageValue;
 }
+
+export type UsageMetricKey = keyof UsageMetrics;
 
 export interface UsageRateLimits {
 	readsPerMinute: number | null;
@@ -40,24 +48,35 @@ export interface UsageResourcesPerInstance {
 }
 
 export interface ClusterUsageRegion {
-	regionId: string | null;
 	region: string | null;
+	regionIds: string[];
 	planId: string | null;
 	planName: string | null;
 	planLevel: number | null;
 	expiresAt: string | null;
-	blockCount: number;
+	exhausted: boolean;
+	activeBlockCount: number;
+	exhaustedBlockCount: number;
 	metrics: UsageMetrics;
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
 
+export interface MostConstrained {
+	metric: UsageMetricKey;
+	region: string | null;
+	regionIds: string[];
+	used: number;
+	limit: number;
+	utilization: number;
+}
+
 export interface ClusterUsage {
 	clusterId: string;
 	selfManaged: boolean;
-	asOf: string | null;
 	renewsAt: string | null;
 	totals: UsageMetrics | null;
+	mostConstrained: MostConstrained | null;
 	regions: ClusterUsageRegion[];
 }
 
@@ -79,25 +98,15 @@ export function useClusterUsage(clusterId?: string) {
 	return useQuery(getClusterUsageQueryOptions(clusterId));
 }
 
-/** "Standard plan · this cycle renews Aug 12 · updated 4 minutes ago" — shared by the card + tab. */
+/** "Standard plan · renews Aug 12" — shared by the card + tab. */
 export function usageSubtitle(data: ClusterUsage): string {
 	const planName = data.regions[0]?.planName;
 	return [
 		planName ? `${planName} plan` : null,
-		data.renewsAt ? `this cycle renews ${formatCycleDate(data.renewsAt)}` : null,
-		data.asOf ? `updated ${formatAgo(data.asOf)}` : null,
+		data.renewsAt ? `renews ${formatCycleDate(data.renewsAt)}` : null,
 	].filter(Boolean).join(' · ');
 }
 
 function formatCycleDate(iso: string): string {
 	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
-}
-
-function formatAgo(iso: string): string {
-	const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-	const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-	if (Math.abs(minutes) < 60) { return rtf.format(-minutes, 'minute'); }
-	const hours = Math.round(minutes / 60);
-	if (Math.abs(hours) < 24) { return rtf.format(-hours, 'hour'); }
-	return rtf.format(-Math.round(hours / 24), 'day');
 }

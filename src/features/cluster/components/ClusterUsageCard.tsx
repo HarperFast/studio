@@ -1,27 +1,19 @@
-import { fmtBytes, fmtCount, fmtHours, UsageMeter, UsageMetric } from '@/features/cluster/components/UsageMeter';
-import { usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
+import { METRIC_LABEL, toMeter, UsageMeter, UsageMetric } from '@/features/cluster/components/UsageMeter';
+import { ClusterUsage, usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
 
-// Plan-usage summary on the managed cluster overview (issue #1297). Framing is "used X of Y this
-// cycle": purchased blocks auto-renew and re-bill on exhaustion for paid tiers, while for the free
-// tier the same bar doubles as the hard-limit warning. Shows only the four headline metrics; the
-// full breakdown lives on the Usage tab.
+// Plan-usage summary on the managed cluster overview (issue #1297). Quota is per region, so:
+//   • one region  → the four headline meters for that region.
+//   • many regions → the single most-constrained region×metric (an average would hide a hot region),
+//     with the full per-region breakdown a click away on the Usage tab.
 
 export function ClusterUsageCard({ clusterId, base }: { clusterId: string; base: string }) {
 	const { data } = useClusterUsage(clusterId);
 
-	// Nothing to show until there's an active plan with recorded usage (also covers loading, errors,
-	// and self-hosted clusters, which report no totals).
-	if (!data || data.selfManaged || !data.totals) { return null; }
-
-	const { totals } = data;
-	const metrics: UsageMetric[] = [
-		{ label: 'Reads', used: totals.reads.used, limit: totals.reads.limit, format: fmtCount },
-		{ label: 'Writes', used: totals.writes.used, limit: totals.writes.limit, format: fmtCount },
-		{ label: 'Storage', used: totals.storageBytes.used, limit: totals.storageBytes.limit, format: fmtBytes },
-		{ label: 'Compute', used: totals.cpuTimeHours.used, limit: totals.cpuTimeHours.limit, format: fmtHours },
-	];
+	// Nothing to show until there's a managed plan with reportable regions (also covers loading, errors,
+	// and self-hosted clusters).
+	if (!data || data.selfManaged || data.regions.length === 0) { return null; }
 
 	return (
 		<section className="mt-6 rounded-2xl border border-border bg-card p-5">
@@ -36,9 +28,50 @@ export function ClusterUsageCard({ clusterId, base }: { clusterId: string; base:
 			</div>
 			<p className="mt-0.5 text-xs text-muted-foreground">{usageSubtitle(data)}</p>
 
-			<div className="mt-4 grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
-				{metrics.map((m) => <UsageMeter key={m.label} {...m} />)}
+			<div className="mt-4">
+				{data.regions.length === 1 ? <SingleRegion data={data} /> : <MultiRegion data={data} />}
 			</div>
 		</section>
+	);
+}
+
+function SingleRegion({ data }: { data: ClusterUsage }) {
+	const m = data.regions[0].metrics;
+	const meters: UsageMetric[] = [
+		toMeter('reads', m.reads),
+		toMeter('writes', m.writes),
+		toMeter('storageBytes', m.storageBytes),
+		toMeter('cpuTimeHours', m.cpuTimeHours),
+	];
+	return (
+		<div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+			{meters.map((meter) => <UsageMeter key={meter.label} {...meter} />)}
+		</div>
+	);
+}
+
+function MultiRegion({ data }: { data: ClusterUsage }) {
+	const mc = data.mostConstrained;
+	return (
+		<div>
+			<p className="mb-3 text-xs text-muted-foreground">
+				{data.regions.length} regions — usage is metered per region.
+			</p>
+			{mc
+				? (
+					<UsageMeter
+						{...toMeter(
+							mc.metric,
+							{ used: mc.used, limit: mc.limit, unlimited: false, limitKnown: true },
+							`Most constrained · ${mc.region} ${METRIC_LABEL[mc.metric]}`,
+						)}
+					/>
+				)
+				: (
+					<p className="text-sm text-muted-foreground">
+						No metered limits on the current plan — see the breakdown for details.
+					</p>
+				)}
+		</div>
 	);
 }
