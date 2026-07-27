@@ -54,13 +54,16 @@ export interface ClusterUsageRegion {
 	planName: string | null;
 	planLevel: number | null;
 	expiresAt: string | null;
-	exhausted: boolean;
+	/** active = live quota; exhausted = burned through (re-billing); lapsed = expired/not-renewed */
+	status: 'active' | 'exhausted' | 'lapsed';
 	activeBlockCount: number;
-	exhaustedBlockCount: number;
 	metrics: UsageMetrics;
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
+
+/** Absolute consumption summed across regions — no ceiling of any kind. */
+export type UsageTotals = Record<UsageMetricKey, { used: number }>;
 
 export interface MostConstrained {
 	metric: UsageMetricKey;
@@ -75,7 +78,7 @@ export interface ClusterUsage {
 	clusterId: string;
 	selfManaged: boolean;
 	renewsAt: string | null;
-	totals: UsageMetrics | null;
+	totals: UsageTotals | null;
 	mostConstrained: MostConstrained | null;
 	regions: ClusterUsageRegion[];
 }

@@ -54,16 +54,14 @@ function MultiRegion({ data }: { data: ClusterUsage }) {
 	const mc = data.mostConstrained;
 	return (
 		<div>
-			<p className="mb-3 text-xs text-muted-foreground">
-				{data.regions.length} regions — usage is metered per region.
-			</p>
+			<p className="mb-1.5 text-xs text-muted-foreground">Most constrained of {data.regions.length} regions</p>
 			{mc
 				? (
 					<UsageMeter
 						{...toMeter(
 							mc.metric,
 							{ used: mc.used, limit: mc.limit, unlimited: false, limitKnown: true },
-							`Most constrained · ${mc.region} ${METRIC_LABEL[mc.metric]}`,
+							`${mc.region} · ${METRIC_LABEL[mc.metric]}`,
 						)}
 					/>
 				)
