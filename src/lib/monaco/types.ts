@@ -3,15 +3,16 @@
  *
  * `@monaco-editor/react` types its `onMount`/`beforeMount` `monaco` argument
  * (`Parameters<OnMount>[1]`) as `typeof import('monaco-editor/esm/vs/editor/editor.api')`.
- * In monaco-editor 0.55 that bare, extensionless specifier no longer resolves to
- * type declarations under `moduleResolution: 'bundler'` — the package's new
- * `exports` map only matches concrete file paths — so `Parameters<OnMount>[1]`
- * silently collapses to `any`, taking every Monaco-typed callback down with it.
+ * monaco-editor 0.56 added an `exports` map that re-roots the package at
+ * `esm/vs`, so that specifier no longer resolves at all (it would have to be
+ * `monaco-editor/editor/editor.api.js` now) — and with `skipLibCheck` the
+ * unresolved import silently collapses `Parameters<OnMount>[1]` to `any`, taking
+ * every Monaco-typed callback down with it.
  *
- * Pointing at the extension-qualified path restores the real types, and is also
- * the accurate runtime shape: Monaco hands us the `editor.api` namespace, not the
- * all-languages main entry. (The TS/JSON language-service defaults — moved to the
- * top-level namespaces only the main entry exposes — are reached through
+ * Pointing at the package's own `monaco-editor/editor` entry restores the real
+ * types, and is also the accurate runtime shape: Monaco hands us the editor API
+ * namespace, not the all-languages main entry. (The TS/JSON language-service
+ * defaults, which only the main entry re-exports, are reached through
  * `./languageServices`, not this type.)
  */
-export type Monaco = typeof import('monaco-editor/esm/vs/editor/editor.api.js');
+export type Monaco = typeof import('monaco-editor/editor');

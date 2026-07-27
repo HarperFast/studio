@@ -4,7 +4,7 @@ import type { WorkerFreeJsonMonaco } from './workerFreeJsonLanguage';
 // Stub Monaco's JSON tokenizer so the test doesn't pull in the editor runtime;
 // we only care that it is handed to `setTokensProvider`.
 const tokensProvider = { getInitialState: () => null, tokenize: () => ({ tokens: [], endState: null }) };
-vi.mock('monaco-editor/esm/vs/language/json/tokenization.js', () => ({
+vi.mock('monaco-editor/languages/features/json/tokenization.js', () => ({
 	createTokenizationSupport: () => tokensProvider,
 }));
 
