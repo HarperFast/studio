@@ -186,6 +186,38 @@ describe('UsagePage', () => {
 		expect(screen.getByText(/No usage has been recorded/)).toBeTruthy();
 	});
 
+	it('distinguishes a failed fetch from an empty cycle', () => {
+		mockUseClusterUsage.mockReturnValue({ data: undefined, isLoading: false, isError: true });
+		render(<UsagePage />);
+		expect(screen.getByRole('alert').textContent).toMatch(/Couldn't load usage data/);
+		// "No usage recorded" on a billing surface would read as a zero bill.
+		expect(screen.queryByText(/No usage has been recorded/)).toBeNull();
+	});
+
+	it('also flags the paused-retry case, where isLoading and isError are both false', () => {
+		// react-query parks an offline retry at pending/paused, so neither flag is set and there's
+		// no data — reached against stage by failing the request. Must not read as an empty cycle.
+		mockUseClusterUsage.mockReturnValue({ data: undefined, isLoading: false, isError: false });
+		render(<UsagePage />);
+		expect(screen.getByRole('alert').textContent).toMatch(/Couldn't load usage data/);
+		expect(screen.queryByText(/No usage has been recorded/)).toBeNull();
+	});
+
+	it('still calls an actually-empty cycle empty', () => {
+		// Data arrived and genuinely reports no regions — that IS "nothing used yet", not a failure.
+		mockUseClusterUsage.mockReturnValue({ data: usage({ regions: [] }), isLoading: false });
+		render(<UsagePage />);
+		expect(screen.getByText(/No usage has been recorded/)).toBeTruthy();
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('keeps showing cached usage when a background refetch fails', () => {
+		mockUseClusterUsage.mockReturnValue({ data: usage(), isLoading: false, isError: true });
+		render(<UsagePage />);
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(screen.getAllByText('Compute').length).toBe(1);
+	});
+
 	it('shows a spinner while loading', () => {
 		mockUseClusterUsage.mockReturnValue({ data: undefined, isLoading: true });
 		const { container } = render(<UsagePage />);

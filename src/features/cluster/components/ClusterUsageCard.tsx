@@ -61,7 +61,9 @@ function MultiRegion({ data }: { data: ClusterUsage }) {
 						{...toMeter(
 							mc.metric,
 							{ used: mc.used, limit: mc.limit, unlimited: false, limitKnown: true },
-							`${mc.region} · ${METRIC_LABEL[mc.metric]}`,
+							// `region` is nullable on the endpoint — fall back the same way the Usage tab does
+							// rather than interpolating a literal "null" into a customer-facing label.
+							`${mc.region ?? 'Region'} · ${METRIC_LABEL[mc.metric]}`,
 						)}
 					/>
 				)
