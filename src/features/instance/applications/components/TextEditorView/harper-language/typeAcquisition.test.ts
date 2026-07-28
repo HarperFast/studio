@@ -174,47 +174,46 @@ describe('findAcquirableSpecifiers', () => {
 		});
 	});
 
-	// The clause match is lazy, so an attempt that can never succeed walks toward
-	// end-of-input — and every later `import`/`export` walks it again. That is
-	// quadratic, and it runs on the main thread: `acquireApplicationTypes` scans every
-	// project script joined together, and ata re-scans every downloaded `.d.ts`.
-	// Neither needs a hostile file, just an unterminated comment from a mid-edit save
-	// or a truncated CDN response.
+	// An attempt that can never succeed must not walk toward end-of-input, because
+	// every later `import`/`export` walks it again — that is quadratic, on the main
+	// thread. `acquireApplicationTypes` scans every project script joined together and
+	// ata re-scans every downloaded `.d.ts`, and neither needs a hostile file: a
+	// mid-edit save with an open block comment or a truncated CDN response will do.
 	//
-	// Wall-clock assertions, because the bound in the scanner is the only thing that
-	// makes these finish. Measured on these exact inputs: every case lands in
-	// 218-305ms bounded, against 7.5s-22s with the bound removed — so the budget below
-	// leaves ~10x headroom for a slow machine while still being an order of magnitude
-	// under the regression it exists to catch. The last two shapes need no comments at
-	// all; they were already quadratic before comments were admitted, at ~2.5s.
-	const LINEAR_SCAN_BUDGET_MS = 3000;
+	// These assert the *bound* rather than wall-clock time, deliberately. Timing can't
+	// discriminate here: CI runs with `--coverage`, and V8 instruments this scanner's
+	// per-character walk while leaving a regex's work inside the engine uninstrumented
+	// — 310ms locally became 4.5s under coverage and 18.7s on CI, so any budget loose
+	// enough to be portable is too loose to catch the regression. Every case below is
+	// instead a behavioural difference that appears the moment the length bound goes.
+	//
+	// One gap worth knowing about: swapping `indexOfWithin`/`indexOfPairWithin` for a
+	// plain `indexOf` is *not* observable here, because the length bound rejects the
+	// clause either way and only the scan cost changes. Those helpers carry the reason
+	// they exist in their own doc comment; nothing below will catch their removal.
+	describe('bounds the clause so a failed match cannot scan the file', () => {
+		const overBound = 'exportedName, '.repeat(400); // ~5.6 KB, past MAX_IMPORT_CLAUSE
 
-	describe('stays linear on input no match can consume', () => {
-		it.each([
-			['unterminated block comment', 'import /* unterminated\n'.repeat(32_000)],
-			['unterminated block comment, no newlines', 'import /* unterminated '.repeat(32_000)],
-			['line comment at the end of a truncated file', 'import a\n'.repeat(32_000) + 'import // truncated'],
-			['a long run of clause-legal characters', 'import a '.repeat(32_000)],
-		])('%s', (_label, code) => {
-			expect(code.length).toBeGreaterThan(250_000);
-			const startedAt = performance.now();
+		it('does not resolve a clause longer than the bound', () => {
+			expect(findAcquirableSpecifiers(`export { ${overBound} } from 'lodash'`)).toEqual([]);
+		});
+
+		it('does not let a block comment close beyond the bound', () => {
+			const code = `import /* unterminated\n${'filler '.repeat(800)}\n*/ from 'lodash'`;
+			expect(code.length).toBeGreaterThan(5000);
 			expect(findAcquirableSpecifiers(code)).toEqual([]);
-			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
 		});
 
-		it('still finds every import in a file of that size that does match', () => {
-			const code = `import { a } from 'react'\n`.repeat(32_000);
-			const startedAt = performance.now();
-			expect(findAcquirableSpecifiers(code)).toHaveLength(32_000);
-			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
+		it('does not let a line comment reach a `from` beyond the bound', () => {
+			const code = `import { a } // why\n${'filler '.repeat(800)}\nfrom 'lodash'`;
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
 		});
 
-		// Every comment below is large and properly terminated, so nothing here is
-		// malformed — the clause just never resolves. Expressing it as a bounded
-		// quantifier made this throw `RangeError: Maximum call stack size exceeded`,
-		// because V8 accumulated a backtracking frame per repetition. Anything that
-		// throws out of the scanner aborts acquisition for every source in the pass, so
-		// these assert a return value rather than merely "does not hang".
+		// Every comment here is large and properly terminated — nothing is malformed, the
+		// clause just never resolves. Bounding the clause with a `{0,n}` quantifier made
+		// this throw `RangeError: Maximum call stack size exceeded`, because V8 keeps a
+		// backtracking frame per repetition. A throw is worse than a slow scan: it aborts
+		// acquisition for every source joined into the pass, so these pin the return value.
 		it.each([
 			['a long run of large terminated comments', 1400, ' nofrom\n'],
 			['the same run followed by a real `from`', 1600, ` from 'react'`],
@@ -222,9 +221,23 @@ describe('findAcquirableSpecifiers', () => {
 			const bigComment = `/*${'x'.repeat(4090)}*/`;
 			const code = `import ${bigComment.repeat(count)}${tail}`;
 			expect(code.length).toBeGreaterThan(5_000_000);
-			const startedAt = performance.now();
 			expect(findAcquirableSpecifiers(code)).toEqual([]);
-			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
 		});
+
+		// A canary for an outright hang, not a budget: the timeout is the assertion, and
+		// it is loose enough to survive coverage instrumentation on slow CI hardware.
+		it.each([
+			['unterminated block comment', 'import /* unterminated\n'.repeat(8_000)],
+			['unterminated block comment, no newlines', 'import /* unterminated '.repeat(8_000)],
+			['line comment at the end of a truncated file', 'import a\n'.repeat(8_000) + 'import // truncated'],
+			['a long run of clause-legal characters', 'import a '.repeat(8_000)],
+		])('completes on a large file of %s', (_label, code) => {
+			expect(code.length).toBeGreaterThan(60_000);
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		}, 30_000);
+
+		it('still finds every import in a file that large which does match', () => {
+			expect(findAcquirableSpecifiers(`import { a } from 'react'\n`.repeat(8_000))).toHaveLength(8_000);
+		}, 30_000);
 	});
 });
