@@ -16,7 +16,7 @@ context that holds real credentials, email, and network egress.**
 | Target    | Deployed dev app (`PLAYWRIGHT_BASE_URL`)    | A sandboxed build of the PR            |
 | LLM role  | Triages failures only                       | Reads diff, adapts/adds tests          |
 | Creds     | Disposable test account                     | Burnable throwaway; **no live email**  |
-| Isolation | Can run on host                             | Container + egress allowlist           |
+| Isolation | Sandboxed (container + egress allowlist)    | Container + egress allowlist           |
 | Output    | Failure → issue/PR you review               | Proposed test diffs → PR **you** merge |
 
 The **control plane** that runs these lanes autonomously — the trusted-lane scheduler
@@ -98,11 +98,14 @@ docker compose run --rm e2e pnpm update-snapshots   # regenerate, then review th
 ```
 e2e/
   playwright.config.ts   projects: setup (login) → authed; anon (no session)
-  auth.setup.ts          logs in via UI once, saves cookie storageState
   tests/
+    auth.setup.ts            logs in via UI once, saves cookie storageState
     sign-in.anon.spec.ts     sign-in page render + validation + visual baseline
-    verifying.anon.spec.ts   email-verification screens (no inbox needed yet)
+    verifying.anon.spec.ts   email-verification screens
+    signup-verification.anon.spec.ts  full signup → email → verify → login round-trip
     org-users.authed.spec.ts app shell + org users list (needs a test account)
+    mail.ts                  Mailosaur wrapper (controlled inbox)
+    testData.ts              shared fixtures
   Dockerfile / docker-compose.yml / .dockerignore
   .env.e2e.example         copy to .env.e2e (gitignored)
 ```
@@ -133,8 +136,9 @@ Two operational gotchas:
   unless the email domain matches the `ALLOWLIST_EMAIL_DOMAINS` Configuration record. The
   Mailosaur server domain (or a Mailosaur custom domain under an already-allowlisted domain)
   must be in that list, or the test skips itself with a pointer.
-- **Account churn.** Each run creates a real account on the target env. Before wiring into a
-  daily loop, add a cleanup story (backend test-account purge) or a dedicated throwaway tenant.
+- **Account churn.** Each run creates a real account on the target env; the spec self-deletes it in
+  a `finally` (see `deleteThrowawayAccount`). A failure before login has no session to delete, so
+  the odd account can still leak — worth an occasional sweep.
 
 ## Roadmap
 
@@ -149,3 +153,15 @@ Next, here in the specs:
 
 1. **Resend-invite** — seed a `PENDING` org user fixture, assert the detail-modal flow.
 2. **More coverage** — broaden beyond auth/org-users as the flows the lanes protect grow.
+
+## Skips are deliberate, and narrow
+
+A monitor that skips is a monitor that lies. These specs fail rather than skip when a prerequisite
+they were _given_ stops working:
+
+- **Unresolvable organization** → failure (a broken post-login redirect or org picker looks exactly
+  like "no org"). Opt out with `E2E_ALLOW_NO_ORG=1` for an account that genuinely has none.
+- **Signup 403** → failure (as likely an authz/WAF regression as the email-domain gate). Opt out
+  with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`.
+
+Neither variable is set by the automated lanes, which additionally fail the run if _any_ spec skips.

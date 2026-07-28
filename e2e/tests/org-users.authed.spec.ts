@@ -38,11 +38,24 @@ test.describe('authenticated app', () => {
 	});
 
 	test('org users list renders with the expected columns', async ({ page }) => {
+		// An unresolvable org used to skip. But resolveOrgId returns null for ANY failure to observe
+		// one — a broken single-org redirect, an org picker that stopped rendering, a failing orgs
+		// query — i.e. exactly the regressions this spec exists to catch, silently turned green. The
+		// account IS configured (the describe skips otherwise), so treat it as a failure. Local dev
+		// against an account that genuinely has no org can opt out.
 		const orgId = await resolveOrgId(page);
-		test.skip(
-			!orgId,
-			'No accessible organization for this account — add it to an org, or set PLAYWRIGHT_ORG_ID.',
-		);
+		if (!orgId) {
+			test.skip(
+				!!process.env.E2E_ALLOW_NO_ORG,
+				'No organization resolved and E2E_ALLOW_NO_ORG is set — treating this account as org-less.',
+			);
+			throw new Error(
+				'Could not resolve an organization for this account within 15s: no single-org redirect and '
+					+ 'no org link on the picker. That is usually a regression in post-login landing or the org '
+					+ 'picker — not a missing org. Pin PLAYWRIGHT_ORG_ID, or set E2E_ALLOW_NO_ORG=1 if this '
+					+ 'account genuinely belongs to no organization.',
+			);
+		}
 
 		// Watch for a 403 during the org-users load. That — NOT the generic error boundary — is the
 		// real "no permission" signal. The app's `Component Error` boundary renders for ANY uncaught

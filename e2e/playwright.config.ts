@@ -69,7 +69,10 @@ export default defineConfig({
 		{
 			name: 'setup',
 			testMatch: /auth\.setup\.ts$/,
-			use: { ...devices['Desktop Chrome'] },
+			// Traces and video record `fill()` arguments, and this project types the real test-account
+			// password — a failed login would persist it in a trace zip that redaction cannot scrub.
+			// Its failure message is self-explanatory without them.
+			use: { ...devices['Desktop Chrome'], trace: 'off', video: 'off' },
 		},
 		// 2. Flows that must start UNAUTHENTICATED (sign-in page, validation errors,
 		//    unverified-login -> verification). No stored session.
