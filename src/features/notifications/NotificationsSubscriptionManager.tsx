@@ -7,6 +7,10 @@ import { useEffect } from 'react';
 // auth rejection, a CM restart loop, an edge dropping non-conforming upgrades) reconnect-storm forever.
 const HEALTHY_SESSION_MS = 10_000;
 const MAX_BACKOFF_MS = 30_000;
+// Floor between connect attempts triggered by `online`. Browsers fire that event on real interface
+// transitions, but captive-portal/VPN churn can emit a burst — without this, each one would start a
+// socket at the same instant and sidestep the backoff entirely.
+const ONLINE_REARM_MIN_MS = 2_000;
 
 /**
  * Subscribes to central-manager's `SystemStatus` table over Harper's automatic WebSocket endpoint and
@@ -21,8 +25,10 @@ const MAX_BACKOFF_MS = 30_000;
  *
  * Resilience: we cap the *backoff* (not the number of attempts) and keep retrying, so a transient
  * network blip can't strand the tab on the 60s poll backstop for the rest of the session. `failures`
- * only resets after a healthy session (see above), and we reconnect immediately when the browser fires
- * `online`. Mounted once from the cloud root (StudioCloud), which never unmounts.
+ * only resets after a healthy session (see above); an `online` event skips the remaining wait but keeps
+ * the escalation intact. Mounted once from the cloud root (StudioCloud), which never unmounts.
+ *
+ * Covered by NotificationsSubscriptionManager.test.tsx (fake timers + a stub WebSocket).
  */
 export function NotificationsSubscriptionManager() {
 	useEffect(() => {
@@ -36,6 +42,7 @@ export function NotificationsSubscriptionManager() {
 		let failures = 0;
 		let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 		let healthyTimer: ReturnType<typeof setTimeout> | undefined;
+		let lastAttemptAt = 0;
 
 		const clearHealthyTimer = () => {
 			if (healthyTimer) {
@@ -60,6 +67,7 @@ export function NotificationsSubscriptionManager() {
 
 		function connect() {
 			if (cancelled) { return; }
+			lastAttemptAt = Date.now();
 			let sock: WebSocket;
 			try {
 				sock = new WebSocket(url);
@@ -89,11 +97,14 @@ export function NotificationsSubscriptionManager() {
 			};
 		}
 
-		// Connectivity came back — reconnect now instead of waiting out the backoff.
+		// Connectivity came back — retry now instead of waiting out the remaining backoff. Deliberately
+		// does NOT reset `failures`: skipping ahead is fine, but a burst of `online` events must not
+		// unwind the escalation, or this becomes an unbounded-connect path of its own. The floor below
+		// collapses such a burst into a single attempt.
 		const onOnline = () => {
 			if (cancelled || socket) { return; }
+			if (Date.now() - lastAttemptAt < ONLINE_REARM_MIN_MS) { return; }
 			if (reconnectTimer) { clearTimeout(reconnectTimer); }
-			failures = 0;
 			connect();
 		};
 		window.addEventListener('online', onOnline);
