@@ -55,6 +55,17 @@ const NODE_BUILTINS = new Set([
 ]);
 const ASSET_OR_DATA = /\.(svg|png|jpe?g|gif|webp|avif|ico|bmp|css|scss|sass|less|json|wasm|txt|md|html)$/i;
 
+/**
+ * npm's package-name grammar: an optional `@scope/`, the name itself, then an
+ * optional deep-import subpath (`lodash/fp`, `react-dom/client`). Anchored and
+ * whitespace-free, so a phrase lifted out of prose can never satisfy it. Matched
+ * case-insensitively because a few legacy packages (`JSONStream`, `Base64`)
+ * predate npm's lowercase-only rule.
+ */
+const NPM_SPECIFIER = /^(?:@[a-z0-9\-~][a-z0-9\-._~]*\/)?[a-z0-9\-~][a-z0-9\-._~]*(?:\/[a-z0-9\-._~/]+)?$/i;
+/** npm's hard limit on a package name; also bounds what we're willing to send to the CDN. */
+const MAX_SPECIFIER_LENGTH = 214;
+
 /** A bare npm specifier we want real `@types` for — not relative, alias, asset, Harper, or node builtin. */
 function isAcquirablePackage(specifier: string): boolean {
 	if (!specifier || specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('@/')) {
@@ -63,12 +74,47 @@ function isAcquirablePackage(specifier: string): boolean {
 	if (specifier === 'harper' || specifier === 'harperdb' || specifier.startsWith('node:')) {
 		return false;
 	}
-	return !NODE_BUILTINS.has(specifier) && !ASSET_OR_DATA.test(specifier);
+	if (NODE_BUILTINS.has(specifier) || ASSET_OR_DATA.test(specifier)) {
+		return false;
+	}
+	// Every specifier that gets past here becomes a cross-origin request to
+	// data.jsdelivr.com, so it must actually be able to name a package. The scanner
+	// below is a regex, not a parser, and anything it over-matches out of a comment
+	// or a SQL/GraphQL template literal would otherwise be sent verbatim to the CDN
+	// — leaking user-authored strings (table and type names) off-origin for a
+	// guaranteed 404. (HarperFast/studio: daily RUM review, 2026-07-28.)
+	return specifier.length <= MAX_SPECIFIER_LENGTH && NPM_SPECIFIER.test(specifier);
 }
 
+/**
+ * The clause between `import`/`export` and `from` — identifiers, braces, commas,
+ * `*`, `as`, and whitespace (newlines included, so multi-line named imports still
+ * match). Deliberately excludes `=`, `/`, `:`, `(`, `)`, and backticks: none can
+ * appear in a real import clause, and admitting them let the lazy match run past
+ * the end of a statement to reach a `from "…"` sitting in a following comment,
+ * SQL string, or GraphQL block — which is how `Known Fraudster Risk` reached
+ * jsDelivr as a package name.
+ */
 const IMPORT_SPECIFIER =
-	/(?:import|export)\b[^'";]*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
+	/(?:import|export)\b[\w$\s{},*]*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
 const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
+
+/**
+ * Every acquirable npm specifier the scanner finds in `code`, in source order.
+ * Exported for tests: this is the one step that decides which names become
+ * requests to jsDelivr, and it is a regex over arbitrary user code rather than a
+ * real parser, so its over-match behaviour is what needs pinning down.
+ */
+export function findAcquirableSpecifiers(code: string): string[] {
+	const found: string[] = [];
+	for (const match of code.matchAll(IMPORT_SPECIFIER)) {
+		const specifier = match[1] ?? match[2] ?? match[3];
+		if (specifier && isAcquirablePackage(specifier)) {
+			found.push(specifier);
+		}
+	}
+	return found;
+}
 
 /**
  * Minimal stand-in for the sliver of `typescript` that `@typescript/ata` uses:
