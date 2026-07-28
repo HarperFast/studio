@@ -208,5 +208,23 @@ describe('findAcquirableSpecifiers', () => {
 			expect(findAcquirableSpecifiers(code)).toHaveLength(32_000);
 			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
 		});
+
+		// Every comment below is large and properly terminated, so nothing here is
+		// malformed — the clause just never resolves. Expressing it as a bounded
+		// quantifier made this throw `RangeError: Maximum call stack size exceeded`,
+		// because V8 accumulated a backtracking frame per repetition. Anything that
+		// throws out of the scanner aborts acquisition for every source in the pass, so
+		// these assert a return value rather than merely "does not hang".
+		it.each([
+			['a long run of large terminated comments', 1400, ' nofrom\n'],
+			['the same run followed by a real `from`', 1600, ` from 'react'`],
+		])('%s', (_label, count, tail) => {
+			const bigComment = `/*${'x'.repeat(4090)}*/`;
+			const code = `import ${bigComment.repeat(count)}${tail}`;
+			expect(code.length).toBeGreaterThan(5_000_000);
+			const startedAt = performance.now();
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
+		});
 	});
 });
