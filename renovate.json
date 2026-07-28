@@ -21,8 +21,11 @@
 			"pinDigests": true
 		},
 		{
-			"matchPackageNames": [
-				"@fastify/static"
+			"description": "@fastify/static majors are pinned to fastify majors; the deploy template aliases both builds (fastify4-static/fastify5-static) and the CM picks at runtime. matchDepNames so the npm aliases are muted too.",
+			"matchDepNames": [
+				"@fastify/static",
+				"fastify4-static",
+				"fastify5-static"
 			],
 			"enabled": false
 		},

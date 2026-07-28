@@ -7,7 +7,11 @@ import { join } from 'path';
 // to CMs on both, so pick the plugin build matching the running server. Collapse back to a
 // single @fastify/static dependency once every CM is on Harper 5.x.
 export default async (fastify) => {
-	const fastifyStatic = (fastify.version && Number.parseInt(fastify.version, 10) >= 5) ? fastifyStatic5 : fastifyStatic4;
+	const major = Number.parseInt(fastify.version, 10);
+	// Fail closed: Harper's autoloader swallows plugin registration errors, so a silently
+	// mismatched pick would only surface as a 500 on the studio root at request time.
+	if (major !== 4 && major !== 5) throw new Error(`No @fastify/static build for fastify ${fastify.version}`);
+	const fastifyStatic = major === 5 ? fastifyStatic5 : fastifyStatic4;
 
 	fastify.register(fastifyStatic, {
 		root: join(import.meta.dirname, '../web'),
