@@ -46,8 +46,8 @@ test.describe('authenticated app', () => {
 		const orgId = await resolveOrgId(page);
 		if (!orgId) {
 			test.skip(
-				!!process.env.E2E_ALLOW_NO_ORG,
-				'No organization resolved and E2E_ALLOW_NO_ORG is set — treating this account as org-less.',
+				process.env.E2E_ALLOW_NO_ORG === '1',
+				'No organization resolved and E2E_ALLOW_NO_ORG=1 — treating this account as org-less.',
 			);
 			throw new Error(
 				'Could not resolve an organization for this account within 15s: no single-org redirect and '
