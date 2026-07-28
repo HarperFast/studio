@@ -1,5 +1,6 @@
 {
 	"dependencies": {
-		"@fastify/static": "^7.0.4"
+		"fastify4-static": "npm:@fastify/static@^7.0.4",
+		"fastify5-static": "npm:@fastify/static@^8.2.0"
 	}
 }
