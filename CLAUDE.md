@@ -122,6 +122,22 @@ To drive a Radix dropdown/menu (e.g. `src/components/ui/dropdownMenu.tsx`) in js
 
 Working example: `src/features/instance/databases/components/PickColumnsDropdown.test.tsx`.
 
+## Live central-manager data — WebSocket works, SSE is swallowed at the edge
+
+Harper exposes every table for subscription over SSE _and_ WebSocket, but the edge in front of
+central-manager **buffers `text/event-stream`**: `GET /SystemStatus/` with
+`Accept: text/event-stream` against stage returns **0 bytes** until the connection closes, so an
+`EventSource` never sees an event and the feature looks silently broken. The WebSocket upgrade to
+`wss://<cm-host>/<Table>` passes straight through (**HTTP 101**) to Harper's table subscription and
+delivers deltas normally (verified against stage, Jul 2026).
+
+So reach for `WebSocket`, not `EventSource`, for any live central-manager data. Public-read tables
+upgrade **anonymously**, which is what lets a global notice render for signed-out users. Reference
+implementation: `src/features/notifications/NotificationsSubscriptionManager.tsx` — its file comment
+carries the reconnect/backoff reasoning, and it keeps a slow `refetchInterval` poll as a backstop,
+which is worth copying: an edge that accepts-then-drops the upgrade otherwise leaves the tab with no
+data path at all.
+
 ## Browse — relationship/computed attributes vary by Harper version
 
 `@relationship` and `@computed` attributes are read-only: Harper rejects any insert/update
