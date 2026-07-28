@@ -4,9 +4,11 @@ import { expect, type Page, test } from '@playwright/test';
  * Authenticated lane — the app shell after login and the org-users list.
  * Uses the stored session from auth.setup.ts (the `authed` project).
  *
- * Skips cleanly when no test account is configured, and when the account has no
- * accessible org / can't view org users on the target environment — so a data
- * difference between environments is a skip, not a red failure.
+ * SKIP CONTRACT: skips only for things this environment genuinely does not have — no test account
+ * configured, or a real 403 on the org-users fetch (the account lacks users-view). Everything else
+ * FAILS, including an org that cannot be resolved: that is far more often a regression in the
+ * post-login redirect / org picker / orgs query than an account with no org. Deliberate opt-outs
+ * (`E2E_ALLOW_NO_ORG=1`) exist for local dev and are never set by the automated lanes.
  */
 const hasCreds = Boolean(process.env.PLAYWRIGHT_USER_EMAIL && process.env.PLAYWRIGHT_USER_PASSWORD);
 
@@ -108,10 +110,13 @@ test.describe('authenticated app', () => {
  * from the post-login landing: either a single-org redirect (`/#/` → `/#/<orgId>`) or the
  * first org-card link on the picker.
  *
- * The account's orgs load ASYNCHRONOUSLY into the picker, so we POLL for either signal
- * rather than reading the DOM once — under parallel load the org-card link can appear after
- * `networkidle`, which otherwise produced a flaky "no org" skip. Returns null only if nothing
- * shows up within the window (account truly has no accessible org → the spec skips).
+ * The account's orgs load ASYNCHRONOUSLY into the picker, so we POLL for either signal rather than
+ * reading the DOM once — under parallel load the org-card link can appear after `networkidle`.
+ *
+ * `null` is AMBIGUOUS and must not be read as "this account has no org": it equally means the
+ * single-org redirect broke, the picker stopped rendering, or the orgs query failed — i.e. the
+ * regressions this spec exists to catch. This helper therefore reports "not observed" and leaves
+ * the verdict to the caller, which fails by default. Do not reintroduce a skip here.
  */
 async function resolveOrgId(page: Page): Promise<string | null> {
 	if (process.env.PLAYWRIGHT_ORG_ID) { return process.env.PLAYWRIGHT_ORG_ID; }
@@ -136,7 +141,8 @@ async function resolveOrgId(page: Page): Promise<string | null> {
 
 	// The account's orgs load ASYNCHRONOUSLY into the picker, so poll rather than reading once (under
 	// parallel load the org-card link can appear after `networkidle`). expect.poll auto-waits — no
-	// manual waitForTimeout anti-pattern; on timeout the account truly has no accessible org → null.
+	// manual waitForTimeout anti-pattern. A timeout means "no org observed in the window", which the
+	// caller treats as a failure unless explicitly told the account is org-less (see above).
 	let orgId: string | null = null;
 	try {
 		await expect.poll(async () => (orgId = await readOrgId()), {

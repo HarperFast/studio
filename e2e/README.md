@@ -135,7 +135,9 @@ Two operational gotchas:
 - **Signup is domain-allowlisted.** central-manager `User.allowCreate` rejects signup (403)
   unless the email domain matches the `ALLOWLIST_EMAIL_DOMAINS` Configuration record. The
   Mailosaur server domain (or a Mailosaur custom domain under an already-allowlisted domain)
-  must be in that list, or the test skips itself with a pointer.
+  must be in that list; otherwise the round-trip **fails** with a pointer to this, unless the
+  explicit escape hatch `E2E_ALLOW_SIGNUP_403_SKIP=1` is set (a 403 is at least as likely to be an
+  authz/WAF regression as a misconfigured allowlist, so failing is the safe default).
 - **Account churn.** Each run creates a real account on the target env; the spec self-deletes it in
   a `finally` (see `deleteThrowawayAccount`). A failure before login has no session to delete, so
   the odd account can still leak — worth an occasional sweep.
