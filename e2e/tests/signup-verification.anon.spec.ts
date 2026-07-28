@@ -25,7 +25,9 @@ test.describe('signup → email verification → login', () => {
 	test.skip(!mailConfigured, 'Mailosaur not configured (see e2e/.env.e2e).');
 
 	// Email delivery + verification is slower than a normal UI assertion.
-	test.setTimeout(120_000);
+	// Budget must exceed the sum of its own waits: 90s mail poll + three 30s navigations + the
+	// signup/login interactions. At 120s a slow-but-working delivery timed out and read as a failure.
+	test.setTimeout(210_000);
 
 	test.afterAll(async () => {
 		await deleteAllMail();
@@ -54,15 +56,25 @@ test.describe('signup → email verification → login', () => {
 				page.getByRole('button', { name: 'Sign Up For Free' }).click(),
 			]);
 
-			// Some environments gate signup to specific email domains (central-manager
-			// User.allowCreate → ALLOWLIST_EMAIL_DOMAINS). If the target hasn't allowlisted
-			// our Mailosaur server domain, skip rather than fail red — the test starts
-			// passing automatically once the domain is allowlisted.
-			test.skip(
-				signupResponse.status() === 403,
-				"Signup returned 403 — the target env's ALLOWLIST_EMAIL_DOMAINS doesn't include the Mailosaur "
-					+ 'server domain. Add it (or use a Mailosaur custom domain under an allowlisted domain) to enable this test.',
-			);
+			// A 403 here is AMBIGUOUS: it can be the target's email-domain gate (central-manager
+			// User.allowCreate → ALLOWLIST_EMAIL_DOMAINS not covering our Mailosaur domain), but it is
+			// at least as likely to be a real authz/WAF/rate-limit regression. Skipping on it — as this
+			// spec used to — makes the round-trip go permanently quiet the moment signup breaks, which
+			// is precisely when a monitor should shout. So: FAIL by default, and require an explicit
+			// opt-in for the known-misconfigured case (the monitored lanes never set it).
+			if (signupResponse.status() === 403) {
+				const detail = await signupResponse.text().catch(() => '');
+				test.skip(
+					!!process.env.E2E_ALLOW_SIGNUP_403_SKIP,
+					'Signup returned 403 and E2E_ALLOW_SIGNUP_403_SKIP is set — treating as the known '
+						+ `ALLOWLIST_EMAIL_DOMAINS gap. Server said: ${detail.slice(0, 200)}`,
+				);
+				throw new Error(
+					'Signup returned 403. If this is the email-domain allowlist, add the Mailosaur server '
+						+ "domain to the target's ALLOWLIST_EMAIL_DOMAINS (or set E2E_ALLOW_SIGNUP_403_SKIP=1 "
+						+ `to skip deliberately). Otherwise this is a signup regression. Server said: ${detail.slice(0, 300)}`,
+				);
+			}
 			expect(signupResponse.status(), 'POST /User/ (signup)').toBeLessThan(400);
 
 			// 2. Success routes to the "check your email" screen for this address.

@@ -11,4 +11,7 @@
  * real address on that inbox — flows that actually send/receive mail (the email
  * round-trip) will use it; render-only tests keep working with either value.
  */
-export const UNVERIFIED_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL ?? 'unverified@studio.test';
+// NOTE: `||`, not `??`. The documented config ships `PLAYWRIGHT_TEST_EMAIL=` (blank) so the mail
+// round-trip auto-generates a per-run address; `??` keeps that empty string, which would navigate
+// to `?email=` and silently exercise the no-email path instead of the unverified-email one.
+export const UNVERIFIED_EMAIL = process.env.PLAYWRIGHT_TEST_EMAIL || 'unverified@studio.test';
