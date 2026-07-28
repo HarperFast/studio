@@ -87,6 +87,29 @@ function isAcquirablePackage(specifier: string): boolean {
 }
 
 /**
+ * How far one import clause — including any single comment inside it — may extend
+ * before the scanner abandons the statement. Real clauses are nowhere close: the
+ * longest in this repo is 351 chars, and across ~13k declaration files in
+ * `node_modules` the longest is a 1.6 KB barrel re-export, so 4 KB leaves ample
+ * headroom. A clause past the bound just isn't acquired, the same degraded-but-safe
+ * outcome as any unacquired package.
+ *
+ * The bound is what keeps the scan linear, and it is load-bearing. The clause match
+ * is lazy, so without it every failed attempt runs to end-of-input and each
+ * `import`/`export` occurrence pays that again: an unterminated `/*` — a mid-edit
+ * save, a truncated CDN download — took ~22s on 719 KB, and a long run of
+ * clause-legal characters ~2.5s on 281 KB even before comments were admitted.
+ * Bounded, those same inputs scan in ~220-300ms, and real files in ~1ms. This file
+ * promises failures are swallowed so they "can never break editing"; a multi-second
+ * freeze of the main thread would break that promise even though nothing throws.
+ *
+ * A ceiling on `code.length` instead would not have fixed this — 281 KB is under any
+ * sane ceiling and still took seconds — and it would drop acquisition entirely for
+ * large but perfectly ordinary projects.
+ */
+const MAX_IMPORT_CLAUSE = 4096;
+
+/**
  * The clause between `import`/`export` and `from` — identifiers, braces, commas,
  * `*`, `as`, whitespace (newlines included, so multi-line named imports still
  * match), and comments, which are legal and common between the braces. Everything
@@ -101,11 +124,21 @@ function isAcquirablePackage(specifier: string): boolean {
  * pinning is the whole point — a plain `//[^\n]*` backtracks, so the matcher could
  * stop halfway through a comment and take the `from "…"` out of the rest of it,
  * reopening the leak on input as ordinary as `export { Dog }` followed by a
- * comment. Alternatives are disjoint on their first character (only `/` starts a
- * comment), so the repetition stays linear.
+ * comment. Every alternative is bounded by `MAX_IMPORT_CLAUSE`, including the
+ * comment bodies — an unterminated comment has no terminator to find, so an
+ * unbounded search for one is exactly what made this quadratic.
  */
-const IMPORT_SPECIFIER =
-	/(?:import|export)\b(?:[\w$\s{},*]|\/\/[^\n]*(?=\n|$)|\/\*(?:[^*]|\*(?!\/))*\*\/)*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
+const IMPORT_CLAUSE = String.raw`(?:`
+	+ String.raw`[\w$\s{},*]`
+	+ String.raw`|//[^\n]{0,${MAX_IMPORT_CLAUSE}}(?=\n|$)`
+	+ String.raw`|/\*(?:[^*]|\*(?!/)){0,${MAX_IMPORT_CLAUSE}}?\*/`
+	+ String.raw`){0,${MAX_IMPORT_CLAUSE}}?`;
+const IMPORT_SPECIFIER = new RegExp(
+	String.raw`(?:import|export)\b${IMPORT_CLAUSE}\bfrom\s*['"]([^'"]+)['"]`
+		+ String.raw`|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)`
+		+ String.raw`|import\s*['"]([^'"]+)['"]`,
+	'g',
+);
 const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
 
 /**

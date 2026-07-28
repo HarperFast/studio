@@ -43,8 +43,21 @@ describe('findAcquirableSpecifiers', () => {
 			['line comment between the clause and `from`', `import { useState } // why\nfrom 'react'`],
 			['comment before a type modifier', `import /* types only */ type { FC } from 'react'`],
 			['CRLF line endings around a comment', "import {\r\n\tuseState, // hooks\r\n} from 'react'"],
+			['multi-line jsdoc inside a named block', `import {\n\ta,\n\t/**\n\t * why\n\t */\n\tuseState,\n} from 'react'`],
 		])('%s', (_label, code) => {
 			expect(findAcquirableSpecifiers(code)).toEqual(['react']);
+		});
+
+		// The clause is bounded so a failed match stays cheap (see MAX_IMPORT_CLAUSE).
+		// The bound has to clear real code by a wide margin: the longest clause in this
+		// repo is 351 chars, and the longest across ~13k `node_modules` declaration
+		// files is a 1.6 KB barrel re-export, which is the shape measured here.
+		it('resolves a barrel re-export far larger than any in node_modules', () => {
+			const names = Array.from({ length: 200 }, (_, i) => `exportedName${i}`).join(', ');
+			const code = `export { ${names} } from './route.js'`;
+			expect(code.length).toBeGreaterThan(2800);
+			expect(findAcquirableSpecifiers(code)).toEqual([]); // relative, but it must still parse
+			expect(findAcquirableSpecifiers(`export { ${names} } from 'lodash'`)).toEqual(['lodash']);
 		});
 
 		it('finds every import in a realistic Harper resource file', () => {
@@ -158,6 +171,42 @@ describe('findAcquirableSpecifiers', () => {
 
 		it('still allows legacy mixed-case package names', () => {
 			expect(findAcquirableSpecifiers(`import JSONStream from 'JSONStream'`)).toEqual(['JSONStream']);
+		});
+	});
+
+	// The clause match is lazy, so an attempt that can never succeed walks toward
+	// end-of-input — and every later `import`/`export` walks it again. That is
+	// quadratic, and it runs on the main thread: `acquireApplicationTypes` scans every
+	// project script joined together, and ata re-scans every downloaded `.d.ts`.
+	// Neither needs a hostile file, just an unterminated comment from a mid-edit save
+	// or a truncated CDN response.
+	//
+	// Wall-clock assertions, because the bound in the scanner is the only thing that
+	// makes these finish. Measured on these exact inputs: every case lands in
+	// 218-305ms bounded, against 7.5s-22s with the bound removed — so the budget below
+	// leaves ~10x headroom for a slow machine while still being an order of magnitude
+	// under the regression it exists to catch. The last two shapes need no comments at
+	// all; they were already quadratic before comments were admitted, at ~2.5s.
+	const LINEAR_SCAN_BUDGET_MS = 3000;
+
+	describe('stays linear on input no match can consume', () => {
+		it.each([
+			['unterminated block comment', 'import /* unterminated\n'.repeat(32_000)],
+			['unterminated block comment, no newlines', 'import /* unterminated '.repeat(32_000)],
+			['line comment at the end of a truncated file', 'import a\n'.repeat(32_000) + 'import // truncated'],
+			['a long run of clause-legal characters', 'import a '.repeat(32_000)],
+		])('%s', (_label, code) => {
+			expect(code.length).toBeGreaterThan(250_000);
+			const startedAt = performance.now();
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
+		});
+
+		it('still finds every import in a file of that size that does match', () => {
+			const code = `import { a } from 'react'\n`.repeat(32_000);
+			const startedAt = performance.now();
+			expect(findAcquirableSpecifiers(code)).toHaveLength(32_000);
+			expect(performance.now() - startedAt).toBeLessThan(LINEAR_SCAN_BUDGET_MS);
 		});
 	});
 });
