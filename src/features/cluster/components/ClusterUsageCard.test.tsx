@@ -124,6 +124,26 @@ describe('ClusterUsageCard', () => {
 		expect(screen.queryByText('Compute')).toBeNull();
 	});
 
+	it('falls back to a generic region label when the most-constrained region is unnamed', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [region({ region: null }), region()],
+				mostConstrained: {
+					metric: 'reads',
+					region: null,
+					regionIds: ['us-1'],
+					used: 5_000_000,
+					limit: 10_000_000,
+					utilization: 0.5,
+				},
+			}),
+		});
+		renderCard();
+		expect(screen.getByText('Region · Reads')).toBeTruthy();
+		// Never interpolate the raw null into a customer-facing label.
+		expect(screen.queryByText(/null/)).toBeNull();
+	});
+
 	it('explains itself when a multi-region cluster has no metered ceiling', () => {
 		mockUseClusterUsage.mockReturnValue({
 			data: usage({ regions: [region({ region: 'Europe' }), region()], mostConstrained: null }),

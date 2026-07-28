@@ -34,9 +34,11 @@ export function UsagePage() {
 	return (
 		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
 			<h1 className="text-2xl font-light text-foreground">Usage</h1>
-			{data?.selfManaged
+			{!data
+				? <LoadError />
+				: data.selfManaged
 				? <Empty>Usage isn't tracked for self-hosted clusters — they run under their own license.</Empty>
-				: !data || data.regions.length === 0
+				: data.regions.length === 0
 				? <Empty>No usage has been recorded for the current cycle yet.</Empty>
 				: (
 					// Quota is enforced per region — each region is its own collapsible group of meters.
@@ -233,6 +235,23 @@ function rowsFrom(
 
 function Empty({ children }: { children: ReactNode }) {
 	return <p className="mt-3 text-sm text-muted-foreground">{children}</p>;
+}
+
+// Shown whenever loading finished and left us with no data at all. Keyed on `!data` rather than
+// `isError` on purpose: a failed fetch is only one way to get here — a retry paused because the
+// browser went offline leaves the query `pending`/`paused`, so `isLoading` and `isError` are BOTH
+// false with no data (observed against stage). Every one of those means "we couldn't load this",
+// and on a billing surface "no usage has been recorded" would instead read as a zero bill.
+// Because it keys on absent data, a failed *background* refetch still renders the cached numbers.
+function LoadError() {
+	return (
+		<div
+			role="alert"
+			className="mt-5 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+		>
+			Couldn't load usage data — refresh to try again.
+		</div>
+	);
 }
 
 function SubSection({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
