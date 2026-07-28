@@ -65,8 +65,8 @@ test.describe('signup → email verification → login', () => {
 			if (signupResponse.status() === 403) {
 				const detail = await signupResponse.text().catch(() => '');
 				test.skip(
-					!!process.env.E2E_ALLOW_SIGNUP_403_SKIP,
-					'Signup returned 403 and E2E_ALLOW_SIGNUP_403_SKIP is set — treating as the known '
+					process.env.E2E_ALLOW_SIGNUP_403_SKIP === '1',
+					'Signup returned 403 and E2E_ALLOW_SIGNUP_403_SKIP=1 — treating as the known '
 						+ `ALLOWLIST_EMAIL_DOMAINS gap. Server said: ${detail.slice(0, 200)}`,
 				);
 				throw new Error(
