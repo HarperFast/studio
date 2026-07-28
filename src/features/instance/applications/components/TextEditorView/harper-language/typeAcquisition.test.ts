@@ -174,6 +174,59 @@ describe('findAcquirableSpecifiers', () => {
 		});
 	});
 
+	// The root of what the RUM review found. Searching raw text for keywords meant
+	// ordinary English in a comment parsed as an import: `// we import rows from
+	// "customers"` sent a user's table name to jsDelivr. `customers` is a legal npm name,
+	// so nothing downstream can catch it — the fix is to not read non-code as code.
+	//
+	// Every specifier below is npm-shaped on purpose, so these fail unless the scanner is
+	// genuinely lexical. Each case also carries a real import, because "acquire nothing"
+	// would pass otherwise.
+	describe('does not read keywords out of comments or literals', () => {
+		it.each([
+			['a line comment', `// we import rows from "customers"\nimport { z } from 'zod'`],
+			['a block comment', `/* we import rows from "customers" */\nimport { z } from 'zod'`],
+			['a jsdoc block', `/**\n * we import rows from "customers"\n */\nimport { z } from 'zod'`],
+			['a single-quoted string', `const s = 'import rows from "customers"'\nimport { z } from 'zod'`],
+			['a double-quoted string', `const s = "import rows from 'customers'"\nimport { z } from 'zod'`],
+			['a template literal', 'const q = `import rows from "customers"`\nimport { z } from \'zod\''],
+			[
+				'a multi-line SQL template',
+				'const q = `\n\tselect *\n\timport rows from "customers"\n`\nimport { z } from \'zod\'',
+			],
+			['a regex literal', `const r = /import rows from "customers"/\nimport { z } from 'zod'`],
+			[
+				'a regex with a slash in a character class',
+				`const r = /[/]import x from "customers"/g\nimport { z } from 'zod'`,
+			],
+			['a require in a comment', `// const c = require("customers")\nimport { z } from 'zod'`],
+			[
+				'a nested template',
+				'const h = `<b>${xs.map((x) => `import y from "customers"`)}</b>`\nimport { z } from \'zod\'',
+			],
+		])('%s', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual(['zod']);
+		});
+
+		it.each([
+			['a property named import', `const x = obj.import\nimport { z } from 'zod'`],
+			['a key named require', `const o = { require: 1 }\nimport { z } from 'zod'`],
+		])('does not treat %s as a statement', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual(['zod']);
+		});
+
+		it('still scans a template substitution, which is real code', () => {
+			expect(findAcquirableSpecifiers('const m = `${await import("nanoid")}`')).toEqual(['nanoid']);
+		});
+
+		it('keeps working on half-typed code, where a real parser would reject the file', () => {
+			// ata scans on every keystroke; a lexer that throws here stops acquisition.
+			expect(findAcquirableSpecifiers(`import { z } from 'zod'\nimport { a } fr`)).toEqual(['zod']);
+			expect(findAcquirableSpecifiers(`import { z } from 'zod'\nconst s = 'unterminated`)).toEqual(['zod']);
+			expect(findAcquirableSpecifiers(`import { z } from 'zod'\n/* unterminated`)).toEqual(['zod']);
+		});
+	});
+
 	// An attempt that can never succeed must not walk toward end-of-input, because
 	// every later `import`/`export` walks it again — that is quadratic, on the main
 	// thread. `acquireApplicationTypes` scans every project script joined together and
@@ -207,6 +260,24 @@ describe('findAcquirableSpecifiers', () => {
 		it('does not let a line comment reach a `from` beyond the bound', () => {
 			const code = `import { a } // why\n${'filler '.repeat(800)}\nfrom 'lodash'`;
 			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		});
+
+		// The bound has to cover the whitespace run after `from` too, not just the clause:
+		// otherwise a `from` inside the bound reaches a quote arbitrarily far past it, and
+		// every keyword candidate rescans that same run.
+		it('does not resolve a `from` inside the bound whose quote is beyond it', () => {
+			const code = `import a from${' '.repeat(500_000)}'react'`;
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		});
+
+		it('does not rescan the same long tail once per keyword candidate', () => {
+			const code = `${'import '.repeat(500)}from${' '.repeat(500_000)}'react'`;
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		}, 30_000);
+
+		it('bounds the whitespace inside a call form too', () => {
+			expect(findAcquirableSpecifiers(`import(${' '.repeat(500_000)}'react')`)).toEqual([]);
+			expect(findAcquirableSpecifiers(`require(${' '.repeat(500_000)}'react')`)).toEqual([]);
 		});
 
 		// Every comment here is large and properly terminated — nothing is malformed, the
