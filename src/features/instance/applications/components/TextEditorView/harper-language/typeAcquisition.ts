@@ -87,75 +87,229 @@ function isAcquirablePackage(specifier: string): boolean {
 }
 
 /**
- * How far one import clause — including any single comment inside it — may extend
- * before the scanner abandons the statement. Real clauses are nowhere close: the
- * longest in this repo is 351 chars, and across ~13k declaration files in
+ * How many characters of one import clause the scanner reads before abandoning the
+ * statement — the whole clause, comments included. Real clauses are nowhere close:
+ * the longest in this repo is 351 chars, and across ~13k declaration files in
  * `node_modules` the longest is a 1.6 KB barrel re-export, so 4 KB leaves ample
  * headroom. A clause past the bound just isn't acquired, the same degraded-but-safe
  * outcome as any unacquired package.
  *
- * The bound is what keeps the scan linear, and it is load-bearing. The clause match
- * is lazy, so without it every failed attempt runs to end-of-input and each
- * `import`/`export` occurrence pays that again: an unterminated `/*` — a mid-edit
- * save, a truncated CDN download — took ~22s on 719 KB, and a long run of
- * clause-legal characters ~2.5s on 281 KB even before comments were admitted.
- * Bounded, those same inputs scan in ~220-300ms, and real files in ~1ms. This file
- * promises failures are swallowed so they "can never break editing"; a multi-second
- * freeze of the main thread would break that promise even though nothing throws.
+ * The bound is load-bearing, and it has to bound *characters*. `acquireApplicationTypes`
+ * scans every project script joined together and ata re-scans every downloaded
+ * `.d.ts`, so a clause that can never resolve has to cost the same whether the file
+ * is 4 KB or 6 MB. An unterminated `/*` — a mid-edit save, a truncated CDN response —
+ * has no terminator to find, and hunting for one to end-of-input, once per
+ * `import`/`export` occurrence, is quadratic: 719 KB of that took ~22s on the main
+ * thread. Bounded, it scans in ~200ms, and real files in ~1ms.
  *
- * A ceiling on `code.length` instead would not have fixed this — 281 KB is under any
- * sane ceiling and still took seconds — and it would drop acquisition entirely for
- * large but perfectly ordinary projects.
+ * A ceiling on `code.length` instead would not have fixed it: 281 KB of clause-legal
+ * characters is under any sane ceiling and still took ~2.5s, and a ceiling would drop
+ * acquisition entirely for large but perfectly ordinary projects.
  */
 const MAX_IMPORT_CLAUSE = 4096;
 
+const SLASH = 0x2f, STAR = 0x2a, NEWLINE = 0x0a, SINGLE_QUOTE = 0x27, DOUBLE_QUOTE = 0x22;
+const OPEN_PAREN = 0x28, CLOSE_PAREN = 0x29, OPEN_BRACE = 0x7b, CLOSE_BRACE = 0x7d, COMMA = 0x2c;
+
+/** `\w` plus `$` — what a clause keyword or imported binding is spelled with. */
+function isIdentifierChar(charCode: number): boolean {
+	return (charCode >= 0x61 && charCode <= 0x7a) // a-z
+		|| (charCode >= 0x41 && charCode <= 0x5a) // A-Z
+		|| (charCode >= 0x30 && charCode <= 0x39) // 0-9
+		|| charCode === 0x5f // _
+		|| charCode === 0x24; // $
+}
+
+/** Everything `\s` matches, so multi-line and oddly-spaced imports behave as before. */
+function isWhitespace(charCode: number): boolean {
+	return charCode === 0x20
+		|| (charCode >= 0x09 && charCode <= 0x0d)
+		|| charCode === 0xa0
+		|| charCode === 0xfeff
+		|| (charCode >= 0x2000 && charCode <= 0x200a)
+		|| charCode === 0x2028
+		|| charCode === 0x2029
+		|| charCode === 0x3000;
+}
+
+function skipWhitespace(code: string, at: number, limit: number): number {
+	let next = at;
+	while (next < limit && isWhitespace(code.charCodeAt(next))) {
+		next++;
+	}
+	return next;
+}
+
+/** `indexOf`, but it never looks past `limit` — an unbounded terminator search is what went quadratic. */
+function indexOfWithin(code: string, charCode: number, at: number, limit: number): number {
+	for (let next = at; next < limit; next++) {
+		if (code.charCodeAt(next) === charCode) {
+			return next;
+		}
+	}
+	return -1;
+}
+
+function indexOfPairWithin(code: string, first: number, second: number, at: number, limit: number): number {
+	for (let next = at; next + 1 < limit; next++) {
+		if (code.charCodeAt(next) === first && code.charCodeAt(next + 1) === second) {
+			return next;
+		}
+	}
+	return -1;
+}
+
+/** A specifier the scanner found, plus the span ata's `preProcessFile` reports for it. */
+interface ScannedSpecifier {
+	specifier: string;
+	pos: number;
+	end: number;
+}
+
 /**
- * The clause between `import`/`export` and `from` — identifiers, braces, commas,
- * `*`, `as`, whitespace (newlines included, so multi-line named imports still
- * match), and comments, which are legal and common between the braces. Everything
- * else is excluded: `=`, `:`, `(`, `)`, backticks, and a bare `/` cannot appear in
- * a real import clause, and admitting them let the lazy match run past the end of
- * a statement to reach a `from "…"` sitting in a following comment, SQL string, or
- * GraphQL block — which is how `Known Fraudster Risk` reached jsDelivr as a
- * package name.
- *
- * Each comment is matched as one indivisible unit: the line form is pinned to its
- * line end by a lookahead, and the block form cannot cross its terminator. That
- * pinning is the whole point — a plain `//[^\n]*` backtracks, so the matcher could
- * stop halfway through a comment and take the `from "…"` out of the rest of it,
- * reopening the leak on input as ordinary as `export { Dog }` followed by a
- * comment. Every alternative is bounded by `MAX_IMPORT_CLAUSE`, including the
- * comment bodies — an unterminated comment has no terminator to find, so an
- * unbounded search for one is exactly what made this quadratic.
+ * A quoted module specifier at `at`, after optional whitespace. Bounded by npm's own
+ * name limit: past that the specifier is rejected anyway, so reading further would
+ * only turn a missing closing quote into another unbounded scan.
  */
-const IMPORT_CLAUSE = String.raw`(?:`
-	+ String.raw`[\w$\s{},*]`
-	+ String.raw`|//[^\n]{0,${MAX_IMPORT_CLAUSE}}(?=\n|$)`
-	+ String.raw`|/\*(?:[^*]|\*(?!/)){0,${MAX_IMPORT_CLAUSE}}?\*/`
-	+ String.raw`){0,${MAX_IMPORT_CLAUSE}}?`;
-const IMPORT_SPECIFIER = new RegExp(
-	String.raw`(?:import|export)\b${IMPORT_CLAUSE}\bfrom\s*['"]([^'"]+)['"]`
-		+ String.raw`|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)`
-		+ String.raw`|import\s*['"]([^'"]+)['"]`,
-	'g',
-);
+function readQuotedSpecifier(code: string, at: number): { specifier: string; end: number } | undefined {
+	const opened = skipWhitespace(code, at, code.length);
+	const quote = code.charCodeAt(opened);
+	if (quote !== SINGLE_QUOTE && quote !== DOUBLE_QUOTE) {
+		return undefined;
+	}
+	const limit = Math.min(code.length, opened + MAX_SPECIFIER_LENGTH + 2);
+	for (let next = opened + 1; next < limit; next++) {
+		const charCode = code.charCodeAt(next);
+		if (charCode === quote) {
+			// `['"]([^'"]+)['"]` never matched an empty specifier, and neither do we.
+			return next === opened + 1 ? undefined : { specifier: code.slice(opened + 1, next), end: next + 1 };
+		}
+		if (charCode === SINGLE_QUOTE || charCode === DOUBLE_QUOTE) {
+			return undefined;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Walks the clause between an `import`/`export` keyword and its `from`, returning the
+ * quoted specifier when the statement really is an import.
+ *
+ * A character walk rather than another regex alternative, deliberately. This has to
+ * stay cheap on input that can never match, and expressing the clause as a quantified
+ * sub-pattern gave us both failure modes in turn: an unbounded search for a comment
+ * terminator is quadratic, and bounding it with `{0,n}` instead accumulates V8
+ * backtracking frames until a long run of large *legal* comments overflows the regex
+ * stack with a `RangeError`. Walking has no frames to accumulate, and every
+ * terminator search here is bounded by `MAX_IMPORT_CLAUSE`.
+ *
+ * What may appear in a clause is narrow, and the narrowness is the security property
+ * rather than tidiness: identifiers, `{}`, `,`, `*`, whitespace, and comments. A bare
+ * `/`, `=`, `:`, `(`, `)`, or backtick ends the clause, which is what stops the walk
+ * from leaving a statement and reaching a `from "…"` in a neighbouring comment, SQL
+ * string, or GraphQL block — the leak that sent `Known Fraudster Risk` to jsDelivr as
+ * a package name. Comments are skipped whole for the same reason: never partially, so
+ * a `from "…"` inside one can't be read as the statement's own.
+ */
+function readClauseSpecifier(code: string, clauseStart: number): { specifier: string; end: number } | undefined {
+	const limit = Math.min(code.length, clauseStart + MAX_IMPORT_CLAUSE);
+	let at = clauseStart;
+	while (at < limit) {
+		const charCode = code.charCodeAt(at);
+		if (charCode === SLASH) {
+			const following = code.charCodeAt(at + 1);
+			if (following === SLASH) {
+				// A line comment runs to the newline; with none, the rest of the file is
+				// comment, so no `from` can follow and the statement is not an import.
+				const lineEnd = indexOfWithin(code, NEWLINE, at + 2, limit);
+				if (lineEnd < 0) {
+					return undefined;
+				}
+				at = lineEnd + 1;
+			} else if (following === STAR) {
+				const commentEnd = indexOfPairWithin(code, STAR, SLASH, at + 2, limit);
+				if (commentEnd < 0) {
+					return undefined;
+				}
+				at = commentEnd + 2;
+			} else {
+				return undefined;
+			}
+			continue;
+		}
+		if (isIdentifierChar(charCode)) {
+			let wordEnd = at + 1;
+			while (wordEnd < limit && isIdentifierChar(code.charCodeAt(wordEnd))) {
+				wordEnd++;
+			}
+			// A `from` that no specifier follows is just a binding name (`import from from 'x'`).
+			if (wordEnd - at === 4 && code.startsWith('from', at)) {
+				const found = readQuotedSpecifier(code, wordEnd);
+				if (found) {
+					return found;
+				}
+			}
+			at = wordEnd;
+			continue;
+		}
+		if (
+			charCode === OPEN_BRACE || charCode === CLOSE_BRACE || charCode === COMMA || charCode === STAR
+			|| isWhitespace(charCode)
+		) {
+			at++;
+			continue;
+		}
+		return undefined;
+	}
+	return undefined;
+}
+
+/** Keywords that can introduce a specifier — the only places the scanner starts work. */
+const STATEMENT_KEYWORD = /\b(?:import|export|require)\b/g;
 const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
+
+/**
+ * Every module specifier in `code`, in source order: `import`/`export … from '…'`,
+ * dynamic `import('…')`, `require('…')`, and a bare side-effect `import '…'`.
+ */
+function scanSpecifiers(code: string): ScannedSpecifier[] {
+	const found: ScannedSpecifier[] = [];
+	for (const match of code.matchAll(STATEMENT_KEYWORD)) {
+		const keyword = match[0];
+		const pos = match.index;
+		const afterKeyword = pos + keyword.length;
+		if (keyword !== 'export' && code.charCodeAt(skipWhitespace(code, afterKeyword, code.length)) === OPEN_PAREN) {
+			const call = readQuotedSpecifier(code, skipWhitespace(code, afterKeyword, code.length) + 1);
+			if (call) {
+				const closeAt = skipWhitespace(code, call.end, code.length);
+				if (code.charCodeAt(closeAt) === CLOSE_PAREN) {
+					found.push({ specifier: call.specifier, pos, end: closeAt + 1 });
+				}
+			}
+			continue;
+		}
+		if (keyword === 'require') {
+			continue;
+		}
+		const bare = keyword === 'import' ? readQuotedSpecifier(code, afterKeyword) : undefined;
+		const scanned = bare ?? readClauseSpecifier(code, afterKeyword);
+		if (scanned) {
+			found.push({ specifier: scanned.specifier, pos, end: scanned.end });
+		}
+	}
+	return found;
+}
 
 /**
  * Every acquirable npm specifier the scanner finds in `code`, in source order.
  * Exported for tests: this is the one step that decides which names become
- * requests to jsDelivr, and it is a regex over arbitrary user code rather than a
- * real parser, so its over-match behaviour is what needs pinning down.
+ * requests to jsDelivr, and it reads arbitrary user code without a real parser, so
+ * its over-match behaviour is what needs pinning down.
  */
 export function findAcquirableSpecifiers(code: string): string[] {
-	const found: string[] = [];
-	for (const match of code.matchAll(IMPORT_SPECIFIER)) {
-		const specifier = match[1] ?? match[2] ?? match[3];
-		if (specifier && isAcquirablePackage(specifier)) {
-			found.push(specifier);
-		}
-	}
-	return found;
+	return scanSpecifiers(code)
+		.map(({ specifier }) => specifier)
+		.filter(isAcquirablePackage);
 }
 
 /**
@@ -169,14 +323,9 @@ function createImportScannerShim(): unknown {
 	return {
 		libMap: new Map<string, string>(),
 		preProcessFile(code: string) {
-			const importedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
-			for (const match of code.matchAll(IMPORT_SPECIFIER)) {
-				const specifier = match[1] ?? match[2] ?? match[3];
-				if (specifier && isAcquirablePackage(specifier)) {
-					const pos = match.index ?? 0;
-					importedFiles.push({ fileName: specifier, pos, end: pos + match[0].length });
-				}
-			}
+			const importedFiles = scanSpecifiers(code)
+				.filter(({ specifier }) => isAcquirablePackage(specifier))
+				.map(({ specifier, pos, end }) => ({ fileName: specifier, pos, end }));
 			const referencedFiles: Array<{ fileName: string; pos: number; end: number }> = [];
 			for (const match of code.matchAll(REFERENCE_PATH)) {
 				const pos = match.index ?? 0;
