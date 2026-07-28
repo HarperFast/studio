@@ -1,2 +1,9 @@
+# --no-audit: npm 11 exits 1 when a package.json that uses npm aliases (fastify4-static /
+# fastify5-static) hits audit advisories, even though the install itself succeeds. The
+# @fastify/static v7/v8 lines have permanent advisories (fixed only in v10+), so audit noise
+# is unavoidable while the dual-major aliases exist. --ignore-scripts matches Harper's
+# default install behavior.
+install:
+  command: npm install --ignore-scripts --no-audit
 fastifyRoutes:
   files: fastify/*.js
