@@ -110,6 +110,8 @@ const MAX_IMPORT_CLAUSE = 4096;
 
 const SLASH = 0x2f, STAR = 0x2a, NEWLINE = 0x0a, SINGLE_QUOTE = 0x27, DOUBLE_QUOTE = 0x22;
 const OPEN_PAREN = 0x28, CLOSE_PAREN = 0x29, OPEN_BRACE = 0x7b, CLOSE_BRACE = 0x7d, COMMA = 0x2c;
+const BACKTICK = 0x60, BACKSLASH = 0x5c, DOLLAR = 0x24, DOT = 0x2e;
+const OPEN_BRACKET = 0x5b, CLOSE_BRACKET = 0x5d;
 
 /** `\w` plus `$` — what a clause keyword or imported binding is spelled with. */
 function isIdentifierChar(charCode: number): boolean {
@@ -167,17 +169,19 @@ interface ScannedSpecifier {
 }
 
 /**
- * A quoted module specifier at `at`, after optional whitespace. Bounded by npm's own
- * name limit: past that the specifier is rejected anyway, so reading further would
- * only turn a missing closing quote into another unbounded scan.
+ * A quoted module specifier at `at`, after optional whitespace. `limit` is the caller's
+ * bound and applies to the whitespace run as well as the quotes: without it, a statement
+ * whose `from` sits inside the clause bound could still reach a quote arbitrarily far
+ * past it, and every keyword candidate would rescan that same run. The specifier body is
+ * additionally capped at npm's own name limit, past which it is rejected anyway.
  */
-function readQuotedSpecifier(code: string, at: number): { specifier: string; end: number } | undefined {
-	const opened = skipWhitespace(code, at, code.length);
+function readQuotedSpecifier(code: string, at: number, bound: number): { specifier: string; end: number } | undefined {
+	const opened = skipWhitespace(code, at, bound);
 	const quote = code.charCodeAt(opened);
-	if (quote !== SINGLE_QUOTE && quote !== DOUBLE_QUOTE) {
+	if (opened >= bound || (quote !== SINGLE_QUOTE && quote !== DOUBLE_QUOTE)) {
 		return undefined;
 	}
-	const limit = Math.min(code.length, opened + MAX_SPECIFIER_LENGTH + 2);
+	const limit = Math.min(bound, opened + MAX_SPECIFIER_LENGTH + 2);
 	for (let next = opened + 1; next < limit; next++) {
 		const charCode = code.charCodeAt(next);
 		if (charCode === quote) {
@@ -244,7 +248,7 @@ function readClauseSpecifier(code: string, clauseStart: number): { specifier: st
 			}
 			// A `from` that no specifier follows is just a binding name (`import from from 'x'`).
 			if (wordEnd - at === 4 && code.startsWith('from', at)) {
-				const found = readQuotedSpecifier(code, wordEnd);
+				const found = readQuotedSpecifier(code, wordEnd, limit);
 				if (found) {
 					return found;
 				}
@@ -264,38 +268,238 @@ function readClauseSpecifier(code: string, clauseStart: number): { specifier: st
 	return undefined;
 }
 
-/** Keywords that can introduce a specifier — the only places the scanner starts work. */
-const STATEMENT_KEYWORD = /\b(?:import|export|require)\b/g;
 const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
+
+/**
+ * The specifier belonging to a statement keyword, whichever form follows it: a call
+ * `import('…')`/`require('…')`, a bare side-effect `import '…'`, or a clause ending in
+ * `from '…'`. Every scan is bounded by `MAX_IMPORT_CLAUSE` from the keyword, so no form
+ * can reach across the file and no candidate can rescan a run another already rejected.
+ */
+function readSpecifierAfterKeyword(
+	code: string,
+	keyword: string,
+	afterKeyword: number,
+): { specifier: string; end: number } | undefined {
+	const bound = Math.min(code.length, afterKeyword + MAX_IMPORT_CLAUSE);
+	if (keyword !== 'export') {
+		const parenAt = skipWhitespace(code, afterKeyword, bound);
+		if (code.charCodeAt(parenAt) === OPEN_PAREN) {
+			const call = readQuotedSpecifier(code, parenAt + 1, bound);
+			if (!call) {
+				return undefined;
+			}
+			const closeAt = skipWhitespace(code, call.end, bound);
+			return code.charCodeAt(closeAt) === CLOSE_PAREN ? { specifier: call.specifier, end: closeAt + 1 } : undefined;
+		}
+	}
+	if (keyword === 'require') {
+		return undefined;
+	}
+	const bare = keyword === 'import' ? readQuotedSpecifier(code, afterKeyword, bound) : undefined;
+	return bare ?? readClauseSpecifier(code, afterKeyword);
+}
+
+/** Past the closing quote of a string literal, or `limit` if it never closes. */
+function skipStringLiteral(code: string, at: number, limit: number): number {
+	const quote = code.charCodeAt(at);
+	for (let next = at + 1; next < limit; next++) {
+		const charCode = code.charCodeAt(next);
+		if (charCode === BACKSLASH) {
+			next++;
+		} else if (charCode === quote) {
+			return next + 1;
+		} else if (charCode === NEWLINE) {
+			// An unescaped newline means this quote never opened a string (mid-edit, or an
+			// apostrophe in prose). Give up the single character so scanning resynchronises.
+			return at + 1;
+		}
+	}
+	return limit;
+}
+
+/**
+ * Past the closing `/` of a regex literal, or `at + 1` if this `/` turns out not to
+ * start one — a regex cannot span a line, so hitting a newline first is proof.
+ */
+function skipRegexLiteral(code: string, at: number, limit: number): number {
+	let inCharacterClass = false;
+	for (let next = at + 1; next < limit; next++) {
+		const charCode = code.charCodeAt(next);
+		if (charCode === BACKSLASH) {
+			next++;
+		} else if (charCode === NEWLINE) {
+			return at + 1;
+		} else if (charCode === OPEN_BRACKET) {
+			inCharacterClass = true;
+		} else if (charCode === CLOSE_BRACKET) {
+			inCharacterClass = false;
+		} else if (charCode === SLASH && !inCharacterClass) {
+			return next + 1;
+		}
+	}
+	return at + 1;
+}
+
+/**
+ * Whether a `/` here opens a regex literal rather than being division. Decided from the
+ * previous significant token, the standard heuristic: division follows a value —
+ * an identifier, a literal, `)`, or `]` — and a regex follows anything else.
+ * `previousWord` covers the keywords that produce no value and so may be followed by a
+ * regex (`return /x/`), which a bare "previous char is a letter" test gets wrong.
+ *
+ * Ambiguity is resolved toward *regex*, `}` included: mistaking division for a regex
+ * skips to the next `/` and can only lose an import, while mistaking a regex for
+ * division scans its body as code and could take a specifier out of it.
+ */
+const REGEX_MAY_FOLLOW = new Set([
+	'return',
+	'typeof',
+	'instanceof',
+	'case',
+	'in',
+	'of',
+	'delete',
+	'void',
+	'new',
+	'do',
+	'else',
+	'yield',
+	'await',
+]);
+function canStartRegex(previousChar: number, previousWord: string): boolean {
+	if (isIdentifierChar(previousChar)) {
+		return REGEX_MAY_FOLLOW.has(previousWord);
+	}
+	return previousChar !== CLOSE_PAREN && previousChar !== CLOSE_BRACKET
+		&& previousChar !== SINGLE_QUOTE && previousChar !== DOUBLE_QUOTE && previousChar !== BACKTICK;
+}
 
 /**
  * Every module specifier in `code`, in source order: `import`/`export … from '…'`,
  * dynamic `import('…')`, `require('…')`, and a bare side-effect `import '…'`.
+ *
+ * The walk tracks lexical context so a keyword is only honoured where real code can
+ * appear. That is the root fix for what the RUM review found rather than a mitigation of
+ * it: searching the raw text for keywords meant ordinary English in a comment —
+ * `// we import rows from "customers"` — parsed as an import and sent a user's table name
+ * to jsDelivr. `customers` is a perfectly legal npm name, so no amount of specifier
+ * validation downstream can catch it; the only fix is not to read comments as code. The
+ * same applies to SQL and GraphQL in template literals, quoted strings, and regex bodies.
+ *
+ * `@typescript/ata` calls this synchronously on files the user is actively editing, so
+ * this is deliberately not a parser and never throws: a real module lexer rejects
+ * half-typed code, which for an editor is the normal state, and returning nothing there
+ * would silently stop type acquisition mid-keystroke. Where the walk cannot be certain it
+ * prefers to treat text as *not* code, which loses an acquisition rather than leaking a
+ * name. Template substitutions are still scanned, since `import()` inside one is real
+ * code.
  */
 function scanSpecifiers(code: string): ScannedSpecifier[] {
 	const found: ScannedSpecifier[] = [];
-	for (const match of code.matchAll(STATEMENT_KEYWORD)) {
-		const keyword = match[0];
-		const pos = match.index;
-		const afterKeyword = pos + keyword.length;
-		if (keyword !== 'export' && code.charCodeAt(skipWhitespace(code, afterKeyword, code.length)) === OPEN_PAREN) {
-			const call = readQuotedSpecifier(code, skipWhitespace(code, afterKeyword, code.length) + 1);
-			if (call) {
-				const closeAt = skipWhitespace(code, call.end, code.length);
-				if (code.charCodeAt(closeAt) === CLOSE_PAREN) {
-					found.push({ specifier: call.specifier, pos, end: closeAt + 1 });
-				}
+	// Each entry is a `${` substitution we are inside; its value is the brace depth within
+	// it, so the matching `}` returns us to the enclosing template. An explicit stack
+	// rather than recursion, so deeply nested templates cost memory, never the call stack.
+	const substitutions: number[] = [];
+	let inTemplate = false;
+	let previousChar = 0;
+	let previousWord = '';
+	let at = 0;
+	while (at < code.length) {
+		const charCode = code.charCodeAt(at);
+
+		if (inTemplate) {
+			if (charCode === BACKSLASH) {
+				at += 2;
+			} else if (charCode === BACKTICK) {
+				inTemplate = false;
+				previousChar = BACKTICK;
+				at++;
+			} else if (charCode === DOLLAR && code.charCodeAt(at + 1) === OPEN_BRACE) {
+				substitutions.push(0);
+				inTemplate = false;
+				previousChar = OPEN_BRACE;
+				at += 2;
+			} else {
+				at++;
 			}
 			continue;
 		}
-		if (keyword === 'require') {
+
+		if (charCode === SLASH) {
+			const following = code.charCodeAt(at + 1);
+			if (following === SLASH) {
+				const lineEnd = code.indexOf('\n', at + 2);
+				at = lineEnd < 0 ? code.length : lineEnd + 1;
+				continue;
+			}
+			if (following === STAR) {
+				const commentEnd = code.indexOf('*/', at + 2);
+				at = commentEnd < 0 ? code.length : commentEnd + 2;
+				continue;
+			}
+			at = canStartRegex(previousChar, previousWord) ? skipRegexLiteral(code, at, code.length) : at + 1;
+			previousChar = SLASH;
+			previousWord = '';
 			continue;
 		}
-		const bare = keyword === 'import' ? readQuotedSpecifier(code, afterKeyword) : undefined;
-		const scanned = bare ?? readClauseSpecifier(code, afterKeyword);
-		if (scanned) {
-			found.push({ specifier: scanned.specifier, pos, end: scanned.end });
+
+		if (charCode === SINGLE_QUOTE || charCode === DOUBLE_QUOTE) {
+			at = skipStringLiteral(code, at, code.length);
+			previousChar = charCode;
+			previousWord = '';
+			continue;
 		}
+
+		if (charCode === BACKTICK) {
+			inTemplate = true;
+			at++;
+			continue;
+		}
+
+		if (substitutions.length > 0) {
+			if (charCode === OPEN_BRACE) {
+				substitutions[substitutions.length - 1]++;
+			} else if (charCode === CLOSE_BRACE) {
+				if (substitutions[substitutions.length - 1] === 0) {
+					substitutions.pop();
+					inTemplate = true;
+					previousChar = CLOSE_BRACE;
+					at++;
+					continue;
+				}
+				substitutions[substitutions.length - 1]--;
+			}
+		}
+
+		if (isIdentifierChar(charCode)) {
+			let wordEnd = at + 1;
+			while (wordEnd < code.length && isIdentifierChar(code.charCodeAt(wordEnd))) {
+				wordEnd++;
+			}
+			const word = code.slice(at, wordEnd);
+			// `obj.import` and `{ import: x }` are property names, not statements.
+			const isStatementKeyword = previousChar !== DOT
+				&& (word === 'import' || word === 'export' || word === 'require');
+			const scanned = isStatementKeyword ? readSpecifierAfterKeyword(code, word, wordEnd) : undefined;
+			if (scanned) {
+				found.push({ specifier: scanned.specifier, pos: at, end: scanned.end });
+				previousChar = code.charCodeAt(scanned.end - 1);
+				previousWord = '';
+				at = scanned.end;
+				continue;
+			}
+			previousChar = code.charCodeAt(wordEnd - 1);
+			previousWord = word;
+			at = wordEnd;
+			continue;
+		}
+
+		if (!isWhitespace(charCode)) {
+			previousChar = charCode;
+			previousWord = '';
+		}
+		at++;
 	}
 	return found;
 }
