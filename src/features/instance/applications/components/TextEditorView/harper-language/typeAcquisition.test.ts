@@ -32,6 +32,21 @@ describe('findAcquirableSpecifiers', () => {
 			expect(findAcquirableSpecifiers(code)).toEqual(['react']);
 		});
 
+		// A comment is legal anywhere in an import clause, and annotating a named
+		// import is common. The clause matcher excludes a bare `/` to stop it walking
+		// out of a statement, so it has to recognise comments as units or it misses
+		// the whole import — the package silently stops getting types.
+		it.each([
+			['line comment inside a named block', `import {\n\tuseState, // hooks\n\tuseEffect,\n} from 'react'`],
+			['block comment inside a named block', `import {\n\tuseState, /* hooks */\n\tuseEffect,\n} from 'react'`],
+			['jsdoc between the clause and `from`', `import { useState } /** why */ from 'react'`],
+			['line comment between the clause and `from`', `import { useState } // why\nfrom 'react'`],
+			['comment before a type modifier', `import /* types only */ type { FC } from 'react'`],
+			['CRLF line endings around a comment', "import {\r\n\tuseState, // hooks\r\n} from 'react'"],
+		])('%s', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual(['react']);
+		});
+
 		it('finds every import in a realistic Harper resource file', () => {
 			const code = [
 				`import { tables } from 'harper';`,
@@ -92,6 +107,30 @@ describe('findAcquirableSpecifiers', () => {
 			],
 		])('%s', (_label, code) => {
 			expect(findAcquirableSpecifiers(code)).not.toContain('Known Fraudster Risk');
+		});
+
+		// The npm-grammar gate only stops phrases it can recognise as impossible names.
+		// A single lowercase table name — `customers`, and Harper apps are full of them
+		// — is a perfectly legal package name, so for these the clause matcher is the
+		// only thing standing between user content and the CDN.
+		//
+		// That makes them the cases to pin now that the clause matcher consumes comments
+		// so annotated named imports keep resolving. A comment alternative that can be
+		// partially consumed (a plain `//[^\n]*`, which backtracks) lets the matcher stop
+		// mid-comment and take the `from "…"` out of the rest of it — every shape below
+		// resolves to `customers` again under that spelling, and did before this fix.
+		it.each([
+			['line comment after a named export', `export { Dog }\n// each row is read from "customers"`],
+			['block comment after a named export', `export { Dog }\n/* each row is read from "customers" */`],
+			['line comment after a star export', `export *\n// projected from "customers"`],
+			['line comment after an empty export', `export {}\n// hydrated from "customers"`],
+			['comment where `from` itself is commented out', `import { Dog }\n// from "customers"`],
+			[
+				'jsdoc prose in a downloaded declaration file',
+				`export {}\n/**\n * Read from "customers".\n */\nexport declare const x: string`,
+			],
+		])('%s', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
 		});
 
 		it('keeps the legitimate import from a file that also contains such prose', () => {

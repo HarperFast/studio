@@ -88,15 +88,24 @@ function isAcquirablePackage(specifier: string): boolean {
 
 /**
  * The clause between `import`/`export` and `from` — identifiers, braces, commas,
- * `*`, `as`, and whitespace (newlines included, so multi-line named imports still
- * match). Deliberately excludes `=`, `/`, `:`, `(`, `)`, and backticks: none can
- * appear in a real import clause, and admitting them let the lazy match run past
- * the end of a statement to reach a `from "…"` sitting in a following comment,
- * SQL string, or GraphQL block — which is how `Known Fraudster Risk` reached
- * jsDelivr as a package name.
+ * `*`, `as`, whitespace (newlines included, so multi-line named imports still
+ * match), and comments, which are legal and common between the braces. Everything
+ * else is excluded: `=`, `:`, `(`, `)`, backticks, and a bare `/` cannot appear in
+ * a real import clause, and admitting them let the lazy match run past the end of
+ * a statement to reach a `from "…"` sitting in a following comment, SQL string, or
+ * GraphQL block — which is how `Known Fraudster Risk` reached jsDelivr as a
+ * package name.
+ *
+ * Each comment is matched as one indivisible unit: the line form is pinned to its
+ * line end by a lookahead, and the block form cannot cross its terminator. That
+ * pinning is the whole point — a plain `//[^\n]*` backtracks, so the matcher could
+ * stop halfway through a comment and take the `from "…"` out of the rest of it,
+ * reopening the leak on input as ordinary as `export { Dog }` followed by a
+ * comment. Alternatives are disjoint on their first character (only `/` starts a
+ * comment), so the repetition stays linear.
  */
 const IMPORT_SPECIFIER =
-	/(?:import|export)\b[\w$\s{},*]*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
+	/(?:import|export)\b(?:[\w$\s{},*]|\/\/[^\n]*(?=\n|$)|\/\*(?:[^*]|\*(?!\/))*\*\/)*?\bfrom\s*['"]([^'"]+)['"]|(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s*['"]([^'"]+)['"]/g;
 const REFERENCE_PATH = /\/\/\/\s*<reference\s+path\s*=\s*['"]([^'"]+)['"]/g;
 
 /**
