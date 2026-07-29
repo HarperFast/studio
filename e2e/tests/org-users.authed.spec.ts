@@ -4,11 +4,16 @@ import { expect, type Page, test } from '@playwright/test';
  * Authenticated lane — the app shell after login and the org-users list.
  * Uses the stored session from auth.setup.ts (the `authed` project).
  *
- * SKIP CONTRACT: skips only for things this environment genuinely does not have — no test account
- * configured, or a real 403 on the org-users fetch (the account lacks users-view). Everything else
- * FAILS, including an org that cannot be resolved: that is far more often a regression in the
- * post-login redirect / org picker / orgs query than an account with no org. Deliberate opt-outs
- * (`E2E_ALLOW_NO_ORG=1`) exist for local dev and are never set by the automated lanes.
+ * SKIP CONTRACT: the ONLY unconditional skip is "this environment has no test account configured"
+ * (`!hasCreds`) — an absence of configuration, not an ambiguous result. Everything else FAILS,
+ * because each alternative is at least as likely to be the regression this spec exists to catch:
+ *   - org cannot be resolved  → a broken post-login redirect / org picker / orgs query looks
+ *                               identical to an account with no org;
+ *   - 403 on the org-users fetch → an authz regression looks identical to a provisioning gap;
+ *   - error boundary with no 403 → the page itself broke; NOT skippable under any flag.
+ * Two opt-outs exist for local dev — `E2E_ALLOW_NO_ORG=1` and `E2E_ALLOW_ORG_USERS_403_SKIP=1` —
+ * each scoped to its own condition so it cannot silence a neighbouring failure. Neither is set by
+ * the automated lanes. If you change a disposition here, change this block in the same commit.
  */
 const hasCreds = Boolean(process.env.PLAYWRIGHT_USER_EMAIL && process.env.PLAYWRIGHT_USER_PASSWORD);
 
@@ -85,8 +90,12 @@ test.describe('authenticated app', () => {
 			// authz regression on exactly the page this spec covers — and the condition is stable, so
 			// skipping makes the spec go permanently quiet the moment permissions break. Fail by
 			// default; opt out explicitly once you've confirmed it's provisioning.
+			// Scoped to `saw403`: without that guard the hatch would also silence the !saw403
+			// disposition below — "the page itself broke" — which must never be skippable, and the
+			// skip reason would assert a 403 that did not happen. (`.env.e2e` is dotenv-loaded, so a
+			// var set once for a provisioning gap stays set.)
 			test.skip(
-				process.env.E2E_ALLOW_ORG_USERS_403_SKIP === '1',
+				saw403 && process.env.E2E_ALLOW_ORG_USERS_403_SKIP === '1',
 				`Org-users returned 403 for ${orgId} and E2E_ALLOW_ORG_USERS_403_SKIP=1 — treating as a `
 					+ 'known provisioning gap for this account.',
 			);
