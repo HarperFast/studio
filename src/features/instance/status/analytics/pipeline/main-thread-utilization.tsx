@@ -100,8 +100,13 @@ export function MainThreadRenderer(
 			series: { kind: 'field', fields: [{ field: selected.field, label: selected.label }] },
 			yAxis: selected.yAxis,
 		};
-		return runPipeline(innerSpec, records, timeRange, nodes, { perNode, snapToPeriod: true, downsampleToWindow: true });
-	}, [selected, records, timeRange, nodes, perNode]);
+		return runPipeline(innerSpec, records, timeRange, nodes, {
+			perNode,
+			snapToPeriod: true,
+			downsampleToWindow: true,
+			expanded: !!fillParent,
+		});
+	}, [selected, records, timeRange, nodes, perNode, fillParent]);
 
 	const { data: filteredData, isActive, handleLegendClick } = useNodeFilteredSeries(data, nodes);
 
