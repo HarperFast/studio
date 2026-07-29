@@ -95,7 +95,7 @@ export function TrafficByTypeRenderer({
 	}, [spec, stackBy]);
 
 	const data: SeriesData = useMemo(
-		() => runPipeline(runtimeSpec, filteredRecords, timeRange, nodes, { snapToPeriod: true }),
+		() => runPipeline(runtimeSpec, filteredRecords, timeRange, nodes, { snapToPeriod: true, downsampleToWindow: true }),
 		[runtimeSpec, filteredRecords, timeRange, nodes],
 	);
 
@@ -119,7 +119,10 @@ export function TrafficByTypeRenderer({
 		const activeNodes = nodes.filter(isNodeActive);
 		return activeNodes.map((nodeId) => {
 			const nodeRecords = filteredRecords.filter((r) => r.node === nodeId);
-			const seriesData = runPipeline(spec, nodeRecords, timeRange, [nodeId], { snapToPeriod: true });
+			const seriesData = runPipeline(spec, nodeRecords, timeRange, [nodeId], {
+				snapToPeriod: true,
+				downsampleToWindow: true,
+			});
 			return {
 				title: nodeId,
 				data: {

@@ -100,7 +100,12 @@ export function ConnectionRenderer(
 	const { records: processed, dimParts } = useMemo(() => preprocessConnectionRecords(records), [records]);
 
 	const fullData = useMemo<SeriesData>(
-		() => runPipeline(connectionSpec, processed, timeRange, nodes, { perNode, snapToPeriod: true }),
+		() =>
+			runPipeline(connectionSpec, processed, timeRange, nodes, {
+				perNode,
+				snapToPeriod: true,
+				downsampleToWindow: true,
+			}),
 		[processed, timeRange, nodes, perNode],
 	);
 

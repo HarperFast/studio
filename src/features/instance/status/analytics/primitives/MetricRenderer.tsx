@@ -1,5 +1,7 @@
 import { Component, type ReactNode } from 'react';
+import { targetBucketMs } from '../context/timePresets';
 import { derivedRegistry } from '../pipeline/derived/index';
+import { downsampleDerivedSeriesData } from '../pipeline/downsample';
 import { specRegistry } from '../pipeline/index';
 import { runPipeline } from '../pipeline/pipeline';
 import type { AnalyticsDataPoint, AxisSpec, MetricSpec, SeriesData, TimeRange } from '../types/analytics';
@@ -135,7 +137,15 @@ export function MetricRenderer({
 				/>
 			);
 		} else {
-			const seriesData = derived.recompute(records, timeRange, nodes, viewMode);
+			// Derived metrics that assemble series from raw columns never pass
+			// through runPipeline's downsample pass, so fold here instead —
+			// otherwise a 7 d / 30 d view of these panels stays at one point per
+			// 60 s while every spec-driven panel beside it is coarsened.
+			const seriesData = downsampleDerivedSeriesData(
+				derived.recompute(records, timeRange, nodes, viewMode),
+				targetBucketMs(timeRange.endTime - timeRange.startTime),
+				derived.downsampleAggregator,
+			);
 			body = renderPrimitive(derived.primitive, seriesData, derived.yAxis, xDomain, fillParent);
 		}
 	} else {
@@ -169,7 +179,11 @@ export function MetricRenderer({
 					};
 					return {
 						title: field.label,
-						data: runPipeline(innerSpec, records, timeRange, nodes, { perNode: isPerNodeMode, snapToPeriod: true }),
+						data: runPipeline(innerSpec, records, timeRange, nodes, {
+							perNode: isPerNodeMode,
+							snapToPeriod: true,
+							downsampleToWindow: true,
+						}),
 						yAxis: field.yAxis ?? outerSpec.yAxis,
 					};
 				});
@@ -179,7 +193,10 @@ export function MetricRenderer({
 					...entry.spec,
 					series: { ...entry.spec.series, dimension: 'node' },
 				};
-				const seriesData = runPipeline(remapped, records, timeRange, nodes, { snapToPeriod: true });
+				const seriesData = runPipeline(remapped, records, timeRange, nodes, {
+					snapToPeriod: true,
+					downsampleToWindow: true,
+				});
 				body = renderPrimitive('stacked-area', seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else if (wantsClusterLineFold(entry.spec, isPerNodeMode) && entry.spec.series.kind === 'groupBy') {
 				const groupSrc = entry.spec.series;
@@ -187,18 +204,23 @@ export function MetricRenderer({
 					...entry.spec,
 					series: { kind: 'field', fields: [{ ...groupSrc.field, label: 'cluster' }] },
 				};
-				const seriesData = runPipeline(inner, records, timeRange, nodes, { snapToPeriod: true });
+				const seriesData = runPipeline(inner, records, timeRange, nodes, {
+					snapToPeriod: true,
+					downsampleToWindow: true,
+				});
 				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else if (wantsDimensionLineSplit(entry.spec)) {
 				const seriesData = runPipeline(entry.spec, records, timeRange, nodes, {
 					perNode: false,
 					snapToPeriod: true,
+					downsampleToWindow: true,
 				});
 				body = renderPrimitive('line', seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else {
 				const seriesData = runPipeline(entry.spec, records, timeRange, nodes, {
 					perNode: isPerNodeMode,
 					snapToPeriod: true,
+					downsampleToWindow: true,
 				});
 				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			}
