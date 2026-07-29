@@ -68,6 +68,11 @@ export function useKpiTileData(def: KpiTileDef): KpiTileData {
 
 	const sparkPoints = useMemo<KpiPoint[]>(() => {
 		if (current.isError) { return []; }
+		// No `downsampleToWindow` here, unlike the chart panels: these points
+		// collapse to a headline number and a sparkline, so there is no density
+		// to save, and folding onto a coarse lattice first would redefine
+		// `latestValue` from "the newest bucket" to "an average across the
+		// newest coarse bucket".
 		return collapseSeries(
 			runPipeline(def.spec, current.data, timeRange, [], { snapToPeriod: true }),
 			def.combine,
@@ -78,6 +83,8 @@ export function useKpiTileData(def: KpiTileDef): KpiTileData {
 	const previousMean = useMemo<number | null>(() => {
 		if (previous.isLoading || previous.isError) { return null; }
 		const prevRange: TimeRange = { startTime: prevStart, endTime: prevEnd };
+		// Full resolution, matching sparkPoints above — the delta compares two
+		// window means and both sides must be computed the same way.
 		return windowMean(collapseSeries(
 			runPipeline(def.spec, previous.data, prevRange, [], { snapToPeriod: true }),
 			def.combine,

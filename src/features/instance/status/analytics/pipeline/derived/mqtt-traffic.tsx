@@ -56,7 +56,7 @@ function makeMqttTrafficDerived(
 			if (isPerNode && baseSpec.series.kind === 'groupBy') {
 				spec = { ...baseSpec, series: { ...baseSpec.series, dimension: 'node' } };
 			}
-			return runPipeline(spec, records, window, nodes, { snapToPeriod: true });
+			return runPipeline(spec, records, window, nodes, { snapToPeriod: true, downsampleToWindow: true });
 		},
 		Renderer: (props) => <TrafficByTypeRenderer spec={baseSpec} typeField="type" {...props} />,
 		primitive: 'stacked-area',

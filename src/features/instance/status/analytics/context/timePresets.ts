@@ -31,6 +31,35 @@ export function getPreset(id: TimePresetId): TimePreset {
 	return p;
 }
 
+/**
+ * Densest bucket the charts should *render* for a window of `windowMs`.
+ *
+ * The same numbers the presets declare, looked up by duration instead of id.
+ * That matters because `bucketMs` reaches the server as `bucket_ms` but is
+ * otherwise unused client-side: builds that ignore the hint (harper-pro 5.1.22)
+ * return rows at raw emission cadence, and the pipeline then buckets them onto
+ * `spec.bucket.fallbackMs` — 60 s regardless of the selected window. A 30 d
+ * window rendered 43 200 points instead of 720 (#1576 follow-up).
+ *
+ * Reading the same table by duration keeps one source of truth: StorageTab
+ * aligns its trend grid to the context's `bucketMs` (#1514), so a preset-sized
+ * window MUST resolve to exactly that preset's value or the two grids diverge
+ * and crosshair sync breaks. `targetBucketMs` locks that (see timePresets.test).
+ */
+export function targetBucketMs(windowMs: number): number {
+	const finest = TIME_PRESETS[0].bucketMs;
+	if (!Number.isFinite(windowMs) || windowMs <= 0) { return finest; }
+	for (const p of TIME_PRESETS) {
+		// 1% slack: a live `endTime = Date.now()` bound makes the computed
+		// window drift a few ms off the preset's exact duration.
+		if (windowMs <= p.durationMs * 1.01) { return p.bucketMs; }
+	}
+	// Past the widest preset, hold its points-per-window ratio rather than
+	// falling back to the finest bucket and re-creating the density problem.
+	const widest = TIME_PRESETS[TIME_PRESETS.length - 1];
+	return Math.max(finest, Math.ceil(windowMs / (widest.durationMs / widest.bucketMs)));
+}
+
 export interface RefreshOption {
 	label: string;
 	value: number;

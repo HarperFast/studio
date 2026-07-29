@@ -83,7 +83,8 @@ export function DimensionSelectorRenderer({
 	}, [spec, quantileFields, effectiveQuantile]);
 
 	const fullData = useMemo<SeriesData>(
-		() => runPipeline(runtimeSpec, records, timeRange, nodes, { perNode, snapToPeriod: true }),
+		() =>
+			runPipeline(runtimeSpec, records, timeRange, nodes, { perNode, snapToPeriod: true, downsampleToWindow: true }),
 		[runtimeSpec, records, timeRange, nodes, perNode],
 	);
 

@@ -18,6 +18,12 @@
 // intervals. Harper omits a gauge row entirely when the value is 0, so absence
 // is not zero — see carryForward.ts for the full rationale (#1576).
 //
+// `downsampleToWindow` adds a final pass that folds the finished series onto
+// the lattice the requested window implies, so a 7 d / 30 d view renders the
+// few hundred points its preset asks for instead of one per 60 s. It runs
+// AFTER every aggregation above precisely so none of them change — see
+// downsample.ts.
+//
 // Known limitation — count-weighted-mean across nodes: the inner pass
 // invokes the temporal aggregator with values that share the per-node
 // bucket's totalCount as their weight. When a single (node, time) bucket
@@ -29,6 +35,7 @@
 // shipped specs this is fine: replication-latency does not flow through
 // this pipeline, mqtt-traffic-* is sum/sum (associative). Revisit if a CWM
 // crossNode spec lands.
+import { targetBucketMs } from '../context/timePresets';
 import type {
 	Aggregator,
 	AnalyticsDataPoint,
@@ -43,6 +50,7 @@ import { type AggInput, aggregate } from './aggregators';
 import { labelWithApprox } from './approxLabel';
 import { buildStalenessHorizons, isGaugeCrossNodeSum } from './carryForward';
 import { classifyConfidence } from './confidence';
+import { downsampleSeriesData } from './downsample';
 import { evalFieldExpr } from './fieldExpr';
 import { runTransform } from './runTransform';
 
@@ -65,6 +73,19 @@ export interface RunPipelineOptions {
 	 *  rendering; pipeline tests that use synthetic small-integer times
 	 *  leave it off so they keep their distinct buckets. */
 	snapToPeriod?: boolean;
+	/** When true, the finished series are folded onto the bucket lattice the
+	 *  requested `window` implies (`targetBucketMs`), after every aggregation
+	 *  pass has run. Harper builds that ignore studio's `bucket_ms` hint return
+	 *  rows at raw cadence, so without this a 30 d window renders 43 200 points
+	 *  per series instead of the 720 the preset asks for.
+	 *
+	 *  Chart render paths (and CSV export, so a download matches what was on
+	 *  screen) opt in. KPI tiles deliberately do NOT: they collapse a series to
+	 *  a single headline number, so there is no density to save, and folding
+	 *  first would change `latestValue` from "the newest bucket" to "an average
+	 *  over the newest coarse bucket". See downsample.ts for the per-aggregator
+	 *  rules. */
+	downsampleToWindow?: boolean;
 }
 
 /** Composite string key for a per-node series — React key / recharts name
@@ -78,14 +99,15 @@ export function makeSeriesKey(dim: string, node: string): string {
 export function runPipeline(
 	spec: MetricSpec,
 	records: AnalyticsDataPoint[],
-	_window: TimeRange,
+	window: TimeRange,
 	_nodes: string[],
 	options?: RunPipelineOptions,
 ): SeriesData {
-	if (spec.series.kind === 'field') {
-		return runFieldSpecs(spec, spec.series.fields, records, options?.perNode ?? false, options?.snapToPeriod ?? false);
-	}
-	return runGroupBy(spec, spec.series, records, options?.perNode ?? false, options?.snapToPeriod ?? false);
+	const data = spec.series.kind === 'field'
+		? runFieldSpecs(spec, spec.series.fields, records, options?.perNode ?? false, options?.snapToPeriod ?? false)
+		: runGroupBy(spec, spec.series, records, options?.perNode ?? false, options?.snapToPeriod ?? false);
+	if (!options?.downsampleToWindow) { return data; }
+	return downsampleSeriesData(data, spec, targetBucketMs(window.endTime - window.startTime));
 }
 
 /** Snap a record's time to its period boundary so per-node staggering
