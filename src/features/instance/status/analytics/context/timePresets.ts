@@ -45,6 +45,20 @@ export function getPreset(id: TimePresetId): TimePreset {
 	return p;
 }
 
+/** Human phrase for a bucket duration — "1 minute", "10 minutes", "4 hours".
+ *  Drives the "by X" sub-label under each range option so the operator can see
+ *  the resolution a window renders at (the server ignores our `bucket_ms`, so
+ *  the panel resolution is `targetBucketMs`, i.e. the preset's `bucketMs`).
+ *  Every shipped bucket is a whole number of minutes or hours; the seconds /
+ *  raw-ms branches are just defensive for a future odd value. */
+export function formatBucketLabel(bucketMs: number): string {
+	const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+	if (bucketMs >= HOUR && bucketMs % HOUR === 0) { return plural(bucketMs / HOUR, 'hour'); }
+	if (bucketMs >= MIN && bucketMs % MIN === 0) { return plural(bucketMs / MIN, 'minute'); }
+	if (bucketMs >= 1000 && bucketMs % 1000 === 0) { return plural(bucketMs / 1000, 'second'); }
+	return `${bucketMs} ms`;
+}
+
 /**
  * Densest bucket the charts should *render* for a window of `windowMs`.
  *
