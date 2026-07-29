@@ -9,8 +9,10 @@
 // consumer can filter. No network calls: everything recomputes from the
 // records the panel already fetched.
 
+import { targetBucketMs } from '../context/timePresets';
 import { preprocessConnectionRecords } from '../pipeline/connection';
 import { derivedRegistry } from '../pipeline/derived/index';
+import { downsampleDerivedSeriesData } from '../pipeline/downsample';
 import { specRegistry } from '../pipeline/index';
 import { runPipeline } from '../pipeline/pipeline';
 import { aggregateReplicationMatrix, type ReplicationQuantileField } from '../pipeline/replication-latency';
@@ -181,7 +183,16 @@ export function computeMetricCsvData(
 
 	const derived = derivedRegistry[metric];
 	if (derived) {
-		return { kind: 'series', data: derived.recompute(records, timeRange, nodes, viewMode) };
+		// Folded to the same lattice MetricRenderer draws, so a download matches
+		// the chart it was taken from rather than being 60x longer at 30 d.
+		return {
+			kind: 'series',
+			data: downsampleDerivedSeriesData(
+				derived.recompute(records, timeRange, nodes, viewMode),
+				targetBucketMs(timeRange.endTime - timeRange.startTime),
+				derived.downsampleAggregator,
+			),
+		};
 	}
 
 	const entry = specRegistry[metric];
@@ -207,7 +218,10 @@ export function computeMetricCsvData(
 		// `connection` groups on the synthetic pathMethod field, so it needs
 		// the renderer's own preprocessing first.
 		const rows = metric === 'connection' ? preprocessConnectionRecords(records).records : records;
-		return { kind: 'series', data: runPipeline(spec, rows, timeRange, nodes, { snapToPeriod: true }) };
+		return {
+			kind: 'series',
+			data: runPipeline(spec, rows, timeRange, nodes, { snapToPeriod: true, downsampleToWindow: true }),
+		};
 	}
 
 	const isPerNodeMode = (viewMode ?? 'per-node') === 'per-node';
@@ -224,7 +238,11 @@ export function computeMetricCsvData(
 					crossNode: field.aggregator?.crossNode ?? spec.aggregator.crossNode,
 				},
 			};
-			const out = runPipeline(innerSpec, records, timeRange, nodes, { perNode: isPerNodeMode, snapToPeriod: true });
+			const out = runPipeline(innerSpec, records, timeRange, nodes, {
+				perNode: isPerNodeMode,
+				snapToPeriod: true,
+				downsampleToWindow: true,
+			});
 			series.push(...out.series);
 			// Each panel's ceiling (if any) becomes a regular column — SeriesData
 			// has a single ceiling slot, which can't carry one per panel.
@@ -235,23 +253,37 @@ export function computeMetricCsvData(
 
 	if (wantsStackedAreaNodeRemap(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
 		const remapped: MetricSpec = { ...spec, series: { ...spec.series, dimension: 'node' } };
-		return { kind: 'series', data: runPipeline(remapped, records, timeRange, nodes, { snapToPeriod: true }) };
+		return {
+			kind: 'series',
+			data: runPipeline(remapped, records, timeRange, nodes, { snapToPeriod: true, downsampleToWindow: true }),
+		};
 	}
 	if (wantsClusterLineFold(spec, isPerNodeMode) && spec.series.kind === 'groupBy') {
 		const inner: MetricSpec = {
 			...spec,
 			series: { kind: 'field', fields: [{ ...spec.series.field, label: 'cluster' }] },
 		};
-		return { kind: 'series', data: runPipeline(inner, records, timeRange, nodes, { snapToPeriod: true }) };
+		return {
+			kind: 'series',
+			data: runPipeline(inner, records, timeRange, nodes, { snapToPeriod: true, downsampleToWindow: true }),
+		};
 	}
 	if (wantsDimensionLineSplit(spec)) {
 		return {
 			kind: 'series',
-			data: runPipeline(spec, records, timeRange, nodes, { perNode: false, snapToPeriod: true }),
+			data: runPipeline(spec, records, timeRange, nodes, {
+				perNode: false,
+				snapToPeriod: true,
+				downsampleToWindow: true,
+			}),
 		};
 	}
 	return {
 		kind: 'series',
-		data: runPipeline(spec, records, timeRange, nodes, { perNode: isPerNodeMode, snapToPeriod: true }),
+		data: runPipeline(spec, records, timeRange, nodes, {
+			perNode: isPerNodeMode,
+			snapToPeriod: true,
+			downsampleToWindow: true,
+		}),
 	};
 }

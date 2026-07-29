@@ -59,7 +59,17 @@ describe('bytes-sent tolerance', () => {
 
 	it('mqtt-traffic-sent (msg/sec) total ≈ Σ count/period × 1000 within 0.5%', () => {
 		const records = JSON.parse(readFileSync(join(import.meta.dirname, '../fixtures/bytes/bytes-sent.json'), 'utf8'));
-		const out = mqttTrafficSentDerived.recompute(records, { startTime: 0, endTime: Number.MAX_SAFE_INTEGER }, []);
+		// The window is load-bearing here, unlike the two cases above: this goes
+		// through `recompute`, which opts into `downsampleToWindow`, so the range
+		// decides the render lattice. The old `0 → MAX_SAFE_INTEGER` sentinel
+		// (harmless while runPipeline ignored `window`) now reads as a ~285-century
+		// window and folds every point into one bucket, which would collapse the
+		// Σ-of-rates this test is actually checking. Use the fixture's own span —
+		// ~59 min, so the 1 h preset's 1 min lattice, and the samples sit ~115 s
+		// apart and stay one-per-bucket.
+		const times = (records as { time: number }[]).map((r) => r.time).filter(Number.isFinite);
+		const window = { startTime: Math.min(...times), endTime: Math.max(...times) };
+		const out = mqttTrafficSentDerived.recompute(records, window, []);
 
 		const refTotal = records.reduce((s: number, r: any) => {
 			if (typeof r.count !== 'number' || typeof r.period !== 'number' || r.period <= 0) { return s; }

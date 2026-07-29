@@ -181,6 +181,11 @@ export interface DerivedMetricSpec {
 	yAxis: MetricSpec['yAxis'];
 	thresholds?: Threshold[];
 	layout?: MetricSpec['layout'];
+	/** How to fold this metric's points when the selected window is wider than
+	 *  the render lattice (see pipeline/downsample.ts). Defaults to `'mean'`,
+	 *  which is right for the shipped derived metrics — all rates or ratios.
+	 *  Set `'sum'` for an extensive quantity, or `'max'`/`'last'` for a gauge. */
+	downsampleAggregator?: Aggregator;
 	/** Optional custom React component. When present, MetricRenderer uses
 	 *  it INSTEAD of the recompute → renderPrimitive flow — same role as
 	 *  SpecRegistryEntry.Renderer for spec-driven metrics. Lets derived

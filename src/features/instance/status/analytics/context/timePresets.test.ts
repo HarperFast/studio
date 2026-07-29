@@ -4,6 +4,7 @@ import {
 	DEFAULT_REFRESH_MS,
 	getPreset,
 	REFRESH_OPTIONS,
+	targetBucketMs,
 	TIME_PRESETS,
 	type TimePresetId,
 } from './timePresets';
@@ -41,6 +42,26 @@ describe('timePresets', () => {
 		// exceed ~1500 buckets — the SRE review's payload-blow-up mitigation.
 		for (const p of TIME_PRESETS) {
 			expect(p.durationMs / p.bucketMs).toBeLessThanOrEqual(1500);
+		}
+	});
+
+	it('targetBucketMs agrees with the table it is derived from', () => {
+		// The render lattice (targetBucketMs, looked up by duration) and the
+		// server hint / StorageTab trend grid (preset.bucketMs, looked up by id)
+		// must be the same number for a preset-sized window, or the Storage tab's
+		// trend timestamps stop landing on the metric panels' and syncMethod
+		// "value" crosshair sync silently breaks (#1514).
+		for (const p of TIME_PRESETS) {
+			expect(targetBucketMs(p.durationMs), p.id).toBe(p.bucketMs);
+		}
+	});
+
+	it('targetBucketMs is monotonic in the window width', () => {
+		let prev = 0;
+		for (const p of TIME_PRESETS) {
+			const cur = targetBucketMs(p.durationMs);
+			expect(cur).toBeGreaterThanOrEqual(prev);
+			prev = cur;
 		}
 	});
 
