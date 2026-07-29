@@ -86,6 +86,11 @@ export interface RunPipelineOptions {
 	 *  over the newest coarse bucket". See downsample.ts for the per-aggregator
 	 *  rules. */
 	downsampleToWindow?: boolean;
+	/** Chart is rendering into the near-fullscreen expand dialog, which has
+	 *  roughly 4x the horizontal room — resolve to the preset's
+	 *  `expandedBucketMs` instead of its panel `bucketMs`. Only meaningful
+	 *  alongside `downsampleToWindow`. */
+	expanded?: boolean;
 }
 
 /** Composite string key for a per-node series — React key / recharts name
@@ -107,7 +112,8 @@ export function runPipeline(
 		? runFieldSpecs(spec, spec.series.fields, records, options?.perNode ?? false, options?.snapToPeriod ?? false)
 		: runGroupBy(spec, spec.series, records, options?.perNode ?? false, options?.snapToPeriod ?? false);
 	if (!options?.downsampleToWindow) { return data; }
-	return downsampleSeriesData(data, spec, targetBucketMs(window.endTime - window.startTime));
+	const target = targetBucketMs(window.endTime - window.startTime, { expanded: options.expanded });
+	return downsampleSeriesData(data, spec, target);
 }
 
 /** Snap a record's time to its period boundary so per-node staggering

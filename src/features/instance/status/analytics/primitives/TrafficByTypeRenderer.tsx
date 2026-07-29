@@ -95,8 +95,13 @@ export function TrafficByTypeRenderer({
 	}, [spec, stackBy]);
 
 	const data: SeriesData = useMemo(
-		() => runPipeline(runtimeSpec, filteredRecords, timeRange, nodes, { snapToPeriod: true, downsampleToWindow: true }),
-		[runtimeSpec, filteredRecords, timeRange, nodes],
+		() =>
+			runPipeline(runtimeSpec, filteredRecords, timeRange, nodes, {
+				snapToPeriod: true,
+				downsampleToWindow: true,
+				expanded: !!fillParent,
+			}),
+		[runtimeSpec, filteredRecords, timeRange, nodes, fillParent],
 	);
 
 	// Color each series by its key using the appropriate allocator so the
@@ -122,6 +127,7 @@ export function TrafficByTypeRenderer({
 			const seriesData = runPipeline(spec, nodeRecords, timeRange, [nodeId], {
 				snapToPeriod: true,
 				downsampleToWindow: true,
+				expanded: !!fillParent,
 			});
 			return {
 				title: nodeId,

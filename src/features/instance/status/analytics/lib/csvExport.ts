@@ -183,8 +183,11 @@ export function computeMetricCsvData(
 
 	const derived = derivedRegistry[metric];
 	if (derived) {
-		// Folded to the same lattice MetricRenderer draws, so a download matches
-		// the chart it was taken from rather than being 60x longer at 30 d.
+		// Folded to the same lattice MetricRenderer draws for a panel, so a
+		// download matches the chart it was taken from rather than being 60x
+		// longer at 30 d. Deliberately panel resolution even when the export is
+		// triggered from the expand dialog — an exported file should be a stable
+		// artifact of (metric, window), not of transient dialog state.
 		return {
 			kind: 'series',
 			data: downsampleDerivedSeriesData(
