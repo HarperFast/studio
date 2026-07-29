@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { cn } from '@/lib/cn';
 import { RefreshCw } from 'lucide-react';
 import { useAnalyticsContext } from '../context/AnalyticsContext';
@@ -57,15 +57,14 @@ export function TimeRangePicker({
 			)}
 			<Select value={presetId} onValueChange={(v) => onPresetChange(v as TimePresetId)}>
 				{
-					/* h-auto so the two-line label isn't clipped by the trigger's
-				    default h-9. Explicit children on SelectValue (not a bare
-				    <SelectValue/>) so the collapsed trigger shows the same
-				    window + resolution stack the options do. */
+					/* RangeLabel rendered straight into the trigger — the collapsed
+				    value is driven by `presetId` here, not by Radix reflecting the
+				    selected item, so the two-line stack is guaranteed regardless of
+				    how a given Radix version treats <SelectValue> children. h-auto
+				    keeps both lines from being clipped by the default h-9. */
 				}
 				<SelectTrigger className="h-auto min-h-9 w-[180px] py-1">
-					<SelectValue>
-						<RangeLabel presetId={presetId} />
-					</SelectValue>
+					<RangeLabel presetId={presetId} />
 				</SelectTrigger>
 				<SelectContent>
 					{TIME_PRESETS.map((p) => (
@@ -102,14 +101,16 @@ export function TimeRangePicker({
 						title="Auto-refresh interval"
 						className="h-auto min-h-9 w-[96px] rounded-r-none border-0 bg-transparent py-1 shadow-none dark:bg-transparent"
 					>
-						<SelectValue>
-							<span className="flex flex-col items-start leading-tight">
-								<span>
-									{REFRESH_OPTIONS.find((o) => o.value === refreshMs)?.label ?? `${Math.round(refreshMs / 1000)}s`}
-								</span>
-								<span className="text-[11px] font-normal text-muted-foreground">reload</span>
+						{
+							/* Rendered directly, same as the range trigger — driven by
+						    `refreshMs`, not Radix's selected-item reflection. */
+						}
+						<span className="flex flex-col items-start leading-tight">
+							<span>
+								{REFRESH_OPTIONS.find((o) => o.value === refreshMs)?.label ?? `${Math.round(refreshMs / 1000)}s`}
 							</span>
-						</SelectValue>
+							<span className="text-[11px] font-normal text-muted-foreground">reload</span>
+						</span>
 					</SelectTrigger>
 					<SelectContent>
 						{REFRESH_OPTIONS.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
