@@ -58,8 +58,12 @@ describe('TimeRangePicker', () => {
 				/>
 			</AnalyticsTestWrapper>,
 		);
-		expect(screen.getByText('Last 24 hours')).toBeTruthy();
-		expect(screen.getByText('by 10 minutes')).toBeTruthy();
+		// Scope to the collapsed trigger (first combobox), not the whole document:
+		// a document-wide getByText would also match the option in the dropdown
+		// portal, so it wouldn't prove the *trigger* shows the resolution.
+		const trigger = screen.getAllByRole('combobox')[0];
+		expect(within(trigger).getByText('Last 24 hours')).toBeTruthy();
+		expect(within(trigger).getByText('by 10 minutes')).toBeTruthy();
 	});
 
 	it('groups the auto-refresh interval together with the refresh action', () => {
