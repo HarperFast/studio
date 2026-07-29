@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_PRESET_ID,
 	DEFAULT_REFRESH_MS,
+	formatBucketLabel,
 	getPreset,
 	PANEL_POINT_TARGET,
 	REFRESH_OPTIONS,
@@ -119,6 +120,29 @@ describe('timePresets', () => {
 
 	it('default refresh is at least 30s — the SRE review pushed back on a 15s default', () => {
 		expect(DEFAULT_REFRESH_MS).toBeGreaterThanOrEqual(30_000);
+	});
+});
+
+describe('formatBucketLabel', () => {
+	it('formats minutes and hours, singular vs plural', () => {
+		expect(formatBucketLabel(60_000)).toBe('1 minute');
+		expect(formatBucketLabel(2 * 60_000)).toBe('2 minutes');
+		expect(formatBucketLabel(10 * 60_000)).toBe('10 minutes');
+		expect(formatBucketLabel(60 * 60_000)).toBe('1 hour');
+		expect(formatBucketLabel(4 * 60 * 60_000)).toBe('4 hours');
+	});
+
+	it('renders every shipped preset bucket as a clean minute/hour phrase', () => {
+		// No preset should surface a raw-ms fallback in the picker.
+		for (const p of TIME_PRESETS) {
+			expect(formatBucketLabel(p.bucketMs), p.id).toMatch(/^\d+ (minute|hour)s?$/);
+			expect(formatBucketLabel(p.expandedBucketMs), `${p.id} expanded`).toMatch(/^\d+ (minute|hour)s?$/);
+		}
+	});
+
+	it('falls back to seconds / ms only for odd values', () => {
+		expect(formatBucketLabel(30_000)).toBe('30 seconds');
+		expect(formatBucketLabel(1500)).toBe('1500 ms');
 	});
 });
 
