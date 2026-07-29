@@ -182,6 +182,33 @@ describe('connections — cluster-wide gaps stay gaps', () => {
 		expect(points.at(-1)!.x).toBe(T0 + 20 * LATTICE);
 		expect(points.at(-1)!.y).toBe(BUSY);
 	});
+
+	it('carries a node again once it comes back after going stale', () => {
+		// Guards the staleness eviction: an aged-out node is dropped from the
+		// carry-forward state, so it must be re-registered when it reports again
+		// rather than staying permanently excluded.
+		//
+		// Both nodes need a few closely-spaced samples first so their *own*
+		// median gap reads as one bucket. Give `quiet` only two samples either
+		// side of the silence and the silence itself becomes its median gap —
+		// horizon 2 x 21 buckets — and nothing ever ages out.
+		const rows = [
+			...[0, 1, 2, 20, 21, 22].map((i) => connectionRow('busy', T0 + i * LATTICE, BUSY)),
+			// `quiet` reports at cadence, goes silent well past 2 x that…
+			...[0, 1, 2].map((i) => connectionRow('quiet', T0 + i * LATTICE, QUIET)),
+			// …then returns, and drops out of the very next bucket again.
+			connectionRow('quiet', T0 + 21 * LATTICE, QUIET),
+		];
+		const byX = new Map(mqttPoints(rows).map((p) => [p.x, p.y]));
+		// Fresh.
+		expect(byX.get(T0 + 2 * LATTICE)).toBe(BUSY + QUIET);
+		// Aged out: busy alone.
+		expect(byX.get(T0 + 20 * LATTICE)).toBe(BUSY);
+		// Back, and observed.
+		expect(byX.get(T0 + 21 * LATTICE)).toBe(BUSY + QUIET);
+		// Back, absent from this bucket, but fresh enough to carry again.
+		expect(byX.get(T0 + 22 * LATTICE)).toBe(BUSY + QUIET);
+	});
 });
 
 describe('connections — node-drop fixture', () => {

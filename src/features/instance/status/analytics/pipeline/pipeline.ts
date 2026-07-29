@@ -327,8 +327,9 @@ function runGroupBy(
 			// members were emitted at.
 			const otherObservationTimes = observationTimes ? new Map<string, number[]>() : null;
 			for (const [key] of rest) {
-				if (otherObservationTimes) {
-					for (const [node, times] of observationTimes!.get(key) ?? []) {
+				const dimObservationTimes = observationTimes?.get(key);
+				if (otherObservationTimes && dimObservationTimes) {
+					for (const [node, times] of dimObservationTimes) {
 						let merged = otherObservationTimes.get(node);
 						if (!merged) {
 							merged = [];
@@ -552,7 +553,16 @@ function aggregateOverTime(
 		}
 		for (const [node, last] of lastObserved) {
 			if (observed.has(node)) { continue; }
-			if (time - last.time > (horizonByNode.get(node) ?? 0)) { continue; }
+			if (time - last.time > (horizonByNode.get(node) ?? 0)) {
+				// Buckets are walked in ascending order, so this observation can
+				// only get staler — drop it rather than re-testing it against
+				// every remaining bucket. A node that reports again is re-added
+				// by the observed-node loop above. Matters on wide windows over a
+				// cluster whose node ids churn (rolling replacement, autoscaling),
+				// where the map would otherwise accumulate every node ever seen.
+				lastObserved.delete(node);
+				continue;
+			}
 			// Carried, not observed — count 0 so `SeriesPoint.count` (confidence
 			// gating, tooltips) keeps reflecting real samples only.
 			inputs.push({ value: last.value, count: 0 });
