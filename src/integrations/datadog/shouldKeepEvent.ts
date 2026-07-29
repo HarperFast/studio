@@ -7,8 +7,35 @@ export interface DatadogErrorEvent {
 	error?: {
 		message?: string;
 		source?: string;
+		stack?: string;
 		resource?: { url?: string };
 	};
+}
+
+/**
+ * Scripts we embed but do not ship or control — currently only the Reo.dev analytics
+ * bundle (`src/integrations/reo/reo.ts` loads it from this CDN). Errors thrown inside
+ * them are vendor bugs we can neither reproduce nor fix.
+ */
+const THIRD_PARTY_SCRIPT_FRAME = /https?:\/\/static\.reo\.dev\//;
+
+/**
+ * The Datadog browser SDK monkey-patches `fetch`/XHR, so its own bundle sits at the top
+ * of every stack it instruments — including stacks whose real origin is third-party.
+ * Treat it as instrumentation rather than as a Studio frame when attributing an error.
+ */
+const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
+
+/**
+ * True when every located frame in the stack belongs to a third-party script (or to the
+ * Datadog SDK's own instrumentation), i.e. no Studio code is on the stack at all.
+ */
+function originatesInThirdPartyScript(stack: string) {
+	const frames = stack.split('\n').filter(line => /https?:\/\//.test(line));
+	if (!frames.some(frame => THIRD_PARTY_SCRIPT_FRAME.test(frame))) {
+		return false;
+	}
+	return frames.every(frame => THIRD_PARTY_SCRIPT_FRAME.test(frame) || INSTRUMENTATION_FRAME.test(frame));
 }
 
 /**
@@ -67,6 +94,19 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// worker OOM of issue #1407), and the stale-deploy trigger now self-recovers via
 	// `installStaleDeployReload` — this repeated per-call echo adds nothing but volume.
 	if (/Missing requestHandler or method: /.test(message)) {
+		return false;
+	}
+
+	// Errors thrown entirely inside an embedded third-party script are that vendor's bugs,
+	// not Studio's: we can't reproduce them, fix them, or act on them, and they arrive with
+	// stacks that point only at minified vendor code. Reo.dev alone contributed two distinct
+	// "issues" to Error Tracking within a day of first appearing (2026-07-28): a
+	// `RangeError: Invalid time zone specified: Etc/Unknown` from its own `DateTimeFormat`
+	// call, and a `TypeError: Failed to fetch` when its beacon is blocked. Attribute on the
+	// stack rather than the message, so a genuine Studio error that happens to share a
+	// message is still kept.
+	const stack = event.error?.stack ?? '';
+	if (stack && originatesInThirdPartyScript(stack)) {
 		return false;
 	}
 
