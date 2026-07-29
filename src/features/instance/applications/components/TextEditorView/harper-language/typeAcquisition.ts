@@ -18,7 +18,18 @@
 import { typescript } from '@/lib/monaco/languageServices';
 import { ExtraLibBudget } from '@/lib/monaco/workerLimits';
 
-/** node builtins are not on npm; their types come from `@types/node` (not acquired here). */
+/**
+ * node builtins are not on npm; their types come from `@types/node` (not acquired here).
+ * Matched against a specifier's *package portion*, so subpath forms — `fs/promises`,
+ * `assert/strict`, `timers/promises` — are covered without listing each one.
+ *
+ * `node:`-prefixed forms are rejected outright, which is the only way `node:test`,
+ * `node:sqlite` and `node:sea` are recognised: `test`, `sqlite` and `sea` are also real
+ * npm packages, so listing them bare would cost those packages their types. Several
+ * entries below have npm counterparts too (`events`, `buffer`, `process`, `path`,
+ * `punycode` — the browser shims), and the long-standing choice here is to treat the
+ * bare name as the builtin.
+ */
 const NODE_BUILTINS = new Set([
 	'assert',
 	'async_hooks',
@@ -26,30 +37,40 @@ const NODE_BUILTINS = new Set([
 	'child_process',
 	'cluster',
 	'console',
+	'constants',
 	'crypto',
+	'dgram',
+	'diagnostics_channel',
 	'dns',
+	'domain',
 	'events',
 	'fs',
 	'http',
 	'http2',
 	'https',
+	'inspector',
 	'module',
 	'net',
 	'os',
 	'path',
 	'perf_hooks',
 	'process',
+	'punycode',
 	'querystring',
 	'readline',
+	'repl',
 	'stream',
 	'string_decoder',
+	'sys',
 	'timers',
 	'tls',
+	'trace_events',
 	'tty',
 	'url',
 	'util',
 	'v8',
 	'vm',
+	'wasi',
 	'worker_threads',
 	'zlib',
 ]);
@@ -63,27 +84,53 @@ const ASSET_OR_DATA = /\.(svg|png|jpe?g|gif|webp|avif|ico|bmp|css|scss|sass|less
  * predate npm's lowercase-only rule.
  */
 const NPM_SPECIFIER = /^(?:@[a-z0-9\-~][a-z0-9\-._~]*\/)?[a-z0-9\-~][a-z0-9\-._~]*(?:\/[a-z0-9\-._~/]+)?$/i;
-/** npm's hard limit on a package name; also bounds what we're willing to send to the CDN. */
-const MAX_SPECIFIER_LENGTH = 214;
+/** npm's hard limit, which applies to the package *name* — never to a deep-import subpath. */
+const MAX_PACKAGE_NAME_LENGTH = 214;
+/**
+ * A separate ceiling for the specifier as a whole, since npm's 214 says nothing about a
+ * subpath: `pkg/a/b/…` can legitimately run past it and must still resolve. Generous
+ * enough that no real deep import comes close, while still bounding what is read and sent.
+ */
+const MAX_MODULE_SPECIFIER = 1024;
+
+/**
+ * The part of a specifier that names the package: the first segment, or the first two when
+ * scoped. Deep imports share their package's identity — `fs/promises` is as much a builtin
+ * as `fs`, and `lodash/fp`'s name is `lodash`.
+ */
+function packageNameOf(specifier: string): string {
+	const firstSlash = specifier.indexOf('/');
+	if (firstSlash < 0) {
+		return specifier;
+	}
+	if (!specifier.startsWith('@')) {
+		return specifier.slice(0, firstSlash);
+	}
+	const secondSlash = specifier.indexOf('/', firstSlash + 1);
+	return secondSlash < 0 ? specifier : specifier.slice(0, secondSlash);
+}
 
 /** A bare npm specifier we want real `@types` for — not relative, alias, asset, Harper, or node builtin. */
 function isAcquirablePackage(specifier: string): boolean {
 	if (!specifier || specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('@/')) {
 		return false;
 	}
-	if (specifier === 'harper' || specifier === 'harperdb' || specifier.startsWith('node:')) {
+	if (specifier.startsWith('node:') || ASSET_OR_DATA.test(specifier)) {
 		return false;
 	}
-	if (NODE_BUILTINS.has(specifier) || ASSET_OR_DATA.test(specifier)) {
+	const packageName = packageNameOf(specifier);
+	if (packageName === 'harper' || packageName === 'harperdb' || NODE_BUILTINS.has(packageName)) {
 		return false;
 	}
 	// Every specifier that gets past here becomes a cross-origin request to
 	// data.jsdelivr.com, so it must actually be able to name a package. The scanner
-	// below is a regex, not a parser, and anything it over-matches out of a comment
-	// or a SQL/GraphQL template literal would otherwise be sent verbatim to the CDN
-	// — leaking user-authored strings (table and type names) off-origin for a
+	// below reads arbitrary user code without a real parser, and anything it over-matches
+	// out of a comment or a SQL/GraphQL template literal would otherwise be sent verbatim
+	// to the CDN — leaking user-authored strings (table and type names) off-origin for a
 	// guaranteed 404. (HarperFast/studio: daily RUM review, 2026-07-28.)
-	return specifier.length <= MAX_SPECIFIER_LENGTH && NPM_SPECIFIER.test(specifier);
+	return specifier.length <= MAX_MODULE_SPECIFIER
+		&& packageName.length <= MAX_PACKAGE_NAME_LENGTH
+		&& NPM_SPECIFIER.test(specifier);
 }
 
 /**
@@ -111,7 +158,7 @@ const MAX_IMPORT_CLAUSE = 4096;
 const SLASH = 0x2f, STAR = 0x2a, NEWLINE = 0x0a, SINGLE_QUOTE = 0x27, DOUBLE_QUOTE = 0x22;
 const OPEN_PAREN = 0x28, CLOSE_PAREN = 0x29, OPEN_BRACE = 0x7b, CLOSE_BRACE = 0x7d, COMMA = 0x2c;
 const BACKTICK = 0x60, BACKSLASH = 0x5c, DOLLAR = 0x24, DOT = 0x2e;
-const OPEN_BRACKET = 0x5b, CLOSE_BRACKET = 0x5d;
+const OPEN_BRACKET = 0x5b, CLOSE_BRACKET = 0x5d, LESS_THAN = 0x3c, GREATER_THAN = 0x3e;
 
 /** `\w` plus `$` — what a clause keyword or imported binding is spelled with. */
 function isIdentifierChar(charCode: number): boolean {
@@ -172,8 +219,10 @@ interface ScannedSpecifier {
  * A quoted module specifier at `at`, after optional whitespace. `limit` is the caller's
  * bound and applies to the whitespace run as well as the quotes: without it, a statement
  * whose `from` sits inside the clause bound could still reach a quote arbitrarily far
- * past it, and every keyword candidate would rescan that same run. The specifier body is
- * additionally capped at npm's own name limit, past which it is rejected anyway.
+ * past it, and every keyword candidate would rescan that same run. The body is
+ * additionally capped at `MAX_MODULE_SPECIFIER` — the whole specifier, not npm's
+ * package-name limit, or a long but valid deep import would be truncated before
+ * `isAcquirablePackage` ever saw it.
  */
 function readQuotedSpecifier(code: string, at: number, bound: number): { specifier: string; end: number } | undefined {
 	const opened = skipWhitespace(code, at, bound);
@@ -181,7 +230,7 @@ function readQuotedSpecifier(code: string, at: number, bound: number): { specifi
 	if (opened >= bound || (quote !== SINGLE_QUOTE && quote !== DOUBLE_QUOTE)) {
 		return undefined;
 	}
-	const limit = Math.min(bound, opened + MAX_SPECIFIER_LENGTH + 2);
+	const limit = Math.min(bound, opened + MAX_MODULE_SPECIFIER + 2);
 	for (let next = opened + 1; next < limit; next++) {
 		const charCode = code.charCodeAt(next);
 		if (charCode === quote) {
@@ -348,6 +397,11 @@ function skipRegexLiteral(code: string, at: number, limit: number): number {
  * `previousWord` covers the keywords that produce no value and so may be followed by a
  * regex (`return /x/`), which a bare "previous char is a letter" test gets wrong.
  *
+ * A `)` is not enough on its own: it closes a call, whose result divides, but it also
+ * closes an `if`/`while`/`for` head, whose body may be a bare regex statement —
+ * `if (ready) /x/.test(s)`. `closedControlFlowHead` carries which of the two the last `)`
+ * was, tracked by the caller.
+ *
  * Ambiguity is resolved toward *regex*, `}` included: mistaking division for a regex
  * skips to the next `/` and can only lose an import, while mistaking a regex for
  * division scans its body as code and could take a specifier out of it.
@@ -367,11 +421,16 @@ const REGEX_MAY_FOLLOW = new Set([
 	'yield',
 	'await',
 ]);
-function canStartRegex(previousChar: number, previousWord: string): boolean {
+/** Keywords whose parenthesised head is followed by a statement, not an operator. */
+const CONTROL_FLOW_HEAD = new Set(['if', 'while', 'for', 'switch', 'catch', 'with']);
+function canStartRegex(previousChar: number, previousWord: string, closedControlFlowHead: boolean): boolean {
 	if (isIdentifierChar(previousChar)) {
 		return REGEX_MAY_FOLLOW.has(previousWord);
 	}
-	return previousChar !== CLOSE_PAREN && previousChar !== CLOSE_BRACKET
+	if (previousChar === CLOSE_PAREN) {
+		return closedControlFlowHead;
+	}
+	return previousChar !== CLOSE_BRACKET
 		&& previousChar !== SINGLE_QUOTE && previousChar !== DOUBLE_QUOTE && previousChar !== BACKTICK;
 }
 
@@ -392,34 +451,98 @@ function canStartRegex(previousChar: number, previousWord: string): boolean {
  * half-typed code, which for an editor is the normal state, and returning nothing there
  * would silently stop type acquisition mid-keystroke. Where the walk cannot be certain it
  * prefers to treat text as *not* code, which loses an acquisition rather than leaking a
- * name. Template substitutions are still scanned, since `import()` inside one is real
- * code.
+ * name. Substitutions and JSX expression containers are still scanned, since `import()`
+ * inside one is real code.
+ *
+ * Known limit, in the safe direction: a generic arrow in a `.tsx` file (`<T,>(x) => x`)
+ * opens `<` where an expression may start, so it reads as JSX and the rest of the file is
+ * skipped as element text. That loses acquisition, never a name, and imports sit above
+ * such code in practice.
  */
+/** Skipping template text, looking for the closing backtick or a `${`. */
+const CONTEXT_TEMPLATE = 0;
+/** Scanning code inside `${…}` or a JSX `{…}`; the entry's `braces` balances its own `{`. */
+const CONTEXT_EXPRESSION = 1;
+/** Inside `<tag …`, skipping attribute syntax up to `>` or `/>`. */
+const CONTEXT_JSX_TAG = 2;
+/** Between `>` and the matching `</tag>`, where everything is element text. */
+const CONTEXT_JSX_TEXT = 3;
+
 function scanSpecifiers(code: string): ScannedSpecifier[] {
 	const found: ScannedSpecifier[] = [];
-	// Each entry is a `${` substitution we are inside; its value is the brace depth within
-	// it, so the matching `}` returns us to the enclosing template. An explicit stack
-	// rather than recursion, so deeply nested templates cost memory, never the call stack.
-	const substitutions: number[] = [];
-	let inTemplate = false;
+	// Templates, JSX and expression containers nest arbitrarily, so context is an explicit
+	// stack rather than recursion: deep nesting costs memory, never the call stack.
+	const contexts: Array<{ kind: number; braces: number }> = [];
+	// Whether the innermost `(` opened a control-flow head, so its `)` can be followed by a
+	// bare regex statement. A stack, since heads nest (`if (a) while (b) /x/.test(s)`).
+	const parenHeads: boolean[] = [];
+	let closedControlFlowHead = false;
 	let previousChar = 0;
 	let previousWord = '';
 	let at = 0;
 	while (at < code.length) {
 		const charCode = code.charCodeAt(at);
+		const context = contexts[contexts.length - 1];
+		const kind = context?.kind;
 
-		if (inTemplate) {
+		if (kind === CONTEXT_TEMPLATE) {
 			if (charCode === BACKSLASH) {
 				at += 2;
 			} else if (charCode === BACKTICK) {
-				inTemplate = false;
+				contexts.pop();
 				previousChar = BACKTICK;
 				at++;
 			} else if (charCode === DOLLAR && code.charCodeAt(at + 1) === OPEN_BRACE) {
-				substitutions.push(0);
-				inTemplate = false;
+				contexts.push({ kind: CONTEXT_EXPRESSION, braces: 0 });
 				previousChar = OPEN_BRACE;
+				previousWord = '';
 				at += 2;
+			} else {
+				at++;
+			}
+			continue;
+		}
+
+		if (kind === CONTEXT_JSX_TEXT) {
+			if (charCode === OPEN_BRACE) {
+				contexts.push({ kind: CONTEXT_EXPRESSION, braces: 0 });
+				previousChar = OPEN_BRACE;
+				previousWord = '';
+				at++;
+			} else if (charCode === LESS_THAN) {
+				if (code.charCodeAt(at + 1) === SLASH) {
+					// A closing tag ends this element's text.
+					const tagEnd = code.indexOf('>', at + 2);
+					contexts.pop();
+					previousChar = GREATER_THAN;
+					previousWord = '';
+					at = tagEnd < 0 ? code.length : tagEnd + 1;
+				} else {
+					contexts.push({ kind: CONTEXT_JSX_TAG, braces: 0 });
+					at++;
+				}
+			} else {
+				at++;
+			}
+			continue;
+		}
+
+		if (kind === CONTEXT_JSX_TAG) {
+			if (charCode === SINGLE_QUOTE || charCode === DOUBLE_QUOTE) {
+				at = skipStringLiteral(code, at, code.length);
+			} else if (charCode === OPEN_BRACE) {
+				contexts.push({ kind: CONTEXT_EXPRESSION, braces: 0 });
+				previousChar = OPEN_BRACE;
+				previousWord = '';
+				at++;
+			} else if (charCode === SLASH && code.charCodeAt(at + 1) === GREATER_THAN) {
+				contexts.pop(); // self-closing: no children follow
+				previousChar = GREATER_THAN;
+				previousWord = '';
+				at += 2;
+			} else if (charCode === GREATER_THAN) {
+				contexts[contexts.length - 1] = { kind: CONTEXT_JSX_TEXT, braces: 0 };
+				at++;
 			} else {
 				at++;
 			}
@@ -438,7 +561,9 @@ function scanSpecifiers(code: string): ScannedSpecifier[] {
 				at = commentEnd < 0 ? code.length : commentEnd + 2;
 				continue;
 			}
-			at = canStartRegex(previousChar, previousWord) ? skipRegexLiteral(code, at, code.length) : at + 1;
+			at = canStartRegex(previousChar, previousWord, closedControlFlowHead)
+				? skipRegexLiteral(code, at, code.length)
+				: at + 1;
 			previousChar = SLASH;
 			previousWord = '';
 			continue;
@@ -452,24 +577,41 @@ function scanSpecifiers(code: string): ScannedSpecifier[] {
 		}
 
 		if (charCode === BACKTICK) {
-			inTemplate = true;
+			contexts.push({ kind: CONTEXT_TEMPLATE, braces: 0 });
 			at++;
 			continue;
 		}
 
-		if (substitutions.length > 0) {
+		// `<` where an expression may start opens JSX; after a value it is less-than, and
+		// after an identifier it is a TypeScript type argument (`Array<string>`, `f<T>()`).
+		if (charCode === LESS_THAN && canStartRegex(previousChar, previousWord, closedControlFlowHead)) {
+			const following = code.charCodeAt(at + 1);
+			if (following === GREATER_THAN || isIdentifierChar(following)) {
+				contexts.push({ kind: following === GREATER_THAN ? CONTEXT_JSX_TEXT : CONTEXT_JSX_TAG, braces: 0 });
+				at += following === GREATER_THAN ? 2 : 1;
+				continue;
+			}
+		}
+
+		if (kind === CONTEXT_EXPRESSION) {
 			if (charCode === OPEN_BRACE) {
-				substitutions[substitutions.length - 1]++;
+				context.braces++;
 			} else if (charCode === CLOSE_BRACE) {
-				if (substitutions[substitutions.length - 1] === 0) {
-					substitutions.pop();
-					inTemplate = true;
+				if (context.braces === 0) {
+					contexts.pop();
 					previousChar = CLOSE_BRACE;
+					previousWord = '';
 					at++;
 					continue;
 				}
-				substitutions[substitutions.length - 1]--;
+				context.braces--;
 			}
+		}
+
+		if (charCode === OPEN_PAREN) {
+			parenHeads.push(CONTROL_FLOW_HEAD.has(previousWord));
+		} else if (charCode === CLOSE_PAREN) {
+			closedControlFlowHead = parenHeads.pop() ?? false;
 		}
 
 		if (isIdentifierChar(charCode)) {

@@ -88,6 +88,44 @@ describe('findAcquirableSpecifiers', () => {
 		])('%s', (_label, code) => {
 			expect(findAcquirableSpecifiers(code)).toEqual([]);
 		});
+
+		// A builtin's subpath is as much a builtin as its bare name, and every one of these
+		// satisfies npm's name grammar, so exact membership let them through to jsDelivr.
+		it.each([
+			['fs/promises', `import fs from 'fs/promises'`],
+			['assert/strict', `import assert from 'assert/strict'`],
+			['timers/promises', `import { setTimeout } from 'timers/promises'`],
+			['dns/promises', `import dns from 'dns/promises'`],
+			['stream/promises', `import { pipeline } from 'stream/promises'`],
+			['stream/web', `import { ReadableStream } from 'stream/web'`],
+			['util/types', `import types from 'util/types'`],
+			['path/posix', `import posix from 'path/posix'`],
+			['readline/promises', `import rl from 'readline/promises'`],
+			['node: subpath', `import fs from 'node:fs/promises'`],
+		])('builtin subpath %s', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		});
+
+		it.each([
+			['inspector', `import inspector from 'inspector'`],
+			['dgram', `import dgram from 'dgram'`],
+			['diagnostics_channel', `import dc from 'diagnostics_channel'`],
+			['punycode', `import punycode from 'punycode'`],
+			['repl', `import repl from 'repl'`],
+			['constants', `import constants from 'constants'`],
+		])('bare builtin %s', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual([]);
+		});
+
+		it('still acquires packages whose names only resemble a builtin', () => {
+			expect(findAcquirableSpecifiers(`import x from 'fs-extra'`)).toEqual(['fs-extra']);
+			expect(findAcquirableSpecifiers(`import x from '@types/fs'`)).toEqual(['@types/fs']);
+			expect(findAcquirableSpecifiers(`import x from 'path-browserify'`)).toEqual(['path-browserify']);
+			// `node:test` and `node:sqlite` are rejected by the `node:` prefix, so the npm
+			// packages of those names keep resolving.
+			expect(findAcquirableSpecifiers(`import x from 'sqlite'`)).toEqual(['sqlite']);
+			expect(findAcquirableSpecifiers(`import x from 'node:sqlite'`)).toEqual([]);
+		});
 	});
 
 	// Regression for the daily RUM review of 2026-07-28: 18 requests to
@@ -163,10 +201,23 @@ describe('findAcquirableSpecifiers', () => {
 			expect(findAcquirableSpecifiers(`import x from '${specifier}'`)).toEqual([]);
 		});
 
-		it('rejects a specifier longer than npm allows', () => {
-			const tooLong = 'a'.repeat(215);
-			expect(findAcquirableSpecifiers(`import x from '${tooLong}'`)).toEqual([]);
+		// npm's 214 bounds the package *name*. Applying it to the whole specifier discarded
+		// valid deep imports, which is why the package portion and the subpath are bounded
+		// separately.
+		it('rejects a package name longer than npm allows', () => {
+			expect(findAcquirableSpecifiers(`import x from '${'a'.repeat(215)}'`)).toEqual([]);
+			expect(findAcquirableSpecifiers(`import x from '${'a'.repeat(215)}/sub'`)).toEqual([]);
 			expect(findAcquirableSpecifiers(`import x from '${'a'.repeat(214)}'`)).toEqual(['a'.repeat(214)]);
+		});
+
+		it('allows a deep import past 214 chars whose package name is within the limit', () => {
+			const deep = `pkg/${'segment/'.repeat(30)}index`;
+			expect(deep.length).toBeGreaterThan(214);
+			expect(findAcquirableSpecifiers(`import x from '${deep}'`)).toEqual([deep]);
+		});
+
+		it('rejects a specifier past the whole-specifier ceiling', () => {
+			expect(findAcquirableSpecifiers(`import x from 'pkg/${'a/'.repeat(700)}end'`)).toEqual([]);
 		});
 
 		it('still allows legacy mixed-case package names', () => {
@@ -217,6 +268,50 @@ describe('findAcquirableSpecifiers', () => {
 
 		it('still scans a template substitution, which is real code', () => {
 			expect(findAcquirableSpecifiers('const m = `${await import("nanoid")}`')).toEqual(['nanoid']);
+		});
+
+		// A `)` alone cannot tell division from a regex: it closes a call, whose result
+		// divides, but it also closes an `if`/`while`/`for` head, whose body may be a bare
+		// regex statement. Reading that body as code leaks the specifier inside it.
+		it.each([
+			['an if head', `if (ready) /import rows from 'customers'/.test(source)\nimport { z } from 'zod'`],
+			['a while head', `while (more) /import rows from 'customers'/.test(source)\nimport { z } from 'zod'`],
+			['a for head', `for (;;) /import rows from 'customers'/.test(source)\nimport { z } from 'zod'`],
+			['a nested head', `if (a) while (b) /import x from 'customers'/.test(s)\nimport { z } from 'zod'`],
+		])('does not read a regex statement after %s as code', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual(['zod']);
+		});
+
+		it('still treats a `/` after a call as division', () => {
+			expect(findAcquirableSpecifiers(`const ratio = total(a) / count(b)\nimport { z } from 'zod'`)).toEqual(['zod']);
+		});
+
+		// `.jsx`/`.tsx` reach the scanner: the caller filters on `\.(tsx?|jsx?|mjs|cjs|mts|cts)$`.
+		it.each([
+			['JSX text', `const V = () => <p>we import rows from 'customers'</p>\nimport { z } from 'zod'`],
+			[
+				'JSX text on its own line',
+				`const V = () => (\n\t<p>\n\t\timport rows from 'customers'\n\t</p>\n)\nimport { z } from 'zod'`,
+			],
+			['a JSX attribute', `const V = () => <p title="we import rows from 'customers'" />\nimport { z } from 'zod'`],
+			[
+				'nested JSX children',
+				`const V = () => <div><span>import x from 'customers'</span></div>\nimport { z } from 'zod'`,
+			],
+			['a JSX fragment', `const V = () => <>import x from 'customers'</>\nimport { z } from 'zod'`],
+			['a returned element', `function V() {\n\treturn <p>import x from 'customers'</p>\n}\nimport { z } from 'zod'`],
+		])('does not read %s as code', (_label, code) => {
+			expect(findAcquirableSpecifiers(code)).toEqual(['zod']);
+		});
+
+		it('still scans a JSX expression container, which is real code', () => {
+			expect(findAcquirableSpecifiers(`const V = () => <p>{require('uuid')}</p>`)).toEqual(['uuid']);
+			expect(findAcquirableSpecifiers(`const V = () => <img src={require('uuid')} />`)).toEqual(['uuid']);
+		});
+
+		it('does not mistake a type argument or comparison for JSX', () => {
+			expect(findAcquirableSpecifiers(`const m = new Map<string, number>()\nimport { z } from 'zod'`)).toEqual(['zod']);
+			expect(findAcquirableSpecifiers(`const ok = a < b && c > d\nimport { z } from 'zod'`)).toEqual(['zod']);
 		});
 
 		it('keeps working on half-typed code, where a real parser would reject the file', () => {
