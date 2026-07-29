@@ -121,6 +121,82 @@ describe('shouldKeepEvent', () => {
 		).toBe(true);
 	});
 
+	// Regression tests for the Reo.dev analytics errors that reached Error Tracking on
+	// 2026-07-28. Stacks below are the real ones RUM recorded, truncated.
+	describe('third-party script errors', () => {
+		it('discards errors thrown wholly inside the Reo.dev bundle', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'RangeError: Invalid time zone specified: Etc/Unknown',
+						stack: [
+							'RangeError: Invalid time zone specified: Etc/Unknown',
+							'  at new DateTimeFormat @ <anonymous>',
+							'  at r @ https://static.reo.dev/6565c3e84c377ad/177.reo.js:2:81872',
+							'  at s.year @ https://static.reo.dev/6565c3e84c377ad/177.reo.js:2:82437',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		// The Datadog SDK patches `fetch`, so its bundle tops the stack of a beacon that
+		// Reo.dev itself issued. That instrumentation frame must not make the error look
+		// like Studio's own.
+		it('discards third-party errors whose stack is topped by the Datadog fetch wrapper', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to fetch',
+						stack: [
+							'TypeError: Failed to fetch',
+							'  at <anonymous> @ https://fabric.harper.fast/assets/vendor-datadog-DBn-aOxh.js:3:3213',
+							'  at pn @ https://fabric.harper.fast/assets/vendor-datadog-DBn-aOxh.js:3:3396',
+							'  at <anonymous> @ https://static.reo.dev/6565c3e84c377ad/reo.js:2:188638',
+							'  at l @ https://static.reo.dev/6565c3e84c377ad/reo.js:2:180136',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps errors with the same message when Studio code is on the stack', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to fetch',
+						stack: [
+							'TypeError: Failed to fetch',
+							'  at <anonymous> @ https://fabric.harper.fast/assets/vendor-datadog-DBn-aOxh.js:3:3213',
+							'  at getOrganization @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('keeps errors with no third-party frame at all', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Uncaught "ResizeObserver loop completed with undelivered notifications."',
+						stack: [
+							'Error: ResizeObserver loop completed with undelivered notifications.',
+							'  at undefined @ https://fabric.harper.fast/#/org-abc123',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('keeps errors with a stackless or frameless stack', () => {
+			expect(shouldKeepEvent(errorEvent({ message: 'TypeError: x is not a function' }))).toBe(true);
+			expect(
+				shouldKeepEvent(errorEvent({ message: 'Boom', stack: 'Error: Boom\n  at <anonymous>' })),
+			).toBe(true);
+		});
+	});
+
 	it('keeps non-timeout network failures that are not attributable to an instance endpoint', () => {
 		// Without an instance/cluster URL we cannot tell a real backend failure from an
 		// expected one, so a bare "Network Error" stays visible (unlike timeouts).
