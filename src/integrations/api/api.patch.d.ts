@@ -48,6 +48,58 @@ export interface ApiTokenResult {
 }
 
 /**
+ * A Fabric-managed region as returned by GET /Admin/Region. `organizationIds` is the customer
+ * scope: when set, only those organizations can see/select the region; null/empty means it is
+ * global (available to everyone). The `*PreferredLocations` values must match `location` values
+ * in the Location table (see AdminLocation).
+ */
+export interface AdminRegion {
+	id: string;
+	region: string;
+	instanceCount: number;
+	purchasedBlockMultiplier: number;
+	latencyDescription: string;
+	linodePreferredLocations?: string[];
+	gcpPreferredLocations?: string[];
+	forceLocations?: boolean;
+	/** false = retired: hidden from GET /Region (new provisioning). Absent/true = active. */
+	active?: boolean;
+	organizationIds?: string[] | null;
+	createdByUserId?: string;
+	updatedByUserId?: string;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
+/** Payload for POST /Admin/Region (create) and PATCH /Admin/Region/:id (edit, all optional). */
+export interface AdminRegionPayload {
+	id: string;
+	region: string;
+	instanceCount: number;
+	purchasedBlockMultiplier: number;
+	latencyDescription: string;
+	linodePreferredLocations?: string[];
+	gcpPreferredLocations?: string[];
+	forceLocations?: boolean;
+	active?: boolean;
+	organizationIds?: string[] | null;
+}
+
+/**
+ * A deployment location as returned by GET /Location. `location` is the value stored in a region's
+ * preferred-location arrays; `locationName` is the display label; `cloudProvider` splits the Linode
+ * and GCP pickers.
+ */
+export interface AdminLocation {
+	id: string;
+	location: string;
+	locationName: string;
+	/** Only these two providers exist today (see central-manager's loadLocations). */
+	cloudProvider: 'linode' | 'gcp';
+	regions: string[];
+}
+
+/**
  * A row of the central-manager `SystemStatus` table — the backing store for the
  * notification center (issue #1259). Not in the generated OpenAPI types yet, so
  * declared here (see the note at the top of this file).

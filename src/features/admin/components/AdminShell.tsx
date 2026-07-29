@@ -1,7 +1,7 @@
 import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { isFabricAdmin, useCloudAuth } from '@/hooks/useAuth';
 import { Navigate, Outlet } from '@tanstack/react-router';
-import { BellIcon, KeyRoundIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -9,9 +9,12 @@ import { BellIcon, KeyRoundIcon } from 'lucide-react';
  * (matching the token endpoint's SSO-session contract — see isFabricAdmin); the
  * dashboard route guard already handles the unauthenticated redirect.
  */
+// First item is the section index (/admin) so the navbar's Admin link opens it; `exact` keeps it
+// from also matching the sibling routes nested under /admin.
 const items: SubNavItem[] = [
-	{ to: '/admin', label: 'API Token', icon: KeyRoundIcon, exact: true },
-	{ to: '/admin/notifications', label: 'Notifications', icon: BellIcon },
+	{ to: '/admin', label: 'Notifications', icon: BellIcon, exact: true },
+	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon },
+	{ to: '/admin/api-token', label: 'API Token', icon: KeyRoundIcon },
 ];
 
 export function AdminShell() {
