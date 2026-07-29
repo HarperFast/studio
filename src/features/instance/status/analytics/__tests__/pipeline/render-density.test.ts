@@ -81,24 +81,45 @@ describe('rendered point count per preset', () => {
 			// Never coarser than asked, and within one bucket of the target.
 			expect(after.length).toBeLessThanOrEqual(intended + 1);
 			expect(after.length).toBeLessThanOrEqual(before.length);
-			// The wide presets are the ones that were over-dense; the 1h/6h
-			// presets already sit on their own lattice and must come through
+			// `period: 0` rows bucket onto the 60 s fallback, so any preset asking
+			// for a coarser bucket than that must come out strictly shorter. The
+			// 1h preset already sits on the 60 s lattice and must come through
 			// unchanged. (Value equality, not reference — these are two separate
 			// runPipeline calls, so the arrays are distinct instances either way.)
 			if (preset.bucketMs > 60_000) {
-				expect(before.length).toBeGreaterThan(intended * 2);
+				expect(after.length).toBeLessThan(before.length);
 			} else {
 				expect(after).toEqual(before);
 			}
 		});
 	}
 
-	it('30d drops from ~43k points to ~720', () => {
+	it('30d drops from ~43k points to ~180', () => {
 		const preset = getPreset('30d');
 		const rows = gaugeRows(preset.durationMs);
 		const w = windowFor(preset.durationMs);
 		expect(mqttPoints(rows, w, false).length).toBeGreaterThan(40_000);
-		expect(mqttPoints(rows, w, true).length).toBeLessThanOrEqual(721);
+		expect(mqttPoints(rows, w, true).length).toBeLessThanOrEqual(181);
+	});
+
+	it('expanding a chart buys back detail without returning to raw density', () => {
+		// The dialog is ~4x wider, so it resolves to the preset's expanded
+		// bucket: more detail than the panel, still nowhere near one point/60 s.
+		const preset = getPreset('30d');
+		const rows = gaugeRows(preset.durationMs);
+		const w = windowFor(preset.durationMs);
+		const panel = runPipeline(connectionsSpec, rows, w, [], {
+			snapToPeriod: true,
+			downsampleToWindow: true,
+		}).series.find((s) => s.key === 'mqtt')!.points;
+		const dialog = runPipeline(connectionsSpec, rows, w, [], {
+			snapToPeriod: true,
+			downsampleToWindow: true,
+			expanded: true,
+		}).series.find((s) => s.key === 'mqtt')!.points;
+
+		expect(dialog.length).toBeGreaterThan(panel.length);
+		expect(dialog.length).toBeLessThanOrEqual(Math.round(preset.durationMs / preset.expandedBucketMs) + 1);
 	});
 });
 

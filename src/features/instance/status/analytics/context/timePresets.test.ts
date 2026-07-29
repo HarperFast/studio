@@ -3,6 +3,7 @@ import {
 	DEFAULT_PRESET_ID,
 	DEFAULT_REFRESH_MS,
 	getPreset,
+	PANEL_POINT_TARGET,
 	REFRESH_OPTIONS,
 	targetBucketMs,
 	TIME_PRESETS,
@@ -42,6 +43,34 @@ describe('timePresets', () => {
 		// exceed ~1500 buckets — the SRE review's payload-blow-up mitigation.
 		for (const p of TIME_PRESETS) {
 			expect(p.durationMs / p.bucketMs).toBeLessThanOrEqual(1500);
+		}
+	});
+
+	it('every preset lands a panel chart inside the point target', () => {
+		// Above PANEL_POINT_TARGET.max the line is denser than the panel has
+		// pixels — payload and render cost for nothing.
+		for (const p of TIME_PRESETS) {
+			const points = p.durationMs / p.bucketMs;
+			expect(points, `${p.id} points`).toBeLessThanOrEqual(PANEL_POINT_TARGET.max);
+			// 1h is the documented exception: Harper's own aggregate period is
+			// 60 s, so there is no finer data to ask for and it undershoots.
+			if (p.id !== '1h') {
+				expect(points, `${p.id} points`).toBeGreaterThanOrEqual(PANEL_POINT_TARGET.min);
+			}
+		}
+	});
+
+	it('expanded buckets are finer than (or equal to) panel buckets', () => {
+		for (const p of TIME_PRESETS) {
+			expect(p.expandedBucketMs, p.id).toBeLessThanOrEqual(p.bucketMs);
+			expect(p.expandedBucketMs, p.id).toBeGreaterThan(0);
+		}
+	});
+
+	it('targetBucketMs reads the expanded column when asked', () => {
+		for (const p of TIME_PRESETS) {
+			expect(targetBucketMs(p.durationMs, { expanded: true }), p.id).toBe(p.expandedBucketMs);
+			expect(targetBucketMs(p.durationMs, { expanded: false }), p.id).toBe(p.bucketMs);
 		}
 	});
 

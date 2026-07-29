@@ -84,8 +84,13 @@ export function DimensionSelectorRenderer({
 
 	const fullData = useMemo<SeriesData>(
 		() =>
-			runPipeline(runtimeSpec, records, timeRange, nodes, { perNode, snapToPeriod: true, downsampleToWindow: true }),
-		[runtimeSpec, records, timeRange, nodes, perNode],
+			runPipeline(runtimeSpec, records, timeRange, nodes, {
+				perNode,
+				snapToPeriod: true,
+				downsampleToWindow: true,
+				expanded: !!fillParent,
+			}),
+		[runtimeSpec, records, timeRange, nodes, perNode, fillParent],
 	);
 
 	// Build the dimension list (the chip-row values) from each series's

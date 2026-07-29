@@ -143,7 +143,7 @@ export function MetricRenderer({
 			// 60 s while every spec-driven panel beside it is coarsened.
 			const seriesData = downsampleDerivedSeriesData(
 				derived.recompute(records, timeRange, nodes, viewMode),
-				targetBucketMs(timeRange.endTime - timeRange.startTime),
+				targetBucketMs(timeRange.endTime - timeRange.startTime, { expanded: !!fillParent }),
 				derived.downsampleAggregator,
 			);
 			body = renderPrimitive(derived.primitive, seriesData, derived.yAxis, xDomain, fillParent);
@@ -183,6 +183,7 @@ export function MetricRenderer({
 							perNode: isPerNodeMode,
 							snapToPeriod: true,
 							downsampleToWindow: true,
+							expanded: !!fillParent,
 						}),
 						yAxis: field.yAxis ?? outerSpec.yAxis,
 					};
@@ -196,6 +197,7 @@ export function MetricRenderer({
 				const seriesData = runPipeline(remapped, records, timeRange, nodes, {
 					snapToPeriod: true,
 					downsampleToWindow: true,
+					expanded: !!fillParent,
 				});
 				body = renderPrimitive('stacked-area', seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else if (wantsClusterLineFold(entry.spec, isPerNodeMode) && entry.spec.series.kind === 'groupBy') {
@@ -207,6 +209,7 @@ export function MetricRenderer({
 				const seriesData = runPipeline(inner, records, timeRange, nodes, {
 					snapToPeriod: true,
 					downsampleToWindow: true,
+					expanded: !!fillParent,
 				});
 				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else if (wantsDimensionLineSplit(entry.spec)) {
@@ -214,6 +217,7 @@ export function MetricRenderer({
 					perNode: false,
 					snapToPeriod: true,
 					downsampleToWindow: true,
+					expanded: !!fillParent,
 				});
 				body = renderPrimitive('line', seriesData, entry.spec.yAxis, xDomain, fillParent);
 			} else {
@@ -221,6 +225,7 @@ export function MetricRenderer({
 					perNode: isPerNodeMode,
 					snapToPeriod: true,
 					downsampleToWindow: true,
+					expanded: !!fillParent,
 				});
 				body = renderPrimitive(entry.spec.primitive, seriesData, entry.spec.yAxis, xDomain, fillParent);
 			}

@@ -105,8 +105,9 @@ export function ConnectionRenderer(
 				perNode,
 				snapToPeriod: true,
 				downsampleToWindow: true,
+				expanded: !!fillParent,
 			}),
-		[processed, timeRange, nodes, perNode],
+		[processed, timeRange, nodes, perNode, fillParent],
 	);
 
 	// The chip selector picks one composite (pathMethod) dimension value;

@@ -58,8 +58,13 @@ export function MemoryRenderer(
 			...memorySpec,
 			series: { kind: 'field', fields: [selectedField] },
 		};
-		return runPipeline(innerSpec, records, timeRange, nodes, { perNode, snapToPeriod: true, downsampleToWindow: true });
-	}, [selectedField, records, timeRange, nodes, perNode]);
+		return runPipeline(innerSpec, records, timeRange, nodes, {
+			perNode,
+			snapToPeriod: true,
+			downsampleToWindow: true,
+			expanded: !!fillParent,
+		});
+	}, [selectedField, records, timeRange, nodes, perNode, fillParent]);
 
 	const { data: filteredData, isActive, handleLegendClick } = useNodeFilteredSeries(data, nodes);
 
