@@ -11,6 +11,13 @@
 // pass's AggInput[] so count-weighted-mean stays well-defined when the
 // crossNode aggregator needs it.
 //
+// Gauge-shaped specs (`crossNode: 'sum'` over `max`/`last` per-node
+// snapshots — `connections`, `database-size`) additionally get bounded
+// last-observation-carry-forward between the two passes: a node absent from a
+// bucket contributes its most recent value for up to ~2 of its own emission
+// intervals. Harper omits a gauge row entirely when the value is 0, so absence
+// is not zero — see carryForward.ts for the full rationale (#1576).
+//
 // Known limitation — count-weighted-mean across nodes: the inner pass
 // invokes the temporal aggregator with values that share the per-node
 // bucket's totalCount as their weight. When a single (node, time) bucket
@@ -34,6 +41,7 @@ import type {
 } from '../types/analytics';
 import { type AggInput, aggregate } from './aggregators';
 import { labelWithApprox } from './approxLabel';
+import { buildStalenessHorizons, isGaugeCrossNodeSum } from './carryForward';
 import { classifyConfidence } from './confidence';
 import { evalFieldExpr } from './fieldExpr';
 import { runTransform } from './runTransform';
@@ -100,8 +108,13 @@ function snapToBucketTime(spec: MetricSpec, record: AnalyticsDataPoint, time: nu
 function resolvePeriod(spec: MetricSpec, record: AnalyticsDataPoint): number {
 	const p = record.period;
 	if (typeof p === 'number' && Number.isFinite(p) && p > 0) { return p; }
-	// A misconfigured non-positive fallbackMs gets the same treatment as a
-	// bad record period — rates must never divide by zero or flip sign.
+	return fallbackPeriod(spec);
+}
+
+/** The spec's declared bucket size, sanitized. A misconfigured non-positive
+ *  `fallbackMs` gets the same treatment as a bad record period — rates must
+ *  never divide by zero or flip sign. */
+function fallbackPeriod(spec: MetricSpec): number {
 	const fallback = spec.bucket?.fallbackMs;
 	return typeof fallback === 'number' && Number.isFinite(fallback) && fallback > 0 ? fallback : 60_000;
 }
@@ -173,11 +186,27 @@ function runGroupBy(
 	perNode: boolean,
 	snapToPeriod: boolean,
 ): SeriesData {
+	const tempAgg: Aggregator = src.field.aggregator?.temporal ?? spec.aggregator.temporal;
+	const crossAgg: Aggregator = src.field.aggregator?.crossNode ?? spec.aggregator.crossNode;
+	const isApprox = tempAgg === 'count-weighted-mean' || crossAgg === 'count-weighted-mean';
+	// When the spec already groups by node, perNode is redundant — emitting
+	// one series per (node, node) would duplicate. Fall through to the
+	// cluster-aggregate path which, for dimension='node', is naturally
+	// one-series-per-node.
+	const dimensionIsNode = src.dimension === 'node';
+	// Bounded per-node carry-forward only applies where the crossNode pass
+	// actually runs, and only for gauge-shaped specs (see carryForward.ts).
+	const carryForward = (!perNode || dimensionIsNode) && isGaugeCrossNodeSum(tempAgg, crossAgg);
+
 	// Step 4.5 structure: dim → time → node → NodeBucket. Per-dimension totals
 	// are accumulated separately for topN ranking + per-series confidence
 	// gating.
 	const buckets = new Map<string | number, Map<number, Map<string, NodeBucket>>>();
 	const dimTotals = new Map<string | number, number>();
+	// dim → node → raw (pre-snap) observation instants. Only collected for
+	// gauge specs, which are the only consumers — the cadence estimate must see
+	// the true emission instants, not the snapped lattice they land on.
+	const observationTimes = carryForward ? new Map<string | number, Map<string, number[]>>() : null;
 	const resolvedTimes = resolveTimes('runGroupBy', spec, records);
 	for (let i = 0; i < records.length; i++) {
 		const r = records[i];
@@ -210,11 +239,8 @@ function runGroupBy(
 		}
 		nodeBucket.items.push({ value: v, count: recordCount });
 		nodeBucket.totalCount += recordCount;
+		if (observationTimes) { recordObservation(observationTimes, dimVal, node, resolvedTime); }
 	}
-
-	const tempAgg: Aggregator = src.field.aggregator?.temporal ?? spec.aggregator.temporal;
-	const crossAgg: Aggregator = src.field.aggregator?.crossNode ?? spec.aggregator.crossNode;
-	const isApprox = tempAgg === 'count-weighted-mean' || crossAgg === 'count-weighted-mean';
 
 	// Apply topN + otherBucket: rank dimensions by totalCount descending, keep
 	// the top N, roll the rest into an `Other` aggregate if otherBucket is on.
@@ -233,11 +259,6 @@ function runGroupBy(
 		}
 		const perTime = buckets.get(key);
 		if (!perTime) { continue; }
-		// When the spec already groups by node, perNode is redundant — emitting
-		// one series per (node, node) would duplicate. Fall through to the
-		// cluster-aggregate path which, for dimension='node', is naturally
-		// one-series-per-node.
-		const dimensionIsNode = src.dimension === 'node';
 		if (perNode && !dimensionIsNode) {
 			// Emit one Series per (dim, node). Skip the crossNode pass; each
 			// node's points come from the inner temporal aggregation alone.
@@ -274,13 +295,12 @@ function runGroupBy(
 		} else {
 			// Cluster-aggregate path (default). Two-pass: temporal-per-node,
 			// then crossNode across nodes within each time bucket.
-			const points: SeriesPoint[] = [];
-			const sortedTimes = [...perTime.keys()].sort((a, b) => a - b);
-			for (const time of sortedTimes) {
-				const byNode = perTime.get(time)!;
-				const { y, count } = aggregateTwoPass(tempAgg, crossAgg, byNode);
-				points.push({ x: time, y, count });
-			}
+			const points = aggregateOverTime(
+				tempAgg,
+				crossAgg,
+				perTime,
+				observationTimes && buildStalenessHorizons(observationTimes.get(key) ?? new Map(), fallbackPeriod(spec)),
+			);
 			series.push({
 				key: String(key),
 				label: labelWithApprox(String(key), tempAgg),
@@ -302,7 +322,23 @@ function runGroupBy(
 		const confClass = classifyConfidence(otherTotal, spec.confidence);
 		if (confClass !== 'suppress') {
 			const otherPerTime = new Map<number, Map<string, NodeBucket>>();
+			// Merged per-node observation instants across every rolled-up dim, so
+			// the Other band's carry-forward horizon reflects the same cadence its
+			// members were emitted at.
+			const otherObservationTimes = observationTimes ? new Map<string, number[]>() : null;
 			for (const [key] of rest) {
+				if (otherObservationTimes) {
+					for (const [node, times] of observationTimes!.get(key) ?? []) {
+						let merged = otherObservationTimes.get(node);
+						if (!merged) {
+							merged = [];
+							otherObservationTimes.set(node, merged);
+						}
+						// Append by loop, not spread — argument-spread blows the V8
+						// stack past ~125k elements and a long window can hold more.
+						for (const t of times) { merged.push(t); }
+					}
+				}
 				const perTime = buckets.get(key);
 				if (!perTime) { continue; }
 				for (const [time, perNodeBucket] of perTime) {
@@ -322,13 +358,12 @@ function runGroupBy(
 					}
 				}
 			}
-			const otherPoints: SeriesPoint[] = [];
-			const sortedTimes = [...otherPerTime.keys()].sort((a, b) => a - b);
-			for (const time of sortedTimes) {
-				const byNode = otherPerTime.get(time)!;
-				const { y, count } = aggregateTwoPass(tempAgg, crossAgg, byNode);
-				otherPoints.push({ x: time, y, count });
-			}
+			const otherPoints = aggregateOverTime(
+				tempAgg,
+				crossAgg,
+				otherPerTime,
+				otherObservationTimes && buildStalenessHorizons(otherObservationTimes, fallbackPeriod(spec)),
+			);
 			series.push({
 				key: 'Other',
 				label: labelWithApprox('Other', tempAgg),
@@ -359,8 +394,16 @@ function runFieldSpecs(
 	// not once per field.
 	const resolvedTimes = resolveTimes('runFieldSpecs', spec, records);
 	const seriesArrays: Series[][] = fields.map((f) => {
+		const tempAgg = f.aggregator?.temporal ?? spec.aggregator.temporal;
+		const crossAgg = f.aggregator?.crossNode ?? spec.aggregator.crossNode;
+		const isApprox = tempAgg === 'count-weighted-mean' || crossAgg === 'count-weighted-mean';
+		const fieldKey = typeof f.field === 'string' ? f.field : f.label;
+		const carryForward = !perNode && isGaugeCrossNodeSum(tempAgg, crossAgg);
+
 		// time → node → NodeBucket
 		const buckets = new Map<number, Map<string, NodeBucket>>();
+		// node → raw (pre-snap) observation instants; see runGroupBy.
+		const observationTimes = carryForward ? new Map<string, number[]>() : null;
 		for (let i = 0; i < records.length; i++) {
 			const r = records[i];
 			const resolvedTime = resolvedTimes[i];
@@ -382,11 +425,12 @@ function runFieldSpecs(
 			}
 			nodeBucket.items.push({ value: v, count: recordCount });
 			nodeBucket.totalCount += recordCount;
+			if (observationTimes) {
+				const times = observationTimes.get(node);
+				if (times) { times.push(resolvedTime); }
+				else { observationTimes.set(node, [resolvedTime]); }
+			}
 		}
-		const tempAgg = f.aggregator?.temporal ?? spec.aggregator.temporal;
-		const crossAgg = f.aggregator?.crossNode ?? spec.aggregator.crossNode;
-		const isApprox = tempAgg === 'count-weighted-mean' || crossAgg === 'count-weighted-mean';
-		const fieldKey = typeof f.field === 'string' ? f.field : f.label;
 
 		if (perNode) {
 			// Emit one Series per (field, node) — both axes carried on the
@@ -426,13 +470,12 @@ function runFieldSpecs(
 		}
 
 		// Cluster-aggregate path.
-		const points: SeriesPoint[] = [];
-		const sortedTimes = [...buckets.keys()].sort((a, b) => a - b);
-		for (const t of sortedTimes) {
-			const byNode = buckets.get(t)!;
-			const { y, count } = aggregateTwoPass(tempAgg, crossAgg, byNode);
-			points.push({ x: t, y, count });
-		}
+		const points = aggregateOverTime(
+			tempAgg,
+			crossAgg,
+			buckets,
+			observationTimes && buildStalenessHorizons(observationTimes, fallbackPeriod(spec)),
+		);
 		return [{
 			key: fieldKey,
 			label: labelWithApprox(f.label, tempAgg),
@@ -443,6 +486,80 @@ function runFieldSpecs(
 		}];
 	});
 	return { series: seriesArrays.flat(), thresholds: spec.thresholds };
+}
+
+/** Append one raw observation instant under (dim, node). */
+function recordObservation(
+	observationTimes: Map<string | number, Map<string, number[]>>,
+	dimVal: string | number,
+	node: string,
+	time: number,
+): void {
+	let byNode = observationTimes.get(dimVal);
+	if (!byNode) {
+		byNode = new Map();
+		observationTimes.set(dimVal, byNode);
+	}
+	const times = byNode.get(node);
+	if (times) { times.push(time); }
+	else { byNode.set(node, [time]); }
+}
+
+/**
+ * Walk a series' time buckets in ascending order, folding each with the
+ * two-pass aggregation.
+ *
+ * `horizonByNode` opts the series into bounded per-node carry-forward — set
+ * only for gauge-shaped specs (`crossNode: 'sum'` over `max`/`last` per-node
+ * snapshots; see carryForward.ts). A node absent from a bucket then
+ * contributes its last observed value instead of nothing, provided that
+ * observation is no older than the node's staleness horizon. Without it, a
+ * bucket that happens to hold only one node of a cluster renders as that
+ * node's value alone — the ~0 dive in #1576.
+ *
+ * Carry-forward never invents bucket times: a bucket with no node reporting
+ * stays absent, so the series keeps its original x positions and a genuine
+ * cluster-wide gap still reads as a gap.
+ */
+function aggregateOverTime(
+	temporal: Aggregator,
+	crossNode: Aggregator,
+	perTime: Map<number, Map<string, NodeBucket>>,
+	horizonByNode: Map<string, number> | null,
+): SeriesPoint[] {
+	const sortedTimes = [...perTime.keys()].sort((a, b) => a - b);
+	const points: SeriesPoint[] = [];
+	if (!horizonByNode) {
+		for (const time of sortedTimes) {
+			const { y, count } = aggregateTwoPass(temporal, crossNode, perTime.get(time)!);
+			points.push({ x: time, y, count });
+		}
+		return points;
+	}
+	const lastObserved = new Map<string, { time: number; value: number }>();
+	for (const time of sortedTimes) {
+		const byNode = perTime.get(time)!;
+		const inputs: AggInput[] = [];
+		const observed = new Set<string>();
+		let count = 0;
+		for (const [node, nodeBucket] of byNode) {
+			count += nodeBucket.totalCount;
+			const nodeY = aggregate(temporal, nodeBucket.items);
+			if (typeof nodeY !== 'number' || !Number.isFinite(nodeY)) { continue; }
+			inputs.push({ value: nodeY, count: nodeBucket.totalCount });
+			observed.add(node);
+			lastObserved.set(node, { time, value: nodeY });
+		}
+		for (const [node, last] of lastObserved) {
+			if (observed.has(node)) { continue; }
+			if (time - last.time > (horizonByNode.get(node) ?? 0)) { continue; }
+			// Carried, not observed — count 0 so `SeriesPoint.count` (confidence
+			// gating, tooltips) keeps reflecting real samples only.
+			inputs.push({ value: last.value, count: 0 });
+		}
+		points.push({ x: time, y: aggregate(crossNode, inputs), count });
+	}
+	return points;
 }
 
 /**

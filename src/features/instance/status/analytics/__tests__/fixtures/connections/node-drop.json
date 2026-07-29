@@ -1,0 +1,65 @@
+[
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n1",
+		"time": 1700000040000,
+		"connections": 100,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n1",
+		"time": 1700000100000,
+		"connections": 100,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n1",
+		"time": 1700000160000,
+		"connections": 100,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n1",
+		"time": 1700000220000,
+		"connections": 100,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n2",
+		"time": 1700000040000,
+		"connections": 200,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n2",
+		"time": 1700000100000,
+		"connections": 200,
+		"count": 1,
+		"period": 0
+	},
+	{
+		"metric": "mqtt-connections",
+		"type": "mqtt",
+		"node": "n2",
+		"time": 1700000220000,
+		"connections": 200,
+		"count": 1,
+		"period": 0
+	}
+]
