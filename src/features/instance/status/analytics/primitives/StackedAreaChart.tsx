@@ -8,6 +8,7 @@ import { getChartColors } from '../lib/theme';
 import { formatAxisTick } from '../lib/time';
 import type { AxisSpec, SeriesData } from '../types/analytics';
 import { ChartTooltip, useTooltipGate } from './ChartTooltip';
+import { CEILING_KEY, mergeStackedRows } from './mergeStackedRows';
 import { sortByMagnitude } from './sortByMagnitude';
 
 interface Props {
@@ -65,6 +66,14 @@ export function StackedAreaChart(
 		[data.series],
 	);
 
+	// Merge points by x across series, forward-filling each series across the
+	// positions it did not report, bounded by its own reporting cadence. See
+	// mergeStackedRows for why the fill exists and why the bound matters (#1576).
+	// Memoized for the same reason as `nodeNames` above — this chart re-renders
+	// on every hover tick, and the merge walks every point of every series. Kept
+	// above the early return so the hook order stays stable when data is empty.
+	const merged = useMemo(() => mergeStackedRows(data), [data]);
+
 	if (data.series.length === 0) {
 		return (
 			<div role="status" aria-live="polite" className="text-(--color-text-secondary) text-sm p-4">
@@ -74,43 +83,6 @@ export function StackedAreaChart(
 	}
 
 	const chartColors = getChartColors();
-
-	// Merge points by x across series. Series often emit at slightly
-	// staggered timestamps (e.g. Harper emits per-node records at different
-	// instants within the period), so a strict equality merge produces rows
-	// with one populated cell and N-1 nulls — which renders as a sparse,
-	// mostly-empty stack. Forward-fill carries the last-known value across
-	// staggered rows so the stack stays continuous.
-	const xs = new Set<number>();
-	for (const s of data.series) { for (const p of s.points) { xs.add(p.x); } }
-	if (data.ceiling) { for (const p of data.ceiling.points) { xs.add(p.x); } }
-
-	// Pre-build x → index lookup per series for O(1) access during forward-fill.
-	const seriesPointMaps = data.series.map((s) => {
-		const m = new Map<number, number | null>();
-		for (const p of s.points) { m.set(p.x, p.y); }
-		return m;
-	});
-	const ceilingMap = data.ceiling
-		? new Map<number, number | null>(data.ceiling.points.map((p) => [p.x, p.y]))
-		: null;
-
-	const lastSeen: (number | null)[] = data.series.map(() => null);
-	let lastCeiling: number | null = null;
-
-	const merged: Record<string, number | null>[] = [...xs].sort((a, b) => a - b).map((x) => {
-		const row: Record<string, number | null> = { x };
-		data.series.forEach((s, i) => {
-			const m = seriesPointMaps[i];
-			if (m.has(x)) { lastSeen[i] = m.get(x) ?? null; }
-			row[s.key] = lastSeen[i];
-		});
-		if (ceilingMap && data.ceiling) {
-			if (ceilingMap.has(x)) { lastCeiling = ceilingMap.get(x) ?? null; }
-			row.__ceiling__ = lastCeiling;
-		}
-		return row;
-	});
 
 	const resolvedFormatter = yAxis?.formatter;
 	const resolvedUnit = yAxis?.unit;
@@ -177,7 +149,7 @@ export function StackedAreaChart(
 							? (
 								<Line
 									type="monotone"
-									dataKey="__ceiling__"
+									dataKey={CEILING_KEY}
 									name={data.ceiling.label}
 									stroke={chartColors.axisColor}
 									strokeWidth={2}
