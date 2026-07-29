@@ -80,17 +80,26 @@ test.describe('authenticated app', () => {
 		await expect(table.or(errorBoundary).first()).toBeVisible();
 
 		if (await errorBoundary.isVisible().catch(() => false)) {
-			// A 403 → this account legitimately lacks users-view on this env: skip, don't fail red.
+			// A 403 on the org-users fetch is AMBIGUOUS in the same way the signup 403 is: it can mean
+			// this account was never provisioned with users-view, but it is at least as likely to be an
+			// authz regression on exactly the page this spec covers — and the condition is stable, so
+			// skipping makes the spec go permanently quiet the moment permissions break. Fail by
+			// default; opt out explicitly once you've confirmed it's provisioning.
 			test.skip(
-				saw403,
-				`This account can't view org users for ${orgId} on this environment (403). Provision it as `
-					+ 'an org member with users-view (Admin), or point PLAYWRIGHT_ORG_ID at one it can access.',
+				process.env.E2E_ALLOW_ORG_USERS_403_SKIP === '1',
+				`Org-users returned 403 for ${orgId} and E2E_ALLOW_ORG_USERS_403_SKIP=1 — treating as a `
+					+ 'known provisioning gap for this account.',
 			);
-			// Error boundary but NO 403 → the page genuinely broke. Fail red so the suite catches it.
-			expect(
-				saw403,
-				`org-users hit its error boundary with no 403 for ${orgId} — a real failure, not a permission skip`,
-			).toBe(true);
+			// Both dispositions are failures; only the diagnosis differs.
+			throw new Error(
+				saw403
+					? `Org-users returned 403 for ${orgId}. If this account was simply never granted `
+						+ 'users-view, provision it as an org member with that permission (or point '
+						+ 'PLAYWRIGHT_ORG_ID at an org it can access, or set E2E_ALLOW_ORG_USERS_403_SKIP=1 to '
+						+ 'skip deliberately). Otherwise this is an authorization regression on the org-users page.'
+					: `Org-users hit its error boundary for ${orgId} with NO 403 — the page itself broke (JS `
+						+ 'exception, failed query, or API error). This is a genuine regression, not a permission gap.',
+			);
 		}
 
 		await expect(table).toBeVisible();
@@ -143,6 +152,9 @@ async function resolveOrgId(page: Page): Promise<string | null> {
 	// parallel load the org-card link can appear after `networkidle`). expect.poll auto-waits — no
 	// manual waitForTimeout anti-pattern. A timeout means "no org observed in the window", which the
 	// caller treats as a failure unless explicitly told the account is org-less (see above).
+	// That makes this failure LOAD-SENSITIVE: under heavy parallelism the org-card link can appear
+	// late. If that starts producing red runs, RAISE this window — do not restore the skip, which
+	// would trade a visible flake back for a silent false green.
 	let orgId: string | null = null;
 	try {
 		await expect.poll(async () => (orgId = await readOrgId()), {
