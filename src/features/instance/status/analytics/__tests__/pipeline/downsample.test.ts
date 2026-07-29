@@ -75,6 +75,23 @@ describe('downsamplePoints', () => {
 		expect(out[0].count).toBe(15);
 	});
 
+	it('re-aligns points that map one-to-one but still move', () => {
+		// The dangerous shape: a 90 s lattice folded onto a 60 s target. Every
+		// point lands in a bucket of its own, so a size comparison alone reads as
+		// "nothing to do" — but k*90_000 -> round(1.5k)*60_000 moves all but the
+		// even-k ones. Leaving them put would drop the series off the target grid
+		// and break the StorageTab crosshair match (#1514).
+		const xs = [0, 90_000, 180_000, 270_000, 360_000];
+		const out = downsamplePoints(pts(xs, [1, 2, 3, 4, 5]), 60_000, 'mean');
+		expect(out.length).toBe(xs.length);
+		expect(out.map((p) => p.x)).toEqual([0, 120_000, 180_000, 300_000, 360_000]);
+		for (const p of out) {
+			expect(p.x % 60_000, `x=${p.x} off the target lattice`).toBe(0);
+		}
+		// One point per bucket, so the values pass through untouched.
+		expect(out.map((p) => p.y)).toEqual([1, 2, 3, 4, 5]);
+	});
+
 	it('returns the original array untouched when nothing would fold', () => {
 		// The 1h/6h presets already sit on the target lattice — identity, and
 		// referentially so, to keep downstream memos stable.
