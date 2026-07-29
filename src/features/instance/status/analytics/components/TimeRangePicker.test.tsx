@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../hooks/useAnalyticsFreshness', () => ({
@@ -42,6 +42,46 @@ describe('TimeRangePicker', () => {
 			// since the integration is covered by StatusTabs URL sync test.
 			expect(triggers[0]).toBeTruthy();
 		}
+	});
+
+	it('shows the render resolution under the selected range on the trigger', () => {
+		// #1588 recalibrated 24h to a 10-minute bucket; the trigger should say so
+		// even while collapsed, so the resolution is visible before opening.
+		render(
+			<AnalyticsTestWrapper>
+				<TimeRangePicker
+					presetId="24h"
+					onPresetChange={vi.fn()}
+					refreshMs={60_000}
+					onRefreshChange={vi.fn()}
+					onManualRefresh={vi.fn()}
+				/>
+			</AnalyticsTestWrapper>,
+		);
+		expect(screen.getByText('Last 24 hours')).toBeTruthy();
+		expect(screen.getByText('by 10 minutes')).toBeTruthy();
+	});
+
+	it('groups the auto-refresh interval together with the refresh action', () => {
+		// The interval used to sit as a bare Select beside the range picker, at
+		// the same gap and weight, and got read as a chart-granularity setting.
+		// Grouping is the fix, so assert the grouping rather than the classes.
+		render(
+			<AnalyticsTestWrapper>
+				<TimeRangePicker
+					presetId="1h"
+					onPresetChange={vi.fn()}
+					refreshMs={60_000}
+					onRefreshChange={vi.fn()}
+					onManualRefresh={vi.fn()}
+				/>
+			</AnalyticsTestWrapper>,
+		);
+		const group = screen.getByRole('group', { name: /auto-refresh/i });
+		expect(within(group).getByLabelText(/Auto-refresh interval/i)).toBeTruthy();
+		expect(within(group).getByLabelText(/Refresh now/i)).toBeTruthy();
+		// …and the range picker stays outside it.
+		expect(within(group).getAllByRole('combobox')).toHaveLength(1);
 	});
 
 	it('fires onManualRefresh when the refresh icon is clicked', () => {
