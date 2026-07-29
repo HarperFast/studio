@@ -82,6 +82,10 @@ describe('TimeRangePicker', () => {
 		expect(within(group).getByLabelText(/Refresh now/i)).toBeTruthy();
 		// …and the range picker stays outside it.
 		expect(within(group).getAllByRole('combobox')).toHaveLength(1);
+		// The interval trigger carries a "reload" sub-label, mirroring the range
+		// picker's second line, so the collapsed value reads as a reload cadence.
+		expect(within(group).getByText('reload')).toBeTruthy();
+		expect(within(group).getByText('60s')).toBeTruthy();
 	});
 
 	it('fires onManualRefresh when the refresh icon is clicked', () => {
