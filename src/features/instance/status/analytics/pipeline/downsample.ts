@@ -59,8 +59,12 @@ export function downsampleAggregator(temporal: Aggregator, transform: Transform 
 export function downsamplePoints(points: SeriesPoint[], targetMs: number, agg: Aggregator): SeriesPoint[] {
 	if (targetMs <= 0 || points.length === 0) { return points; }
 	const byBucket = new Map<number, { items: { value: number | null; count?: number }[]; count: number }>();
+	let shifted = false;
 	for (const p of points) {
 		const bucket = Math.round(p.x / targetMs) * targetMs;
+		// A point can land in a bucket of its own and *still* need moving —
+		// see the early-return note below.
+		if (bucket !== p.x) { shifted = true; }
 		let entry = byBucket.get(bucket);
 		if (!entry) {
 			entry = { items: [], count: 0 };
@@ -70,9 +74,20 @@ export function downsamplePoints(points: SeriesPoint[], targetMs: number, agg: A
 		// Sum observation counts so confidence gating still sees the real total.
 		entry.count += p.count ?? 0;
 	}
-	// Nothing to gain (and a needless copy) when every point already sits in
-	// its own coarse bucket — the common case for the 1 h / 6 h presets.
-	if (byBucket.size === points.length) { return points; }
+	// Nothing to gain (and a needless copy) when every point already sits ON its
+	// own coarse bucket boundary — the common case for the 1 h preset, whose
+	// target equals the snap lattice.
+	//
+	// `byBucket.size === points.length` alone is NOT sufficient: points can map
+	// one-to-one onto buckets while every one of them still moves. Records
+	// carrying a real 90 s `period` snap onto a 90 s lattice, and folding that
+	// onto the 1 h preset's 60 s target sends k*90 000 to round(1.5k)*60 000 —
+	// 0, 120 000, 180 000, 300 000 … all distinct, none equal to their input.
+	// Returning the input there would leave the series off the target grid and
+	// break the StorageTab trend's `syncMethod="value"` crosshair match (#1514).
+	// Reachable as soon as core stops stamping `period: 0`
+	// (HarperFast/harper#1997), which is exactly what we asked it to do.
+	if (!shifted && byBucket.size === points.length) { return points; }
 	const out: SeriesPoint[] = [];
 	for (const bucket of [...byBucket.keys()].sort((a, b) => a - b)) {
 		const { items, count } = byBucket.get(bucket)!;
