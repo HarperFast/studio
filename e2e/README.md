@@ -158,12 +158,25 @@ Next, here in the specs:
 
 ## Skips are deliberate, and narrow
 
-A monitor that skips is a monitor that lies. These specs fail rather than skip when a prerequisite
-they were _given_ stops working:
+A monitor that skips is a monitor that lies. These specs **fail rather than skip whenever a
+prerequisite they were _given_ stops working** — the disposition is decided here, in the specs, so
+it does not depend on what any runner happens to check:
 
 - **Unresolvable organization** → failure (a broken post-login redirect or org picker looks exactly
   like "no org"). Opt out with `E2E_ALLOW_NO_ORG=1` for an account that genuinely has none.
 - **Signup 403** → failure (as likely an authz/WAF regression as the email-domain gate). Opt out
   with `E2E_ALLOW_SIGNUP_403_SKIP=1` once you've confirmed it's `ALLOWLIST_EMAIL_DOMAINS`.
+- **Org-users 403** → failure (as likely an authz regression as a provisioning gap). Opt out with
+  `E2E_ALLOW_ORG_USERS_403_SKIP=1` once you've confirmed the account simply lacks users-view.
 
-Neither variable is set by the automated lanes, which additionally fail the run if _any_ spec skips.
+None of those variables is set by the automated lanes.
+
+What remains a skip is only the case where the environment genuinely cannot run a spec at all — no
+test account (`PLAYWRIGHT_USER_*`) or no Mailosaur config. Those are absence-of-configuration, not
+ambiguity, and they are visible as `skipped` in the report.
+
+> Defense in depth, not the guarantee: the harness's trusted lane also fails a run when any spec
+> skips (a rotated credential would otherwise leave the authed specs quiet). That check lives in
+> [studio-e2e-harness#2](https://github.com/HarperFast/studio-e2e-harness/pull/2) and is **not on
+> that repo's `main` yet** — so treat it as a second layer that is still landing, and rely on the
+> per-spec dispositions above.

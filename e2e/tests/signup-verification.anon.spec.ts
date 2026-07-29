@@ -28,6 +28,9 @@ test.describe('signup → email verification → login', () => {
 	// Budget must exceed the sum of its own waits: 90s mail poll + three 30s navigations + the
 	// signup/login interactions. At 120s a slow-but-working delivery timed out and read as a failure.
 	test.setTimeout(210_000);
+	// ...but that budget multiplies by the global retry count, and every attempt signs up a REAL
+	// account. Cap this spec at one retry: worst case ~7min and 2 accounts instead of ~10.5min and 3.
+	test.describe.configure({ retries: 1 });
 
 	test.afterAll(async () => {
 		await deleteAllMail();
