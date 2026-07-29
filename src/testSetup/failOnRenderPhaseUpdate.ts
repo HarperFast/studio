@@ -3,7 +3,7 @@
 // different component (`Y`)"). This defect class ships silently — the suite
 // stays green while every affected render pollutes the browser console (and
 // Datadog RUM) in production. It has now bitten twice: the router-rebuild
-// Transitioner warning (see CLAUDE.md, Jul 2026) and the analytics freshness
+// Transitioner warning (see AGENTS.md, Jul 2026) and the analytics freshness
 // watcher setState-ing from a QueryCache subscription (PR #1510) — both were
 // only caught by manually watching a real browser console.
 //
