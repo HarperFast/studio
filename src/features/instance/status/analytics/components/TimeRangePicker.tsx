@@ -86,21 +86,36 @@ export function TimeRangePicker({
 			<div
 				role="group"
 				aria-label="Auto-refresh"
-				className="flex items-center rounded-md border border-input bg-white shadow-xs dark:bg-grey-700"
+				className="flex items-stretch rounded-md border border-input bg-white shadow-xs dark:bg-grey-700"
 			>
 				<Select value={String(refreshMs)} onValueChange={(v) => onRefreshChange(Number(v))}>
+					{
+						/* Two-line to match the range picker: the interval on top, a
+					    muted "reload" beneath, so the collapsed value reads as a
+					    reload cadence rather than another time setting. The dropdown
+					    options stay single-line — "reload" on each would be noise,
+					    since (unlike the range picker's per-option bucket) it's the
+					    same word every time. */
+					}
 					<SelectTrigger
 						aria-label="Auto-refresh interval"
 						title="Auto-refresh interval"
-						className="w-[88px] rounded-r-none border-0 bg-transparent shadow-none dark:bg-transparent"
+						className="h-auto min-h-9 w-[96px] rounded-r-none border-0 bg-transparent py-1 shadow-none dark:bg-transparent"
 					>
-						<SelectValue />
+						<SelectValue>
+							<span className="flex flex-col items-start leading-tight">
+								<span>
+									{REFRESH_OPTIONS.find((o) => o.value === refreshMs)?.label ?? `${Math.round(refreshMs / 1000)}s`}
+								</span>
+								<span className="text-[11px] font-normal text-muted-foreground">reload</span>
+							</span>
+						</SelectValue>
 					</SelectTrigger>
 					<SelectContent>
 						{REFRESH_OPTIONS.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
 					</SelectContent>
 				</Select>
-				<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+				<span aria-hidden="true" className="my-1.5 w-px shrink-0 bg-border" />
 				<Button
 					variant="ghost"
 					size="icon"
@@ -109,7 +124,9 @@ export function TimeRangePicker({
 					aria-busy={isFetching}
 					aria-label={isFetching ? 'Refreshing…' : 'Refresh now'}
 					title={isFetching ? 'Refreshing…' : 'Refresh now'}
-					className="rounded-l-none"
+					// h-auto (overriding size-9's height) so the button fills the
+					// group's now two-line height; width stays square-ish.
+					className="h-auto w-9 rounded-l-none"
 				>
 					<RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} />
 				</Button>
