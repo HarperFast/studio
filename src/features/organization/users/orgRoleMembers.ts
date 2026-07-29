@@ -21,15 +21,22 @@ function resolvedUsers(organizationRole: SchemaOrganizationRole): SchemaUser[] {
 	return (organizationRole.users ?? []).filter((user): user is SchemaUser => user != null);
 }
 
+/**
+ * A collected member. `SchemaUser.roles` is optional on the wire, but every member we build here
+ * is seeded with `roles: []`, so requiring it lets the accumulator push without a non-null
+ * assertion.
+ */
+export type OrgMember = SchemaUser & { roles: SchemaOrganizationRole[] };
+
 /** Distinct org members, each with the roles they hold, sorted by email. */
-export function collectOrgUsers(organizationRoles: SchemaOrganizationRole[]): SchemaUser[] {
-	const users: Record<SchemaUser['id'], SchemaUser> = {};
+export function collectOrgUsers(organizationRoles: SchemaOrganizationRole[]): OrgMember[] {
+	const users: Record<SchemaUser['id'], OrgMember> = {};
 	for (const organizationRole of organizationRoles) {
 		for (const user of resolvedUsers(organizationRole)) {
 			if (!users[user.id]) {
 				users[user.id] = { ...user, roles: [] };
 			}
-			users[user.id].roles!.push(organizationRole);
+			users[user.id].roles.push(organizationRole);
 		}
 	}
 	return Object.values(users).sort(sortByEmail);
