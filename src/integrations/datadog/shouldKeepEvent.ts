@@ -31,11 +31,20 @@ const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
  * Datadog SDK's own instrumentation), i.e. no Studio code is on the stack at all.
  */
 function originatesInThirdPartyScript(stack: string) {
-	const frames = stack.split('\n').filter(line => /https?:\/\//.test(line));
-	if (!frames.some(frame => THIRD_PARTY_SCRIPT_FRAME.test(frame))) {
-		return false;
+	let sawThirdPartyFrame = false;
+	for (const line of stack.split('\n')) {
+		// Skips the leading message line and any frame the browser couldn't resolve to a URL.
+		if (!/https?:\/\//.test(line)) {
+			continue;
+		}
+		if (THIRD_PARTY_SCRIPT_FRAME.test(line)) {
+			sawThirdPartyFrame = true;
+		} else if (!INSTRUMENTATION_FRAME.test(line)) {
+			// Studio code is on the stack, so the error is ours to answer for.
+			return false;
+		}
 	}
-	return frames.every(frame => THIRD_PARTY_SCRIPT_FRAME.test(frame) || INSTRUMENTATION_FRAME.test(frame));
+	return sawThirdPartyFrame;
 }
 
 /**
