@@ -25,12 +25,26 @@ test.describe('signup → email verification → login', () => {
 	test.skip(!mailConfigured, 'Mailosaur not configured (see e2e/.env.e2e).');
 
 	// Email delivery + verification is slower than a normal UI assertion.
-	// Budget must exceed the sum of its own waits: 90s mail poll + three 30s navigations + the
-	// signup/login interactions. At 120s a slow-but-working delivery timed out and read as a failure.
-	test.setTimeout(210_000);
-	// ...but that budget multiplies by the global retry count, and every attempt signs up a REAL
-	// account. Cap this spec at one retry: worst case ~7min and 2 accounts instead of ~10.5min and 3.
-	test.describe.configure({ retries: 1 });
+	// The outer timeout exists to catch a hang that no INNER timeout covers, so it must exceed the
+	// sum of those inner budgets — otherwise a slow-but-progressing run trips it and reports a
+	// failure while nothing actually timed out. The arithmetic, worst case:
+	//   5 navigations / waitForURL @30s ......... 150s   (goto x2, waitForURL x3)
+	//   mail poll (mail.ts timeoutMs) ............ 90s
+	//   waitForResponse on signup (default) ...... 30s
+	//   9 form actions @15s (actionTimeout) ..... 135s
+	//   2 expects @10s ........................... 20s
+	//   2 cleanup API requests @30s .............. 60s
+	//                                            ------
+	//                                             485s
+	// 600s keeps the invariant true with headroom. (Earlier values of 120s and 210s did not: both
+	// were below the sum, so a slow delivery read as a failure.) If you change any inner wait —
+	// especially mail.ts's timeoutMs — re-do this sum.
+	test.setTimeout(600_000);
+	// Retries multiply that budget AND sign up another real account each time. Halve the project's
+	// CI value, and preserve the local default of zero: `test.describe.configure` overrides the
+	// project setting in EVERY environment, so a bare `retries: 1` would give local runs a retry
+	// they don't have today — doubling the very cost this is meant to cap.
+	test.describe.configure({ retries: process.env.CI ? 1 : 0 });
 
 	test.afterAll(async () => {
 		await deleteAllMail();
