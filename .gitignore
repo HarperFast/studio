@@ -13,7 +13,7 @@ deploy
 web
 dist-ssr
 *.local
-# Personal, machine-specific Claude notes (shared notes live in committed CLAUDE.md)
+# Personal, machine-specific Claude notes (shared notes live in committed AGENTS.md)
 CLAUDE.local.md
 .react-router/
 .yarn
