@@ -97,6 +97,32 @@ describe('shouldKeepEvent', () => {
 		expect(shouldKeepEvent(errorEvent({ message: 'Request failed with status code 4010' }))).toBe(true);
 	});
 
+	// The instance couldn't authenticate to the customer's private repo over SSH — an instance
+	// configuration state (no key, key without access, host missing from known_hosts), not a
+	// Studio bug. 8 events from one session in the 24h to 2026-07-30 opened an Error Tracking
+	// issue for it; the deploy UI already shows Harper's remediation text plus a link to
+	// Config > SSH Keys. Dropping it also keeps the embedded private repo URL out of Datadog.
+	it('discards private-repository deploy failures', () => {
+		expect(
+			shouldKeepEvent(
+				errorEvent({
+					message:
+						'Failed to deploy private repository git@github.com:acme-corp/billing-service.git: SSH access failed. '
+						+ 'Verify the repository URL, configure an SSH key on this Harper instance, ensure the key has access to '
+						+ 'the target repository, and confirm the host is present in the ssh/known_hosts file.',
+				}),
+			),
+		).toBe(false);
+		// Matched on the prefix, so a reworded remediation sentence still drops.
+		expect(
+			shouldKeepEvent(
+				errorEvent({ message: 'Failed to deploy private repository https://github.com/acme-corp/app: auth rejected' }),
+			),
+		).toBe(false);
+		// A public-package deploy failure is a different animal — keep it.
+		expect(shouldKeepEvent(errorEvent({ message: 'Failed to deploy component: invalid package' }))).toBe(true);
+	});
+
 	it('discards 5xx errors against an instance/cluster operation endpoint', () => {
 		expect(
 			shouldKeepEvent(
