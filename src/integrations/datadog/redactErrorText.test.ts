@@ -8,6 +8,9 @@ describe('redactErrorText', () => {
 		// Host aliases are how a customer selects between multiple keys (#1318) — keep them.
 		expect(redactErrorText('git@github-work:acme-corp/internal.git not found'))
 			.toBe('git@github-work:<redacted> not found');
+		// A bare SSH server has no owner prefix; the `.git` suffix is the tell.
+		expect(redactErrorText('Failed to deploy git@server.example.com:billing-service.git: exit code 128'))
+			.toBe('Failed to deploy git@server.example.com:<redacted>: exit code 128');
 	});
 
 	it('redacts the path of a repository URL, keeping scheme and host', () => {

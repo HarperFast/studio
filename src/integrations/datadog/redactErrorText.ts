@@ -37,11 +37,12 @@ const URL_TOKEN = /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s'"<>)\]]+/g;
 const TRAILING_PUNCTUATION = /[.,:;!?]+$/;
 
 /**
- * scp-style git remotes: `git@github.com:acme-corp/repo.git`. Requires both userinfo and a
- * `<segment>/<segment>` path, so ordinary "Title: detail" text and stack frames
+ * scp-style git remotes: `git@github.com:acme-corp/repo.git`. Requires userinfo and either a
+ * `<segment>/<segment>` path or a `.git`-suffixed single segment (a bare SSH server has no
+ * owner prefix), so ordinary "Title: detail" text and stack frames
  * (`index-A1b2C3d4.js:5:1234`) can't match.
  */
-const SCP_GIT_REMOTE = /([\w.+-]+@[\w.-]+):[\w.-]+\/[\w./-]+/g;
+const SCP_GIT_REMOTE = /([\w.+-]+@[\w.-]+):[\w.-]+(?:\/[\w./-]+|\.git\b)/g;
 
 function isHarperHost(hostname: string) {
 	return hostname === 'localhost'
