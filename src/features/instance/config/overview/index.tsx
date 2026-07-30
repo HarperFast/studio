@@ -155,7 +155,15 @@ export function ConfigOverviewIndex() {
 	const handleEditorDidMount = useCallback<OnMount>(() => {
 		// Registers the config JSON Schema; deliberately not awaited (`OnMount` is
 		// sync, and the editor is usable while the schema lands a microtask later).
-		void configureHarperConfigEditor();
+		// Catch rather than leave it floating: the dynamic import can reject when a
+		// hashed chunk is gone after a redeploy, and an unhandled rejection would say
+		// nothing about which editor lost its schema. Recovery for that case is
+		// already global (`vite:preloadError` → `reportPossibleStaleDeploy`); this
+		// only reports the degradation — config editing still works, without
+		// validation or key autocomplete.
+		configureHarperConfigEditor().catch((error: unknown) => {
+			console.error('Failed to register the Harper config JSON Schema:', error);
+		});
 	}, []);
 
 	const handleSave = useCallback(() => {
