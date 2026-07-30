@@ -28,6 +28,12 @@ interface MultiSelectProps {
 	 * repeating a location asks for another host there.
 	 */
 	allowRepeats?: boolean;
+	/**
+	 * Cap on how many matches are rendered at once. Options aren't virtualized, so a long list needs
+	 * a ceiling; the rest stay reachable by narrowing the filter, and the overflow is shown as a count
+	 * rather than dropped silently.
+	 */
+	maxVisibleOptions?: number;
 }
 
 /**
@@ -49,6 +55,7 @@ export function MultiSelect({
 	disabled,
 	id,
 	allowRepeats,
+	maxVisibleOptions,
 }: MultiSelectProps) {
 	const [open, setOpen] = useState(false);
 	const [filter, setFilter] = useState('');
@@ -77,6 +84,9 @@ export function MultiSelect({
 		if (!q) { return options; }
 		return options.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q));
 	}, [options, filter]);
+
+	const visible = maxVisibleOptions ? filtered.slice(0, maxVisibleOptions) : filtered;
+	const overflowCount = filtered.length - visible.length;
 
 	// A menu click adds: with repeats it always appends another copy, so the X on a chip is the only
 	// way to remove. Without repeats it toggles the value in and out.
@@ -150,7 +160,7 @@ export function MultiSelect({
 					/>
 					{filtered.length === 0
 						? <div className="px-2 py-1.5 text-sm text-muted-foreground">{emptyText}</div>
-						: filtered.map((o) => (
+						: visible.map((o) => (
 							<DropdownMenuCheckboxItem
 								key={o.value}
 								checked={selectedSet.has(o.value)}
@@ -162,6 +172,11 @@ export function MultiSelect({
 								{o.label}
 							</DropdownMenuCheckboxItem>
 						))}
+					{overflowCount > 0 && (
+						<div className="px-2 py-1.5 text-xs text-muted-foreground">
+							{overflowCount} more — keep typing to narrow
+						</div>
+					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
 

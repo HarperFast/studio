@@ -145,6 +145,33 @@ describe('MultiSelect', () => {
 		});
 	});
 
+	// Options aren't virtualized, so a long list needs a rendered ceiling — but the overflow has to be
+	// visible and still reachable, not silently dropped.
+	describe('maxVisibleOptions', () => {
+		const many = Array.from({ length: 10 }, (_, i) => ({ value: `v-${i}`, label: `Option ${i}` }));
+
+		function renderCapped() {
+			render(<MultiSelect options={many} selected={[]} onChange={() => {}} ariaLabel="Many" maxVisibleOptions={3} />);
+			fireEvent.pointerDown(screen.getByRole('button', { name: 'Many' }), { button: 0, ctrlKey: false });
+		}
+
+		it('renders only the cap and says how many are left', () => {
+			renderCapped();
+
+			expect(screen.getAllByRole('menuitemcheckbox')).toHaveLength(3);
+			expect(screen.getByText('7 more — keep typing to narrow')).toBeTruthy();
+		});
+
+		it('the filter reaches an option past the cap', () => {
+			renderCapped();
+
+			fireEvent.change(screen.getByRole('textbox', { name: 'Filter options' }), { target: { value: 'Option 9' } });
+
+			expect(screen.getByRole('menuitemcheckbox', { name: 'Option 9' })).toBeTruthy();
+			expect(screen.queryByText(/more — keep typing/)).toBeNull();
+		});
+	});
+
 	// The filter input sits inside the menu, so it has to hand the arrow keys back to Radix (which
 	// only moves focus into the list when the keydown target is the content element) while still
 	// keeping printable keys out of Radix's typeahead. Blanket stopPropagation made the whole
@@ -181,6 +208,16 @@ describe('MultiSelect', () => {
 			fireEvent.keyDown(filterInput(), { key: 'ArrowUp' });
 
 			expect(document.activeElement).toBe(screen.getByRole('menuitemcheckbox', { name: 'Tokyo' }));
+		});
+
+		it('arrow keys land on a rendered option even when the list is capped', () => {
+			const many = Array.from({ length: 10 }, (_, i) => ({ value: `v-${i}`, label: `Option ${i}` }));
+			render(<MultiSelect options={many} selected={[]} onChange={() => {}} ariaLabel="Many" maxVisibleOptions={3} />);
+			fireEvent.pointerDown(screen.getByRole('button', { name: 'Many' }), { button: 0, ctrlKey: false });
+
+			fireEvent.keyDown(filterInput(), { key: 'ArrowUp' });
+
+			expect(document.activeElement).toBe(screen.getByRole('menuitemcheckbox', { name: 'Option 2' }));
 		});
 
 		it('typing stays in the filter instead of triggering Radix typeahead', () => {
