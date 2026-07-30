@@ -3,6 +3,7 @@ import {
 	buildStalenessHorizons,
 	estimateEmissionIntervalMs,
 	isGaugeCrossNodeSum,
+	MAX_STALENESS_MS,
 	STALENESS_INTERVALS,
 } from '../../pipeline/carryForward';
 
@@ -76,12 +77,58 @@ describe('buildStalenessHorizons', () => {
 		const horizons = buildStalenessHorizons(
 			new Map([
 				['fast', [0, 90_000, 180_000]],
+				// 10-minute cadence: 2 x that would be 20 min, so the cap binds.
 				['slow', [0, 600_000, 1_200_000]],
 			]),
 			FLOOR,
 		);
 		expect(horizons.get('fast')).toBe(STALENESS_INTERVALS * 90_000);
-		expect(horizons.get('slow')).toBe(STALENESS_INTERVALS * 600_000);
+		expect(horizons.get('slow')).toBe(MAX_STALENESS_MS);
+	});
+
+	it('caps a node observed only twice, far apart, instead of trusting the gap', () => {
+		// The shape kriszyp flagged: observations at 00:00 and 12:00 read as a
+		// 12-hour "cadence", which uncapped meant a 24-hour horizon — the node's
+		// stale count would then be summed into every later bucket for the rest
+		// of the window, hiding a real drop to zero.
+		const HOUR = 3_600_000;
+		const horizons = buildStalenessHorizons(new Map([['quiet', [0, 12 * HOUR]]]), FLOOR);
+		expect(horizons.get('quiet')).toBe(MAX_STALENESS_MS);
+		expect(horizons.get('quiet')).toBeLessThan(STALENESS_INTERVALS * 12 * HOUR);
+	});
+
+	it('caps when one normal gap and one outage average into a multi-hour median', () => {
+		// Three samples, gaps [60 s, 6 h] → median 3h0m30s. Also the reviewer's
+		// second scenario, and the median offers no protection here.
+		const horizons = buildStalenessHorizons(new Map([['n1', [0, 60_000, 60_000 + 6 * 3_600_000]]]), FLOOR);
+		expect(horizons.get('n1')).toBe(MAX_STALENESS_MS);
+	});
+
+	it('lets the bucket floor exceed the cap, so ≥2 buckets still holds', () => {
+		// On a spec whose own bucket is coarser than the 5-minute backstop,
+		// spanning two buckets matters more than the backstop — the floor is
+		// applied after the cap for exactly this case.
+		const coarseFloor = 4 * 3_600_000; // 4h buckets
+		const horizons = buildStalenessHorizons(new Map([['n1', [0, 12 * 3_600_000]]]), coarseFloor);
+		expect(horizons.get('n1')).toBe(STALENESS_INTERVALS * coarseFloor);
+	});
+
+	it('never exceeds max(MAX_STALENESS_MS, 2 x floor) for any observation shape', () => {
+		const shapes: number[][] = [
+			[0, 90_000],
+			[0, 12 * 3_600_000],
+			[0, 1_000, 30 * 24 * 3_600_000],
+			[5],
+			[0, 0, 0],
+			[0, 60_000, 120_000, 30 * 24 * 3_600_000],
+		];
+		for (const floor of [1_000, FLOOR, 600_000]) {
+			const ceiling = Math.max(MAX_STALENESS_MS, STALENESS_INTERVALS * floor);
+			for (const [i, times] of shapes.entries()) {
+				const h = buildStalenessHorizons(new Map([['n', times]]), floor).get('n')!;
+				expect(h, `shape ${i} @ floor ${floor}`).toBeLessThanOrEqual(ceiling);
+			}
+		}
 	});
 
 	it('floors at the bucket size so the horizon always spans two buckets', () => {

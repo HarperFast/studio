@@ -7,6 +7,7 @@
 // `period: 0` rows on a 90 s emission cadence, snapped onto the spec's 60 s
 // fallback lattice, with the two nodes half a cadence out of phase.
 import { describe, expect, it } from 'vitest';
+import { MAX_STALENESS_MS } from '../../pipeline/carryForward';
 import { runPipeline } from '../../pipeline/pipeline';
 import { wrapperMetrics } from '../../pipeline/wrapperMetrics';
 import type { AnalyticsDataPoint, SeriesPoint, TimeRange } from '../../types/analytics';
@@ -208,6 +209,60 @@ describe('connections — cluster-wide gaps stay gaps', () => {
 		expect(byX.get(T0 + 21 * LATTICE)).toBe(BUSY + QUIET);
 		// Back, absent from this bucket, but fresh enough to carry again.
 		expect(byX.get(T0 + 22 * LATTICE)).toBe(BUSY + QUIET);
+	});
+});
+
+describe('connections — a sparse node cannot buy an unbounded horizon', () => {
+	// kriszyp's #1587 review: two widely separated observations make the median
+	// read as a multi-hour "cadence", so uncapped the quiet node's stale count
+	// would be summed into every bucket another node supplies for the rest of
+	// the window — hiding a real drop to zero. MAX_STALENESS_MS caps it.
+	const HOUR = 60 * LATTICE;
+	const GAP = 12 * HOUR;
+	// `quiet` observed exactly twice, 12 h apart. `busy` reports every minute
+	// across the whole window, so every bucket after T0 exists.
+	const rows: AnalyticsDataPoint[] = [
+		connectionRow('quiet', T0, QUIET),
+		connectionRow('quiet', T0 + GAP, QUIET),
+	];
+	for (let t = 0; t <= GAP + 30 * LATTICE; t += LATTICE) {
+		rows.push(connectionRow('busy', T0 + t, BUSY));
+	}
+	const wideWindow: TimeRange = { startTime: T0 - LATTICE, endTime: T0 + GAP + 60 * LATTICE };
+	const byX = new Map(
+		runPipeline(connectionsSpec, rows, wideWindow, ['busy', 'quiet'], { snapToPeriod: true })
+			.series.find((s) => s.key === 'mqtt')!.points.map((p) => [p.x, p.y]),
+	);
+
+	it('still sums both nodes where quiet actually reported', () => {
+		expect(byX.get(T0)).toBe(BUSY + QUIET);
+		expect(byX.get(T0 + GAP)).toBe(BUSY + QUIET);
+	});
+
+	it('drops the sparse node a few minutes after each observation, not 24 h later', () => {
+		// 12 h cadence x 2 would have been a 24 h horizon; capped it is 5 min.
+		expect(byX.get(T0 + 10 * LATTICE)).toBe(BUSY);
+		expect(byX.get(T0 + 60 * LATTICE)).toBe(BUSY);
+		expect(byX.get(T0 + GAP + 10 * LATTICE)).toBe(BUSY);
+	});
+
+	it('carries it only within the capped horizon', () => {
+		// MAX_STALENESS_MS is 5 min, so the bucket one minute later still counts
+		// it and the one ten minutes later does not.
+		expect(byX.get(T0 + LATTICE)).toBe(BUSY + QUIET);
+		expect(byX.get(T0 + GAP + LATTICE)).toBe(BUSY + QUIET);
+	});
+
+	it('never leaves a stale carry anywhere in the long tail', () => {
+		// The actual regression: no bucket beyond the capped horizon may include
+		// the quiet node. Pre-cap, every one of these was BUSY + QUIET.
+		const tailStart = T0 + MAX_STALENESS_MS + LATTICE;
+		const stale = [...byX.entries()]
+			.filter(([x]) => x >= tailStart && x < T0 + GAP)
+			.filter(([, y]) => y !== BUSY);
+		expect(stale).toEqual([]);
+		// …and the tail is actually populated, so this isn't vacuous.
+		expect([...byX.keys()].filter((x) => x >= tailStart && x < T0 + GAP).length).toBeGreaterThan(600);
 	});
 });
 

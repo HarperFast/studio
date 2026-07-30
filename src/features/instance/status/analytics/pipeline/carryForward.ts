@@ -22,13 +22,36 @@
 // staleness window; we scale to each node's *observed* cadence instead,
 // because Harper's analytics cadence varies per deployment (the instance in
 // #1576 had `analytics.aggregatePeriod: 60` configured while rows actually
-// landed 90 s apart).
+// landed 90 s apart) — but clamped by Prometheus' 5 minutes as an absolute
+// backstop, so a bad cadence estimate can't turn bounded staleness into
+// carry-forever. See MAX_STALENESS_MS.
 import type { Aggregator } from '../types/analytics';
 
 /** Multiplier on a node's estimated emission interval that bounds how long its
  *  last observation may be carried forward. Two intervals absorbs one missed
  *  emission plus bucket-lattice phase drift, and no more. */
 export const STALENESS_INTERVALS = 2;
+
+/**
+ * Absolute ceiling on a carry-forward horizon, independent of what the cadence
+ * estimate says. Prometheus' fixed 5-minute lookback, used here as a backstop
+ * rather than as the whole policy.
+ *
+ * The median is only robust while short, normal-cadence gaps are the majority.
+ * Two pathological-but-real shapes break that:
+ *
+ *   - a node observed just twice, 12 h apart, reads as a 12 h "cadence" — so a
+ *     single brief nonzero blip would pin its stale count into every later
+ *     bucket for the rest of the window;
+ *   - three samples with one normal gap and one outage average the two into a
+ *     multi-hour median.
+ *
+ * Either one silently converts "bounded staleness" into "carry forever", which
+ * would hide exactly what this feature must not hide: a genuine transition to
+ * zero, or a node dropping out. Capping keeps a wrong cadence estimate from
+ * becoming a wrong horizon.
+ */
+export const MAX_STALENESS_MS = 300_000;
 
 /**
  * True for gauge-shaped specs — the only shape where a missing per-node row
@@ -76,19 +99,30 @@ export function estimateEmissionIntervalMs(times: readonly number[]): number | n
  * Per-node staleness horizon (ms) — how stale a node's last observation may be
  * and still count toward a later bucket's cross-node sum.
  *
- * `floorMs` (the spec's effective bucket size) is a lower bound on the cadence
- * estimate so the horizon always spans at least two buckets: that is what
- * absorbs lattice phase drift when a node's real cadence is *shorter* than the
- * bucket, or when it only ever reported once.
+ * Three bounds, in order:
+ *
+ *  - the cadence estimate is capped at `MAX_STALENESS_MS / STALENESS_INTERVALS`,
+ *    so a bogus multi-hour "cadence" (see `MAX_STALENESS_MS`) cannot buy a
+ *    multi-hour horizon;
+ *  - `floorMs` (the spec's effective bucket size) is a lower bound, so the
+ *    horizon always spans at least two buckets — that is what absorbs lattice
+ *    phase drift when a node's real cadence is *shorter* than the bucket, or
+ *    when it only ever reported once;
+ *  - the floor is applied *after* the cap, deliberately: on a spec whose bucket
+ *    is itself coarser than the cap, spanning two buckets still matters more
+ *    than the 5-minute backstop, so the floor wins there.
+ *
+ * Net: the horizon is always `≤ max(MAX_STALENESS_MS, STALENESS_INTERVALS × floorMs)`.
  */
 export function buildStalenessHorizons(
 	observationTimesByNode: ReadonlyMap<string, number[]>,
 	floorMs: number,
 ): Map<string, number> {
 	const horizons = new Map<string, number>();
+	const cadenceCap = MAX_STALENESS_MS / STALENESS_INTERVALS;
 	for (const [node, times] of observationTimesByNode) {
 		const cadence = estimateEmissionIntervalMs(times) ?? 0;
-		horizons.set(node, STALENESS_INTERVALS * Math.max(cadence, floorMs));
+		horizons.set(node, STALENESS_INTERVALS * Math.max(Math.min(cadence, cadenceCap), floorMs));
 	}
 	return horizons;
 }
