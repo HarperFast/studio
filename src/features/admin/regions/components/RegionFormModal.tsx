@@ -12,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
 import { useCreateRegionMutation } from '@/features/admin/regions/mutations/useCreateRegion';
 import { useUpdateRegionMutation } from '@/features/admin/regions/mutations/useUpdateRegion';
-import { resolveOrganizationScope } from '@/features/admin/regions/organizationScope';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
 import { getRegionsQueryOptions, regionsQueryKey } from '@/features/admin/regions/queries/getRegions';
@@ -113,11 +112,7 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 			return;
 		}
 
-		const organizationIds = resolveOrganizationScope(
-			values.organizationIds,
-			region?.organizationIds,
-			!region || !!form.formState.dirtyFields.organizationIds,
-		);
+		const organizationIds = values.organizationIds.length > 0 ? values.organizationIds : null;
 
 		const onSuccess = () => {
 			toast.success(isEdit ? 'Region updated' : 'Region created');

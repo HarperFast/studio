@@ -1,6 +1,6 @@
 import { AdminShell } from '@/features/admin/components/AdminShell';
 import { dashboardLayout } from '@/router/dashboardRoute';
-import { createRoute, lazyRouteComponent } from '@tanstack/react-router';
+import { createRoute, lazyRouteComponent, redirect } from '@tanstack/react-router';
 
 export const adminLayoutRoute = createRoute({
 	getParentRoute: () => dashboardLayout,
@@ -8,11 +8,20 @@ export const adminLayoutRoute = createRoute({
 	component: AdminShell,
 });
 
-// The index route is whatever sits at the top of AdminShell's rail, so landing on /admin (the
-// navbar's Admin link) always opens the first section. Keep the two in step when reordering.
-const notificationsAdminRoute = createRoute({
+// /admin itself has no page of its own — send it to whatever sits at the top of AdminShell's rail.
+// A redirect rather than a second component mount, so each section keeps exactly one URL (links
+// shared before Regions existed still point at /admin/notifications). Keep in step when reordering.
+const adminIndexRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: '/',
+	beforeLoad: () => {
+		throw redirect({ to: '/admin/notifications' });
+	},
+});
+
+const notificationsAdminRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'notifications',
 	head: () => ({ meta: [{ title: 'Notifications — Harper Fabric' }] }),
 	component: lazyRouteComponent(async () => import('@/features/admin/notifications/index'), 'NotificationsAdminIndex'),
 });
@@ -32,4 +41,4 @@ const apiTokenRoute = createRoute({
 });
 
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
-export const adminRoutes = [notificationsAdminRoute, regionsRoute, apiTokenRoute];
+export const adminRoutes = [adminIndexRoute, notificationsAdminRoute, regionsRoute, apiTokenRoute];

@@ -144,4 +144,54 @@ describe('MultiSelect', () => {
 			expect(screen.getByRole('menuitemcheckbox', { name: 'Tokyo' }).getAttribute('aria-checked')).toBe('false');
 		});
 	});
+
+	// The filter input sits inside the menu, so it has to hand the arrow keys back to Radix (which
+	// only moves focus into the list when the keydown target is the content element) while still
+	// keeping printable keys out of Radix's typeahead. Blanket stopPropagation made the whole
+	// component pointer-only.
+	describe('keyboard access', () => {
+		function filterInput() {
+			return screen.getByRole('textbox', { name: 'Filter options' });
+		}
+
+		it('walks from the filter into the list and selects with Enter', () => {
+			render(<Harness />);
+			openMenu();
+			fireEvent.change(filterInput(), { target: { value: 'fra' } });
+
+			const items = screen.getAllByRole('menuitemcheckbox');
+			expect(items).toHaveLength(1);
+
+			fireEvent.keyDown(filterInput(), { key: 'ArrowDown' });
+			expect(document.activeElement).toBe(items[0]);
+
+			fireEvent.keyDown(items[0], { key: 'Enter' });
+			expect(items[0].getAttribute('aria-checked')).toBe('true');
+
+			// Radix aria-hides everything outside the open menu, so the chips are only queryable once
+			// Escape has closed it — which is also the only way out of the menu by keyboard.
+			fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+			expect(chipLabels()).toEqual(['Frankfurt']);
+		});
+
+		it('ArrowUp from the filter lands on the last option', () => {
+			render(<Harness />);
+			openMenu();
+
+			fireEvent.keyDown(filterInput(), { key: 'ArrowUp' });
+
+			expect(document.activeElement).toBe(screen.getByRole('menuitemcheckbox', { name: 'Tokyo' }));
+		});
+
+		it('typing stays in the filter instead of triggering Radix typeahead', () => {
+			render(<Harness />);
+			openMenu();
+			const input = filterInput();
+			input.focus();
+
+			fireEvent.keyDown(input, { key: 't' });
+
+			expect(document.activeElement).toBe(input);
+		});
+	});
 });
