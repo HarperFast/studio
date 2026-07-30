@@ -1,34 +1,34 @@
 /**
- * Strip customer-identifying git repository references — and any credentials embedded in a
- * URL — out of error text before it leaves the browser for Datadog.
+ * Strip customer-identifying URL paths — and any credentials embedded in a URL — out of error
+ * text before it leaves the browser for Datadog.
  *
  * Deploy failures quote the `package` reference the customer entered, so a message like
  * "Failed to deploy git@github.com:acme-corp/billing-service.git: …" carries their private
  * repo's owner and name (and, for an https remote, sometimes a token in the userinfo) into
- * Error Tracking, where it is retained and searchable. The repo identity tells us nothing we
- * can debug with — the host does — so keep the host and drop the path.
+ * Error Tracking, where it is retained and searchable.
  *
- * Applied by `beforeSend` to `error.message` and `error.stack` of every event we keep. Studio's
- * own asset URLs and Harper API endpoints are deliberately left intact: stack frames and
- * `.../HDBInstance/<id>/operation` paths are how these errors get triaged.
+ * Deciding which URLs *are* repositories turned out to be the wrong way round: github.com and
+ * gitlab.com are the easy half, but a GitLab or Gitea self-hosted at `scm.acme-corp.com` looks
+ * like nothing in particular, and neither does the `https://api.github.com/repos/<owner>/<repo>`
+ * lookup Studio itself makes while the deploy form is filled in. No list of forges or hostname
+ * conventions ever finishes. Harper's own domains, by contrast, are a short list we control — so
+ * keep the path only for those, and reduce every other URL to scheme + host + `<redacted>`. The
+ * host is what we debug with; the path is where the customer's identity lives.
+ *
+ * Applied by `beforeSend` to `error.message`, `error.stack`, and `error.resource.url` of every
+ * event we keep. Harper API endpoints (`.../HDBInstance/<id>/operation`) and Studio's own asset
+ * URLs therefore stay intact: the first is how these errors get triaged, the second is what
+ * Datadog source-maps stack frames against.
  */
 
 const REDACTED = '<redacted>';
 
 /**
- * Hosts whose URL path *is* a repository identity. Self-hosted forges are matched by the
- * `git.`/`gitlab.`/`github.` hostname prefix convention instead of being enumerated.
+ * Registrable domains Harper owns. Studio itself, the central-manager API, and Fabric instances
+ * all sit under one of these. Matched by suffix, so a new subdomain or environment is covered
+ * without an edit here; `localhost` covers a locally registered instance.
  */
-const GIT_HOSTS = new Set([
-	'github.com',
-	'gitlab.com',
-	'bitbucket.org',
-	'dev.azure.com',
-	'ssh.dev.azure.com',
-	'codeberg.org',
-	'git.sr.ht',
-	'gitea.com',
-]);
+const HARPER_DOMAINS = ['harper.fast', 'harperfabric.com', 'harperdb.io'];
 
 /** URL-shaped tokens (`scheme://…`), ending at whitespace or enclosing punctuation. */
 const URL_TOKEN = /[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^\s'"<>)\]]+/g;
@@ -43,12 +43,15 @@ const TRAILING_PUNCTUATION = /[.,:;!?]+$/;
  */
 const SCP_GIT_REMOTE = /([\w.+-]+@[\w.-]+):[\w.-]+\/[\w./-]+/g;
 
-function isRepositoryUrl(url: URL) {
-	return url.protocol === 'git:'
-		|| url.protocol === 'ssh:'
-		|| /\.git\/?$/.test(url.pathname)
-		|| GIT_HOSTS.has(url.hostname)
-		|| /^(?:git|gitlab|github)[.-]/.test(url.hostname);
+function isHarperHost(hostname: string) {
+	return hostname === 'localhost'
+		|| HARPER_DOMAINS.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
+}
+
+/** A URL carries customer identity in everything after the host — unless the host is ours. */
+function carriesCustomerPath(url: URL) {
+	const hasPath = url.pathname.length > 1 || !!url.search || !!url.hash;
+	return hasPath && !isHarperHost(url.hostname);
 }
 
 function redactUrl(token: string) {
@@ -60,9 +63,10 @@ function redactUrl(token: string) {
 	} catch {
 		return token;
 	}
-	if (isRepositoryUrl(url)) {
+	if (carriesCustomerPath(url)) {
 		// Rebuild by hand rather than via `toString()`: this drops userinfo, query, and fragment
-		// (a `?ref=`/`#branch` can name a private branch) without normalizing the rest.
+		// (a `?ref=`/`#branch` can name a private branch) without normalizing the rest. `host`
+		// rather than `hostname`, so a non-default port survives.
 		return `${url.protocol}//${url.host}/${REDACTED}${trailing}`;
 	}
 	if (url.username || url.password) {
@@ -73,7 +77,7 @@ function redactUrl(token: string) {
 	return token;
 }
 
-/** Redact repository references and URL credentials in `text`. Returns it unchanged if none. */
+/** Redact non-Harper URL paths and URL credentials in `text`. Returns it unchanged if none. */
 export function redactErrorText(text: string) {
 	return text
 		.replace(URL_TOKEN, redactUrl)
