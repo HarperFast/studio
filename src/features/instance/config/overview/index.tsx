@@ -153,7 +153,9 @@ export function ConfigOverviewIndex() {
 	}, [configurationInfo]);
 
 	const handleEditorDidMount = useCallback<OnMount>(() => {
-		configureHarperConfigEditor();
+		// Registers the config JSON Schema; deliberately not awaited (`OnMount` is
+		// sync, and the editor is usable while the schema lands a microtask later).
+		void configureHarperConfigEditor();
 	}, []);
 
 	const handleSave = useCallback(() => {
