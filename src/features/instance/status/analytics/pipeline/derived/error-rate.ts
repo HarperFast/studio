@@ -60,6 +60,16 @@ export const errorRateDerived: DerivedMetricSpec = {
 	tab: 'requests',
 	sourceMetric: 'success',
 	recompute: recomputeErrorRate,
+	// Wide-window downsampling folds several fine buckets into one; a ratio must
+	// be recombined Σ-correctly, not averaged. Each point carries count=sumCount,
+	// and ratio·count = count − total = the bucket's error count, so
+	// count-weighted-mean = Σerrors/Σcount = 1 − Σtotal/Σcount — the same
+	// Σ-arithmetic recomputeErrorRate does per bucket. Plain 'mean' here would be
+	// the ratio-of-ratios bug this file's docstring warns against (a low-traffic,
+	// high-error bucket weighted equally with a high-traffic, low-error one).
+	// error-rate has no custom Renderer, so this drives both the on-screen fold
+	// (MetricRenderer) and the CSV fold (csvExport).
+	downsampleAggregator: 'count-weighted-mean',
 	primitive: 'line',
 	yAxis: { unit: '', formatter: 'percent' },
 	// Threshold lives on the SeriesData returned by `recomputeErrorRate` — the

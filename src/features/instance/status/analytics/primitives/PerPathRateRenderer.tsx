@@ -7,10 +7,12 @@
 
 import { useMemo, useState } from 'react';
 import { NodeLegend } from '../charts/NodeLegend';
+import { targetBucketMs } from '../context/timePresets';
 import { useNodeSelection } from '../hooks/useNodeSelection';
 import { getNodeColor } from '../lib/nodeColors';
 import { shortenNodeLabel } from '../lib/nodeLabels';
-import type { AnalyticsDataPoint, AxisSpec, SeriesData, Threshold, TimeRange } from '../types/analytics';
+import { downsampleDerivedSeriesData } from '../pipeline/downsample';
+import type { Aggregator, AnalyticsDataPoint, AxisSpec, SeriesData, Threshold, TimeRange } from '../types/analytics';
 import { DimensionChipRow } from './DimensionChipRow';
 import { LineChart } from './LineChart';
 
@@ -30,6 +32,11 @@ interface Props {
 		records: AnalyticsDataPoint[],
 		options: { perNode: boolean; selectedPath: string | null },
 	) => SeriesData;
+	/** How to fold points when the window is wider than the render lattice.
+	 *  Defaults to 'mean', correct for a per-second rate (request-rate): equal
+	 *  time buckets, so the coarse rate is the mean of the fine rates. A ratio
+	 *  metric would pass 'count-weighted-mean' to stay Σ-correct. */
+	downsampleAggregator?: Aggregator;
 }
 
 export function PerPathRateRenderer({
@@ -40,6 +47,7 @@ export function PerPathRateRenderer({
 	yAxis,
 	thresholds,
 	compute,
+	downsampleAggregator,
 	fillParent,
 }: Props) {
 	const xDomain = timeRange ? [timeRange.startTime, timeRange.endTime] as [number, number] : undefined;
@@ -68,8 +76,21 @@ export function PerPathRateRenderer({
 		: (perNode ? (paths[0] ?? '') : '');
 
 	const data = useMemo<SeriesData>(
-		() => compute(records, { perNode, selectedPath: effective || null }),
-		[records, perNode, effective, compute],
+		() => {
+			const raw = compute(records, { perNode, selectedPath: effective || null });
+			// These derived metrics build series from raw columns and reach the
+			// chart through this custom Renderer, so they skip runPipeline's
+			// downsample pass and MetricRenderer's derived-fold. Fold here or a
+			// 7 d / 30 d view stays at one point per 60 s beside panels capped at
+			// ~180 (#1588). No window (standalone/test) → leave raw.
+			if (!timeRange) { return raw; }
+			return downsampleDerivedSeriesData(
+				raw,
+				targetBucketMs(timeRange.endTime - timeRange.startTime, { expanded: !!fillParent }),
+				downsampleAggregator,
+			);
+		},
+		[records, perNode, effective, compute, timeRange, fillParent, downsampleAggregator],
 	);
 
 	const { isActive, handleLegendClick } = useNodeSelection(nodes);
