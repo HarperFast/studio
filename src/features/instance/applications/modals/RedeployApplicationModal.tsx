@@ -169,7 +169,7 @@ export function RedeployApplicationModal() {
 				{isStreaming
 					? (
 						<div className="flex flex-col gap-4">
-							<DeployProgress state={stream.state} />
+							<DeployProgress state={stream.state} onNavigateAway={closeModal} />
 							<Button
 								type="button"
 								variant="ghostOutline"

@@ -4,6 +4,8 @@ import { Separator } from '@/components/ui/separator';
 import { DEPLOY_PHASE_ORDER } from '@/integrations/api/instance/applications/deployComponentStream';
 import { cn } from '@/lib/cn';
 import { errorText } from '@/lib/errorText';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
+import { Link, useParams } from '@tanstack/react-router';
 import { CheckIcon, CircleDashedIcon, CircleIcon, Loader2Icon, XIcon } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { DeploymentStreamState, PhaseStatus } from './useDeploymentStream';
@@ -15,6 +17,16 @@ const PHASE_LABELS: Record<string, string> = {
 	restart: 'Restart',
 	success: 'Finish',
 };
+
+/**
+ * A deploy that failed because the *instance* couldn't reach a private repository over SSH is
+ * fixed in Config > SSH Keys (install a key, grant it access to the repo, add the git host to
+ * `known_hosts`), so link the user there instead of leaving them to find it. Harper's message
+ * already spells out the remediation, and this UI is now the only place the failure surfaces:
+ * it's an instance configuration state, not a Studio bug, so `shouldKeepEvent` drops the RUM
+ * event (which also kept the customer's private repo URL out of Error Tracking).
+ */
+const SSH_ACCESS_FAILURE = /Failed to deploy private repository\b|SSH access failed/i;
 
 function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boolean }) {
 	if (status === 'done') {
@@ -30,8 +42,16 @@ function PhaseIcon({ status, isCurrent }: { status?: PhaseStatus; isCurrent: boo
 }
 
 /** Renders live `deploy_component` progress: phase checklist, install log tail, peer results. */
-export function DeployProgress({ state }: { state: DeploymentStreamState }) {
+export function DeployProgress({
+	state,
+	onNavigateAway,
+}: {
+	state: DeploymentStreamState;
+	/** Called when a guidance link navigates away — lets a hosting modal close itself first. */
+	onNavigateAway?: () => void;
+}) {
 	const logEndRef = useRef<HTMLDivElement>(null);
+	const params: { clusterId?: string; instanceId?: string; organizationId?: string } = useParams({ strict: false });
 
 	useEffect(() => {
 		logEndRef.current?.scrollIntoView({ block: 'end' });
@@ -103,9 +123,20 @@ export function DeployProgress({ state }: { state: DeploymentStreamState }) {
 			)}
 
 			{phasesFailed && state.error && (
-				<div className="flex items-start gap-2 text-sm text-destructive">
-					<CircleIcon className="mt-0.5 size-4 shrink-0" />
-					<span>{state.error}</span>
+				<div className="flex flex-col gap-2 text-sm text-destructive">
+					<div className="flex items-start gap-2">
+						<CircleIcon className="mt-0.5 size-4 shrink-0" />
+						<span>{state.error}</span>
+					</div>
+					{SSH_ACCESS_FAILURE.test(state.error) && (
+						<Link
+							to={buildAbsoluteLinkToPage(params, 'config/ssh-keys')}
+							onClick={onNavigateAway}
+							className="self-start pl-6 underline"
+						>
+							Manage SSH keys
+						</Link>
+					)}
 				</div>
 			)}
 
