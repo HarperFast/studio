@@ -194,9 +194,16 @@ function runGroupBy(
 	// cluster-aggregate path which, for dimension='node', is naturally
 	// one-series-per-node.
 	const dimensionIsNode = src.dimension === 'node';
-	// Bounded per-node carry-forward only applies where the crossNode pass
-	// actually runs, and only for gauge-shaped specs (see carryForward.ts).
-	const carryForward = (!perNode || dimensionIsNode) && isGaugeCrossNodeSum(tempAgg, crossAgg);
+	// Bounded per-node carry-forward only earns its keep on the cluster-aggregate
+	// path AND only when a bucket can actually hold more than one node — i.e. a
+	// non-node dimension. When the dimension IS node, each dim's buckets contain
+	// exactly that one node (dimVal and the row's node are the same field), so
+	// the crossNode sum is identity and there is never an absent node to fill;
+	// the observation bookkeeping + horizon build would be pure overhead. That
+	// rules out both node-dimension combos: the "Stack by: Node" remap
+	// (!perNode) and the redundant perNode+node case. Gauge-shaped specs only
+	// (see carryForward.ts).
+	const carryForward = !perNode && !dimensionIsNode && isGaugeCrossNodeSum(tempAgg, crossAgg);
 
 	// Step 4.5 structure: dim → time → node → NodeBucket. Per-dimension totals
 	// are accumulated separately for topN ranking + per-series confidence
