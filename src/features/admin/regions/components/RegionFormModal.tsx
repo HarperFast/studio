@@ -24,6 +24,9 @@ import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
+/** Menu items rendered at once for the org picker; the filter reaches the rest. */
+const ORGANIZATION_OPTIONS_RENDERED = 100;
+
 interface RegionFormModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -51,7 +54,8 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 	const queryClient = useQueryClient();
 
 	const { data: locations = [] } = useQuery({ ...getLocationsQueryOptions(), enabled: open });
-	const { data: organizations = [] } = useQuery({ ...getOrganizationsQueryOptions(), enabled: open });
+	const { data: orgResult } = useQuery({ ...getOrganizationsQueryOptions(), enabled: open });
+	const organizations = orgResult?.organizations ?? [];
 	const { data: regions = [] } = useQuery({ ...getRegionsQueryOptions(), enabled: open });
 
 	const { mutate: createRegion, isPending: isCreating } = useCreateRegionMutation();
@@ -356,8 +360,14 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 											placeholder="Public — all organizations"
 											emptyText="No organizations"
 											ariaLabel="Organizations"
+											maxVisibleOptions={ORGANIZATION_OPTIONS_RENDERED}
 										/>
 									</FormControl>
+									{orgResult?.truncated && (
+										<p className="text-xs text-destructive">
+											Too many organizations to list them all — some may be missing from this picker.
+										</p>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}

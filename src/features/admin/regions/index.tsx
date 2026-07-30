@@ -28,12 +28,15 @@ export function RegionScope(
 
 export function RegionsIndex() {
 	const { data: regions, isLoading, isError } = useQuery(getRegionsQueryOptions());
-	const { data: organizations = [] } = useQuery(getOrganizationsQueryOptions());
+	const { data: orgResult } = useQuery(getOrganizationsQueryOptions());
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editing, setEditing] = useState<AdminRegion | null>(null);
 	const [search, setSearch] = useState('');
 
-	const orgNameById = useMemo(() => new Map(organizations.map((o) => [o.id, o.name])), [organizations]);
+	const orgNameById = useMemo(
+		() => new Map((orgResult?.organizations ?? []).map((o) => [o.id, o.name])),
+		[orgResult],
+	);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
