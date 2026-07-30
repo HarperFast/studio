@@ -3,6 +3,22 @@
 Hard-won, project-specific gotchas. Skim the relevant section before touching related
 code — each of these has cost a debugging session.
 
+## Commits — Conventional Commits are enforced in CI
+
+Every commit message needs a Conventional Commits prefix: `type(scope): subject`
+(`@commitlint/config-conventional` types — `feat`, `fix`, `docs`, `chore`, `test`,
+`refactor`, `perf`, `ci`, `build`, `style`, `revert`; scope optional; subject case is
+unrestricted, per `commitlint.config.cjs`). The **Verify Commits** workflow
+(`.github/workflows/verify-commits.yaml`) runs commitlint on every PR and on pushes to
+`dev`/`stage`/`prod` — a single unprefixed commit fails the check, and history that already
+landed on a deploy branch has to be rewritten and force-pushed to fix it.
+
+Don't count on the local hook to catch this first. `.husky/commit-msg` only runs after
+`pnpm install` has run the `prepare: husky` script, which is what points `core.hooksPath`
+at `.husky`. In a fresh clone or worktree that skipped install, `core.hooksPath` is unset,
+the hook never fires, and a non-conforming message commits silently — CI is the first thing
+that objects.
+
 ## Routing — keep `getParentRoute` and `addChildren` in lockstep
 
 In the TanStack Router setup (`src/router/rootRouteTree.ts`), every route's declared
