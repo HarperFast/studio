@@ -19,10 +19,10 @@ describe('RegionScope', () => {
 		expect(screen.getByText('Public')).toBeTruthy();
 	});
 
-	it('does NOT call an empty scope public — [] hides the region from every org', () => {
+	// Matches isRegionVisibleToOrg: only a non-empty list restricts, so [] reads the same as null.
+	it('treats an empty scope as public', () => {
 		render(<RegionScope organizationIds={[]} orgNameById={orgNameById} />);
-		expect(screen.queryByText('Public')).toBeNull();
-		expect(screen.getByText('None (hidden)')).toBeTruthy();
+		expect(screen.getByText('Public')).toBeTruthy();
 	});
 
 	it('lists scoped orgs as id + name', () => {

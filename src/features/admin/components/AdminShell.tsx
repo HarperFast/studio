@@ -9,10 +9,9 @@ import { BellIcon, GlobeIcon, KeyRoundIcon } from 'lucide-react';
  * (matching the token endpoint's SSO-session contract — see isFabricAdmin); the
  * dashboard route guard already handles the unauthenticated redirect.
  */
-// First item is the section index (/admin) so the navbar's Admin link opens it; `exact` keeps it
-// from also matching the sibling routes nested under /admin.
+// Order matters: /admin redirects to the first item's route (see adminIndexRoute).
 const items: SubNavItem[] = [
-	{ to: '/admin', label: 'Notifications', icon: BellIcon, exact: true },
+	{ to: '/admin/notifications', label: 'Notifications', icon: BellIcon },
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon },
 	{ to: '/admin/api-token', label: 'API Token', icon: KeyRoundIcon },
 ];

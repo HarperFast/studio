@@ -39,4 +39,25 @@ describe('RegionFormSchema', () => {
 		expect(RegionFormSchema.safeParse({ ...base, region: '' }).success).toBe(false);
 		expect(RegionFormSchema.safeParse({ ...base, latencyDescription: '' }).success).toBe(false);
 	});
+
+	describe('forceLocations', () => {
+		it('rejects Force with no preferred locations, and reports it on that field', () => {
+			const result = RegionFormSchema.safeParse({ ...base, forceLocations: true });
+			expect(result.success).toBe(false);
+			expect(result.error?.issues[0]?.path).toEqual(['forceLocations']);
+		});
+
+		it('accepts Force with a location from either provider', () => {
+			expect(
+				RegionFormSchema.safeParse({ ...base, forceLocations: true, linodePreferredLocations: ['us-east'] }).success,
+			).toBe(true);
+			expect(
+				RegionFormSchema.safeParse({ ...base, forceLocations: true, gcpPreferredLocations: ['us-central1'] }).success,
+			).toBe(true);
+		});
+
+		it('still allows an empty location list when Force is off', () => {
+			expect(RegionFormSchema.safeParse(base).success).toBe(true);
+		});
+	});
 });

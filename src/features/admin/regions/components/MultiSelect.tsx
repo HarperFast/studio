@@ -7,7 +7,7 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { ChevronDown, XIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface MultiSelectOption {
 	value: string;
@@ -32,7 +32,7 @@ interface MultiSelectProps {
 
 /**
  * A checkbox multi-select with a filter and removable chips. Built on the shared Radix dropdown
- * (the repo has no combobox); the filter input stops keydown propagation so Radix's menu typeahead
+ * (the repo has no combobox); the filter input swallows printable keys so Radix's menu typeahead
  * doesn't eat the typing, and each item preventDefaults onSelect so the menu stays open across picks.
  *
  * With `allowRepeats`, `selected` may contain duplicates: every menu click appends another copy
@@ -53,6 +53,7 @@ export function MultiSelect({
 	const [open, setOpen] = useState(false);
 	const [filter, setFilter] = useState('');
 	const inputRef = useRef<HTMLInputElement>(null);
+	const contentRef = useRef<HTMLDivElement>(null);
 	const selectedSet = useMemo(() => new Set(selected), [selected]);
 	const labelFor = useMemo(() => new Map(options.map((o) => [o.value, o.label])), [options]);
 
@@ -88,6 +89,28 @@ export function MultiSelect({
 	/** Drop one entry by position, so removing a repeat leaves its other copies alone. */
 	const removeAt = (index: number) => onChange(selected.filter((_, i) => i !== index));
 
+	// Radix only moves focus into the list when the keydown target IS the content element, so from the
+	// filter input the arrow keys need handling here or the list is unreachable by keyboard. Once an
+	// item has focus, Radix's roving focus takes over the rest of the arrows and Enter/Space.
+	const focusEdgeItem = (edge: 'first' | 'last') => {
+		const items = contentRef.current?.querySelectorAll<HTMLElement>(
+			'[role="menuitemcheckbox"]:not([data-disabled])',
+		);
+		if (!items?.length) { return; }
+		(edge === 'first' ? items[0] : items[items.length - 1]).focus();
+	};
+
+	const onFilterKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+			e.preventDefault();
+			focusEdgeItem(e.key === 'ArrowDown' ? 'first' : 'last');
+			return;
+		}
+		// Only swallow printable keys, which are the ones Radix's typeahead would steal. Anything else
+		// (Escape to close, Tab, Enter) has to reach Radix.
+		if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) { e.stopPropagation(); }
+	};
+
 	return (
 		<div className="flex flex-col gap-2">
 			<DropdownMenu
@@ -112,6 +135,7 @@ export function MultiSelect({
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent
+					ref={contentRef}
 					className="w-(--radix-dropdown-menu-trigger-width) max-h-72 overflow-y-auto"
 					align="start"
 				>
@@ -119,7 +143,7 @@ export function MultiSelect({
 						ref={inputRef}
 						value={filter}
 						onChange={(e) => setFilter(e.target.value)}
-						onKeyDown={(e) => e.stopPropagation()}
+						onKeyDown={onFilterKeyDown}
 						placeholder="Filter…"
 						aria-label="Filter options"
 						className="mb-1 w-full rounded-md border bg-transparent px-2 py-1 text-sm outline-none"

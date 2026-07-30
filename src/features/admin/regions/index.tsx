@@ -13,13 +13,9 @@ import { useMemo, useState } from 'react';
 export function RegionScope(
 	{ organizationIds, orgNameById }: { organizationIds?: string[] | null; orgNameById: Map<string, string> },
 ) {
-	// null/absent is public; an empty array is the opposite — Region.get reads it as "scoped to these
-	// zero orgs", so no organization can select it.
-	if (organizationIds == null) {
+	// Only a non-empty list restricts a region (isRegionVisibleToOrg); null and [] are both public.
+	if (organizationIds == null || organizationIds.length === 0) {
 		return <>Public</>;
-	}
-	if (organizationIds.length === 0) {
-		return <>None (hidden)</>;
 	}
 	return (
 		<div className="flex flex-col gap-0.5">

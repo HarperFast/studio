@@ -29,6 +29,16 @@ export const RegionFormSchema = z.object({
 	active: z.boolean(),
 	// Empty ⇒ region is available to all organizations (shown as "Public").
 	organizationIds: z.array(z.string()),
+}).superRefine((values, ctx) => {
+	// With forceLocations the preferred list IS the placement plan rather than a hint, so an empty one
+	// leaves addDedicatedHosts nothing to pick and provisioning fails with "No valid locations found".
+	if (values.forceLocations && !values.linodePreferredLocations.length && !values.gcpPreferredLocations.length) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['forceLocations'],
+			message: 'Add at least one preferred location, or turn off Force locations',
+		});
+	}
 });
 
 export type RegionFormValues = z.infer<typeof RegionFormSchema>;
