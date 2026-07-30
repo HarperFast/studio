@@ -14,7 +14,6 @@
  * exports map, so we can't import the schema file directly; refresh the copy
  * when the bundled harper version changes its config schema.
  */
-import { json } from '@/lib/monaco/languageServices';
 import configRootSchemaRaw from './configRootSchema.json?raw';
 
 const configRootSchema = JSON.parse(configRootSchemaRaw);
@@ -35,8 +34,22 @@ const SCHEMA_URI = 'harper://schemas/config-root.json';
  * `beforeMount`. By `onMount` the JSON language is initialized, so the
  * registration sticks. The guard keys off the already-registered schema URI,
  * so repeated mounts (and HMR) are no-ops.
+ *
+ * The JSON language-service defaults are reached through a dynamic `import()`
+ * rather than a top-level one, so this module — which the config route imports
+ * eagerly — never links Monaco into an eager chunk. That matters beyond bundle
+ * size: each `monaco-editor/languages/features/<lang>/register` entry has
+ * registration side effects, and evaluating one at boot builds Monaco's service
+ * collection before `monaco-editor/features/register.all` (loaded with the lazy
+ * `@/lib/monaco/setup`) has registered its singletons. Monaco builds that
+ * collection once, so the late registrations are ignored and every editor then
+ * throws "[createInstance] … depends on UNKNOWN service …" for the five
+ * services backing code lens, inlay hints, suggest memory, the code-action
+ * widget, and tree-view DnD (#1592). By `onMount` Monaco is already loaded, so
+ * this resolves from the module cache.
  */
-export function configureHarperConfigEditor(): void {
+export async function configureHarperConfigEditor(): Promise<void> {
+	const { json } = await import('@/lib/monaco/languageServices');
 	const jsonDefaults = json.jsonDefaults;
 	const { schemas = [], ...rest } = jsonDefaults.diagnosticsOptions;
 
