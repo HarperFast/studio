@@ -104,7 +104,10 @@ export const requestRateDerived: DerivedMetricSpec = {
 	tab: 'requests',
 	sourceMetric: 'duration',
 	recompute: recomputeRequestRate,
-	Renderer: ({ records, timeRange, nodes, viewMode }) => (
+	// req/s is a rate, so the fold's default 'mean' is correct — no
+	// downsampleAggregator needed. fillParent is forwarded so the expand dialog
+	// both fills the canvas and folds at the finer expanded resolution.
+	Renderer: ({ records, timeRange, nodes, viewMode, fillParent }) => (
 		<PerPathRateRenderer
 			records={records}
 			timeRange={timeRange}
@@ -112,6 +115,7 @@ export const requestRateDerived: DerivedMetricSpec = {
 			viewMode={viewMode}
 			yAxis={{ unit: '/s', formatter: 'count-si' }}
 			compute={computeForRenderer}
+			fillParent={fillParent}
 		/>
 	),
 	primitive: 'line',
