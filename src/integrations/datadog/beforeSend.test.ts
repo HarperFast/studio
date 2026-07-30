@@ -27,6 +27,25 @@ describe('beforeSend', () => {
 		].join('\n'));
 	});
 
+	it('redacts the repository path from the resource URL of a failed lookup', () => {
+		const event = errorEvent({
+			message: 'Request failed with status code 404',
+			resource: { url: 'https://api.github.com/repos/acme-corp/billing-service' },
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.resource?.url).toBe('https://api.github.com/<redacted>');
+	});
+
+	// The endpoint is the whole point of a kept 5xx/network error, and it is Harper's own host.
+	it('leaves an instance operation endpoint in the resource URL intact', () => {
+		const event = errorEvent({
+			message: 'Request failed with status code 403',
+			resource: { url: 'https://api.harper.fast/HDBInstance/ins-1/operation' },
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation');
+	});
+
 	// The third-party attribution in `shouldKeepEvent` reads the raw stack, so filtering has to
 	// happen before redaction could rewrite any frame in it.
 	it('filters on the original stack rather than a redacted one', () => {
