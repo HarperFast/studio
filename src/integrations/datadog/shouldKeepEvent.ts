@@ -141,6 +141,22 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
+	// Deploying a component from a private git repository fails when the *instance* can't
+	// authenticate to that repository over SSH: no key installed, a key without access to the
+	// repo, or a git host missing from the instance's `ssh/known_hosts`. Harper reports it as a
+	// terminal deploy error whose message is already pure remediation guidance ("configure an
+	// SSH key on this Harper instance, ensure the key has access to the target repository, …"),
+	// which the deploy UI surfaces verbatim — `DeployProgress` also links to Config > SSH Keys.
+	// Nothing in Studio can be fixed in response; like the 401s above it's an expected state of
+	// an instance the customer still has to configure, and it created an Error Tracking issue
+	// off 8 events from a single session in the 24h to 2026-07-30. Dropping it also keeps the
+	// private repo URL the message embeds (owner + repo name) out of Error Tracking entirely;
+	// `redactErrorText` is the backstop for repo URLs in deploy errors we do keep. Match on the
+	// prefix rather than the SSH sentence, so a reworded remediation still matches.
+	if (/Failed to deploy private repository\b/i.test(message)) {
+		return false;
+	}
+
 	const url = event.error?.resource?.url ?? '';
 	const isInstanceEndpoint = /\/(HDBInstance|Cluster)\/[^/]+\/operation/.test(url);
 
