@@ -1,11 +1,24 @@
 import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/integrations/api/api.patch';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
-import { queryOptions } from '@tanstack/react-query';
+import { QueryClient, queryOptions } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
 	return data as Cluster;
+}
+
+/**
+ * Flip `resetPassword` off on the cached cluster once admin setup has completed server-side.
+ * ClusterHome routes on `resetPassword` from this same query, so the cache must reflect the
+ * change synchronously — waiting for the next poll leaves a window where navigating away from
+ * finish-setup bounces straight back to it.
+ */
+export function markClusterPasswordSet(queryClient: QueryClient, clusterId: string) {
+	queryClient.setQueryData(
+		getClusterInfoQueryOptions(clusterId).queryKey,
+		(cluster) => cluster && { ...cluster, resetPassword: false },
+	);
 }
 
 export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?: boolean | number) {
