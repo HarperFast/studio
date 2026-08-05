@@ -15,7 +15,7 @@ import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormS
 import { useInstanceResetPasswordMutation } from '@/integrations/api/instance/auth/useInstanceResetPasswordMutation';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { ActivityIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -23,7 +23,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { allClusterInstancesRunning } from './allInstancesRunning';
-import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
+import { getClusterInfoQueryOptions, markClusterPasswordSet } from './queries/getClusterInfoQuery';
 
 export function FinishSetup() {
 	const { user } = useCloudAuth();
@@ -33,6 +33,7 @@ export function FinishSetup() {
 	);
 
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 
@@ -79,6 +80,10 @@ export function FinishSetup() {
 			onSuccess: async ({ message, user }) => {
 				toast.success(message);
 				authStore.setUserForEntity(cluster!, user);
+				// The mutation already told CM the password changed (resetPasswordUpdater); reflect
+				// that in the cached cluster before navigating so ClusterHome's resetPassword guard
+				// doesn't bounce us back here off a stale poll.
+				markClusterPasswordSet(queryClient, clusterId);
 				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},
@@ -90,6 +95,7 @@ export function FinishSetup() {
 		instancesReady,
 		navigate,
 		operationsUrl,
+		queryClient,
 		redirect,
 		router,
 		submitInstanceResetPassword,
