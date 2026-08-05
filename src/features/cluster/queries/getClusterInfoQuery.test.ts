@@ -1,6 +1,8 @@
+import { Cluster } from '@/integrations/api/api.patch';
+import { QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { getClusterInfoQueryOptions } from './getClusterInfoQuery';
+import { getClusterInfoQueryOptions, markClusterPasswordSet } from './getClusterInfoQuery';
 
 /** The subset of `Query` the `refetchInterval` callback reads. */
 type ErrorStateQuery = { state: { error: unknown } };
@@ -39,5 +41,51 @@ describe('getClusterInfoQueryOptions polling', () => {
 	it('keeps polling after a recoverable failure', () => {
 		expect(resolveInterval(true, axiosErrorWithStatus(500))).toBe(10_000);
 		expect(resolveInterval(true, new Error('Network Error'))).toBe(10_000);
+	});
+});
+
+describe('markClusterPasswordSet', () => {
+	const CLUSTER_ID = 'clu-test1';
+
+	function seedCluster(queryClient: QueryClient, cluster: Partial<Cluster>) {
+		queryClient.setQueryData(getClusterInfoQueryOptions(CLUSTER_ID).queryKey, cluster as Cluster);
+	}
+
+	it('flips resetPassword off on the cached cluster and preserves everything else', () => {
+		const queryClient = new QueryClient();
+		seedCluster(queryClient, { id: CLUSTER_ID, name: 'new2', status: 'RUNNING', resetPassword: true });
+
+		markClusterPasswordSet(queryClient, CLUSTER_ID);
+
+		expect(queryClient.getQueryData(getClusterInfoQueryOptions(CLUSTER_ID).queryKey)).toEqual({
+			id: CLUSTER_ID,
+			name: 'new2',
+			status: 'RUNNING',
+			resetPassword: false,
+		});
+	});
+
+	it('is a no-op when the cluster is not cached (no phantom entry created)', () => {
+		const queryClient = new QueryClient();
+
+		markClusterPasswordSet(queryClient, CLUSTER_ID);
+
+		expect(queryClient.getQueryData(getClusterInfoQueryOptions(CLUSTER_ID).queryKey)).toBeUndefined();
+	});
+
+	it('leaves other clusters in the cache untouched', () => {
+		const queryClient = new QueryClient();
+		seedCluster(queryClient, { id: CLUSTER_ID, resetPassword: true });
+		queryClient.setQueryData(getClusterInfoQueryOptions('clu-other').queryKey, {
+			id: 'clu-other',
+			resetPassword: true,
+		} as Cluster);
+
+		markClusterPasswordSet(queryClient, CLUSTER_ID);
+
+		expect(queryClient.getQueryData(getClusterInfoQueryOptions('clu-other').queryKey)).toEqual({
+			id: 'clu-other',
+			resetPassword: true,
+		});
 	});
 });
