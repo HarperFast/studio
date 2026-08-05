@@ -18,9 +18,11 @@ export function isEmailNotVerifiedError(error: unknown): boolean {
 	if (!isAxiosError(error) || error.response?.status !== 403) {
 		return false;
 	}
-	const data = error.response.data as string | { error?: unknown; message?: unknown } | undefined;
+	// Harper 5 sends errors as RFC 9457 Problem Details, with the message in `title`;
+	// Harper 4 used `error`/`message`. Check all three so the flow works against either.
+	const data = error.response.data as string | { error?: unknown; message?: unknown; title?: unknown } | undefined;
 	const message = typeof data === 'string'
 		? data
-		: errorText(data?.error) ?? errorText(data?.message) ?? '';
+		: errorText(data?.error) ?? errorText(data?.message) ?? errorText(data?.title) ?? '';
 	return /verif/i.test(message);
 }

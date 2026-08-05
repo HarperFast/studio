@@ -25,6 +25,25 @@ describe('isEmailNotVerifiedError', () => {
 			.toBe(true);
 	});
 
+	it('matches a Harper 5 RFC 9457 body (message under data.title)', () => {
+		expect(
+			isEmailNotVerifiedError(
+				axiosError(403, {
+					type: 'error:ClientError',
+					code: 'ClientError',
+					title: 'User has not verified email address',
+					status: 403,
+					instance: '/Login/',
+				}),
+			),
+		).toBe(true);
+	});
+
+	it('does NOT match an RFC 9457 deactivated-account rejection', () => {
+		expect(isEmailNotVerifiedError(axiosError(403, { code: 'ClientError', title: 'User account deactivated' })))
+			.toBe(false);
+	});
+
 	it('does NOT match a 403 deactivated-account rejection (same status, different reason)', () => {
 		expect(isEmailNotVerifiedError(axiosError(403, { error: 'User account deactivated' }))).toBe(false);
 	});
