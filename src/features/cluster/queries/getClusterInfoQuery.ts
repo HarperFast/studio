@@ -10,13 +10,13 @@ export async function getClusterInfo(clusterId: string) {
 
 /**
  * Flip `resetPassword` off on the cached cluster once admin setup has completed server-side.
- * ClusterHome routes on `resetPassword` from this same query, so the cache must reflect the
- * change synchronously — waiting for the next poll leaves a window where navigating away from
- * finish-setup bounces straight back to it.
+ * Cancels any in-flight poll first so it can't overwrite the flag after we set it.
  */
-export function markClusterPasswordSet(queryClient: QueryClient, clusterId: string) {
-	queryClient.setQueryData(
-		getClusterInfoQueryOptions(clusterId).queryKey,
+export async function markClusterPasswordSet(queryClient: QueryClient, clusterId: string) {
+	const { queryKey } = getClusterInfoQueryOptions(clusterId);
+	await queryClient.cancelQueries({ queryKey, exact: true });
+	queryClient.setQueryData<Cluster>(
+		queryKey,
 		(cluster) => cluster && { ...cluster, resetPassword: false },
 	);
 }

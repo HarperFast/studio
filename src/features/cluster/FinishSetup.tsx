@@ -83,7 +83,7 @@ export function FinishSetup() {
 				// The mutation already told CM the password changed (resetPasswordUpdater); reflect
 				// that in the cached cluster before navigating so ClusterHome's resetPassword guard
 				// doesn't bounce us back here off a stale poll.
-				markClusterPasswordSet(queryClient, clusterId);
+				await markClusterPasswordSet(queryClient, clusterId);
 				void router.invalidate();
 				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultInstanceRouteUpOne });
 			},
