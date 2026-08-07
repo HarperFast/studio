@@ -13,7 +13,7 @@ export function getOrganizationRolesQueryOptions(organizationId: string) {
 		queryKey: [organizationId, 'roles'],
 		queryFn: () => getOrganizationRoles(organizationId),
 		// `retry: false` surfaces the error immediately, so the wrapper sees a 403 on
-		// the first failure without a `retryUnlessForbidden` predicate.
+		// the first failure without a `retryUnlessRejected` predicate.
 		retry: false,
 		refetchInterval: pollUnlessForbidden(10 * 1000), // 10 seconds, until a 403
 	});

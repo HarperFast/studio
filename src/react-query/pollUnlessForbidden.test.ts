@@ -1,6 +1,11 @@
 import { AxiosError } from 'axios';
 import { describe, expect, it } from 'vitest';
-import { isForbiddenError, pollUnlessForbidden, retryUnlessForbidden } from './pollUnlessForbidden';
+import {
+	isDeterministicRejection,
+	isForbiddenError,
+	pollUnlessForbidden,
+	retryUnlessRejected,
+} from './pollUnlessForbidden';
 
 /** Minimal stand-in for the `query` argument `refetchInterval` receives — the
  *  wrapper only ever reads `state.error`. */
@@ -63,26 +68,57 @@ describe('pollUnlessForbidden', () => {
 	});
 });
 
-describe('retryUnlessForbidden', () => {
+describe('isDeterministicRejection', () => {
+	it('covers 400 and 403 — the statuses an unchanged retry cannot change', () => {
+		expect(isDeterministicRejection(axiosErrorWithStatus(400))).toBe(true);
+		expect(isDeterministicRejection(axiosErrorWithStatus(403))).toBe(true);
+		expect(isDeterministicRejection({ status: 400 })).toBe(true);
+	});
+
+	it('is narrower than "all 4xx"', () => {
+		// 401 is resolved by the auth layer re-authenticating; 404/409 can reflect a
+		// resource that is still being created.
+		for (const status of [401, 404, 409, 429, 500, 503]) {
+			expect(isDeterministicRejection(axiosErrorWithStatus(status))).toBe(false);
+		}
+	});
+
+	it('is false for non-HTTP errors and nullish input', () => {
+		expect(isDeterministicRejection(new Error('Network Error'))).toBe(false);
+		expect(isDeterministicRejection(null)).toBe(false);
+		expect(isDeterministicRejection(undefined)).toBe(false);
+	});
+});
+
+describe('retryUnlessRejected', () => {
 	it('never retries a 403', () => {
 		// Without this the 403 sits in `failureReason` for three more requests and
 		// `pollUnlessForbidden` cannot see it until ~30s later.
-		expect(retryUnlessForbidden()(1, axiosErrorWithStatus(403))).toBe(false);
+		expect(retryUnlessRejected()(1, axiosErrorWithStatus(403))).toBe(false);
+	});
+
+	it('never retries a 400', () => {
+		// A validator/parser rejection of the request itself: a retry sends the identical
+		// bytes and can only be rejected identically. On the callers left at default
+		// exponential backoff that cost 4 requests per poll tick instead of 1
+		// (RUM 2026-08-07).
+		expect(retryUnlessRejected()(0, axiosErrorWithStatus(400))).toBe(false);
+		expect(retryUnlessRejected()(1, axiosErrorWithStatus(400))).toBe(false);
 	});
 
 	it('matches the default retry: 3 budget for transient failures', () => {
-		const retry = retryUnlessForbidden();
+		const retry = retryUnlessRejected();
 		expect(retry(1, axiosErrorWithStatus(503))).toBe(true);
 		expect(retry(2, axiosErrorWithStatus(503))).toBe(true);
 		expect(retry(3, axiosErrorWithStatus(503))).toBe(false);
 	});
 
 	it('still retries a 401, which the auth layer resolves by re-authenticating', () => {
-		expect(retryUnlessForbidden()(1, axiosErrorWithStatus(401))).toBe(true);
+		expect(retryUnlessRejected()(1, axiosErrorWithStatus(401))).toBe(true);
 	});
 
 	it('honors a custom retry budget', () => {
-		const retry = retryUnlessForbidden(1);
+		const retry = retryUnlessRejected(1);
 		expect(retry(0, new Error('Network Error'))).toBe(true);
 		expect(retry(1, new Error('Network Error'))).toBe(false);
 	});

@@ -1,5 +1,5 @@
 import { InstanceClientIdConfig } from '@/config/instanceClientConfig';
-import { pollUnlessForbidden, retryUnlessForbidden } from '@/react-query/pollUnlessForbidden';
+import { pollUnlessForbidden, retryUnlessRejected } from '@/react-query/pollUnlessForbidden';
 import { queryOptions } from '@tanstack/react-query';
 
 export interface SystemStatus {
@@ -49,7 +49,7 @@ export function getStatusQueryOptions({ entityId, instanceClient }: InstanceClie
 		// Without this the default `retry: 3` would swallow the first three 403s into
 		// `failureReason`, so the poll above could not stop until ~30s (and 3 more
 		// doomed requests) later, given the 10s retryDelay.
-		retry: retryUnlessForbidden(),
+		retry: retryUnlessRejected(),
 		retryDelay: 10_000,
 		throwOnError: false,
 		enabled,

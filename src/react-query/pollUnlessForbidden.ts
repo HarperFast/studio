@@ -21,6 +21,23 @@ export function isForbiddenError(err: unknown): boolean {
 	return errorStatus(err) === 403;
 }
 
+/** A rejection the server will repeat verbatim for an unchanged request.
+ *
+ *  400 — the request itself was refused by a validator/parser, not work that failed
+ *  partway. Studio sends operations whose shape depends on the target's Harper build
+ *  (unknown metric names, `bucket_ms`, operations a pre-4.6 instance doesn't
+ *  implement), so a poll can 400 on every tick indefinitely.
+ *  403 — authenticated but not permitted; stable until permissions change.
+ *
+ *  Both are deterministic, so an *immediate* retry of the same request can only
+ *  produce the same status. This is deliberately narrower than "all 4xx": a 401 is
+ *  resolved by the auth layer re-authenticating, and 404/409 can reflect a resource
+ *  that is still being created. */
+export function isDeterministicRejection(err: unknown): boolean {
+	const status = errorStatus(err);
+	return status === 400 || status === 403;
+}
+
 /**
  * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403.
  *
@@ -41,24 +58,47 @@ export function isForbiddenError(err: unknown): boolean {
  *
  * Only 403 stops the timer. 5xx, network failures, and timeouts are transient
  * (instance restarting, unreachable) and should keep polling so the UI self-heals.
+ *
+ * A 400 deliberately does NOT stop the timer, even though it is just as
+ * deterministic (`isDeterministicRejection`). Halting on it would freeze a poll
+ * whose 400 came from state that is still settling — a certificate challenge
+ * mid-provision, an argument derived from a not-yet-loaded resource — until the user
+ * remounts or refocuses the tab. `retryUnlessRejected` removes the retry
+ * amplification instead, which is the part that is waste either way. Whether the
+ * timer itself should stop on a *sustained* 400 is open in #1569.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
 	return (query: QueryErrorState) => (isForbiddenError(query.state.error) ? false : (interval ?? false));
 }
 
 /**
- * `retry` predicate that gives up immediately on 403 but otherwise keeps React
- * Query's default retry count.
+ * `retry` predicate that gives up immediately on a deterministic rejection (400 /
+ * 403) but otherwise keeps React Query's default retry count.
  *
- * Needed to make `pollUnlessForbidden` engage on the FIRST 403. `state.error` is
- * only populated once retries are exhausted (until then the failure lives in
- * `failureReason`), so on a query left at the default `retry: 3` the poll timer
- * cannot see the 403 until three more doomed requests have gone out — ~30s later
- * on a query that also sets `retryDelay: 10_000`.
+ * For 403 this is what makes `pollUnlessForbidden` engage on the FIRST one.
+ * `state.error` is only populated once retries are exhausted (until then the failure
+ * lives in `failureReason`), so on a query left at the default `retry: 3` the poll
+ * timer cannot see the 403 until three more doomed requests have gone out — ~30s
+ * later on a query that also sets `retryDelay: 10_000`.
+ *
+ * For 400 the poll timer deliberately keeps running (see `pollUnlessForbidden`) —
+ * this only removes the retry amplification, which is worth two distinct things:
+ *
+ *   - On the five callers that leave `retryDelay` at React Query's default
+ *     exponential backoff (1s/2s/4s), a 400ing tick spent 4 requests inside ~7s.
+ *     Those become 1.
+ *   - On `getStatus`, which pins `retryDelay: 10_000`, the request *rate* was already
+ *     one per interval, so nothing is saved there — what changes is latency to
+ *     visibility: the 400 reaches `state.error`, the error handler, and the UI on the
+ *     first request rather than ~30s later.
+ *
+ * RUM (2026-08-07) motivates it: 26 first-party 400s in 24h against a ~1–3/day
+ * baseline, one page re-issuing the same rejected operation every ~60s for half an
+ * hour.
  *
  * `failureCount < maxRetries` is exactly the semantics of the numeric form
  * (`retry: 3`), so transient failures keep the retry behavior they had before.
  */
-export function retryUnlessForbidden(maxRetries = 3) {
-	return (failureCount: number, error: unknown) => !isForbiddenError(error) && failureCount < maxRetries;
+export function retryUnlessRejected(maxRetries = 3) {
+	return (failureCount: number, error: unknown) => !isDeterministicRejection(error) && failureCount < maxRetries;
 }
