@@ -27,7 +27,7 @@ export function getOrganizationQueryOptions(orgId: string | undefined) {
 		queryKey: [orgId],
 		queryFn: () => getOrganization(orgId as string),
 		// `retry: false` already surfaces the error on the first failure, so the poll
-		// wrapper below sees a 403 immediately — no `retryUnlessForbidden` needed.
+		// wrapper below sees a 403 immediately — no `retryUnlessRejected` needed.
 		retry: false,
 		enabled: isValidOrganizationId(orgId),
 		refetchInterval: pollUnlessForbidden(10000),

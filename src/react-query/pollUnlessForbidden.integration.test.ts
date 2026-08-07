@@ -72,10 +72,41 @@ describe('poll-stops-on-403, end to end', () => {
 
 		await vi.advanceTimersByTimeAsync(60_000);
 
-		// Without `retryUnlessForbidden` the default retry: 3 would fire 3 doomed
+		// Without `retryUnlessRejected` the default retry: 3 would fire 3 doomed
 		// requests before the timer could even see the error; without
 		// `pollUnlessForbidden` it would then poll for as long as the page is open.
 		expect(post).toHaveBeenCalledTimes(1);
+		unsubscribe();
+	});
+
+	it('surfaces a 400 on the first request instead of after three retries', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const { observer, unsubscribe } = observe(post);
+
+		// Past the mount fetch, well before the first retry would land (this query sets
+		// `retryDelay: 10_000`).
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(post).toHaveBeenCalledTimes(1);
+		// React Query parks a failure in `failureReason` and leaves `error` null until the
+		// retry budget is spent. Without `retryUnlessRejected` a 400 would therefore stay
+		// invisible to `refetchInterval`, the error handler, and the UI for ~30s.
+		const { error, isError } = observer.getCurrentResult();
+		expect(isError).toBe(true);
+		expect((error as AxiosError).response?.status).toBe(400);
+		unsubscribe();
+	});
+
+	it('keeps polling on a 400 so a still-settling request recovers', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const { unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(60_000);
+
+		// A 400 is deterministic but can come from state that is still settling, so the
+		// timer deliberately keeps running — halting it would freeze the UI until remount
+		// or refocus. Whether a *sustained* 400 should stop it is open in #1569.
+		expect(post.mock.calls.length).toBeGreaterThan(3);
 		unsubscribe();
 	});
 
