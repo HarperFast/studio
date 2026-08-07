@@ -207,4 +207,81 @@ describe('errorHandler', () => {
 			expect.objectContaining({ id: undefined }),
 		);
 	});
+
+	// Harper 5 REST errors are RFC 9457 Problem Details objects; before these mappings every
+	// v5 error toasted the generic "We had some trouble!".
+	type ProblemDetails = {
+		type?: string;
+		code?: unknown;
+		title?: string;
+		status?: number;
+		detail?: string;
+		instance?: string;
+	};
+
+	it('maps an RFC 9457 body (Harper 5) to code → title, title → description', () => {
+		const axiosError = {
+			response: {
+				data: {
+					type: 'error:ClientError',
+					code: 'ClientError',
+					title: 'Not allowed',
+					status: 403,
+					instance: '/Cluster/clu-123',
+				},
+			},
+		} as AxiosError<ProblemDetails>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'ClientError',
+			expect.objectContaining({ description: 'Not allowed' }),
+		);
+	});
+
+	it('does not colon-split an RFC 9457 title that contains a colon', () => {
+		const axiosError = {
+			response: {
+				data: { code: 'ClientError', title: 'Plan not found: plan-123', status: 400 },
+			},
+		} as AxiosError<ProblemDetails>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'ClientError',
+			expect.objectContaining({ description: 'Plan not found: plan-123' }),
+		);
+	});
+
+	it('appends the RFC 9457 detail to the description when present', () => {
+		const axiosError = {
+			response: {
+				data: { code: 'AccessViolation', title: 'Not authorized', detail: 'Requires the org admin role', status: 403 },
+			},
+		} as AxiosError<ProblemDetails>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'AccessViolation',
+			expect.objectContaining({ description: 'Not authorized: Requires the org admin role' }),
+		);
+	});
+
+	it('falls back to the generic title when an RFC 9457 body has no usable code', () => {
+		const axiosError = {
+			response: {
+				data: { code: 500, title: 'Internal error', status: 500 },
+			},
+		} as AxiosError<ProblemDetails>;
+
+		errorHandler(axiosError);
+
+		expect(toast.error).toHaveBeenCalledWith(
+			'Error',
+			expect.objectContaining({ description: 'Internal error' }),
+		);
+	});
 });

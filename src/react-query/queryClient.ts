@@ -6,27 +6,40 @@ import { toast } from 'sonner';
 export function errorHandler(rawErr: unknown) {
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
+	let splitTitleFromMsg = true;
 	console.error(rawErr);
-	const axiosWrappedErr = rawErr as AxiosError<string | { error?: unknown; message?: unknown }>;
+	const axiosWrappedErr = rawErr as AxiosError<
+		string | { error?: unknown; message?: unknown; code?: unknown; title?: unknown; detail?: unknown }
+	>;
 	const otherErr = rawErr as { message?: unknown };
 	if (typeof rawErr === 'string') {
 		errorMsg = rawErr;
 	} else if (axiosWrappedErr?.response?.data) {
-		if (typeof axiosWrappedErr.response.data === 'string') {
-			errorMsg = axiosWrappedErr.response.data;
+		const data = axiosWrappedErr.response.data;
+		if (typeof data === 'string') {
+			errorMsg = data;
+		} else if (typeof data.title === 'string' && data.title) {
+			// Harper 5 REST errors are RFC 9457 Problem Details: the "Code: message" string
+			// became { code, title, detail? }. Map code → toast title and title (+ detail) →
+			// description. The title is a plain sentence that may itself contain colons
+			// ("Plan not found: plan-123"), so skip the "Title: detail" split below.
+			if (typeof data.code === 'string' && data.code) {
+				errorTitle = data.code;
+			}
+			const detail = errorText(data.detail);
+			errorMsg = detail ? `${data.title}: ${detail}` : data.title;
+			splitTitleFromMsg = false;
 		} else {
 			// `error`/`message` can be a structured object (e.g. Harper's deploy failures) —
 			// extract its nested message (or JSON) rather than showing "[object Object]" (#1426).
-			errorMsg = errorText(axiosWrappedErr.response.data.error)
-				?? errorText(axiosWrappedErr.response.data.message)
-				?? errorMsg;
+			errorMsg = errorText(data.error) ?? errorText(data.message) ?? errorMsg;
 		}
 	} else {
 		errorMsg = errorText(otherErr?.message) ?? errorMsg;
 	}
 	// The JSON fallback from errorText produces messages full of colons that are not
 	// "Title: detail" shaped — don't split those.
-	if (errorMsg.includes(':') && !errorMsg.startsWith('{') && !errorMsg.startsWith('[')) {
+	if (splitTitleFromMsg && errorMsg.includes(':') && !errorMsg.startsWith('{') && !errorMsg.startsWith('[')) {
 		const split = errorMsg.split(':');
 		errorTitle = split.shift()!;
 		errorMsg = split.join(':');
