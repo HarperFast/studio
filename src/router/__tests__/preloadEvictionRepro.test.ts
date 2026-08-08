@@ -16,6 +16,13 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
  * patches/@tanstack__router-core@1.171.15.patch until upstream's own fix
  * (TanStack/router#7805, released in router-core@1.171.16) made the patch
  * redundant — this file now just guards against a regression.
+ *
+ * router-core@1.171.16 dropped the old `clearExpiredCache()` (which swept
+ * only matches past their gcTime) in favor of `clearCache()`, an
+ * unconditional flush — expiration-based pruning now happens inline during
+ * navigation commits instead of via a standalone sweep. The tests below use
+ * `clearCache()` to force the same "match evicted mid-flight" condition;
+ * they exercise an explicit cache clear, not GC-driven expiration.
  */
 describe('preloadRoute survives its match being evicted mid-flight', () => {
 	afterEach(() => {
@@ -43,7 +50,7 @@ describe('preloadRoute survives its match being evicted mid-flight', () => {
 		return { router, fooRoute };
 	}
 
-	test('cache GC clearing an in-flight preload does not console.error a TypeError', async () => {
+	test('clearing the cache while a preload is in-flight does not console.error a TypeError', async () => {
 		const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		let resolveLoader: ((value: { ok: true }) => void) | undefined;
 		const { router } = setup(
