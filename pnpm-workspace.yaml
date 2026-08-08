@@ -51,5 +51,3 @@ overrides:
   # 9.x until release-notes-generator ships a writer@9-based major.
   'conventional-changelog-conventionalcommits': '^9.3.1'
   mdast-util-to-hast: '^13.2.1'
-patchedDependencies:
-  '@tanstack/router-core@1.171.15': patches/@tanstack__router-core@1.171.15.patch
