@@ -2,7 +2,7 @@
 # build + system deps are installed to match the resolved Playwright version, so
 # screenshot baselines are stable and reproducible (generate baselines HERE, not
 # on macOS). Multi-arch base — builds natively on Apple Silicon (arm64).
-FROM node:24.18.0-bookworm
+FROM node:24.19.0-bookworm
 
 RUN corepack enable && corepack prepare pnpm@11.13.1 --activate
 
