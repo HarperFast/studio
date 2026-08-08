@@ -16,9 +16,6 @@ overrides:
   conventional-changelog-conventionalcommits: ^9.3.1
   mdast-util-to-hast: ^13.2.1
 
-patchedDependencies:
-  '@tanstack/router-core@1.171.15': dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342
-
 importers:
 
   .:
@@ -31,7 +28,7 @@ importers:
         version: 7.6.1
       '@datadog/browser-rum-react':
         specifier: ^7.0.0
-        version: 7.6.1(@datadog/browser-rum@7.6.1)(@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
+        version: 7.6.1(@datadog/browser-rum@7.6.1)(@tanstack/react-router@1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@harperfast/agent-tools':
         specifier: ^1.2.0
         version: 1.2.2(@harperfast/skills@1.11.0)(create-harper@1.10.12)
@@ -108,11 +105,11 @@ importers:
         specifier: ^5.90.2
         version: 5.101.4(@tanstack/react-query@5.101.4(react@19.2.8))(react@19.2.8)
       '@tanstack/react-router':
-        specifier: 1.170.18
-        version: 1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 1.170.19
+        version: 1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-router-devtools':
-        specifier: 1.167.0
-        version: 1.167.0(@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 1.167.1
+        version: 1.167.1(@tanstack/react-router@1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@tanstack/router-core@1.171.16)(csstype@3.2.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-table':
         specifier: ^9.0.0
         version: 9.1.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -253,8 +250,8 @@ importers:
         specifier: ^20.9.0
         version: 20.11.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       harper:
-        specifier: 5.1.23
-        version: 5.1.23(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.8)(supports-color@8.1.1)(utf-8-validate@5.0.10))(supports-color@8.1.1)
+        specifier: 5.2.0
+        version: 5.2.0(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.8)(supports-color@8.1.1)(utf-8-validate@5.0.10))(supports-color@8.1.1)
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -404,11 +401,11 @@ packages:
     resolution: {integrity: sha512-0Iv5QttS6wcATlodYKgvQj6B9Db51rx7NU9fqu0PoLeS4BIgdYMc/QK4smwLwpm5RFrs02V/eLyEFp3FklvlNQ==}
     engines: {node: '>=20.0.0'}
 
-  '@aws-sdk/lib-storage@3.1075.0':
-    resolution: {integrity: sha512-Npdac3/Fv994iCdFFeqloPel+95Zv6dRiRUpfey6W/CqpB/QdnYP60U4YBhBgJj6V5020Pm3ad0HV4WzCE5hHQ==}
+  '@aws-sdk/lib-storage@3.1090.0':
+    resolution: {integrity: sha512-b3KVOQnhHK30J9ZjUwKvB9Ka0ly06HywRQsZzIxSe7MGhKmFpPIGe61WF+OaLPoZmOQ4VOxZeEdgWE0G3HgJxw==}
     engines: {node: '>=20.0.0'}
     peerDependencies:
-      '@aws-sdk/client-s3': ^3.1075.0
+      '@aws-sdk/client-s3': ^3.1090.0
 
   '@aws-sdk/middleware-flexible-checksums@3.974.32':
     resolution: {integrity: sha512-KhuzFMzUbb3oEj43CdPDbEJ/RG/RkErkmXk3J/LE8OPFNvkCn8PYPMpjOLgzAzvxBacsSyytdWf+R50q0alJ4w==}
@@ -939,60 +936,60 @@ packages:
   '@harperfast/extended-iterable@1.0.3':
     resolution: {integrity: sha512-sSAYhQca3rDWtQUHSAPeO7axFIUJOI6hn1gjRC5APVE1a90tuyT8f5WIgRsFhhWA7htNkju2veB9eWL6YHi/Lw==}
 
-  '@harperfast/rocksdb-js-darwin-arm64@2.3.0':
-    resolution: {integrity: sha512-FuC1sF/b5QspuT/Up/j8UR3pQeaotSYeXaWaiTLr+KxvNHabifMcWP6jvNCIq2TAPV7zxkfSdpOodJ9HhJDcRA==}
+  '@harperfast/rocksdb-js-darwin-arm64@2.7.1':
+    resolution: {integrity: sha512-H0aEOziU6WFaVUjoRvsWVUoIEAZ6ylLRYTa4z4R7SRVUt2pzpjiUMW1mHBTmIRAue/Fwsfm8SCM95WQj5goFKA==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [arm64]
     os: [darwin]
 
-  '@harperfast/rocksdb-js-darwin-x64@2.3.0':
-    resolution: {integrity: sha512-r/G7XiJkEKwKzYxjneAqq2YXf9oLMEyQB4VzrMKGCrF5z180LOfZZmK6ZbnEq5Tf9tostY8nc7colxX0/FmLrQ==}
+  '@harperfast/rocksdb-js-darwin-x64@2.7.1':
+    resolution: {integrity: sha512-YDPVGmfFyg9sCu3C+uulJa68o4B06pJ8MDWSgSqm+5uNXh4QNWuMSE1x2wLZYOt1hxE7xptHXzhMFFuSqIcvtg==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [x64]
     os: [darwin]
 
-  '@harperfast/rocksdb-js-linux-arm64-glibc@2.3.0':
-    resolution: {integrity: sha512-g6vAcymhlMVQKptVOyhTTYeJfIUwyogFQXbA9ESshgaAe4BhKwdpfnty+LowXo0hSJoZChsw3HX8/5w/9pzVaA==}
+  '@harperfast/rocksdb-js-linux-arm64-glibc@2.7.1':
+    resolution: {integrity: sha512-8LoPDc4muFb4U09VMWC1BJZRA/CxYBer1eIRW6Td6EfB8lOiBgZlpQvmc44GilYgrH4/C1at8lMK+G24U2CDyA==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@harperfast/rocksdb-js-linux-arm64-musl@2.3.0':
-    resolution: {integrity: sha512-L/oG5TTM3RAzxZWNB0xY02S8ByYnGnwhzrQGMCycaKDqBnEyWsvMcOLESoitjBpiMdwG7lEyeW9QPO/LW1lAXQ==}
+  '@harperfast/rocksdb-js-linux-arm64-musl@2.7.1':
+    resolution: {integrity: sha512-vqeH0JM/FUbQfx1Q5n21aBCiLUukN/qMXKa5d3YUQt7hH1fFA4d9wQhnRqwV9VbIjxm6i3drYAy5HaFkU2TV1g==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@harperfast/rocksdb-js-linux-x64-glibc@2.3.0':
-    resolution: {integrity: sha512-PCLG+pFyBG0dbeagsCwdfH36E4VUag8PiOjglrIZcwqIXyNbxKQqpnNpJ9EqrejcrRxvGp1Dwec0YzPzuFOBLw==}
+  '@harperfast/rocksdb-js-linux-x64-glibc@2.7.1':
+    resolution: {integrity: sha512-2pbbjq36Ln+ln31a3oDf2ic5IQNvrXNP9ND6LM7lMYUjuG/7tV3tWK79x2AyATym6iq0Kmz5Sp0b8tnUL2nQNg==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@harperfast/rocksdb-js-linux-x64-musl@2.3.0':
-    resolution: {integrity: sha512-Qcx5Hs5S3hkaAuxmZ17Nb6vEN6Wjzlk2IpaBZ5m56ks71JMTnqChygX/RhGwpl3GiVFLD2QCnhb8beLbaBCV+A==}
+  '@harperfast/rocksdb-js-linux-x64-musl@2.7.1':
+    resolution: {integrity: sha512-hrk3BvNjjrWV0j0XjDZ80r3XIQdLnP2nH/WNy+KFU484XEkdXONmj0zH0hsOJVItTv3JShEECWOk6BXlR3osaw==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@harperfast/rocksdb-js-win32-arm64@2.3.0':
-    resolution: {integrity: sha512-bPhhGAUFXVT0rlg+Aqyw9iN9FQL7M8rDLDsA1A2LhLp2PKgLwF3X665UYF9KPEUjqCljgA48tYKIsQZdfazS1w==}
+  '@harperfast/rocksdb-js-win32-arm64@2.7.1':
+    resolution: {integrity: sha512-E4Y725WvIcJjfSidOJt/gee4ogKWaFxj8exX/D6Kw2+v5RxuVjMgyKyOIxXQ+nLd18XGXTKj6HtgYzWOJfbEGg==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [arm64]
     os: [win32]
 
-  '@harperfast/rocksdb-js-win32-x64@2.3.0':
-    resolution: {integrity: sha512-oKwLf9YToA3Asa1f6YJ1FoEmY36x5ku0cHMqk2WJicy1+6HutpfexZiK60Sj2PwULgBiIowj+Kv+KxscYWuRLg==}
+  '@harperfast/rocksdb-js-win32-x64@2.7.1':
+    resolution: {integrity: sha512-7TcSJ3gXgknoccLe+Tc0nqAxOA1kt5FE30GFrrTs7MyZczdO1rioRiccqhgcRA4UvW8Xc29GwJPd9ehmK8yYHg==}
     engines: {node: ^22.18.0 || >=24.0.0}
     cpu: [x64]
     os: [win32]
 
-  '@harperfast/rocksdb-js@2.3.0':
-    resolution: {integrity: sha512-AE0bIDjRALeqHepzrNN97ZVCCoxi2L63sYWKoD3ZHB4tAmmudguutyIH22XLjUZBSYbizA+8aNye2xcH3FOn0Q==}
+  '@harperfast/rocksdb-js@2.7.1':
+    resolution: {integrity: sha512-Fs+Ki/9ysu4w0oGl4NN+6LWlKlQtUpw0RUZlOewbAXStEzJ4087Dk1vHKM2YqnAqNYoZb0UOz2XeoM8YkelMww==}
     engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
 
@@ -2074,6 +2071,10 @@ packages:
     resolution: {integrity: sha512-zpDbpXBCBsxfLtG2GEUyfgvHvSFrw5CwDZSNzL0v52gx/c3oPlPbm+7W7num8xs6vyiUBn+bvYPHcQDOXZynCQ==}
     engines: {node: '>=18.0.0'}
 
+  '@smithy/core@3.31.1':
+    resolution: {integrity: sha512-CyogUINxvi7C7LDsh8Syo6hVJOT9ckz4rG8dRZfTJ8r91HkMY59PnNooaj7WcHyxEkxPfBAmbgztZU+xTo76lg==}
+    engines: {node: '>=18.0.0'}
+
   '@smithy/credential-provider-imds@4.4.1':
     resolution: {integrity: sha512-TSAF5NHgxEsllbErYWbK8aLnl5L601NGc5VYJlSPsKnf3YlkhdoBN+geGcaU00oiw2OK3QO5LA3QNXiiWhCidQ==}
     engines: {node: '>=18.0.0'}
@@ -2096,6 +2097,10 @@ packages:
 
   '@smithy/types@4.15.0':
     resolution: {integrity: sha512-Z5TAOxygoFvybJV3igo5SloFflSokHx2hu1eFA+DxDTcn+FtKxUSui+rbTRG1pAafMA888Z3MVvCWUuvCrTXjg==}
+    engines: {node: '>=18.0.0'}
+
+  '@smithy/types@4.16.1':
+    resolution: {integrity: sha512-0JFs3V2y2M9tKW5na/qxe69Zv+uxLMO7QBbhxF/FHu/Gp2NFZAAL9tWl9PU02xxo07pb3G9FTyjNc6D5uZrJIg==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/util-buffer-from@2.2.0':
@@ -2354,20 +2359,20 @@ packages:
     peerDependencies:
       react: ^18 || ^19
 
-  '@tanstack/react-router-devtools@1.167.0':
-    resolution: {integrity: sha512-nGw095EG7IHx0h5NtlEmzf6vcCTaFNPWdTSuDKazajhN0ct/v/TkekJ9J6KYUCeV1a8/2ZmToc58M+0rrOyn7w==}
+  '@tanstack/react-router-devtools@1.167.1':
+    resolution: {integrity: sha512-pjfGrmjj4d7naEPM7oshqFfwBoxDPNo/UxltlHH5ePbHsJ+plBhd+JaAewm1ueYOjZ0js9hckjWWDYXpCrSfKw==}
     engines: {node: '>=20.19'}
     peerDependencies:
-      '@tanstack/react-router': ^1.170.0
-      '@tanstack/router-core': ^1.170.0
+      '@tanstack/react-router': ^1.170.19
+      '@tanstack/router-core': ^1.171.16
       react: '>=18.0.0 || >=19.0.0'
       react-dom: '>=18.0.0 || >=19.0.0'
     peerDependenciesMeta:
       '@tanstack/router-core':
         optional: true
 
-  '@tanstack/react-router@1.170.18':
-    resolution: {integrity: sha512-wpbGYZEp/fmz1q4bn7BD8VZ+/VZ7GBqSJv5V969pU+chP8y7dquWDmKTFMohvUegb9lg12m1uPVvD6kB2wORvQ==}
+  '@tanstack/react-router@1.170.19':
+    resolution: {integrity: sha512-cK7VUsc9+8gYZMqwJjCAhrmL9wPhkwxEcZ7cxlHdBjjmqHbZyNxXAml/KfLmSuxRDQGVk2iofpoHclDTSrkmmg==}
     engines: {node: '>=20.19'}
     peerDependencies:
       react: '>=18.0.0 || >=19.0.0'
@@ -2391,15 +2396,15 @@ packages:
     peerDependencies:
       react: '>=18'
 
-  '@tanstack/router-core@1.171.15':
-    resolution: {integrity: sha512-IILCDcLaItMZQ2jEmCABHY1Nhjjn5XUvwpQp3e4Nmu+vfg0BgYFuu/QASz2SwE2ZNbVMrvt8X/wxa+Gg5aErxA==}
+  '@tanstack/router-core@1.171.16':
+    resolution: {integrity: sha512-/qwawP5a45puA9DQtG8syrChWCV7uGMYs1p5rwgrICgiS/0pHo7zNOFyfVI02J1azWhCfFc6w6+SuiivPESYAA==}
     engines: {node: '>=20.19'}
 
-  '@tanstack/router-devtools-core@1.168.0':
-    resolution: {integrity: sha512-wQoQhlBK7nlZgqzaqdYXKWNTpdHdsaREdaPhFZVH0/Ador+F+eM3/NF2i3f2LPeS0GgKraZUQXe1Q/1+KHyEYg==}
+  '@tanstack/router-devtools-core@1.168.1':
+    resolution: {integrity: sha512-qr4voa4cpSMwQvS3867xkU3AB3MtJbTuovKIy+btjJ/Faju6er9w0nDylmD+005Mk/3YKw9/iueZJl2JAB7JOA==}
     engines: {node: '>=20.19'}
     peerDependencies:
-      '@tanstack/router-core': ^1.170.0
+      '@tanstack/router-core': ^1.171.16
       csstype: ^3.0.10
     peerDependenciesMeta:
       csstype:
@@ -4194,8 +4199,8 @@ packages:
     resolution: {integrity: sha512-Rx/WycZ60HOaqLKAi6cHRKKI7zxWbJ31MhntmtwMoaTeF7XFH9hhBp8vITaMidfljRQ6eYWCKkaTK+ykVJHP2A==}
     engines: {node: '>= 0.8'}
 
-  fs-extra@11.3.5:
-    resolution: {integrity: sha512-eKpRKAovdpZtR1WopLHxlBWvAgPny3c4gX1G5Jhwmmw4XJj0ifSD5qB5TOo8hmA0wlRKDAOAhEE1yVPgs6Fgcg==}
+  fs-extra@11.3.6:
+    resolution: {integrity: sha512-w8ZNZr2mKIc7qeNaQ9AVPT1+iFaI+Avd4xudVOvdDJ8VytREi1Ft5Ih7hd9jjehod8vAM5GMsfQ/TpPf4EyoEA==}
     engines: {node: '>=14.14'}
 
   fs-extra@11.4.0:
@@ -4315,14 +4320,17 @@ packages:
     resolution: {integrity: sha512-XSt8tMzbW9ymE7687xztkO1ckR7qJNQ3LywY9vlYGhGi3zXrGBHuUo2Cl1ztZaICW+1eAGdkLbj6iwVqDT33kg==}
     engines: {node: '>=20.0.0'}
 
-  harper@5.1.23:
-    resolution: {integrity: sha512-GlQsABq7nzPgvGJrJfGlge/TbxwiZSA0/2InSDlVII9Sx2oFrXaJ8voiWff+cjbfdC7PR17VFtzxfWX8MPlwnw==}
+  harper@5.2.0:
+    resolution: {integrity: sha512-nlv2OIfkRuFYVnsJ5oMXvtXQLSd5D2/HTzVENgSBNYcD6SknvVtouwSi/FGK0xjpVSci6SXVSXpih2VccMZ3mA==}
     engines: {node: ^22.18.0 || >=24.0.0}
     hasBin: true
     peerDependencies:
       '@aws-sdk/client-bedrock-runtime': ^3.0.0
+      uWebSockets.js: 20.68.0
     peerDependenciesMeta:
       '@aws-sdk/client-bedrock-runtime':
+        optional: true
+      uWebSockets.js:
         optional: true
 
   has-flag@3.0.0:
@@ -4751,8 +4759,8 @@ packages:
     engines: {node: '>=6'}
     hasBin: true
 
-  jsonata@1.8.7:
-    resolution: {integrity: sha512-tOW2/hZ+nR2bcQZs+0T62LVe5CHaNa3laFFWb/262r39utN6whJGBF7IR2Wq1QXrDbhftolk5gggW8uUJYlBTQ==}
+  jsonata@1.8.8:
+    resolution: {integrity: sha512-nAGqrWc7M4T77AjEtnK1hhhR5M66zPeLXgLyfdwdD1nDAkzKcNWTus8cVaYRLTqEWK/jBDWBk7KD0zLYi4k/eg==}
     engines: {node: '>= 8'}
 
   jsonc-parser@3.3.1:
@@ -5437,6 +5445,9 @@ packages:
 
   msgpackr@2.0.4:
     resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
+
+  msgpackr@2.0.5:
+    resolution: {integrity: sha512-cef05H/dSYpLpqp3sj/qyZh5vhUYCalnaLO7j1yOmpsR0y/XwLVtK7r5gn+U/F7CTEfMowcGhlUQJDLcLf7jcA==}
 
   mute-stream@0.0.8:
     resolution: {integrity: sha512-nnbWWOkoWyUsTjKrhgD0dcz22mdkSnpYqbEjIm2nhwhuxlSkpywJmBo8h0ZqJdkp73mb90SssHkN4rsRaBAfAA==}
@@ -7331,18 +7342,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.21.0:
-    resolution: {integrity: sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.21.1:
     resolution: {integrity: sha512-+0NTnW77fFN/DjQi6k/Sq/Yvk4Sgajw7urW8V+asjXnRgDs9gyGkdb7EzgfhA4goXsRIZKE28fzIXBHEzhuiWw==}
     engines: {node: '>=10.0.0'}
@@ -7683,11 +7682,11 @@ snapshots:
       '@smithy/types': 4.15.0
       tslib: 2.8.1
 
-  '@aws-sdk/lib-storage@3.1075.0(@aws-sdk/client-s3@3.1073.0)':
+  '@aws-sdk/lib-storage@3.1090.0(@aws-sdk/client-s3@3.1073.0)':
     dependencies:
       '@aws-sdk/client-s3': 3.1073.0
-      '@smithy/core': 3.25.1
-      '@smithy/types': 4.15.0
+      '@smithy/core': 3.31.1
+      '@smithy/types': 4.16.1
       buffer: 5.6.0
       events: 3.3.0
       stream-browserify: 3.0.0
@@ -8062,14 +8061,14 @@ snapshots:
       '@datadog/browser-core': 7.6.1
       '@datadog/js-core': 0.0.7
 
-  '@datadog/browser-rum-react@7.6.1(@datadog/browser-rum@7.6.1)(@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
+  '@datadog/browser-rum-react@7.6.1(@datadog/browser-rum@7.6.1)(@tanstack/react-router@1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@datadog/browser-core': 7.6.1
       '@datadog/browser-rum-core': 7.6.1
       '@datadog/js-core': 0.0.7
     optionalDependencies:
       '@datadog/browser-rum': 7.6.1
-      '@tanstack/react-router': 1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tanstack/react-router': 1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
 
   '@datadog/browser-rum@7.6.1':
@@ -8256,44 +8255,44 @@ snapshots:
 
   '@harperfast/extended-iterable@1.0.3': {}
 
-  '@harperfast/rocksdb-js-darwin-arm64@2.3.0':
+  '@harperfast/rocksdb-js-darwin-arm64@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-darwin-x64@2.3.0':
+  '@harperfast/rocksdb-js-darwin-x64@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-linux-arm64-glibc@2.3.0':
+  '@harperfast/rocksdb-js-linux-arm64-glibc@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-linux-arm64-musl@2.3.0':
+  '@harperfast/rocksdb-js-linux-arm64-musl@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-linux-x64-glibc@2.3.0':
+  '@harperfast/rocksdb-js-linux-x64-glibc@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-linux-x64-musl@2.3.0':
+  '@harperfast/rocksdb-js-linux-x64-musl@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-win32-arm64@2.3.0':
+  '@harperfast/rocksdb-js-win32-arm64@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js-win32-x64@2.3.0':
+  '@harperfast/rocksdb-js-win32-x64@2.7.1':
     optional: true
 
-  '@harperfast/rocksdb-js@2.3.0':
+  '@harperfast/rocksdb-js@2.7.1':
     dependencies:
       '@harperfast/extended-iterable': 1.0.3
-      msgpackr: 2.0.4
+      msgpackr: 2.0.5
       ordered-binary: 1.6.1
     optionalDependencies:
-      '@harperfast/rocksdb-js-darwin-arm64': 2.3.0
-      '@harperfast/rocksdb-js-darwin-x64': 2.3.0
-      '@harperfast/rocksdb-js-linux-arm64-glibc': 2.3.0
-      '@harperfast/rocksdb-js-linux-arm64-musl': 2.3.0
-      '@harperfast/rocksdb-js-linux-x64-glibc': 2.3.0
-      '@harperfast/rocksdb-js-linux-x64-musl': 2.3.0
-      '@harperfast/rocksdb-js-win32-arm64': 2.3.0
-      '@harperfast/rocksdb-js-win32-x64': 2.3.0
+      '@harperfast/rocksdb-js-darwin-arm64': 2.7.1
+      '@harperfast/rocksdb-js-darwin-x64': 2.7.1
+      '@harperfast/rocksdb-js-linux-arm64-glibc': 2.7.1
+      '@harperfast/rocksdb-js-linux-arm64-musl': 2.7.1
+      '@harperfast/rocksdb-js-linux-x64-glibc': 2.7.1
+      '@harperfast/rocksdb-js-linux-x64-musl': 2.7.1
+      '@harperfast/rocksdb-js-win32-arm64': 2.7.1
+      '@harperfast/rocksdb-js-win32-x64': 2.7.1
 
   '@harperfast/skills@1.11.0': {}
 
@@ -9333,6 +9332,11 @@ snapshots:
       '@smithy/types': 4.15.0
       tslib: 2.8.1
 
+  '@smithy/core@3.31.1':
+    dependencies:
+      '@smithy/types': 4.16.1
+      tslib: 2.8.1
+
   '@smithy/credential-provider-imds@4.4.1':
     dependencies:
       '@smithy/core': 3.25.1
@@ -9362,6 +9366,10 @@ snapshots:
       tslib: 2.8.1
 
   '@smithy/types@4.15.0':
+    dependencies:
+      tslib: 2.8.1
+
+  '@smithy/types@4.16.1':
     dependencies:
       tslib: 2.8.1
 
@@ -9906,22 +9914,22 @@ snapshots:
       '@tanstack/query-core': 5.101.4
       react: 19.2.8
 
-  '@tanstack/react-router-devtools@1.167.0(@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@tanstack/react-router-devtools@1.167.1(@tanstack/react-router@1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@tanstack/router-core@1.171.16)(csstype@3.2.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@tanstack/react-router': 1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@tanstack/router-devtools-core': 1.168.0(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)
+      '@tanstack/react-router': 1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tanstack/router-devtools-core': 1.168.1(@tanstack/router-core@1.171.16)(csstype@3.2.3)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
     optionalDependencies:
-      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
+      '@tanstack/router-core': 1.171.16
     transitivePeerDependencies:
       - csstype
 
-  '@tanstack/react-router@1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@tanstack/react-router@1.170.19(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@tanstack/history': 1.162.0
       '@tanstack/react-store': 0.9.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
+      '@tanstack/router-core': 1.171.16
       isbot: 5.1.32
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
@@ -9948,16 +9956,16 @@ snapshots:
     transitivePeerDependencies:
       - react-dom
 
-  '@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)':
+  '@tanstack/router-core@1.171.16':
     dependencies:
       '@tanstack/history': 1.162.0
       cookie-es: 3.1.1
       seroval: 1.5.4
       seroval-plugins: 1.5.4(seroval@1.5.4)
 
-  '@tanstack/router-devtools-core@1.168.0(@tanstack/router-core@1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342))(csstype@3.2.3)':
+  '@tanstack/router-devtools-core@1.168.1(@tanstack/router-core@1.171.16)(csstype@3.2.3)':
     dependencies:
-      '@tanstack/router-core': 1.171.15(patch_hash=dae6b41a9293e139e2709614c5beaa12d76eea37a1dd9ee98b69328600e17342)
+      '@tanstack/router-core': 1.171.16
       clsx: 2.1.1
       goober: 2.1.18(csstype@3.2.3)
     optionalDependencies:
@@ -11848,7 +11856,7 @@ snapshots:
 
   fresh@2.0.0: {}
 
-  fs-extra@11.3.5:
+  fs-extra@11.3.6:
     dependencies:
       graceful-fs: 4.2.11
       jsonfile: 6.2.1
@@ -11989,17 +11997,18 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  harper@5.1.23(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.8)(supports-color@8.1.1)(utf-8-validate@5.0.10))(supports-color@8.1.1):
+  harper@5.2.0(@types/node@24.13.3)(react-native@0.86.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/react@19.2.17)(bufferutil@4.1.0)(react@19.2.8)(supports-color@8.1.1)(utf-8-validate@5.0.10))(supports-color@8.1.1):
     dependencies:
       '@aws-sdk/client-s3': 3.1073.0
-      '@aws-sdk/lib-storage': 3.1075.0(@aws-sdk/client-s3@3.1073.0)
+      '@aws-sdk/lib-storage': 3.1090.0(@aws-sdk/client-s3@3.1073.0)
       '@endo/static-module-record': 1.1.2(supports-color@8.1.1)
       '@fastify/autoload': 6.3.1
       '@fastify/compress': 8.3.1
       '@fastify/cors': 11.2.0
       '@fastify/static': 9.1.3
       '@harperfast/extended-iterable': 1.0.3
-      '@harperfast/rocksdb-js': 2.3.0
+      '@harperfast/rocksdb-js': 2.7.1
+      '@harperfast/skills': 1.11.0
       '@turf/area': 6.5.0
       '@turf/boolean-contains': 6.5.0
       '@turf/boolean-disjoint': 6.5.0
@@ -12024,7 +12033,7 @@ snapshots:
       fast-glob: 3.3.3
       fastify: 5.8.5
       fastify-plugin: 5.1.0
-      fs-extra: 11.3.5
+      fs-extra: 11.3.6
       graphql: 16.14.2
       graphql-http: 1.22.4(graphql@16.14.2)
       gunzip-maybe: 1.4.2
@@ -12033,7 +12042,7 @@ snapshots:
       is-number: 7.0.0
       joi: 17.13.4
       json-bigint-fixes: 1.1.0
-      jsonata: 1.8.7
+      jsonata: 1.8.8
       jsonwebtoken: 9.0.3
       lmdb: 3.5.6
       lodash: 4.18.1
@@ -12066,10 +12075,12 @@ snapshots:
       structon: 1.0.7(msgpackr@2.0.4)
       systeminformation: 5.31.7
       tar-fs: 3.1.2
+      tar-stream: 3.2.0
       ulidx: 0.5.0
       uuid: 11.1.1
       validate.js: 0.13.1
-      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      weak-lru-cache: 1.2.2
+      ws: 8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       yaml: 2.9.0
     optionalDependencies:
       bufferutil: 4.1.0
@@ -12532,7 +12543,7 @@ snapshots:
   json5@2.2.3:
     optional: true
 
-  jsonata@1.8.7: {}
+  jsonata@1.8.8: {}
 
   jsonc-parser@3.3.1: {}
 
@@ -13551,6 +13562,10 @@ snapshots:
       msgpackr-extract: 3.0.4
 
   msgpackr@2.0.4:
+    optionalDependencies:
+      msgpackr-extract: 3.0.4
+
+  msgpackr@2.0.5:
     optionalDependencies:
       msgpackr-extract: 3.0.4
 
@@ -15579,11 +15594,6 @@ snapshots:
       bufferutil: 4.1.0
       utf-8-validate: 5.0.10
     optional: true
-
-  ws@8.21.0(bufferutil@4.1.0)(utf-8-validate@5.0.10):
-    optionalDependencies:
-      bufferutil: 4.1.0
-      utf-8-validate: 5.0.10
 
   ws@8.21.1(bufferutil@4.1.0)(utf-8-validate@5.0.10):
     optionalDependencies:

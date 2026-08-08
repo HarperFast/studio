@@ -11,8 +11,11 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
  * @tanstack/router-core@1.171.14 re-reads the match after an await and
  * dereferences `._nonReactive` without a guard, then console.error()s the
  * TypeError from preloadRoute — which Datadog RUM records on every
- * hover-then-navigate race. Upstream report: TanStack/router#7759; fix ported
- * from TanStack/router#7003 via patches/@tanstack__router-core@1.171.14.patch.
+ * hover-then-navigate race. Upstream report: TanStack/router#7759; we
+ * carried the fix from TanStack/router#7003 as
+ * patches/@tanstack__router-core@1.171.15.patch until upstream's own fix
+ * (TanStack/router#7805, released in router-core@1.171.16) made the patch
+ * redundant — this file now just guards against a regression.
  */
 describe('preloadRoute survives its match being evicted mid-flight', () => {
 	afterEach(() => {
@@ -53,7 +56,7 @@ describe('preloadRoute survives its match being evicted mid-flight', () => {
 		const preloadPromise = router.preloadRoute({ to: '/foo' });
 		await Promise.resolve();
 
-		router.clearExpiredCache();
+		router.clearCache();
 
 		resolveLoader?.({ ok: true });
 		await expect(preloadPromise).resolves.toBeUndefined();
@@ -105,7 +108,7 @@ describe('preloadRoute survives its match being evicted mid-flight', () => {
 		const secondPreload = router.preloadRoute({ to: '/foo' });
 		await Promise.resolve();
 
-		router.clearExpiredCache();
+		router.clearCache();
 
 		resolveLoader?.({ ok: true });
 		// both preloads must settle (eviction cleanup resolves the controlled
