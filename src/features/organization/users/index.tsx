@@ -11,9 +11,9 @@ import { collectOrgUsers, countOrgAdmins } from '@/features/organization/users/o
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaUser } from '@/integrations/api/api.gen';
+import { Row } from '@/lib/table';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 
@@ -87,7 +87,7 @@ export function OrgConfigUsersIndex() {
 			<SubNavMenu />
 			<OrgPageLayout>
 				<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-					<SimpleBrowseDataTable<SchemaUser, unknown>
+					<SimpleBrowseDataTable<SchemaUser>
 						data={cloudUsers}
 						isFetching={isFetching || isRefetching}
 						columns={dataTableColumns}

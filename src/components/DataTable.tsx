@@ -1,22 +1,23 @@
 'use client';
 
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { ColumnDef, studioTableFeatures } from '@/lib/table';
+import { flexRender, RowData, useTable } from '@tanstack/react-table';
 import { Fragment, ReactNode } from 'react';
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-interface DataTableProps<TData, TValue> {
-	columns: ColumnDef<TData, TValue>[];
+interface DataTableProps<TData extends RowData> {
+	columns: ColumnDef<TData>[];
 	data: TData[];
 	/** Optionally wrap each rendered row, e.g. with a right-click context menu. */
 	renderRowWrapper?: (rowData: TData, row: ReactNode) => ReactNode;
 }
 
-export function DataTable<TData, TValue>({ columns, data, renderRowWrapper }: DataTableProps<TData, TValue>) {
-	const table = useReactTable({
+export function DataTable<TData extends RowData>({ columns, data, renderRowWrapper }: DataTableProps<TData>) {
+	const table = useTable({
+		features: studioTableFeatures,
 		data,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
 	});
 
 	return (

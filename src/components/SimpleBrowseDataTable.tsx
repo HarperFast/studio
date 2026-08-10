@@ -4,20 +4,12 @@ import { Loading } from '@/components/Loading';
 
 import { Table, TableBody, TableCell, TableHeader, TableHeadSortable, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
-import {
-	ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	getSortedRowModel,
-	PaginationState,
-	Row,
-	SortingState,
-	useReactTable,
-} from '@tanstack/react-table';
+import { ColumnDef, Row, studioTableFeatures } from '@/lib/table';
+import { flexRender, PaginationState, RowData, SortingState, useTable } from '@tanstack/react-table';
 import React, { Dispatch, SetStateAction } from 'react';
 
-interface BrowseDataTableProps<TData, TValue> {
-	columns: ColumnDef<TData, TValue>[];
+interface BrowseDataTableProps<TData extends RowData> {
+	columns: ColumnDef<TData>[];
 	data: TData[];
 	isFetching?: boolean;
 	totalPages?: number;
@@ -33,7 +25,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	children?: React.ReactNode;
 }
 
-export function SimpleBrowseDataTable<TData, TValue>({
+export function SimpleBrowseDataTable<TData extends RowData>({
 	columns,
 	data,
 	isFetching,
@@ -41,14 +33,16 @@ export function SimpleBrowseDataTable<TData, TValue>({
 	onColumnClick,
 	sortingState,
 	children,
-}: BrowseDataTableProps<TData, TValue>) {
-	const table = useReactTable({
+}: BrowseDataTableProps<TData>) {
+	const table = useTable({
+		features: studioTableFeatures,
 		data,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 		initialState: {
-			sorting: sortingState,
+			// `?? []` matters: TanStack builds the initial state as `{ sorting: [], ...initialState }`,
+			// so an explicit `sorting: undefined` key replaces the default and the first header click
+			// throws in `toggleSorting`.
+			sorting: sortingState ?? [],
 		},
 	});
 

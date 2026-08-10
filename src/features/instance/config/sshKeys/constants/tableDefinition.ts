@@ -1,5 +1,5 @@
 import { SSHKeyName } from '@/integrations/api/instance/ssh/listSSHKeys';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef } from '@/lib/table';
 
 export const dataTableColumns: Array<ColumnDef<SSHKeyName>> = [
 	{

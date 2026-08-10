@@ -1,9 +1,9 @@
 import { Badge } from '@/components/ui/badge';
 import { SchemaInvoice, SchemaInvoiceLine } from '@/integrations/api/api.gen';
 import { translateStripeStatusToVariant } from '@/integrations/stripe/translateStripeStatusToVariant';
+import { ColumnDef } from '@/lib/table';
 import { toUSD } from '@/lib/toUSD';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
-import { ColumnDef } from '@tanstack/react-table';
 
 export const dataTableColumns: Array<ColumnDef<SchemaInvoice>> = [
 	{

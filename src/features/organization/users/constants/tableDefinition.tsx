@@ -1,6 +1,6 @@
 import { ResendInviteButton } from '@/features/organization/users/components/ResendInviteButton';
 import { SchemaUser } from '@/integrations/api/api.gen';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
+import { ColumnDef, createColumnHelper } from '@/lib/table';
 
 const columnHelper = createColumnHelper<SchemaUser>();
 

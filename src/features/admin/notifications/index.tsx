@@ -34,7 +34,7 @@ import { NotificationLink } from '@/features/notifications/components/Notificati
 import { useNotifications } from '@/features/notifications/hooks';
 import { getSeverityConfig, parseNotificationLink, toMs } from '@/features/notifications/notificationHelpers';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef } from '@/lib/table';
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 

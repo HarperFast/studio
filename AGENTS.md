@@ -72,6 +72,32 @@ On the next `@tanstack/react-router`/`router-core` bump the patch will stop appl
 shipped #7003/#7006 first; if not, re-create the patch against the new version and keep
 the regression tests green.
 
+## Tables — every TanStack Table feature is registered in `src/lib/table.ts`
+
+`@tanstack/react-table` v9 dropped the v8 "every table gets every feature" model. A feature
+only exists on a table if it was registered with `tableFeatures()`, and the resulting feature
+set is the first generic parameter of every table type (`ColumnDef<TFeatures, TData, TValue>`,
+`Row<TFeatures, TData>`, ...). Studio registers **one** feature set in `src/lib/table.ts` and
+re-exports `Cell`/`CellContext`/`ColumnDef`/`Header`/`HeaderGroup`/`Row`/`Table` and
+`createColumnHelper` already bound to it — so import table types from `@/lib/table`, and
+`@tanstack/react-table` only for feature-independent things (`flexRender`, `useTable`,
+`SortingState`, `ColumnSizingState`, `ColumnVisibilityState`, `RowData`, ...).
+
+Two consequences worth knowing before you touch a table:
+
+- **A missing API is a missing feature, not a removed API.** `column.toggleSorting`,
+  `header.getSize()`, `columnDef.enableColumnFilter` etc. only typecheck once their feature is
+  in `studioTableFeatures`. Add the feature there rather than casting.
+- **Row models are shared, so opt out per table.** The sorted row model is registered globally;
+  the browse table (`src/features/instance/databases/components/TableView.tsx`) sorts and pages
+  on the server and therefore sets `manualSorting: true`. Without it the client would re-sort
+  the page behind the query — `TableView.test.tsx` guards this.
+
+Also: TanStack builds initial state as `{ sorting: [], ...initialState }`, so passing an
+explicit `sorting: undefined` _replaces_ the default and the first header click throws inside
+`toggleSorting`. Default optional sorting props before handing them over (see
+`SimpleBrowseDataTable`).
+
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
 This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,

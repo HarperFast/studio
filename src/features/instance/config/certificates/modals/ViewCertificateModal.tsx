@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { Certificate } from '@/integrations/api/instance/certificates/listCertificates';
 import { useRemoveCertificate } from '@/integrations/api/instance/certificates/useRemoveCertificate';
-import { Row } from '@tanstack/react-table';
+import { Row } from '@/lib/table';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 

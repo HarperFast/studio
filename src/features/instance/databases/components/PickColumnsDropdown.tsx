@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
-import { VisibilityState } from '@tanstack/react-table';
+import { ColumnVisibilityState } from '@tanstack/react-table';
 import { Columns3CogIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
@@ -19,8 +19,8 @@ export function PickColumnsDropdown({
 	setColumnVisibility,
 }: {
 	columns: ReturnType<typeof formatBrowseDataTableHeader>['dataTableColumns'];
-	columnVisibility: VisibilityState;
-	setColumnVisibility: (columnVisibility: VisibilityState) => void;
+	columnVisibility: ColumnVisibilityState;
+	setColumnVisibility: (columnVisibility: ColumnVisibilityState) => void;
 }) {
 	const columnHeaders = useMemo(() => {
 		return columns
