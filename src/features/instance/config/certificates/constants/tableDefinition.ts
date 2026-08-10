@@ -1,5 +1,5 @@
 import { Certificate } from '@/integrations/api/instance/certificates/listCertificates';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
+import { ColumnDef, createColumnHelper } from '@/lib/table';
 
 const columnHelper = createColumnHelper<Certificate>();
 

@@ -10,8 +10,8 @@ import { useDeleteDomain } from '@/features/organization/mutations/deleteDomain'
 import { Cluster, SchemaOrganizationDomain } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { unique } from '@/lib/arrays/unique';
+import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { queryClient } from '@/react-query/queryClient';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 

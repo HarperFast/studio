@@ -1,6 +1,6 @@
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
-import { ColumnDef, createColumnHelper } from '@tanstack/react-table';
 import { DeploymentStatusBadge } from '../components/deploymentStatusBadge';
 
 const columnHelper = createColumnHelper<Deployment>();

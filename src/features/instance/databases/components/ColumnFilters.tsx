@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
 import { cn } from '@/lib/cn';
-import { HeaderGroup } from '@tanstack/react-table';
+import { HeaderGroup } from '@/lib/table';
+import { RowData } from '@tanstack/react-table';
 import { ChevronDownIcon } from 'lucide-react';
 import { KeyboardEvent, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -17,7 +18,7 @@ import { z } from 'zod';
 
 export const ColumnFiltersSchema = z.record(z.string(), z.string());
 
-export function ColumnFilters<TData>({
+export function ColumnFilters<TData extends RowData>({
 	applyFilters,
 	columnFiltersForm,
 	headerGroups,

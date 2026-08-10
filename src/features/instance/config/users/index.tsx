@@ -8,9 +8,9 @@ import { EditUserModal } from '@/features/instance/config/users/modals/EditUserM
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { getListUsersQueryOptions } from '@/integrations/api/instance/auth/getListUsers';
+import { Row } from '@/lib/table';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 
@@ -80,7 +80,7 @@ export function ConfigUsersIndex() {
 		<Suspense
 			fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}
 		>
-			<SimpleBrowseDataTable<LocalUser, unknown>
+			<SimpleBrowseDataTable<LocalUser>
 				data={localUsers}
 				isFetching={isFetching || isRefetching}
 				columns={dataTableColumns}

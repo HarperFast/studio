@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { flexRender, Header, RowData } from '@tanstack/react-table';
+import { Header } from '@/lib/table';
+import { flexRender, RowData } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown, GripVerticalIcon } from 'lucide-react';
 import * as React from 'react';
 import { useCallback } from 'react';
@@ -77,7 +78,7 @@ export function TableHeadSortable<TData extends RowData>({
 	className,
 	...props
 }: React.ComponentProps<'th'> & {
-	header: Header<TData, unknown>;
+	header: Header<TData>;
 	onColumnClick?: (accessorKey: string, willSortByAscending: boolean) => void;
 }) {
 	const onClickSort = useCallback(() => {
@@ -136,7 +137,7 @@ export function TableHeadSortable<TData extends RowData>({
 	// Clamp the resize preview so the handle stops at the column's min width instead of sliding left
 	// across the title while dragging (the actual resize commits on release).
 	const previewOffset = header.column.getIsResizing()
-		? Math.max(table.getState().columnSizingInfo.deltaOffset ?? 0, minSize - size)
+		? Math.max(table.store.state.columnResizing.deltaOffset ?? 0, minSize - size)
 		: 0;
 	return (
 		<TableHead

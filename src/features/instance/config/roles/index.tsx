@@ -7,9 +7,9 @@ import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleMod
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalRole } from '@/integrations/api/api.patch';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
+import { Row } from '@/lib/table';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import { EditRoleModal } from './modals/EditRoleModal';

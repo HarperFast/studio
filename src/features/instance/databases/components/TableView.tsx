@@ -11,17 +11,14 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
+import { Cell, ColumnDef, Row, studioTableFeatures } from '@/lib/table';
 import {
-	Cell,
-	ColumnDef,
 	ColumnSizingState,
+	ColumnVisibilityState,
 	flexRender,
-	getCoreRowModel,
-	getPaginationRowModel,
 	OnChangeFn,
-	Row,
-	useReactTable,
-	VisibilityState,
+	RowData,
+	useTable,
 } from '@tanstack/react-table';
 import { Dispatch, SetStateAction, useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
@@ -29,11 +26,11 @@ import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
 import { TablePagination } from './TablePagination';
 
-interface BrowseDataTableProps<TData, TValue> {
+interface BrowseDataTableProps<TData extends RowData> {
 	applyFilters: () => void;
 	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>;
-	columns: ColumnDef<TData, TValue>[];
-	columnVisibility: VisibilityState;
+	columns: ColumnDef<TData>[];
+	columnVisibility: ColumnVisibilityState;
 	columnSizing: ColumnSizingState;
 	setColumnSizing: OnChangeFn<ColumnSizingState>;
 	data?: TData[];
@@ -55,7 +52,7 @@ interface BrowseDataTableProps<TData, TValue> {
 	onRequestExactCount?: () => void;
 }
 
-export function TableView<TData, TValue>({
+export function TableView<TData extends RowData>({
 	applyFilters,
 	columnFiltersForm,
 	columns,
@@ -79,15 +76,18 @@ export function TableView<TData, TValue>({
 	isExactCountFetching,
 	isExactCountError,
 	onRequestExactCount,
-}: BrowseDataTableProps<TData, TValue>) {
-	const table = useReactTable({
+}: BrowseDataTableProps<TData>) {
+	const table = useTable({
+		features: studioTableFeatures,
 		data: data || [],
 		columns,
-		manualPagination: true,
+		// Rows arrive already paged and already sorted from the server, so the client-side row
+		// models must not touch them. (v8 achieved this by simply not registering their row models;
+		// v9 shares one feature set across studio's tables, so it is opted out per table instead.)
+		manualSorting: true,
 		enableColumnResizing: true,
 		columnResizeMode: 'onEnd',
 		onColumnSizingChange: setColumnSizing,
-		pageCount: totalPages,
 		defaultColumn: {
 			// Wide enough that the header title + sort/resize controls never collide when shrinking.
 			minSize: 80,
@@ -96,16 +96,13 @@ export function TableView<TData, TValue>({
 			columnVisibility,
 			columnSizing,
 		},
-		rowCount: totalRecords,
-		getCoreRowModel: getCoreRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
 	});
 
 	// During a column resize, preview where the new right edge will land with a full-height guide line.
 	// columnResizeMode is 'onEnd', so the column width doesn't change until release -- the guide is the
 	// live feedback. Its x is the sum of column widths up to the resizing one, plus the (clamped) drag delta.
-	const columnSizingInfo = table.getState().columnSizingInfo;
-	const resizingColumnId = columnSizingInfo.isResizingColumn;
+	const columnResizing = table.state.columnResizing;
+	const resizingColumnId = columnResizing.isResizingColumn;
 	let resizeGuideLeft: number | null = null;
 	if (resizingColumnId) {
 		const minSize = table.options.defaultColumn?.minSize ?? 20;
@@ -118,7 +115,7 @@ export function TableView<TData, TValue>({
 			}
 		}
 		// Clamp to match the handle's own preview: the column can't shrink below minSize.
-		resizeGuideLeft = edge + Math.max(columnSizingInfo.deltaOffset ?? 0, minSize - startSize);
+		resizeGuideLeft = edge + Math.max(columnResizing.deltaOffset ?? 0, minSize - startSize);
 	}
 
 	return (
@@ -203,7 +200,7 @@ export function TableView<TData, TValue>({
 	);
 }
 
-function TableBodyRow<TData>(
+function TableBodyRow<TData extends RowData>(
 	{ row, primaryKey, onRowClick }: { row: Row<TData>; primaryKey?: string; onRowClick?: (row: Row<TData>) => void },
 ) {
 	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
@@ -241,7 +238,7 @@ function TableBodyRow<TData>(
 	);
 }
 
-function TableBodyRowCell<TData>({ cell }: { cell: Cell<TData, unknown> }) {
+function TableBodyRowCell<TData extends RowData>({ cell }: { cell: Cell<TData> }) {
 	const size = cell.column.getSize();
 	return (
 		<TableCell

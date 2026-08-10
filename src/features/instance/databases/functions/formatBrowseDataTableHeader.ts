@@ -1,12 +1,19 @@
 import { RelationshipCell } from '@/features/instance/databases/components/RelationshipCell';
 import { RelationshipAttributeInfo } from '@/features/instance/databases/functions/relationshipAttributes';
 import { InstanceAttribute, InstanceTable } from '@/integrations/api/api.patch';
-import { CellContext, ColumnDef } from '@tanstack/react-table';
+import { CellContext, ColumnDef } from '@/lib/table';
+import { CellData, RowData, TableFeatures } from '@tanstack/react-table';
 import { createElement } from 'react';
 
 declare module '@tanstack/react-table' {
+	// The type parameters (and their variance annotations) must match the library's own declaration
+	// exactly, so they are repeated here even though only the added member matters.
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	interface ColumnMeta<TData, TValue> {
+	interface ColumnMeta<
+		in out TFeatures extends TableFeatures,
+		in out TData extends RowData,
+		TValue extends CellData = CellData,
+	> {
 		/** Set on relationship columns; drives the cell renderer and the sub-property filter UI. */
 		relationshipInfo?: RelationshipAttributeInfo;
 	}

@@ -170,7 +170,7 @@ export function DomainsManagement() {
 	}, [domainValue, form]);
 
 	return (
-		<SimpleBrowseDataTable<SchemaOrganizationDomain, unknown>
+		<SimpleBrowseDataTable<SchemaOrganizationDomain>
 			data={organizationDomains || []}
 			isFetching={isFetching || isRefetching}
 			columns={dataTableColumns}

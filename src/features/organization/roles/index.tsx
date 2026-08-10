@@ -7,9 +7,9 @@ import { getOrganizationRolesQueryOptions } from '@/features/organization/querie
 import { useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { SchemaOrganizationRole } from '@/integrations/api/api.gen';
+import { Row } from '@/lib/table';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
 import { PlusIcon, RefreshCwIcon } from 'lucide-react';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import { dataTableColumns } from './constants/tableDefinition';

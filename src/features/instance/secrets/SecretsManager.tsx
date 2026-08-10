@@ -8,7 +8,7 @@ import { SimpleBrowseDataTable } from '@/components/SimpleBrowseDataTable';
 import { Button } from '@/components/ui/button';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { ENV_VALUE_MASK } from '@/lib/env/envFile';
-import { ColumnDef, Row } from '@tanstack/react-table';
+import { ColumnDef, Row } from '@/lib/table';
 import { EyeIcon, EyeOffIcon, PlusIcon, RefreshCwIcon, TriangleAlertIcon } from 'lucide-react';
 import { MouseEvent, ReactNode, useCallback, useMemo, useState } from 'react';
 import { SecretTier } from './accessExample';

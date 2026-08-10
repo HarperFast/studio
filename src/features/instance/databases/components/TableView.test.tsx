@@ -1,8 +1,9 @@
 /**
  * @vitest-environment jsdom
  */
-import { ColumnDef, ColumnSizingState, VisibilityState } from '@tanstack/react-table';
-import { cleanup, render, screen } from '@testing-library/react';
+import { ColumnDef } from '@/lib/table';
+import { ColumnSizingState, ColumnVisibilityState } from '@tanstack/react-table';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -30,11 +31,11 @@ const columns: ColumnDef<Record<string, unknown>>[] = [
 // which is exactly the condition under which the cell memo used to go stale.
 const data: Record<string, unknown>[] = [{ id: 'abc-123', type: 'demo' }];
 
-function Harness({ columnVisibility }: { columnVisibility: VisibilityState }) {
+function Harness({ columnVisibility }: { columnVisibility: ColumnVisibilityState }) {
 	const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
 	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
 	return (
-		<TableView<Record<string, unknown>, unknown>
+		<TableView<Record<string, unknown>>
 			applyFilters={() => undefined}
 			columnFiltersForm={columnFiltersForm}
 			columns={columns}
@@ -68,6 +69,53 @@ describe('TableView column visibility', () => {
 		// the body row used to keep rendering the stale cell, misaligning columns).
 		expect(screen.queryByText('abc-123')).toBeNull();
 		expect(screen.getByText('demo')).toBeTruthy();
+	});
+});
+
+describe('TableView sorting', () => {
+	const sortableColumns: ColumnDef<Record<string, unknown>>[] = [
+		{ header: 'id', accessorKey: 'id', enableSorting: true },
+	];
+	const unsortedRows: Record<string, unknown>[] = [{ id: 'zeta' }, { id: 'alpha' }];
+
+	function SortableHarness({ onColumnClick }: { onColumnClick: (accessorKey: string) => void }) {
+		const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
+		const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+		return (
+			<TableView<Record<string, unknown>>
+				applyFilters={() => undefined}
+				columnFiltersForm={columnFiltersForm}
+				columns={sortableColumns}
+				columnVisibility={{}}
+				columnSizing={columnSizing}
+				setColumnSizing={setColumnSizing}
+				data={unsortedRows}
+				onColumnClick={onColumnClick}
+				pageIndex={0}
+				pageSize={20}
+				primaryKey="id"
+				setPageIndex={() => undefined}
+				setPageSize={() => undefined}
+				filtersToggled={false}
+			/>
+		);
+	}
+
+	it('reports the sort to the caller without reordering rows itself', () => {
+		// The browse table is server-sorted: the click has to reach onColumnClick (which re-queries)
+		// and the rows on screen must stay in the order the server returned them. TanStack v9 shares
+		// one feature set across studio's tables, so this table opts out with `manualSorting: true` --
+		// without it the registered sorted row model would reorder the current page behind the query.
+		const sorts: string[] = [];
+		render(<SortableHarness onColumnClick={(accessorKey) => sorts.push(accessorKey)} />);
+		expect(Array.from(document.querySelectorAll('tbody td[data-col-id="id"]')).map((c) => c.textContent))
+			.toEqual(['zeta', 'alpha']);
+
+		fireEvent.click(screen.getByRole('button', { name: 'id' }));
+
+		expect(sorts).toEqual(['id']);
+		expect(Array.from(document.querySelectorAll('tbody td[data-col-id="id"]')).map((c) => c.textContent))
+			.toEqual(['zeta', 'alpha']);
 	});
 });
 

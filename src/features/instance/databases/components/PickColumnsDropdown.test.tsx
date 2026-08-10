@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
-import { VisibilityState } from '@tanstack/react-table';
+import { ColumnVisibilityState } from '@tanstack/react-table';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -27,8 +27,8 @@ const columns = [{ header: 'id' }, { header: 'name' }, { header: 'email' }] as R
 	typeof formatBrowseDataTableHeader
 >['dataTableColumns'];
 
-function Harness({ initial = {} as VisibilityState }) {
-	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initial);
+function Harness({ initial = {} as ColumnVisibilityState }) {
+	const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(initial);
 	return (
 		<PickColumnsDropdown
 			columns={columns}

@@ -3,7 +3,8 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ReadLogItem } from '@/integrations/api/instance/status/getReadLog';
 import { cn } from '@/lib/cn';
-import { ColumnDef, flexRender, getCoreRowModel, Row, useReactTable } from '@tanstack/react-table';
+import { ColumnDef, Row, studioTableFeatures } from '@/lib/table';
+import { flexRender, useTable } from '@tanstack/react-table';
 import { Ref } from 'react';
 
 interface DataTableProps {
@@ -34,10 +35,10 @@ export function LogsDataTable({
 	onRowClick,
 	containerRef,
 }: DataTableProps) {
-	const table = useReactTable({
+	const table = useTable({
+		features: studioTableFeatures,
 		data,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
 	});
 
 	return (

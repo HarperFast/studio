@@ -33,10 +33,11 @@ import { useUpdateTableRecords } from '@/integrations/api/instance/database/upda
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
+import { Row } from '@/lib/table';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
-import { ColumnSizingState, Row, VisibilityState } from '@tanstack/react-table';
+import { ColumnSizingState, ColumnVisibilityState } from '@tanstack/react-table';
 import {
 	BrushCleaningIcon,
 	CircleCheckBigIcon,
@@ -421,12 +422,12 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const [storedColumnVisibility, setColumnVisibility] = useSessionStorage(
 		`ColumnDisplayed/${databaseName}/${tableName}` as 'ColumnDisplayed/{database}/{table}',
-		{} satisfies VisibilityState,
+		{} satisfies ColumnVisibilityState,
 	);
 	// A relationship column shows the same key values as the foreign key backing it (and links
 	// them), so the foreign-key column is collapsed away by default. The user's own choices win:
 	// re-showing it from the Columns picker stores an explicit `true` that overrides the default.
-	const columnVisibility = useMemo((): VisibilityState => ({
+	const columnVisibility = useMemo((): ColumnVisibilityState => ({
 		...Object.fromEntries(collapsedForeignKeyNames(relationshipInfoMap).map((name) => [name, false])),
 		...storedColumnVisibility,
 	}), [relationshipInfoMap, storedColumnVisibility]);
@@ -579,7 +580,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				</div>
 			</div>
 
-			<TableView<Record<string, unknown>, unknown>
+			<TableView<Record<string, unknown>>
 				primaryKey={primaryKey}
 				data={tableData?.data}
 				isFetching={isFetching}

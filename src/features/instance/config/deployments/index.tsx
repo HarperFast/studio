@@ -5,9 +5,9 @@ import { useInstanceManagePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { getDeploymentsQueryOptions } from '@/integrations/api/instance/deployments/listDeployments';
 import { Deployment } from '@/integrations/api/instance/deployments/types';
+import { Row } from '@/lib/table';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from '@tanstack/react-router';
-import { Row } from '@tanstack/react-table';
 import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { deploymentColumns } from './constants/tableDefinition';
@@ -45,7 +45,7 @@ export function ConfigDeploymentsIndex() {
 
 	return (
 		<>
-			<SimpleBrowseDataTable<Deployment, unknown>
+			<SimpleBrowseDataTable<Deployment>
 				data={deployments}
 				isFetching={isFetching || isRefetching}
 				columns={deploymentColumns}

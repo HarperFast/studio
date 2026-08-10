@@ -17,9 +17,9 @@ import { LogFiltersFormSchema } from '@/integrations/api/instance/status/logFilt
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
+import { ColumnDef } from '@/lib/table';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { ColumnDef } from '@tanstack/react-table';
 import {
 	ActivityIcon,
 	AlertCircleIcon,
