@@ -21,9 +21,8 @@ function renderedNames() {
 
 describe('SimpleBrowseDataTable', () => {
 	it('sorts rows on the client when a sortable header is clicked', () => {
-		// This table has no server behind it, so the sorted row model has to do the reordering.
-		// TanStack v9 only sorts when the sorting feature *and* its row model are registered, which
-		// happens in `studioTableFeatures` -- dropping either would silently leave rows unsorted.
+		// v9 sorts only when both the sorting feature and its row model are registered in
+		// `studioTableFeatures`; dropping either would silently leave this table unsorted.
 		render(<SimpleBrowseDataTable columns={columns} data={data} />);
 		expect(renderedNames()).toEqual(['zeta', 'alpha']);
 
