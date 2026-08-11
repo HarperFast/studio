@@ -1,7 +1,7 @@
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
-import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
+import { isProtectedEntry } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
 
 export interface EntryActions {
@@ -27,10 +27,12 @@ export interface EntryActions {
  * can't drift. Mirrors the gating previously inlined in ContentActions.
  */
 export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): EntryActions {
-	const { restrictPackageModification } = useEditorView();
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
 	const isReadOnlyPackage = !!entry?.package;
+	// Derived from `entry`, not from the provider's opened-entry value: the sidebar context menu
+	// targets a row without opening it, so a provider-global would gate on the wrong entry.
+	const isProtected = isProtectedEntry(entry);
 	// An application root is the top-level directory whose path is just the project
 	// name (e.g. `anvils`, or an imported app under "Imported Applications").
 	const isApplicationRoot = !!entry && isDirectory(entry) && entry.path === entry.project;
@@ -38,9 +40,9 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	const canRename = !!entry && !isReadOnlyPackage && canManageBrowseInstance && !isApplicationRoot;
 	const canAddEntries = !!entry && !isReadOnlyPackage && canManageBrowseInstance;
 	const canAddTable = !!entry && entry.path.endsWith('.graphql') && canManageBrowseInstance;
-	const canDeleteEntry = !restrictPackageModification && canManageBrowseInstance;
+	const canDeleteEntry = !isProtected && canManageBrowseInstance;
 	const canDownload = isApplicationRoot;
-	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !restrictPackageModification;
+	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !isProtected;
 
 	return { canEditFile, canRename, canAddEntries, canAddTable, canDeleteEntry, canDownload, canRedeploy };
 }
