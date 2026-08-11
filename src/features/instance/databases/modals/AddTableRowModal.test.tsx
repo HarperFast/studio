@@ -133,4 +133,36 @@ describe('AddTableRowModal', () => {
 		expect(mutate).not.toHaveBeenCalled();
 		expect(toast.error).toHaveBeenCalledTimes(1);
 	});
+
+	// Regression for #1600: Save used to be gated on a validity flag, so a malformed record left a
+	// dead button and — since the worker-free language draws no squiggles — nothing said why.
+	it('keeps Save clickable on a malformed record and reports where the syntax breaks', () => {
+		renderModal();
+
+		fireEvent.change(screen.getByTestId('editor'), {
+			target: { value: '[\n    {\n        "name" "Rex"\n    }\n]' },
+		});
+		const save = screen.getByRole('button', { name: /Save Changes/i });
+		expect(save.hasAttribute('disabled')).toBe(false);
+
+		fireEvent.click(save);
+
+		expect(mutate).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledWith(
+			"This record isn't valid JSON",
+			{ description: expect.stringContaining('Line 3') },
+		);
+	});
+
+	// The one gate left on this button, and the sample record on screen explains it: there is
+	// nothing to insert until the user edits it.
+	it('disables Save only until the sample record is edited', () => {
+		renderModal();
+
+		expect(screen.getByRole('button', { name: /Save Changes/i }).hasAttribute('disabled')).toBe(true);
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '{"name":"Rex"}' } });
+
+		expect(screen.getByRole('button', { name: /Save Changes/i }).hasAttribute('disabled')).toBe(false);
+	});
 });

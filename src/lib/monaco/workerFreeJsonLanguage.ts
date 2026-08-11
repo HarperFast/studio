@@ -23,8 +23,11 @@ import { createTokenizationSupport } from 'monaco-editor/languages/features/json
  * entirely: it registers only the main-thread JSON tokenizer plus the standard
  * JSON language configuration (brackets, auto-closing pairs), and no
  * worker-backed providers — so there is no language worker to overflow, at any
- * size. Records lose worker-only affordances (inline validation squiggles,
- * folding, format-on-type); highlighting and bracket handling are unchanged.
+ * size. Records lose worker-only affordances (live validation squiggles as the
+ * buffer is typed, folding, format-on-type); highlighting and bracket handling
+ * are unchanged. Nothing else validates the buffer, so the record editors mark
+ * the offending line themselves when a save fails to parse — see
+ * `databases/modals/recordJsonErrorMarker.ts`.
  */
 export const WORKER_FREE_JSON_LANGUAGE_ID = 'json-worker-free';
 
