@@ -23,7 +23,16 @@ describe('isProtectedPath', () => {
 		},
 	);
 
-	it.each(['anvils', 'anvils/resources.js', 'unknown-project/file.js'])('does not protect %s', (path) => {
+	it.each(['anvils', 'anvils/resources.js'])('does not protect %s', (path) => {
 		expect(isProtectedPath(rootEntries, path)).toBe(false);
 	});
+
+	// Fail closed: refusing a legitimate delete costs a reload; allowing a wrong one drops the
+	// instance out of the load balancer.
+	it.each([['unresolved root', rootEntries, 'unknown-project/file.js'], ['tree not loaded', [], 'anvils']] as const)(
+		'protects on %s',
+		(_label, entries, path) => {
+			expect(isProtectedPath(entries, path)).toBe(true);
+		},
+	);
 });
