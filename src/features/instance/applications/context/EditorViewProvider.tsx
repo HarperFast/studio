@@ -30,6 +30,7 @@ import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
 import { FileEntry } from './fileEntry';
 import { isDirectory } from './isDirectory';
+import { isProtectedComponentPackage } from './isProtectedComponentPackage';
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
 	const navigate = useNavigate();
@@ -200,8 +201,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		if (!openedEntry) {
 			return false;
 		}
-		return openedEntry.package?.includes('github.com/HarperDB/status-check-fabric')
-			|| openedEntry.package?.includes('github.com/HarperFast/status-check-fabric')
+		return isProtectedComponentPackage(openedEntry.package)
 			|| openedEntry.path === importedApplications
 			|| openedEntry.path === newApplication;
 	}, [openedEntry]);
