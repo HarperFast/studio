@@ -10,10 +10,10 @@ import type { FileEntry } from '@/features/instance/applications/context/fileEnt
 // silently drop the guard.
 export const PROTECTED_COMPONENT_REPOS = ['status-check-fabric', 'akamai-status'];
 
-// The name has to be a whole segment, so neither a customer package that merely contains one
-// (`my-akamai-status-probe`) nor one that extends it (`akamai-status.dashboard`) is locked.
+// The name has to be the trailing segment of the spec — not a prefix (`my-akamai-status-probe`),
+// an extension (`akamai-status.dashboard`), or an owner (`github.com/akamai-status/theirs.git`).
 const PROTECTED_PATTERNS = PROTECTED_COMPONENT_REPOS.map(
-	(repo) => new RegExp(`(?:^|[/@])${repo}(?:\\.git)?(?:[/#?@]|$)`),
+	(repo) => new RegExp(`(?:^|[/@])${repo}(?:\\.git)?(?:[#@]|$)`),
 );
 
 export function isProtectedComponentPackage(packageSpec: string | undefined) {
@@ -21,9 +21,9 @@ export function isProtectedComponentPackage(packageSpec: string | undefined) {
 }
 
 /**
- * Whether this entry may not be modified. Callers must pass the entry they are acting on —
- * the sidebar context menu targets a row without opening it, so anything keyed to the opened
- * entry offers Delete on a protected package the user merely right-clicked.
+ * Whether this entry may not be modified. Callers must pass the entry they are acting on: the
+ * sidebar context menu targets a row without opening it, so anything keyed to the opened entry
+ * gates on the wrong subject.
  */
 export function isProtectedEntry(entry: DirectoryEntry | FileEntry | undefined) {
 	if (!entry) {

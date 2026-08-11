@@ -10,8 +10,6 @@ describe('isProtectedComponentPackage', () => {
 		'@harperdb/akamai-status@1.0.0',
 		'git+https://git@github.com/HarperFast/akamai-status',
 		'git+https://git@github.com/HarperFast/akamai-status.git',
-		'git+https://git@github.com/HarperFast/akamai-status/',
-		'git+https://git@github.com/HarperFast/akamai-status?branch=main',
 	])('protects %s', (packageSpec) => {
 		expect(isProtectedComponentPackage(packageSpec)).toBe(true);
 	});
@@ -24,6 +22,7 @@ describe('isProtectedComponentPackage', () => {
 		'git+https://git@github.com/acme/akamai-status-dashboard.git',
 		'@acme/status-check-fabric-clone',
 		'@acme/akamai-status.dashboard',
+		'git+https://git@github.com/akamai-status/their-component.git',
 	])('does not protect %s', (packageSpec) => {
 		expect(isProtectedComponentPackage(packageSpec)).toBe(false);
 	});
