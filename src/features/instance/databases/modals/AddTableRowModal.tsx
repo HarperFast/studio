@@ -68,7 +68,7 @@ export function AddTableRowModal({
 			showRecordJsonError(parsed.error);
 			return;
 		}
-		const records = (Array.isArray(parsed.value) ? parsed.value : [parsed.value]) as object[];
+		const records = Array.isArray(parsed.value) ? parsed.value : [parsed.value];
 		const toastId = toast.loading(`Adding ${records.length} records...`);
 		addTableRecords(
 			{

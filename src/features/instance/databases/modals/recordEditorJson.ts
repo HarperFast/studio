@@ -20,21 +20,27 @@ export type RecordJsonError = {
 	location?: RecordJsonLocation;
 };
 
-export type ParsedRecordJson = { ok: true; value: unknown } | { ok: false; error: RecordJsonError };
+/** A record, or a list of them — the shapes the ops API takes as `records`. */
+export type RecordJsonValue = Record<string, unknown> | Record<string, unknown>[];
 
-/** Parse `content` as JSON, returning a result object rather than throwing. */
+export type ParsedRecordJson = { ok: true; value: RecordJsonValue } | { ok: false; error: RecordJsonError };
+
+/** Parse `content` as one or more records, returning a result object rather than throwing. */
 export function tryParseRecordJson(content: string): ParsedRecordJson {
 	if (!content.trim()) {
 		// `JSON.parse('')` reports "Unexpected end of JSON input", which reads like a truncated
 		// record rather than an editor the user emptied.
 		return { ok: false, error: { message: 'The editor is empty, so there is nothing to save.' } };
 	}
+	let value: unknown;
 	try {
-		return { ok: true, value: JSON.parse(content) };
+		value = JSON.parse(content);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return { ok: false, error: { message: withoutEngineLocation(message), location: locate(message, content) } };
 	}
+	const shapeError = recordShapeError(value);
+	return shapeError ? { ok: false, error: { message: shapeError } } : { ok: true, value: value as RecordJsonValue };
 }
 
 /** One-line rendering of a {@link RecordJsonError}, for a toast description. */
@@ -56,10 +62,36 @@ function locate(message: string, content: string): RecordJsonLocation | undefine
 	return characterOffset ? locationOfOffset(content, Number(characterOffset[1])) : undefined;
 }
 
+/** Walked rather than sliced/split: these buffers run to hundreds of KB, and neither a copy of
+ * the prefix nor an array of its lines is worth allocating to count two numbers. */
 function locationOfOffset(content: string, offset: number): RecordJsonLocation {
-	const upToOffset = content.slice(0, Math.max(0, Math.min(offset, content.length)));
-	const lastLineBreak = upToOffset.lastIndexOf('\n');
-	return { lineNumber: upToOffset.split('\n').length, column: upToOffset.length - lastLineBreak };
+	const end = Math.max(0, Math.min(offset, content.length));
+	let lineNumber = 1;
+	let lineStart = 0;
+	for (
+		let lineBreak = content.indexOf('\n');
+		lineBreak !== -1 && lineBreak < end;
+		lineBreak = content.indexOf('\n', lineBreak + 1)
+	) {
+		lineNumber++;
+		lineStart = lineBreak + 1;
+	}
+	return { lineNumber, column: end - lineStart + 1 };
+}
+
+/** Records reach the ops API as `records`, which holds objects. A primitive, a `null`, or a
+ * nested array parses cleanly and then fails on the wire in the server's wording (or, for the
+ * edit modal, as a lone object the `update` operation won't take), so name it here instead. */
+function recordShapeError(value: unknown): string | undefined {
+	if (Array.isArray(value)) {
+		const notARecord = value.findIndex(entry => !isRecord(entry));
+		return notARecord === -1 ? undefined : `Item ${notARecord + 1} of the array isn't a JSON object.`;
+	}
+	return isRecord(value) ? undefined : 'A record has to be a JSON object, or an array of them.';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Strip the engine's own position clause: {@link describeRecordJsonError} renders the location
