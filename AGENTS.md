@@ -138,6 +138,32 @@ To drive a Radix dropdown/menu (e.g. `src/components/ui/dropdownMenu.tsx`) in js
 
 Working example: `src/features/instance/databases/components/PickColumnsDropdown.test.tsx`.
 
+## An always-rendered modal keeps its state; only its _contents_ unmount
+
+Several modals are rendered unconditionally and toggled with `open` (e.g. `EditTableRowModal`
+in `DatabaseTableView`). Radix's `DialogContent` is not force-mounted, so closing the dialog
+unmounts everything inside it — inputs, editors, their DOM — while the modal **component's own
+`useState` survives**, because that component never unmounted.
+
+The two halves then disagree: the re-mounted contents render from props (fresh), and the
+surviving state still describes the session the user abandoned. In #1600 that combination
+disabled `Save Changes` forever — a `isValidJSON=false` from a malformed draft outlived the
+editor that held it, so re-opening the row showed valid JSON above a dead button.
+
+Reach for whichever fits:
+
+- Reset the state when the modal **opens**, not only when its data changes. Tracking the
+  data snapshot as `null` while closed gets both in one comparison (see
+  `EditTableRowModal`'s render-time reset).
+- Or give the modal a `key` that changes per target and render it only while open, which
+  unmounts the component with the dialog (`AddTableRowModal` in `DatabaseActionModals`).
+
+Related `@monaco-editor/react` behaviour, which is what makes this invisible rather than
+merely wrong: it applies a changed `value` prop through `executeEdits` behind an internal
+`preventTriggerChangeEvent` flag, so **programmatic value updates do not fire `onChange`**.
+An editor re-mounted (or re-valued) from props therefore never tells the component that the
+buffer it is validating has been replaced.
+
 ## Live central-manager data — WebSocket works, the load balancer never flushes SSE
 
 Concretely, "the edge" in front of central-manager is a **Linode NodeBalancer**:
