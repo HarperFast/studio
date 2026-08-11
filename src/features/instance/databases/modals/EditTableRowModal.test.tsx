@@ -155,6 +155,18 @@ describe('EditTableRowModal', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 
+	// `update` only takes a list of records, and the editor opens on an array of one — but an edit
+	// that drops the brackets still means that record, so it must not go out as a bare object.
+	it('saves a de-bracketed record as the one-record list the operation expects', () => {
+		const onSaveChanges = vi.fn();
+		renderModal({ onSaveChanges });
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '{"name":"Grace"}' } });
+		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+		expect(onSaveChanges).toHaveBeenCalledWith([{ name: 'Grace' }]);
+	});
+
 	// Regression for the large-paste path: nothing validates the buffer as it is typed, so a
 	// malformed oversized paste reaches Save — which must catch it and surface a toast rather than
 	// throw an uncaught SyntaxError.

@@ -221,7 +221,9 @@ export function EditTableRowModal({
 										showRecordJsonError(parsed.error);
 										return;
 									}
-									onSaveChanges(parsed.value as Record<string, unknown>[]);
+									// The editor opens on an array of one, but an edit that drops the brackets still
+									// means that record — `update` only takes a list, so send one either way.
+									onSaveChanges(Array.isArray(parsed.value) ? parsed.value : [parsed.value]);
 								}}
 								disabled={isUpdateTableRecordsPending}
 							>

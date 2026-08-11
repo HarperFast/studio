@@ -3,11 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
 
 describe('tryParseRecordJson', () => {
-	it('returns the parsed value for well-formed JSON', () => {
-		expect(tryParseRecordJson('{"id":1}')).toEqual({ ok: true, value: { id: 1 } });
-		expect(tryParseRecordJson('[1,2,3]')).toEqual({ ok: true, value: [1, 2, 3] });
-	});
-
 	it('returns an error rather than throwing for malformed JSON', () => {
 		const parsed = tryParseRecordJson('{"id":1,}');
 		expect(parsed.ok).toBe(false);
@@ -37,6 +32,30 @@ describe('tryParseRecordJson', () => {
 
 		expect(parsed.ok).toBe(false);
 		expect(parsed.ok === false && parsed.error.message).not.toMatch(/position|line \d+ column/i);
+	});
+
+	// These go to the ops API as `records`, so a primitive parses cleanly and then fails on the
+	// wire in the server's wording. Say it here, where the user can act on it.
+	it('rejects JSON that is well-formed but could never be a record', () => {
+		for (const notARecord of ['42', 'true', 'null', '"a string"']) {
+			const parsed = tryParseRecordJson(notARecord);
+			expect(parsed.ok).toBe(false);
+			expect(parsed.ok === false && parsed.error.message).toContain('JSON object');
+		}
+	});
+
+	it('names which item of an array is not a record', () => {
+		const parsed = tryParseRecordJson('[{"id":1},7]');
+
+		expect(parsed.ok).toBe(false);
+		expect(parsed.ok === false && parsed.error.message).toContain('Item 2');
+	});
+
+	it('takes a lone record as well as a list of them', () => {
+		expect(tryParseRecordJson('{"id":1}')).toEqual({ ok: true, value: { id: 1 } });
+		expect(tryParseRecordJson('[{"id":1},{"id":2}]')).toEqual({ ok: true, value: [{ id: 1 }, { id: 2 }] });
+		// Nothing to update, but nothing malformed either.
+		expect(tryParseRecordJson('[]')).toEqual({ ok: true, value: [] });
 	});
 
 	it('explains an emptied editor instead of reporting truncated JSON', () => {
