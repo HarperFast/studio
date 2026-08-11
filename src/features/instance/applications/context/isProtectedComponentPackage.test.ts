@@ -10,6 +10,9 @@ describe('isProtectedComponentPackage', () => {
 		'@harperdb/akamai-status@1.0.0',
 		'git+https://git@github.com/HarperFast/akamai-status',
 		'git+https://git@github.com/HarperFast/akamai-status.git',
+		'git+https://git@github.com/HarperFast/akamai-status/',
+		'git+https://git@github.com/HarperFast/akamai-status?branch=main',
+		'git+https://git@github.com/HarperFast/Akamai-Status.git#semver:v1.0.0',
 	])('protects %s', (packageSpec) => {
 		expect(isProtectedComponentPackage(packageSpec)).toBe(true);
 	});

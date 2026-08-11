@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { isProtectedPath } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { deleteSelectedItems } from '@/features/instance/applications/lib/deleteSelectedItems';
 import { dropComponent } from '@/integrations/api/instance/applications/dropComponent';
@@ -17,7 +18,13 @@ export function DeleteDirectoryOrFileModal() {
 	const { value: isModalOpen, trigger } = useWatchedValue('ShowDeleteDirectoryOrFileModal', false);
 
 	const instanceParams = useInstanceClientIdParams();
-	const { openedEntry, reloadRootEntries, setFocusedItem, setSelectedItems, selectedItems } = useEditorView();
+	const { openedEntry, reloadRootEntries, rootEntries, setFocusedItem, setSelectedItems, selectedItems } =
+		useEditorView();
+
+	// The capability flags gate what renders, but this modal is also reached by a global Cmd+Delete
+	// shortcut that checks nothing, and it deletes the whole selection rather than the entry those
+	// flags were computed for. Refuse here, where the mutation actually happens.
+	const protectedSelection = selectedItems.filter(item => isProtectedPath(rootEntries, String(item)));
 
 	const multipleSelected = selectedItems.length > 1;
 	const isDirectorySelected = isDirectory(openedEntry);
@@ -39,6 +46,14 @@ export function DeleteDirectoryOrFileModal() {
 
 	const handleDeleteFolderOrFile = useCallback(async () => {
 		closeModal();
+
+		if (protectedSelection.length) {
+			toast.error(`${action} refused`, {
+				description: `${protectedSelection.join(', ')} is managed by Harper and keeps this instance in the `
+					+ 'load balancer. Remove it from the selection to continue.',
+			});
+			return;
+		}
 
 		let canceled = false;
 		const id = 'deleting-files';
@@ -85,7 +100,16 @@ export function DeleteDirectoryOrFileModal() {
 			// Land keyboard focus on the parent directory of what was just deleted.
 			setWatchedValue('FocusFileTree', true);
 		}
-	}, [action, closeModal, instanceParams, reloadRootEntries, selectedItems, setFocusedItem, setSelectedItems]);
+	}, [
+		action,
+		closeModal,
+		instanceParams,
+		protectedSelection,
+		reloadRootEntries,
+		selectedItems,
+		setFocusedItem,
+		setSelectedItems,
+	]);
 
 	const onClickYes = useCallback((e: MouseEvent) => {
 		e.preventDefault();
