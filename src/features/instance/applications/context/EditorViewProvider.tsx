@@ -3,10 +3,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import {
 	calculateRootEntries,
 } from '@/features/instance/applications/components/ApplicationsSidebar/calculateRootEntries';
-import {
-	importedApplications,
-	newApplication,
-} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
+import { newApplication } from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
 import { useEditorFileContent } from '@/features/instance/applications/context/editorFileContent';
 import { parseReadMe } from '@/features/instance/applications/lib/parseReadMe';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -30,7 +27,7 @@ import { DirectoryEntry } from './directoryEntry';
 import { EditorViewContext, EditorViewContextValue } from './EditorViewContext';
 import { FileEntry } from './fileEntry';
 import { isDirectory } from './isDirectory';
-import { isProtectedComponentPackage } from './isProtectedComponentPackage';
+import { isProtectedEntry } from './isProtectedComponentPackage';
 
 export function EditorViewProvider({ children }: PropsWithChildren) {
 	const navigate = useNavigate();
@@ -197,14 +194,7 @@ export function EditorViewProvider({ children }: PropsWithChildren) {
 		],
 	);
 
-	const restrictPackageModification = useMemo(() => {
-		if (!openedEntry) {
-			return false;
-		}
-		return isProtectedComponentPackage(openedEntry.package)
-			|| openedEntry.path === importedApplications
-			|| openedEntry.path === newApplication;
-	}, [openedEntry]);
+	const restrictPackageModification = useMemo(() => isProtectedEntry(openedEntry), [openedEntry]);
 
 	/*
 	 Memoize the tracked state.
