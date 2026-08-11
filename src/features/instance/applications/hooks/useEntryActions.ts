@@ -30,8 +30,6 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
 
 	const isReadOnlyPackage = !!entry?.package;
-	// Derived from `entry`, not from the provider's opened-entry value: the sidebar context menu
-	// targets a row without opening it, so a provider-global would gate on the wrong entry.
 	const isProtected = isProtectedEntry(entry);
 	// An application root is the top-level directory whose path is just the project
 	// name (e.g. `anvils`, or an imported app under "Imported Applications").
