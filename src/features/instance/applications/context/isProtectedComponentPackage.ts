@@ -44,7 +44,7 @@ export function isProtectedEntry(entry: DirectoryEntry | FileEntry | undefined) 
  * treated as protected, because the cost of refusing a legitimate delete is a reload and the cost
  * of allowing a wrong one is an instance dropping out of the load balancer.
  */
-export function isProtectedPath(rootEntries: Array<DirectoryEntry | FileEntry>, path: string) {
+export function isProtectedPath(rootEntries: ReadonlyArray<DirectoryEntry | FileEntry>, path: string) {
 	const project = String(path).split('/')[0];
 	const root = rootEntries.find((entry) => entry.name === project);
 	return root ? isProtectedEntry(root) : true;
