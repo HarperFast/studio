@@ -39,12 +39,13 @@ export function isProtectedEntry(entry: DirectoryEntry | FileEntry | undefined) 
 }
 
 /**
- * Whether a tree path belongs to a protected component. Capability flags gate what renders; this
- * gates the mutation itself, which the delete modal reaches from the menu bar, the context menu
- * and a global keyboard shortcut alike — the latter two of which can act on a selection that was
- * never the entry whose capabilities were computed.
+ * Whether a tree path belongs to a protected component. Fails closed: a root that cannot be
+ * resolved — the tree has not loaded, or the path does not correspond to anything rendered — is
+ * treated as protected, because the cost of refusing a legitimate delete is a reload and the cost
+ * of allowing a wrong one is an instance dropping out of the load balancer.
  */
 export function isProtectedPath(rootEntries: Array<DirectoryEntry | FileEntry>, path: string) {
 	const project = String(path).split('/')[0];
-	return isProtectedEntry(rootEntries.find((entry) => entry.name === project));
+	const root = rootEntries.find((entry) => entry.name === project);
+	return root ? isProtectedEntry(root) : true;
 }
