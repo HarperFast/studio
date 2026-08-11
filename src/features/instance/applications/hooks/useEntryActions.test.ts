@@ -27,7 +27,7 @@ describe('useEntryActions', () => {
 
 	it('still allows delete and redeploy for an ordinary imported package', () => {
 		const { result } = renderHook(() =>
-			useEntryActions(packageRoot('git+https://git@github.com/acme/widgets.git#semver:v1.0.0')),
+			useEntryActions(packageRoot('git+https://git@github.com/acme/widgets.git#semver:v1.0.0'))
 		);
 
 		expect(result.current.canDeleteEntry).toBe(true);
@@ -36,7 +36,7 @@ describe('useEntryActions', () => {
 
 	it('allows delete for a plain application directory', () => {
 		const { result } = renderHook(() =>
-			useEntryActions({ name: 'anvils', path: 'anvils', project: 'anvils', entries: [] }),
+			useEntryActions({ name: 'anvils', path: 'anvils', project: 'anvils', entries: [] })
 		);
 
 		expect(result.current.canDeleteEntry).toBe(true);
