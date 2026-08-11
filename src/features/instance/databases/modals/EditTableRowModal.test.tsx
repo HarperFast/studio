@@ -64,7 +64,7 @@ afterEach(() => {
 const noop = () => {};
 const row = { name: 'Ada Lovelace', city: 'London', id: 'abc-123' };
 
-function renderModal(overrides: Record<string, unknown> = {}) {
+function modal(overrides: Record<string, unknown> = {}) {
 	const props = {
 		canEditRecords: true,
 		canDeleteRecords: true,
@@ -79,7 +79,15 @@ function renderModal(overrides: Record<string, unknown> = {}) {
 		isDeleteTableRecordsPending: false,
 		...overrides,
 	};
-	return render(<EditTableRowModal {...props} />);
+	return <EditTableRowModal {...props} />;
+}
+
+function renderModal(overrides: Record<string, unknown> = {}) {
+	return render(modal(overrides));
+}
+
+function saveButton() {
+	return screen.getByRole('button', { name: /Save Changes/i });
 }
 
 describe('EditTableRowModal', () => {
@@ -147,19 +155,60 @@ describe('EditTableRowModal', () => {
 		expect(toast.error).not.toHaveBeenCalled();
 	});
 
-	// Regression for the large-paste path: an oversized edit is not live-validated (the button
-	// stays enabled), so a malformed one reaches Save — which must catch it and surface a toast
-	// rather than throw an uncaught SyntaxError.
+	// Regression for the large-paste path: nothing validates the buffer as it is typed, so a
+	// malformed oversized paste reaches Save — which must catch it and surface a toast rather than
+	// throw an uncaught SyntaxError.
 	it('shows an error and does not save an oversized, malformed record', () => {
 		const onSaveChanges = vi.fn();
 		renderModal({ onSaveChanges });
 
 		const oversizedMalformed = `[{"blob":"${'x'.repeat(MAX_WORKER_MODEL_CHARS)}`; // unterminated
 		fireEvent.change(screen.getByTestId('editor'), { target: { value: oversizedMalformed } });
-		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+		fireEvent.click(saveButton());
 
 		expect(onSaveChanges).not.toHaveBeenCalled();
 		expect(toast.error).toHaveBeenCalledTimes(1);
+	});
+
+	// Regression for #1600: Save used to be gated on a validity flag, so a malformed edit left a
+	// dead button and — since the worker-free language draws no squiggles — nothing said why.
+	it('keeps Save clickable on a malformed record and reports where the syntax breaks', () => {
+		const onSaveChanges = vi.fn();
+		renderModal({ onSaveChanges });
+
+		fireEvent.change(screen.getByTestId('editor'), {
+			target: { value: '[\n    {\n        "name" "Grace"\n    }\n]' },
+		});
+
+		expect(saveButton().hasAttribute('disabled')).toBe(false);
+
+		fireEvent.click(saveButton());
+
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledWith(
+			"This record isn't valid JSON",
+			{ description: expect.stringContaining('Line 3') },
+		);
+	});
+
+	// The reported symptom: the flag lived outside the dialog's contents, so an abandoned malformed
+	// draft kept Save disabled after the modal was closed and re-opened on the same row — with the
+	// stored record, which looks perfectly valid, back on screen.
+	it('does not carry an abandoned draft into the next open of the same row', () => {
+		const onSaveChanges = vi.fn();
+		const setIsModalOpen = vi.fn();
+		const { rerender } = renderModal({ onSaveChanges, setIsModalOpen });
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '[{"name": "Grace' } }); // unterminated
+		rerender(modal({ onSaveChanges, setIsModalOpen, isModalOpen: false }));
+		rerender(modal({ onSaveChanges, setIsModalOpen }));
+
+		expect(saveButton().hasAttribute('disabled')).toBe(false);
+		// The draft went with the dialog, so Save has nothing of the user's to persist.
+		fireEvent.click(saveButton());
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(setIsModalOpen).toHaveBeenCalledWith(false);
 	});
 
 	// The modal instance is reused across rows; opening a different record must not carry the
@@ -171,25 +220,36 @@ describe('EditTableRowModal', () => {
 
 		// Edit the first row, then open a different row without touching it.
 		fireEvent.change(screen.getByTestId('editor'), { target: { value: '[{"name":"edited A"}]' } });
-		rerender(
-			<EditTableRowModal
-				canEditRecords
-				canDeleteRecords
-				setIsModalOpen={setIsModalOpen}
-				isModalOpen
-				primaryKey="email"
-				syntheticAttributes={[]}
-				data={[{ id: 'b', name: 'B' }]}
-				onSaveChanges={onSaveChanges}
-				onDeleteRecord={noop}
-				isUpdateTableRecordsPending={false}
-				isDeleteTableRecordsPending={false}
-			/>,
-		);
-		fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+		rerender(modal({ onSaveChanges, setIsModalOpen, data: [{ id: 'b', name: 'B' }] }));
+		fireEvent.click(saveButton());
 
 		// The stale "edited A" draft was discarded, so Save just closes rather than persisting it.
 		expect(onSaveChanges).not.toHaveBeenCalled();
 		expect(setIsModalOpen).toHaveBeenCalledWith(false);
+	});
+
+	// Same reset, but from a refetch under an open editor: it used to take the unsaved edits with
+	// it, and Save then just closed the modal — no save, no warning, edits gone.
+	it('warns when a record that changed on the server discards unsaved edits', () => {
+		const onSaveChanges = vi.fn();
+		const { rerender } = renderModal({ onSaveChanges, data: [{ id: 'a', name: 'A' }] });
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '[{"id":"a","name":"edited A"}]' } });
+		rerender(modal({ onSaveChanges, data: [{ id: 'a', name: 'A (changed elsewhere)' }] }));
+
+		expect(screen.getByText('This record changed while you were editing it')).toBeTruthy();
+	});
+
+	it('explains an emptied editor rather than closing as if there were nothing to save', () => {
+		const onSaveChanges = vi.fn();
+		const setIsModalOpen = vi.fn();
+		renderModal({ onSaveChanges, setIsModalOpen });
+
+		fireEvent.change(screen.getByTestId('editor'), { target: { value: '' } });
+		fireEvent.click(saveButton());
+
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(setIsModalOpen).not.toHaveBeenCalled();
+		expect(toast.error).toHaveBeenCalledTimes(1);
 	});
 });

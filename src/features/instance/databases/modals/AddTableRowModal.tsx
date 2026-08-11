@@ -13,7 +13,8 @@ import type { EditorProps, OnMount } from '@monaco-editor/react';
 import { Save, TerminalIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { isRecordJsonProbablyValid, tryParseRecordJson } from './recordEditorJson';
+import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
+import { useRecordJsonErrorMarker } from './recordJsonErrorMarker';
 
 export function AddTableRowModal({
 	isModalOpen,
@@ -32,10 +33,10 @@ export function AddTableRowModal({
 	const { mutate: addTableRecords, isPending: isAddTableRecordsPending } = useInsertTableRecords();
 	const instanceParams = useInstanceClientIdParams();
 
-	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [addTableRecordData, setAddTableRecordData] = useState<string>();
 	const [madeChanges, setMadeChanges] = useState(false);
 	const [skippedHashes, setSkippedHashes] = useState<string[]>([]);
+	const { onEditorMount, showRecordJsonError, clearRecordJsonError } = useRecordJsonErrorMarker();
 
 	const sampleJSON = useMemo(() => {
 		const sample: Record<string, unknown> = {};
@@ -55,15 +56,16 @@ export function AddTableRowModal({
 	}, [instanceTable, databaseTables]);
 
 	const onSubmitClick = useCallback(() => {
-		if (!addTableRecordData) {
+		if (addTableRecordData === undefined) {
 			return;
 		}
-		// Authoritative parse: the live check skips oversized content, so a large,
-		// malformed bulk paste can reach here with isValidJSON still true — parse it
-		// in a catch rather than letting Save throw an uncaught SyntaxError.
+		// The only validation the record editors get. Save is deliberately not gated on it: a
+		// disabled button explained nothing (#1600), so a bad record is reported here instead — the
+		// reason and its location in a toast, plus a marker on the offending line.
 		const parsed = tryParseRecordJson(addTableRecordData);
 		if (!parsed.ok) {
-			toast.error("This record isn't valid JSON — fix the syntax and try again.");
+			toast.error("This record isn't valid JSON", { description: describeRecordJsonError(parsed.error) });
+			showRecordJsonError(parsed.error);
 			return;
 		}
 		const records = (Array.isArray(parsed.value) ? parsed.value : [parsed.value]) as object[];
@@ -107,11 +109,13 @@ export function AddTableRowModal({
 		instanceTable.schema,
 		refreshTable,
 		setIsModalOpen,
+		showRecordJsonError,
 	]);
 
-	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor) => {
+	const handleEditorDidMount: EditorProps['onMount'] = useCallback<OnMount>((editor, monaco) => {
+		onEditorMount(editor, monaco);
 		editor?.focus();
-	}, []);
+	}, [onEditorMount]);
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -152,7 +156,8 @@ export function AddTableRowModal({
 						onChange={(updatedValue) => {
 							setAddTableRecordData(updatedValue);
 							setMadeChanges(true);
-							setIsValidJSON(isRecordJsonProbablyValid(updatedValue));
+							// The marker from the last failed save described a buffer that no longer exists.
+							clearRecordJsonError();
 						}}
 						options={{ minimap: { enabled: false }, automaticLayout: true }}
 						onMount={handleEditorDidMount}
@@ -182,7 +187,10 @@ export function AddTableRowModal({
 							variant="submit"
 							onClick={onSubmitClick}
 							accessKey="s"
-							disabled={!addTableRecordData || !isValidJSON || isAddTableRecordsPending}
+							// Only "nothing typed yet" disables Save here, which the untouched sample record on
+							// screen explains on its own; anything the user has actually edited is submittable,
+							// and says why if it can't be inserted.
+							disabled={addTableRecordData === undefined || isAddTableRecordsPending}
 						>
 							<Save />{' '}
 							<span>

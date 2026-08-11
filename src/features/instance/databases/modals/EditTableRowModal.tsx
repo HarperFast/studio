@@ -8,7 +8,8 @@ import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguag
 import { Save, Trash, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { isRecordJsonProbablyValid, tryParseRecordJson } from './recordEditorJson';
+import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
+import { useRecordJsonErrorMarker } from './recordJsonErrorMarker';
 
 export function EditTableRowModal({
 	canEditRecords,
@@ -54,9 +55,9 @@ export function EditTableRowModal({
 	// user's permissions.
 	const unaddressable = Boolean(missingPrimaryKey) || Boolean(recordUnavailable);
 	const isReadOnly = !canEditRecords || unaddressable;
-	const [isValidJSON, setIsValidJSON] = useState(true);
 	const [madeChanges, setMadeChanges] = useState(false);
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
+	const { onEditorMount, showRecordJsonError, clearRecordJsonError } = useRecordJsonErrorMarker();
 
 	const value = useMemo(() => {
 		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => {
@@ -68,16 +69,23 @@ export function EditTableRowModal({
 		return JSON.stringify(dataWithoutTimes, null, 4);
 	}, [data, syntheticAttributes]);
 
-	// This modal instance is reused across rows (it stays mounted; only `open`
-	// toggles), so the draft/validity have to be reset when a different record is
-	// loaded — otherwise a previous row's edit could be saved for, or classify, the
-	// newly opened row. Resetting during render (not in an effect) avoids a frame
+	// This modal instance is reused across rows (it stays mounted; only `open` toggles), so the
+	// draft has to be reset both when a different record is loaded — otherwise a previous row's
+	// edit could be saved for the newly opened row — and when the modal is re-opened, since the
+	// dialog's contents unmount while it is closed and an abandoned draft would otherwise outlive
+	// the editor it was typed in (#1600). Tracking `null` while closed gives both: re-opening the
+	// same row is a change of snapshot. Resetting during render (not in an effect) avoids a frame
 	// where the stale draft is still live.
-	const [recordSnapshot, setRecordSnapshot] = useState(value);
-	if (value !== recordSnapshot) {
-		setRecordSnapshot(value);
+	const openRecord = isModalOpen ? value : null;
+	const [recordSnapshot, setRecordSnapshot] = useState(openRecord);
+	const [discardedUnsavedEdits, setDiscardedUnsavedEdits] = useState(false);
+	if (openRecord !== recordSnapshot) {
+		// A record that changes under an open editor is a refetch, not a different row (the dialog
+		// is modal, so no other row can be clicked): the user's edits are about to be replaced by
+		// the stored record, and a Save that silently closed instead of saving was the only sign.
+		setDiscardedUnsavedEdits(isModalOpen && recordSnapshot !== null && madeChanges);
+		setRecordSnapshot(openRecord);
 		setUpdatedTableRecordData(undefined);
-		setIsValidJSON(true);
 		setMadeChanges(false);
 	}
 
@@ -133,6 +141,16 @@ export function EditTableRowModal({
 						</AlertDescription>
 					</Alert>
 				)}
+				{discardedUnsavedEdits && (
+					<Alert variant="warning">
+						<TriangleAlert />
+						<AlertTitle>This record changed while you were editing it</AlertTitle>
+						<AlertDescription>
+							The editor was refreshed with the stored record, so the unsaved changes were discarded. Make them again
+							and save.
+						</AlertDescription>
+					</Alert>
+				)}
 				{data
 					? (
 						// Wrapper owns the flex sizing: @monaco-editor/react applies `className` to its inner
@@ -147,10 +165,13 @@ export function EditTableRowModal({
 								theme={monacoTheme}
 								options={{ readOnly: isReadOnly, automaticLayout: true }}
 								value={value}
+								onMount={onEditorMount}
 								onChange={(updatedValue) => {
 									setUpdatedTableRecordData(updatedValue);
 									setMadeChanges(true);
-									setIsValidJSON(isRecordJsonProbablyValid(updatedValue));
+									setDiscardedUnsavedEdits(false);
+									// The marker from the last failed save described a buffer that no longer exists.
+									clearRecordJsonError();
 								}}
 							/>
 						</div>
@@ -180,21 +201,29 @@ export function EditTableRowModal({
 								autoFocus={true}
 								accessKey="s"
 								onClick={() => {
-									if (!updatedTableRecordData) {
+									// Undefined means the editor was never touched (or the draft was reset because
+									// the stored record changed), so there is nothing of the user's to save. An
+									// *emptied* editor is a real edit, and falls through to the parse below, which
+									// says why it can't be saved.
+									if (updatedTableRecordData === undefined) {
 										setIsModalOpen(false);
 										return;
 									}
-									// Authoritative parse: the live check skips oversized content, so a large,
-									// malformed edit can reach here with isValidJSON still true — parse it in a
-									// catch rather than letting Save throw an uncaught SyntaxError.
+									// The only validation the record editors get. Save is deliberately not gated on
+									// it: a disabled button explained nothing and could outlive the edit that
+									// disabled it (#1600), so a bad record is reported here instead — the reason and
+									// its location in a toast, plus a marker on the offending line.
 									const parsed = tryParseRecordJson(updatedTableRecordData);
 									if (!parsed.ok) {
-										toast.error("This record isn't valid JSON — fix the syntax and try again.");
+										toast.error("This record isn't valid JSON", {
+											description: describeRecordJsonError(parsed.error),
+										});
+										showRecordJsonError(parsed.error);
 										return;
 									}
 									onSaveChanges(parsed.value as Record<string, unknown>[]);
 								}}
-								disabled={!isValidJSON || isUpdateTableRecordsPending}
+								disabled={isUpdateTableRecordsPending}
 							>
 								<Save />{' '}
 								<span>
