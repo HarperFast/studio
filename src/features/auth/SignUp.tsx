@@ -109,8 +109,9 @@ export function SignUp() {
 			// agnostic — it reports whatever the server said rather than mapping specific codes.
 			onError: (error) => {
 				console.error(error);
-				const { title, description } = describeError(error);
-				setError('root', { type: 'server', message: description || title });
+				// `message`, not `description`: the latter is the toast's body, with the first clause
+				// of a "Conflict: …" style message moved out into the heading this has no room for.
+				setError('root', { type: 'server', message: describeError(error).message });
 			},
 		});
 	}, [clearErrors, navigate, setError, submitSignUpData]);
