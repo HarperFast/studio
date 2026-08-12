@@ -38,7 +38,7 @@ vi.mock('sonner', () => ({ toast: mocks.toast }));
 
 import { DownloadApplicationModal } from './DownloadApplicationModal';
 
-function file(name: string, size: number): FileEntry {
+function file(name: string, size?: number): FileEntry {
 	return { name, path: `my-app/${name}`, project: 'my-app', size } as FileEntry;
 }
 
@@ -91,6 +91,21 @@ describe('DownloadApplicationModal size warning', () => {
 
 		expect(screen.getByText(/About 3 MB across 2 files/)).toBeTruthy();
 		expect(mocks.packageComponent).not.toHaveBeenCalled();
+	});
+
+	// An instance that sends no size makes the sum a floor, not a total — hedge the wording
+	// rather than stating a number we can't stand behind.
+	it('hedges to "At least" when a file carries no size', () => {
+		mount([file('index.js', 2_000_000), file('mystery.bin')]);
+
+		expect(screen.getByText(/At least 2 MB across 2 files/)).toBeTruthy();
+		expect(screen.queryByText(/About 2 MB/)).toBeNull();
+	});
+
+	it('says "file" rather than "files" for a single-file application', () => {
+		mount([file('index.js', 2_000_000)]);
+
+		expect(screen.getByText(/across 1 file\./)).toBeTruthy();
 	});
 
 	it('stays quiet for an ordinary application', () => {
