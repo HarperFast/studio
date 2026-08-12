@@ -42,8 +42,9 @@ export interface UsageRateLimit {
 /**
  * EFFECTIVE per-region ceilings, not a copy of the plan row: the endpoint resolves the -1 sentinel and
  * scales the tier-dependent ceilings (reads, read bandwidth, real-time, TLS) by the region's purchased
- * block multiplier, so these are the region's real numbers rather than one block's. `null` means the
- * plan declares no such ceiling, and the UI drops the row instead of inventing one.
+ * block multiplier, so these are the region's real numbers rather than one block's
+ * (HarperFast/central-manager#635). `null` means the plan declares no such ceiling, and the UI drops
+ * the row instead of inventing one.
  *
  * A server that predates that normalization sends bare numbers here; with no `known`/`unlimited` flags
  * to trust they render as "—", never as a real (understated) ceiling. See `rateRowsFrom`.
