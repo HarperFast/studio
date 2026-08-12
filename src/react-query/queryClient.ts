@@ -63,19 +63,31 @@ export function errorHandler(rawErr: unknown) {
 	});
 }
 
+/**
+ * Every mutation error routes through the shared toast by default. A mutation can opt out
+ * — to render its own inline UI or redirect instead — with `meta: { skipGlobalErrorToast: true }`
+ * (e.g. the cloud login flow redirects an unverified user to the email-verification page, and
+ * sign-up puts an already-registered email on the field that has to change).
+ *
+ * Exported so a test can build a throwaway `QueryClient` that routes errors the way the app
+ * does without restating the opt-out rule — a copy of it in a test would keep passing after
+ * this changed.
+ */
+export const mutationErrorHandler: NonNullable<MutationCache['config']['onError']> = (
+	error,
+	_variables,
+	_onMutateResult,
+	mutation,
+) => {
+	if (mutation.meta?.skipGlobalErrorToast) {
+		return;
+	}
+	errorHandler(error);
+};
+
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
 		onError: errorHandler,
 	}),
-	mutationCache: new MutationCache({
-		// Every mutation error routes through the shared toast by default. A mutation can opt out
-		// — to render its own inline UI or redirect instead — with `meta: { skipGlobalErrorToast: true }`
-		// (e.g. the cloud login flow redirects an unverified user to the email-verification page).
-		onError: (error, _variables, _context, mutation) => {
-			if (mutation.meta?.skipGlobalErrorToast) {
-				return;
-			}
-			errorHandler(error);
-		},
-	}),
+	mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 });
