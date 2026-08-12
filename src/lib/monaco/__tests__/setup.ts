@@ -18,3 +18,21 @@ if (typeof document !== 'undefined') {
 		document.execCommand = () => false;
 	}
 }
+
+// Monaco's theme service watches the OS light/dark preference via
+// `matchMedia('(forced-colors: active)')` as soon as it is instantiated, and
+// jsdom ships no `matchMedia` at all — so any suite that reaches a Monaco
+// service throws from the service constructor, outside the test's own stack.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+	window.matchMedia = (query: string) =>
+		({
+			matches: false,
+			media: query,
+			onchange: null,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			addListener: () => {},
+			removeListener: () => {},
+			dispatchEvent: () => false,
+		}) as MediaQueryList;
+}

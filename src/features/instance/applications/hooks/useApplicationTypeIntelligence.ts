@@ -46,10 +46,10 @@ import {
 	sweepStaleApplicationModels,
 } from '@/features/instance/applications/lib/modelHousekeeping';
 import { getComponentFileQueryOptions } from '@/integrations/api/instance/applications/getComponentFile';
+import * as monaco from '@/lib/monaco/editorApi';
 import { typescript } from '@/lib/monaco/languageServices';
 import { MAX_WORKER_MODEL_CHARS } from '@/lib/monaco/workerLimits';
 import { useQueryClient } from '@tanstack/react-query';
-import * as monaco from 'monaco-editor/editor';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 /** Degradation status the editor surfaces to the user (HarperFast/studio#1504). */
