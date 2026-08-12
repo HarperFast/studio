@@ -12,7 +12,7 @@ import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
-import { errorHandler } from '@/react-query/queryClient';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -21,7 +21,6 @@ import { z } from 'zod';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { useSignUpMutation } from './hooks/useSignUp';
-import { isEmailAlreadyRegisteredError } from './isEmailAlreadyRegisteredError';
 
 const SignUpSchema = z.object({
 	email: zodRequireEmail
@@ -75,7 +74,8 @@ export function SignUp() {
 
 	const email = methods.watch('email');
 	const acceptTerms = methods.watch('acceptTerms');
-	const { setFocus, setError, control, handleSubmit } = methods;
+	const { setFocus, setError, clearErrors, control, handleSubmit, formState } = methods;
+	const submitError = formState.errors.root?.message;
 
 	useEffect(() => {
 		setFocus('firstname');
@@ -86,6 +86,9 @@ export function SignUp() {
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { confirmPassword, acceptTerms, ...userData } = formData;
+		// Drop the previous attempt's failure explicitly — `handleSubmit` reruns the resolver,
+		// which only rewrites field errors, so a stale `root` would outlive the retry.
+		clearErrors('root');
 		submitSignUpData(userData, {
 			onSuccess: () => {
 				const company = parseCompanyFromEmail(userData.email);
@@ -100,23 +103,17 @@ export function SignUp() {
 				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
 			},
 			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
-			// so an already-registered email lands on the field that has to change, next to the
-			// "Sign in instead" link — a generic toast left people resubmitting the same address
-			// two and three times before giving up.
+			// and renders the failure in the form instead. RUM showed people resubmitting the
+			// same details two and three times before giving up (#1612): a toast that fades,
+			// away from the inputs, doesn't read as "this attempt failed". Deliberately status-
+			// agnostic — it reports whatever the server said rather than mapping specific codes.
 			onError: (error) => {
-				if (isEmailAlreadyRegisteredError(error)) {
-					setError('email', {
-						type: 'server',
-						message: 'An account with this email already exists. Sign in instead, or use another email.',
-					});
-					setFocus('email');
-					return;
-				}
-				// Any other failure keeps the standard error toast.
-				errorHandler(error);
+				console.error(error);
+				const { title, description } = describeError(error);
+				setError('root', { type: 'server', message: description || title });
 			},
 		});
-	}, [navigate, setError, setFocus, submitSignUpData]);
+	}, [clearErrors, navigate, setError, submitSignUpData]);
 
 	const onOAuthClick = useCallback((e: MouseEvent) => {
 		if (!acceptTerms) {
@@ -296,6 +293,12 @@ export function SignUp() {
 						)}
 					/>
 					{termsCheckbox}
+
+					{submitError && (
+						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
+							{submitError}
+						</p>
+					)}
 
 					<Button type="submit" variant="submit" disabled={isPending} className="w-full my-4">
 						Sign Up For Free

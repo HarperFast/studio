@@ -22,9 +22,9 @@ export async function onSignUpSubmit(signUpCredentials: SignUpCredentials) {
 export function useSignUpMutation() {
 	return useMutation<SchemaUser, Error, SignUpCredentials>({
 		mutationFn: (loginData) => onSignUpSubmit(loginData),
-		// The sign-up form renders a duplicate-email rejection inline on the email field
-		// instead of a red toast that can't point at the offending input, so suppress the
-		// default global error toast for this mutation (see `SignUp`'s `onError`).
+		// The sign-up form renders the failure inline, beside the inputs, instead of in a toast
+		// that fades away from them, so suppress the default global error toast for this
+		// mutation (see `SignUp`'s `onError`).
 		meta: { skipGlobalErrorToast: true },
 	});
 }
