@@ -37,9 +37,16 @@ describe('monaco editorApi', () => {
 		// call `useApplicationTypeIntelligence` makes from an effect, which used
 		// to run while the lazy `./setup` chunk (and its `register.all`) was
 		// still loading behind `<MonacoEditor>`'s Suspense boundary.
-		monaco.editor.createModel('{}', 'json', monaco.Uri.parse('file:///editorApi-test/a.json'));
+		const model = monaco.editor.createModel('{}', 'json', monaco.Uri.parse('file:///editorApi-test/a.json'));
 
-		expect(await committedServiceIds()).toEqual(expect.arrayContaining(REGISTER_ALL_SERVICES));
+		// Released even if the assertion throws: Monaco's model registry is
+		// module state, so a leaked model would collide on its URI if this file
+		// re-ran in the same worker (watch mode).
+		try {
+			expect(await committedServiceIds()).toEqual(expect.arrayContaining(REGISTER_ALL_SERVICES));
+		} finally {
+			model.dispose();
+		}
 		// Evaluating Monaco's editor + every feature registration is seconds of
 		// work, well past the 5s default once the suite runs them in parallel.
 	}, 30_000);
