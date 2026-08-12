@@ -2,6 +2,7 @@ import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/Clus
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import {
 	ClusterUsageRegion,
+	UsageRateLimit,
 	UsageRateLimits,
 	UsageResourcesPerInstance,
 	useClusterUsage,
@@ -153,7 +154,7 @@ function PlanInfo(
 ) {
 	const rl = rateLimits;
 	const rateRows = rl
-		? rowsFrom([
+		? rateRowsFrom([
 			['Reads / minute', rl.readsPerMinute, addCommasToNumbers],
 			['Read bandwidth / minute', rl.readsPerMinuteBytes, humanFileSize],
 			['Writes / minute', rl.writesPerMinute, addCommasToNumbers],
@@ -224,13 +225,28 @@ function uniformPlanInfo(
 		: null;
 }
 
-// Build label/value rows, dropping any metric the plan didn't declare (null/undefined).
+// Build label/value rows, dropping any resource the plan didn't declare (null/undefined) or left at a
+// non-positive placeholder — same as the purchase-time plan panel, so a sentinel can't render as "-1 GB".
 function rowsFrom(
 	entries: Array<[string, number | null | undefined, (n: number) => string]>,
 ): Array<[string, string]> {
 	return entries
-		.filter((e): e is [string, number, (n: number) => string] => e[1] != null)
+		.filter((e): e is [string, number, (n: number) => string] => typeof e[1] === 'number' && e[1] > 0)
 		.map(([label, value, format]): [string, string] => [label, format(value)]);
+}
+
+// Same, for the throughput ceilings, which arrive as {value, unlimited, known}: a ceiling the plan
+// doesn't declare (null) gets no row, "no ceiling" reads Unlimited, and anything we can't pin down —
+// including the bare numbers a pre-normalization server sends — reads "—" rather than a hard number.
+function rateRowsFrom(
+	entries: Array<[string, UsageRateLimit | null, (n: number) => string]>,
+): Array<[string, string]> {
+	return entries
+		.filter((e): e is [string, UsageRateLimit, (n: number) => string] => e[1] != null)
+		.map(([label, limit, format]): [string, string] => [
+			label,
+			limit.unlimited ? 'Unlimited' : limit.known && limit.value != null ? format(limit.value) : '—',
+		]);
 }
 
 function Empty({ children }: { children: ReactNode }) {
