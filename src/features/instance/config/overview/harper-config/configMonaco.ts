@@ -37,16 +37,16 @@ const SCHEMA_URI = 'harper://schemas/config-root.json';
  *
  * The JSON language-service defaults are reached through a dynamic `import()`
  * rather than a top-level one, so this module — which the config route imports
- * eagerly — never links Monaco into an eager chunk. That matters beyond bundle
- * size: each `monaco-editor/languages/features/<lang>/register` entry has
- * registration side effects, and evaluating one at boot builds Monaco's service
- * collection before `monaco-editor/features/register.all` (loaded with the lazy
- * `@/lib/monaco/setup`) has registered its singletons. Monaco builds that
- * collection once, so the late registrations are ignored and every editor then
- * throws "[createInstance] … depends on UNKNOWN service …" for the five
- * services backing code lens, inlay hints, suggest memory, the code-action
- * widget, and tree-view DnD (#1592). By `onMount` Monaco is already loaded, so
- * this resolves from the module cache.
+ * eagerly — never links Monaco into an eager chunk (#1592). By `onMount` Monaco
+ * is already loaded, so this resolves from the module cache.
+ *
+ * This comment used to claim that evaluating a `languages/features/<lang>/register`
+ * entry is what builds Monaco's service collection too early. It isn't:
+ * `languages.register` deliberately routes through `ModesRegistry` "to avoid
+ * instantiating services too quickly", and `StandaloneServices.initialize()`
+ * folds in singletons registered after the module loaded. What actually freezes
+ * the collection is the first *service lookup* — see `@/lib/monaco/editorApi`,
+ * which owns that ordering invariant now (#1614).
  */
 export async function configureHarperConfigEditor(): Promise<void> {
 	const { json } = await import('@/lib/monaco/languageServices');

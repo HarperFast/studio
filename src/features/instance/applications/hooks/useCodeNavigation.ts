@@ -26,7 +26,7 @@
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useListener } from '@/lib/events/listener';
 import { setWatchedValue } from '@/lib/events/watcher';
-import * as monaco from 'monaco-editor/editor';
+import * as monaco from '@/lib/monaco/editorApi';
 import { useEffect, useRef } from 'react';
 
 type Editor = monaco.editor.IStandaloneCodeEditor;
