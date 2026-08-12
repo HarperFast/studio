@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
 
 const ForgotPasswordSchema = z.object({
@@ -29,16 +30,23 @@ export function ForgotPassword() {
 		},
 	});
 	const email = methods.watch('email');
-	const { setFocus, control, handleSubmit } = methods;
+	const { setFocus, setError, clearErrors, control, handleSubmit, formState } = methods;
+	const submitError = formState.errors.root?.message;
 
 	useEffect(() => {
 		setFocus('email');
 	}, [setFocus]);
 
 	const { mutate: submitForgotPasswordData, isPending } = useForgotPasswordMutation();
+	const captcha = useCaptchaChallenge('forgot_password');
 
 	const submitForm = async (formData: z.infer<typeof ForgotPasswordSchema>) => {
-		submitForgotPasswordData(formData, {
+		// Same reason as SignUp: `handleSubmit` reruns the resolver, which only rewrites
+		// field errors, so a stale `root` would outlive the retry.
+		clearErrors('root');
+		// Minted per submit: v3 tokens are single use and expire in ~2 minutes.
+		const captchaToken = await captcha.getToken();
+		submitForgotPasswordData({ ...formData, captchaToken }, {
 			onSuccess: (message) => {
 				toast.success('Success', {
 					description: `${message}`,
@@ -48,6 +56,12 @@ export function ForgotPassword() {
 					},
 				});
 				navigate({ to: '/sign-in', search: { me: email } });
+			},
+			onError: (error) => {
+				const captchaMessage = captcha.describeCaptchaError(error);
+				// Every other failure keeps its existing global toast; only the CAPTCHA
+				// needs to say what to do next, right in the form.
+				if (captchaMessage) { setError('root', { type: 'server', message: captchaMessage }); }
 			},
 		});
 	};
@@ -81,7 +95,12 @@ export function ForgotPassword() {
 							</FormItem>
 						)}
 					/>
-					<Button type="submit" variant="submit" disabled={isPending} className="w-full my-2">
+					{submitError && (
+						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
+							{submitError}
+						</p>
+					)}
+					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-2">
 						Send Password Reset Email
 					</Button>
 				</form>

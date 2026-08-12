@@ -7,11 +7,15 @@ export interface SignUpCredentials extends Omit<SchemaUser, 'id'> {
 	password: string;
 	firstname: string;
 	lastname: string;
+	captchaToken?: string;
 }
 
-export async function onSignUpSubmit(signUpCredentials: SignUpCredentials) {
+export async function onSignUpSubmit({ captchaToken, ...signUpCredentials }: SignUpCredentials) {
 	// TODO: The types in our OpenAPI for this endpoint aren't defined.
-	const { data } = await apiClient.post('/User/', signUpCredentials);
+	const { data } = await apiClient.post('/User/', {
+		...signUpCredentials,
+		...(captchaToken ? { captchaToken } : {}),
+	});
 	if (data) {
 		return data;
 	} else {
