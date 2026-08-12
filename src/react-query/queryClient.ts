@@ -3,11 +3,17 @@ import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
-export function errorHandler(rawErr: unknown) {
+/**
+ * Turn an error of unknown shape into the heading + body the UI shows for it.
+ *
+ * Split out of {@link errorHandler} so a form can render the same text inline — beside the
+ * inputs, where it persists — instead of only in a toast that fades. One extractor means the
+ * two can't drift.
+ */
+export function describeError(rawErr: unknown): { title: string; description: string } {
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
 	let splitTitleFromMsg = true;
-	console.error(rawErr);
 	const axiosWrappedErr = rawErr as AxiosError<
 		string | { error?: unknown; message?: unknown; code?: unknown; title?: unknown; detail?: unknown }
 	>;
@@ -44,6 +50,13 @@ export function errorHandler(rawErr: unknown) {
 		errorTitle = split.shift()!;
 		errorMsg = split.join(':');
 	}
+	return { title: errorTitle, description: errorMsg };
+}
+
+export function errorHandler(rawErr: unknown) {
+	console.error(rawErr);
+	const { title: errorTitle, description: errorMsg } = describeError(rawErr);
+	const axiosWrappedErr = rawErr as AxiosError;
 	// Axios surfaces request timeouts as ECONNABORTED / ETIMEDOUT. Multiple
 	// queries can timeout in parallel and stack up identical toasts; collapse
 	// them onto a single id so the user sees one instead of a wall.

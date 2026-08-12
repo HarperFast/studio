@@ -24,9 +24,9 @@ vi.mock('sonner', () => ({
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
 import { toast } from 'sonner';
-// The app's own mutation-error routing, not a copy of it: whether a 409 reaches the global
-// toast is the thing under test, so restating that rule here would let these tests pass even
-// if `skipGlobalErrorToast` stopped being honored.
+// The app's own mutation-error routing, not a copy of it: whether the form's failure also
+// reaches the global toast is part of what's under test, so restating that rule here would let
+// these tests pass even if `skipGlobalErrorToast` stopped being honored.
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { SignUp } from './SignUp';
 
@@ -70,34 +70,54 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
-	it('shows an already-registered 409 on the email field instead of a generic toast', async () => {
-		post.mockRejectedValue(axiosError(409, { code: 'ConflictError', title: 'User already exists' }));
+	it("reports the server's reason in the form rather than a toast", async () => {
+		post.mockRejectedValue(axiosError(500, { code: 'InternalError', title: 'Signup is unavailable' }));
 
 		renderSignUp();
 		fillValidForm();
 		submit();
 
-		await waitFor(() => expect(screen.getByText(/An account with this email already exists/)).toBeTruthy());
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Signup is unavailable'));
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
-	it('keeps the generic toast for any other failure', async () => {
-		post.mockRejectedValue(axiosError(500, { error: 'boom' }));
+	// Whatever central-manager rejects with has to reach the user — the form maps no status
+	// codes of its own, so this must hold for a shape it has never seen.
+	it.each([
+		[400, { error: 'Password is too short' }, 'Password is too short'],
+		[409, 'User already exists', 'User already exists'],
+		[503, undefined, 'We had some trouble!'],
+	])('surfaces a %i rejection inline', async (status, data, expected) => {
+		post.mockRejectedValue(axiosError(status, data));
 
 		renderSignUp();
 		fillValidForm();
 		submit();
 
-		await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-		expect(screen.queryByText(/An account with this email already exists/)).toBeNull();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(expected));
+	});
+
+	it('clears the previous failure when the form is resubmitted', async () => {
+		post.mockRejectedValueOnce(axiosError(503));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+		post.mockResolvedValueOnce({ data: { id: 'usr-1', email: 'taken@example.com' } });
+		submit();
+
+		await waitFor(() => expect(navigate).toHaveBeenCalled());
+		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
 	it('disables the submit button while the sign-up request is in flight', async () => {
 		let settle: (() => void) | undefined;
 		post.mockReturnValue(
 			new Promise((_resolve, reject) => {
-				settle = () => reject(axiosError(409));
+				settle = () => reject(axiosError(503));
 			}),
 		);
 
