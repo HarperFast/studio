@@ -12,6 +12,7 @@ import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
+import { errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -20,6 +21,7 @@ import { z } from 'zod';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { useSignUpMutation } from './hooks/useSignUp';
+import { isEmailAlreadyRegisteredError } from './isEmailAlreadyRegisteredError';
 
 const SignUpSchema = z.object({
 	email: zodRequireEmail
@@ -73,13 +75,13 @@ export function SignUp() {
 
 	const email = methods.watch('email');
 	const acceptTerms = methods.watch('acceptTerms');
-	const { setFocus, control, handleSubmit } = methods;
+	const { setFocus, setError, control, handleSubmit } = methods;
 
 	useEffect(() => {
 		setFocus('firstname');
 	}, [setFocus]);
 
-	const { mutate: submitSignUpData } = useSignUpMutation();
+	const { mutate: submitSignUpData, isPending } = useSignUpMutation();
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -97,8 +99,24 @@ export function SignUp() {
 				clearUtmParamsFromUrl();
 				void navigate({ to: '/verifying?email=' + encodeURIComponent(userData.email) });
 			},
+			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
+			// so an already-registered email lands on the field that has to change, next to the
+			// "Sign in instead" link — a generic toast left people resubmitting the same address
+			// two and three times before giving up.
+			onError: (error) => {
+				if (isEmailAlreadyRegisteredError(error)) {
+					setError('email', {
+						type: 'server',
+						message: 'An account with this email already exists. Sign in instead, or use another email.',
+					});
+					setFocus('email');
+					return;
+				}
+				// Any other failure keeps the standard error toast.
+				errorHandler(error);
+			},
 		});
-	}, [navigate, submitSignUpData]);
+	}, [navigate, setError, setFocus, submitSignUpData]);
 
 	const onOAuthClick = useCallback((e: MouseEvent) => {
 		if (!acceptTerms) {
@@ -279,7 +297,7 @@ export function SignUp() {
 					/>
 					{termsCheckbox}
 
-					<Button type="submit" variant="submit" className="w-full my-4">
+					<Button type="submit" variant="submit" disabled={isPending} className="w-full my-4">
 						Sign Up For Free
 					</Button>
 				</form>
