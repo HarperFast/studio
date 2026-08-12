@@ -87,6 +87,9 @@ describe('SignUp', () => {
 	it.each([
 		[400, { error: 'Password is too short' }, 'Password is too short'],
 		[409, 'User already exists', 'User already exists'],
+		// A legacy "Code: sentence" body: the toast splits the first clause into its heading, and
+		// the inline line has no heading — it must still read as a whole sentence.
+		[409, 'Conflict: user already exists', 'Conflict: user already exists'],
 		[503, undefined, 'We had some trouble!'],
 	])('surfaces a %i rejection inline', async (status, data, expected) => {
 		post.mockRejectedValue(axiosError(status, data));

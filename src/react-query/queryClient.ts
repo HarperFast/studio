@@ -4,13 +4,15 @@ import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
 /**
- * Turn an error of unknown shape into the heading + body the UI shows for it.
+ * Turn an error of unknown shape into display text, in both the shapes the UI needs.
  *
- * Split out of {@link errorHandler} so a form can render the same text inline — beside the
- * inputs, where it persists — instead of only in a toast that fades. One extractor means the
- * two can't drift.
+ * `title` + `description` are the toast's heading and body. `message` is the same text as one
+ * sentence, for somewhere that has no heading — a form rendering the failure inline beside its
+ * inputs. They differ only for a legacy `"Conflict: user already exists"` body, where the split
+ * below moves the first clause into `title`: a single line built from `description` alone would
+ * lose it. Everything comes from this one extractor so the inline text and the toast can't drift.
  */
-export function describeError(rawErr: unknown): { title: string; description: string } {
+export function describeError(rawErr: unknown): { title: string; description: string; message: string } {
 	let errorTitle = 'Error';
 	let errorMsg = 'We had some trouble!';
 	let splitTitleFromMsg = true;
@@ -43,6 +45,9 @@ export function describeError(rawErr: unknown): { title: string; description: st
 	} else {
 		errorMsg = errorText(otherErr?.message) ?? errorMsg;
 	}
+	// Captured before the split below, which is a toast-only presentation choice: it moves the
+	// first clause of the text into the heading, so only the pre-split value is a whole sentence.
+	const message = errorMsg;
 	// The JSON fallback from errorText produces messages full of colons that are not
 	// "Title: detail" shaped — don't split those.
 	if (splitTitleFromMsg && errorMsg.includes(':') && !errorMsg.startsWith('{') && !errorMsg.startsWith('[')) {
@@ -50,7 +55,7 @@ export function describeError(rawErr: unknown): { title: string; description: st
 		errorTitle = split.shift()!;
 		errorMsg = split.join(':');
 	}
-	return { title: errorTitle, description: errorMsg };
+	return { title: errorTitle, description: errorMsg, message };
 }
 
 export function errorHandler(rawErr: unknown) {
@@ -80,7 +85,8 @@ export function errorHandler(rawErr: unknown) {
  * Every mutation error routes through the shared toast by default. A mutation can opt out
  * — to render its own inline UI or redirect instead — with `meta: { skipGlobalErrorToast: true }`
  * (e.g. the cloud login flow redirects an unverified user to the email-verification page, and
- * sign-up puts an already-registered email on the field that has to change).
+ * sign-up renders the failure in the form, above the submit button, instead of a toast that
+ * fades away from the inputs).
  *
  * Exported so a test can build a throwaway `QueryClient` that routes errors the way the app
  * does without restating the opt-out rule — a copy of it in a test would keep passing after
