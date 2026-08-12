@@ -21,6 +21,12 @@ export interface APIDirectoryEntry extends APIFileEntry {
 export interface APIFileEntry {
 	name: string;
 	mtime?: number;
+	/**
+	 * Uncompressed bytes, sent by Harper on every file entry. Note the tree omits `node_modules`
+	 * entirely, so summing it yields the `skip_node_modules: true` package size — see
+	 * `measureProjectPackage`.
+	 */
+	size?: number;
 }
 
 export async function getComponents({ instanceClient }: InstanceClientIdConfig) {
