@@ -144,6 +144,45 @@ describe('ClusterUsageCard', () => {
 		expect(screen.queryByText(/null/)).toBeNull();
 	});
 
+	it('labels the date "next renewal" once there is more than one region', () => {
+		// `renewsAt` is the EARLIEST expiry among the active regions, so "renews" would claim the whole
+		// cluster renews then when a later region does not.
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [
+					region({ region: 'Europe', expiresAt: '2026-08-12T00:00:00.000Z' }),
+					region({ expiresAt: '2026-09-30T00:00:00.000Z' }),
+				],
+			}),
+		});
+		renderCard();
+		expect(screen.getByText(/^Standard plan · next renewal Aug \d{1,2}$/)).toBeTruthy();
+	});
+
+	it('drops the plan name when the regions are on different plans', () => {
+		// One region on Standard and another on Enterprise is supported; neither name is cluster-wide.
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [
+					region({ region: 'Europe', planName: 'Standard' }),
+					region({ planName: 'Enterprise' }),
+				],
+			}),
+		});
+		renderCard();
+		expect(screen.getByText(/^next renewal Aug \d{1,2}$/)).toBeTruthy();
+		expect(screen.queryByText(/Standard/)).toBeNull();
+		expect(screen.queryByText(/Enterprise/)).toBeNull();
+	});
+
+	it('drops the plan name when one region could not resolve its plan', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [region({ region: 'Europe', planName: null }), region()] }),
+		});
+		renderCard();
+		expect(screen.getByText(/^next renewal Aug \d{1,2}$/)).toBeTruthy();
+	});
+
 	it('explains itself when a multi-region cluster has no metered ceiling', () => {
 		mockUseClusterUsage.mockReturnValue({
 			data: usage({ regions: [region({ region: 'Europe' }), region()], mostConstrained: null }),

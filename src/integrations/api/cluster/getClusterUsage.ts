@@ -28,14 +28,34 @@ export interface UsageMetrics {
 
 export type UsageMetricKey = keyof UsageMetrics;
 
+/**
+ * One throughput ceiling, in the same three states the metered values carry: a finite `value`,
+ * `unlimited` (the plan grants no ceiling), or `!known` — the endpoint couldn't determine it, rendered
+ * "—". Never a sentinel: the -1 the unlimited plans store is resolved server-side.
+ */
+export interface UsageRateLimit {
+	value: number | null;
+	unlimited: boolean;
+	known: boolean;
+}
+
+/**
+ * EFFECTIVE per-region ceilings, not a copy of the plan row: the endpoint resolves the -1 sentinel and
+ * scales the tier-dependent ceilings (reads, read bandwidth, real-time, TLS) by the region's purchased
+ * block multiplier, so these are the region's real numbers rather than one block's. `null` means the
+ * plan declares no such ceiling, and the UI drops the row instead of inventing one.
+ *
+ * A server that predates that normalization sends bare numbers here; with no `known`/`unlimited` flags
+ * to trust they render as "—", never as a real (understated) ceiling. See `rateRowsFrom`.
+ */
 export interface UsageRateLimits {
-	readsPerMinute: number | null;
-	readsPerMinuteBytes: number | null;
-	writesPerMinute: number | null;
-	writesPerMinuteBytes: number | null;
-	realTimeDeliveriesPerMinute: number | null;
-	realTimeDeliveryBytesPerMinute: number | null;
-	tlsHandshakes: number | null;
+	readsPerMinute: UsageRateLimit | null;
+	readsPerMinuteBytes: UsageRateLimit | null;
+	writesPerMinute: UsageRateLimit | null;
+	writesPerMinuteBytes: UsageRateLimit | null;
+	realTimeDeliveriesPerMinute: UsageRateLimit | null;
+	realTimeDeliveryBytesPerMinute: UsageRateLimit | null;
+	tlsHandshakes: UsageRateLimit | null;
 }
 
 export interface UsageResourcesPerInstance {
@@ -101,12 +121,21 @@ export function useClusterUsage(clusterId?: string) {
 	return useQuery(getClusterUsageQueryOptions(clusterId));
 }
 
-/** "Standard plan · renews Aug 12" — shared by the card + tab. */
+/**
+ * "Standard plan · renews Aug 12" — the cluster-wide summary line above the overview meters.
+ *
+ * Neither fact is cluster-wide unless the regions agree on it: a cluster can run a different current plan
+ * per region, and `renewsAt` is the EARLIEST expiry among the active ones. So the plan is named only when
+ * every region names the same one, and with more than one region the date is labelled "next renewal"
+ * rather than asserting the whole cluster renews then. The per-region truth is on the Usage tab.
+ */
 export function usageSubtitle(data: ClusterUsage): string {
-	const planName = data.regions[0]?.planName;
+	const { regions } = data;
+	const uniformPlanName = regions.every((r) => r.planName === regions[0]?.planName) ? regions[0]?.planName : null;
+	const renewal = regions.length > 1 ? 'next renewal' : 'renews';
 	return [
-		planName ? `${planName} plan` : null,
-		data.renewsAt ? `renews ${formatCycleDate(data.renewsAt)}` : null,
+		uniformPlanName ? `${uniformPlanName} plan` : null,
+		data.renewsAt ? `${renewal} ${formatCycleDate(data.renewsAt)}` : null,
 	].filter(Boolean).join(' · ');
 }
 

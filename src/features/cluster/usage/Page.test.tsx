@@ -6,6 +6,7 @@ import type {
 	ClusterUsage,
 	ClusterUsageRegion,
 	UsageMetrics,
+	UsageRateLimit,
 	UsageRateLimits,
 	UsageValue,
 } from '@/integrations/api/cluster/getClusterUsage';
@@ -51,15 +52,25 @@ const metrics = (over: Partial<UsageMetrics> = {}): UsageMetrics => ({
 	...over,
 });
 
+const rate = (value: number | null, over: Partial<UsageRateLimit> = {}): UsageRateLimit => ({
+	value,
+	unlimited: false,
+	known: value !== null,
+	...over,
+});
+
 const RATE_LIMITS: UsageRateLimits = {
-	readsPerMinute: 50_000,
-	readsPerMinuteBytes: 34_000_000,
-	writesPerMinute: 10_000,
-	writesPerMinuteBytes: 5_000_000,
-	realTimeDeliveriesPerMinute: 5_000,
-	realTimeDeliveryBytesPerMinute: 50_000_000,
-	tlsHandshakes: 1_000_000,
+	readsPerMinute: rate(50_000),
+	readsPerMinuteBytes: rate(34_000_000),
+	writesPerMinute: rate(10_000),
+	writesPerMinuteBytes: rate(5_000_000),
+	realTimeDeliveriesPerMinute: rate(5_000),
+	realTimeDeliveryBytesPerMinute: rate(50_000_000),
+	tlsHandshakes: rate(1_000_000),
 };
+
+// The value cell of a "Plan limits & resources" row, found via its label.
+const rowValue = (label: string) => screen.getByText(label).parentElement?.textContent?.replace(label, '');
 
 const region = (over: Partial<ClusterUsageRegion> = {}): ClusterUsageRegion => ({
 	region: 'US',
@@ -164,7 +175,7 @@ describe('UsagePage', () => {
 		mockUseClusterUsage.mockReturnValue({
 			data: usage({
 				regions: [
-					region({ region: 'Europe', rateLimits: { ...RATE_LIMITS, readsPerMinute: 999 } }),
+					region({ region: 'Europe', rateLimits: { ...RATE_LIMITS, readsPerMinute: rate(999) } }),
 					region(),
 				],
 			}),
@@ -173,6 +184,74 @@ describe('UsagePage', () => {
 		render(<UsagePage />);
 		expect(screen.queryByRole('button', { name: /Plan limits & resources/ })).toBeNull();
 		expect(screen.getAllByText('Reads / minute').length).toBe(2);
+	});
+
+	it('renders the effective ceiling the endpoint reports', () => {
+		// Already scaled to the region's distribution tier server-side — the page states it verbatim.
+		mockUseClusterUsage.mockReturnValue({ data: usage(), isLoading: false });
+		render(<UsagePage />);
+		expect(rowValue('Reads / minute')).toBe('50,000');
+	});
+
+	it('reads a plan with no ceiling as Unlimited, never as the -1 sentinel', () => {
+		// fabric-block-dedicated-unlimited-{2..5} store -1 for every limit.
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [
+					region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: rate(null, { unlimited: true, known: true }) } }),
+				],
+			}),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(rowValue('Reads / minute')).toBe('Unlimited');
+		expect(screen.queryByText('-1')).toBeNull();
+	});
+
+	it('shows "—" for a ceiling the endpoint could not determine', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: rate(null) } })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(rowValue('Reads / minute')).toBe('—');
+	});
+
+	it('drops a ceiling the plan does not declare rather than inventing one', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: null } })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.queryByText('Reads / minute')).toBeNull();
+		expect(screen.getByText('Writes / minute')).toBeTruthy();
+	});
+
+	it('will not state a bare per-block number from a pre-normalization server as the regional ceiling', () => {
+		// Deploy-order guard: an older central-manager sends raw plan values here. Understating a ceiling
+		// reads as a real, lower limit, so an un-normalized value must degrade to "—" instead.
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [region({
+					rateLimits: { ...RATE_LIMITS, readsPerMinute: 50_000 as unknown as UsageRateLimit },
+				})],
+			}),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(rowValue('Reads / minute')).toBe('—');
+	});
+
+	it('drops a non-positive per-instance resource instead of rendering a sentinel', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [region({ resourcesPerInstance: { storageGb: -1, memoryMb: 4096, cpuCores: 2, threads: 4 } })],
+			}),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.queryByText('Storage', { selector: 'dt' })).toBeNull();
+		expect(rowValue('Memory')).toBe('4 GB');
 	});
 
 	it('explains the self-hosted and no-usage cases instead of rendering empty meters', () => {
