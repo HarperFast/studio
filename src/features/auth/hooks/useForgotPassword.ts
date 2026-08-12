@@ -3,15 +3,19 @@ import { useMutation } from '@tanstack/react-query';
 
 export type ForgotPasswordCredential = {
 	email: string;
+	captchaToken?: string;
 };
 
 type ForgotPasswordResponse = {
 	email: string;
 };
 
-export async function onResetPasswordSubmit({ email }: ForgotPasswordCredential): Promise<ForgotPasswordResponse> {
+export async function onResetPasswordSubmit(
+	{ email, captchaToken }: ForgotPasswordCredential,
+): Promise<ForgotPasswordResponse> {
 	const { data } = await apiClient.post('/ForgotPassword/', {
 		email,
+		...(captchaToken ? { captchaToken } : {}),
 	});
 	if (data) {
 		// TODO: The OpenAPI description isn't accurate.

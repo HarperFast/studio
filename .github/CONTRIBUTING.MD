@@ -36,6 +36,7 @@ Some commonly used variables:
 - `VITE_LOCAL_STUDIO_DEV_URL` — local Harper URL (default `http://localhost:9925`)
 - `VITE_PUBLIC_STRIPE_KEY` — Stripe public key
 - `VITE_ENV_NAME` — environment label (dev/stage/prod)
+- `VITE_RECAPTCHA_SITE_KEY` — reCAPTCHA v3 site key for the signup / forgot-password bot check; unset disables it entirely
 
 See `.github/deploy-public-env/.env.prod` for a production example. For local development, create `.env.local` based on `.env.local.example`.
 

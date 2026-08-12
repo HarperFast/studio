@@ -20,6 +20,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
+import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useSignUpMutation } from './hooks/useSignUp';
 
 const SignUpSchema = z.object({
@@ -82,6 +83,7 @@ export function SignUp() {
 	}, [setFocus]);
 
 	const { mutate: submitSignUpData, isPending } = useSignUpMutation();
+	const captcha = useCaptchaChallenge('signup');
 
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -89,7 +91,9 @@ export function SignUp() {
 		// Drop the previous attempt's failure explicitly — `handleSubmit` reruns the resolver,
 		// which only rewrites field errors, so a stale `root` would outlive the retry.
 		clearErrors('root');
-		submitSignUpData(userData, {
+		// Minted per submit: v3 tokens are single use and expire in ~2 minutes.
+		const captchaToken = await captcha.getToken();
+		submitSignUpData({ ...userData, captchaToken }, {
 			onSuccess: () => {
 				const company = parseCompanyFromEmail(userData.email);
 				reoClient?.identify?.({
@@ -109,12 +113,18 @@ export function SignUp() {
 			// agnostic — it reports whatever the server said rather than mapping specific codes.
 			onError: (error) => {
 				console.error(error);
+				// Prefer the CAPTCHA wording when that is what failed — describeError would
+				// only echo the server's bare "Verification failed" without saying what to
+				// do about it. A retry mints a fresh token on its own.
 				// `message`, not `description`: the latter is the toast's body, with the first clause
 				// of a "Conflict: …" style message moved out into the heading this has no room for.
-				setError('root', { type: 'server', message: describeError(error).message });
+				setError('root', {
+					type: 'server',
+					message: captcha.describeCaptchaError(error) ?? describeError(error).message,
+				});
 			},
 		});
-	}, [clearErrors, navigate, setError, submitSignUpData]);
+	}, [clearErrors, navigate, setError, submitSignUpData, captcha]);
 
 	const onOAuthClick = useCallback((e: MouseEvent) => {
 		if (!acceptTerms) {
@@ -301,7 +311,7 @@ export function SignUp() {
 						</p>
 					)}
 
-					<Button type="submit" variant="submit" disabled={isPending} className="w-full my-4">
+					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-4">
 						Sign Up For Free
 					</Button>
 				</form>

@@ -23,6 +23,19 @@ vi.mock('sonner', () => ({
 
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
+// Stands in for Google's script: the hook mints through this module at submit time.
+const { captchaState } = vi.hoisted(() => ({
+	captchaState: { configured: true, token: undefined as string | undefined, mints: [] as string[] },
+}));
+vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
+	isCaptchaConfigured: () => captchaState.configured,
+	warmCaptcha: vi.fn(),
+	getCaptchaToken: async (action: string) => {
+		captchaState.mints.push(action);
+		return captchaState.token;
+	},
+}));
+
 import { toast } from 'sonner';
 // The app's own mutation-error routing, not a copy of it: whether the form's failure also
 // reaches the global toast is part of what's under test, so restating that rule here would let
@@ -65,6 +78,9 @@ beforeEach(() => {
 		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 		defaultOptions: { mutations: { retry: false } },
 	});
+	captchaState.configured = true;
+	captchaState.token = undefined;
+	captchaState.mints = [];
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -133,5 +149,83 @@ describe('SignUp', () => {
 
 		settle!();
 		await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+	});
+});
+
+describe('SignUp — reCAPTCHA', () => {
+	it('mints a signup token at submit and sends it as captchaToken', async () => {
+		captchaState.token = 'human-token';
+		post.mockResolvedValue({ data: { id: 'usr-1', email: 'taken@example.com' } });
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		expect(captchaState.mints).toEqual(['signup']);
+		expect(post.mock.calls[0][1]).toMatchObject({ captchaToken: 'human-token' });
+	});
+
+	it('omits the field entirely when no token could be minted (enforcement still off)', async () => {
+		captchaState.configured = false;
+		post.mockResolvedValue({ data: { id: 'usr-1', email: 'taken@example.com' } });
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+		// toHaveBeenCalledWith treats an explicit undefined as absent, so assert the key
+		// is genuinely gone — the rollout depends on an untokened body being clean.
+		expect(post.mock.calls[0][1]).not.toHaveProperty('captchaToken');
+	});
+
+	it('reports a rejected token with wording that says what to do next', async () => {
+		captchaState.token = 'rejected-token';
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert').textContent).toContain('Verification failed. Please try again.')
+		);
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it('names the real problem when the check never ran (script blocked, key configured)', async () => {
+		// Telling someone to "try again" when the script cannot run — ad blocker, or
+		// Google unreachable — is a dead end; name the actual problem.
+		captchaState.token = undefined; // configured, but the mint failed
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() =>
+			expect(screen.getByRole('alert').textContent).toContain('could not run the verification check')
+		);
+	});
+
+	it('a retry after any failure mints a fresh token by design', async () => {
+		// v3 tokens are single use and minted per submit, so a 409 whose real problem
+		// was the email address can never leave a spent token behind for the retry.
+		captchaState.token = 'first-token';
+		post.mockRejectedValueOnce(axiosError(409, 'User already exists'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('User already exists'));
+
+		captchaState.token = 'second-token';
+		post.mockResolvedValueOnce({ data: { id: 'usr-1', email: 'taken@example.com' } });
+		submit();
+
+		await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+		expect(captchaState.mints).toEqual(['signup', 'signup']);
+		expect(post.mock.calls[1][1]).toMatchObject({ captchaToken: 'second-token' });
 	});
 });
