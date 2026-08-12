@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AxiosError } from 'axios';
 import { PropsWithChildren } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn() }));
 vi.mock('@/config/apiClient', () => ({ apiClient: { post } }));
@@ -24,14 +24,18 @@ vi.mock('sonner', () => ({
 vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 
 import { toast } from 'sonner';
-// The real client is used on purpose: the global mutation-error toast lives on its
-// MutationCache, so this is what proves `skipGlobalErrorToast` is wired up.
-import { queryClient } from '@/react-query/queryClient';
+// The app's own mutation-error routing, not a copy of it: whether a 409 reaches the global
+// toast is the thing under test, so restating that rule here would let these tests pass even
+// if `skipGlobalErrorToast` stopped being honored.
+import { mutationErrorHandler } from '@/react-query/queryClient';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
 	return { isAxiosError: true, response: { status, data } } as AxiosError;
 }
+
+// Fresh per test, so nothing leaks between them.
+let queryClient: QueryClient;
 
 function renderSignUp() {
 	return render(
@@ -56,10 +60,14 @@ function submit() {
 	fireEvent.click(screen.getByRole('button', { name: 'Sign Up For Free' }));
 }
 
-afterEach(() => {
-	vi.clearAllMocks();
-	queryClient.clear();
+beforeEach(() => {
+	queryClient = new QueryClient({
+		mutationCache: new MutationCache({ onError: mutationErrorHandler }),
+		defaultOptions: { mutations: { retry: false } },
+	});
 });
+
+afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
 	it('shows an already-registered 409 on the email field instead of a generic toast', async () => {
