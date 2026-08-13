@@ -235,17 +235,18 @@ function rowsFrom(
 		.map(([label, value, format]): [string, string] => [label, format(value)]);
 }
 
-// Same, for the throughput ceilings, which arrive as {value, unlimited, known}: a ceiling the plan
-// doesn't declare (null) gets no row, "no ceiling" reads Unlimited, and anything we can't pin down —
-// including the bare numbers a pre-normalization server sends — reads "—" rather than a hard number.
+// Same, for ceilings carrying the {limit, unlimited, limitKnown} states — rate ceilings here, but a
+// metered value satisfies it too. A ceiling the plan doesn't declare (null) gets no row, "no ceiling"
+// reads Unlimited, and anything we can't pin down — including the bare numbers a pre-normalization
+// server sends — reads "—" rather than a hard number.
 function rateRowsFrom(
 	entries: Array<[string, UsageRateLimit | null, (n: number) => string]>,
 ): Array<[string, string]> {
 	return entries
 		.filter((e): e is [string, UsageRateLimit, (n: number) => string] => e[1] != null)
-		.map(([label, limit, format]): [string, string] => [
+		.map(([label, ceiling, format]): [string, string] => [
 			label,
-			limit.unlimited ? 'Unlimited' : limit.known && limit.value != null ? format(limit.value) : '—',
+			ceiling.unlimited ? 'Unlimited' : ceiling.limitKnown && ceiling.limit != null ? format(ceiling.limit) : '—',
 		]);
 }
 

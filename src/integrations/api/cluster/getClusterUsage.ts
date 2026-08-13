@@ -29,15 +29,12 @@ export interface UsageMetrics {
 export type UsageMetricKey = keyof UsageMetrics;
 
 /**
- * One throughput ceiling, in the same three states the metered values carry: a finite `value`,
- * `unlimited` (the plan grants no ceiling), or `!known` — the endpoint couldn't determine it, rendered
- * "—". Never a sentinel: the -1 the unlimited plans store is resolved server-side.
+ * One throughput ceiling: a metered value minus `used`, sharing its exact three states — a finite
+ * `limit`, `unlimited` (the plan grants no ceiling), or `!limitKnown`, rendered "—". Deriving it from
+ * `UsageValue` is what lets one formatter take a metric ceiling and a rate ceiling alike. Never a
+ * sentinel: the -1 the unlimited plans store is resolved server-side.
  */
-export interface UsageRateLimit {
-	value: number | null;
-	unlimited: boolean;
-	known: boolean;
-}
+export type UsageRateLimit = Omit<UsageValue, 'used'>;
 
 /**
  * EFFECTIVE per-region ceilings, not a copy of the plan row: the endpoint resolves the -1 sentinel and
@@ -46,8 +43,8 @@ export interface UsageRateLimit {
  * (HarperFast/central-manager#635). `null` means the plan declares no such ceiling, and the UI drops
  * the row instead of inventing one.
  *
- * A server that predates that normalization sends bare numbers here; with no `known`/`unlimited` flags
- * to trust they render as "—", never as a real (understated) ceiling. See `rateRowsFrom`.
+ * A server that predates that normalization sends bare numbers here; with no `limitKnown`/`unlimited`
+ * flags to trust they render as "—", never as a real (understated) ceiling. See `rateRowsFrom`.
  */
 export interface UsageRateLimits {
 	readsPerMinute: UsageRateLimit | null;
