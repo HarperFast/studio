@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
-import { LARGE_PACKAGE_BYTES, measureProjectPackage } from '@/features/instance/applications/lib/projectPackageSize';
+import { measureProjectPackage, packageCaution } from '@/features/instance/applications/lib/projectPackageSize';
 import { usePackageComponentMutation } from '@/integrations/api/instance/applications/packageComponent';
 import { attemptToRestoreFocus } from '@/lib/attemptToRestoreFocus';
 import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
@@ -50,9 +50,7 @@ export function DownloadApplicationModal() {
 		() => measureProjectPackage(rootEntries, openedEntry?.project),
 		[rootEntries, openedEntry?.project],
 	);
-	// node_modules is absent from the tree, so with it included the real package is strictly
-	// larger than what we measured — and usually by a lot. Treat that as large regardless.
-	const isLarge = measured !== undefined && (measured.bytes > LARGE_PACKAGE_BYTES || includeNodeModules);
+	const caution = packageCaution(measured, includeNodeModules);
 
 	const includeNodeModulesChanged = useCallback((e: ChangeEvent<HTMLInputElement>) => {
 		setIncludeNodeModules(e.target.checked);
@@ -121,26 +119,44 @@ export function DownloadApplicationModal() {
 						{measured && (
 							<>
 								{' '}
-								{measured.exact ? 'About' : 'At least'} {humanFileSize(measured.bytes)} across{' '}
+								{
+									/*
+								  A zero total from an instance that reports no sizes is not "0 B" — quoting it
+								  would dress up a complete absence of information as a reassuringly small
+								  number. Give the file count, which is real, and let the alert below carry
+								  the uncertainty.
+								*/
+								}
+								{measured.bytes > 0
+									&& `${measured.exact ? 'About' : 'At least'} ${humanFileSize(measured.bytes)} across `}
 								{new Intl.NumberFormat().format(measured.fileCount)} {measured.fileCount === 1 ? 'file' : 'files'}
+								{measured.bytes > 0 ? '' : ' of unreported size'}
 								{includeNodeModules ? ', plus node modules' : ''}.
 							</>
 						)}
 					</DialogDescription>
 				</DialogHeader>
 
-				{isLarge && (
+				{caution && (
 					<Alert variant="warning">
 						<AlertTriangleIcon />
-						<AlertTitle>This is a large download</AlertTitle>
+						<AlertTitle>
+							{caution === 'large' ? 'This is a large download' : 'This download’s size is unknown'}
+						</AlertTitle>
 						<AlertDescription>
+							{caution === 'unmeasured' && (
+								<p>
+									This instance didn’t report file sizes, so there’s no way to tell up front whether this application is
+									small enough to download.
+								</p>
+							)}
 							<p>
 								Studio has to hold the whole archive in browser memory before it can be saved, so the tab may run out of
 								memory and crash partway through.
 							</p>
 							<p>
-								Copying the application off the host directly —{' '}
-								<code>scp</code>, or the Harper CLI — is more reliable at this size.
+								Copying the application off the host directly — <code>scp</code>, or the Harper CLI — is more reliable
+								{caution === 'large' ? ' at this size' : ' when the size is unknown'}.
 							</p>
 						</AlertDescription>
 					</Alert>
@@ -169,7 +185,7 @@ export function DownloadApplicationModal() {
 						autoFocus={true}
 						onClick={onClickYes}
 					>
-						<DownloadIcon /> {isLarge && !isPending && !isSuccess ? 'Download anyway' : actionStatus}
+						<DownloadIcon /> {caution && !isPending && !isSuccess ? 'Download anyway' : actionStatus}
 						{isPending ? '...' : ''}
 					</Button>
 				</div>

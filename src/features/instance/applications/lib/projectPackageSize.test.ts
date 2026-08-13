@@ -1,6 +1,10 @@
 import { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import { FileEntry } from '@/features/instance/applications/context/fileEntry';
-import { LARGE_PACKAGE_BYTES, measureProjectPackage } from '@/features/instance/applications/lib/projectPackageSize';
+import {
+	LARGE_PACKAGE_BYTES,
+	measureProjectPackage,
+	packageCaution,
+} from '@/features/instance/applications/lib/projectPackageSize';
 import { describe, expect, it } from 'vitest';
 
 function file(name: string, size?: number): FileEntry {
@@ -67,5 +71,44 @@ describe('measureProjectPackage', () => {
 		const tree = [dir('app', [file('index.js', 20_000), file('README.md', 4_000)])];
 
 		expect(measureProjectPackage(tree, 'app')!.bytes).toBeLessThan(LARGE_PACKAGE_BYTES);
+	});
+});
+
+describe('packageCaution', () => {
+	const exact = (bytes: number) => ({ bytes, fileCount: 3, exact: true });
+
+	it('stays quiet for a measured, ordinary application', () => {
+		expect(packageCaution(exact(24_000), false)).toBeUndefined();
+	});
+
+	it('flags a measured application over the threshold as large', () => {
+		expect(packageCaution(exact(800_000_000), false)).toBe('large');
+	});
+
+	it('treats the threshold as exclusive', () => {
+		expect(packageCaution(exact(LARGE_PACKAGE_BYTES), false)).toBeUndefined();
+		expect(packageCaution(exact(LARGE_PACKAGE_BYTES + 1), false)).toBe('large');
+	});
+
+	it('flags including node modules as large, since the measured total is then only a floor', () => {
+		expect(packageCaution(exact(1_000), true)).toBe('large');
+	});
+
+	// The hole this function exists to close. An instance that reports no file sizes yields
+	// { bytes: 0, exact: false }; comparing that against the threshold reads as "safe", so an
+	// 800 MB application would get no warning at all and reproduce the #1591 tab crash.
+	it('flags an inexact measurement even though its partial total is under the threshold', () => {
+		expect(packageCaution({ bytes: 0, fileCount: 4_213, exact: false }, false)).toBe('unmeasured');
+		expect(packageCaution({ bytes: 2_000, fileCount: 4_213, exact: false }, false)).toBe('unmeasured');
+	});
+
+	it('flags a project it could not measure at all', () => {
+		expect(packageCaution(undefined, false)).toBe('unmeasured');
+	});
+
+	// Unmeasured wins over large: the honest message is "we don't know", not a size claim we
+	// can't support.
+	it('reports unmeasured rather than large when an inexact total is itself over the threshold', () => {
+		expect(packageCaution({ bytes: 800_000_000, fileCount: 10, exact: false }, false)).toBe('unmeasured');
 	});
 });
