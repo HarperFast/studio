@@ -52,10 +52,10 @@ const metrics = (over: Partial<UsageMetrics> = {}): UsageMetrics => ({
 	...over,
 });
 
-const rate = (value: number | null, over: Partial<UsageRateLimit> = {}): UsageRateLimit => ({
-	value,
+const rate = (limit: number | null, over: Partial<UsageRateLimit> = {}): UsageRateLimit => ({
+	limit,
 	unlimited: false,
-	known: value !== null,
+	limitKnown: limit !== null,
 	...over,
 });
 
@@ -193,12 +193,24 @@ describe('UsagePage', () => {
 		expect(rowValue('Reads / minute')).toBe('50,000');
 	});
 
+	it('takes a metered value through the ceiling formatter unchanged — one vocabulary, not two', () => {
+		// A UsageValue is a rate ceiling plus `used`, so it satisfies UsageRateLimit: this assignment
+		// type-checks, and the same formatter renders it. Guards the shared shape against drifting apart.
+		const metered: UsageValue = v(9_200_000, 50_000);
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: metered } })] }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(rowValue('Reads / minute')).toBe('50,000');
+	});
+
 	it('reads a plan with no ceiling as Unlimited, never as the -1 sentinel', () => {
 		// fabric-block-dedicated-unlimited-{2..5} store -1 for every limit.
 		mockUseClusterUsage.mockReturnValue({
 			data: usage({
 				regions: [
-					region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: rate(null, { unlimited: true, known: true }) } }),
+					region({ rateLimits: { ...RATE_LIMITS, readsPerMinute: rate(null, { unlimited: true, limitKnown: true }) } }),
 				],
 			}),
 			isLoading: false,
