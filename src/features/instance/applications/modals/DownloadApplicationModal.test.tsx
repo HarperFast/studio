@@ -102,6 +102,24 @@ describe('DownloadApplicationModal size warning', () => {
 		expect(screen.queryByText(/About 2 MB/)).toBeNull();
 	});
 
+	// The regression kriszyp caught: an older instance reporting no sizes at all measures to
+	// { bytes: 0, exact: false }, which a bare threshold comparison reads as safe — so an
+	// 800 MB application would reach the same tab crash #1591 reports, with no warning.
+	it('warns when the instance reports no sizes, instead of reading zero as safe', () => {
+		mount([file('a.js'), file('b.js'), file('assets.bin')]);
+
+		expect(screen.getByText('This download’s size is unknown')).toBeTruthy();
+		expect(screen.getByRole('button', { name: /Download anyway/ })).toBeTruthy();
+	});
+
+	it('never quotes "0 B" for an unmeasured application', () => {
+		mount([file('a.js'), file('b.js'), file('assets.bin')]);
+
+		expect(screen.queryByText(/0 B/)).toBeNull();
+		// The file count is real even when the sizes aren't, so it still gets reported.
+		expect(screen.getByText(/3 files of unreported size/)).toBeTruthy();
+	});
+
 	it('says "file" rather than "files" for a single-file application', () => {
 		mount([file('index.js', 2_000_000)]);
 

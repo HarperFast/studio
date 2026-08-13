@@ -45,6 +45,39 @@ export interface ProjectPackageSize {
  */
 export const LARGE_PACKAGE_BYTES = 100_000_000;
 
+/** Why the modal should caution before packaging, or undefined when it shouldn't. */
+export type PackageCaution =
+	/** Measured, and big enough that the browser may not survive decoding it. */
+	| 'large'
+	/** Not measured, or measured short — the size is unknown, which is not the same as small. */
+	| 'unmeasured';
+
+/**
+ * Whether to caution before packaging `measured`, and why.
+ *
+ * The `unmeasured` state is the whole reason this is a function rather than a `>` comparison.
+ * An instance that reports no file sizes yields `{ bytes: 0, exact: false }`, and comparing that
+ * total against the threshold reads as "safe" — so the 800 MB application this warning exists
+ * for (HarperFast/studio#1591) would sail through to the same tab crash, on precisely the older
+ * instances least likely to have the streamed download. Absence of a measurement must never
+ * suppress the warning; it earns one of its own.
+ */
+export function packageCaution(
+	measured: ProjectPackageSize | undefined,
+	includeNodeModules: boolean,
+): PackageCaution | undefined {
+	if (!measured || !measured.exact) {
+		return 'unmeasured';
+	}
+	// node_modules is absent from the tree, so an exact total is still only a floor once it's
+	// included — and usually by a lot. Treat that as large rather than unmeasured: we know the
+	// real package exceeds what we measured, which is the same thing the user needs to hear.
+	if (includeNodeModules || measured.bytes > LARGE_PACKAGE_BYTES) {
+		return 'large';
+	}
+	return undefined;
+}
+
 /**
  * Total size of the files `package_component` would pack for `project`, or undefined when the
  * project isn't in the tree (nothing trustworthy to report — say nothing rather than "0 B").
