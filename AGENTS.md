@@ -100,6 +100,39 @@ explicit `sorting: undefined` _replaces_ the default and the first header click 
 `toggleSorting`. Default optional sorting props before handing them over (see
 `SimpleBrowseDataTable`).
 
+## Builds — sourcemaps are per mode, and `localstudio` deliberately has none
+
+`build.sourcemap` in `vite.config.ts` is a function (`sourcemapFor`), not a flag, because the
+three kinds of build want three different things. Sourcemaps dominate this output — they were
+71 MB of a 94 MB build — since each embeds `sourcesContent`, the full original text of every
+module it covers.
+
+| build                                | sourcemap  | why                                              |
+| ------------------------------------ | ---------- | ------------------------------------------------ |
+| `pnpm build:local` (`localstudio`)   | `false`    | ships inside Harper; nothing reads the maps      |
+| `pnpm build --mode dev\|stage\|prod` | `'hidden'` | uploaded to Datadog, then stripped before deploy |
+| bare `pnpm build`                    | `true`     | a developer inspecting a prod build locally      |
+
+**How Studio ships inside Harper.** The `localstudio` mode is the UI bundled into the Harper
+distribution. The **harper** repo drives that build from its own scripts, roughly
+`VITE_STUDIO_VERSION="v$(jq -r '.version' ../package.json)" pnpm run build:local`, and packages
+the resulting `web/` as-is. Nothing on that path uploads maps to Datadog or reads them, so
+emitting them only inflates the published Harper package — which is why the omission is
+configured **here** rather than by post-processing over in harper. Keep it that way: turning
+`localstudio` sourcemaps back on silently adds ~71 MB to the Harper package with no consumer,
+and no failing test will catch it.
+
+**Deploy modes.** Datadog is the only consumer of the deploy maps, and it keeps its own copy, so
+the workflows delete them after the upload and before `mv web deploy/` rather than replicating
+~71 MB to every node for nothing. `'hidden'` is what makes that safe to do: it writes the maps
+but omits the trailing `//# sourceMappingURL=` comment, which under `true` would dangle onto a
+404 once the files are gone. `datadog-ci sourcemaps upload` pairs each `.js.map` with its bundle
+by filename and never needs that comment (verified with `--dry-run`: 173/173 paired). The strip
+step lives in all six `deploy-*.yaml` workflows — add it to any new one.
+
+(The repo is public, so none of this is about keeping `sourcesContent` unreadable — it is purely
+size containment.)
+
 ## pnpm — dependency overrides go in `pnpm-workspace.yaml`, not `package.json`
 
 This repo uses pnpm 11. `overrides` (and other settings like `minimumReleaseAge`,
