@@ -26,7 +26,7 @@ import {
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 export function EditRoleModal({
@@ -103,27 +103,27 @@ export function EditRoleModal({
 	// `operations` array and writes changes back into the text, which stays the single source of
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
-	const previousOperationsRef = useRef<string[] | undefined>(undefined);
-	const { operationsValue, malformedOperations } = useMemo(() => {
+	const { operationsJson, malformedOperations } = useMemo(() => {
 		const parsed = isValidJSON && updatedPermissions
 			? safeParse<LocalRolePermission>(updatedPermissions)
 			: null;
 		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			return { operationsValue: undefined, malformedOperations: false };
+			return { operationsJson: undefined, malformedOperations: false };
 		}
-		// Reuse the previous array identity when the content hasn't changed, so unrelated typing in
-		// the JSON editor doesn't re-render the whole picker subtree.
-		const next = getOperationsAllowlist(parsed);
-		const previous = previousOperationsRef.current;
-		const stable = next && previous && next.length === previous.length
-				&& next.every((entry, index) => entry === previous[index])
-			? previous
-			: next;
-		previousOperationsRef.current = stable;
+		const allowlist = getOperationsAllowlist(parsed);
 		// A present-but-not-string-array `operations` (e.g. `true`) is left to the JSON editor
 		// rather than clobbered from the structured one.
-		return { operationsValue: stable, malformedOperations: hasMalformedOperations(parsed) };
+		return {
+			operationsJson: allowlist && JSON.stringify(allowlist),
+			malformedOperations: hasMalformedOperations(parsed),
+		};
 	}, [isValidJSON, updatedPermissions]);
+	// Keyed on the serialized form so unrelated typing in the JSON editor keeps the array identity
+	// stable and doesn't re-render the picker subtree.
+	const operationsValue = useMemo(
+		() => (operationsJson === undefined ? undefined : JSON.parse(operationsJson) as string[]),
+		[operationsJson],
+	);
 
 	const onOperationsChanged = useCallback(
 		(next: string[] | undefined) => {
