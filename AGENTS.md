@@ -19,6 +19,33 @@ at `.husky`. In a fresh clone or worktree that skipped install, `core.hooksPath`
 the hook never fires, and a non-conforming message commits silently — CI is the first thing
 that objects.
 
+## Comments — there is a budget, and it counts sites, not lines
+
+`comment-budget` (`tools/oxlint-plugins/comment-budget.js`, an oxlint JS plugin wired in via
+`jsPlugins`) warns at **12 comments per file** and **4 per block**. It is a `warn`, so it never
+fails `pnpm lint` or the pre-commit hook — the point is to make comment volume visible, not to
+gate on it.
+
+What it counts is **sites**, not comments or lines: a run of own-line comments on consecutive
+lines is one site however long it runs, so a five-line paragraph explaining a race costs the same
+as a lone `// increment i`. Budgeting per line would price the considered explanation above the
+throwaway, which is backwards. Trailing comments never merge with their neighbours (two
+`x = 1; // why` lines in a row are two asides, not a paragraph). Linter/compiler/formatter
+directives (`eslint-*`, `oxlint-*`, `@ts-*`, `dprint-*`, `c8 ignore`, `#region`, …) and JSDoc/TSDoc
+are exempt; a `/*** banner ***/` is not.
+
+**Read a block warning as "this scope does too much", not "these comments are bad."** That is what
+calibrating it against this repo actually showed: the densest scopes here
+(`useResizableDialog.ts`, `DatabaseTableView.tsx`) are commented _well_ — Radix ref-loop hazards,
+why position deliberately isn't persisted, why `describe_all` and `describe_table` race. None of
+that survives being renamed into the code. They trip the budget because the functions are large,
+so the fix is extraction, and deleting the prose to get under the number is the one response that
+makes the file worse. Comments are attributed to their **innermost** block, so splitting a long
+function genuinely clears the warning.
+
+If a file has earned its comments, say so explicitly rather than trimming:
+`// oxlint-disable comment-budget/comment-budget`.
+
 ## Routing — keep `getParentRoute` and `addChildren` in lockstep
 
 In the TanStack Router setup (`src/router/rootRouteTree.ts`), every route's declared

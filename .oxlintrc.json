@@ -1,10 +1,20 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"jsPlugins": [
+		"./tools/oxlint-plugins/comment-budget.js"
+	],
 	"ignorePatterns": [
 		"src/integrations/api/*.gen.d.ts",
 		"src/assets/**"
 	],
 	"rules": {
-		"react/exhaustive-deps": "error"
+		"react/exhaustive-deps": "error",
+		"comment-budget/comment-budget": [
+			"warn",
+			{
+				"maxPerFile": 12,
+				"maxPerBlock": 4
+			}
+		]
 	}
 }
