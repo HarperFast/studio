@@ -4,8 +4,8 @@ import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 /**
- * Admin CRUD over the central-manager `SystemStatus` table. The resource already gates writes to
- * fabric admins (isFabricAdmin) server-side, so these just need the fabric-admin session. The
+ * Admin CRUD over the central-manager `SystemStatus` table. The resource gates writes on the
+ * systemStatus:write staff permission server-side, so these just need the staff session. The
  * SystemStatus paths aren't in the generated OpenAPI types yet, so URLs are cast (as elsewhere).
  * The global MutationCache.onError surfaces failures as a toast; each write refetches the list.
  */

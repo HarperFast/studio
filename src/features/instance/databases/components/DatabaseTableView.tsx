@@ -11,7 +11,7 @@ import {
 import { getSchemaRelationshipsQueryOptions } from '@/features/instance/databases/functions/schemaRelationships';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
-import { useAdminMode } from '@/hooks/useAuth';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
 import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
@@ -76,7 +76,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { toggled: onlyIfCached, toggle: toggleOnlyCached } = useToggler(true);
 
-	const adminMode = useAdminMode();
+	const isStaffInstanceOperator = useStaffPermission('instance:update');
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
@@ -545,7 +545,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 								</Link>
 							</DropdownMenuItem>
 							{canManageBrowseInstance
-								&& adminMode
+								&& isStaffInstanceOperator
 								&& !!instanceId && (
 								<DropdownMenuItem
 									className="focus:bg-yellow/70 focus:text-white"

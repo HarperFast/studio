@@ -34,9 +34,44 @@ export interface OAuthLockedRole {
 	oauthProviders?: Array<{ name: string; oauthConfigId: string }>;
 }
 
+/**
+ * The staff permissions the UI gates on, matching the values `/User/current` returns in
+ * `staffPermissions`. A subset — the API defines more, but only these drive UI decisions.
+ */
+export type StaffPermission =
+	| 'org:read'
+	| 'org:update'
+	| 'org:delete'
+	| 'role:read'
+	| 'role:create'
+	| 'role:update'
+	| 'role:delete'
+	| 'cluster:read'
+	| 'cluster:create'
+	| 'cluster:update'
+	| 'cluster:delete'
+	| 'instance:read'
+	| 'instance:update'
+	| 'billing:write'
+	| 'region:read'
+	| 'region:write'
+	| 'systemStatus:write'
+	| 'apiToken:create';
+
 export interface User extends Omit<SchemaUser, 'roles'> {
 	roles: Record<SchemaOrganization['id'], SchemaRole & OAuthLockedRole>;
-	fabricRole: 'fabric_admin' | 'super_user' | 'least_privileged';
+	fabricRole:
+		| 'fabric_admin'
+		| 'fabric_support'
+		| 'fabric_readonly'
+		| 'fabric_staff'
+		| 'super_user'
+		| 'least_privileged';
+	/**
+	 * What this account may do across organizations. Empty for customers; absent when the API
+	 * predates the field (hasStaffPermission then falls back to role names).
+	 */
+	staffPermissions?: string[];
 	/** The oac-… config ID used to authenticate this session, or null if password/global OAuth. */
 	oauthConfigId: string | null;
 }

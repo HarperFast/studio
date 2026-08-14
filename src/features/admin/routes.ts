@@ -11,6 +11,7 @@ export const adminLayoutRoute = createRoute({
 // /admin itself has no page of its own — send it to whatever sits at the top of AdminShell's rail.
 // A redirect rather than a second component mount, so each section keeps exactly one URL (links
 // shared before Regions existed still point at /admin/notifications). Keep in step when reordering.
+// Accounts that can't see the target page are bounced onward by AdminShell's permission filter.
 const adminIndexRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: '/',

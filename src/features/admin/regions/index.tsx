@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { RegionFormModal } from '@/features/admin/regions/components/RegionFormModal';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
 import { getRegionsQueryOptions } from '@/features/admin/regions/queries/getRegions';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { AdminRegion } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { PencilIcon, PlusIcon } from 'lucide-react';
@@ -32,6 +33,9 @@ export function RegionsIndex() {
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editing, setEditing] = useState<AdminRegion | null>(null);
 	const [search, setSearch] = useState('');
+	// The page itself only needs region:read; creating/editing posts to the
+	// region:write-gated endpoints.
+	const canWriteRegions = useStaffPermission('region:write');
 
 	const orgNameById = useMemo(
 		() => new Map((orgResult?.organizations ?? []).map((o) => [o.id, o.name])),
@@ -70,10 +74,12 @@ export function RegionsIndex() {
 						customers; otherwise it's available to everyone.
 					</p>
 				</div>
-				<Button variant="submit" onClick={openCreate} className="shrink-0">
-					<PlusIcon />
-					Create region
-				</Button>
+				{canWriteRegions && (
+					<Button variant="submit" onClick={openCreate} className="shrink-0">
+						<PlusIcon />
+						Create region
+					</Button>
+				)}
 			</div>
 
 			<div className="mt-6">
@@ -124,15 +130,16 @@ export function RegionsIndex() {
 														<RegionScope organizationIds={region.organizationIds} orgNameById={orgNameById} />
 													</TableCell>
 													<TableCell className="text-right">
-														<Button
-															variant="ghost"
-															size="icon"
-															aria-label={`Edit ${region.id}`}
-															onClick={() =>
-																openEdit(region)}
-														>
-															<PencilIcon />
-														</Button>
+														{canWriteRegions && (
+															<Button
+																variant="ghost"
+																size="icon"
+																aria-label={`Edit ${region.id}`}
+																onClick={() => openEdit(region)}
+															>
+																<PencilIcon />
+															</Button>
+														)}
 													</TableCell>
 												</TableRow>
 											))}

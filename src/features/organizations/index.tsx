@@ -13,7 +13,7 @@ import {
 	ALL_ORGANIZATIONS_PAGE_SIZE,
 	getAllOrganizationsQueryOptions,
 } from '@/features/organizations/queries/getAllOrganizations';
-import { useAdminMode } from '@/hooks/useAuth';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { detectEntityId } from '@/lib/string/entityId';
@@ -40,10 +40,12 @@ export function OrganizationsIndex() {
 	const [filterByNameValue, setFilterByNameValue] = useState('');
 	const clearFilterByNameValue = useCallback(() => setFilterByNameValue(''), []);
 
-	const isAdminMode = useAdminMode();
+	// The server-side listing and id lookup read every organization, so the
+	// staff org:read permission is what unlocks them.
+	const canReadAllOrgs = useStaffPermission('org:read');
 	const [showAllOrgs, setShowAllOrgs] = useSessionStorage('ShowAllOrganizations', false);
 	const [pageIndex, setPageIndex] = useState(0);
-	const showAll = isAdminMode && showAllOrgs;
+	const showAll = canReadAllOrgs && showAllOrgs;
 
 	const onShowAllOrgsChanged = useCallback((checked: boolean) => {
 		setShowAllOrgs(checked);
@@ -56,15 +58,15 @@ export function OrganizationsIndex() {
 
 	// A pasted organization/cluster id is resolved by id server-side rather than
 	// matched as a title (see getAllOrganizationsQueryOptions). This works for
-	// any fabric admin regardless of the "All Orgs" toggle, so support can jump
+	// any staff account regardless of the "All Orgs" toggle, so support can jump
 	// straight to an org from an id copied out of a log or ticket.
 	const searchEntityId = useMemo(() => {
-		if (!isAdminMode) {
+		if (!canReadAllOrgs) {
 			return null;
 		}
 		const entity = detectEntityId(debouncedFilterValue);
 		return entity?.kind === 'organization' || entity?.kind === 'cluster' ? entity : null;
-	}, [isAdminMode, debouncedFilterValue]);
+	}, [canReadAllOrgs, debouncedFilterValue]);
 
 	// Both the "All Orgs" listing and an id lookup render from the server query.
 	const isServerSearch = showAll || !!searchEntityId;
@@ -82,12 +84,12 @@ export function OrganizationsIndex() {
 		> = [];
 
 		for (const [organizationId, role] of Object.entries(roles)) {
-			// Fabric admins / super users bypass an org's OAuth requirement, so never
-			// lock their cards — render the org normally even when it requires OAuth.
-			if ('oauthProviders' in role && !isAdminMode) {
+			// Staff access comes from org:read, not membership, so an org's OAuth
+			// requirement doesn't apply — render those cards normally.
+			if ('oauthProviders' in role && !canReadAllOrgs) {
 				locked.push({ organizationId, organizationName: role.organizationName, providers: role.oauthProviders! });
 			} else {
-				normal.push({ organizationId, organizationName: role.organizationName, roleName: role.role ?? 'fabric admin' });
+				normal.push({ organizationId, organizationName: role.organizationName, roleName: role.role ?? 'fabric staff' });
 			}
 		}
 
@@ -96,16 +98,16 @@ export function OrganizationsIndex() {
 			.sort((a, b) => ((a.organizationName || '') > (b.organizationName || '') ? 1 : -1));
 
 		return { organizationRoles: filteredNormal, oauthLockedOrgs: locked };
-	}, [filterByNameValue, user?.roles, isAdminMode]);
+	}, [filterByNameValue, user?.roles, canReadAllOrgs]);
 
-	// Roles for organizations the fabric admin is fetching server-side. Falls
-	// back to "fabric admin" for organizations the user has no role in.
+	// Roles for organizations the staff account is fetching server-side. Falls
+	// back to "fabric staff" for organizations the user has no role in.
 	const allOrganizationRoles = useMemo(() => {
 		const roles = user?.roles || {};
 		return (allOrgsPage?.organizations || []).map((org) => ({
 			organizationId: org.id,
 			organizationName: org.name,
-			roleName: roles[org.id]?.role || 'fabric admin',
+			roleName: roles[org.id]?.role || 'fabric staff',
 		}));
 	}, [allOrgsPage?.organizations, user?.roles]);
 
@@ -160,7 +162,7 @@ export function OrganizationsIndex() {
 		<>
 			<SubNavMenu>
 				<div className="flex w-full items-center justify-end gap-2">
-					{isAdminMode && (
+					{canReadAllOrgs && (
 						<label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs">
 							<Switch
 								checked={showAllOrgs}
