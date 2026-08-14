@@ -189,8 +189,11 @@ export interface LocalRolePermission {
 	super_user?: boolean;
 	cluster_user?: boolean;
 	structure_user?: boolean;
+	// Optional operation allowlist (Harper 5.0+): operation/group names; when present, unlisted
+	// operations are denied and listed super_user-only operations are granted to the role.
+	operations?: string[];
 
-	[databaseName: string]: LocalRoleSchemaRecord;
+	[databaseName: string]: LocalRoleSchemaRecord | boolean | string[] | undefined;
 }
 
 export interface LocalRoleSchemaRecord {

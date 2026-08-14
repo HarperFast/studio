@@ -4,6 +4,7 @@ import {
 	LocalRolePermission,
 	LocalRolePermissionTable,
 } from '@/integrations/api/api.patch';
+import { getDatabasePermissionRecord, RESERVED_PERMISSION_KEYS } from '@/integrations/api/localRolePermission';
 import { keyBy } from '@/lib/keyBy';
 
 export function calculateDefaultPermissions({
@@ -29,23 +30,26 @@ export function calculateDefaultPermissions({
 	const legacy = version !== '2.0.000' && major <= 2 && minor <= 1 && patch <= 2;
 
 	for (const databaseName in instanceDatabaseMap) {
+		if (RESERVED_PERMISSION_KEYS.has(databaseName)) {
+			// A database named like a reserved permission key (e.g. `operations`) cannot be expressed
+			// in role JSON — writing it here would clobber the reserved value (the allowlist).
+			continue;
+		}
 		permissionStructure[databaseName] = {
 			tables: {},
 		};
 		for (const tableName in instanceDatabaseMap[databaseName]) {
 			const thisTable = instanceDatabaseMap[databaseName][tableName];
 			const attributes = thisTable.attributes.map((a) => a.attribute).sort();
+			const extantTablePermissions = currentRolePermissions
+				&& getDatabasePermissionRecord(currentRolePermissions, databaseName)?.tables?.[tableName];
 			if (legacy) {
-				const extantTablePermissions = currentRolePermissions && currentRolePermissions[databaseName]
-					&& currentRolePermissions[databaseName].tables[tableName];
 				permissionStructure[databaseName].tables[tableName] = buildLegacy(
 					extantTablePermissions as LocalLegacyRolePermissionTable,
 					attributes,
 					showAttributes,
 				);
 			} else {
-				const extantTablePermissions = currentRolePermissions && currentRolePermissions[databaseName]
-					&& currentRolePermissions[databaseName].tables[tableName];
 				permissionStructure[databaseName].tables[tableName] = buildCurrent(
 					extantTablePermissions as LocalRolePermissionTable,
 					attributes,
