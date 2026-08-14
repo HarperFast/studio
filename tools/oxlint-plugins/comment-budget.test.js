@@ -1,11 +1,21 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const PLUGIN = resolve(import.meta.dirname, 'comment-budget.js');
-const OXLINT = resolve(import.meta.dirname, '../../node_modules/.bin/oxlint');
+
+/**
+ * oxlint's own `bin` entry, not the `node_modules/.bin` shim: the shim is a POSIX shell script with
+ * a separate `.cmd` twin on Windows, and Node refuses to spawn a `.cmd` without `shell: true`
+ * (CVE-2024-27980 hardening). The declared bin is a plain Node script, so running it through
+ * `process.execPath` works the same everywhere. Read from package.json rather than hardcoded
+ * because pnpm resolves `oxlint` to a store path outside this worktree.
+ */
+const OXLINT_PACKAGE = createRequire(import.meta.url).resolve('oxlint/package.json');
+const OXLINT_CLI = resolve(dirname(OXLINT_PACKAGE), JSON.parse(readFileSync(OXLINT_PACKAGE, 'utf8')).bin.oxlint);
 
 /**
  * Lint `source` by shelling out to the real oxlint. Going through the binary rather than calling
@@ -28,10 +38,11 @@ function lint(source, options = {}) {
 
 		let stdout;
 		try {
-			stdout = execFileSync(OXLINT, ['-c', '.oxlintrc.json', '--format', 'json', 'fixture.ts'], {
-				cwd: dir,
-				encoding: 'utf8',
-			});
+			stdout = execFileSync(
+				process.execPath,
+				[OXLINT_CLI, '-c', '.oxlintrc.json', '--format', 'json', 'fixture.ts'],
+				{ cwd: dir, encoding: 'utf8' },
+			);
 		} catch (error) {
 			// oxlint exits non-zero when any *other* default rule errors on the fixture; the report we
 			// care about is still on stdout.
@@ -167,6 +178,15 @@ describe('comment-budget', () => {
 			export const b = 2; // why 2`,
 			{ maxPerFile: 1 },
 		)).toMatchObject([{ scope: 'file', count: 2 }]);
+	});
+
+	it('treats a bare CR as a line boundary, so the comment after code is still own-line', () => {
+		// Scanning left for indentation has to stop at CR too. It if only stops at LF it runs on into
+		// the previous line, finds the `;`, and calls both of these trailing asides instead of one
+		// paragraph.
+		const crOnly = ['const a = 1;', '// one', '// two', 'export const b = a;'].join('\r');
+
+		expect(lint(crOnly, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 1 }]);
 	});
 
 	it('scopes a switch case separately from the function body around it', () => {

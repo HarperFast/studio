@@ -88,8 +88,8 @@ const commentBudget = {
 
 		/** True when nothing but indentation precedes the comment on its line. */
 		function isOwnLine(comment) {
-			for (let i = comment.range[0] - 1; i >= 0 && text[i] !== '\n'; i--) {
-				if (text[i] !== ' ' && text[i] !== '\t' && text[i] !== '\r') { return false; }
+			for (let i = comment.range[0] - 1; i >= 0 && text[i] !== '\n' && text[i] !== '\r'; i--) {
+				if (text[i] !== ' ' && text[i] !== '\t') { return false; }
 			}
 			return true;
 		}
@@ -119,7 +119,12 @@ const commentBudget = {
 				for (const site of sites) {
 					const block = innermostBlock(site, blocks, program);
 					if (block === program) { continue; }
-					byBlock.set(block, [...(byBlock.get(block) ?? []), site]);
+					const blockSites = byBlock.get(block);
+					if (blockSites) {
+						blockSites.push(site);
+					} else {
+						byBlock.set(block, [site]);
+					}
 				}
 				for (const blockSites of byBlock.values()) {
 					if (blockSites.length > maxPerBlock) {
