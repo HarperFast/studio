@@ -43,11 +43,13 @@ export function calculateDefaultPermissions({
 		permissionStructure[databaseName] = {
 			tables: {},
 		};
+		const extantDatabasePermissions = currentRolePermissions
+			&& getDatabasePermissionRecord(currentRolePermissions, databaseName);
 		for (const tableName in instanceDatabaseMap[databaseName]) {
 			const thisTable = instanceDatabaseMap[databaseName][tableName];
 			const attributes = thisTable.attributes.map((a) => a.attribute).sort();
-			const extantTablePermissions = currentRolePermissions
-				&& getDatabasePermissionRecord(currentRolePermissions, databaseName)?.tables?.[tableName];
+			const extantTablePermissions = extantDatabasePermissions
+				&& extantDatabasePermissions.tables?.[tableName];
 			if (legacy) {
 				permissionStructure[databaseName].tables[tableName] = buildLegacy(
 					extantTablePermissions as LocalLegacyRolePermissionTable,
