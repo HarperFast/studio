@@ -144,8 +144,10 @@ export function EditRoleModal({
 
 	const onRoleUpdated = useCallback(
 		(updatedPermissions: string) => {
-			if (updatedPermissions) {
-				const parsedPermissions = preparePermissionForSave(JSON.parse(updatedPermissions) as LocalRolePermission);
+			// Monaco's validation markers lag typing, so isValidJSON can be stale-true at click time.
+			const parsed = safeParse<LocalRolePermission>(updatedPermissions);
+			if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+				const parsedPermissions = preparePermissionForSave(parsed);
 				alterRole(
 					{
 						id: data.id,
