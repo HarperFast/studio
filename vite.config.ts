@@ -75,7 +75,37 @@ function fixMonacoYamlWorkerInit(): Plugin {
 // repo root uncluttered; the developer's own .env.local stays at the root where
 // Vite looks by default. Vite's envDir is global, so we point it at that folder
 // only for these build modes.
-const PUBLIC_ENV_MODES = new Set(['dev', 'stage', 'prod', 'localstudio']);
+const DEPLOY_MODES = new Set(['dev', 'stage', 'prod']);
+const PUBLIC_ENV_MODES = new Set([...DEPLOY_MODES, 'localstudio']);
+
+/**
+ * Sourcemaps are 76% of the build output — 71 MB of the 94 MB `build:local` used to emit —
+ * because each one embeds `sourcesContent`, the full original text of every module it covers.
+ * That is worth paying for where something actually consumes them, and pure weight everywhere
+ * else, so the policy is per mode.
+ *
+ * `localstudio` — the UI bundled into the Harper distribution — gets **none**. The harper repo
+ * builds it with `VITE_STUDIO_VERSION="v$(jq -r '.version' ../package.json)" pnpm run build:local`
+ * and ships `web/` as-is; nothing on that path uploads maps to Datadog or reads them, so they
+ * only inflate the published package. Emitting nothing here keeps the fix on this side of the
+ * repo boundary — harper's build scripts need no change. (See AGENTS.md, "How Studio ships
+ * inside Harper".)
+ *
+ * Deploy modes get `'hidden'`: the maps are written, the deploy workflow uploads them to Datadog
+ * for RUM symbolication, and then deletes them before `mv web deploy/` — Datadog keeps its own
+ * copy, so replicating ~71 MB to every node buys nothing. `'hidden'` — rather than `true` —
+ * omits the trailing `//# sourceMappingURL=` comment, which would otherwise dangle onto a 404
+ * once the maps are gone. `datadog-ci sourcemaps upload` pairs each `.js.map` with its bundle by
+ * filename and never needs that comment.
+ *
+ * Everything else (a bare `vite build`, i.e. a developer inspecting a production build locally)
+ * keeps ordinary linked sourcemaps so DevTools resolves them without extra setup.
+ */
+function sourcemapFor(mode: string): boolean | 'hidden' {
+	if (mode === 'localstudio') { return false; }
+	if (DEPLOY_MODES.has(mode)) { return 'hidden'; }
+	return true;
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -108,7 +138,7 @@ export default defineConfig(({ mode }) => ({
 	build: {
 		outDir: 'web',
 		emptyOutDir: true,
-		sourcemap: true,
+		sourcemap: sourcemapFor(mode),
 		// Every chunk on the initial critical path is now well under 500 kB. The
 		// chunks that exceed it are all loaded on demand — the Monaco editor core
 		// (~2.7 MB, lazy <MonacoEditor>), swagger-ui (API docs route) and mermaid

@@ -49,6 +49,12 @@ jobs:
             --minified-path-prefix "https://fabric.harper.fast/assets"
         env:
           DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+      # Datadog now holds the maps and is their only consumer. They are 76% of the build output
+      # (~71 MB, mostly `sourcesContent`), so shipping them too would replicate that to every
+      # node for nothing. See `sourcemapFor` in vite.config.ts, which emits these as `'hidden'`
+      # so no bundle references the files deleted here.
+      - name: Strip sourcemaps from the deployed bundle
+        run: find web/assets -name '*.js.map' -delete
       - name: Deploy to prod
         run: |
           mkdir deploy
