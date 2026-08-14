@@ -1,4 +1,9 @@
+import {
+	expandEffectiveOperations,
+	summarizeOperations,
+} from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
+import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
@@ -52,5 +57,24 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		id: 'structure_user',
 		enableSorting: false,
 		cell: (props) => (props.row.original.permission.structure_user ? 'Yes' : 'No'),
+	}),
+	columnHelper.display({
+		header: 'Operations',
+		id: 'operations',
+		enableSorting: false,
+		// The size of the role's operation allowlist (groups expanded), or an em dash when the
+		// role has no operation-level restriction (or a shape the structured UI won't interpret).
+		cell: (props) => {
+			const operations = getOperationsAllowlist(props.row.original.permission);
+			if (operations === undefined) {
+				return '—';
+			}
+			const effective = expandEffectiveOperations(operations);
+			return (
+				<span title={summarizeOperations(effective)}>
+					{effective.length} allowed
+				</span>
+			);
+		},
 	}),
 ];

@@ -19,6 +19,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { useAddUserMutation } from '@/integrations/api/instance/auth/addUser';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
@@ -178,6 +179,7 @@ export function AddUserModal({
 											</Select>
 										</FormControl>
 									)}
+									<RoleOperationsSummary role={roles?.find((role) => role.id === field.value)} />
 									<FormMessage />
 								</FormItem>
 							)}

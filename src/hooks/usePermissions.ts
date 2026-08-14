@@ -8,6 +8,7 @@ import {
 	LocalRolePermissionTable,
 	User,
 } from '@/integrations/api/api.patch';
+import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermission';
 import { useParams } from '@tanstack/react-router';
 
 interface UR {
@@ -198,7 +199,7 @@ export function useInstanceSchemaTableAttributePermission(
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	const specificPermission = permission[databaseName];
+	const specificPermission = getDatabasePermissionRecord(permission, databaseName);
 	if (specificPermission?.tables?.[tableName]?.[action] === true) {
 		return true;
 	}
@@ -206,7 +207,10 @@ export function useInstanceSchemaTableAttributePermission(
 	if (!table) {
 		return false;
 	}
+	// attribute_permissions can be null (its declared shape) with no legacy attribute_restrictions
+	// fallback present — a table entry exactly as defaultCalculator writes it with attributes off.
 	const attributePermission = ((table as LocalRolePermissionTable).attribute_permissions
-		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions).find(a => a.attribute_name === attributeName);
+		|| (table as LocalLegacyRolePermissionTable).attribute_restrictions
+		|| []).find(a => a.attribute_name === attributeName);
 	return attributePermission?.[action] === true;
 }

@@ -1,4 +1,5 @@
 import { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
+import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermission';
 
 /**
  * Pure table-permission check, kept out of `usePermissions` (and its auth-store imports) so the
@@ -20,5 +21,5 @@ export function checkSchemaTablePermission(
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	return permission[databaseName]?.tables?.[tableName]?.[action] === true;
+	return getDatabasePermissionRecord(permission, databaseName)?.tables?.[tableName]?.[action] === true;
 }

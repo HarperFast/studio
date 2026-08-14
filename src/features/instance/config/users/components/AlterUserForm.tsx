@@ -19,6 +19,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
+import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/auth/alterUser';
 import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
@@ -175,6 +176,7 @@ export function AlterUserForm({
 									</Select>
 								</FormControl>
 							)}
+							<RoleOperationsSummary role={roles?.find((role) => role.id === field.value)} />
 							<FormMessage />
 						</FormItem>
 					)}

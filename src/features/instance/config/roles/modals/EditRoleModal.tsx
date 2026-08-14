@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { calculateDefaultPermissions } from '@/features/instance/config/roles/defaultCalculator';
+import { OperationsAllowlistEditor } from '@/features/instance/config/roles/operations/OperationsAllowlistEditor';
+import { supportsOperationsAllowlist } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { preparePermissionForSave } from '@/features/instance/config/roles/preparePermissionForSave';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
@@ -14,10 +17,16 @@ import { useAlterRole } from '@/integrations/api/instance/auth/alterRole';
 import { useDeleteRoleMutation } from '@/integrations/api/instance/auth/deleteRole';
 import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
+import {
+	getOperationsAllowlist,
+	hasMalformedOperations,
+	orderPermissionKeys,
+	withOperations,
+} from '@/integrations/api/localRolePermission';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export function EditRoleModal({
@@ -71,12 +80,12 @@ export function EditRoleModal({
 
 	const defaultValue = useMemo(() => {
 		return JSON.stringify(
-			instanceDatabaseMap && registrationInfo && calculateDefaultPermissions({
+			instanceDatabaseMap && registrationInfo && orderPermissionKeys(calculateDefaultPermissions({
 				instanceDatabaseMap,
 				currentRolePermissions: updatedPermissions && safeParse(updatedPermissions) || initialPermissions,
 				version: registrationInfo.version,
 				showAttributes: showAttributes,
-			}),
+			})),
 			null,
 			2,
 		);
@@ -90,24 +99,51 @@ export function EditRoleModal({
 		setUpdatedPermissions(defaultValue);
 	}, [defaultValue]);
 
+	// The structured operations editor is a lens over the JSON text: it reads the parsed
+	// `operations` array and writes changes back into the text, which stays the single source of
+	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
+	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
+	const previousOperationsRef = useRef<string[] | undefined>(undefined);
+	const { operationsValue, malformedOperations } = useMemo(() => {
+		const parsed = isValidJSON && updatedPermissions
+			? safeParse<LocalRolePermission>(updatedPermissions)
+			: null;
+		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			return { operationsValue: undefined, malformedOperations: false };
+		}
+		// Reuse the previous array identity when the content hasn't changed, so unrelated typing in
+		// the JSON editor doesn't re-render the whole picker subtree.
+		const next = getOperationsAllowlist(parsed);
+		const previous = previousOperationsRef.current;
+		const stable = next && previous && next.length === previous.length
+				&& next.every((entry, index) => entry === previous[index])
+			? previous
+			: next;
+		previousOperationsRef.current = stable;
+		// A present-but-not-string-array `operations` (e.g. `true`) is left to the JSON editor
+		// rather than clobbered from the structured one.
+		return { operationsValue: stable, malformedOperations: hasMalformedOperations(parsed) };
+	}, [isValidJSON, updatedPermissions]);
+
+	const onOperationsChanged = useCallback(
+		(next: string[] | undefined) => {
+			setUpdatedPermissions((current) => {
+				const parsed = current ? safeParse<LocalRolePermission>(current) : null;
+				if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+					return current;
+				}
+				// withOperations also floats the reserved keys (operations included) to the top of the
+				// document, where the allowlist is visible without scrolling past table permissions.
+				return JSON.stringify(withOperations(parsed, next), null, 2);
+			});
+		},
+		[],
+	);
+
 	const onRoleUpdated = useCallback(
 		(updatedPermissions: string) => {
 			if (updatedPermissions) {
-				const parsedPermissions = JSON.parse(updatedPermissions) as LocalRolePermission;
-				if (parsedPermissions.super_user || parsedPermissions.structure_user || parsedPermissions.cluster_user) {
-					for (const parsedPermissionsKey in parsedPermissions) {
-						if (
-							parsedPermissionsKey !== 'super_user' && parsedPermissionsKey !== 'structure_user'
-							&& parsedPermissionsKey !== 'cluster_user'
-						) {
-							// If you're a super, structure or cluster user, you don't need more specific permissions.
-							delete parsedPermissions[parsedPermissionsKey];
-						} else if (parsedPermissions[parsedPermissionsKey] === false) {
-							// If you've set one of the top-level properties, clear out any others set to false.
-							delete parsedPermissions[parsedPermissionsKey];
-						}
-					}
-				}
+				const parsedPermissions = preparePermissionForSave(JSON.parse(updatedPermissions) as LocalRolePermission);
 				alterRole(
 					{
 						id: data.id,
@@ -164,6 +200,23 @@ export function EditRoleModal({
 								+ ' role to edit this role.'
 							: "Edit the role's permissions in JSON format or remove the role entirely."}
 					</DialogDescription>
+					{operationsSupported && registrationInfo && (
+						malformedOperations
+							? (
+								<p className="text-xs text-muted-foreground">
+									This role's <span className="font-mono">operations</span>{' '}
+									value is not an array of operation names; edit it in the JSON below.
+								</p>
+							)
+							: (
+								<OperationsAllowlistEditor
+									value={operationsValue}
+									onChange={onOperationsChanged}
+									version={registrationInfo.version}
+									disabled={isSelf || !isValidJSON}
+								/>
+							)
+					)}
 					<div className="flex-1 min-h-0">
 						{defaultValue
 							? (
