@@ -1,3 +1,4 @@
+import { supportsOperationsAllowlist } from '@/features/instance/config/roles/operations/operationsCatalog';
 import {
 	InstanceDatabaseMap,
 	LocalLegacyRolePermissionTable,
@@ -30,9 +31,13 @@ export function calculateDefaultPermissions({
 	const legacy = version !== '2.0.000' && major <= 2 && minor <= 1 && patch <= 2;
 
 	for (const databaseName in instanceDatabaseMap) {
-		if (RESERVED_PERMISSION_KEYS.has(databaseName)) {
-			// A database named like a reserved permission key (e.g. `operations`) cannot be expressed
-			// in role JSON — writing it here would clobber the reserved value (the allowlist).
+		if (
+			RESERVED_PERMISSION_KEYS.has(databaseName)
+			&& (databaseName !== 'operations' || supportsOperationsAllowlist(version))
+		) {
+			// A database named like a reserved permission key cannot be expressed in role JSON —
+			// writing it here would clobber the reserved value (e.g. a 5.0+ operations allowlist).
+			// Pre-5.0 Harper has no reserved `operations`, so there a database by that name is real.
 			continue;
 		}
 		permissionStructure[databaseName] = {

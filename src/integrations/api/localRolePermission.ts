@@ -9,12 +9,17 @@ export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_KE
 /**
  * The database-scoped record under a LocalRolePermission key, or undefined for reserved keys and
  * malformed values (null, booleans, arrays).
+ *
+ * `operations` is special-cased by value shape rather than key alone: pre-5.0 Harper had no
+ * reserved `operations` field, so a v4 role can hold real table permissions for a database with
+ * that name. An allowlist is always an array and a database record never is, so the shape
+ * disambiguates the two worlds without needing the instance version here.
  */
 export function getDatabasePermissionRecord(
 	permission: LocalRolePermission,
 	databaseName: string,
 ): LocalRoleSchemaRecord | undefined {
-	if (RESERVED_PERMISSION_KEYS.has(databaseName)) {
+	if (databaseName !== 'operations' && RESERVED_PERMISSION_KEYS.has(databaseName)) {
 		return undefined;
 	}
 	const record = permission[databaseName];

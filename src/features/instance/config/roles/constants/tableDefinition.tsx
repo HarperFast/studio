@@ -62,8 +62,6 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		header: 'Operations',
 		id: 'operations',
 		enableSorting: false,
-		// The size of the role's operation allowlist (groups expanded), or an em dash when the
-		// role has no operation-level restriction (or a shape the structured UI won't interpret).
 		cell: (props) => {
 			const operations = getOperationsAllowlist(props.row.original.permission);
 			if (operations === undefined) {

@@ -16,12 +16,20 @@ describe('getDatabasePermissionRecord', () => {
 		expect(getDatabasePermissionRecord(permission, 'data')?.tables.dog).toBe(dogTable);
 	});
 
-	it('never treats reserved keys as database records, whatever their value shape', () => {
-		// `operations` here is a table-permission-shaped OBJECT — the collision case of a database
-		// literally named like the reserved key. Key identity wins.
-		const permission = { operations: { tables: {} }, super_user: true } as unknown as LocalRolePermission;
-		expect(getDatabasePermissionRecord(permission, 'operations')).toBeUndefined();
+	it('never treats flag keys as database records, whatever their value shape', () => {
+		const permission = { super_user: true, structure_user: { tables: {} } } as unknown as LocalRolePermission;
 		expect(getDatabasePermissionRecord(permission, 'super_user')).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'structure_user')).toBeUndefined();
+	});
+
+	it('disambiguates the operations key by shape: arrays are the 5.0+ allowlist, records are a v4 database', () => {
+		// Pre-5.0 Harper reserved no `operations` field, so a v4 role can hold real table
+		// permissions for a database with that name; an allowlist is never record-shaped.
+		const v4Database = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
+		expect(getDatabasePermissionRecord(v4Database, 'operations')?.tables.dog).toBe(dogTable);
+
+		const allowlist: LocalRolePermission = { operations: ['read_only'] };
+		expect(getDatabasePermissionRecord(allowlist, 'operations')).toBeUndefined();
 	});
 
 	it('returns undefined for null, array, and missing values', () => {

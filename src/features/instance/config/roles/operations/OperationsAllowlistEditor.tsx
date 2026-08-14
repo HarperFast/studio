@@ -202,8 +202,10 @@ function GroupCheckbox({
 	);
 }
 
-// Custom names must keep their case — component-registered operations can be camelCase.
-const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+// Component-registered operation names are exact strings, not identifiers — camelCase, hyphens,
+// dots, and colons are all legal (`deploy-v2`, `acme.deploy`) — so keep the case and only rule
+// out whitespace/quote garbage that could never be an operation name.
+const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
 
 /**
  * Grouped checkbox dropdown over the grantable catalog, borrowing the filter/typeahead handling
@@ -365,7 +367,8 @@ function OperationChip({
 	const info = getOperationInfo(name);
 	const variant = info?.nonDelegable ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
 	const title = info?.nonDelegable
-		? 'This operation always requires an actual super_user role; listing it here has no effect.'
+		? 'Always requires an actual super_user role: on a restricted super_user role this entry keeps '
+			+ 'the operation reachable, but it cannot delegate the operation to a non-super_user role.'
 		: info?.su
 		? 'Normally requires super_user; listing it grants it to this role.'
 		: info
