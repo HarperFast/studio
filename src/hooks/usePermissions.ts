@@ -1,6 +1,6 @@
 import { EntityIds } from '@/features/auth/store/authStore';
 import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
-import { isAdminMode, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
+import { hasStaffPermission, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
 	LocalRoleAttributePermissionAction,
@@ -22,15 +22,22 @@ interface CRUV {
 	view: boolean;
 }
 
+// Staff permissions and an org membership are independent grants (a staff account can also be
+// an org member), so every hook below unions the two rather than early-returning on staff.
+
 export function useOrganizationPermissions(orgId?: string): UR {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
 
-	if (isAdminMode(user)) {
-		return { update: true, remove: true };
-	}
+	const member = memberOrganizationPermissions(user, orgId ?? orgIdFromRoute);
+	return {
+		update: hasStaffPermission(user, 'org:update') || member.update,
+		remove: hasStaffPermission(user, 'org:delete') || member.remove,
+	};
+}
 
-	const role = user?.roles?.[orgId ?? orgIdFromRoute];
+function memberOrganizationPermissions(user: User | null, orgId: string): UR {
+	const role = user?.roles?.[orgId];
 	if (!role || 'oauthProviders' in role) {
 		return { update: false, remove: false };
 	}
@@ -47,11 +54,17 @@ export function useOrganizationRolePermissions(orgId?: string): CRUV {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
 
-	if (isAdminMode(user)) {
-		return { create: true, remove: true, update: true, view: true };
-	}
+	const member = memberOrganizationRolePermissions(user, orgId ?? orgIdFromRoute);
+	return {
+		create: hasStaffPermission(user, 'role:create') || member.create,
+		remove: hasStaffPermission(user, 'role:delete') || member.remove,
+		update: hasStaffPermission(user, 'role:update') || member.update,
+		view: hasStaffPermission(user, 'role:read') || member.view,
+	};
+}
 
-	const role = user?.roles?.[orgId ?? orgIdFromRoute];
+function memberOrganizationRolePermissions(user: User | null, orgId: string): CRUV {
+	const role = user?.roles?.[orgId];
 	if (!role || 'oauthProviders' in role) {
 		return { create: false, remove: false, update: false, view: false };
 	}
@@ -80,10 +93,16 @@ export function useOrganizationClusterPermissions(orgId?: string, clusterId?: st
 }
 
 export function getOrganizationClusterPermissions(user: User | null, orgId: string, clusterId: string): CRUV {
-	if (isAdminMode(user)) {
-		return { create: true, remove: true, update: true, view: true };
-	}
+	const member = memberClusterPermissions(user, orgId, clusterId);
+	return {
+		create: hasStaffPermission(user, 'cluster:create') || member.create,
+		remove: hasStaffPermission(user, 'cluster:delete') || member.remove,
+		update: hasStaffPermission(user, 'cluster:update') || member.update,
+		view: hasStaffPermission(user, 'cluster:read') || member.view,
+	};
+}
 
+function memberClusterPermissions(user: User | null, orgId: string, clusterId: string): CRUV {
 	const role = user?.roles?.[orgId];
 	if (!role || 'oauthProviders' in role) {
 		return { create: false, remove: false, update: false, view: false };
@@ -119,10 +138,19 @@ export function useOrganizationClusterInstancePermissions(orgId?: string, cluste
 }
 
 export function getOrganizationClusterInstancePermissions(user: User | null, orgId: string, clusterId: string): CRUV {
-	if (isAdminMode(user)) {
-		return { create: true, remove: true, update: true, view: true };
-	}
+	const member = memberClusterInstancePermissions(user, orgId, clusterId);
+	return {
+		// Instances are added/removed through cluster updates (there are no
+		// instance:create / instance:delete permissions), so those verbs follow
+		// the cluster grants.
+		create: hasStaffPermission(user, 'cluster:update') || member.create,
+		remove: hasStaffPermission(user, 'cluster:delete') || member.remove,
+		update: hasStaffPermission(user, 'instance:update') || member.update,
+		view: hasStaffPermission(user, 'instance:read') || member.view,
+	};
+}
 
+function memberClusterInstancePermissions(user: User | null, orgId: string, clusterId: string): CRUV {
 	const role = user?.roles?.[orgId];
 	if (!role || 'oauthProviders' in role) {
 		return { create: false, remove: false, update: false, view: false };

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { EntityContextMenu, type EntityMenuItem, renderEntityMenuItems } from '@/components/ui/entityMenu';
 import { AddCouponModal } from '@/features/organization/modals/AddCouponModal';
-import { useAdminMode } from '@/hooks/useAuth';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { useOrganizationPermissions, useOrganizationRolePermissions } from '@/hooks/usePermissions';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
@@ -32,7 +32,7 @@ export function OrgCard({
 	const { remove, update: canUpdateOrganization } = useOrganizationPermissions(organizationId);
 	const showBilling = canUpdateOrganization;
 	const { view: showOrgUsersAndRoles } = useOrganizationRolePermissions(organizationId);
-	const isAdminMode = useAdminMode();
+	const canAddCoupon = useStaffPermission('billing:write');
 
 	const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
 
@@ -73,14 +73,14 @@ export function OrgCard({
 			icon: <KeyRoundIcon className="size-4 mr-2 text-yellow-500" />,
 			label: 'Settings',
 		},
-		isAdminMode && {
+		canAddCoupon && {
 			key: 'add-coupon',
 			onClick: () => setIsCouponModalOpen(true),
 			icon: <TicketIcon className="size-4 mr-2 text-pink-500" />,
 			label: 'Add Coupon',
 		},
-		{ type: 'separator' as const, key: 'sep-bottom' },
-		{
+		remove && { type: 'separator' as const, key: 'sep-bottom' },
+		remove && {
 			key: 'delete',
 			onClick: onDeleteClick,
 			className: 'focus:bg-red/70 focus:text-white',
@@ -89,8 +89,12 @@ export function OrgCard({
 		},
 	].filter(excludeFalsy);
 
+	// The menu carries the destructive/staff actions; without either grant the card
+	// stays a plain link (org members navigate via the org page's own sub-nav).
+	const showMenu = remove || canAddCoupon;
+
 	return (
-		<EntityContextMenu items={remove ? menuItems : []}>
+		<EntityContextMenu items={showMenu ? menuItems : []}>
 			<Card className="relative h-full justify-between transition-[transform,box-shadow] duration-200 hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-primary/60 dark:hover:ring-violet-400/70">
 				<Link
 					to={organizationId}
@@ -100,7 +104,7 @@ export function OrgCard({
 				<CardHeader>
 					<CardDescription className="flex items-center justify-between">
 						<span className="truncate">{organizationId}</span>
-						{remove && (
+						{showMenu && (
 							<DropdownMenu>
 								<DropdownMenuTrigger
 									aria-label="Options"
