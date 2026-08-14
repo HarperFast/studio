@@ -12,9 +12,11 @@ describe('preparePermissionForSave', () => {
 		expect(preparePermissionForSave(permission)).toEqual({ operations: ['read_only'], ...tablePerms });
 	});
 
-	it('drops per-table permissions and false flags for elevated roles', () => {
+	it('drops per-table permissions and false flags for elevated roles, without mutating the input', () => {
 		const permission: LocalRolePermission = { super_user: true, structure_user: false, ...tablePerms };
 		expect(preparePermissionForSave(permission)).toEqual({ super_user: true });
+		expect(permission.data).toBe(tablePerms.data);
+		expect(permission.structure_user).toBe(false);
 	});
 
 	it('keeps an operations allowlist on an elevated role — it restricts super users too', () => {
