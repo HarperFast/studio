@@ -104,7 +104,9 @@ export function EditRoleModal({
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
 	const { operationsJson, malformedOperations } = useMemo(() => {
-		const parsed = isValidJSON && updatedPermissions
+		// Without the operations section there is no reader for this parse, so skip it — the
+		// permission document can be large and this recomputes per keystroke.
+		const parsed = operationsSupported && isValidJSON && updatedPermissions
 			? safeParse<LocalRolePermission>(updatedPermissions)
 			: null;
 		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -117,7 +119,7 @@ export function EditRoleModal({
 			operationsJson: allowlist && JSON.stringify(allowlist),
 			malformedOperations: hasMalformedOperations(parsed),
 		};
-	}, [isValidJSON, updatedPermissions]);
+	}, [operationsSupported, isValidJSON, updatedPermissions]);
 	// Keyed on the serialized form so unrelated typing in the JSON editor keeps the array identity
 	// stable and doesn't re-render the picker subtree.
 	const operationsValue = useMemo(
