@@ -2,7 +2,9 @@
 import type { paths } from '@/integrations/api/api.gen';
 import type { Axios, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-export type TypedAxios = Omit<Axios, keyof TypedAxiosMethods> & TypedAxiosMethods;
+type ExistingAxiosMethods<T extends keyof Axios> = T;
+
+export type TypedAxios = Omit<Axios, ExistingAxiosMethods<keyof TypedAxiosMethods>> & TypedAxiosMethods;
 
 interface TypedAxiosMethods {
 	get<
