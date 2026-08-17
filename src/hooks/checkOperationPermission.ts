@@ -7,6 +7,7 @@ import {
 	LocalRolePermission,
 	LocalRolePermissionAction,
 } from '@/integrations/api/api.patch';
+import type { ImportSource } from '@/integrations/api/instance/database/importData';
 import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
 
 /**
@@ -22,7 +23,36 @@ export const TABLE_ACTION_OPERATIONS: Record<LocalRolePermissionAction, readonly
 	delete: ['delete'],
 };
 
-const CSV_LOAD_OPERATIONS = ['csv_data_load', 'csv_url_load'];
+/**
+ * What each import path issues, as an all-of list. A CSV load returns a job id the client then polls,
+ * so `get_job` belongs to those paths: without it a load commits, the poll 403s, and the reported
+ * failure invites a duplicating retry.
+ */
+const RECORDS_PATH = ['insert'];
+const CSV_DATA_PATH = ['csv_data_load', 'get_job'];
+const CSV_URL_PATH = ['csv_url_load', 'get_job'];
+
+const IMPORT_SOURCE_PATHS: Record<ImportSource['kind'], readonly string[]> = {
+	'json-records': RECORDS_PATH,
+	'csv-data': CSV_DATA_PATH,
+	'csv-url': CSV_URL_PATH,
+};
+
+/**
+ * The paths each Import Data method can take. `sample` and `file` stay ambiguous until submit — a
+ * bundled dataset bulk-loads while random records insert, and a `.json` upload inserts while any other
+ * extension bulk-loads — so a method is offered while either path is open, and
+ * {@link checkImportSourceAllowed} settles the actual choice.
+ */
+const IMPORT_METHOD_PATHS = {
+	sample: [RECORDS_PATH, CSV_DATA_PATH],
+	file: [RECORDS_PATH, CSV_DATA_PATH],
+	url: [CSV_URL_PATH],
+} satisfies Record<string, readonly (readonly string[])[]>;
+
+export type ImportMethod = keyof typeof IMPORT_METHOD_PATHS;
+
+export const IMPORT_METHODS = Object.keys(IMPORT_METHOD_PATHS) as ImportMethod[];
 
 // Keyed by the allowlist array, not the permission: a role edit yields a new array, so an entry
 // cannot go stale.
@@ -106,18 +136,28 @@ export function checkTableActionAllowed(
 	return checkTableOperationsAllowed(permission, TABLE_ACTION_OPERATIONS[action] ?? []);
 }
 
-/**
- * Whether any Import Data source is usable. JSON records post straight to `insert`, but both CSV
- * sources start a job and then poll it, so a CSV grant without `get_job` would report failure for a
- * load that actually committed — and a retry would duplicate the rows.
- */
-export function checkImportDataOperationsAllowed(
+function checkPathAllowed(permission: LocalRolePermission | undefined, path: readonly string[]): boolean {
+	return path.every((operation) => checkAnyOperationAllowed(permission, [operation]));
+}
+
+/** Whether the source the user actually chose can run — the check the submit path owes them. */
+export function checkImportSourceAllowed(
 	permission: LocalRolePermission | undefined,
+	kind: ImportSource['kind'],
 ): boolean {
-	if (permission?.super_user === true) {
-		return true;
-	}
-	return checkAnyOperationAllowed(permission, TABLE_ACTION_OPERATIONS.insert)
-		|| (checkAnyOperationAllowed(permission, CSV_LOAD_OPERATIONS)
-			&& checkAnyOperationAllowed(permission, ['get_job']));
+	return permission?.super_user === true || checkPathAllowed(permission, IMPORT_SOURCE_PATHS[kind]);
+}
+
+/** Whether an import method is worth offering: at least one of its paths is open. */
+export function checkImportMethodAllowed(
+	permission: LocalRolePermission | undefined,
+	method: ImportMethod,
+): boolean {
+	return permission?.super_user === true
+		|| IMPORT_METHOD_PATHS[method].some((path) => checkPathAllowed(permission, path));
+}
+
+/** Whether any import method survives — the gate for the launchers. */
+export function checkImportDataOperationsAllowed(permission: LocalRolePermission | undefined): boolean {
+	return IMPORT_METHODS.some((method) => checkImportMethodAllowed(permission, method));
 }

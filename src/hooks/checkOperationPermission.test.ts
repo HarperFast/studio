@@ -2,7 +2,10 @@ import { getOperationInfo, isOperationGroupName } from '@/features/instance/conf
 import {
 	checkAnyOperationAllowed,
 	checkImportDataOperationsAllowed,
+	checkImportMethodAllowed,
+	checkImportSourceAllowed,
 	checkTableActionAllowed,
+	IMPORT_METHODS,
 	TABLE_ACTION_OPERATIONS,
 } from '@/hooks/checkOperationPermission';
 import { LocalRolePermission } from '@/integrations/api/api.patch';
@@ -168,5 +171,46 @@ describe('checkImportDataOperationsAllowed', () => {
 	it('restricts nothing without an allowlist', () => {
 		expect(checkImportDataOperationsAllowed(undefined)).toBe(true);
 		expect(checkImportDataOperationsAllowed(perm({ structure_user: true }))).toBe(true);
+	});
+});
+
+describe('per-method and per-source import capability', () => {
+	// The launcher being open does not mean every method inside it is: an insert-only role can post
+	// records but cannot run either CSV load, and a URL-load role is the mirror image.
+	it('offers only the methods a role can run', () => {
+		const insertOnly = perm({ operations: ['insert'] });
+		expect(checkImportMethodAllowed(insertOnly, 'sample')).toBe(true);
+		expect(checkImportMethodAllowed(insertOnly, 'file')).toBe(true);
+		expect(checkImportMethodAllowed(insertOnly, 'url')).toBe(false);
+
+		const urlOnly = perm({ operations: ['csv_url_load', 'get_job'] });
+		expect(checkImportMethodAllowed(urlOnly, 'url')).toBe(true);
+		expect(checkImportMethodAllowed(urlOnly, 'sample')).toBe(false);
+		expect(checkImportMethodAllowed(urlOnly, 'file')).toBe(false);
+	});
+
+	// `sample` and `file` each cover two operations, so the method staying open does not settle the
+	// choice the user makes inside it.
+	it('resolves the ambiguous methods per source', () => {
+		const insertOnly = perm({ operations: ['insert'] });
+		expect(checkImportSourceAllowed(insertOnly, 'json-records')).toBe(true);
+		expect(checkImportSourceAllowed(insertOnly, 'csv-data')).toBe(false);
+		expect(checkImportSourceAllowed(insertOnly, 'csv-url')).toBe(false);
+
+		const csvOnly = perm({ operations: ['csv_data_load', 'get_job'] });
+		expect(checkImportSourceAllowed(csvOnly, 'csv-data')).toBe(true);
+		expect(checkImportSourceAllowed(csvOnly, 'json-records')).toBe(false);
+	});
+
+	it('keeps a super_user and an unrestricted role fully capable', () => {
+		expect(checkImportMethodAllowed(perm({ super_user: true, operations: [] }), 'url')).toBe(true);
+		expect(checkImportSourceAllowed(perm({ super_user: true, operations: [] }), 'csv-data')).toBe(true);
+		expect(checkImportSourceAllowed(undefined, 'csv-url')).toBe(true);
+	});
+
+	it('agrees with the launcher gate', () => {
+		const denied = perm({ operations: ['read_only'] });
+		expect(IMPORT_METHODS.every((method) => !checkImportMethodAllowed(denied, method))).toBe(true);
+		expect(checkImportDataOperationsAllowed(denied)).toBe(false);
 	});
 });
