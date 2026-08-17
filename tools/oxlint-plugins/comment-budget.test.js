@@ -111,7 +111,10 @@ describe('comment-budget', () => {
 
 	it('never charges for linter, compiler, or formatter directives', () => {
 		expect(lint(
-			`/* eslint-disable no-console */
+			`/// <reference types="vite/client" />
+			/// <reference lib="dom" />
+			/// <amd-module name="Validator" />
+			/* eslint-disable no-console */
 			// oxlint-disable-next-line no-debugger
 			// @ts-expect-error deliberate
 			// dprint-ignore

@@ -15,9 +15,14 @@
  * directives, formatter pragmas, coverage markers, bundler hints, and editor fold markers.
  * These never count against a budget — a budget that eats the escape hatches trains people to
  * disable the budget.
+ *
+ * Matched against `comment.value`, i.e. the text with the opening `//` or `/*` already stripped.
+ * That is why the TypeScript triple-slash forms are written with a leading `\/`: by the time the
+ * rule sees `/// <reference types="…" />`, two of the three slashes are gone and the value begins
+ * `/ <reference`.
  */
 const DIRECTIVE =
-	/^\s*(?:eslint|oxlint|globals?\s|prettier-|dprint-|biome-|type-coverage:|[cv]8 ignore|istanbul ignore|jscs:|jshint |@ts-|@vite-|webpack|#__|@__|#?(?:end)?region\b|<\/?reference)/;
+	/^\s*(?:eslint|oxlint|globals?\s|prettier-|dprint-|biome-|type-coverage:|[cv]8 ignore|istanbul ignore|jscs:|jshint |@ts-|@vite-|webpack|#__|@__|#?(?:end)?region\b|\/\s*<(?:reference|amd-))/;
 
 /** JSDoc/TSDoc — `/** … *␀/`, but not a `/*** … *␀/` banner or a bare `/* … *␀/`. */
 function isDocComment(comment) {
