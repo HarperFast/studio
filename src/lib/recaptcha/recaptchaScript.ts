@@ -76,6 +76,11 @@ async function mintToken(action: string): Promise<string> {
 	return enterprise.execute(recaptchaSiteKey, { action });
 }
 
+// A <script> that fires neither load nor error (connection stall, captive
+// portal) would otherwise leave the cached promise pending forever, poisoning
+// every later submit even after the network recovers.
+const LOAD_TIMEOUT_MS = 8000;
+
 function injectScript(): Promise<GrecaptchaEnterprise> {
 	return new Promise<GrecaptchaEnterprise>((resolve, reject) => {
 		if (window.grecaptcha?.enterprise) {
@@ -86,16 +91,20 @@ function injectScript(): Promise<GrecaptchaEnterprise> {
 		script.src = `https://www.google.com/recaptcha/enterprise.js?render=${encodeURIComponent(recaptchaSiteKey)}`;
 		script.async = true;
 		script.defer = true;
-		script.addEventListener('load', () => {
-			if (window.grecaptcha?.enterprise) { resolve(window.grecaptcha.enterprise); }
-			else { reject(new Error('reCAPTCHA script loaded without exposing its API')); }
-		});
-		script.addEventListener('error', () => {
-			// Removed so a retry re-injects rather than finding a dead element whose
-			// load event has already come and gone.
+		// Every rejection removes the node so a retry re-injects a fresh element
+		// rather than finding a dead one whose load event has come and gone.
+		const fail = (message: string) => {
+			clearTimeout(loadTimer);
 			script.remove();
-			reject(new Error('reCAPTCHA script failed to load'));
+			reject(new Error(message));
+		};
+		const loadTimer = setTimeout(() => fail('reCAPTCHA script load timed out'), LOAD_TIMEOUT_MS);
+		script.addEventListener('load', () => {
+			clearTimeout(loadTimer);
+			if (window.grecaptcha?.enterprise) { resolve(window.grecaptcha.enterprise); }
+			else { fail('reCAPTCHA script loaded without exposing its API'); }
 		});
+		script.addEventListener('error', () => fail('reCAPTCHA script failed to load'));
 		document.head.appendChild(script);
 	});
 }

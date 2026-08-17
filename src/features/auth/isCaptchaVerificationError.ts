@@ -9,12 +9,17 @@ export function isCaptchaVerificationError(error: unknown): boolean {
 	const response = (error as AxiosError<unknown>)?.response;
 	if (response?.status !== 403) { return false; }
 	const data = response.data;
-	const message = typeof data === 'string'
-		? data
-		: typeof (data as { error?: unknown; message?: unknown })?.error === 'string'
-		? (data as { error: string }).error
-		: typeof (data as { message?: unknown })?.message === 'string'
-		? (data as { message: string }).message
-		: '';
+	const message = typeof data === 'string' ? data : firstString(data, ['error', 'message', 'title']);
 	return message.toLowerCase().includes('verification failed');
+}
+
+// Covers today's plain-string body plus Harper's error/message envelopes and an
+// RFC 9457 problem body's title, so a server-side response reshape cannot
+// silently downgrade the CAPTCHA guidance to the generic error path.
+function firstString(data: unknown, keys: string[]): string {
+	for (const key of keys) {
+		const value = (data as Record<string, unknown>)?.[key];
+		if (typeof value === 'string') { return value; }
+	}
+	return '';
 }

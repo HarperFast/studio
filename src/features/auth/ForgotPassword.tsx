@@ -44,7 +44,7 @@ export function ForgotPassword() {
 		// Same reason as SignUp: `handleSubmit` reruns the resolver, which only rewrites
 		// field errors, so a stale `root` would outlive the retry.
 		clearErrors('root');
-		// Minted per submit: v3 tokens are single use and expire in ~2 minutes.
+		// Minted per submit: tokens are single use and expire in ~2 minutes.
 		const captchaToken = await captcha.getToken();
 		submitForgotPasswordData({ ...formData, captchaToken }, {
 			onSuccess: (message) => {
