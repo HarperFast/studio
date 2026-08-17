@@ -11,23 +11,18 @@ declare global {
 	}
 }
 
-/** Whether a site key is configured — the difference between "no CAPTCHA in this
- *  environment" and "CAPTCHA expected but the script could not run". */
+/** Distinguishes "no CAPTCHA in this env" from "expected but couldn't run". */
 export function isCaptchaConfigured(): boolean {
 	return Boolean(recaptchaSiteKey);
 }
 
 let scriptPromise: Promise<GrecaptchaEnterprise> | undefined;
 
-/** Loads Google's reCAPTCHA Enterprise script once per page and resolves its
- *  global API. enterprise.js, not api.js: central-manager verifies through the
- *  Enterprise assessments API, and Google's documented pairing for Cloud-console
- *  score keys is enterprise.js + grecaptcha.enterprise.execute. Loading also
- *  renders the mandatory reCAPTCHA badge (bottom-right). */
+/** Loads enterprise.js once per page (pairs with central-manager's Enterprise
+ *  assessments API) and renders the mandatory badge. */
 function loadRecaptcha(): Promise<GrecaptchaEnterprise> {
-	// Success is cached so a remount cannot re-inject the script; failure is
-	// deliberately NOT cached. Against an enforcing central-manager the token is the
-	// user's only way through, so a blocked or flaky load has to stay retryable.
+	// Success is cached; failure is not — a blocked load must stay retryable, or
+	// an enforcing central-manager locks the user out until a reload.
 	scriptPromise ??= injectScript().catch((error: unknown) => {
 		scriptPromise = undefined;
 		throw error;
@@ -35,29 +30,20 @@ function loadRecaptcha(): Promise<GrecaptchaEnterprise> {
 	return scriptPromise;
 }
 
-/** Kick the script load off early (form mount) so the badge is visible and the
- *  submit-time mint doesn't pay the download. No-op when unconfigured. */
+/** Starts the load at form mount so the mint doesn't pay the download. */
 export function warmCaptcha(): void {
 	if (!isCaptchaConfigured()) { return; }
-	void loadRecaptcha().catch(() => {
-		// Swallowed: warming is opportunistic. getCaptchaToken retries the load and
-		// owns the failure behavior.
-	});
+	// Opportunistic: getCaptchaToken retries the load and owns failure behavior.
+	void loadRecaptcha().catch(() => {});
 }
 
-// Mirrors central-manager's 3s assessment abort: a mint that hangs (script loaded
-// but Google's token backend unreachable — captive portal, partial block) must
-// degrade to a tokenless submit, not a dead form.
+// A hung mint (captive portal, partial block) must degrade to a tokenless
+// submit, not a dead form — mirrors central-manager's 3s assessment abort.
 const MINT_TIMEOUT_MS = 4000;
 
-/** Mint a reCAPTCHA token for one submit. Tokens are single use and expire in
- *  two minutes, so this is called at submit time, never at mount.
- *
- *  Resolves undefined when no site key is configured or the script/mint failed or
- *  timed out — the caller submits tokenless. central-manager fails open when it
- *  cannot reach Google, so a blocked script must not lock a real user out; when
- *  the server IS enforcing, its 403 comes back and the form explains the real
- *  problem via isCaptchaConfigured(). */
+/** Mints one single-use token per submit (tokens expire in ~2 min). Resolves
+ *  undefined on any failure so the caller submits tokenless; an enforcing
+ *  server 403s that and the form explains via isCaptchaConfigured(). */
 export async function getCaptchaToken(action: string): Promise<string | undefined> {
 	if (!recaptchaSiteKey) { return undefined; }
 	try {
@@ -76,9 +62,8 @@ async function mintToken(action: string): Promise<string> {
 	return enterprise.execute(recaptchaSiteKey, { action });
 }
 
-// A <script> that fires neither load nor error (connection stall, captive
-// portal) would otherwise leave the cached promise pending forever, poisoning
-// every later submit even after the network recovers.
+// A script firing neither load nor error would leave the cached promise
+// pending forever, poisoning every later submit.
 const LOAD_TIMEOUT_MS = 8000;
 
 function injectScript(): Promise<GrecaptchaEnterprise> {
@@ -91,8 +76,7 @@ function injectScript(): Promise<GrecaptchaEnterprise> {
 		script.src = `https://www.google.com/recaptcha/enterprise.js?render=${encodeURIComponent(recaptchaSiteKey)}`;
 		script.async = true;
 		script.defer = true;
-		// Every rejection removes the node so a retry re-injects a fresh element
-		// rather than finding a dead one whose load event has come and gone.
+		// Rejections remove the node so a retry re-injects a fresh element.
 		const fail = (message: string) => {
 			clearTimeout(loadTimer);
 			script.remove();

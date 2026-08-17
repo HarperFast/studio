@@ -1,10 +1,7 @@
 import { AxiosError } from 'axios';
 
-/** True for central-manager's rejection of a missing/invalid CAPTCHA token
- *  (403 "Verification failed" from src/lib/recaptcha.js). The public auth
- *  endpoints have no other 403, so the status alone would nearly do — the
- *  message check keeps a future 403 on these routes from silently reading as a
- *  failed verification. */
+/** central-manager's CAPTCHA rejection: 403 + "Verification failed". The
+ *  message check keeps an unrelated future 403 from reading as a failed check. */
 export function isCaptchaVerificationError(error: unknown): boolean {
 	const response = (error as AxiosError<unknown>)?.response;
 	if (response?.status !== 403) { return false; }
@@ -13,9 +10,7 @@ export function isCaptchaVerificationError(error: unknown): boolean {
 	return message.toLowerCase().includes('verification failed');
 }
 
-// Covers today's plain-string body plus Harper's error/message envelopes and an
-// RFC 9457 problem body's title, so a server-side response reshape cannot
-// silently downgrade the CAPTCHA guidance to the generic error path.
+// Plain string, Harper error/message envelopes, or an RFC 9457 title.
 function firstString(data: unknown, keys: string[]): string {
 	for (const key of keys) {
 		const value = (data as Record<string, unknown>)?.[key];

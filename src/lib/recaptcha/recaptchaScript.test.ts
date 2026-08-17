@@ -74,20 +74,16 @@ describe('getCaptchaToken', () => {
 	});
 
 	it('a hung script load (no load, no error event) times out and stays retryable', async () => {
-		// The regression this pins: a load that never settles left the cached promise
-		// pending forever, so every later submit ate the 4s mint timeout and could
-		// never recover without a full page reload.
 		vi.useFakeTimers();
 		try {
 			const hung = getCaptchaToken('signup');
 			expect(injectedScripts()).toHaveLength(1);
 			await vi.advanceTimersByTimeAsync(8000);
 			await expect(hung).resolves.toBeUndefined();
-			// The dead node is gone and the cache cleared, so the retry re-injects...
+			// Dead node gone, cache cleared: the retry re-injects and can succeed.
 			expect(injectedScripts()).toHaveLength(0);
 			const retried = getCaptchaToken('signup');
 			expect(injectedScripts()).toHaveLength(1);
-			// ...and succeeds once the network recovers.
 			resolveLatestScript();
 			await vi.runAllTimersAsync();
 			await expect(retried).resolves.toBe('minted-token');
@@ -105,12 +101,9 @@ describe('getCaptchaToken', () => {
 	});
 
 	it('retries the load on the next submit instead of caching the failure', async () => {
-		// A cached rejection would be a dead end: with central-manager enforcing, a user
-		// whose first script load was blocked could never mint a token.
 		const failed = getCaptchaToken('signup');
 		failLatestScript();
 		await expect(failed).resolves.toBeUndefined();
-		// The dead element is removed so the retry gets a fresh one whose load can fire.
 		expect(injectedScripts()).toHaveLength(0);
 
 		const retried = getCaptchaToken('signup');
@@ -174,7 +167,6 @@ describe('warmCaptcha', () => {
 		siteKey.value = 'test-site-key';
 		warmCaptcha();
 		failLatestScript();
-		// The rejection must not surface as an unhandled error; a later mint retries.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		const retried = getCaptchaToken('signup');
 		expect(injectedScripts()).toHaveLength(1);

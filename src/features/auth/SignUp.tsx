@@ -91,7 +91,6 @@ export function SignUp() {
 		// Drop the previous attempt's failure explicitly — `handleSubmit` reruns the resolver,
 		// which only rewrites field errors, so a stale `root` would outlive the retry.
 		clearErrors('root');
-		// Minted per submit: tokens are single use and expire in ~2 minutes.
 		const captchaToken = await captcha.getToken();
 		submitSignUpData({ ...userData, captchaToken }, {
 			onSuccess: () => {

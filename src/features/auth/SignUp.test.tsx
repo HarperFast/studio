@@ -195,8 +195,6 @@ describe('SignUp — reCAPTCHA', () => {
 	});
 
 	it('names the real problem when the check never ran (script blocked, key configured)', async () => {
-		// Telling someone to "try again" when the script cannot run — ad blocker, or
-		// Google unreachable — is a dead end; name the actual problem.
 		captchaState.token = undefined; // configured, but the mint failed
 		post.mockRejectedValue(axiosError(403, 'Verification failed'));
 
@@ -210,8 +208,6 @@ describe('SignUp — reCAPTCHA', () => {
 	});
 
 	it('a retry after any failure mints a fresh token by design', async () => {
-		// Tokens are single use and minted per submit, so a 409 whose real problem
-		// was the email address can never leave a spent token behind for the retry.
 		captchaState.token = 'first-token';
 		post.mockRejectedValueOnce(axiosError(409, 'User already exists'));
 
