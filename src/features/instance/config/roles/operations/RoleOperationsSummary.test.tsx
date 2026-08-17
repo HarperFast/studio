@@ -32,7 +32,7 @@ describe('RoleOperationsSummary', () => {
 
 	it('notes the DDL carve-out for a structure_user role instead of calling the list inert', () => {
 		render(<RoleOperationsSummary role={role({ structure_user: true, operations: ['read_only'] })} />);
-		expect(screen.getByText(/DDL operations apply regardless/)).toBeTruthy();
+		expect(screen.getByText(/table and attribute DDL applies on any database/)).toBeTruthy();
 	});
 
 	it('warns in destructive copy when the allowlist denies everything', () => {

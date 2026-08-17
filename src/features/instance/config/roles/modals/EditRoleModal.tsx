@@ -22,7 +22,7 @@ import {
 	hasMalformedOperations,
 	orderPermissionKeys,
 	rolePreventsOperationsAllowlist,
-	structureUserBypassesDdl,
+	structureUserDdlScope,
 	withOperations,
 } from '@/integrations/api/localRolePermission';
 import { Editor } from '@/lib/monaco/MonacoEditor';
@@ -106,7 +106,7 @@ export function EditRoleModal({
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
 	const lastParsedRef = useRef<LocalRolePermission | null>(null);
-	const { operationsJson, malformedOperations, allowlistRejected, structureUser } = useMemo(() => {
+	const { operationsJson, malformedOperations, allowlistRejected, structureUserDdl } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
 		const parsed = operationsSupported && updatedPermissions
@@ -122,7 +122,7 @@ export function EditRoleModal({
 				operationsJson: undefined,
 				malformedOperations: false,
 				allowlistRejected: false,
-				structureUser: false,
+				structureUserDdl: false as const,
 			};
 		}
 		lastParsedRef.current = usable;
@@ -133,7 +133,7 @@ export function EditRoleModal({
 			operationsJson: allowlist && JSON.stringify(allowlist),
 			malformedOperations: hasMalformedOperations(usable),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
-			structureUser: structureUserBypassesDdl(usable),
+			structureUserDdl: structureUserDdlScope(usable),
 		};
 	}, [operationsSupported, isValidJSON, updatedPermissions]);
 	// Keyed on the serialized form so unrelated typing in the JSON editor keeps the array identity
@@ -231,7 +231,7 @@ export function EditRoleModal({
 							: (
 								<OperationsAllowlistEditor
 									allowlistRejected={allowlistRejected}
-									structureUser={structureUser}
+									structureUserDdl={structureUserDdl}
 									value={operationsValue}
 									onChange={onOperationsChanged}
 									version={registrationInfo.version}

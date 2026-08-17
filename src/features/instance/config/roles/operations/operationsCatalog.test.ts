@@ -18,8 +18,14 @@ describe('supportsOperationsAllowlist', () => {
 		expect(supportsOperationsAllowlist('2.0.000')).toBe(false);
 	});
 
-	it('is on from 5.0 prereleases up', () => {
-		expect(supportsOperationsAllowlist('5.0.0-alpha.2')).toBe(true);
+	it('is off for the 5.0 prereleases that predate the feature', () => {
+		// permission.operations first ships in v5.0.0-alpha.8; earlier alphas take the key and fail.
+		expect(supportsOperationsAllowlist('5.0.0-alpha.2')).toBe(false);
+		expect(supportsOperationsAllowlist('5.0.0-alpha.7')).toBe(false);
+	});
+
+	it('is on from the release that introduced it', () => {
+		expect(supportsOperationsAllowlist('5.0.0-alpha.8')).toBe(true);
 		expect(supportsOperationsAllowlist('5.0.0')).toBe(true);
 		expect(supportsOperationsAllowlist('5.2.2')).toBe(true);
 	});

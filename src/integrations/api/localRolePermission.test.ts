@@ -1,9 +1,11 @@
 import { LocalRolePermission } from '@/integrations/api/api.patch';
 import {
+	classifyOperationsValue,
 	getDatabasePermissionRecord,
 	getOperationsAllowlist,
 	hasMalformedOperations,
 	orderPermissionKeys,
+	structureUserDdlScope,
 	withOperations,
 } from '@/integrations/api/localRolePermission';
 import { describe, expect, it } from 'vitest';
@@ -69,6 +71,34 @@ describe('getOperationsAllowlist / hasMalformedOperations', () => {
 		expect(hasMalformedOperations({})).toBe(false);
 		expect(getOperationsAllowlist(undefined)).toBeUndefined();
 		expect(hasMalformedOperations(undefined)).toBe(false);
+	});
+});
+
+describe('classifyOperationsValue', () => {
+	it('separates an allowlist from a pre-5.0 database named operations', () => {
+		expect(classifyOperationsValue({ operations: ['sql'] })).toBe('allowlist');
+		// A v4 role granting a database called `operations` is valid, not something to "fix".
+		const v4 = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
+		expect(classifyOperationsValue(v4)).toBe('database');
+		expect(hasMalformedOperations(v4)).toBe(false);
+	});
+
+	it('still reports genuinely malformed values', () => {
+		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission)).toBe('malformed');
+		expect(classifyOperationsValue({ operations: ['sql', 42] } as unknown as LocalRolePermission))
+			.toBe('malformed');
+		expect(classifyOperationsValue({})).toBe('absent');
+	});
+});
+
+describe('structureUserDdlScope', () => {
+	it('distinguishes the unscoped and database-scoped forms', () => {
+		// Only the boolean form reaches create/drop database; the array form is scoped to its list.
+		expect(structureUserDdlScope({ structure_user: true })).toBe(true);
+		expect(structureUserDdlScope({ structure_user: ['dev'] })).toEqual(['dev']);
+		expect(structureUserDdlScope({ structure_user: false })).toBe(false);
+		expect(structureUserDdlScope({ structure_user: [] })).toBe(false);
+		expect(structureUserDdlScope({})).toBe(false);
 	});
 });
 

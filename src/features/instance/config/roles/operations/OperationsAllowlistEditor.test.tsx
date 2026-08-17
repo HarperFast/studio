@@ -112,10 +112,37 @@ describe('OperationsAllowlistEditor', () => {
 	});
 
 	it('tells a structure_user role which operations bypass the list, rather than calling it inert', () => {
-		render(<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" structureUser />);
+		render(
+			<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" structureUserDdl />,
+		);
 		// The allowlist IS enforced for a structure user on everything except DDL.
-		expect(screen.getByText(/regardless of the list below/)).toBeTruthy();
+		expect(screen.getByText(/regardless of the list/)).toBeTruthy();
+		expect(screen.getByText(/on any database/)).toBeTruthy();
 		expect(screen.queryByText(/has no effect/)).toBeNull();
+	});
+
+	it('scopes the DDL carve-out to the listed databases for an array-shaped structure_user', () => {
+		render(
+			<OperationsAllowlistEditor
+				value={['read_only']}
+				onChange={() => {}}
+				version="5.2.2"
+				structureUserDdl={['dev']}
+			/>,
+		);
+		// The array form can never create/drop a database, and its DDL is scoped to those listed.
+		expect(screen.getByText('dev')).toBeTruthy();
+		expect(screen.queryByText(/create\/drop database/)).toBeNull();
+	});
+
+	it('does not promise a super_user delegation for a grant the server cannot enforce', () => {
+		render(<Harness initial={['deploy_component']} />);
+		expect(screen.queryByText(/normally require super_user/)).toBeNull();
+	});
+
+	it('exempts the structure_user DDL carve-out from the cannot-run-anything warning', () => {
+		render(<OperationsAllowlistEditor value={[]} onChange={() => {}} version="5.2.2" structureUserDdl />);
+		expect(screen.getByText(/except the DDL noted above/)).toBeTruthy();
 	});
 
 	it('marks a grant that the server cannot currently enforce', () => {

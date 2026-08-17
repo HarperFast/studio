@@ -42,7 +42,7 @@ export function OperationsAllowlistEditor({
 	onChange,
 	version,
 	allowlistRejected,
-	structureUser,
+	structureUserDdl,
 	disabled,
 }: {
 	value: string[] | undefined;
@@ -50,8 +50,8 @@ export function OperationsAllowlistEditor({
 	version: string;
 	/** super_user/cluster_user: Harper refuses to store an allowlist alongside the flag. */
 	allowlistRejected?: boolean;
-	/** structure_user: the allowlist applies to everything except DDL. */
-	structureUser?: boolean;
+	/** structure_user DDL carve-out: `true` everywhere, an array for those databases only. */
+	structureUserDdl?: true | string[] | false;
 	disabled?: boolean;
 }) {
 	const restricted = value !== undefined;
@@ -66,7 +66,9 @@ export function OperationsAllowlistEditor({
 	const selectedSet = new Set(value ?? []);
 	const selectedOperations = (value ?? []).filter((entry) => !isOperationGroupName(entry));
 	const effective = value ? expandEffectiveOperations(value) : [];
-	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su);
+	// A gate-inert grant delegates nothing, so it must not be counted toward the delegation notice
+	// that the picker badge and chip beside it explicitly retract.
+	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su && !isGrantGateInert(name));
 	// Keeps the last allowlist so a misclick on the switch (the only control that WIDENS
 	// privileges) is a toggle away from undone, not a destroyed curation.
 	const previousRestrictionRef = useRef<string[]>([]);
@@ -128,11 +130,17 @@ export function OperationsAllowlistEditor({
 					removed when you save.
 				</p>
 			)}
-			{structureUser && restricted && (
+			{structureUserDdl && restricted && (
 				<p className="text-xs text-warning">
 					This role is a structure user, so it reaches{' '}
-					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>{' '}
-					(and create/drop database) regardless of the list below. Every other operation is still gated by it.
+					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
+					{structureUserDdl === true
+						? ' (and create/drop database) on any database'
+						: (
+							<>
+								on <span className="font-mono">{structureUserDdl.join(', ')}</span>
+							</>
+						)} regardless of the list below. Every other operation is still gated by it.
 				</p>
 			)}
 
@@ -183,7 +191,8 @@ export function OperationsAllowlistEditor({
 					{effective.length === 0
 						? (
 							<p className="text-xs text-destructive">
-								Nothing selected — this role cannot run any operation.
+								Nothing selected — this role cannot run any operation
+								{structureUserDdl ? ' except the DDL noted above' : ''}.
 							</p>
 						)
 						: (

@@ -4,6 +4,7 @@ import {
 	LocalLegacyRolePermissionTable,
 	LocalRolePermission,
 	LocalRolePermissionTable,
+	LocalRoleSchemaRecord,
 } from '@/integrations/api/api.patch';
 import { getDatabasePermissionRecord, RESERVED_PERMISSION_KEYS } from '@/integrations/api/localRolePermission';
 import { keyBy } from '@/lib/keyBy';
@@ -30,22 +31,30 @@ export function calculateDefaultPermissions({
 	const [major, minor, patch] = version.split('.').map(number => parseInt(number, 10));
 	const legacy = version !== '2.0.000' && major <= 2 && minor <= 1 && patch <= 2;
 
+	// Plain assignment of a `__proto__` key would hit the prototype setter rather than create an own
+	// property, so the database would vanish from the template. Harper permits the name, so define
+	// the property instead of dropping the database.
+	const setDatabase = (name: string, record: LocalRoleSchemaRecord) => {
+		Object.defineProperty(permissionStructure, name, {
+			value: record,
+			writable: true,
+			enumerable: true,
+			configurable: true,
+		});
+		return record;
+	};
+
 	for (const databaseName in instanceDatabaseMap) {
 		if (
-			// Assigning `__proto__` would hit the prototype setter instead of creating a key, so the
-			// database would silently vanish from the template (JSON.stringify drops it).
-			databaseName === '__proto__'
-			|| (RESERVED_PERMISSION_KEYS.has(databaseName)
-				&& (databaseName !== 'operations' || supportsOperationsAllowlist(version)))
+			RESERVED_PERMISSION_KEYS.has(databaseName)
+			&& (databaseName !== 'operations' || supportsOperationsAllowlist(version))
 		) {
 			// A database named like a reserved permission key cannot be expressed in role JSON —
 			// writing it here would clobber the reserved value (e.g. a 5.0+ operations allowlist).
 			// Pre-5.0 Harper has no reserved `operations`, so there a database by that name is real.
 			continue;
 		}
-		permissionStructure[databaseName] = {
-			tables: {},
-		};
+		const databaseRecord = setDatabase(databaseName, { tables: {} });
 		const extantDatabasePermissions = currentRolePermissions
 			&& getDatabasePermissionRecord(currentRolePermissions, databaseName);
 		for (const tableName in instanceDatabaseMap[databaseName]) {
@@ -54,13 +63,13 @@ export function calculateDefaultPermissions({
 			const extantTablePermissions = extantDatabasePermissions
 				&& extantDatabasePermissions.tables?.[tableName];
 			if (legacy) {
-				permissionStructure[databaseName].tables[tableName] = buildLegacy(
+				databaseRecord.tables[tableName] = buildLegacy(
 					extantTablePermissions as LocalLegacyRolePermissionTable,
 					attributes,
 					showAttributes,
 				);
 			} else {
-				permissionStructure[databaseName].tables[tableName] = buildCurrent(
+				databaseRecord.tables[tableName] = buildCurrent(
 					extantTablePermissions as LocalRolePermissionTable,
 					attributes,
 					showAttributes,
