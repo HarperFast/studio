@@ -1,7 +1,11 @@
 import { ContextMenuItem, ContextMenuSeparator } from '@/components/ui/contextMenu';
 import { formatBrowseDataTableHeader } from '@/features/instance/databases/functions/formatBrowseDataTableHeader';
 import { useExportTableCsv } from '@/features/instance/databases/hooks/useExportTableCsv';
-import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
+import {
+	useInstanceBrowseManagePermission,
+	useInstanceImportDataPermission,
+	useInstanceSchemaTablePermission,
+} from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { useParams } from '@tanstack/react-router';
@@ -21,6 +25,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const { clusterId, instanceId }: { clusterId?: string; instanceId?: string } = useParams({ strict: false });
 	const canManage = useInstanceBrowseManagePermission();
 	const canInsert = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
+	const canImport = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const { exportCsv } = useExportTableCsv();
 
 	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
@@ -38,7 +43,7 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 					Add New Record(s)
 				</ContextMenuItem>
 			)}
-			{canInsert && (
+			{canImport && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowImportData', { databaseName, tableName })}>
 					<CloudUploadIcon />
 					Import Data

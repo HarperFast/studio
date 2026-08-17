@@ -1,4 +1,5 @@
 import {
+	canonicalOperationName,
 	expandEffectiveOperations,
 	getAvailableGroups,
 	getGrantableOperations,
@@ -178,6 +179,15 @@ describe('expandEffectiveOperations', () => {
 
 	it('expands an empty allowlist to nothing', () => {
 		expect(expandEffectiveOperations([])).toEqual([]);
+	});
+});
+
+describe('canonicalOperationName', () => {
+	it('collapses aliases onto their authorization entry and leaves everything else alone', () => {
+		expect(canonicalOperationName('create_schema')).toBe('create_database');
+		expect(canonicalOperationName('search_by_id')).toBe('search_by_hash');
+		expect(canonicalOperationName('create_database')).toBe('create_database');
+		expect(canonicalOperationName('my_component_op')).toBe('my_component_op');
 	});
 });
 

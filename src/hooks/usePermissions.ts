@@ -1,5 +1,6 @@
 import { EntityIds } from '@/features/auth/store/authStore';
-import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
+import { checkImportDataOperationsAllowed, checkTableActionAllowed } from '@/hooks/checkOperationPermission';
+import { checkImportDataPermission, checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import { hasStaffPermission, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
@@ -183,6 +184,7 @@ export function useInstanceManagePermission(entityId?: EntityIds): boolean {
 		// (We're probably still loading the user.)
 		return false;
 	}
+	// Not gated on `operations`: verifyPerms clears a super_user before reaching the allowlist.
 	return permission.super_user === true;
 }
 
@@ -195,6 +197,7 @@ export function useInstanceBrowseManagePermission(entityId?: EntityIds): boolean
 		// (We're probably still loading the user.)
 		return false;
 	}
+	// Not gated on `operations` either: structure_user is cleared for every DDL operation this covers.
 	return permission.super_user === true || permission.structure_user === true;
 }
 
@@ -207,6 +210,26 @@ export function useInstanceSchemaTablePermission(
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	return checkSchemaTablePermission(user?.role?.permission, databaseName, tableName, action);
+}
+
+export function useInstanceImportDataPermission(
+	entityId: EntityIds | undefined,
+	databaseName: string,
+	tableName: string,
+): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	return checkImportDataPermission(user?.role?.permission, databaseName, tableName);
+}
+
+/**
+ * The allowlist half of Import Data, for the database-scoped launcher that has no table yet (it
+ * creates one, so there is no per-table grant to consult).
+ */
+export function useInstanceImportOperationsPermission(entityId?: EntityIds): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	return checkImportDataOperationsAllowed(user?.role?.permission);
 }
 
 export function useInstanceSchemaTableAttributePermission(
@@ -222,6 +245,9 @@ export function useInstanceSchemaTableAttributePermission(
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
 		// (We're probably still loading the user.)
+		return false;
+	}
+	if (!checkTableActionAllowed(permission, action)) {
 		return false;
 	}
 	if (permission.super_user === true || permission.structure_user === true) {

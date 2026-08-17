@@ -61,6 +61,8 @@ export async function importData({
 		}
 	}
 
+	// A new source needs its operation added to checkOperationPermission's import mapping, or the
+	// launcher stays hidden for roles granted only that operation.
 	switch (source.kind) {
 		case 'csv-data': {
 			const { job_id } = await onAddCSVDataSubmit({ database, table, fileData: source.data, instanceClient });

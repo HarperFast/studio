@@ -349,6 +349,11 @@ export function getOperationInfo(name: string): GrantableOperation | undefined {
 	return catalogByName.get(name);
 }
 
+/** The authorization entry a name resolves to; aliases collapse onto their canonical operation. */
+export function canonicalOperationName(name: string): string {
+	return catalogByName.get(name)?.aliasOf ?? name;
+}
+
 export function isOperationGroupName(name: string): boolean {
 	return groupsByName.has(name);
 }
