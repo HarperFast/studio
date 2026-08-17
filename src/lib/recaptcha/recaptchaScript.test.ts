@@ -73,6 +73,37 @@ describe('getCaptchaToken', () => {
 		await expect(pending).resolves.toBeUndefined();
 	});
 
+	it('a hung script load (no load, no error event) times out and stays retryable', async () => {
+		// The regression this pins: a load that never settles left the cached promise
+		// pending forever, so every later submit ate the 4s mint timeout and could
+		// never recover without a full page reload.
+		vi.useFakeTimers();
+		try {
+			const hung = getCaptchaToken('signup');
+			expect(injectedScripts()).toHaveLength(1);
+			await vi.advanceTimersByTimeAsync(8000);
+			await expect(hung).resolves.toBeUndefined();
+			// The dead node is gone and the cache cleared, so the retry re-injects...
+			expect(injectedScripts()).toHaveLength(0);
+			const retried = getCaptchaToken('signup');
+			expect(injectedScripts()).toHaveLength(1);
+			// ...and succeeds once the network recovers.
+			resolveLatestScript();
+			await vi.runAllTimersAsync();
+			await expect(retried).resolves.toBe('minted-token');
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('a script that loads without exposing the API is removed, not leaked', async () => {
+		const pending = getCaptchaToken('signup');
+		// Fire load without defining window.grecaptcha — a content-filter stub.
+		injectedScripts().at(-1)!.dispatchEvent(new Event('load'));
+		await expect(pending).resolves.toBeUndefined();
+		expect(injectedScripts()).toHaveLength(0);
+	});
+
 	it('retries the load on the next submit instead of caching the failure', async () => {
 		// A cached rejection would be a dead end: with central-manager enforcing, a user
 		// whose first script load was blocked could never mint a token.

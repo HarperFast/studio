@@ -91,7 +91,7 @@ export function SignUp() {
 		// Drop the previous attempt's failure explicitly — `handleSubmit` reruns the resolver,
 		// which only rewrites field errors, so a stale `root` would outlive the retry.
 		clearErrors('root');
-		// Minted per submit: v3 tokens are single use and expire in ~2 minutes.
+		// Minted per submit: tokens are single use and expire in ~2 minutes.
 		const captchaToken = await captcha.getToken();
 		submitSignUpData({ ...userData, captchaToken }, {
 			onSuccess: () => {
@@ -113,9 +113,6 @@ export function SignUp() {
 			// agnostic — it reports whatever the server said rather than mapping specific codes.
 			onError: (error) => {
 				console.error(error);
-				// Prefer the CAPTCHA wording when that is what failed — describeError would
-				// only echo the server's bare "Verification failed" without saying what to
-				// do about it. A retry mints a fresh token on its own.
 				// `message`, not `description`: the latter is the toast's body, with the first clause
 				// of a "Conflict: …" style message moved out into the heading this has no room for.
 				setError('root', {

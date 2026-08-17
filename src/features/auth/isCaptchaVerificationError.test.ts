@@ -16,6 +16,12 @@ describe('isCaptchaVerificationError', () => {
 		expect(isCaptchaVerificationError(axiosError(403, { message: 'Verification failed' }))).toBe(true);
 	});
 
+	it('matches an RFC 9457 problem body via its title', () => {
+		expect(
+			isCaptchaVerificationError(axiosError(403, { type: 'about:blank', title: 'Verification failed', status: 403 })),
+		).toBe(true);
+	});
+
 	it('ignores a 403 that is not the challenge (so it keeps the normal error path)', () => {
 		expect(isCaptchaVerificationError(axiosError(403, 'User account deactivated'))).toBe(false);
 	});

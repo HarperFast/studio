@@ -6,7 +6,7 @@ const CHALLENGE_FAILED = 'Verification failed. Please try again.';
 const CHALLENGE_UNAVAILABLE =
 	'We could not run the verification check. Disable any ad blocker for this page, then reload and try again.';
 
-/** reCAPTCHA v3 plumbing shared by the two public auth forms (central-manager#627).
+/** reCAPTCHA Enterprise plumbing shared by the two public auth forms (central-manager#627).
  *  Call `getToken()` as the form submits and send the result as `captchaToken`;
  *  pass mutation errors through `describeCaptchaError` — it returns the message to
  *  show when the CAPTCHA is what failed, or undefined for every other error.
@@ -14,8 +14,7 @@ const CHALLENGE_UNAVAILABLE =
  *  Every submit mints a fresh token (they are single use and expire in ~2 min), so
  *  there is no widget, no reset, and no expiry handling here by design. */
 export function useCaptchaChallenge(action: string) {
-	// Warm the script at mount: the badge becomes visible where CAPTCHA is in use
-	// (Google's terms) and the submit-time mint doesn't pay the download.
+	// Google's terms require the badge to be visible where reCAPTCHA is in use.
 	useEffect(() => {
 		warmCaptcha();
 	}, []);

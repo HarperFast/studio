@@ -210,7 +210,7 @@ describe('SignUp — reCAPTCHA', () => {
 	});
 
 	it('a retry after any failure mints a fresh token by design', async () => {
-		// v3 tokens are single use and minted per submit, so a 409 whose real problem
+		// Tokens are single use and minted per submit, so a 409 whose real problem
 		// was the email address can never leave a spent token behind for the retry.
 		captchaState.token = 'first-token';
 		post.mockRejectedValueOnce(axiosError(409, 'User already exists'));
