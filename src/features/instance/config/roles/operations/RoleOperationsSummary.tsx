@@ -2,6 +2,7 @@ import {
 	expandEffectiveOperations,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
 	classifyOperationsValue,
@@ -17,8 +18,9 @@ import { pluralize } from '@/lib/pluralize';
  * Renders nothing for unrestricted roles.
  */
 export function RoleOperationsSummary({ role }: { role: LocalRole | undefined }) {
+	const allowlistSupported = useOperationsAllowlistSupported();
 	const permission = role?.permission;
-	const kind = classifyOperationsValue(permission);
+	const kind = classifyOperationsValue(permission, allowlistSupported);
 	// `database` is a pre-5.0 role granting a database named `operations` — not a restriction.
 	if (permission === undefined || kind === 'absent' || kind === 'database') {
 		return null;
@@ -40,10 +42,12 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 		);
 	}
 	const ddlScope = structureUserDdlScope(permission);
-	const ddlNote = ddlScope
-		? ` It is also a structure user, so table and attribute DDL applies ${
-			ddlScope === true ? 'on any database' : `on ${ddlScope.join(', ')}`
-		} regardless of the list.`
+	const ddlNote = ddlScope === true
+		? ' It is also a structure user, so table and attribute DDL — and create/drop database — apply on any'
+			+ ' database regardless of the list.'
+		: ddlScope
+		? ` It is also a structure user, so table and attribute DDL applies on ${ddlScope.join(', ')} regardless of`
+			+ ' the list, and listing those operations cannot reach another database.'
 		: '';
 	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 	if (effective.length === 0) {

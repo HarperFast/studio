@@ -135,12 +135,13 @@ export function OperationsAllowlistEditor({
 					This role is a structure user, so it reaches{' '}
 					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>
 					{structureUserDdl === true
-						? ' (and create/drop database) on any database'
+						? ' (and create/drop database) on any database regardless of the list below.'
 						: (
 							<>
-								on <span className="font-mono">{structureUserDdl.join(', ')}</span>
+								{' '}on <span className="font-mono">{structureUserDdl.join(', ')}</span>{' '}
+								regardless of the list below — and listing them here cannot reach another database.
 							</>
-						)} regardless of the list below. Every other operation is still gated by it.
+						)} Every other operation is still gated by the list.
 				</p>
 			)}
 

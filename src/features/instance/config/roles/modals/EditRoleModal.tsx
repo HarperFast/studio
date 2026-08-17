@@ -131,7 +131,7 @@ export function EditRoleModal({
 		// rather than clobbered from the structured one.
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
-			malformedOperations: hasMalformedOperations(usable),
+			malformedOperations: hasMalformedOperations(usable, operationsSupported),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
 			structureUserDdl: structureUserDdlScope(usable),
 		};
