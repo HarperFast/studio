@@ -2,6 +2,7 @@ import {
 	expandEffectiveOperations,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { OperationsCollisionNotice } from '@/features/instance/config/roles/operations/OperationsCollisionNotice';
 import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
@@ -31,15 +32,7 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 		return null;
 	}
 	if (kind === 'database-collision') {
-		// Never advise "fixing" this: Harper still grants these tables, and replacing the record with
-		// an array makes permissionsTranslator throw for every request the user makes.
-		return (
-			<p className="text-xs text-warning">
-				This role grants table permissions on a database named{' '}
-				<span className="font-mono">operations</span>, which this Harper version reserves for the operations allowlist.
-				Those table grants still apply, but the allowlist cannot be managed here — rename the database to use both.
-			</p>
-		);
+		return <OperationsCollisionNotice />;
 	}
 	if (kind === 'malformed') {
 		return (

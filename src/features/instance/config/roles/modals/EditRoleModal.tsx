@@ -8,6 +8,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { calculateDefaultPermissions } from '@/features/instance/config/roles/defaultCalculator';
 import { OperationsAllowlistEditor } from '@/features/instance/config/roles/operations/OperationsAllowlistEditor';
 import { supportsOperationsAllowlist } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { OperationsCollisionNotice } from '@/features/instance/config/roles/operations/OperationsCollisionNotice';
 import { preparePermissionForSave } from '@/features/instance/config/roles/preparePermissionForSave';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCheckboxCallback } from '@/hooks/useCheckboxCallback';
@@ -18,8 +19,8 @@ import { useDeleteRoleMutation } from '@/integrations/api/instance/auth/deleteRo
 import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import {
+	classifyOperationsValue,
 	getOperationsAllowlist,
-	isUneditableOperationsValue,
 	orderPermissionKeys,
 	rolePreventsOperationsAllowlist,
 	structureUserDdlScope,
@@ -106,7 +107,7 @@ export function EditRoleModal({
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
 	const lastParsedRef = useRef<LocalRolePermission | null>(null);
-	const { operationsJson, malformedOperations, allowlistRejected, structureUserDdl } = useMemo(() => {
+	const { operationsJson, operationsKind, allowlistRejected, structureUserDdl } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
 		const parsed = operationsSupported && updatedPermissions
@@ -120,7 +121,7 @@ export function EditRoleModal({
 		if (usable === null) {
 			return {
 				operationsJson: undefined,
-				malformedOperations: false,
+				operationsKind: 'absent' as const,
 				allowlistRejected: false,
 				structureUserDdl: false as const,
 			};
@@ -131,7 +132,7 @@ export function EditRoleModal({
 		// rather than clobbered from the structured one.
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
-			malformedOperations: isUneditableOperationsValue(usable, operationsSupported),
+			operationsKind: classifyOperationsValue(usable, operationsSupported),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
 			structureUserDdl: structureUserDdlScope(usable),
 		};
@@ -221,7 +222,9 @@ export function EditRoleModal({
 							: "Edit the role's permissions in JSON format or remove the role entirely."}
 					</DialogDescription>
 					{operationsSupported && registrationInfo && (
-						malformedOperations
+						operationsKind === 'database-collision'
+							? <OperationsCollisionNotice />
+							: operationsKind === 'malformed'
 							? (
 								<p className="text-xs text-muted-foreground">
 									This role's <span className="font-mono">operations</span>{' '}

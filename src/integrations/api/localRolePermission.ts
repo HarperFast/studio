@@ -83,7 +83,7 @@ export const STRUCTURE_USER_DDL_OPERATIONS = [
 /**
  * The role's operations allowlist, but only when it is well-formed (an array of strings).
  * Anything else — absent, or a shape the structured UI must not touch — is undefined; use
- * hasMalformedOperations to tell those apart.
+ * isUneditableOperationsValue to tell those apart.
  */
 export function getOperationsAllowlist(permission: LocalRolePermission | undefined): string[] | undefined {
 	const operations = permission?.operations;
