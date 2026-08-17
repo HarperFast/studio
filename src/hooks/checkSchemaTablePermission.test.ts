@@ -10,23 +10,23 @@ function perm(value: Record<string, unknown>): LocalRolePermission {
 
 describe('checkSchemaTablePermission', () => {
 	it('denies while the permission is still loading', () => {
-		expect(checkSchemaTablePermission(undefined, 'data', 'dog', 'insert', true)).toBe(false);
+		expect(checkSchemaTablePermission(undefined, 'data', 'dog', 'insert')).toBe(false);
 	});
 
 	it('allows super_user and structure_user regardless of the specific table', () => {
-		expect(checkSchemaTablePermission(perm({ super_user: true }), 'data', 'dog', 'insert', true)).toBe(true);
-		expect(checkSchemaTablePermission(perm({ structure_user: true }), 'data', 'dog', 'insert', true)).toBe(true);
+		expect(checkSchemaTablePermission(perm({ super_user: true }), 'data', 'dog', 'insert')).toBe(true);
+		expect(checkSchemaTablePermission(perm({ structure_user: true }), 'data', 'dog', 'insert')).toBe(true);
 	});
 
 	// Regression: a restricted (non-structure_user) user whose database grant doesn't list the table
 	// used to crash on `tables[tableName][action]` (missing optional chain) -- e.g. opening a table
 	// context menu. It must simply deny.
 	it('denies (without crashing) when the database has no entry for the table', () => {
-		expect(checkSchemaTablePermission(perm({ data: { tables: {} } }), 'data', 'dog', 'insert', true)).toBe(false);
+		expect(checkSchemaTablePermission(perm({ data: { tables: {} } }), 'data', 'dog', 'insert')).toBe(false);
 	});
 
 	it('denies when the database itself is absent from the permission map', () => {
-		expect(checkSchemaTablePermission(perm({ data: { tables: {} } }), 'other', 'dog', 'insert', true)).toBe(false);
+		expect(checkSchemaTablePermission(perm({ data: { tables: {} } }), 'other', 'dog', 'insert')).toBe(false);
 	});
 
 	it('reflects the per-action flag on a granted table', () => {
@@ -35,7 +35,21 @@ describe('checkSchemaTablePermission', () => {
 				tables: { dog: { read: true, insert: true, update: false, delete: false, attribute_permissions: null } },
 			},
 		});
-		expect(checkSchemaTablePermission(permission, 'data', 'dog', 'insert', true)).toBe(true);
-		expect(checkSchemaTablePermission(permission, 'data', 'dog', 'update', true)).toBe(false);
+		expect(checkSchemaTablePermission(permission, 'data', 'dog', 'insert')).toBe(true);
+		expect(checkSchemaTablePermission(permission, 'data', 'dog', 'update')).toBe(false);
+	});
+
+	it('reads a database named operations as a table grant, like the server does after an upgrade', () => {
+		// permissionsTranslator overwrites the key with the translated table permissions whenever a
+		// database of that name exists, so hiding it here would be stricter than Harper.
+		const permission = {
+			operations: { tables: { dog: { read: true, insert: false, update: false, delete: false } } },
+		} as unknown as LocalRolePermission;
+		expect(checkSchemaTablePermission(permission, 'operations', 'dog', 'read')).toBe(true);
+	});
+
+	it('never reads a real allowlist as a table grant', () => {
+		const permission: LocalRolePermission = { operations: ['read_only'] };
+		expect(checkSchemaTablePermission(permission, 'operations', 'dog', 'read')).toBe(false);
 	});
 });
