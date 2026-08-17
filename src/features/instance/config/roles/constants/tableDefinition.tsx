@@ -77,6 +77,10 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
  */
 function OperationsCell({ permission }: { permission: LocalRole['permission'] }) {
 	const allowlistSupported = useOperationsAllowlistSupported();
+	if (allowlistSupported === undefined) {
+		// The verdict depends on the version; render nothing rather than guess it for a frame.
+		return null;
+	}
 	const kind = classifyOperationsValue(permission, allowlistSupported);
 	// `database` is a pre-allowlist role granting a database named `operations`, not a restriction.
 	if (kind === 'absent' || kind === 'database') {

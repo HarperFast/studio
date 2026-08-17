@@ -1,4 +1,5 @@
 import { EntityIds } from '@/features/auth/store/authStore';
+import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import { hasStaffPermission, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
@@ -206,7 +207,16 @@ export function useInstanceSchemaTablePermission(
 ): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
-	return checkSchemaTablePermission(user?.role?.permission, databaseName, tableName, action);
+	const allowlistSupported = useOperationsAllowlistSupported();
+	// Unresolved version fails closed: assuming the modern instance withholds a grant on a database
+	// named `operations` rather than inventing one.
+	return checkSchemaTablePermission(
+		user?.role?.permission,
+		databaseName,
+		tableName,
+		action,
+		allowlistSupported ?? true,
+	);
 }
 
 export function useInstanceSchemaTableAttributePermission(
@@ -218,6 +228,7 @@ export function useInstanceSchemaTableAttributePermission(
 ): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	const allowlistSupported = useOperationsAllowlistSupported();
 	const permission = user?.role?.permission;
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -227,7 +238,8 @@ export function useInstanceSchemaTableAttributePermission(
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	const specificPermission = getDatabasePermissionRecord(permission, databaseName);
+	// Fails closed while the version is unresolved, like the table-permission hook above.
+	const specificPermission = getDatabasePermissionRecord(permission, databaseName, allowlistSupported ?? true);
 	if (specificPermission?.tables?.[tableName]?.[action] === true) {
 		return true;
 	}

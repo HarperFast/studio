@@ -1,28 +1,29 @@
 import { LocalRolePermission, LocalRoleSchemaRecord } from '@/integrations/api/api.patch';
 
 // Top-level LocalRolePermission keys that are NOT database names, in canonical display order.
-// Key identity decides for the three flags: Harper reserves them in the permission object itself,
-// so a database with one of those names cannot be expressed in role JSON at all. `operations` is
-// the exception — pre-5.0 Harper reserved nothing by that name, so there value SHAPE decides
-// (an allowlist is an array; a database record is not). See getDatabasePermissionRecord and
-// classifyOperationsValue, which must stay consistent with each other.
+// The three flags are reserved on every version, so a database can never carry those names.
+// `operations` depends on the instance: at or above the allowlist floor it is the allowlist key
+// and never a database, below it Harper reserved nothing by that name and it is an ordinary
+// database. That single rule is what getDatabasePermissionRecord decides; classifyOperationsValue
+// delegates to it rather than repeating the shape test, so the two cannot drift apart.
 const RESERVED_KEY_ORDER = ['super_user', 'structure_user', 'cluster_user', 'operations'] as const;
 export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_KEY_ORDER);
 
 /**
  * The database-scoped record under a LocalRolePermission key, or undefined for reserved keys and
- * malformed values (null, booleans, arrays).
+ * values that are not a record (null, booleans, arrays).
  *
- * `operations` is special-cased by value shape rather than key alone: pre-5.0 Harper had no
- * reserved `operations` field, so a v4 role can hold real table permissions for a database with
- * that name. An allowlist is always an array and a database record never is, so the shape
- * disambiguates the two worlds without needing the instance version here.
+ * `allowlistSupported` settles the `operations` key: at or above the floor it belongs to the
+ * allowlist and is never a database grant, below it a role may legitimately grant a database of
+ * that name. Callers without a resolved version should pass `true` — that is the fail-closed
+ * answer, since it withholds a table grant rather than inventing one.
  */
 export function getDatabasePermissionRecord(
 	permission: LocalRolePermission,
 	databaseName: string,
+	allowlistSupported: boolean,
 ): LocalRoleSchemaRecord | undefined {
-	if (databaseName !== 'operations' && RESERVED_PERMISSION_KEYS.has(databaseName)) {
+	if (databaseName === 'operations' ? allowlistSupported : RESERVED_PERMISSION_KEYS.has(databaseName)) {
 		return undefined;
 	}
 	// hasOwn, so a database named `__proto__` reads its own entry rather than Object.prototype.
@@ -97,17 +98,15 @@ export function classifyOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
 ): 'absent' | 'allowlist' | 'database' | 'malformed' {
-	const operations = permission?.operations;
-	if (operations === undefined) {
+	if (permission?.operations === undefined) {
 		return 'absent';
 	}
-	if (getOperationsAllowlist(permission) !== undefined) {
-		return 'allowlist';
+	if (allowlistSupported) {
+		// Above the floor the key is the allowlist, so anything but a string array is a broken one.
+		return getOperationsAllowlist(permission) !== undefined ? 'allowlist' : 'malformed';
 	}
-	return !allowlistSupported && operations !== null && typeof operations === 'object'
-			&& !Array.isArray(operations) && 'tables' in operations
-		? 'database'
-		: 'malformed';
+	// Below it the key is an ordinary database, judged by the same test as any other database.
+	return getDatabasePermissionRecord(permission, 'operations', false) !== undefined ? 'database' : 'malformed';
 }
 
 /** An `operations` key is present but is neither an allowlist nor a pre-5.0 database record. */

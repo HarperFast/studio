@@ -44,11 +44,10 @@ export function calculateDefaultPermissions({
 		return record;
 	};
 
+	const allowlistSupported = supportsOperationsAllowlist(version);
+
 	for (const databaseName in instanceDatabaseMap) {
-		if (
-			RESERVED_PERMISSION_KEYS.has(databaseName)
-			&& (databaseName !== 'operations' || supportsOperationsAllowlist(version))
-		) {
+		if (RESERVED_PERMISSION_KEYS.has(databaseName) && (databaseName !== 'operations' || allowlistSupported)) {
 			// A database named like a reserved permission key cannot be expressed in role JSON —
 			// writing it here would clobber the reserved value (e.g. a 5.0+ operations allowlist).
 			// Pre-5.0 Harper has no reserved `operations`, so there a database by that name is real.
@@ -56,7 +55,7 @@ export function calculateDefaultPermissions({
 		}
 		const databaseRecord = setDatabase(databaseName, { tables: {} });
 		const extantDatabasePermissions = currentRolePermissions
-			&& getDatabasePermissionRecord(currentRolePermissions, databaseName);
+			&& getDatabasePermissionRecord(currentRolePermissions, databaseName, allowlistSupported);
 		for (const tableName in instanceDatabaseMap[databaseName]) {
 			const thisTable = instanceDatabaseMap[databaseName][tableName];
 			const attributes = thisTable.attributes.map((a) => a.attribute).sort();

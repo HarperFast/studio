@@ -15,36 +15,54 @@ const dogTable = { read: true, insert: false, update: false, delete: false, attr
 describe('getDatabasePermissionRecord', () => {
 	it('returns the record for a database key', () => {
 		const permission: LocalRolePermission = { data: { tables: { dog: dogTable } } };
-		expect(getDatabasePermissionRecord(permission, 'data')?.tables.dog).toBe(dogTable);
+		expect(getDatabasePermissionRecord(permission, 'data', true)?.tables.dog).toBe(dogTable);
 	});
 
 	it('never treats flag keys as database records, whatever their value shape', () => {
 		const permission = { super_user: true, structure_user: { tables: {} } } as unknown as LocalRolePermission;
-		expect(getDatabasePermissionRecord(permission, 'super_user')).toBeUndefined();
-		expect(getDatabasePermissionRecord(permission, 'structure_user')).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'super_user', true)).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'structure_user', true)).toBeUndefined();
 	});
 
-	it('disambiguates the operations key by shape: arrays are the 5.0+ allowlist, records are a v4 database', () => {
-		// Pre-5.0 Harper reserved no `operations` field, so a v4 role can hold real table
-		// permissions for a database with that name; an allowlist is never record-shaped.
-		const v4Database = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
-		expect(getDatabasePermissionRecord(v4Database, 'operations')?.tables.dog).toBe(dogTable);
+	it('lets the instance version settle the operations key, not the value shape', () => {
+		const record = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
+		// Below the floor Harper reserved nothing by that name, so it is an ordinary database…
+		expect(getDatabasePermissionRecord(record, 'operations', false)?.tables.dog).toBe(dogTable);
+		// …and at or above it the key belongs to the allowlist, so it is never a table grant.
+		expect(getDatabasePermissionRecord(record, 'operations', true)).toBeUndefined();
 
 		const allowlist: LocalRolePermission = { operations: ['read_only'] };
-		expect(getDatabasePermissionRecord(allowlist, 'operations')).toBeUndefined();
+		expect(getDatabasePermissionRecord(allowlist, 'operations', true)).toBeUndefined();
+		expect(getDatabasePermissionRecord(allowlist, 'operations', false)).toBeUndefined();
+	});
+
+	it('agrees with classifyOperationsValue in both worlds', () => {
+		// The module contract: these two must never disagree about what the key holds.
+		const cases: LocalRolePermission[] = [
+			{ operations: ['sql'] },
+			{ operations: { tables: {} } } as unknown as LocalRolePermission,
+			{ operations: {} } as unknown as LocalRolePermission,
+			{ operations: true } as unknown as LocalRolePermission,
+		];
+		for (const permission of cases) {
+			for (const supported of [true, false]) {
+				const isDatabase = getDatabasePermissionRecord(permission, 'operations', supported) !== undefined;
+				expect(classifyOperationsValue(permission, supported) === 'database').toBe(isDatabase);
+			}
+		}
 	});
 
 	it('returns undefined for null, array, and missing values', () => {
 		const permission = { dev: null, other: ['x'] } as unknown as LocalRolePermission;
-		expect(getDatabasePermissionRecord(permission, 'dev')).toBeUndefined();
-		expect(getDatabasePermissionRecord(permission, 'other')).toBeUndefined();
-		expect(getDatabasePermissionRecord(permission, 'missing')).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'dev', true)).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'other', true)).toBeUndefined();
+		expect(getDatabasePermissionRecord(permission, 'missing', true)).toBeUndefined();
 	});
 
 	it('does not report inherited properties as a database record', () => {
 		// Without an own-property check, `permission['__proto__']` yields Object.prototype.
-		expect(getDatabasePermissionRecord({}, '__proto__')).toBeUndefined();
-		expect(getDatabasePermissionRecord({}, 'toString')).toBeUndefined();
+		expect(getDatabasePermissionRecord({}, '__proto__', true)).toBeUndefined();
+		expect(getDatabasePermissionRecord({}, 'toString', true)).toBeUndefined();
 	});
 });
 

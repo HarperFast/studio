@@ -12,6 +12,7 @@ export function checkSchemaTablePermission(
 	databaseName: string,
 	tableName: string,
 	action: LocalRolePermissionAction,
+	allowlistSupported: boolean,
 ): boolean {
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -21,5 +22,6 @@ export function checkSchemaTablePermission(
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	return getDatabasePermissionRecord(permission, databaseName)?.tables?.[tableName]?.[action] === true;
+	return getDatabasePermissionRecord(permission, databaseName, allowlistSupported)
+		?.tables?.[tableName]?.[action] === true;
 }
