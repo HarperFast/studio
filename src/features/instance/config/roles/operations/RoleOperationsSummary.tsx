@@ -20,9 +20,14 @@ import { pluralize } from '@/lib/pluralize';
 export function RoleOperationsSummary({ role }: { role: LocalRole | undefined }) {
 	const allowlistSupported = useOperationsAllowlistSupported();
 	const permission = role?.permission;
+	// While the version is unresolved the verdict is unknowable, so say nothing rather than
+	// briefly describe a restricted role as unrestricted.
+	if (permission === undefined || allowlistSupported === undefined) {
+		return null;
+	}
 	const kind = classifyOperationsValue(permission, allowlistSupported);
 	// `database` is a pre-5.0 role granting a database named `operations` — not a restriction.
-	if (permission === undefined || kind === 'absent' || kind === 'database') {
+	if (kind === 'absent' || kind === 'database') {
 		return null;
 	}
 	if (kind === 'malformed') {
