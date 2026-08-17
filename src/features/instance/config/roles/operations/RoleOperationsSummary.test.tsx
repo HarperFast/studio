@@ -77,10 +77,12 @@ describe('RoleOperationsSummary', () => {
 		const v4 = role({ operations: { tables: {} } } as unknown as LocalRole['permission']);
 		expect(render(<RoleOperationsSummary role={v4} />).container.textContent).toBe('');
 
-		// …and as a broken allowlist once the instance supports the feature.
+		// …and as an unmanageable collision once the instance reserves the key — described, never
+		// presented as something to "fix", since replacing it breaks permission translation.
 		cleanup();
 		allowlistSupported.mockReturnValue(true);
 		render(<RoleOperationsSummary role={v4} />);
-		expect(screen.getByText(/not a list of operation names/)).toBeTruthy();
+		expect(screen.getByText(/Those table grants still apply/)).toBeTruthy();
+		expect(screen.queryByText(/Fix it in the role editor/)).toBeNull();
 	});
 });

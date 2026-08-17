@@ -19,7 +19,7 @@ import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import {
 	getOperationsAllowlist,
-	hasMalformedOperations,
+	isUneditableOperationsValue,
 	orderPermissionKeys,
 	rolePreventsOperationsAllowlist,
 	structureUserDdlScope,
@@ -131,7 +131,7 @@ export function EditRoleModal({
 		// rather than clobbered from the structured one.
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
-			malformedOperations: hasMalformedOperations(usable, operationsSupported),
+			malformedOperations: isUneditableOperationsValue(usable, operationsSupported),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
 			structureUserDdl: structureUserDdlScope(usable),
 		};

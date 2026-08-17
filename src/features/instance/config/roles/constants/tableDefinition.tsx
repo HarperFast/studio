@@ -92,6 +92,16 @@ function OperationsCell({ permission }: { permission: LocalRole['permission'] })
 			</>
 		);
 	}
+	if (kind === 'database-collision') {
+		return (
+			<span
+				className="text-warning"
+				title="Table permissions on a database named operations, which this version reserves"
+			>
+				database grant
+			</span>
+		);
+	}
 	if (kind === 'malformed') {
 		return <span className="text-destructive" title="Not a list of operation names">invalid</span>;
 	}

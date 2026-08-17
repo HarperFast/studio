@@ -3,7 +3,7 @@ import {
 	classifyOperationsValue,
 	getDatabasePermissionRecord,
 	getOperationsAllowlist,
-	hasMalformedOperations,
+	isUneditableOperationsValue,
 	orderPermissionKeys,
 	structureUserDdlScope,
 	withOperations,
@@ -66,29 +66,29 @@ describe('getDatabasePermissionRecord', () => {
 	});
 });
 
-describe('getOperationsAllowlist / hasMalformedOperations', () => {
+describe('getOperationsAllowlist / isUneditableOperationsValue', () => {
 	it('returns a well-formed allowlist and reports it as not malformed', () => {
 		const permission: LocalRolePermission = { operations: ['read_only', 'deploy_component'] };
 		expect(getOperationsAllowlist(permission)).toEqual(['read_only', 'deploy_component']);
-		expect(hasMalformedOperations(permission, true)).toBe(false);
+		expect(isUneditableOperationsValue(permission, true)).toBe(false);
 	});
 
 	it('treats a non-array or mixed-type operations value as malformed, not partially valid', () => {
 		const nonArray = { operations: true } as unknown as LocalRolePermission;
 		expect(getOperationsAllowlist(nonArray)).toBeUndefined();
-		expect(hasMalformedOperations(nonArray, true)).toBe(true);
+		expect(isUneditableOperationsValue(nonArray, true)).toBe(true);
 
 		// Silently dropping the 42 on the next write would save an array the user never saw.
 		const mixed = { operations: ['read_only', 42] } as unknown as LocalRolePermission;
 		expect(getOperationsAllowlist(mixed)).toBeUndefined();
-		expect(hasMalformedOperations(mixed, true)).toBe(true);
+		expect(isUneditableOperationsValue(mixed, true)).toBe(true);
 	});
 
 	it('is quiet for roles without the key (and for missing permissions)', () => {
 		expect(getOperationsAllowlist({})).toBeUndefined();
-		expect(hasMalformedOperations({}, true)).toBe(false);
+		expect(isUneditableOperationsValue({}, true)).toBe(false);
 		expect(getOperationsAllowlist(undefined)).toBeUndefined();
-		expect(hasMalformedOperations(undefined, true)).toBe(false);
+		expect(isUneditableOperationsValue(undefined, true)).toBe(false);
 	});
 });
 
@@ -98,14 +98,19 @@ describe('classifyOperationsValue', () => {
 		// A v4 role granting a database called `operations` is valid, not something to "fix".
 		const v4 = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
 		expect(classifyOperationsValue(v4, false)).toBe('database');
-		expect(hasMalformedOperations(v4, false)).toBe(false);
+		expect(isUneditableOperationsValue(v4, false)).toBe(false);
+		// …but on a supporting instance the editor must not touch it.
+		expect(classifyOperationsValue(v4, true)).toBe('database-collision');
+		expect(isUneditableOperationsValue(v4, true)).toBe(true);
 	});
 
-	it('calls a record malformed on a supporting instance — role_validation rejects a non-array', () => {
-		// The editor must not treat it as "unrestricted" there and overwrite it on the next click.
+	it('separates the upgrade collision from a plain database grant', () => {
+		// Same value, two instances: above the floor it is an unmanageable collision the editor must
+		// not overwrite, below it an ordinary database grant.
 		const record = { operations: { tables: {} } } as unknown as LocalRolePermission;
-		expect(classifyOperationsValue(record, true)).toBe('malformed');
+		expect(classifyOperationsValue(record, true)).toBe('database-collision');
 		expect(classifyOperationsValue(record, false)).toBe('database');
+		expect(isUneditableOperationsValue(record, true)).toBe(true);
 	});
 
 	it('still reports genuinely malformed values', () => {

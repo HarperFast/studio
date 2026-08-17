@@ -2,10 +2,17 @@ import { LocalRolePermission, LocalRoleSchemaRecord } from '@/integrations/api/a
 
 // Top-level LocalRolePermission keys that are NOT database names, in canonical display order.
 // The three flags are reserved on every version, so a database can never carry those names.
-// `operations` depends on the instance: at or above the allowlist floor it is the allowlist key
-// and never a database, below it Harper reserved nothing by that name and it is an ordinary
-// database. That single rule is what getDatabasePermissionRecord decides; classifyOperationsValue
-// delegates to it rather than repeating the shape test, so the two cannot drift apart.
+//
+// `operations` is genuinely ambiguous, and the two readers of it ask DIFFERENT questions — they
+// are meant to answer differently, so don't re-unify them:
+// - "Is this the allowlist?" (the role editor) — yes at or above the floor, where a non-array is a
+//   broken allowlist Harper's role_validation rejects.
+// - "Is there a table-permission record here?" (the access checks) — yes whenever the value is
+//   record-shaped, on every version: permissionsTranslator hands a role those table permissions
+//   for a database of that name regardless, so an upgraded v4 role still holds a live grant.
+// getDatabasePermissionRecord takes that question as `operationsIsAllowlist`; the access-check
+// callers pass `false` deliberately, and classifyOperationsValue delegates for the shape test so
+// the two never disagree about what a *record* is.
 const RESERVED_KEY_ORDER = ['super_user', 'structure_user', 'cluster_user', 'operations'] as const;
 export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_KEY_ORDER);
 
@@ -93,31 +100,40 @@ export function getOperationsAllowlist(permission: LocalRolePermission | undefin
  * - `database`: a table-permission record on an instance BELOW the allowlist floor, i.e. a role
  *   granting a database that happens to be named `operations`. Legitimate there, and not something
  *   to ask the author to "fix".
- * - `malformed`: anything else. On a supporting instance that includes a record, because
- *   role_validation rejects a non-array `operations` outright (OPERATIONS_MUST_BE_ARRAY) — so
- *   there it is a broken allowlist, and callers must leave it alone rather than overwrite it.
+ * - `database-collision`: the same record at or above the floor, typically a v4 role carried
+ *   through an upgrade. role_validation would reject re-saving it, yet permissionsTranslator still
+ *   grants those tables — so it must be described, never "fixed" in place: replacing it with an
+ *   array makes `perms.operations.tables[t]` throw and fails permission translation for every
+ *   request that user makes.
+ * - `malformed`: anything else — `true`, a bare string, a mixed array.
  */
 export function classifyOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
-): 'absent' | 'allowlist' | 'database' | 'malformed' {
+): 'absent' | 'allowlist' | 'database' | 'database-collision' | 'malformed' {
 	if (permission?.operations === undefined) {
 		return 'absent';
 	}
-	if (allowlistSupported) {
-		// Above the floor the key is the allowlist, so anything but a string array is a broken one.
-		return getOperationsAllowlist(permission) !== undefined ? 'allowlist' : 'malformed';
+	if (allowlistSupported && getOperationsAllowlist(permission) !== undefined) {
+		return 'allowlist';
 	}
-	// Below it the key is an ordinary database, judged by the same test as any other database.
-	return getDatabasePermissionRecord(permission, 'operations', false) !== undefined ? 'database' : 'malformed';
+	// The same shape test the access checks use, so the two never disagree about what a record is.
+	if (getDatabasePermissionRecord(permission, 'operations', false) !== undefined) {
+		return allowlistSupported ? 'database-collision' : 'database';
+	}
+	return 'malformed';
 }
 
-/** An `operations` key is present but is neither an allowlist nor a pre-5.0 database record. */
-export function hasMalformedOperations(
+/**
+ * Whether the structured editor must keep its hands off this value: anything present that isn't a
+ * well-formed allowlist, including a record it would otherwise overwrite.
+ */
+export function isUneditableOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
 ): boolean {
-	return classifyOperationsValue(permission, allowlistSupported) === 'malformed';
+	const kind = classifyOperationsValue(permission, allowlistSupported);
+	return kind === 'malformed' || kind === 'database-collision';
 }
 
 /**
