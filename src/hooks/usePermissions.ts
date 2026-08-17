@@ -1,5 +1,12 @@
 import { EntityIds } from '@/features/auth/store/authStore';
-import { checkImportDataOperationsAllowed, checkTableActionAllowed } from '@/hooks/checkOperationPermission';
+import {
+	checkImportDataOperationsAllowed,
+	checkImportMethodAllowed,
+	checkImportSourceAllowed,
+	checkTableActionAllowed,
+	IMPORT_METHODS,
+	type ImportMethod,
+} from '@/hooks/checkOperationPermission';
 import { checkImportDataPermission, checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
 import { hasStaffPermission, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
@@ -9,8 +16,10 @@ import {
 	LocalRolePermissionTable,
 	User,
 } from '@/integrations/api/api.patch';
+import type { ImportSource } from '@/integrations/api/instance/database/importData';
 import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermission';
 import { useParams } from '@tanstack/react-router';
+import { useMemo } from 'react';
 
 interface UR {
 	update: boolean;
@@ -230,6 +239,25 @@ export function useInstanceImportOperationsPermission(entityId?: EntityIds): boo
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	return checkImportDataOperationsAllowed(user?.role?.permission);
+}
+
+/**
+ * Per-method and per-source import capability, so the modal offers only what the role can run instead
+ * of failing at submit.
+ */
+export function useInstanceImportCapabilities(entityId?: EntityIds): {
+	methods: Record<ImportMethod, boolean>;
+	allowsSource: (kind: ImportSource['kind']) => boolean;
+} {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	const permission = user?.role?.permission;
+	return useMemo(() => ({
+		methods: Object.fromEntries(
+			IMPORT_METHODS.map((method) => [method, checkImportMethodAllowed(permission, method)]),
+		) as Record<ImportMethod, boolean>,
+		allowsSource: (kind: ImportSource['kind']) => checkImportSourceAllowed(permission, kind),
+	}), [permission]);
 }
 
 export function useInstanceSchemaTableAttributePermission(

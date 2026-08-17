@@ -33,13 +33,15 @@ import {
 } from '@/features/instance/databases/functions/generateRandomRecords';
 import { parseJsonRecords } from '@/features/instance/databases/functions/parseJsonRecords';
 import { sampleDatasets } from '@/features/instance/databases/sampleDatasets';
+import type { ImportMethod } from '@/hooks/checkOperationPermission';
+import { useInstanceImportCapabilities } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { databaseNameSchema } from '@/integrations/api/instance/database/databaseNameSchema';
 import { ImportSource, useImportDataMutation } from '@/integrations/api/instance/database/importData';
 import { tableNameSchema } from '@/integrations/api/instance/database/tableNameSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CloudUploadIcon, FileUpIcon, GlobeIcon, InfoIcon, LoaderCircleIcon, PackageIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -131,12 +133,22 @@ export function ImportDataModal({
 	const { mutate: importData, isPending } = useImportDataMutation();
 	const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
+	const importCapabilities = useInstanceImportCapabilities();
+	// Offer only methods the role can actually run; a method whose every path is denied would fail at
+	// submit with a 403 the user can do nothing about.
+	const availableMethods = useMemo(
+		() => importMethods.filter(({ value }) => importCapabilities.methods[value]),
+		[importCapabilities],
+	);
+	// With a table already in context (table toolbar) the likely intent is loading your own data;
+	// without one (sidebar, empty database) lead with samples -- then fall back to whatever is allowed.
+	const preferred: ImportMethod = tableName ? 'file' : 'sample';
+	const defaultMethod = importCapabilities.methods[preferred] ? preferred : (availableMethods[0]?.value ?? preferred);
+
 	const form = useForm({
 		resolver: zodResolver(ImportDataFormSchema),
 		defaultValues: {
-			// With a table already in context (table toolbar) the likely intent is loading
-			// your own data; without one (sidebar, empty database) lead with samples.
-			method: tableName ? ('file' as const) : ('sample' as const),
+			method: defaultMethod,
 			database: databaseName || '',
 			table: tableName || '',
 			datasetId: '',
@@ -153,7 +165,7 @@ export function ImportDataModal({
 	useEffect(() => {
 		if (isModalOpen) {
 			reset({
-				method: tableName ? 'file' : 'sample',
+				method: defaultMethod,
 				database: databaseName || '',
 				table: tableName || '',
 				datasetId: '',
@@ -164,7 +176,7 @@ export function ImportDataModal({
 			});
 			setSelectedFileName(null);
 		}
-	}, [isModalOpen, databaseName, tableName, reset]);
+	}, [isModalOpen, databaseName, tableName, defaultMethod, reset]);
 
 	const method = form.watch('method');
 	const datasetId = form.watch('datasetId');
@@ -265,6 +277,18 @@ export function ImportDataModal({
 			source = { kind: 'csv-url', url: values.url };
 		}
 
+		// `sample` and `file` only resolve to a concrete operation here (a bundled dataset bulk-loads,
+		// random records insert; a .json upload inserts, any other extension bulk-loads), so this is the
+		// first point the allowlist can be checked against what will actually be sent.
+		if (!importCapabilities.allowsSource(source.kind)) {
+			form.setError('method', {
+				message: source.kind === 'json-records'
+					? 'This role cannot insert records. Choose a CSV source instead.'
+					: 'This role cannot run CSV loads. Choose a JSON file or random sample data instead.',
+			});
+			return;
+		}
+
 		importData(
 			{
 				database,
@@ -313,7 +337,7 @@ export function ImportDataModal({
 									<FormLabel>Select Import Method</FormLabel>
 									<FormControl>
 										<RadioGroup value={field.value} onValueChange={field.onChange} className="gap-3">
-											{importMethods.map(({ value, title, description, Icon }) => (
+											{availableMethods.map(({ value, title, description, Icon }) => (
 												<FormLabel
 													key={value}
 													htmlFor={`import-method-${value}`}
