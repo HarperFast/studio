@@ -13,17 +13,20 @@ export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_KE
  * The database-scoped record under a LocalRolePermission key, or undefined for reserved keys and
  * values that are not a record (null, booleans, arrays).
  *
- * `allowlistSupported` settles the `operations` key: at or above the floor it belongs to the
- * allowlist and is never a database grant, below it a role may legitimately grant a database of
- * that name. Callers without a resolved version should pass `true` — that is the fail-closed
- * answer, since it withholds a table grant rather than inventing one.
+ * `operationsIsAllowlist` settles the one ambiguous key, and the right answer depends on the
+ * question being asked, not only on the version:
+ * - Editing a role (`supportsOperationsAllowlist(version)`): at or above the floor the key is the
+ *   allowlist and must never be rewritten as a database.
+ * - Checking table access (`false`): Harper's permissionsTranslator overwrites the key with the
+ *   translated table permissions for a database of that name on every version, so an upgraded v4
+ *   role still holds a real grant there. A genuine allowlist is excluded by the array test below.
  */
 export function getDatabasePermissionRecord(
 	permission: LocalRolePermission,
 	databaseName: string,
-	allowlistSupported: boolean,
+	operationsIsAllowlist: boolean,
 ): LocalRoleSchemaRecord | undefined {
-	if (databaseName === 'operations' ? allowlistSupported : RESERVED_PERMISSION_KEYS.has(databaseName)) {
+	if (databaseName === 'operations' ? operationsIsAllowlist : RESERVED_PERMISSION_KEYS.has(databaseName)) {
 		return undefined;
 	}
 	// hasOwn, so a database named `__proto__` reads its own entry rather than Object.prototype.

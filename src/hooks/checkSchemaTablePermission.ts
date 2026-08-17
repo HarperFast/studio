@@ -12,7 +12,6 @@ export function checkSchemaTablePermission(
 	databaseName: string,
 	tableName: string,
 	action: LocalRolePermissionAction,
-	allowlistSupported: boolean,
 ): boolean {
 	if (!permission) {
 		// If we don't yet have record of their permission, deny access.
@@ -22,6 +21,8 @@ export function checkSchemaTablePermission(
 	if (permission.super_user === true || permission.structure_user === true) {
 		return true;
 	}
-	return getDatabasePermissionRecord(permission, databaseName, allowlistSupported)
-		?.tables?.[tableName]?.[action] === true;
+	// Deliberately version-blind: Harper's permissionsTranslator hands a role the table permissions
+	// under an `operations` key whenever a database of that name exists, so an upgraded v4 role
+	// still has a real grant there. Passing `true` here would hide records the server still serves.
+	return getDatabasePermissionRecord(permission, databaseName, false)?.tables?.[tableName]?.[action] === true;
 }

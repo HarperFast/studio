@@ -4,12 +4,15 @@
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { LocalRole } from '@/integrations/api/api.patch';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The component reads the instance version to tell an allowlist from a pre-5.0 database record.
+const { allowlistSupported } = vi.hoisted(() => ({ allowlistSupported: vi.fn<() => boolean | undefined>() }));
 vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSupported', () => ({
-	useOperationsAllowlistSupported: () => true,
+	useOperationsAllowlistSupported: () => allowlistSupported(),
 }));
+
+beforeEach(() => allowlistSupported.mockReturnValue(true));
 
 afterEach(() => cleanup());
 
@@ -59,5 +62,25 @@ describe('RoleOperationsSummary', () => {
 		// Five names shown inline, the full list on the title.
 		expect(summary.textContent).toContain(', …');
 		expect(summary.getAttribute('title')).toContain('user_info');
+	});
+
+	it('says nothing while the instance version is still loading', () => {
+		// Collapsing "unknown" into "unsupported" would briefly describe a restricted role as
+		// unrestricted — and is the shape that let a write path replace a real allowlist.
+		allowlistSupported.mockReturnValue(undefined);
+		const { container } = render(<RoleOperationsSummary role={role({ operations: ['read_only'] })} />);
+		expect(container.textContent).toBe('');
+	});
+
+	it('treats a record under operations as a database below the allowlist floor', () => {
+		allowlistSupported.mockReturnValue(false);
+		const v4 = role({ operations: { tables: {} } } as unknown as LocalRole['permission']);
+		expect(render(<RoleOperationsSummary role={v4} />).container.textContent).toBe('');
+
+		// …and as a broken allowlist once the instance supports the feature.
+		cleanup();
+		allowlistSupported.mockReturnValue(true);
+		render(<RoleOperationsSummary role={v4} />);
+		expect(screen.getByText(/not a list of operation names/)).toBeTruthy();
 	});
 });
