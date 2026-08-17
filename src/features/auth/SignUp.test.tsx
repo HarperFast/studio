@@ -194,6 +194,41 @@ describe('SignUp — reCAPTCHA', () => {
 		expect(navigate).not.toHaveBeenCalled();
 	});
 
+	it('offers a human after a second consecutive failure, not a third "try again"', async () => {
+		// A low score can't be retried away, so the dead end needs an exit.
+		captchaState.token = 'rejected-token';
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+
+		submit();
+		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
+		expect(screen.getByRole('link', { name: 'Contact us' }).getAttribute('href')).toContain('mailto:');
+		// Pins the space a formatter can silently eat, producing "again.Contact us".
+		expect(screen.getByRole('alert').textContent).toContain('again. Contact us if this keeps happening.');
+	});
+
+	it('drops the support offer once a failure is not the CAPTCHA', async () => {
+		captchaState.token = 'rejected-token';
+		post.mockRejectedValue(axiosError(403, 'Verification failed'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		submit();
+		await waitFor(() => expect(screen.getByRole('link', { name: 'Contact us' })).toBeTruthy());
+
+		post.mockRejectedValue(axiosError(409, 'User already exists'));
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('User already exists'));
+		expect(screen.queryByRole('link', { name: 'Contact us' })).toBeNull();
+	});
+
 	it('names the real problem when the check never ran (script blocked, key configured)', async () => {
 		captchaState.token = undefined; // configured, but the mint failed
 		post.mockRejectedValue(axiosError(403, 'Verification failed'));
