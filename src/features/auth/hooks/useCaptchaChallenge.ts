@@ -6,6 +6,10 @@ const CHALLENGE_FAILED = 'Verification failed. Please try again.';
 const CHALLENGE_UNAVAILABLE =
 	'We could not run the verification check. Disable any ad blocker for this page, then reload and try again.';
 
+// A low score can't be fixed by retrying — the signals behind it don't change —
+// so a second failure offers a human instead of repeating "try again" forever.
+const SUPPORT_AFTER_FAILURES = 2;
+
 /** reCAPTCHA plumbing for the public auth forms (central-manager#627): call
  *  `getToken()` at submit, send it as `captchaToken`, and route mutation errors
  *  through `describeCaptchaError` (message when the CAPTCHA failed, else
@@ -34,10 +38,19 @@ export function useCaptchaChallenge(action: string) {
 		}
 	}, [action]);
 
+	const consecutiveFailures = useRef(0);
+	const [supportSuggested, setSupportSuggested] = useState(false);
+
 	const describeCaptchaError = useCallback((error: unknown): string | undefined => {
-		if (!isCaptchaVerificationError(error)) { return undefined; }
+		if (!isCaptchaVerificationError(error)) {
+			consecutiveFailures.current = 0;
+			setSupportSuggested(false);
+			return undefined;
+		}
+		consecutiveFailures.current += 1;
+		setSupportSuggested(consecutiveFailures.current >= SUPPORT_AFTER_FAILURES);
 		return mintFailed.current ? CHALLENGE_UNAVAILABLE : CHALLENGE_FAILED;
 	}, []);
 
-	return { getToken, describeCaptchaError, minting };
+	return { getToken, describeCaptchaError, minting, supportSuggested };
 }

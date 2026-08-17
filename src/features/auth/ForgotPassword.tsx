@@ -1,3 +1,4 @@
+import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -95,6 +96,12 @@ export function ForgotPassword() {
 					{submitError && (
 						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
 							{submitError}
+							{captcha.supportSuggested && (
+								<>
+									{' '}
+									<ContactUs overEmail /> if this keeps happening.
+								</>
+							)}
 						</p>
 					)}
 					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-2">

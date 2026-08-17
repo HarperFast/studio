@@ -1,3 +1,4 @@
+import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -304,6 +305,12 @@ export function SignUp() {
 					{submitError && (
 						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
 							{submitError}
+							{captcha.supportSuggested && (
+								<>
+									{' '}
+									<ContactUs overEmail /> if this keeps happening.
+								</>
+							)}
 						</p>
 					)}
 
