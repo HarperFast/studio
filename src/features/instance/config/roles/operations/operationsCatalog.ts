@@ -67,6 +67,9 @@ const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
 	'set_configuration',
 	'set_custom_function',
 	'set_status',
+	// Not super_user-only like the rest, but registered without api_name all the same — so a role
+	// carrying any allowlist is denied registration_info even when it lists it.
+	'registration_info',
 ]);
 
 /** Whether granting this operation is currently a no-op server-side (HarperFast/harper#2175). */
@@ -83,8 +86,12 @@ export interface OperationGroup {
 	addedIn?: string;
 }
 
-/** `permission.operations` is accepted by add_role/alter_role from Harper 5.0.0 on. */
-export const OPERATIONS_ALLOWLIST_MIN_VERSION = '5.0.0-alpha.1';
+/**
+ * `permission.operations` is accepted by add_role/alter_role from v5.0.0-alpha.8 — the first tagged
+ * build carrying both the authorization gate and the role validation. Earlier 5.0 prereleases would
+ * take the key and fail the save, so the floor is the feature's own release rather than 5.0's.
+ */
+export const OPERATIONS_ALLOWLIST_MIN_VERSION = '5.0.0-alpha.8';
 
 // Floors use the earliest prerelease so alpha/beta builds of a release pass the gate.
 const V5_1 = '5.1.0-alpha.1';

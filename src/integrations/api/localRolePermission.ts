@@ -1,8 +1,11 @@
 import { LocalRolePermission, LocalRoleSchemaRecord } from '@/integrations/api/api.patch';
 
 // Top-level LocalRolePermission keys that are NOT database names, in canonical display order.
-// Harper reserves these in the permission object itself, so a database with one of these names
-// cannot be expressed in role JSON at all — key identity, not value shape, is what decides.
+// Key identity decides for the three flags: Harper reserves them in the permission object itself,
+// so a database with one of those names cannot be expressed in role JSON at all. `operations` is
+// the exception — pre-5.0 Harper reserved nothing by that name, so there value SHAPE decides
+// (an allowlist is an array; a database record is not). See getDatabasePermissionRecord and
+// classifyOperationsValue, which must stay consistent with each other.
 const RESERVED_KEY_ORDER = ['super_user', 'structure_user', 'cluster_user', 'operations'] as const;
 export const RESERVED_PERMISSION_KEYS: ReadonlySet<string> = new Set(RESERVED_KEY_ORDER);
 
@@ -41,12 +44,21 @@ export function rolePreventsOperationsAllowlist(permission: LocalRolePermission 
 }
 
 /**
- * Whether this role reaches DDL operations without consulting the allowlist. verifyPerms returns
- * early for structure users on create/drop table and attribute (and on create/drop database when
- * the flag is `true`); every other operation still goes through the gate.
+ * Which DDL this role reaches without consulting the allowlist, matching verifyPerms:
+ * - `true`: an unscoped structure user — the four table/attribute DDL operations anywhere, plus
+ *   create/drop database (that pair requires the boolean form).
+ * - an array: DDL on those databases only, and never create/drop database.
+ * - `false`: not a structure user; every operation goes through the gate.
+ * Everything outside that carve-out is still gated for both forms.
  */
-export function structureUserBypassesDdl(permission: LocalRolePermission | undefined): boolean {
-	return !!permission?.structure_user;
+export function structureUserDdlScope(
+	permission: LocalRolePermission | undefined,
+): true | string[] | false {
+	const structureUser = permission?.structure_user;
+	if (structureUser === true) {
+		return true;
+	}
+	return Array.isArray(structureUser) && structureUser.length > 0 ? structureUser : false;
 }
 
 /** The DDL operations a structure_user role reaches regardless of its allowlist. */
@@ -69,9 +81,33 @@ export function getOperationsAllowlist(permission: LocalRolePermission | undefin
 		: undefined;
 }
 
-/** An `operations` key is present but not an array of strings. */
+/**
+ * What the `operations` key holds:
+ * - `absent`: no key at all.
+ * - `allowlist`: a well-formed array of operation names (Harper 5.0+).
+ * - `database`: a table-permission record, i.e. a pre-5.0 role granting a database that happens to
+ *   be named `operations`. Legitimate, and not something to ask the author to "fix".
+ * - `malformed`: present but neither of the above (`true`, a mixed array, a bare string).
+ */
+export function classifyOperationsValue(
+	permission: LocalRolePermission | undefined,
+): 'absent' | 'allowlist' | 'database' | 'malformed' {
+	const operations = permission?.operations;
+	if (operations === undefined) {
+		return 'absent';
+	}
+	if (getOperationsAllowlist(permission) !== undefined) {
+		return 'allowlist';
+	}
+	return operations !== null && typeof operations === 'object' && !Array.isArray(operations)
+			&& 'tables' in operations
+		? 'database'
+		: 'malformed';
+}
+
+/** An `operations` key is present but is neither an allowlist nor a pre-5.0 database record. */
 export function hasMalformedOperations(permission: LocalRolePermission | undefined): boolean {
-	return permission?.operations !== undefined && getOperationsAllowlist(permission) === undefined;
+	return classifyOperationsValue(permission) === 'malformed';
 }
 
 /**

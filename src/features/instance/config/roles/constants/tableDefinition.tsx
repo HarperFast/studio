@@ -4,8 +4,8 @@ import {
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
+	classifyOperationsValue,
 	getOperationsAllowlist,
-	hasMalformedOperations,
 	rolePreventsOperationsAllowlist,
 } from '@/integrations/api/localRolePermission';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
@@ -68,11 +68,18 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		enableSorting: false,
 		cell: (props) => {
 			const permission = props.row.original.permission;
-			if (permission.operations === undefined) {
-				// The em dash alone reads as punctuation to a screen reader.
-				return <span aria-label="No operation restriction">—</span>;
+			const kind = classifyOperationsValue(permission);
+			// `database` is a pre-5.0 role granting a database named `operations`, not a restriction.
+			if (kind === 'absent' || kind === 'database') {
+				// aria-label is not exposed on a roleless span, so the text itself has to carry it.
+				return (
+					<>
+						<span aria-hidden>—</span>
+						<span className="sr-only">No operation restriction</span>
+					</>
+				);
 			}
-			if (hasMalformedOperations(permission)) {
+			if (kind === 'malformed') {
 				return <span className="text-destructive" title="Not a list of operation names">invalid</span>;
 			}
 			if (rolePreventsOperationsAllowlist(permission)) {

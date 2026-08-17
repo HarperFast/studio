@@ -4,10 +4,10 @@ import {
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
+	classifyOperationsValue,
 	getOperationsAllowlist,
-	hasMalformedOperations,
 	rolePreventsOperationsAllowlist,
-	structureUserBypassesDdl,
+	structureUserDdlScope,
 } from '@/integrations/api/localRolePermission';
 import { pluralize } from '@/lib/pluralize';
 
@@ -18,10 +18,12 @@ import { pluralize } from '@/lib/pluralize';
  */
 export function RoleOperationsSummary({ role }: { role: LocalRole | undefined }) {
 	const permission = role?.permission;
-	if (permission === undefined || permission.operations === undefined) {
+	const kind = classifyOperationsValue(permission);
+	// `database` is a pre-5.0 role granting a database named `operations` — not a restriction.
+	if (permission === undefined || kind === 'absent' || kind === 'database') {
 		return null;
 	}
-	if (hasMalformedOperations(permission)) {
+	if (kind === 'malformed') {
 		return (
 			<p className="text-xs text-destructive">
 				This role's <span className="font-mono">operations</span>{' '}
@@ -37,14 +39,18 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 			</p>
 		);
 	}
-	const ddlNote = structureUserBypassesDdl(permission)
-		? ' It is also a structure user, so DDL operations apply regardless of the list.'
+	const ddlScope = structureUserDdlScope(permission);
+	const ddlNote = ddlScope
+		? ` It is also a structure user, so table and attribute DDL applies ${
+			ddlScope === true ? 'on any database' : `on ${ddlScope.join(', ')}`
+		} regardless of the list.`
 		: '';
 	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
 				This role's operations allowlist is empty — users with it cannot run any operation.
+				{ddlNote}
 			</p>
 		);
 	}
