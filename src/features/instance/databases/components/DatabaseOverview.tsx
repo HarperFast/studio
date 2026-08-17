@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { TableRowContextMenu } from '@/features/instance/databases/components/TableRowContextMenu';
-import { useInstanceBrowseManagePermission } from '@/hooks/usePermissions';
+import { useInstanceBrowseManagePermission, useInstanceImportOperationsPermission } from '@/hooks/usePermissions';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import { setWatchedValue } from '@/lib/events/watcher';
@@ -37,6 +37,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 	const navigate = useNavigate();
 	const instanceParams = useInstanceClientIdParams();
 	const canManage = useInstanceBrowseManagePermission();
+	const canImport = useInstanceImportOperationsPermission();
 
 	const tables = instanceDatabaseMap?.[databaseName] ?? {};
 	const tableNames = Object.keys(tables).sort();
@@ -91,13 +92,15 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 							<PlusIcon />
 							<span>Create a Table</span>
 						</Button>
-						<Button
-							variant="positiveOutline"
-							onClick={() => setWatchedValue('ShowImportData', { databaseName })}
-						>
-							<CloudUploadIcon />
-							<span>Import Data</span>
-						</Button>
+						{canImport && (
+							<Button
+								variant="positiveOutline"
+								onClick={() => setWatchedValue('ShowImportData', { databaseName })}
+							>
+								<CloudUploadIcon />
+								<span>Import Data</span>
+							</Button>
+						)}
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button variant="ghost" size="icon">

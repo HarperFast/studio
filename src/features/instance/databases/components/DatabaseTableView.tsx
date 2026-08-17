@@ -13,7 +13,11 @@ import { useExportTableCsv } from '@/features/instance/databases/hooks/useExport
 import { EditTableRowModal } from '@/features/instance/databases/modals/EditTableRowModal';
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useEffectedState } from '@/hooks/useEffectedState';
-import { useInstanceBrowseManagePermission, useInstanceSchemaTablePermission } from '@/hooks/usePermissions';
+import {
+	useInstanceBrowseManagePermission,
+	useInstanceImportDataPermission,
+	useInstanceSchemaTablePermission,
+} from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useToggler } from '@/hooks/useToggler';
@@ -78,6 +82,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const isStaffInstanceOperator = useStaffPermission('instance:update');
 	const canAddRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'insert');
+	const canImportData = useInstanceImportDataPermission(instanceId ?? clusterId, databaseName, tableName);
 	const canEditRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'update');
 	const canDeleteRecords = useInstanceSchemaTablePermission(instanceId ?? clusterId, databaseName, tableName, 'delete');
 	const canManageBrowseInstance = useInstanceBrowseManagePermission();
@@ -453,7 +458,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 							</span>
 						</Button>
 					)}
-					{canAddRecords && (
+					{canImportData && (
 						<Button
 							variant="positiveOutline"
 							onClick={onImportDataClicked}

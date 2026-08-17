@@ -1,3 +1,4 @@
+import { checkImportDataOperationsAllowed, checkTableActionAllowed } from '@/hooks/checkOperationPermission';
 import { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
 import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermission';
 
@@ -8,6 +9,27 @@ import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermiss
  * `[tableName]` is load-bearing (it previously threw for any restricted user opening a table menu).
  */
 export function checkSchemaTablePermission(
+	permission: LocalRolePermission | undefined,
+	databaseName: string,
+	tableName: string,
+	action: LocalRolePermissionAction,
+): boolean {
+	return checkTableActionAllowed(permission, action) && checkTableGrant(permission, databaseName, tableName, action);
+}
+
+/**
+ * Import Data needs the same insert grant Add Records needs, but its sources issue different
+ * operations, so the allowlist half of the question differs.
+ */
+export function checkImportDataPermission(
+	permission: LocalRolePermission | undefined,
+	databaseName: string,
+	tableName: string,
+): boolean {
+	return checkImportDataOperationsAllowed(permission) && checkTableGrant(permission, databaseName, tableName, 'insert');
+}
+
+function checkTableGrant(
 	permission: LocalRolePermission | undefined,
 	databaseName: string,
 	tableName: string,

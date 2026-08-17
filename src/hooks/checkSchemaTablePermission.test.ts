@@ -1,6 +1,6 @@
 import { LocalRolePermission } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { checkSchemaTablePermission } from './checkSchemaTablePermission';
+import { checkImportDataPermission, checkSchemaTablePermission } from './checkSchemaTablePermission';
 
 // The index-signature/boolean-flag shape of LocalRolePermission is awkward to build as a literal, so
 // cast minimal stand-ins.
@@ -51,5 +51,68 @@ describe('checkSchemaTablePermission', () => {
 	it('never reads a real allowlist as a table grant', () => {
 		const permission: LocalRolePermission = { operations: ['read_only'] };
 		expect(checkSchemaTablePermission(permission, 'operations', 'dog', 'read')).toBe(false);
+	});
+
+	it('lets an operations allowlist override a table CRUD grant', () => {
+		const tables = {
+			data: {
+				tables: { dog: { read: true, insert: true, update: false, delete: false, attribute_permissions: null } },
+			},
+		};
+		expect(checkSchemaTablePermission(perm({ operations: ['read_only'], ...tables }), 'data', 'dog', 'insert'))
+			.toBe(false);
+		expect(checkSchemaTablePermission(perm({ operations: ['read_only'], ...tables }), 'data', 'dog', 'read'))
+			.toBe(true);
+		expect(
+			checkSchemaTablePermission(perm({ operations: ['standard_user'], ...tables }), 'data', 'dog', 'insert'),
+		).toBe(true);
+	});
+
+	it('lets an operations allowlist override structure_user', () => {
+		expect(checkSchemaTablePermission(perm({ structure_user: true, operations: [] }), 'data', 'dog', 'insert'))
+			.toBe(false);
+		expect(
+			checkSchemaTablePermission(
+				perm({ structure_user: true, operations: ['read_only'] }),
+				'data',
+				'dog',
+				'delete',
+			),
+		).toBe(false);
+	});
+
+	// verifyPerms clears a super_user before reaching the allowlist.
+	it('leaves super_user alone, allowlist or not', () => {
+		expect(checkSchemaTablePermission(perm({ super_user: true, operations: [] }), 'data', 'dog', 'insert'))
+			.toBe(true);
+		expect(
+			checkSchemaTablePermission(perm({ super_user: true, operations: ['read_only'] }), 'data', 'dog', 'delete'),
+		).toBe(true);
+	});
+});
+
+describe('checkImportDataPermission', () => {
+	const tables = {
+		data: {
+			tables: { dog: { read: true, insert: true, update: false, delete: false, attribute_permissions: null } },
+		},
+	};
+
+	it('needs the same insert grant Add Records needs', () => {
+		expect(checkImportDataPermission(undefined, 'data', 'dog')).toBe(false);
+		expect(checkImportDataPermission(perm({ data: { tables: {} } }), 'data', 'dog')).toBe(false);
+		expect(checkImportDataPermission(perm(tables), 'data', 'dog')).toBe(true);
+	});
+
+	// Add Records is strictly `insert`; a CSV source needs its load plus the get_job it polls.
+	it('accepts a bulk-load grant that an insert would reject', () => {
+		const csvOnly = perm({ operations: ['csv_url_load', 'get_job'], ...tables });
+		expect(checkImportDataPermission(csvOnly, 'data', 'dog')).toBe(true);
+		expect(checkSchemaTablePermission(csvOnly, 'data', 'dog', 'insert')).toBe(false);
+	});
+
+	it('denies when the allowlist reaches no import operation', () => {
+		expect(checkImportDataPermission(perm({ operations: ['read_only'], ...tables }), 'data', 'dog')).toBe(false);
+		expect(checkImportDataPermission(perm({ super_user: true, operations: [] }), 'data', 'dog')).toBe(true);
 	});
 });
