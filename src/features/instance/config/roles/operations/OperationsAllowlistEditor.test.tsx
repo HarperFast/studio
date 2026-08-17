@@ -69,8 +69,8 @@ describe('OperationsAllowlistEditor', () => {
 		render(<Harness initial={[]} />);
 		// Anchored: standard_user's description also mentions read_only.
 		fireEvent.click(screen.getByRole('checkbox', { name: /^read_only/ }));
-		// read_only expands to 15 operations.
-		expect(screen.getByText(/Effectively allows 15 operations/)).toBeTruthy();
+		// read_only expands to 13 distinct handlers (two alias pairs fold).
+		expect(screen.getByText(/Effectively allows 13 operations/)).toBeTruthy();
 	});
 
 	it('hides the agent group from pre-5.2 instances, unless the role already carries it', () => {
@@ -90,8 +90,9 @@ describe('OperationsAllowlistEditor', () => {
 	it('adds operations from the picker, badges super_user delegations, and writes groups first', () => {
 		render(<Harness initial={['standard_user']} />);
 		openPicker();
-		filterPicker('deploy_component');
-		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
+		// get_configuration carries an api_name, so its grant is actually enforced and earns the badge.
+		filterPicker('get_configuration');
+		const item = screen.getByRole('menuitemcheckbox', { name: /get_configuration/ });
 		expect(within(item).getByText('super_user')).toBeTruthy();
 		fireEvent.click(item);
 		expect(item.getAttribute('aria-checked')).toBe('true');
@@ -99,13 +100,47 @@ describe('OperationsAllowlistEditor', () => {
 		// Radix hides everything outside its portal while the menu is open, so close before
 		// asserting on the chips and the summary line.
 		closePicker();
-		expect(screen.getByRole('button', { name: 'Remove deploy_component' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove get_configuration' })).toBeTruthy();
 		expect(screen.getByText(/including some that normally require super_user/)).toBeTruthy();
 	});
 
-	it('warns that the allowlist is not enforced on an elevated role', () => {
-		render(<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" elevated />);
-		expect(screen.getByText(/stored but has no effect/)).toBeTruthy();
+	it('warns that Harper rejects an allowlist on a super_user or cluster_user role', () => {
+		render(
+			<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" allowlistRejected />,
+		);
+		expect(screen.getByText(/does not accept an operations allowlist/)).toBeTruthy();
+	});
+
+	it('tells a structure_user role which operations bypass the list, rather than calling it inert', () => {
+		render(<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" structureUser />);
+		// The allowlist IS enforced for a structure user on everything except DDL.
+		expect(screen.getByText(/regardless of the list below/)).toBeTruthy();
+		expect(screen.queryByText(/has no effect/)).toBeNull();
+	});
+
+	it('marks a grant that the server cannot currently enforce', () => {
+		render(<Harness initial={[]} />);
+		openPicker();
+		filterPicker('deploy_component');
+		const item = screen.getByRole('menuitemcheckbox', { name: /deploy_component/ });
+		expect(within(item).getByText('not yet enforced')).toBeTruthy();
+		expect(within(item).queryByText('super_user')).toBeNull();
+	});
+
+	it('does not offer a case variant of a known operation as a custom grant', () => {
+		render(<Harness initial={[]} />);
+		openPicker();
+		filterPicker('SEARCH');
+		// validateOperations rejects the wrong-case name, so offering it would only produce a save error.
+		expect(screen.queryByRole('menuitemcheckbox', { name: /Grant "SEARCH"/ })).toBeNull();
+		expect(screen.getAllByRole('menuitemcheckbox').length).toBeGreaterThan(0);
+	});
+
+	it('does not offer an alias spelling through the custom-grant path either', () => {
+		render(<Harness initial={[]} />);
+		openPicker();
+		filterPicker('describe_database');
+		expect(screen.queryByRole('menuitemcheckbox', { name: /Grant "describe_database"/ })).toBeNull();
 	});
 
 	it('offers only the canonical spelling of an alias pair', () => {

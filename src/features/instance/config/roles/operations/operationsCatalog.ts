@@ -33,6 +33,45 @@ export interface GrantableOperation {
 	nonDelegable?: boolean;
 	/** Legacy wire alias; Harper's authorization entry is registered under the canonical name. */
 	aliasOf?: string;
+	/** Extra qualification shown wherever the operation is offered or listed. */
+	caveat?: string;
+}
+
+/**
+ * Operations whose `requiredPermissions` entry omits `api_name`. The gate resolves
+ * `requiredPermissions.get(op)?.api_name ?? op` against the camelCase handler name, which can
+ * never equal a snake_case grant — so listing these validates and saves but grants nothing on
+ * every shipped 5.x (HarperFast/harper#2175). They stay offered so a role is ready when core
+ * wires the names, but the UI must not promise a delegation they cannot receive.
+ */
+const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
+	'add_component',
+	'catchup',
+	'cleanup_orphan_blobs',
+	'clear_status',
+	'delete_audit_logs_before',
+	'delete_files_before',
+	'delete_transaction_logs_before',
+	'deploy_component',
+	'drop_component',
+	'drop_custom_function',
+	'drop_custom_function_project',
+	'get_backup',
+	'get_status',
+	'install_node_modules',
+	'package_component',
+	'read_transaction_log',
+	'restart_service',
+	'search_jobs_by_start_date',
+	'set_component_file',
+	'set_configuration',
+	'set_custom_function',
+	'set_status',
+]);
+
+/** Whether granting this operation is currently a no-op server-side (HarperFast/harper#2175). */
+export function isGrantGateInert(name: string): boolean {
+	return GATE_INERT_OPERATIONS.has(name);
 }
 
 export interface OperationGroup {
@@ -91,7 +130,15 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'search_by_hash', su: false, category: DATA },
 	{ name: 'search_by_id', su: false, category: DATA, aliasOf: 'search_by_hash' },
 	{ name: 'search_by_value', su: false, category: DATA },
-	{ name: 'sql', su: false, category: DATA },
+	{
+		name: 'sql',
+		su: false,
+		category: DATA,
+		// serverUtilities routes `sql` to checkASTPermissions/verifyPermsAST, which never consults
+		// the allowlist — so this entry neither grants nor restricts SQL (HarperFast/harper#2175).
+		caveat: 'SQL is authorized against table permissions, not this list — listing or omitting it '
+			+ 'does not restrict SQL statements.',
+	},
 	{ name: 'insert', su: false, category: DATA },
 	{ name: 'update', su: false, category: DATA },
 	{ name: 'upsert', su: false, category: DATA },
@@ -315,14 +362,18 @@ export function getAvailableGroups(version: string): OperationGroup[] {
  */
 export function expandEffectiveOperations(operations: readonly string[]): string[] {
 	const effective = new Set<string>();
+	// Alias spellings fold into their canonical name: Harper's groups list both spellings of a pair
+	// (search_by_hash/search_by_id, describe_schema/describe_database) but they reach one handler,
+	// so counting both would overstate what the role can actually do.
+	const add = (name: string) => effective.add(catalogByName.get(name)?.aliasOf ?? name);
 	for (const entry of operations) {
 		const group = groupsByName.get(entry);
 		if (group) {
 			for (const member of group.members) {
-				effective.add(member);
+				add(member);
 			}
 		} else {
-			effective.add(entry);
+			add(entry);
 		}
 	}
 	return [...effective].sort();

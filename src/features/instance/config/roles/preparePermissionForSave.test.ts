@@ -25,14 +25,24 @@ describe('preparePermissionForSave', () => {
 		expect(preparePermissionForSave(permission)).toEqual({ structure_user: ['dev'], ...tablePerms });
 	});
 
-	it('round-trips an operations allowlist on an elevated role rather than deleting what was typed', () => {
+	it('drops the allowlist for super_user and cluster_user — Harper rejects the combination', () => {
+		// validateNoSUPerms errors on any multi-key permission setting super_user/cluster_user, so
+		// keeping the allowlist here would fail the save outright.
+		const superUser: LocalRolePermission = { super_user: true, operations: ['read_only'], ...tablePerms };
+		expect(preparePermissionForSave(superUser)).toEqual({ super_user: true });
+
+		const clusterUser: LocalRolePermission = { cluster_user: true, operations: ['read_only'] };
+		expect(preparePermissionForSave(clusterUser)).toEqual({ cluster_user: true });
+	});
+
+	it('keeps the allowlist for a structure_user role, which Harper does accept and enforce', () => {
 		const permission: LocalRolePermission = {
-			super_user: true,
+			structure_user: true,
 			operations: ['read_only', 'deploy_component'],
 			...tablePerms,
 		};
 		expect(preparePermissionForSave(permission)).toEqual({
-			super_user: true,
+			structure_user: true,
 			operations: ['read_only', 'deploy_component'],
 		});
 	});
