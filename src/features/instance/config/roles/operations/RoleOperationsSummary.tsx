@@ -41,19 +41,22 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 			</p>
 		);
 	}
+	// Phrased to follow either "…cannot run any operation" or "…restricted to N operations", so the
+	// absolute wording is never left standing on a role that still reaches DDL.
 	const ddlScope = structureUserDdlScope(permission);
 	const ddlNote = ddlScope === true
-		? ' It is also a structure user, so table and attribute DDL — and create/drop database — apply on any'
+		? ', except that it is a structure user: table and attribute DDL — and create/drop database — apply on any'
 			+ ' database regardless of the list.'
 		: ddlScope
-		? ` It is also a structure user, so table and attribute DDL applies on ${ddlScope.join(', ')} regardless of`
-			+ ' the list, and listing those operations cannot reach another database.'
+		? `, except that it is a structure user: table and attribute DDL applies on ${ddlScope.join(', ')}`
+			+ ' regardless of the list, and listing those operations cannot reach another database.'
 		: '';
 	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
-				This role's operations allowlist is empty — users with it cannot run any operation.
+				This role's operations allowlist is empty — users with it cannot run any operation
+				{ddlScope ? '' : '.'}
 				{ddlNote}
 			</p>
 		);
