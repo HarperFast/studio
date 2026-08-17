@@ -52,42 +52,49 @@ describe('getOperationsAllowlist / hasMalformedOperations', () => {
 	it('returns a well-formed allowlist and reports it as not malformed', () => {
 		const permission: LocalRolePermission = { operations: ['read_only', 'deploy_component'] };
 		expect(getOperationsAllowlist(permission)).toEqual(['read_only', 'deploy_component']);
-		expect(hasMalformedOperations(permission)).toBe(false);
+		expect(hasMalformedOperations(permission, true)).toBe(false);
 	});
 
 	it('treats a non-array or mixed-type operations value as malformed, not partially valid', () => {
 		const nonArray = { operations: true } as unknown as LocalRolePermission;
 		expect(getOperationsAllowlist(nonArray)).toBeUndefined();
-		expect(hasMalformedOperations(nonArray)).toBe(true);
+		expect(hasMalformedOperations(nonArray, true)).toBe(true);
 
 		// Silently dropping the 42 on the next write would save an array the user never saw.
 		const mixed = { operations: ['read_only', 42] } as unknown as LocalRolePermission;
 		expect(getOperationsAllowlist(mixed)).toBeUndefined();
-		expect(hasMalformedOperations(mixed)).toBe(true);
+		expect(hasMalformedOperations(mixed, true)).toBe(true);
 	});
 
 	it('is quiet for roles without the key (and for missing permissions)', () => {
 		expect(getOperationsAllowlist({})).toBeUndefined();
-		expect(hasMalformedOperations({})).toBe(false);
+		expect(hasMalformedOperations({}, true)).toBe(false);
 		expect(getOperationsAllowlist(undefined)).toBeUndefined();
-		expect(hasMalformedOperations(undefined)).toBe(false);
+		expect(hasMalformedOperations(undefined, true)).toBe(false);
 	});
 });
 
 describe('classifyOperationsValue', () => {
 	it('separates an allowlist from a pre-5.0 database named operations', () => {
-		expect(classifyOperationsValue({ operations: ['sql'] })).toBe('allowlist');
+		expect(classifyOperationsValue({ operations: ['sql'] }, true)).toBe('allowlist');
 		// A v4 role granting a database called `operations` is valid, not something to "fix".
 		const v4 = { operations: { tables: { dog: dogTable } } } as unknown as LocalRolePermission;
-		expect(classifyOperationsValue(v4)).toBe('database');
-		expect(hasMalformedOperations(v4)).toBe(false);
+		expect(classifyOperationsValue(v4, false)).toBe('database');
+		expect(hasMalformedOperations(v4, false)).toBe(false);
+	});
+
+	it('calls a record malformed on a supporting instance — role_validation rejects a non-array', () => {
+		// The editor must not treat it as "unrestricted" there and overwrite it on the next click.
+		const record = { operations: { tables: {} } } as unknown as LocalRolePermission;
+		expect(classifyOperationsValue(record, true)).toBe('malformed');
+		expect(classifyOperationsValue(record, false)).toBe('database');
 	});
 
 	it('still reports genuinely malformed values', () => {
-		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission)).toBe('malformed');
-		expect(classifyOperationsValue({ operations: ['sql', 42] } as unknown as LocalRolePermission))
+		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission, true)).toBe('malformed');
+		expect(classifyOperationsValue({ operations: ['sql', 42] } as unknown as LocalRolePermission, true))
 			.toBe('malformed');
-		expect(classifyOperationsValue({})).toBe('absent');
+		expect(classifyOperationsValue({}, true)).toBe('absent');
 	});
 });
 

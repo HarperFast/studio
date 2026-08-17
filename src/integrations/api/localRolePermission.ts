@@ -82,15 +82,20 @@ export function getOperationsAllowlist(permission: LocalRolePermission | undefin
 }
 
 /**
- * What the `operations` key holds:
+ * What the `operations` key holds. The verdict depends on the instance, so `allowlistSupported`
+ * (i.e. supportsOperationsAllowlist for that version) is required rather than defaulted:
  * - `absent`: no key at all.
- * - `allowlist`: a well-formed array of operation names (Harper 5.0+).
- * - `database`: a table-permission record, i.e. a pre-5.0 role granting a database that happens to
- *   be named `operations`. Legitimate, and not something to ask the author to "fix".
- * - `malformed`: present but neither of the above (`true`, a mixed array, a bare string).
+ * - `allowlist`: a well-formed array of operation names.
+ * - `database`: a table-permission record on an instance BELOW the allowlist floor, i.e. a role
+ *   granting a database that happens to be named `operations`. Legitimate there, and not something
+ *   to ask the author to "fix".
+ * - `malformed`: anything else. On a supporting instance that includes a record, because
+ *   role_validation rejects a non-array `operations` outright (OPERATIONS_MUST_BE_ARRAY) — so
+ *   there it is a broken allowlist, and callers must leave it alone rather than overwrite it.
  */
 export function classifyOperationsValue(
 	permission: LocalRolePermission | undefined,
+	allowlistSupported: boolean,
 ): 'absent' | 'allowlist' | 'database' | 'malformed' {
 	const operations = permission?.operations;
 	if (operations === undefined) {
@@ -99,15 +104,18 @@ export function classifyOperationsValue(
 	if (getOperationsAllowlist(permission) !== undefined) {
 		return 'allowlist';
 	}
-	return operations !== null && typeof operations === 'object' && !Array.isArray(operations)
-			&& 'tables' in operations
+	return !allowlistSupported && operations !== null && typeof operations === 'object'
+			&& !Array.isArray(operations) && 'tables' in operations
 		? 'database'
 		: 'malformed';
 }
 
 /** An `operations` key is present but is neither an allowlist nor a pre-5.0 database record. */
-export function hasMalformedOperations(permission: LocalRolePermission | undefined): boolean {
-	return classifyOperationsValue(permission) === 'malformed';
+export function hasMalformedOperations(
+	permission: LocalRolePermission | undefined,
+	allowlistSupported: boolean,
+): boolean {
+	return classifyOperationsValue(permission, allowlistSupported) === 'malformed';
 }
 
 /**

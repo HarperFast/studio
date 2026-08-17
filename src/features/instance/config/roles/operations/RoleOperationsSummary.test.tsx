@@ -4,7 +4,12 @@
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
 import { LocalRole } from '@/integrations/api/api.patch';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// The component reads the instance version to tell an allowlist from a pre-5.0 database record.
+vi.mock('@/features/instance/config/roles/operations/useOperationsAllowlistSupported', () => ({
+	useOperationsAllowlistSupported: () => true,
+}));
 
 afterEach(() => cleanup());
 
@@ -32,7 +37,7 @@ describe('RoleOperationsSummary', () => {
 
 	it('notes the DDL carve-out for a structure_user role instead of calling the list inert', () => {
 		render(<RoleOperationsSummary role={role({ structure_user: true, operations: ['read_only'] })} />);
-		expect(screen.getByText(/table and attribute DDL applies on any database/)).toBeTruthy();
+		expect(screen.getByText(/create\/drop database — apply on any/)).toBeTruthy();
 	});
 
 	it('warns in destructive copy when the allowlist denies everything', () => {
