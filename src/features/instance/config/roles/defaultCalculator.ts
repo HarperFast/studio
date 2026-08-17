@@ -32,8 +32,11 @@ export function calculateDefaultPermissions({
 
 	for (const databaseName in instanceDatabaseMap) {
 		if (
-			RESERVED_PERMISSION_KEYS.has(databaseName)
-			&& (databaseName !== 'operations' || supportsOperationsAllowlist(version))
+			// Assigning `__proto__` would hit the prototype setter instead of creating a key, so the
+			// database would silently vanish from the template (JSON.stringify drops it).
+			databaseName === '__proto__'
+			|| (RESERVED_PERMISSION_KEYS.has(databaseName)
+				&& (databaseName !== 'operations' || supportsOperationsAllowlist(version)))
 		) {
 			// A database named like a reserved permission key cannot be expressed in role JSON —
 			// writing it here would clobber the reserved value (e.g. a 5.0+ operations allowlist).

@@ -13,13 +13,21 @@ function role(permission: LocalRole['permission']): LocalRole {
 }
 
 describe('RoleOperationsSummary', () => {
-	it('renders nothing for unrestricted roles, missing roles, and malformed allowlists', () => {
+	it('renders nothing for unrestricted and missing roles', () => {
 		expect(render(<RoleOperationsSummary role={undefined} />).container.textContent).toBe('');
 		cleanup();
 		expect(render(<RoleOperationsSummary role={role({})} />).container.textContent).toBe('');
-		cleanup();
-		const malformed = role({ operations: true } as unknown as LocalRole['permission']);
-		expect(render(<RoleOperationsSummary role={malformed} />).container.textContent).toBe('');
+	});
+
+	it('flags a malformed allowlist instead of reading as unrestricted', () => {
+		// Harper treats any present `operations` as active, so silence here would understate the role.
+		render(<RoleOperationsSummary role={role({ operations: true } as unknown as LocalRole['permission'])} />);
+		expect(screen.getByText(/not a list of operation names/)).toBeTruthy();
+	});
+
+	it('warns that an allowlist on an elevated role is not enforced', () => {
+		render(<RoleOperationsSummary role={role({ super_user: true, operations: ['read_only'] })} />);
+		expect(screen.getByText(/has no effect/)).toBeTruthy();
 	});
 
 	it('warns in destructive copy when the allowlist denies everything', () => {

@@ -3,7 +3,7 @@ import {
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
-import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
+import { getOperationsAllowlist, hasMalformedOperations, isElevatedRole } from '@/integrations/api/localRolePermission';
 import { pluralize } from '@/lib/pluralize';
 
 /**
@@ -12,11 +12,27 @@ import { pluralize } from '@/lib/pluralize';
  * Renders nothing for unrestricted roles.
  */
 export function RoleOperationsSummary({ role }: { role: LocalRole | undefined }) {
-	const operations = getOperationsAllowlist(role?.permission);
-	if (operations === undefined) {
+	const permission = role?.permission;
+	if (permission === undefined || permission.operations === undefined) {
 		return null;
 	}
-	const effective = expandEffectiveOperations(operations);
+	if (hasMalformedOperations(permission)) {
+		return (
+			<p className="text-xs text-destructive">
+				This role's <span className="font-mono">operations</span>{' '}
+				value is not a list of operation names, so Harper cannot apply it as an allowlist. Fix it in the role editor.
+			</p>
+		);
+	}
+	if (isElevatedRole(permission)) {
+		return (
+			<p className="text-xs text-warning">
+				This role lists an operations allowlist, but it is a super, structure, or cluster user — Harper grants that
+				access before the allowlist is checked, so the list has no effect.
+			</p>
+		);
+	}
+	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
