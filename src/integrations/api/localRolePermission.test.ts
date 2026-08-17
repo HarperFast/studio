@@ -38,6 +38,12 @@ describe('getDatabasePermissionRecord', () => {
 		expect(getDatabasePermissionRecord(permission, 'other')).toBeUndefined();
 		expect(getDatabasePermissionRecord(permission, 'missing')).toBeUndefined();
 	});
+
+	it('does not report inherited properties as a database record', () => {
+		// Without an own-property check, `permission['__proto__']` yields Object.prototype.
+		expect(getDatabasePermissionRecord({}, '__proto__')).toBeUndefined();
+		expect(getDatabasePermissionRecord({}, 'toString')).toBeUndefined();
+	});
 });
 
 describe('getOperationsAllowlist / hasMalformedOperations', () => {

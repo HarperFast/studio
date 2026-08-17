@@ -38,11 +38,14 @@ export function OperationsAllowlistEditor({
 	value,
 	onChange,
 	version,
+	elevated,
 	disabled,
 }: {
 	value: string[] | undefined;
 	onChange: (next: string[] | undefined) => void;
 	version: string;
+	/** The role is super_user/structure_user/cluster_user, which Harper clears before this gate. */
+	elevated?: boolean;
 	disabled?: boolean;
 }) {
 	const restricted = value !== undefined;
@@ -104,11 +107,20 @@ export function OperationsAllowlistEditor({
 			</Label>
 			<p className="text-xs text-muted-foreground">
 				{restricted
-					? 'Only the operations below are allowed — anything unlisted is denied, even for super users. '
-						+ 'Listing an operation that normally requires super_user deliberately grants it to this role.'
+					? 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
+						+ 'normally requires super_user deliberately grants it to this role.'
 					: 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
 						+ '(for example a deploy-only CI role).'}
 			</p>
+			{elevated && (
+				// Harper's authorization returns early for super/structure users, before it reaches the
+				// operations gate — so an allowlist on such a role is saved but never enforced.
+				<p className="text-xs text-warning">
+					This role is a super, structure, or cluster user, and Harper grants those roles their access before the
+					operations allowlist is checked — so this list is stored but has no effect. To scope a role by operation,
+					clear those flags and grant the operations it needs here instead.
+				</p>
+			)}
 
 			{restricted && (
 				<>
@@ -365,10 +377,19 @@ function OperationChip({
 	disabled?: boolean;
 }) {
 	const info = getOperationInfo(name);
-	const variant = info?.nonDelegable ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
-	const title = info?.nonDelegable
-		? 'Always requires an actual super_user role: on a restricted super_user role this entry keeps '
-			+ 'the operation reachable, but it cannot delegate the operation to a non-super_user role.'
+	const variant = info?.nonDelegable || info?.aliasOf
+		? 'destructive'
+		: info?.su
+		? 'warning'
+		: info
+		? 'secondary'
+		: 'outline';
+	const title = info?.aliasOf
+		? `Legacy alias: Harper authorizes this operation under '${info.aliasOf}', so this entry grants nothing. `
+			+ `Grant '${info.aliasOf}' instead.`
+		: info?.nonDelegable
+		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
+			+ 'non-super_user role.'
 		: info?.su
 		? 'Normally requires super_user; listing it grants it to this role.'
 		: info

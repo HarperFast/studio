@@ -103,6 +103,21 @@ describe('OperationsAllowlistEditor', () => {
 		expect(screen.getByText(/including some that normally require super_user/)).toBeTruthy();
 	});
 
+	it('warns that the allowlist is not enforced on an elevated role', () => {
+		render(<OperationsAllowlistEditor value={['read_only']} onChange={() => {}} version="5.2.2" elevated />);
+		expect(screen.getByText(/stored but has no effect/)).toBeTruthy();
+	});
+
+	it('offers only the canonical spelling of an alias pair', () => {
+		render(<Harness initial={[]} />);
+		openPicker();
+		filterPicker('describe_');
+		// describe_database is an alias whose authorization entry is keyed on describe_schema, so a
+		// grant of the alias spelling would be inert.
+		expect(screen.queryByRole('menuitemcheckbox', { name: /describe_database/ })).toBeNull();
+		expect(screen.getByRole('menuitemcheckbox', { name: /describe_schema/ })).toBeTruthy();
+	});
+
 	it('never offers non-delegable operations, not even through the custom-grant path', () => {
 		render(<Harness initial={[]} version="5.2.2" />);
 		openPicker();

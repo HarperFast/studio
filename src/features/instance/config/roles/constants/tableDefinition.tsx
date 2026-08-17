@@ -3,7 +3,7 @@ import {
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
-import { getOperationsAllowlist } from '@/integrations/api/localRolePermission';
+import { getOperationsAllowlist, hasMalformedOperations, isElevatedRole } from '@/integrations/api/localRolePermission';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
@@ -63,11 +63,21 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
 		id: 'operations',
 		enableSorting: false,
 		cell: (props) => {
-			const operations = getOperationsAllowlist(props.row.original.permission);
-			if (operations === undefined) {
+			const permission = props.row.original.permission;
+			if (permission.operations === undefined) {
 				return '—';
 			}
-			const effective = expandEffectiveOperations(operations);
+			if (hasMalformedOperations(permission)) {
+				return <span className="text-destructive" title="Not a list of operation names">invalid</span>;
+			}
+			if (isElevatedRole(permission)) {
+				return (
+					<span className="text-warning" title="Harper clears elevated roles before the operations gate">
+						not enforced
+					</span>
+				);
+			}
+			const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 			return (
 				<span title={summarizeOperations(effective)}>
 					{effective.length} allowed

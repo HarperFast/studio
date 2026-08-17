@@ -153,7 +153,9 @@ export interface LocalRole {
 export interface LocalRolePermission {
 	super_user?: boolean;
 	cluster_user?: boolean;
-	structure_user?: boolean;
+	// `true` grants DDL everywhere; an array of database names scopes it to those databases, and
+	// the role still relies on its explicit table permissions elsewhere.
+	structure_user?: boolean | string[];
 	// Optional operation allowlist (Harper 5.0+): operation/group names; when present, unlisted
 	// operations are denied and listed super_user-only operations are granted to the role.
 	operations?: string[];

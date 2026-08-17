@@ -22,8 +22,21 @@ export function getDatabasePermissionRecord(
 	if (databaseName !== 'operations' && RESERVED_PERMISSION_KEYS.has(databaseName)) {
 		return undefined;
 	}
+	// hasOwn, so a database named `__proto__` reads its own entry rather than Object.prototype.
+	if (!Object.hasOwn(permission, databaseName)) {
+		return undefined;
+	}
 	const record = permission[databaseName];
 	return record !== null && typeof record === 'object' && !Array.isArray(record) ? record : undefined;
+}
+
+/**
+ * Whether Harper clears this role before it reaches the operations gate: verifyPerms returns early
+ * for super users, and for structure users on DDL. An `operations` allowlist on such a role is
+ * stored and validated by the server but never enforced.
+ */
+export function isElevatedRole(permission: LocalRolePermission | undefined): boolean {
+	return !!(permission?.super_user || permission?.structure_user || permission?.cluster_user);
 }
 
 /**

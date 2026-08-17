@@ -20,6 +20,7 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import {
 	getOperationsAllowlist,
 	hasMalformedOperations,
+	isElevatedRole,
 	orderPermissionKeys,
 	withOperations,
 } from '@/integrations/api/localRolePermission';
@@ -103,14 +104,14 @@ export function EditRoleModal({
 	// `operations` array and writes changes back into the text, which stays the single source of
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
-	const { operationsJson, malformedOperations } = useMemo(() => {
+	const { operationsJson, malformedOperations, elevatedRole } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
 		const parsed = operationsSupported && isValidJSON && updatedPermissions
 			? safeParse<LocalRolePermission>(updatedPermissions)
 			: null;
 		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			return { operationsJson: undefined, malformedOperations: false };
+			return { operationsJson: undefined, malformedOperations: false, elevatedRole: false };
 		}
 		const allowlist = getOperationsAllowlist(parsed);
 		// A present-but-not-string-array `operations` (e.g. `true`) is left to the JSON editor
@@ -118,6 +119,7 @@ export function EditRoleModal({
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
 			malformedOperations: hasMalformedOperations(parsed),
+			elevatedRole: isElevatedRole(parsed),
 		};
 	}, [operationsSupported, isValidJSON, updatedPermissions]);
 	// Keyed on the serialized form so unrelated typing in the JSON editor keeps the array identity
@@ -214,6 +216,7 @@ export function EditRoleModal({
 							)
 							: (
 								<OperationsAllowlistEditor
+									elevated={elevatedRole}
 									value={operationsValue}
 									onChange={onOperationsChanged}
 									version={registrationInfo.version}

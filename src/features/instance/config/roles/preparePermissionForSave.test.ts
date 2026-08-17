@@ -19,7 +19,13 @@ describe('preparePermissionForSave', () => {
 		expect(permission.structure_user).toBe(false);
 	});
 
-	it('keeps an operations allowlist on an elevated role — it restricts super users too', () => {
+	it('leaves a database-scoped structure_user role alone — it still needs its table permissions', () => {
+		// `structure_user: ['dev']` grants DDL on `dev` only; other databases rely on explicit CRUD.
+		const permission = { structure_user: ['dev'], ...tablePerms } as unknown as LocalRolePermission;
+		expect(preparePermissionForSave(permission)).toEqual({ structure_user: ['dev'], ...tablePerms });
+	});
+
+	it('round-trips an operations allowlist on an elevated role rather than deleting what was typed', () => {
 		const permission: LocalRolePermission = {
 			super_user: true,
 			operations: ['read_only', 'deploy_component'],

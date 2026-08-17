@@ -10,10 +10,13 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  *
  * Semantics (two-gate check in Harper's `utility/operation_authorization.ts`):
  * - `operations` absent: no operation-level restriction (current behavior).
- * - `operations` present: ONLY listed operations (and group expansions) are reachable — even for
- *   super_user roles. An empty array denies every operation.
+ * - `operations` present: ONLY listed operations (and group expansions) are reachable. An empty
+ *   array denies every operation.
  * - A listed operation that normally requires super_user is treated as a deliberate admin grant
  *   and allowed without super_user (`su` below marks those).
+ * - The gate is only reached by NON-elevated roles: verifyPerms returns early for super users
+ *   ("admins can do (almost) anything") and for structure users on DDL, both before the allowlist
+ *   is consulted. An allowlist on such a role is stored and validated but never enforced.
  */
 export interface GrantableOperation {
 	name: string;
@@ -290,7 +293,13 @@ export function supportsOperationsAllowlist(version: string | undefined): boolea
  */
 export function getGrantableOperations(version: string): GrantableOperation[] {
 	return OPERATION_CATALOG.filter(
-		(operation) => !operation.nonDelegable && (!operation.addedIn || wasAReleasedBeforeB(operation.addedIn, version)),
+		(operation) =>
+			!operation.nonDelegable
+			// Both spellings of an alias pair dispatch to one handler, whose authorization entry
+			// carries only the canonical api_name — so granting the alias spelling is inert. Offer
+			// the canonical name only; alias entries stay in the catalog to render existing JSON.
+			&& !operation.aliasOf
+			&& (!operation.addedIn || wasAReleasedBeforeB(operation.addedIn, version)),
 	);
 }
 
