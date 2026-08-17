@@ -31,13 +31,31 @@ export function getDatabasePermissionRecord(
 }
 
 /**
- * Whether Harper clears this role before it reaches the operations gate: verifyPerms returns early
- * for super users, and for structure users on DDL. An `operations` allowlist on such a role is
- * stored and validated by the server but never enforced.
+ * Whether Harper refuses to store an allowlist alongside this role's flags. `validateNoSUPerms`
+ * rejects add_role/alter_role when a permission with more than one key sets `super_user: true` or
+ * `cluster_user: true` — so the two cannot coexist and the save fails, rather than the allowlist
+ * being merely inert. `structure_user` is deliberately not covered by that check.
  */
-export function isElevatedRole(permission: LocalRolePermission | undefined): boolean {
-	return !!(permission?.super_user || permission?.structure_user || permission?.cluster_user);
+export function rolePreventsOperationsAllowlist(permission: LocalRolePermission | undefined): boolean {
+	return permission?.super_user === true || permission?.cluster_user === true;
 }
+
+/**
+ * Whether this role reaches DDL operations without consulting the allowlist. verifyPerms returns
+ * early for structure users on create/drop table and attribute (and on create/drop database when
+ * the flag is `true`); every other operation still goes through the gate.
+ */
+export function structureUserBypassesDdl(permission: LocalRolePermission | undefined): boolean {
+	return !!permission?.structure_user;
+}
+
+/** The DDL operations a structure_user role reaches regardless of its allowlist. */
+export const STRUCTURE_USER_DDL_OPERATIONS = [
+	'create_table',
+	'create_attribute',
+	'drop_table',
+	'drop_attribute',
+];
 
 /**
  * The role's operations allowlist, but only when it is well-formed (an array of strings).

@@ -3,7 +3,12 @@ import {
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
 import { LocalRole } from '@/integrations/api/api.patch';
-import { getOperationsAllowlist, hasMalformedOperations, isElevatedRole } from '@/integrations/api/localRolePermission';
+import {
+	getOperationsAllowlist,
+	hasMalformedOperations,
+	rolePreventsOperationsAllowlist,
+	structureUserBypassesDdl,
+} from '@/integrations/api/localRolePermission';
 import { pluralize } from '@/lib/pluralize';
 
 /**
@@ -24,14 +29,17 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 			</p>
 		);
 	}
-	if (isElevatedRole(permission)) {
+	if (rolePreventsOperationsAllowlist(permission)) {
 		return (
-			<p className="text-xs text-warning">
-				This role lists an operations allowlist, but it is a super, structure, or cluster user — Harper grants that
-				access before the allowlist is checked, so the list has no effect.
+			<p className="text-xs text-destructive">
+				This role sets super_user or cluster_user, which Harper does not allow alongside an operations allowlist — the
+				role cannot be saved until one of them is removed.
 			</p>
 		);
 	}
+	const ddlNote = structureUserBypassesDdl(permission)
+		? ' It is also a structure user, so DDL operations apply regardless of the list.'
+		: '';
 	const effective = expandEffectiveOperations(getOperationsAllowlist(permission) ?? []);
 	if (effective.length === 0) {
 		return (
@@ -40,11 +48,15 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 			</p>
 		);
 	}
+	const summary = summarizeOperations(effective);
 	return (
-		<p className="text-xs text-muted-foreground" title={summarizeOperations(effective)}>
+		<p className="text-xs text-muted-foreground" title={summary}>
 			This role is restricted to {pluralize(effective.length, 'operation', 'operations')}
 			: <span className="font-mono">{effective.slice(0, 5).join(', ')}</span>
 			{effective.length > 5 ? ', …' : ''}
+			{ddlNote}
+			{/* title is hover-only, so the truncated names need a path to assistive tech. */}
+			{effective.length > 5 && <span className="sr-only">Full list: {summary}</span>}
 		</p>
 	);
 }

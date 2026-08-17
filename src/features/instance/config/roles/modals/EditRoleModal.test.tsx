@@ -111,16 +111,28 @@ describe('EditRoleModal operations wiring', () => {
 		expect(payload.permission.data).toBeDefined();
 	});
 
-	it('keeps the allowlist but strips table permissions when saving a super_user role', async () => {
+	it('drops the allowlist when saving a super_user role, which Harper would otherwise reject', async () => {
 		renderModal({ super_user: true, operations: ['read_only', 'deploy_component'] });
 
-		// The switch reflects the existing restriction once registration info resolves.
+		// The switch reflects the existing restriction once registration info resolves…
 		const restrictSwitch = await screen.findByRole('switch', { name: 'Restrict operations' });
 		expect(restrictSwitch.getAttribute('aria-checked')).toBe('true');
+		// …and the conflict is stated before the author saves.
+		expect(screen.getByText(/does not accept an operations allowlist/)).toBeTruthy();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 		expect(alterRoleMutate).toHaveBeenCalledTimes(1);
 		const [payload] = alterRoleMutate.mock.calls[0];
-		expect(payload.permission).toEqual({ super_user: true, operations: ['read_only', 'deploy_component'] });
+		// validateNoSUPerms rejects a multi-key permission with super_user: true.
+		expect(payload.permission).toEqual({ super_user: true });
+	});
+
+	it('keeps the allowlist when saving a structure_user role, which Harper accepts', async () => {
+		renderModal({ structure_user: true, operations: ['read_only'] });
+
+		await screen.findByRole('switch', { name: 'Restrict operations' });
+		fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+		const [payload] = alterRoleMutate.mock.calls[0];
+		expect(payload.permission).toEqual({ structure_user: true, operations: ['read_only'] });
 	});
 });

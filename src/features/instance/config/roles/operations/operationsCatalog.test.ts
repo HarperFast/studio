@@ -119,10 +119,12 @@ describe('getAvailableGroups', () => {
 });
 
 describe('expandEffectiveOperations', () => {
-	it('expands read_only to the members Harper defines for it', () => {
+	it('expands read_only to its members, folding alias spellings into their canonical name', () => {
+		// Harper's group lists both spellings of two alias pairs (describe_schema/describe_database,
+		// search_by_hash/search_by_id), but each pair reaches one handler — counting both would
+		// overstate the role's reach against the chips shown beside the count.
 		expect(expandEffectiveOperations(['read_only'])).toEqual([
 			'describe_all',
-			'describe_database',
 			'describe_metric',
 			'describe_schema',
 			'describe_table',
@@ -132,10 +134,16 @@ describe('expandEffectiveOperations', () => {
 			'search',
 			'search_by_conditions',
 			'search_by_hash',
-			'search_by_id',
 			'search_by_value',
 			'sql',
 			'user_info',
+		]);
+	});
+
+	it('folds an explicitly granted alias into its canonical name', () => {
+		expect(expandEffectiveOperations(['describe_database', 'search_by_id'])).toEqual([
+			'describe_schema',
+			'search_by_hash',
 		]);
 	});
 

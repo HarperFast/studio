@@ -16,12 +16,15 @@ import {
 	getGrantableOperations,
 	getOperationInfo,
 	GrantableOperation,
+	isGrantGateInert,
 	isOperationGroupName,
+	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
 	OPERATION_GROUPS,
 	OperationGroup,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
+import { STRUCTURE_USER_DDL_OPERATIONS } from '@/integrations/api/localRolePermission';
 import { groupBy } from '@/lib/groupBy';
 import { pluralize } from '@/lib/pluralize';
 import { ChevronDown, PlusIcon, XIcon } from 'lucide-react';
@@ -38,14 +41,17 @@ export function OperationsAllowlistEditor({
 	value,
 	onChange,
 	version,
-	elevated,
+	allowlistRejected,
+	structureUser,
 	disabled,
 }: {
 	value: string[] | undefined;
 	onChange: (next: string[] | undefined) => void;
 	version: string;
-	/** The role is super_user/structure_user/cluster_user, which Harper clears before this gate. */
-	elevated?: boolean;
+	/** super_user/cluster_user: Harper refuses to store an allowlist alongside the flag. */
+	allowlistRejected?: boolean;
+	/** structure_user: the allowlist applies to everything except DDL. */
+	structureUser?: boolean;
 	disabled?: boolean;
 }) {
 	const restricted = value !== undefined;
@@ -108,17 +114,25 @@ export function OperationsAllowlistEditor({
 			<p className="text-xs text-muted-foreground">
 				{restricted
 					? 'Only the operations below are allowed — anything unlisted is denied. Listing an operation that '
-						+ 'normally requires super_user deliberately grants it to this role.'
+						+ 'normally requires super_user deliberately grants it to this role. SQL statements are authorized '
+						+ 'against table permissions instead, so this list does not restrict them.'
 					: 'No operation-level restriction. Add one to limit this role to an explicit list of API operations '
 						+ '(for example a deploy-only CI role).'}
 			</p>
-			{elevated && (
-				// Harper's authorization returns early for super/structure users, before it reaches the
-				// operations gate — so an allowlist on such a role is saved but never enforced.
+			{allowlistRejected && (
+				// validateNoSUPerms rejects any multi-key permission setting super_user/cluster_user, so
+				// this combination fails the save outright rather than being merely inert.
+				<p className="text-xs text-destructive">
+					Harper does not accept an operations allowlist on a super_user or cluster_user role — the save is rejected
+					unless the list is dropped. Clear that flag to scope this role by operation; otherwise the allowlist is
+					removed when you save.
+				</p>
+			)}
+			{structureUser && restricted && (
 				<p className="text-xs text-warning">
-					This role is a super, structure, or cluster user, and Harper grants those roles their access before the
-					operations allowlist is checked — so this list is stored but has no effect. To scope a role by operation,
-					clear those flags and grant the operations it needs here instead.
+					This role is a structure user, so it reaches{' '}
+					<span className="font-mono">{STRUCTURE_USER_DDL_OPERATIONS.join(', ')}</span>{' '}
+					(and create/drop database) regardless of the list below. Every other operation is still gated by it.
 				</p>
 			)}
 
@@ -176,6 +190,7 @@ export function OperationsAllowlistEditor({
 							<p className="text-xs text-muted-foreground" title={summarizeOperations(effective)}>
 								Effectively allows {pluralize(effective.length, 'operation', 'operations')}
 								{delegatesSu ? ', including some that normally require super_user' : ''}.
+								<span className="sr-only">: {summarizeOperations(effective)}</span>
 							</p>
 						)}
 				</>
@@ -265,12 +280,21 @@ function OperationsPicker({
 
 	// Component-registered operations (5.2+) have instance-specific names no static catalog can
 	// know, so a filter miss that looks like an operation name is offered as a custom grant.
-	// Groups and non-delegable operations stay out — but a catalog name this version merely
-	// predates is allowed through, since the server validates and may well accept it (backports).
+	// Anything the catalog already speaks for stays out — groups, non-delegable ops, and alias
+	// spellings the picker deliberately withholds — as does a case variant of a known name, which
+	// validateOperations rejects. A catalog name this version merely predates is allowed through,
+	// since the server validates and may well accept it (backports).
 	const knownInfo = getOperationInfo(rawQuery);
+	// A miss that only differs in case from a name we know: the server would reject it, so offering
+	// it buys an opaque save error. A name we know exactly but this version predates is different —
+	// that one stays offered, since a backport may well accept it.
+	const caseVariantOfKnownName = !knownInfo
+		&& (isOperationGroupName(query) || OPERATION_CATALOG.some((operation) => operation.name === query));
 	const customCandidate = CUSTOM_OPERATION_PATTERN.test(rawQuery)
 			&& !isOperationGroupName(rawQuery)
+			&& !caseVariantOfKnownName
 			&& !knownInfo?.nonDelegable
+			&& !knownInfo?.aliasOf
 			&& !grantable.some((operation) => operation.name === rawQuery)
 			&& !selectedSet.has(rawQuery)
 		? rawQuery
@@ -336,11 +360,22 @@ function OperationsPicker({
 								onSelect={(event) => event.preventDefault()}
 							>
 								<span className="flex-1 truncate font-mono text-xs">{operation.name}</span>
-								{operation.su && (
-									<Badge variant="warning" title="Normally requires super_user; listing it grants it to this role">
-										super_user
-									</Badge>
-								)}
+								{isGrantGateInert(operation.name)
+									? (
+										<Badge
+											variant="outline"
+											title={'Harper authorizes this operation under its internal handler name, so listing it has '
+												+ 'no effect on current 5.x releases (HarperFast/harper#2175). Kept available so the role '
+												+ 'is ready once that lands.'}
+										>
+											not yet enforced
+										</Badge>
+									)
+									: operation.su && (
+										<Badge variant="warning" title="Normally requires super_user; listing it grants it to this role">
+											super_user
+										</Badge>
+									)}
 							</DropdownMenuCheckboxItem>
 						))}
 					</div>
@@ -377,19 +412,19 @@ function OperationChip({
 	disabled?: boolean;
 }) {
 	const info = getOperationInfo(name);
-	const variant = info?.nonDelegable || info?.aliasOf
-		? 'destructive'
-		: info?.su
-		? 'warning'
-		: info
-		? 'secondary'
-		: 'outline';
+	const inert = info?.nonDelegable || info?.aliasOf || isGrantGateInert(name);
+	const variant = inert ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
 	const title = info?.aliasOf
 		? `Legacy alias: Harper authorizes this operation under '${info.aliasOf}', so this entry grants nothing. `
 			+ `Grant '${info.aliasOf}' instead.`
+		: isGrantGateInert(name)
+		? 'Harper authorizes this operation under its internal handler name, so this grant has no effect on '
+			+ 'current 5.x releases (HarperFast/harper#2175).'
 		: info?.nonDelegable
 		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
 			+ 'non-super_user role.'
+		: info?.caveat
+		? info.caveat
 		: info?.su
 		? 'Normally requires super_user; listing it grants it to this role.'
 		: info

@@ -20,14 +20,15 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import {
 	getOperationsAllowlist,
 	hasMalformedOperations,
-	isElevatedRole,
 	orderPermissionKeys,
+	rolePreventsOperationsAllowlist,
+	structureUserBypassesDdl,
 	withOperations,
 } from '@/integrations/api/localRolePermission';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
 import { useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 export function EditRoleModal({
@@ -104,22 +105,35 @@ export function EditRoleModal({
 	// `operations` array and writes changes back into the text, which stays the single source of
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
-	const { operationsJson, malformedOperations, elevatedRole } = useMemo(() => {
+	const lastParsedRef = useRef<LocalRolePermission | null>(null);
+	const { operationsJson, malformedOperations, allowlistRejected, structureUser } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
-		const parsed = operationsSupported && isValidJSON && updatedPermissions
+		const parsed = operationsSupported && updatedPermissions
 			? safeParse<LocalRolePermission>(updatedPermissions)
 			: null;
-		if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-			return { operationsJson: undefined, malformedOperations: false, elevatedRole: false };
+		const usable = isValidJSON && parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+			? parsed
+			// Mid-edit the JSON is briefly unparseable; describing the role from the last good parse
+			// beats telling the author it has no restriction while they fix a comma.
+			: lastParsedRef.current;
+		if (usable === null) {
+			return {
+				operationsJson: undefined,
+				malformedOperations: false,
+				allowlistRejected: false,
+				structureUser: false,
+			};
 		}
-		const allowlist = getOperationsAllowlist(parsed);
+		lastParsedRef.current = usable;
+		const allowlist = getOperationsAllowlist(usable);
 		// A present-but-not-string-array `operations` (e.g. `true`) is left to the JSON editor
 		// rather than clobbered from the structured one.
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
-			malformedOperations: hasMalformedOperations(parsed),
-			elevatedRole: isElevatedRole(parsed),
+			malformedOperations: hasMalformedOperations(usable),
+			allowlistRejected: rolePreventsOperationsAllowlist(usable),
+			structureUser: structureUserBypassesDdl(usable),
 		};
 	}, [operationsSupported, isValidJSON, updatedPermissions]);
 	// Keyed on the serialized form so unrelated typing in the JSON editor keeps the array identity
@@ -216,7 +230,8 @@ export function EditRoleModal({
 							)
 							: (
 								<OperationsAllowlistEditor
-									elevated={elevatedRole}
+									allowlistRejected={allowlistRejected}
+									structureUser={structureUser}
 									value={operationsValue}
 									onChange={onOperationsChanged}
 									version={registrationInfo.version}
