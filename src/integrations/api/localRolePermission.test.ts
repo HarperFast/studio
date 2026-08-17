@@ -45,9 +45,12 @@ describe('getDatabasePermissionRecord', () => {
 			{ operations: true } as unknown as LocalRolePermission,
 		];
 		for (const permission of cases) {
+			// Asserted against the record reading (`false`), which is the shared shape test — comparing
+			// against `supported` would make the above-floor half compare undefined to never-'database'.
+			const isRecord = getDatabasePermissionRecord(permission, 'operations', false) !== undefined;
 			for (const supported of [true, false]) {
-				const isDatabase = getDatabasePermissionRecord(permission, 'operations', supported) !== undefined;
-				expect(classifyOperationsValue(permission, supported) === 'database').toBe(isDatabase);
+				expect(['database', 'database-collision'].includes(classifyOperationsValue(permission, supported)))
+					.toBe(isRecord);
 			}
 		}
 	});
