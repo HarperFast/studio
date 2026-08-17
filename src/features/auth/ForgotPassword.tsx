@@ -41,10 +41,8 @@ export function ForgotPassword() {
 	const captcha = useCaptchaChallenge('forgot_password');
 
 	const submitForm = async (formData: z.infer<typeof ForgotPasswordSchema>) => {
-		// Same reason as SignUp: `handleSubmit` reruns the resolver, which only rewrites
-		// field errors, so a stale `root` would outlive the retry.
+		// Like SignUp: the resolver only rewrites field errors, so clear stale root.
 		clearErrors('root');
-		// Minted per submit: tokens are single use and expire in ~2 minutes.
 		const captchaToken = await captcha.getToken();
 		submitForgotPasswordData({ ...formData, captchaToken }, {
 			onSuccess: (message) => {
@@ -58,9 +56,8 @@ export function ForgotPassword() {
 				navigate({ to: '/sign-in', search: { me: email } });
 			},
 			onError: (error) => {
+				// Non-CAPTCHA failures keep their existing global toast.
 				const captchaMessage = captcha.describeCaptchaError(error);
-				// Every other failure keeps its existing global toast; only the CAPTCHA
-				// needs to say what to do next, right in the form.
 				if (captchaMessage) { setError('root', { type: 'server', message: captchaMessage }); }
 			},
 		});

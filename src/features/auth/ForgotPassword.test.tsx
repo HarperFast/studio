@@ -88,8 +88,7 @@ describe('ForgotPassword — reCAPTCHA', () => {
 
 		await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
 		expect(post).toHaveBeenCalledWith('/ForgotPassword/', { email: 'user@example.com' });
-		// toHaveBeenCalledWith treats an explicit undefined as absent, so assert the
-		// key is genuinely gone — the rollout depends on an untokened body being clean.
+		// toHaveBeenCalledWith treats explicit undefined as absent; assert it's gone.
 		expect(post.mock.calls[0][1]).not.toHaveProperty('captchaToken');
 	});
 
