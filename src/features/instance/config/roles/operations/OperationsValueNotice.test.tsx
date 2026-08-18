@@ -21,10 +21,13 @@ describe('OperationsValueNotice', () => {
 			expect(text).toContain('Remove the');
 			// Required on both paths: while an `operations` database exists, translateRolePermissions
 			// throws for any role carrying an allowlist array.
-			expect(text).toMatch(/Then drop the\s*operations\s*database/);
-			expect(text).toContain('no role on this instance can use an allowlist at all');
-			// The grant-preserving step is additional, not a precondition for the drop.
-			expect(text.indexOf('Then drop the')).toBeLessThan(text.indexOf('To keep its table grants'));
+			// The repair that restores auth comes first and stands alone; retiring the database is a
+			// separate, optional migration — and must never read as "drop it now".
+			expect(text).toContain('that alone restores authentication');
+			expect(text).toContain('stops every role from using one');
+			expect(text).toContain('dropping it destroys whatever it holds');
+			expect(text.indexOf('migrating its data')).toBeLessThan(text.indexOf('dropping it destroys'));
+			expect(text).not.toMatch(/Then drop/);
 		});
 
 		it('does not tell the author to drop a database that the value does not imply', () => {
@@ -49,7 +52,10 @@ describe('OperationsValueNotice', () => {
 			const text = screen.getByText(/not a list of operation names/).textContent ?? '';
 			// The gate enters on `operations !== undefined`, so a bare string denies everything.
 			expect(text).toContain('Harper still gates on it');
-			expect(text).toContain('nothing at all, for a bare string');
+			// Each shape's outcome named, rather than one lumped claim: a string denies everything, a
+			// falsy value fails the requests outright.
+			expect(text).toContain('every operation is denied');
+			expect(text).toContain('fail outright');
 			expect(text).not.toMatch(/breaks authentication/);
 		});
 

@@ -27,9 +27,9 @@ export function OperationsValueNotice({
 		return (
 			<p className="text-xs text-destructive">
 				This role's <span className="font-mono">operations</span>{' '}
-				value is not a list of operation names. Harper still gates on it, so this role's users can run only whatever it
-				happens to expand to — nothing at all, for a bare string — and the role cannot be saved again until it is fixed.
-				{' '}
+				value is not a list of operation names. Harper still gates on it: a string is read one character at a time, so
+				every operation is denied; an array with non-string members enforces whatever it does expand to; and a falsy
+				value makes each of this role's requests fail outright. The role cannot be saved again until it is fixed.{' '}
 				{assigning ? 'Correct it in the role editor.' : 'Correct it in the JSON below.'}
 			</p>
 		);
@@ -43,11 +43,14 @@ export function OperationsValueNotice({
 				: (
 					<>
 						authentication breaks for every user on the instance as soon as a user holds this role. Remove the{' '}
-						<span className="font-mono">operations</span> key in the JSON below.{databaseCollision && (
+						<span className="font-mono">operations</span>{' '}
+						key in the JSON below — that alone restores authentication.{databaseCollision && (
 							<>
-								{' '}Then drop the <span className="font-mono">operations</span>{' '}
-								database — while one exists, no role on this instance can use an allowlist at all. To keep its table
-								grants, move them to a differently-named database and re-key them here first.
+								{' '}Separately, and only if this instance needs allowlists at all: a database named{' '}
+								<span className="font-mono">operations</span>{' '}
+								stops every role from using one. Retiring it means migrating its data and table grants to a
+								differently-named database and verifying them there first — dropping it destroys whatever it holds, so
+								treat that as a planned migration rather than part of this repair.
 							</>
 						)}
 					</>

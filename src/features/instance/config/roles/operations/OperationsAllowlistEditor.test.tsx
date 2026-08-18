@@ -76,8 +76,8 @@ describe('OperationsAllowlistEditor', () => {
 		render(<Harness initial={[]} />);
 		// Anchored: standard_user's description also mentions read_only.
 		fireEvent.click(screen.getByRole('checkbox', { name: /^read_only/ }));
-		// read_only expands to 13 distinct handlers (two alias pairs fold).
-		expect(screen.getByText(/Effectively allows 13 operations/)).toBeTruthy();
+		// read_only: 15 members, minus two folded alias pairs and sql, which the list does not govern.
+		expect(screen.getByText(/Effectively allows 12 operations/)).toBeTruthy();
 	});
 
 	it('hides the agent group from pre-5.2 instances, unless the role already carries it', () => {

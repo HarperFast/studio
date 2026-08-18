@@ -141,7 +141,6 @@ describe('expandEffectiveOperations', () => {
 			'search_by_conditions',
 			'search_by_hash',
 			'search_by_value',
-			'sql',
 			'user_info',
 		]);
 	});
@@ -152,13 +151,15 @@ describe('expandEffectiveOperations', () => {
 		expect(expandEffectiveOperations(['describe_database', 'search_by_id'])).toEqual([]);
 	});
 
-	it('leaves out entries the server can never honor', () => {
-		expect(expandEffectiveOperations(['set_secret', 'sql'])).toEqual(['sql']);
+	it('leaves out entries the allowlist does not govern', () => {
+		// set_secret self-enforces super_user; sql is authorized on its own path, so listing either
+		// changes nothing about what the role can do.
+		expect(expandEffectiveOperations(['set_secret', 'sql'])).toEqual([]);
 	});
 
 	it('de-duplicates group members against explicit names and passes unknown names through', () => {
-		const effective = expandEffectiveOperations(['read_only', 'sql', 'my_component_op']);
-		expect(effective.filter((name) => name === 'sql')).toHaveLength(1);
+		const effective = expandEffectiveOperations(['read_only', 'search', 'my_component_op']);
+		expect(effective.filter((name) => name === 'search')).toHaveLength(1);
 		// A component-registered name is unknown to the catalog, so it cannot be judged inert.
 		expect(effective).toContain('my_component_op');
 	});

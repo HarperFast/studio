@@ -36,6 +36,8 @@ export interface GrantableOperation {
 	aliasOf?: string;
 	/** Extra qualification shown wherever the operation is offered or listed. */
 	caveat?: string;
+	/** Authorized on its own path, so the allowlist neither grants nor restricts it. */
+	outOfGate?: boolean;
 }
 
 /**
@@ -82,13 +84,14 @@ export function isGrantGateInert(name: string): boolean {
 }
 
 /**
- * Whether listing this name grants nothing at all: an alias the gate resolves elsewhere, an
- * operation whose handler self-enforces super_user, or one the gate cannot match. The chip and the
- * effective count must agree on this, or the same component credits access it also calls inert.
+ * Whether listing this name changes nothing: an alias the gate resolves elsewhere, an operation
+ * whose handler self-enforces super_user, one the gate cannot match, or `sql`, which is authorized
+ * on its own path and so is neither granted nor restricted by the list. The chip and the effective
+ * count must agree on this, or the same component credits access it also calls inert.
  */
 export function isInertGrant(name: string): boolean {
 	const info = catalogByName.get(name);
-	return !!info?.aliasOf || !!info?.nonDelegable || isGrantGateInert(name);
+	return !!info?.aliasOf || !!info?.nonDelegable || !!info?.outOfGate || isGrantGateInert(name);
 }
 
 export interface OperationGroup {
@@ -157,6 +160,7 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 		category: DATA,
 		// serverUtilities routes `sql` to checkASTPermissions/verifyPermsAST, which never consults
 		// the allowlist — so this entry neither grants nor restricts SQL (HarperFast/harper#2175).
+		outOfGate: true,
 		caveat: 'SQL is authorized against table permissions, not this list — listing or omitting it '
 			+ 'does not restrict SQL statements.',
 	},

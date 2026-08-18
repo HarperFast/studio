@@ -436,6 +436,8 @@ function OperationChip({
 		: info?.nonDelegable
 		? 'Always requires an actual super_user role; listing it cannot delegate the operation to a '
 			+ 'non-super_user role.'
+		: info?.outOfGate
+		? info.caveat
 		: info?.caveat
 		? info.caveat
 		: info?.su

@@ -76,7 +76,7 @@ describe('RoleOperationsSummary', () => {
 
 	it('summarizes the effective expansion with a truncated preview and full title', () => {
 		render(<RoleOperationsSummary role={role({ operations: ['read_only'] })} />);
-		const summary = screen.getByText(/restricted to 13 operations/);
+		const summary = screen.getByText(/restricted to 12 operations/);
 		// Five names shown inline, the full list on the title.
 		expect(summary.textContent).toContain(', …');
 		expect(summary.getAttribute('title')).toContain('user_info');
