@@ -12,6 +12,7 @@ export interface DatadogErrorEvent {
 		resource?: { url?: string };
 	};
 	view?: {
+		name?: string;
 		url?: string;
 		referrer?: string;
 	};
