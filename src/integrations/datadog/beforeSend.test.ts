@@ -109,4 +109,45 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/org-1/clu-1/apps');
 	});
+
+	// `redactErrorText` keeps the path for Harper-owned hosts on purpose, so an auth-screen URL
+	// quoted in the error text would otherwise carry the address through that exemption.
+	it('redacts the visitor address from a Harper host URL in the message, stack and handling stack', () => {
+		const event = errorEvent({
+			message: 'Failed to load route https://fabric.harper.fast/#/sign-in?me=someone%40example.com',
+			stack: [
+				'Error: Failed to load route https://fabric.harper.fast/#/sign-in?me=someone%40example.com',
+				'  at loadRoute @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+			].join('\n'),
+			handling_stack:
+				'HandlingStack: console error\n  at https://fabric.harper.fast/#/verifying?email=someone%40example.com',
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.message).toBe('Failed to load route https://fabric.harper.fast/#/sign-in?me=<redacted>');
+		expect(event.error?.stack).toBe([
+			'Error: Failed to load route https://fabric.harper.fast/#/sign-in?me=<redacted>',
+			'  at loadRoute @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+		].join('\n'));
+		expect(event.error?.handling_stack).toBe(
+			'HandlingStack: console error\n  at https://fabric.harper.fast/#/verifying?email=<redacted>',
+		);
+	});
+
+	it('redacts the visitor address from a Harper host resource URL', () => {
+		const event = errorEvent({
+			message: 'Request failed with status code 409',
+			resource: { url: 'https://api.harper.fast/User/?email=someone%40example.com' },
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.resource?.url).toBe('https://api.harper.fast/User/?email=<redacted>');
+	});
+
+	// Both redactions still compose: the non-Harper path goes, and so does the address.
+	it('applies the host redaction and the address redaction together', () => {
+		const event = errorEvent({
+			message: 'Failed to reach https://scm.acme-corp.com/hooks?me=someone%40example.com',
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.message).toBe('Failed to reach https://scm.acme-corp.com/<redacted>');
+	});
 });

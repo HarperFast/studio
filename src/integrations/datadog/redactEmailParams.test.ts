@@ -53,4 +53,27 @@ describe('redactEmailParams', () => {
 		const url = 'https://fabric.harper.fast/#/org-1/clu-1/apps';
 		expect(redactEmailParams(url)).toBe(url);
 	});
+
+	// A value class that admitted whitespace would run past the address and swallow the rest of the
+	// stack — the address is not always at the end of the string it sits in.
+	it('stops at the end of the URL when the address is quoted inside a multi-line stack', () => {
+		const stack = [
+			'Error: Failed to load route https://fabric.harper.fast/#/sign-in?me=someone%40example.com',
+			'  at loadRoute @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+		].join('\n');
+		expect(redactEmailParams(stack)).toBe([
+			'Error: Failed to load route https://fabric.harper.fast/#/sign-in?me=<redacted>',
+			'  at loadRoute @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+		].join('\n'));
+	});
+
+	it('stops at the fragment that follows the query', () => {
+		expect(redactEmailParams('https://fabric.harper.fast/?me=someone%40example.com#/sign-in'))
+			.toBe('https://fabric.harper.fast/?me=<redacted>#/sign-in');
+	});
+
+	it('leaves surrounding prose intact when the URL ends mid-sentence', () => {
+		expect(redactEmailParams('Tried https://fabric.harper.fast/#/sign-in?me=someone%40example.com and gave up'))
+			.toBe('Tried https://fabric.harper.fast/#/sign-in?me=<redacted> and gave up');
+	});
 });
