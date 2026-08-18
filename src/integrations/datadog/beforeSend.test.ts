@@ -151,8 +151,6 @@ describe('beforeSend', () => {
 		expect(event.error?.message).toBe('Failed to reach https://scm.acme-corp.com/<redacted>');
 	});
 
-	// A resource event carries its own URL, and `shouldKeepEvent` lets every non-error event
-	// through, so this is the field an auth-screen request's address actually rides in.
 	it("redacts the address from a resource event's own URL", () => {
 		const event: DatadogErrorEvent = {
 			type: 'resource',
@@ -171,12 +169,8 @@ describe('beforeSend', () => {
 		expect(event.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation');
 	});
 
-	// The SDK swallows a throw from this hook and can't drop a view event at all, so a non-string
-	// field must not take the redaction down mid-way and ship a half-redacted event. All three URL
-	// fields take the same value down the same path, so all three are covered here.
-	// The value has to stringify into something the pre-test matches but carry no `.replace`, or a
-	// truthiness guard passes too: `WORTH_SCANNING.test(12345)` coerces, finds no separator, and
-	// returns early without ever reaching the call that would throw.
+	// The value must stringify past `WORTH_SCANNING` yet carry no `.replace`, or a truthiness guard
+	// passes too: `test(12345)` coerces, finds no separator, and returns before anything can throw.
 	it.each([
 		['view name', { type: 'view', view: { name: ['?me=a%40b.com'] } }],
 		['view URL', { type: 'view', view: { url: ['?me=a%40b.com'] } }],
@@ -212,8 +206,7 @@ describe('beforeSend', () => {
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
 	});
 
-	// A failed request to a Harper host keeps its path through `redactErrorText`, so an address in
-	// that path needs the URL pass, not the credential-params pass.
+	// `redactErrorText` keeps a Harper host's path, so this needs the URL pass, not the text pass.
 	it("redacts an address in a failed request's URL path", () => {
 		const event: DatadogErrorEvent = {
 			type: 'error',
@@ -237,7 +230,6 @@ describe('beforeSend', () => {
 		expect(performance.now() - started).toBeLessThan(100);
 	});
 
-	// A throwing setter on a URL field escapes otherwise, and the SDK sends the event on a throw.
 	it('drops the event when a URL field throws instead of letting it escape', () => {
 		const event = {
 			type: 'resource',
@@ -259,10 +251,9 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 	});
 
-	// The error-text fields take the same non-string value down the same path as the URL fields, and
-	// each is read twice — once by the filter, once by the redaction — so one case pins both guards.
-	// A 5xx message is used throughout because it is what makes the filter coerce `resource.url`:
-	// under `?? ''` the array stringifies into an instance endpoint and the event is silently dropped.
+	// Each field is read twice, by the filter and by the redaction, so one case pins both guards. The
+	// 5xx message makes the filter coerce `resource.url`: under `?? ''` the array stringifies into an
+	// instance endpoint and the event is silently dropped rather than kept.
 	it.each([
 		'stack',
 		'handling_stack',

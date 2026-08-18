@@ -199,4 +199,14 @@ describe('redactSensitiveParams', () => {
 		expect(redactCredentialParams('Navigation to /#/reset-password?token=abc.def failed'))
 			.toBe('Navigation to /#/reset-password?token=<redacted> failed');
 	});
+
+	it.each([
+		'api-key',
+		'api_key',
+		'apikey',
+		'apiKey',
+	])('redacts a credential param spelled %s', (name) => {
+		expect(redactSensitiveParams(`https://fabric.harper.fast/#/apps?${name}=secret_value_123`))
+			.toBe(`https://fabric.harper.fast/#/apps?${name}=<redacted>`);
+	});
 });
