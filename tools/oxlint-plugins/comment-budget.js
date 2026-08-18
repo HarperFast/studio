@@ -21,12 +21,30 @@
  * rule sees `/// <reference types="…" />`, two of the three slashes are gone and the value begins
  * `/ <reference`.
  *
- * Every alternative must match real directive syntax rather than a bare tool name, or prose like
- * `// eslint has different behavior here` buys a free exemption. `global` and `jshint` are omitted
- * for exactly that reason: their only valid forms are indistinguishable from an English sentence.
+ * This is an allowlist of the exact recognised forms, not a list of tool-name prefixes. Prefixes
+ * leak: `eslint-` also matches `// eslint-based behavior differs here`, and every one of the ten
+ * prefixes this replaced had a near-miss like it, each buying a comment a free exemption. `global`,
+ * `jshint`, and `jscs` are omitted entirely — their valid forms are indistinguishable from prose.
  */
-const DIRECTIVE =
-	/^\s*(?:(?:es|ox)lint(?:-|\s+[\w@/$-]+\s*:)|prettier-|dprint-|biome-|type-coverage:|[cv]8 ignore|istanbul ignore|jscs:|@ts-|@vite-|webpack\w*\s*:|#__|@__|#(?:end)?region\b|\/\s*<(?:reference|amd-))/;
+const DIRECTIVE = new RegExp(`^\\s*(?:${
+	[
+		String.raw`(?:es|ox)lint-(?:disable|enable)(?:-next-line|-line)?\b`,
+		String.raw`eslint-env\b`,
+		String.raw`(?:es|ox)lint\s+[\w@/$-]+\s*:`,
+		String.raw`prettier-ignore\b`,
+		String.raw`dprint-ignore(?:-start|-end|-file)?\b`,
+		String.raw`biome-ignore\b`,
+		String.raw`@ts-(?:ignore|expect-error|nocheck|check)\b`,
+		String.raw`@vite-ignore\b`,
+		String.raw`type-coverage:ignore-`,
+		String.raw`[cv]8 ignore\b`,
+		String.raw`istanbul ignore\b`,
+		String.raw`webpack(?:ChunkName|Mode|Prefetch|Preload|Include|Exclude|Ignore|Exports|FetchPriority)\s*:`,
+		String.raw`[#@]__(?:PURE|NO_SIDE_EFFECTS)__`,
+		String.raw`#(?:end)?region(?:\s|$)`,
+		String.raw`/\s*<(?:reference|amd-)`,
+	].join('|')
+})`);
 
 /** JSDoc/TSDoc — `/** … *␀/`, but not a `/*** … *␀/` banner or a bare `/* … *␀/`. */
 function isDocComment(comment) {

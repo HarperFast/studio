@@ -121,6 +121,12 @@ describe('comment-budget', () => {
 			/* c8 ignore next */
 			// #region setup
 			// #endregion
+			// prettier-ignore
+			// biome-ignore lint: deliberate
+			// @vite-ignore
+			/* istanbul ignore next */
+			// type-coverage:ignore-next-line
+			/* #__PURE__ */
 			export const a = 1;`,
 			{ maxPerFile: 0 },
 		)).toEqual([]);
@@ -262,6 +268,23 @@ describe('comment-budget', () => {
 		};`;
 
 		expect(lint(handlers, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 4 }]);
+	});
+
+	it('charges prose that merely opens with a directive-shaped near-miss', () => {
+		const nearMisses = `export function f(n: number) {
+			// eslint-based behavior differs here
+			let x = n;
+			// webpack: this build injects the value
+			x += 1;
+			// prettier-style formatting is nicer here
+			x *= 2;
+			// @ts-experts disagree about this
+			x -= 3;
+			// type-coverage: not great in here
+			return x;
+		}`;
+
+		expect(lint(nearMisses, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 5 }]);
 	});
 
 	it('charges prose that merely opens with a tool name', () => {
