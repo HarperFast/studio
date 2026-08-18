@@ -202,4 +202,43 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(false);
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
 	});
+
+	// A failed request to a Harper host keeps its path through `redactErrorText`, so an address in
+	// that path needs the URL pass, not the credential-params pass.
+	it("redacts an address in a failed request's URL path", () => {
+		const event: DatadogErrorEvent = {
+			type: 'error',
+			error: {
+				message: 'Request failed with status code 500',
+				resource: { url: 'https://api.harper.fast/config/users/someone%40example.com' },
+			},
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.resource?.url).toBe('https://api.harper.fast/config/users/<redacted>');
+	});
+
+	// The ambiguous label separator this replaced took 8.7s at 30 characters.
+	it('does not backtrack on a long hyphenated token with no dot-TLD', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: { url: `https://fabric.harper.fast/#/o/c/apps?u=git@${'-a'.repeat(40)}` },
+		};
+		const started = performance.now();
+		expect(beforeSend(event)).toBe(true);
+		expect(performance.now() - started).toBeLessThan(100);
+	});
+
+	// A throwing setter on a URL field escapes otherwise, and the SDK sends the event on a throw.
+	it('drops the event when a URL field throws instead of letting it escape', () => {
+		const event = {
+			type: 'resource',
+			view: {
+				get url(): string {
+					throw new Error('hostile getter');
+				},
+			},
+		} as unknown as DatadogErrorEvent;
+		expect(() => beforeSend(event)).not.toThrow();
+		expect(beforeSend(event)).toBe(false);
+	});
 });

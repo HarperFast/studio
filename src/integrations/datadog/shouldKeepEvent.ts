@@ -1,10 +1,6 @@
 /**
- * A structural subset of Datadog's RUM event, covering only the fields this filter and
- * `beforeSend`'s redaction touch. Kept narrow so it stays assignable to RUM's `beforeSend`
- * signature.
- *
- * `view` is present on every event type, not just errors — a resource or long task recorded on an
- * auth screen carries that screen's URL, which is why `beforeSend` redacts it for all of them.
+ * A structural subset of Datadog's RUM event, narrow so it stays assignable to `beforeSend`'s
+ * signature. `view` is on every event type, not just errors.
  */
 export interface DatadogErrorEvent {
 	type: string;
@@ -12,7 +8,6 @@ export interface DatadogErrorEvent {
 		message?: string;
 		source?: string;
 		stack?: string;
-		/** The `console.error` call site the SDK records alongside a handled error. */
 		handling_stack?: string;
 		resource?: { url?: string };
 	};
@@ -20,7 +15,7 @@ export interface DatadogErrorEvent {
 		url?: string;
 		referrer?: string;
 	};
-	/** A resource event's own URL, distinct from the `error.resource.url` of a failed request. */
+	/** Distinct from `error.resource.url`, which belongs to a failed request. */
 	resource?: { url?: string };
 }
 
@@ -78,8 +73,8 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	if (event.type !== 'error') {
 		return true;
 	}
-	// Type-checked, not `?? ''`: a malformed field would otherwise throw out of this filter, and
-	// the SDK swallows that into shipping the event unfiltered.
+	// Type-checked, not `?? ''`: a malformed field would throw out of this filter, which the SDK
+	// swallows into shipping the event unfiltered.
 	const message = typeof event.error?.message === 'string' ? event.error.message : '';
 	const source = event.error?.source;
 
