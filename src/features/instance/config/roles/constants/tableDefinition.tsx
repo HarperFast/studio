@@ -82,8 +82,8 @@ function OperationsCell({ permission }: { permission: LocalRole['permission'] })
 		return null;
 	}
 	const kind = classifyOperationsValue(permission, allowlistSupported);
-	// `database` is a pre-allowlist role granting a database named `operations`, not a restriction.
-	if (kind === 'absent' || kind === 'database') {
+	// Below the floor the key is either a real database grant or inert; neither is a restriction.
+	if (kind === 'absent' || kind === 'database' || kind === 'inert') {
 		// aria-label is not exposed on a roleless span, so the text itself has to carry it.
 		return (
 			<>

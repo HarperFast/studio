@@ -97,39 +97,43 @@ export function getOperationsAllowlist(permission: LocalRolePermission | undefin
  * What the `operations` key holds. The verdict depends on the instance, so `allowlistSupported`
  * (i.e. supportsOperationsAllowlist for that version) is required rather than defaulted:
  * - `absent`: no key at all.
- * - `allowlist`: a well-formed array of operation names.
- * - `database`: a table-permission record on an instance BELOW the allowlist floor, i.e. a role
- *   granting a database that happens to be named `operations`. Legitimate there, and not something
- *   to ask the author to "fix".
- * - `breaks-auth`: a NON-ITERABLE value at or above the floor — a record (typically a v4 role
- *   carried through an upgrade), `true`, a number. Harper expands every assigned role's allowlist
- *   during the user-cache load behind a truthiness-only guard, so `for…of` throws there and
- *   authentication fails for the whole instance once a user holds the role.
- * - `malformed`: iterable but not a list of names — a bare string (which expands per character) or
- *   an array containing non-strings. These expand without error and only fail write-time
- *   validation, so they are wrong but never fatal.
+ * - `allowlist`: a well-formed array of operation names on an instance that has the feature.
+ * - `database`: a table-permission record BELOW the floor, i.e. a role granting a database that
+ *   happens to be named `operations`. Legitimate there, and not something to ask the author to fix.
+ * - `inert`: anything else below the floor. No gate, no expansion and no role validation exist for
+ *   the key there, so it neither restricts nor breaks anything — including a well-formed array
+ *   written for a newer instance.
+ * - `breaks-auth`: a TRUTHY non-iterable at or above the floor — a record, `true`, a nonzero
+ *   number. `listUsers` expands every assigned role's allowlist behind a truthiness-only guard, so
+ *   `for…of` throws there and the user-cache load rejects: authentication fails for the whole
+ *   instance. Falsy values skip that guard and so are not in this class.
+ * - `malformed`: everything else at or above the floor — a bare string, an array with non-string
+ *   members, or a falsy non-iterable. The gate still enters (it tests `!== undefined`), so these
+ *   deny whatever the value fails to expand to, and the falsy ones throw per request rather than
+ *   at cache load. Wrong in every case, but never an instance-wide outage.
  */
 export function classifyOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
-): 'absent' | 'allowlist' | 'database' | 'breaks-auth' | 'malformed' {
+): 'absent' | 'allowlist' | 'database' | 'inert' | 'breaks-auth' | 'malformed' {
 	const operations = permission?.operations;
 	if (permission === undefined || operations === undefined) {
 		return 'absent';
 	}
-	if (allowlistSupported && getOperationsAllowlist(permission) !== undefined) {
+	if (!allowlistSupported) {
+		// Nothing reads the key on this version, so the only question worth answering is whether it
+		// is really a database grant. The same shape test the access checks use, so the two never
+		// disagree about what a record is.
+		return getDatabasePermissionRecord(permission, 'operations', false) !== undefined ? 'database' : 'inert';
+	}
+	if (getOperationsAllowlist(permission) !== undefined) {
 		return 'allowlist';
 	}
-	// The same shape test the access checks use, so the two never disagree about what a record is.
-	if (!allowlistSupported && getDatabasePermissionRecord(permission, 'operations', false) !== undefined) {
-		return 'database';
-	}
-	// Only what Harper's expansion cannot iterate takes the instance down, and only where that
-	// expansion exists: below the floor there is no allowlist machinery to throw, so the same value
-	// is merely invalid there. A string or an array of the wrong contents always iterates fine.
-	return !allowlistSupported || typeof operations === 'string' || Array.isArray(operations)
-		? 'malformed'
-		: 'breaks-auth';
+	// Only a value the cache-load guard lets through AND the expansion cannot iterate takes the
+	// instance down; falsy values are skipped by that guard and fail per request instead.
+	return operations && typeof operations !== 'string' && !Array.isArray(operations)
+		? 'breaks-auth'
+		: 'malformed';
 }
 
 /**

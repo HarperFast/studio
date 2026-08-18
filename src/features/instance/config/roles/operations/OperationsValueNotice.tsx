@@ -7,10 +7,10 @@
  *   the `for…of` throws and the cache load rejects: authentication fails for every user on the
  *   instance, not just this role's holder. Assignment is the trigger, since only assigned roles are
  *   expanded.
- * - `malformed` — iterable but not a list of names (a bare string, an array with non-strings).
- *   These expand without throwing, but the gate is live either way: it enters on `operations !==
- *   undefined` and denies anything outside the expanded set, so a bare string (which expands to its
- *   characters) denies every operation. Only add_role/alter_role reject the value outright.
+ * - `malformed` — anything else the gate still enters on, since it tests `operations !== undefined`:
+ *   a bare string (which expands to its characters, so every operation is denied), an array with
+ *   non-string members, or a falsy value (which the cache-load guard skips, so it throws per
+ *   request instead of at startup). Wrong in every case, but never an instance-wide outage.
  */
 export function OperationsValueNotice({
 	kind,
