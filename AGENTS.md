@@ -393,6 +393,15 @@ The RUM SDK reads `view.url`/`view.referrer` from `window.location`, and every t
 we load reads the page URL too — so a param is not a private channel. As of 2026-08-18 the auth
 screens' `?me=`/`?email=` form persistence and the `/config/users/<address>` route were putting
 addresses there, and `?token=` on `/reset-password` was putting a live password-reset credential
-there. [`redactSensitiveParams`](src/integrations/datadog/redactSensitiveParams.ts) keeps them out
-of Datadog; it cannot keep them out of anyone else's beacon. Carry the value in router state or
-`sessionStorage`, and key routes by an opaque id.
+there.
+
+[`redactSensitiveParams`](src/integrations/datadog/redactSensitiveParams.ts) keeps both out of
+Datadog — credential params by name, addresses by matching the address _token_ anywhere in the URL
+(a param value ending at a delimiter cannot cover a path segment or an unencoded JSON value, and
+picking a delimiter set trades one leak for another). It applies to URL fields only: `user@host.tld`
+is also an scp-style git remote, and `redactErrorText` deliberately keeps the host of
+`git@github.com:<redacted>` in free text, so error text gets `redactCredentialParams` instead.
+
+None of that helps anywhere else. Every third-party pixel we load reads the page URL, so those
+addresses also reach HubSpot, Meta, LinkedIn and GA — `beforeSend` cannot touch what they send.
+Carry the value in router state or `sessionStorage`, and key routes by an opaque id.
