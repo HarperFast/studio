@@ -19,8 +19,8 @@ import { useDeleteRoleMutation } from '@/integrations/api/instance/auth/deleteRo
 import { getDescribeAllQueryOptions } from '@/integrations/api/instance/database/getDescribeAll';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import {
-	classifyOperationsValue,
 	getOperationsAllowlist,
+	isUneditableOperationsValue,
 	orderPermissionKeys,
 	rolePreventsOperationsAllowlist,
 	structureUserDdlScope,
@@ -107,7 +107,7 @@ export function EditRoleModal({
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
 	const lastParsedRef = useRef<LocalRolePermission | null>(null);
-	const { operationsJson, operationsKind, allowlistRejected, structureUserDdl } = useMemo(() => {
+	const { operationsJson, operationsUneditable, allowlistRejected, structureUserDdl } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
 		const parsed = operationsSupported && updatedPermissions
@@ -121,7 +121,7 @@ export function EditRoleModal({
 		if (usable === null) {
 			return {
 				operationsJson: undefined,
-				operationsKind: 'absent' as const,
+				operationsUneditable: false,
 				allowlistRejected: false,
 				structureUserDdl: false as const,
 			};
@@ -132,7 +132,7 @@ export function EditRoleModal({
 		// rather than clobbered from the structured one.
 		return {
 			operationsJson: allowlist && JSON.stringify(allowlist),
-			operationsKind: classifyOperationsValue(usable, operationsSupported),
+			operationsUneditable: isUneditableOperationsValue(usable, operationsSupported),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
 			structureUserDdl: structureUserDdlScope(usable),
 		};
@@ -222,15 +222,8 @@ export function EditRoleModal({
 							: "Edit the role's permissions in JSON format or remove the role entirely."}
 					</DialogDescription>
 					{operationsSupported && registrationInfo && (
-						operationsKind === 'database-collision'
+						operationsUneditable
 							? <OperationsCollisionNotice />
-							: operationsKind === 'malformed'
-							? (
-								<p className="text-xs text-muted-foreground">
-									This role's <span className="font-mono">operations</span>{' '}
-									value is not an array of operation names; edit it in the JSON below.
-								</p>
-							)
 							: (
 								<OperationsAllowlistEditor
 									allowlistRejected={allowlistRejected}

@@ -126,7 +126,9 @@ export function classifyOperationsValue(
 
 /**
  * Whether the structured editor must keep its hands off this value: anything present that isn't a
- * well-formed allowlist, including a record it would otherwise overwrite.
+ * well-formed allowlist. Every such value — a record, `true`, a mixed array — throws the same way
+ * in Harper's user-cache expansion, so the surfaces treat them alike; classifyOperationsValue
+ * still separates them for anyone who needs the distinction.
  */
 export function isUneditableOperationsValue(
 	permission: LocalRolePermission | undefined,
