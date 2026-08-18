@@ -329,3 +329,31 @@ Practical consequence for the UI: never describe a restriction the server does n
 never advise "fixing" an `operations` value in place — both mistakes shipped and were caught in
 review. `classifyOperationsValue` needs the instance version because the same shape means different
 things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0).
+
+### Which of those the UI gating turns on
+
+The two facts that decide Studio's permission hooks (`src/hooks/checkOperationPermission.ts`):
+
+- **Gate admin chrome on the allowlist and you hide UI that works.** Because super users never reach
+  the gate, table read/write is the only surface it can actually deny — so
+  `useInstanceManagePermission` and `useInstanceBrowseManagePermission` are deliberately NOT gated.
+- **`isElevatedRole` is the wrong question for a specific operation.** It answers "is the list
+  unenforceable anywhere for this role", which is what the editor warns about. For DML,
+  `structure_user` and `cluster_user` are still gated.
+
+Also two different expansions are correct for two different questions, and sharing one silently broke
+the second once: `expandEffectiveOperations` folds alias spellings together to describe a role's
+effective reach (display); simulating the gate must expand verbatim and canonicalize only the
+operation being checked, or a lone alias grant wrongly reads as working.
+
+### Settling one of these empirically
+
+Reading `verifyPerms` is not enough — the super-user and structure-user verdicts above were confirmed
+by running it. In a Harper checkout, drop a throwaway spec in `unitTests/utility/`,
+`require('#src/utility/operation_authorization')`, build a `hdb_user.role.permission` literal, and call
+`verifyPerms(requestJson, handler.name)`: `null` means allowed, a `PermissionResponseObject` means
+denied. `testUtils.preTestPrep()` + `testUtils.setGlobalSchema(...)` provide the schema globals, and
+`rewire` reaches internals — `requiredPermissions` (to audit which names carry an `api_name`) and
+`verifyPermsAST` (to show SQL skipping the gate). Run with `npx mocha unitTests/utility/<file>`, read
+the verdicts, delete the file. Measured this way: `super_user` + `operations: []` still ALLOWS insert,
+search, restart and get_configuration, while `super_user: false` + `operations: []` DENIES insert.
