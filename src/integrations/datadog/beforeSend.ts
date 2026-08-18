@@ -1,6 +1,6 @@
 import { redactEmailParams } from './redactEmailParams';
 import { redactErrorText } from './redactErrorText';
-import { DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
+import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
 /**
  * Datadog RUM's `beforeSend` hook: decide whether the event is worth reporting
@@ -17,29 +17,11 @@ import { DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
  * `https://api.github.com/repos/<owner>/<repo>`, so a 404 on a private repo would otherwise ship
  * the repo name verbatim while the message beside it is redacted.
  *
- * The view URL is redacted separately, via `redactEmailParams`, and for *every* event type rather
- * than just errors: the auth screens keep a visitor's e-mail address in `?me=`/`?email=` for form
- * persistence, and the SDK reads `view.url`/`view.referrer` straight from `window.location`, so a
- * view or resource event on those screens ships the address even though no error was involved.
- * `redactErrorText` can't cover it — it deliberately keeps the path for Harper-owned hosts, which
- * is exactly what the auth routes are. Both fields are on the browser SDK's shared
- * modifiable-field allowlist, so they are editable here for all event types.
- *
- * That same Harper-host exemption means the error text fields need both redactions, not just
- * `redactErrorText`: an error raised on an auth screen whose message or stack quotes the page URL
- * would keep `?me=<address>` intact, because the host is ours. No error in the last 30 days
- * actually carried one, so this is defence in depth rather than an observed leak — but it costs a
- * regex pass and the failure mode is a customer's address in Error Tracking.
+ * The URL fields get `redactEmailParams` for *every* event type, not just errors: `shouldKeepEvent`
+ * returns early for non-errors, so nothing here used to run for the view and resource events that
+ * carry an auth screen's address. `view.url`, `view.referrer` and a resource event's own
+ * `resource.url` are all on the SDK's editable-property list.
  */
-/**
- * Both redactions, in the order they have to run: `redactErrorText` reduces every non-Harper URL to
- * host + `<redacted>`, then `redactEmailParams` takes the form-persistence params out of the
- * Harper-host URLs it deliberately left whole.
- */
-function redactErrorAndEmails(text: string) {
-	return redactEmailParams(redactErrorText(text));
-}
-
 export function beforeSend(event: DatadogErrorEvent) {
 	if (!shouldKeepEvent(event)) {
 		return false;
@@ -68,5 +50,13 @@ export function beforeSend(event: DatadogErrorEvent) {
 			view.referrer = redactEmailParams(view.referrer);
 		}
 	}
+	if (event.resource?.url) {
+		event.resource.url = redactEmailParams(event.resource.url);
+	}
 	return true;
+}
+
+/** `redactErrorText` leaves Harper-host paths whole, so the address needs its own pass after it. */
+function redactErrorAndEmails(text: string) {
+	return redactEmailParams(redactErrorText(text));
 }

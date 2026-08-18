@@ -20,6 +20,8 @@ export interface DatadogErrorEvent {
 		url?: string;
 		referrer?: string;
 	};
+	/** A resource event's own URL, distinct from the `error.resource.url` of a failed request. */
+	resource?: { url?: string };
 }
 
 /**
