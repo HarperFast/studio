@@ -150,4 +150,24 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 		expect(event.error?.message).toBe('Failed to reach https://scm.acme-corp.com/<redacted>');
 	});
+
+	// A resource event carries its own URL, and `shouldKeepEvent` lets every non-error event
+	// through, so this is the field an auth-screen request's address actually rides in.
+	it("redacts the address from a resource event's own URL", () => {
+		const event: DatadogErrorEvent = {
+			type: 'resource',
+			resource: { url: 'https://fabric.harper.fast/#/sign-in?me=someone%40example.com' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.resource?.url).toBe('https://fabric.harper.fast/#/sign-in?me=<redacted>');
+	});
+
+	it('leaves a resource URL with no address in it untouched', () => {
+		const event: DatadogErrorEvent = {
+			type: 'resource',
+			resource: { url: 'https://api.harper.fast/HDBInstance/ins-1/operation' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation');
+	});
 });

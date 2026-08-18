@@ -96,10 +96,17 @@ describe('redactEmailParams', () => {
 			.toBe('https://fabric.harper.fast/#/sign-in?me=<redacted>');
 	});
 
-	// Deliberate: a wrapping quote is consumed rather than risk ending the value early. Losing a
-	// delimiter from a log line is the cheaper failure.
-	it('consumes a quote wrapping the URL rather than ending the value at it', () => {
-		expect(redactEmailParams(`Failed to load "https://fabric.harper.fast/#/sign-in?me=someone%40example.com"`))
-			.toBe('Failed to load "https://fabric.harper.fast/#/sign-in?me=<redacted>');
+	// A double quote can't occur in an address `zodRequireEmail` accepts, so ending the value there
+	// keeps a URL embedded in JSON from swallowing the fields after it.
+	it('stops at a double quote so JSON around the URL survives', () => {
+		expect(redactEmailParams('{"url":"https://fabric.harper.fast/#/sign-in?me=someone%40example.com","status":400}'))
+			.toBe('{"url":"https://fabric.harper.fast/#/sign-in?me=<redacted>","status":400}');
+	});
+
+	// The reverse trade: an apostrophe is valid in an address, so one wrapping the URL is consumed
+	// rather than risk ending the value early.
+	it('consumes an apostrophe wrapping the URL rather than ending the value at it', () => {
+		expect(redactEmailParams(`Failed to load 'https://fabric.harper.fast/#/sign-in?me=someone%40example.com'`))
+			.toBe(`Failed to load 'https://fabric.harper.fast/#/sign-in?me=<redacted>`);
 	});
 });
