@@ -28,12 +28,24 @@ const REDACTED = '<redacted>';
  * `me=` in `?resume=…` is preceded by `u`, not a separator. Requires a non-empty value, so the
  * bare `?me=` the auth links emit when no address has been typed yet stays as it is.
  *
- * The value ends where a URL ends — the same terminator set `redactErrorText`'s `URL_TOKEN` uses,
- * rather than just `&`/`#`. These strings are not always bare URLs: an address quoted inside a
- * multi-line stack is followed by a newline and then the next frame, and a class that admitted
- * whitespace would swallow the remainder of the stack into the redaction.
+ * The value ends only at `&`, `#` or whitespace — deliberately *not* at a quote or bracket, even
+ * though `redactErrorText`'s `URL_TOKEN` stops there. An address may legitimately contain the
+ * characters a URL would end on: `o'reilly@example.com` passes our e-mail validator, and
+ * `encodeURIComponent` leaves `'` unescaped (it escapes neither `'`, `(`, `)`, `!`, `~` nor `*`),
+ * so `?email=o'reilly%40example.com` reaches the URL verbatim. Terminating on `'` there would
+ * rewrite it to `?email=<redacted>'reilly%40example.com` and ship most of the address anyway —
+ * a partial redaction is the one outcome worse than none, because it still identifies the person
+ * while looking handled.
+ *
+ * The cost is that a quote or bracket wrapping the URL in surrounding prose is consumed into the
+ * redaction. That is the right way to be wrong here: over-redacting costs a little context in
+ * Error Tracking, under-redacting costs a customer their address.
+ *
+ * Whitespace stays a terminator because these strings are not always bare URLs — an address quoted
+ * inside a multi-line stack is followed by a newline and then the next frame, and admitting
+ * whitespace would swallow the remainder of the stack.
  */
-const EMAIL_PARAM = /([?&](?:me|email)=)[^&#\s'"<>)\]]+/gi;
+const EMAIL_PARAM = /([?&](?:me|email)=)[^&#\s]+/gi;
 
 /** Redact the e-mail-bearing auth params in `url`. Returns it unchanged if there are none. */
 export function redactEmailParams(url: string) {
