@@ -187,4 +187,16 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
 	});
+
+	// `shouldKeepEvent` can throw on a malformed error field, and the SDK swallows that into
+	// shipping the event — so the URL redaction has to have already happened.
+	it('redacts the view URL even when the filter throws on a malformed error field', () => {
+		const event = {
+			type: 'error',
+			error: { message: 12345 },
+			view: { url: 'https://fabric.harper.fast/#/reset-password?token=abc.def' },
+		} as unknown as DatadogErrorEvent;
+		expect(() => beforeSend(event)).not.toThrow();
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
+	});
 });

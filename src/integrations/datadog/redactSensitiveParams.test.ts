@@ -152,4 +152,20 @@ describe('redactSensitiveParams', () => {
 		expect(redactSensitiveParams('Failed at https://fabric.harper.fast/#/sign-in?me=user%40example.com, retrying'))
 			.toBe('Failed at https://fabric.harper.fast/#/sign-in?me=<redacted>, retrying');
 	});
+
+	// Consuming the backslash would leave the JSON it escapes malformed; no address
+	// `zodRequireEmail` accepts contains one.
+	it('stops at a backslash so escaped JSON keeps its escaping', () => {
+		expect(
+			redactSensitiveParams(
+				String.raw`{\"url\":\"https://fabric.harper.fast/#/sign-in?me=user%40example.com\",\"s\":400}`,
+			),
+		)
+			.toBe(String.raw`{\"url\":\"https://fabric.harper.fast/#/sign-in?me=<redacted>\",\"s\":400}`);
+	});
+
+	it('returns a URL with no param separator untouched', () => {
+		const url = 'https://fabric.harper.fast/#/org-1/clu-1/apps';
+		expect(redactSensitiveParams(url)).toBe(url);
+	});
 });

@@ -3,26 +3,37 @@ import { redactSensitiveParams } from './redactSensitiveParams';
 import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
 /**
- * Datadog RUM's `beforeSend` hook: decide whether the event is worth reporting
- * (`shouldKeepEvent`), then redact sensitive text from the ones we keep (`redactErrorText`).
+ * Datadog RUM's `beforeSend` hook: redact the URL fields, decide whether the event is worth
+ * reporting (`shouldKeepEvent`), then redact sensitive text from the ones we keep.
  *
- * The order matters — the filter attributes errors by inspecting the raw stack and the raw
- * resource URL, so it has to run before either is rewritten. Mutating `error.message`,
- * `error.stack` and `error.resource.url` in `beforeSend` is supported by the browser SDK (all
- * three are on its editable-property list for error events), and only affects what is reported:
- * the UI renders the error object itself, untouched.
+ * The URL fields go first, and the error text after the filter, because each has an ordering
+ * constraint pulling the opposite way. The filter attributes errors by inspecting the raw stack and
+ * the raw `error.resource.url`, so neither may be rewritten before it runs. It reads no URL field,
+ * though, and it *can* throw on a malformed error field — which the SDK's `catchUserErrors` swallows
+ * into shipping the event regardless (a view event cannot be dismissed from here at all). Cleaning
+ * the URLs first is what stops a reset token riding out on that path.
  *
  * `error.resource.url` is redacted alongside the text because a failed request carries the same
  * identity in a different field — `getGitHubRepo` fetches
  * `https://api.github.com/repos/<owner>/<repo>`, so a 404 on a private repo would otherwise ship
  * the repo name verbatim while the message beside it is redacted.
  *
- * The URL fields get `redactSensitiveParams` for *every* event type, not just errors: `shouldKeepEvent`
- * returns early for non-errors, so nothing here used to run for the view and resource events that
- * carry an auth screen's address. `view.url`, `view.referrer` and a resource event's own
- * `resource.url` are all on the SDK's editable-property list.
+ * Every field is type-checked rather than truth-checked: for a redactor, a throw part-way through
+ * ships a half-redacted event, so failing open is the one failure mode it must not have.
  */
 export function beforeSend(event: DatadogErrorEvent) {
+	const view = event.view;
+	if (view) {
+		if (typeof view.url === 'string') {
+			view.url = redactSensitiveParams(view.url);
+		}
+		if (typeof view.referrer === 'string') {
+			view.referrer = redactSensitiveParams(view.referrer);
+		}
+	}
+	if (typeof event.resource?.url === 'string') {
+		event.resource.url = redactSensitiveParams(event.resource.url);
+	}
 	if (!shouldKeepEvent(event)) {
 		return false;
 	}
@@ -40,18 +51,6 @@ export function beforeSend(event: DatadogErrorEvent) {
 		if (typeof error.resource?.url === 'string') {
 			error.resource.url = redactErrorAndParams(error.resource.url);
 		}
-	}
-	const view = event.view;
-	if (view) {
-		if (typeof view.url === 'string') {
-			view.url = redactSensitiveParams(view.url);
-		}
-		if (typeof view.referrer === 'string') {
-			view.referrer = redactSensitiveParams(view.referrer);
-		}
-	}
-	if (typeof event.resource?.url === 'string') {
-		event.resource.url = redactSensitiveParams(event.resource.url);
 	}
 	return true;
 }
