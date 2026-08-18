@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
+import { useRoleBlocksAssignment } from '@/features/instance/config/roles/operations/useRoleBlocksAssignment';
 import { LocalUser } from '@/integrations/api/api.patch';
 import { AlterUserRequestBody, useAlterUser } from '@/integrations/api/instance/auth/alterUser';
 import { AlterUserFormSchema } from '@/integrations/api/instance/auth/alterUserFormSchema';
@@ -55,6 +56,11 @@ export function AlterUserForm({
 			confirmPassword: '',
 		},
 	});
+
+	// Assigning a role whose operations value Harper cannot expand takes authentication down for
+	// every user, so the form refuses rather than only warning.
+	const selectedRoleId = alterForm.watch('role');
+	const assignmentBlocked = useRoleBlocksAssignment(roles?.find((role) => role.id === selectedRoleId));
 
 	const onSubmitClick = useCallback((formData: z.infer<typeof AlterUserFormSchema>) => {
 		const alterBody: AlterUserRequestBody = {
@@ -186,7 +192,7 @@ export function AlterUserForm({
 					<div className="flex justify-between w-full">
 						<Button
 							variant="submit"
-							disabled={isUpdateUserPending}
+							disabled={isUpdateUserPending || assignmentBlocked}
 						>
 							<Save /> Save Changes
 						</Button>

@@ -14,9 +14,10 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
  *   array denies every operation.
  * - A listed operation that normally requires super_user is treated as a deliberate admin grant
  *   and allowed without super_user (`su` below marks those).
- * - The gate is only reached by NON-elevated roles: verifyPerms returns early for super users
- *   ("admins can do (almost) anything") and for structure users on DDL, both before the allowlist
- *   is consulted. An allowlist on such a role is stored and validated but never enforced.
+ * - super_user reaches operations without consulting the list, and cannot even hold one:
+ *   validateNoSUPerms rejects a permission that sets super_user/cluster_user alongside other keys.
+ *   structure_user roles DO go through the gate for everything except DDL.
+ * - `sql` never reaches this gate at all; it is authorized against table permissions.
  */
 export interface GrantableOperation {
 	name: string;
@@ -369,18 +370,23 @@ export function getAvailableGroups(version: string): OperationGroup[] {
  */
 export function expandEffectiveOperations(operations: readonly string[]): string[] {
 	const effective = new Set<string>();
-	// Alias spellings fold into their canonical name: Harper's groups list both spellings of a pair
-	// (search_by_hash/search_by_id, describe_schema/describe_database) but they reach one handler,
-	// so counting both would overstate what the role can actually do.
-	const add = (name: string) => effective.add(catalogByName.get(name)?.aliasOf ?? name);
+	// A group's members fold to their canonical name: Harper's groups list both spellings of a pair
+	// (search_by_hash/search_by_id, describe_schema/describe_database) but each pair reaches one
+	// handler, so counting both would overstate the role's reach.
 	for (const entry of operations) {
 		const group = groupsByName.get(entry);
 		if (group) {
 			for (const member of group.members) {
-				add(member);
+				effective.add(catalogByName.get(member)?.aliasOf ?? member);
 			}
-		} else {
-			add(entry);
+			continue;
+		}
+		// A direct entry is NOT folded: the chip beside this count says an alias grants nothing, and
+		// rewriting it to its canonical name here would credit the role with access it does not have.
+		// Entries the server can never honor are left out for the same reason.
+		const info = catalogByName.get(entry);
+		if (!info?.aliasOf && !info?.nonDelegable) {
+			effective.add(entry);
 		}
 	}
 	return [...effective].sort();

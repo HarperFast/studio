@@ -146,5 +146,17 @@ describe('EditRoleModal operations wiring', () => {
 		expect(screen.queryByText(/edit it in the JSON below/)).toBeNull();
 		// The structured editor must stay out of the way so a click can't overwrite the record.
 		expect(screen.queryByRole('switch', { name: 'Restrict operations' })).toBeNull();
+		// …and Save must not normalize the value away, which would silently widen the role.
+		expect(screen.getByRole('button', { name: 'Save Changes' }).hasAttribute('disabled')).toBe(true);
+	});
+
+	it('blocks Save while a string-shaped operations value would be normalized away', async () => {
+		// preparePermissionForSave drops a non-array value, so saving an unrelated edit on this role
+		// would remove a restriction Harper is currently enforcing.
+		renderModal({ structure_user: true, operations: 'read_only' } as unknown as LocalRole['permission']);
+
+		expect(await screen.findByText(/not a list of operation names/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Save Changes' }).hasAttribute('disabled')).toBe(true);
+		expect(alterRoleMutate).not.toHaveBeenCalled();
 	});
 });

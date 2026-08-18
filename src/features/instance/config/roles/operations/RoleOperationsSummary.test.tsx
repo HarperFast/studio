@@ -56,7 +56,7 @@ describe('RoleOperationsSummary', () => {
 
 	it('does not leave the absolute wording standing for a structure_user with an empty list', () => {
 		render(<RoleOperationsSummary role={role({ structure_user: true, operations: [] })} />);
-		const text = screen.getByText(/cannot run any operation/).textContent ?? '';
+		const text = screen.getByText(/cannot run any Operations API call/).textContent ?? '';
 		// The DDL carve-out has to qualify the sentence, not contradict it after a full stop.
 		expect(text).not.toMatch(/cannot run any operation\./);
 		expect(text).toContain('except that it is a structure user');
@@ -64,7 +64,7 @@ describe('RoleOperationsSummary', () => {
 
 	it('warns in destructive copy when the allowlist denies everything', () => {
 		render(<RoleOperationsSummary role={role({ operations: [] })} />);
-		expect(screen.getByText(/cannot run any operation/)).toBeTruthy();
+		expect(screen.getByText(/cannot run any Operations API call/)).toBeTruthy();
 	});
 
 	it('summarizes the effective expansion with a truncated preview and full title', () => {

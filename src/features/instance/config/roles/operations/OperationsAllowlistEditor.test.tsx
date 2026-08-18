@@ -62,7 +62,7 @@ describe('OperationsAllowlistEditor', () => {
 
 	it('warns that an empty allowlist denies everything', () => {
 		render(<Harness initial={[]} />);
-		expect(screen.getByText(/cannot run any operation/)).toBeTruthy();
+		expect(screen.getByText(/cannot run any Operations API call/)).toBeTruthy();
 	});
 
 	it('toggles predefined groups via checkboxes and reports the effective expansion', () => {
@@ -84,7 +84,7 @@ describe('OperationsAllowlistEditor', () => {
 		const agentCheckbox = screen.getByRole('checkbox', { name: /agent/ });
 		expect(screen.getByText(/not offered for this instance's Harper version/)).toBeTruthy();
 		fireEvent.click(agentCheckbox);
-		expect(screen.getByText(/cannot run any operation/)).toBeTruthy();
+		expect(screen.getByText(/cannot run any Operations API call/)).toBeTruthy();
 	});
 
 	it('adds operations from the picker, badges super_user delegations, and writes groups first', () => {

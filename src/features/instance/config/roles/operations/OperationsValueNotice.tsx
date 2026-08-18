@@ -17,6 +17,8 @@ export function OperationsValueNotice({
 	assigning,
 }: {
 	kind: 'breaks-auth' | 'malformed';
+	/** The value is a table-permission record, so a database of that name is the other half. */
+	databaseCollision?: boolean;
 	/** Rendered next to a role picker rather than the JSON editor, so the remedy differs. */
 	assigning?: boolean;
 }) {
