@@ -1,5 +1,5 @@
 import { redactErrorText } from './redactErrorText';
-import { redactSensitiveParams } from './redactSensitiveParams';
+import { redactCredentialParams, redactSensitiveParams } from './redactSensitiveParams';
 import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
 /**
@@ -34,28 +34,39 @@ export function beforeSend(event: DatadogErrorEvent) {
 	if (typeof event.resource?.url === 'string') {
 		event.resource.url = redactSensitiveParams(event.resource.url);
 	}
-	if (!shouldKeepEvent(event)) {
+	try {
+		if (!shouldKeepEvent(event)) {
+			return false;
+		}
+		const error = event.error;
+		if (error) {
+			if (typeof error.message === 'string') {
+				error.message = redactErrorAndParams(error.message);
+			}
+			if (typeof error.stack === 'string') {
+				error.stack = redactErrorAndParams(error.stack);
+			}
+			if (typeof error.handling_stack === 'string') {
+				error.handling_stack = redactErrorAndParams(error.handling_stack);
+			}
+			if (typeof error.resource?.url === 'string') {
+				error.resource.url = redactErrorAndParams(error.resource.url);
+			}
+		}
+	} catch {
+		// Drop rather than ship half-redacted text. The SDK would otherwise swallow the throw and
+		// send the event anyway; `false` is honoured for every type but view, whose URL fields are
+		// already clean by this point.
 		return false;
-	}
-	const error = event.error;
-	if (error) {
-		if (typeof error.message === 'string') {
-			error.message = redactErrorAndParams(error.message);
-		}
-		if (typeof error.stack === 'string') {
-			error.stack = redactErrorAndParams(error.stack);
-		}
-		if (typeof error.handling_stack === 'string') {
-			error.handling_stack = redactErrorAndParams(error.handling_stack);
-		}
-		if (typeof error.resource?.url === 'string') {
-			error.resource.url = redactErrorAndParams(error.resource.url);
-		}
 	}
 	return true;
 }
 
-/** `redactErrorText` leaves Harper-host paths whole, so the params need their own pass after it. */
+/**
+ * `redactErrorText` leaves Harper-host paths whole, so the credential params need their own pass
+ * after it. Only that pass: the address-token pass is for URL fields, and would take the host out of
+ * the `git@github.com:<redacted>` that `redactErrorText` deliberately keeps.
+ */
 function redactErrorAndParams(text: string) {
-	return redactSensitiveParams(redactErrorText(text));
+	return redactCredentialParams(redactErrorText(text));
 }

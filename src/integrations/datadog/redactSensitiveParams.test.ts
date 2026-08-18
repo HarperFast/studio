@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redactSensitiveParams } from './redactSensitiveParams';
+import { redactCredentialParams, redactSensitiveParams } from './redactSensitiveParams';
 
 describe('redactSensitiveParams', () => {
 	// Studio uses hash routing, so the param lives in the fragment. A `URLSearchParams`-based
@@ -124,15 +124,17 @@ describe('redactSensitiveParams', () => {
 			.toBe(`https://fabric.harper.fast/#/${route}?token=<redacted>`);
 	});
 
-	// A name list only covers the params someone remembered, so any param whose value holds an
-	// address is redacted too — this one deep-links from a table keyed by e-mail.
+	// A name list only covers the params someone remembered, so an address is matched wherever it
+	// sits — this one deep-links from a table keyed by e-mail. The encoded JSON around it is partly
+	// consumed, because `%` is legal in a local part and the match can't tell where the encoding
+	// stops. Residue, not a leak: the address itself is gone.
 	it('redacts an address inside a param no auth screen owns', () => {
 		expect(
 			redactSensitiveParams(
 				'https://fabric.harper.fast/#/o/c/browse?filters=%7B%22email%22%3A%22user%40example.com%22%7D',
 			),
 		)
-			.toBe('https://fabric.harper.fast/#/o/c/browse?filters=<redacted>');
+			.toBe('https://fabric.harper.fast/#/o/c/browse?filters=<redacted>%22%7D');
 	});
 
 	it('leaves a param whose value holds no address alone', () => {
@@ -167,5 +169,27 @@ describe('redactSensitiveParams', () => {
 	it('returns a URL with no param separator untouched', () => {
 		const url = 'https://fabric.harper.fast/#/org-1/clu-1/apps';
 		expect(redactSensitiveParams(url)).toBe(url);
+	});
+
+	it('redacts an address in a URL path segment', () => {
+		expect(redactSensitiveParams('https://fabric.harper.fast/#/o/c/config/users/someone%40example.com'))
+			.toBe('https://fabric.harper.fast/#/o/c/config/users/<redacted>');
+	});
+
+	it('redacts an address in an unencoded JSON param value, leaving the JSON around it', () => {
+		expect(redactSensitiveParams('https://fabric.harper.fast/#/o/c/browse?filter={"user":"a%40b.com"}'))
+			.toBe('https://fabric.harper.fast/#/o/c/browse?filter={"user":"<redacted>"}');
+	});
+
+	// `user@host.tld` is also an scp-style git remote. `redactErrorText` owns those in free text and
+	// keeps the host for triage, so the address pass must not reach error text.
+	it('leaves a git remote alone in free text', () => {
+		const text = 'Failed to deploy git@github.com:acme-corp/svc.git';
+		expect(redactCredentialParams(text)).toBe(text);
+	});
+
+	it('still redacts a credential param inside free text', () => {
+		expect(redactCredentialParams('Navigation to /#/reset-password?token=abc.def failed'))
+			.toBe('Navigation to /#/reset-password?token=<redacted> failed');
 	});
 });
