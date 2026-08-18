@@ -172,12 +172,17 @@ describe('beforeSend', () => {
 	});
 
 	// The SDK swallows a throw from this hook and can't drop a view event at all, so a non-string
-	// field must not take the redaction down mid-way and ship a half-redacted event.
+	// field must not take the redaction down mid-way and ship a half-redacted event. All three URL
+	// fields take the same value down the same path, so all three are covered here.
 	// The value has to stringify into something the pre-test matches but carry no `.replace`, or a
 	// truthiness guard passes too: `WORTH_SCANNING.test(12345)` coerces, finds no separator, and
 	// returns early without ever reaching the call that would throw.
-	it('survives a non-string view URL instead of throwing', () => {
-		const event = { type: 'view', view: { url: ['?me=a%40b.com'] } } as unknown as DatadogErrorEvent;
+	it.each([
+		['view URL', { type: 'view', view: { url: ['?me=a%40b.com'] } }],
+		['view referrer', { type: 'view', view: { referrer: ['?me=a%40b.com'] } }],
+		['resource URL', { type: 'resource', resource: { url: ['?me=a%40b.com'] } }],
+	] as [string, unknown][])('survives a non-string %s instead of throwing', (_field, raw) => {
+		const event = raw as DatadogErrorEvent;
 		expect(() => beforeSend(event)).not.toThrow();
 		expect(beforeSend(event)).toBe(true);
 	});
