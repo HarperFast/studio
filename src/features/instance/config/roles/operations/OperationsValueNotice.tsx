@@ -1,6 +1,6 @@
 /**
  * Shown wherever a role's `operations` key holds something that isn't a usable allowlist. The two
- * kinds fail very differently, verified against harper v5.2.2's compiled `expandOperationsPerms`:
+ * kinds fail very differently, verified against harper v5.2.2's compiled code:
  *
  * - `breaks-auth` — a non-iterable value (a table-permission record, `true`, a number). `listUsers`
  *   expands every assigned role's allowlist at cache-load time behind a truthiness-only guard, so
@@ -8,9 +8,9 @@
  *   instance, not just this role's holder. Assignment is the trigger, since only assigned roles are
  *   expanded.
  * - `malformed` — iterable but not a list of names (a bare string, an array with non-strings).
- *   These expand without error — a string per character, extra entries verbatim — so nothing breaks
- *   at runtime; add_role/alter_role simply reject the save. Reachable by ordinary editing, which is
- *   why it must not borrow the fatal wording.
+ *   These expand without throwing, but the gate is live either way: it enters on `operations !==
+ *   undefined` and denies anything outside the expanded set, so a bare string (which expands to its
+ *   characters) denies every operation. Only add_role/alter_role reject the value outright.
  */
 export function OperationsValueNotice({
 	kind,
@@ -24,7 +24,9 @@ export function OperationsValueNotice({
 		return (
 			<p className="text-xs text-destructive">
 				This role's <span className="font-mono">operations</span>{' '}
-				value is not a list of operation names, so Harper rejects it as an allowlist.{' '}
+				value is not a list of operation names. Harper still gates on it, so this role's users can run only whatever it
+				happens to expand to — nothing at all, for a bare string — and the role cannot be saved again until it is fixed.
+				{' '}
 				{assigning ? 'Correct it in the role editor.' : 'Correct it in the JSON below.'}
 			</p>
 		);
@@ -38,10 +40,10 @@ export function OperationsValueNotice({
 				: (
 					<>
 						authentication breaks for every user on the instance as soon as a user holds this role. Remove the{' '}
+						<span className="font-mono">operations</span> key in the JSON below, then drop the{' '}
 						<span className="font-mono">operations</span>{' '}
-						key in the JSON below. To keep the table grants, move them to a differently-named database, re-key them
-						here, and drop the <span className="font-mono">operations</span>{' '}
-						database — while one exists, no role on this instance can use an allowlist at all.
+						database — while one exists, no role on this instance can use an allowlist at all. To keep the table grants,
+						move them to a differently-named database and re-key them here first.
 					</>
 				)}
 		</p>

@@ -38,7 +38,7 @@ describe('RoleOperationsSummary', () => {
 		// A mixed array expands cleanly, so nothing breaks at runtime — it is just rejected on save.
 		const mixed = role({ operations: ['read_only', 42] } as unknown as LocalRole['permission']);
 		render(<RoleOperationsSummary role={mixed} />);
-		expect(screen.getByText(/Harper rejects it as an allowlist/)).toBeTruthy();
+		expect(screen.getByText(/Harper still gates on it/)).toBeTruthy();
 		expect(screen.queryByText(/breaks authentication/)).toBeNull();
 		// …and the remedy has to be actionable from a user form, which has no JSON editor.
 		expect(screen.getByText(/in the role editor/)).toBeTruthy();
