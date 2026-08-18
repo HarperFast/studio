@@ -62,6 +62,13 @@ describe('RoleOperationsSummary', () => {
 		expect(text).toContain('except that it is a structure user');
 	});
 
+	it('says the entries are inert rather than claiming the list is empty', () => {
+		// A directly granted alias is listed but grants nothing, so "is empty" would contradict the JSON.
+		render(<RoleOperationsSummary role={role({ operations: ['describe_database'] })} />);
+		expect(screen.getByText(/Every entry in this role's operations allowlist is inert/)).toBeTruthy();
+		expect(screen.queryByText(/allowlist is empty/)).toBeNull();
+	});
+
 	it('warns in destructive copy when the allowlist denies everything', () => {
 		render(<RoleOperationsSummary role={role({ operations: [] })} />);
 		expect(screen.getByText(/cannot run any Operations API call/)).toBeTruthy();

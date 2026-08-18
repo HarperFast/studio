@@ -67,9 +67,9 @@ export function OperationsAllowlistEditor({
 	const selectedSet = new Set(value ?? []);
 	const selectedOperations = (value ?? []).filter((entry) => !isOperationGroupName(entry));
 	const effective = value ? expandEffectiveOperations(value) : [];
-	// A gate-inert grant delegates nothing, so it must not be counted toward the delegation notice
-	// that the picker badge and chip beside it explicitly retract.
-	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su && !isGrantGateInert(name));
+	// expandEffectiveOperations already drops grants the server cannot honor, so anything left that
+	// is su-only is a delegation the role really receives.
+	const delegatesSu = effective.some((name) => getOperationInfo(name)?.su);
 	// Keeps the last allowlist so a misclick on the switch (the only control that WIDENS
 	// privileges) is a toggle away from undone, not a destroyed curation.
 	const previousRestrictionRef = useRef<string[]>([]);
