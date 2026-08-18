@@ -27,8 +27,13 @@ const REDACTED = '<redacted>';
  * The form-persistence params, anchored to a `?`/`&` so only the whole param name matches: the
  * `me=` in `?resume=…` is preceded by `u`, not a separator. Requires a non-empty value, so the
  * bare `?me=` the auth links emit when no address has been typed yet stays as it is.
+ *
+ * The value ends where a URL ends — the same terminator set `redactErrorText`'s `URL_TOKEN` uses,
+ * rather than just `&`/`#`. These strings are not always bare URLs: an address quoted inside a
+ * multi-line stack is followed by a newline and then the next frame, and a class that admitted
+ * whitespace would swallow the remainder of the stack into the redaction.
  */
-const EMAIL_PARAM = /([?&](?:me|email)=)[^&#]+/gi;
+const EMAIL_PARAM = /([?&](?:me|email)=)[^&#\s'"<>)\]]+/gi;
 
 /** Redact the e-mail-bearing auth params in `url`. Returns it unchanged if there are none. */
 export function redactEmailParams(url: string) {

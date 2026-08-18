@@ -12,6 +12,8 @@ export interface DatadogErrorEvent {
 		message?: string;
 		source?: string;
 		stack?: string;
+		/** The `console.error` call site the SDK records alongside a handled error. */
+		handling_stack?: string;
 		resource?: { url?: string };
 	};
 	view?: {

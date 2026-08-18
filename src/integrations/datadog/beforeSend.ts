@@ -24,7 +24,22 @@ import { DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
  * `redactErrorText` can't cover it — it deliberately keeps the path for Harper-owned hosts, which
  * is exactly what the auth routes are. Both fields are on the browser SDK's shared
  * modifiable-field allowlist, so they are editable here for all event types.
+ *
+ * That same Harper-host exemption means the error text fields need both redactions, not just
+ * `redactErrorText`: an error raised on an auth screen whose message or stack quotes the page URL
+ * would keep `?me=<address>` intact, because the host is ours. No error in the last 30 days
+ * actually carried one, so this is defence in depth rather than an observed leak — but it costs a
+ * regex pass and the failure mode is a customer's address in Error Tracking.
  */
+/**
+ * Both redactions, in the order they have to run: `redactErrorText` reduces every non-Harper URL to
+ * host + `<redacted>`, then `redactEmailParams` takes the form-persistence params out of the
+ * Harper-host URLs it deliberately left whole.
+ */
+function redactErrorAndEmails(text: string) {
+	return redactEmailParams(redactErrorText(text));
+}
+
 export function beforeSend(event: DatadogErrorEvent) {
 	if (!shouldKeepEvent(event)) {
 		return false;
@@ -32,13 +47,16 @@ export function beforeSend(event: DatadogErrorEvent) {
 	const error = event.error;
 	if (error) {
 		if (error.message) {
-			error.message = redactErrorText(error.message);
+			error.message = redactErrorAndEmails(error.message);
 		}
 		if (error.stack) {
-			error.stack = redactErrorText(error.stack);
+			error.stack = redactErrorAndEmails(error.stack);
+		}
+		if (error.handling_stack) {
+			error.handling_stack = redactErrorAndEmails(error.handling_stack);
 		}
 		if (error.resource?.url) {
-			error.resource.url = redactErrorText(error.resource.url);
+			error.resource.url = redactErrorAndEmails(error.resource.url);
 		}
 	}
 	const view = event.view;
