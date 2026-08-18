@@ -27,10 +27,11 @@ describe('RoleOperationsSummary', () => {
 		expect(render(<RoleOperationsSummary role={role({})} />).container.textContent).toBe('');
 	});
 
-	it('flags a malformed allowlist instead of reading as unrestricted', () => {
-		// Harper treats any present `operations` as active, so silence here would understate the role.
+	it('warns that assigning a role with an unusable operations value breaks instance-wide auth', () => {
+		// expandOperationsPerms throws on any non-array during the user-cache load, which rejects
+		// listUsers for every user — so silence here would understate it badly.
 		render(<RoleOperationsSummary role={role({ operations: true } as unknown as LocalRole['permission'])} />);
-		expect(screen.getByText(/not a list of operation names/)).toBeTruthy();
+		expect(screen.getByText(/breaks authentication for every user/)).toBeTruthy();
 	});
 
 	it('flags the super_user/cluster_user combination Harper refuses to store', () => {
@@ -82,7 +83,8 @@ describe('RoleOperationsSummary', () => {
 		cleanup();
 		allowlistSupported.mockReturnValue(true);
 		render(<RoleOperationsSummary role={v4} />);
-		expect(screen.getByText(/Those table grants still apply/)).toBeTruthy();
-		expect(screen.queryByText(/Fix it in the role editor/)).toBeNull();
+		expect(screen.getByText(/breaks authentication for every user/)).toBeTruthy();
+		// Never describe the grants as live: Harper never gets far enough to honor them.
+		expect(screen.queryByText(/still apply/)).toBeNull();
 	});
 });

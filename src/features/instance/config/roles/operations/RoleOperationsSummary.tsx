@@ -31,16 +31,10 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	if (kind === 'absent' || kind === 'database') {
 		return null;
 	}
-	if (kind === 'database-collision') {
-		return <OperationsCollisionNotice />;
-	}
-	if (kind === 'malformed') {
-		return (
-			<p className="text-xs text-destructive">
-				This role's <span className="font-mono">operations</span>{' '}
-				value is not a list of operation names, so Harper cannot apply it as an allowlist. Fix it in the role editor.
-			</p>
-		);
+	// Every non-array value fails the same way at user-cache load, so both verdicts get the same
+	// warning — and here it is the assignment itself that pulls the trigger.
+	if (kind === 'database-collision' || kind === 'malformed') {
+		return <OperationsCollisionNotice assigning />;
 	}
 	if (rolePreventsOperationsAllowlist(permission)) {
 		return (

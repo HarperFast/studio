@@ -136,13 +136,14 @@ describe('EditRoleModal operations wiring', () => {
 		expect(payload.permission).toEqual({ structure_user: true, operations: ['read_only'] });
 	});
 
-	it('never tells the author to edit a record-shaped operations value into an array', async () => {
-		// Harper still grants these tables; replacing the record with an array makes
-		// permissionsTranslator throw for every request that user makes.
+	it('states the instance-wide consequence for a record-shaped operations value', async () => {
+		// cacheExpandedOperationsPerms guards on truthiness only, so this reaches expandOperationsPerms
+		// and throws during the user-cache load, failing auth for every user on the instance.
 		renderModal({ operations: { tables: {} } } as unknown as LocalRole['permission']);
 
-		expect(await screen.findByText(/Those table grants still apply/)).toBeTruthy();
-		expect(screen.queryByText(/is not an array of operation names/)).toBeNull();
+		expect(await screen.findByText(/authentication breaks for every user/)).toBeTruthy();
+		// The old copy invited exactly the edit that keeps the instance broken.
+		expect(screen.queryByText(/edit it in the JSON below/)).toBeNull();
 		// The structured editor must stay out of the way so a click can't overwrite the record.
 		expect(screen.queryByRole('switch', { name: 'Restrict operations' })).toBeNull();
 	});
