@@ -65,4 +65,48 @@ describe('beforeSend', () => {
 	it('passes non-error events through untouched', () => {
 		expect(beforeSend({ type: 'view' })).toBe(true);
 	});
+
+	// The auth screens keep a visitor's address in the URL for form persistence, and the SDK reads
+	// `view.url` from `window.location`. Redaction has to reach non-error events too, since a view
+	// or resource event on those screens carries the same address with no error attached.
+	it('redacts the visitor address from the view URL and referrer of a view event', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: {
+				url: 'https://fabric.harper.fast/#/sign-in?me=someone%40example.com',
+				referrer: 'https://fabric.harper.fast/#/sign-up?me=someone%40example.com',
+			},
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/sign-in?me=<redacted>');
+		expect(event.view?.referrer).toBe('https://fabric.harper.fast/#/sign-up?me=<redacted>');
+	});
+
+	it('redacts the view URL of a resource event', () => {
+		const event: DatadogErrorEvent = {
+			type: 'resource',
+			view: { url: 'https://fabric.harper.fast/#/verifying?email=someone%40example.com' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/verifying?email=<redacted>');
+	});
+
+	it('redacts the view URL of a kept error event alongside its message', () => {
+		const event: DatadogErrorEvent = {
+			type: 'error',
+			error: { message: 'AxiosError: Request failed with status code 409' },
+			view: { url: 'https://fabric.harper.fast/#/sign-up?me=someone%40example.com' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/sign-up?me=<redacted>');
+	});
+
+	it('leaves a view URL with no address in it untouched', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: { url: 'https://fabric.harper.fast/#/org-1/clu-1/apps' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/org-1/clu-1/apps');
+	});
 });
