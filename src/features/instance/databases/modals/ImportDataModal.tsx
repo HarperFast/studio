@@ -277,9 +277,8 @@ export function ImportDataModal({
 			source = { kind: 'csv-url', url: values.url };
 		}
 
-		// `sample` and `file` only resolve to a concrete operation here (a bundled dataset bulk-loads,
-		// random records insert; a .json upload inserts, any other extension bulk-loads), so this is the
-		// first point the allowlist can be checked against what will actually be sent.
+		// A file's extension decides its operation, so `file` is the one method whose source is unknown
+		// until here; the sample picker offers only granted sources already.
 		if (!importCapabilities.allowsSource(source.kind)) {
 			form.setError('method', {
 				message: source.kind === 'json-records'
@@ -375,14 +374,16 @@ export function ImportDataModal({
 													<SelectValue placeholder="Select a dataset..." />
 												</SelectTrigger>
 												<SelectContent>
-													<SelectGroup>
-														{sampleDatasets.map((dataset) => (
-															<SelectItem key={dataset.id} value={dataset.id}>
-																{dataset.name}
-															</SelectItem>
-														))}
-													</SelectGroup>
-													{canGenerateRandom && (
+													{importCapabilities.allowsSource('csv-data') && (
+														<SelectGroup>
+															{sampleDatasets.map((dataset) => (
+																<SelectItem key={dataset.id} value={dataset.id}>
+																	{dataset.name}
+																</SelectItem>
+															))}
+														</SelectGroup>
+													)}
+													{canGenerateRandom && importCapabilities.allowsSource('json-records') && (
 														<SelectGroup>
 															<SelectLabel>This table</SelectLabel>
 															<SelectItem value={RANDOM_DATASET_ID}>
