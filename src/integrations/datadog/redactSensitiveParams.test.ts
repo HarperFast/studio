@@ -205,8 +205,33 @@ describe('redactSensitiveParams', () => {
 		'api_key',
 		'apikey',
 		'apiKey',
+		'access_token',
+		'id_token',
+		'refresh_token',
+		'code',
+		'secret',
+		'password',
 	])('redacts a credential param spelled %s', (name) => {
 		expect(redactSensitiveParams(`https://fabric.harper.fast/#/apps?${name}=secret_value_123`))
 			.toBe(`https://fabric.harper.fast/#/apps?${name}=<redacted>`);
+	});
+
+	// The value is deliberately not address-shaped: an address would be redacted by the other pass
+	// whatever the anchor did, so only a plain credential can prove `&` is matched as well as `?`.
+	it('redacts a credential param that sits after an ampersand', () => {
+		expect(redactSensitiveParams('https://fabric.harper.fast/#/apps?tab=overview&token=secret_value_123'))
+			.toBe('https://fabric.harper.fast/#/apps?tab=overview&token=<redacted>');
+	});
+
+	// A hyphenated mail domain is the ordinary corporate shape, and it is what the
+	// `config/users/$username` path produces when parameterisation misses.
+	it.each([
+		'someone%40acme-corp.com',
+		'first.last%40my-company.io',
+		'someone@acme-corp.co.uk',
+		'someone%40mail.acme-corp.com',
+	])('redacts an address on a hyphenated domain (%s)', (address) => {
+		expect(redactSensitiveParams(`https://fabric.harper.fast/#/o/c/config/users/${address}`))
+			.toBe('https://fabric.harper.fast/#/o/c/config/users/<redacted>');
 	});
 });
