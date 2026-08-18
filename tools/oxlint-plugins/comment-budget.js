@@ -25,22 +25,26 @@
  * leak: `eslint-` also matches `// eslint-based behavior differs here`, and every one of the ten
  * prefixes this replaced had a near-miss like it, each buying a comment a free exemption. `global`,
  * `jshint`, and `jscs` are omitted entirely — their valid forms are indistinguishable from prose.
+ *
+ * Each fixed form ends in `(?=\s|$)` rather than `\b`, because `\b` also succeeds before a hyphen:
+ * `prettier-ignore\b` matches `// prettier-ignore-this explanation`. Every one of the ten `\b`
+ * forms had that leak too.
  */
 const DIRECTIVE = new RegExp(`^\\s*(?:${
 	[
-		String.raw`(?:es|ox)lint-(?:disable|enable)(?:-next-line|-line)?\b`,
-		String.raw`eslint-env\b`,
+		String.raw`(?:es|ox)lint-(?:disable|enable)(?:-next-line|-line)?(?=\s|$)`,
+		String.raw`eslint-env(?=\s|$)`,
 		String.raw`(?:es|ox)lint\s+[\w@/$-]+\s*:`,
-		String.raw`prettier-ignore\b`,
-		String.raw`dprint-ignore(?:-start|-end|-file)?\b`,
-		String.raw`biome-ignore\b`,
-		String.raw`@ts-(?:ignore|expect-error|nocheck|check)\b`,
-		String.raw`@vite-ignore\b`,
-		String.raw`type-coverage:ignore-`,
-		String.raw`[cv]8 ignore\b`,
-		String.raw`istanbul ignore\b`,
+		String.raw`prettier-ignore(?=\s|$)`,
+		String.raw`dprint-ignore(?:-start|-end|-file)?(?=\s|$)`,
+		String.raw`biome-ignore(?=\s|$)`,
+		String.raw`@ts-(?:ignore|expect-error|nocheck|check)(?=\s|$)`,
+		String.raw`@vite-ignore(?=\s|$)`,
+		String.raw`type-coverage:ignore-(?:next-line|line|file)(?=\s|$)`,
+		String.raw`[cv]8 ignore(?=\s|$)`,
+		String.raw`istanbul ignore(?=\s|$)`,
 		String.raw`webpack(?:ChunkName|Mode|Prefetch|Preload|Include|Exclude|Ignore|Exports|FetchPriority)\s*:`,
-		String.raw`[#@]__(?:PURE|NO_SIDE_EFFECTS)__`,
+		String.raw`[#@]__(?:PURE|NO_SIDE_EFFECTS)__(?=\s|$)`,
 		String.raw`#(?:end)?region(?:\s|$)`,
 		String.raw`/\s*<(?:reference|amd-)`,
 	].join('|')

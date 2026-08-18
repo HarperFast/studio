@@ -270,6 +270,21 @@ describe('comment-budget', () => {
 		expect(lint(handlers, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 4 }]);
 	});
 
+	it('charges a real directive form with prose suffixed onto it', () => {
+		const suffixed = `export function f(n: number) {
+			// prettier-ignore-this explanation
+			let x = n;
+			// eslint-env-specific behavior
+			x += 1;
+			// @vite-ignore-me
+			x *= 2;
+			// istanbul ignore-not-really
+			return x;
+		}`;
+
+		expect(lint(suffixed, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 4 }]);
+	});
+
 	it('charges prose that merely opens with a directive-shaped near-miss', () => {
 		const nearMisses = `export function f(n: number) {
 			// eslint-based behavior differs here
