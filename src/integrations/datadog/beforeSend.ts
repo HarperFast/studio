@@ -15,8 +15,10 @@ export function beforeSend(event: DatadogErrorEvent) {
 	try {
 		const view = event.view;
 		if (view) {
-			// `translateUrlForDatadog` drops the query and parameterises route values, so this is
-			// already clean in practice — belt to the URL fields' braces, since it is equally editable.
+			// Not redundant with `translateUrlForDatadog`: it parameterises a path segment by string
+			// match, and TanStack hands back a *decoded* param while the href holds the encoded form,
+			// so `/someone%40acme-corp.com/` never matches `/someone@acme-corp.com/` and the address
+			// survives into the name. This guard is the only thing between that path and Datadog.
 			if (typeof view.name === 'string') {
 				view.name = redactSensitiveParams(view.name);
 			}
