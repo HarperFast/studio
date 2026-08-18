@@ -78,7 +78,9 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	if (event.type !== 'error') {
 		return true;
 	}
-	const message = event.error?.message ?? '';
+	// Type-checked, not `?? ''`: a malformed field would otherwise throw out of this filter, and
+	// the SDK swallows that into shipping the event unfiltered.
+	const message = typeof event.error?.message === 'string' ? event.error.message : '';
 	const source = event.error?.source;
 
 	// Aborted requests are client-initiated cancellations (navigating away, a
@@ -126,7 +128,7 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// call, and a `TypeError: Failed to fetch` when its beacon is blocked. Attribute on the
 	// stack rather than the message, so a genuine Studio error that happens to share a
 	// message is still kept.
-	const stack = event.error?.stack ?? '';
+	const stack = typeof event.error?.stack === 'string' ? event.error.stack : '';
 	if (stack && originatesInThirdPartyScript(stack)) {
 		return false;
 	}
@@ -169,7 +171,7 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
-	const url = event.error?.resource?.url ?? '';
+	const url = typeof event.error?.resource?.url === 'string' ? event.error.resource.url : '';
 	const isInstanceEndpoint = /\/(HDBInstance|Cluster)\/[^/]+\/operation/.test(url);
 
 	// A 5xx from an instance/cluster operation endpoint is the instance itself failing

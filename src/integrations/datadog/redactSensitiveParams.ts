@@ -15,10 +15,11 @@ const REDACTED = '<redacted>';
  * address and survive `encodeURIComponent`, so ending there would emit
  * `?email=<redacted>'reilly%40example.com` — a partial redaction still identifies the person while
  * looking handled. The delimiters it does end at cannot appear in an address `zodRequireEmail`
- * accepts.
+ * accepts, so stopping there can't truncate one; the backslash is among them because consuming it
+ * would corrupt the escaping of a JSON payload quoted in an error message.
  */
-const NAMED_PARAM = /([?&](?:me|email|token)=)[^&#\s",<>[\]{}|]+/gi;
-const ADDRESS_VALUED_PARAM = /([?&][^=&#\s]+=)[^&#\s",<>[\]{}|]*(?:@|%40)[^&#\s",<>[\]{}|]*/gi;
+const NAMED_PARAM = /([?&](?:me|email|token)=)[^&#\s",<>[\]{}|\\]+/gi;
+const ADDRESS_VALUED_PARAM = /([?&][^=&#\s]+=)[^&#\s",<>[\]{}|\\]*(?:@|%40)[^&#\s",<>[\]{}|\\]*/gi;
 
 /** Mirrors `redactErrorText`: a URL ending a clause shouldn't lose the punctuation after it. */
 const TRAILING_PUNCTUATION = /[.,:;!?]+$/;
@@ -29,5 +30,9 @@ function redactValue(match: string, param: string) {
 }
 
 export function redactSensitiveParams(url: string) {
+	// Neither pass can match without a param separator, and most Studio URLs are a bare hash route.
+	if (!url.includes('?') && !url.includes('&')) {
+		return url;
+	}
 	return url.replace(NAMED_PARAM, redactValue).replace(ADDRESS_VALUED_PARAM, redactValue);
 }
