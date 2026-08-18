@@ -260,3 +260,39 @@ before the `'*'`. `search_by_conditions` accepts `search_attribute: ['rel', 'sub
 into the related table; when the sub-property IS the related primary key AND we know the local
 foreign key, we query the FK directly instead (indexed, and works on 5.1's ops API which can't
 execute relationship joins).
+
+## Role `permission.operations` — the semantics are not what the shape suggests
+
+Harper 5.0+ roles accept an `operations` allowlist. Almost every intuitive reading of it is wrong,
+and each of these cost a review round on #1628 — verify against the Harper source before changing
+`src/features/instance/config/roles/operations/**` or `src/integrations/api/localRolePermission.ts`.
+
+- **It does not restrict super users.** `verifyPerms` returns early for `super_user`
+  ("admins can do (almost) anything") _before_ the allowlist gate. The allowlist is a way to scope
+  a NON-super role (gate 2 then lets it hold otherwise-SU operations), not a way to narrow an admin.
+- **`super_user`/`cluster_user` + `operations` cannot even be saved.** `validateNoSUPerms` rejects
+  any permission with more than one key that sets either flag, so the combination 400s. Strip the
+  allowlist for those roles rather than sending it.
+- **`structure_user` is different and IS gated** — only `create_table`/`create_attribute`/
+  `drop_table`/`drop_attribute` (plus create/drop database for the boolean form) short-circuit. The
+  array form scopes that carve-out to its listed databases and never reaches create/drop database.
+- **~23 operations are inert when granted.** Their `requiredPermissions` entry omits `api_name`, so
+  the gate compares a camelCase handler name against a snake_case grant and never matches
+  (`deploy_component`, `get_status`, `registration_info`, …). Filed as HarperFast/harper#2175.
+  `sql` is worse: it routes to `verifyPermsAST`, which never consults the allowlist at all.
+- **Alias spellings are inert too** (`describe_database`, `search_by_id`, `create_schema`, …): both
+  spellings dispatch to one handler whose entry carries only the canonical `api_name`.
+- **A non-iterable value takes the instance down.** `listUsers` expands every assigned role's
+  allowlist behind a truthiness-only guard, so a record/`true`/number reaches `expandOperationsPerms`
+  and its `for…of` throws — rejecting the user-cache load and failing authentication for EVERY user.
+  A bare string or an array with non-strings iterates fine (a string per character), so those are
+  invalid but not fatal. Reachable via a v4 upgrade of a role granting a database named `operations`.
+  Filed as HarperFast/harper#2194.
+- **A database named `operations` breaks allowlists instance-wide.** `translateRolePermissions`
+  loops the instance schema, so `perms.operations.tables[t]` runs against the allowlist array and
+  throws for any role carrying one.
+
+Practical consequence for the UI: never describe a restriction the server does not enforce, and
+never advise "fixing" an `operations` value in place — both mistakes shipped and were caught in
+review. `classifyOperationsValue` needs the instance version because the same shape means different
+things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged build, not 5.0.0).
