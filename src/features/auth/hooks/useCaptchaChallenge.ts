@@ -10,10 +10,8 @@ const CHALLENGE_UNAVAILABLE =
 // so a second failure offers a human instead of repeating "try again" forever.
 const SUPPORT_AFTER_FAILURES = 2;
 
-/** reCAPTCHA plumbing for the public auth forms (central-manager#627): call
- *  `getToken()` at submit, send it as `captchaToken`, and route mutation errors
- *  through `describeCaptchaError` (message when the CAPTCHA failed, else
- *  undefined). Fresh single-use token per submit — no reset/expiry handling. */
+/** reCAPTCHA plumbing for the public auth forms (central-manager#627). Fresh
+ *  single-use token per submit, so there is no reset or expiry handling. */
 export function useCaptchaChallenge(action: string) {
 	// Google's terms require the badge to be visible where reCAPTCHA is in use.
 	useEffect(() => {
@@ -23,8 +21,7 @@ export function useCaptchaChallenge(action: string) {
 	// Mint came back empty with a key configured: a later 403 should say the
 	// check couldn't run, not ask the user to retry something that can't succeed.
 	const mintFailed = useRef(false);
-	// Lets forms disable submit during the mint (bounded ~4s); also prevents
-	// concurrent submits racing mintFailed to the wrong message.
+	// Also stops concurrent submits racing mintFailed to the wrong message.
 	const [minting, setMinting] = useState(false);
 
 	const getToken = useCallback(async (): Promise<string | undefined> => {
