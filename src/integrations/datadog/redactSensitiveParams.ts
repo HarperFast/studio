@@ -1,6 +1,6 @@
 const REDACTED = '<redacted>';
 
-const CREDENTIAL_PARAM = 'me|email|token|access_token|id_token|refresh_token|code|secret|password|api_?key';
+const CREDENTIAL_PARAM = 'me|email|token|access_token|id_token|refresh_token|code|secret|password|api[-_]?key';
 
 /** Not `'()!~*`: `zodRequireEmail` accepts them and `encodeURIComponent` leaves them bare, so ending
  * there would emit `?email=<redacted>'reilly%40example.com`. Backslash, so escaped JSON survives. */
