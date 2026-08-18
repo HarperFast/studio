@@ -163,10 +163,16 @@ describe('expandEffectiveOperations', () => {
 		expect(effective).toContain('my_component_op');
 	});
 
+	it('still counts an operation whose registration key already equals its wire name', () => {
+		// catchup is registered under the bare string 'catchup', so the gate's `?? op` fallback lands
+		// on the same name the grant carries — it matches, unlike the handler-name registrations.
+		expect(expandEffectiveOperations(['catchup'])).toEqual(['catchup']);
+	});
+
 	it('does not count a grant the server cannot currently match', () => {
 		// deploy_component's authorization entry omits api_name, so the chip calls it inert; counting
 		// it here would have the same component claim access it denies.
-		expect(expandEffectiveOperations(['deploy_component', 'get_status'])).toEqual([]);
+		expect(expandEffectiveOperations(['deploy_component', 'get_status', 'delete_records_before'])).toEqual([]);
 	});
 
 	it('expands an empty allowlist to nothing', () => {

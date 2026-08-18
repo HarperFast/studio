@@ -39,15 +39,16 @@ export interface GrantableOperation {
 }
 
 /**
- * Operations whose `requiredPermissions` entry omits `api_name`. The gate resolves
- * `requiredPermissions.get(op)?.api_name ?? op` against the camelCase handler name, which can
- * never equal a snake_case grant — so listing these validates and saves but grants nothing on
- * every shipped 5.x (HarperFast/harper#2175). They stay offered so a role is ready when core
+ * Operations whose `requiredPermissions` entry omits `api_name` AND is keyed by a handler name that
+ * differs from the wire name. The gate resolves `requiredPermissions.get(op)?.api_name ?? op`, so
+ * the fallback lands on the handler name and can never equal a snake_case grant — listing these
+ * validates and saves but grants nothing on every shipped 5.x (HarperFast/harper#2175). An entry
+ * registered under a bare string equal to its wire name (`catchup`) matches through that same
+ * fallback and so is deliberately absent. They stay offered so a role is ready when core
  * wires the names, but the UI must not promise a delegation they cannot receive.
  */
 const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
 	'add_component',
-	'catchup',
 	'cleanup_orphan_blobs',
 	'clear_status',
 	'delete_audit_logs_before',
@@ -389,7 +390,10 @@ export function expandEffectiveOperations(operations: readonly string[]): string
 		const group = groupsByName.get(entry);
 		if (group) {
 			for (const member of group.members) {
-				effective.add(catalogByName.get(member)?.aliasOf ?? member);
+				const canonical = catalogByName.get(member)?.aliasOf ?? member;
+				if (!isInertGrant(canonical)) {
+					effective.add(canonical);
+				}
 			}
 			continue;
 		}

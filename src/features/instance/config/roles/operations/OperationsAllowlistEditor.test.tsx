@@ -60,6 +60,13 @@ describe('OperationsAllowlistEditor', () => {
 		expect(screen.getByRole('checkbox', { name: /^read_only/ }).getAttribute('checked')).not.toBeNull();
 	});
 
+	it('distinguishes an all-inert list from an empty one', () => {
+		render(<Harness initial={['deploy_component']} />);
+		// The chip is right there, so "Nothing selected" would contradict the screen.
+		expect(screen.getByText(/Every entry here is inert/)).toBeTruthy();
+		expect(screen.queryByText(/Nothing selected/)).toBeNull();
+	});
+
 	it('warns that an empty allowlist denies everything', () => {
 		render(<Harness initial={[]} />);
 		expect(screen.getByText(/cannot run any Operations API call/)).toBeTruthy();
