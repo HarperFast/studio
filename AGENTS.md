@@ -361,3 +361,38 @@ denied. `testUtils.preTestPrep()` + `testUtils.setGlobalSchema(...)` provide the
 `verifyPermsAST` (to show SQL skipping the gate). Run with `npx mocha unitTests/utility/<file>`, read
 the verdicts, delete the file. Measured this way: `super_user` + `operations: []` still ALLOWS insert,
 search, restart and get_configuration, while `super_user: false` + `operations: []` DENIES insert.
+
+## Datadog RUM — `beforeSend` fails open, so nothing in it may throw
+
+The SDK wraps our `beforeSend` in `catchUserErrors`: a throw is swallowed, the hook returns
+`undefined`, and `shouldSend` drops the event only on an explicit `false` — and a **view** event
+can't be dropped from `beforeSend` at all (`assembly.js` warns "Can't dismiss view events using
+beforeSend!"). So a throw part-way through ships the event with only the mutations made so far.
+For a hook whose job is redaction, that is the one failure mode that matters, and it is why
+[`beforeSend.ts`](src/integrations/datadog/beforeSend.ts) type-checks every field it touches
+instead of testing it for truthiness.
+
+Same reason the URL redaction runs **before** `shouldKeepEvent` and the error-text redaction
+**after** it. The filter attributes errors on the raw stack and raw `error.resource.url`, so those
+can't be rewritten ahead of it — but it reads no URL field, and it can itself throw on a malformed
+error field, which would ship the event with its URLs untouched.
+
+Only fields on the SDK's modifiable-field allowlist can be mutated here. `view.name`, `view.url`,
+`view.referrer`, `context`, `service` and `version` are shared by every event type; errors add
+`error.message`, `error.stack`, `error.handling_stack`, `error.resource.url` and
+`error.fingerprint`; resource events add `resource.url` (plus GraphQL/header/websocket fields).
+Grep the installed bundle for `"view.referrer":"string"` to re-check after an SDK bump.
+
+## Never put an address or a credential in a URL
+
+Studio uses **hash routing**, so a query param lives in the fragment: for
+`https://fabric.harper.fast/#/sign-in?me=…`, `new URL(url).search` is **empty** and anything built
+on `URLSearchParams` silently does nothing. Match the raw string.
+
+The RUM SDK reads `view.url`/`view.referrer` from `window.location`, and every third-party pixel
+we load reads the page URL too — so a param is not a private channel. As of 2026-08-18 the auth
+screens' `?me=`/`?email=` form persistence and the `/config/users/<address>` route were putting
+addresses there, and `?token=` on `/reset-password` was putting a live password-reset credential
+there. [`redactSensitiveParams`](src/integrations/datadog/redactSensitiveParams.ts) keeps them out
+of Datadog; it cannot keep them out of anyone else's beacon. Carry the value in router state or
+`sessionStorage`, and key routes by an opaque id.
