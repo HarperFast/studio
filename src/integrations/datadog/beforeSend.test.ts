@@ -104,10 +104,10 @@ describe('beforeSend', () => {
 	it('leaves a view URL with no address in it untouched', () => {
 		const event: DatadogErrorEvent = {
 			type: 'view',
-			view: { url: 'https://fabric.harper.fast/#/org-1/clu-1/apps' },
+			view: { url: 'https://fabric.harper.fast/#/org-1/clu-1/apps?tab=overview&page=2' },
 		};
 		expect(beforeSend(event)).toBe(true);
-		expect(event.view?.url).toBe('https://fabric.harper.fast/#/org-1/clu-1/apps');
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/org-1/clu-1/apps?tab=overview&page=2');
 	});
 
 	// `redactErrorText` keeps the path for Harper-owned hosts on purpose, so an auth-screen URL
@@ -160,13 +160,15 @@ describe('beforeSend', () => {
 		expect(event.resource?.url).toBe('https://fabric.harper.fast/#/sign-in?me=<redacted>');
 	});
 
+	// The query is what makes this meaningful: without a separator the redactor returns at its
+	// pre-test, and the case would pass however the regexes behaved.
 	it('leaves a resource URL with no address in it untouched', () => {
 		const event: DatadogErrorEvent = {
 			type: 'resource',
-			resource: { url: 'https://api.harper.fast/HDBInstance/ins-1/operation' },
+			resource: { url: 'https://api.harper.fast/HDBInstance/ins-1/operation?limit=10' },
 		};
 		expect(beforeSend(event)).toBe(true);
-		expect(event.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation');
+		expect(event.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation?limit=10');
 	});
 
 	// The value must stringify past `WORTH_SCANNING` yet carry no `.replace`, or a truthiness guard

@@ -190,9 +190,16 @@ describe('redactSensitiveParams', () => {
 
 	// `user@host.tld` is also an scp-style git remote. `redactErrorText` owns those in free text and
 	// keeps the host for triage, so the address pass must not reach error text.
+	// The query matters: without one the pre-test returns before either regex runs, and the case
+	// passes whichever regex the body uses — including the address pass, which would take the host.
 	it('leaves a git remote alone in free text', () => {
-		const text = 'Failed to deploy git@github.com:acme-corp/svc.git';
+		const text = 'Failed to deploy git@github.com:acme-corp/svc.git after /#/apps?tab=1';
 		expect(redactCredentialParams(text)).toBe(text);
+	});
+
+	it('redacts a credential param reached only through the ampersand arm of the pre-test', () => {
+		expect(redactCredentialParams('at deploy &token=abc.def'))
+			.toBe('at deploy &token=<redacted>');
 	});
 
 	it('still redacts a credential param inside free text', () => {
