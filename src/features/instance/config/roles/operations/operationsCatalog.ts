@@ -68,6 +68,8 @@ const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
 	'set_configuration',
 	'set_custom_function',
 	'set_status',
+	// Shares delete_files_before's handler, whose entry carries no api_name either.
+	'delete_records_before',
 	// Not super_user-only like the rest, but registered without api_name all the same — so a role
 	// carrying any allowlist is denied registration_info even when it lists it.
 	'registration_info',
@@ -76,6 +78,16 @@ const GATE_INERT_OPERATIONS: ReadonlySet<string> = new Set([
 /** Whether granting this operation is currently a no-op server-side (HarperFast/harper#2175). */
 export function isGrantGateInert(name: string): boolean {
 	return GATE_INERT_OPERATIONS.has(name);
+}
+
+/**
+ * Whether listing this name grants nothing at all: an alias the gate resolves elsewhere, an
+ * operation whose handler self-enforces super_user, or one the gate cannot match. The chip and the
+ * effective count must agree on this, or the same component credits access it also calls inert.
+ */
+export function isInertGrant(name: string): boolean {
+	const info = catalogByName.get(name);
+	return !!info?.aliasOf || !!info?.nonDelegable || isGrantGateInert(name);
 }
 
 export interface OperationGroup {
@@ -384,8 +396,7 @@ export function expandEffectiveOperations(operations: readonly string[]): string
 		// A direct entry is NOT folded: the chip beside this count says an alias grants nothing, and
 		// rewriting it to its canonical name here would credit the role with access it does not have.
 		// Entries the server can never honor are left out for the same reason.
-		const info = catalogByName.get(entry);
-		if (!info?.aliasOf && !info?.nonDelegable) {
+		if (!isInertGrant(entry)) {
 			effective.add(entry);
 		}
 	}

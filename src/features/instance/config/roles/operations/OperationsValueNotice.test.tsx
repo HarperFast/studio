@@ -15,16 +15,24 @@ afterEach(() => cleanup());
 
 describe('OperationsValueNotice', () => {
 	describe('breaks-auth', () => {
-		it('gives the editor the full remedy, including dropping the database', () => {
-			render(<OperationsValueNotice kind="breaks-auth" />);
+		it('gives the editor the full remedy when a database of that name is the other half', () => {
+			render(<OperationsValueNotice kind="breaks-auth" databaseCollision />);
 			const text = screen.getByText(/authentication breaks for every user/).textContent ?? '';
 			expect(text).toContain('Remove the');
 			// Required on both paths: while an `operations` database exists, translateRolePermissions
 			// throws for any role carrying an allowlist array.
-			expect(text).toMatch(/then drop the\s*operations\s*database/);
+			expect(text).toMatch(/Then drop the\s*operations\s*database/);
 			expect(text).toContain('no role on this instance can use an allowlist at all');
 			// The grant-preserving step is additional, not a precondition for the drop.
-			expect(text.indexOf('then drop the')).toBeLessThan(text.indexOf('To keep the table grants'));
+			expect(text.indexOf('Then drop the')).toBeLessThan(text.indexOf('To keep its table grants'));
+		});
+
+		it('does not tell the author to drop a database that the value does not imply', () => {
+			// `operations: true` reaches breaks-auth too, and no `operations` database follows from it.
+			render(<OperationsValueNotice kind="breaks-auth" />);
+			const text = screen.getByText(/authentication breaks for every user/).textContent ?? '';
+			expect(text).toContain('Remove the');
+			expect(text).not.toMatch(/drop the/);
 		});
 
 		it('tells the assignment surface to pick another role instead of editing JSON it cannot see', () => {
