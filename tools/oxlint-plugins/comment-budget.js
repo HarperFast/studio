@@ -20,9 +20,13 @@
  * That is why the TypeScript triple-slash forms are written with a leading `\/`: by the time the
  * rule sees `/// <reference types="…" />`, two of the three slashes are gone and the value begins
  * `/ <reference`.
+ *
+ * Every alternative must match real directive syntax rather than a bare tool name, or prose like
+ * `// eslint has different behavior here` buys a free exemption. `global` and `jshint` are omitted
+ * for exactly that reason: their only valid forms are indistinguishable from an English sentence.
  */
 const DIRECTIVE =
-	/^\s*(?:eslint|oxlint|globals?\s|prettier-|dprint-|biome-|type-coverage:|[cv]8 ignore|istanbul ignore|jscs:|jshint |@ts-|@vite-|webpack|#__|@__|#?(?:end)?region\b|\/\s*<(?:reference|amd-))/;
+	/^\s*(?:(?:es|ox)lint(?:-|\s+[\w@/$-]+\s*:)|prettier-|dprint-|biome-|type-coverage:|[cv]8 ignore|istanbul ignore|jscs:|@ts-|@vite-|webpack\w*\s*:|#__|@__|#(?:end)?region\b|\/\s*<(?:reference|amd-))/;
 
 /** JSDoc/TSDoc — `/** … *␀/`, but not a `/*** … *␀/` banner or a bare `/* … *␀/`. */
 function isDocComment(comment) {
@@ -39,8 +43,8 @@ function isDocComment(comment) {
  * The exception is a trailing comment annotating an element of a data literal —
  * `'org-', // empty body` in a table of test cases. That describes the row it sits on rather than
  * the logic around it, and no amount of renaming can absorb it, so the whole annotated literal is
- * charged once however many rows carry a note. Without this, documenting fixture data was the most
- * expensive thing you could write under the rule.
+ * charged once however many rows carry a note; otherwise documenting fixture data would be the most
+ * expensive thing in the codebase.
  */
 function toSites(comments, isOwnLine, annotatedLiteralFor) {
 	const sites = [];
@@ -73,7 +77,6 @@ function toSites(comments, isOwnLine, annotatedLiteralFor) {
 	return sites;
 }
 
-/** Of `nodes`, the innermost one enclosing `[start, end]` — i.e. the enclosing node starting latest. */
 function innermostEnclosing([start, end], nodes) {
 	let innermost;
 	for (const node of nodes) {
@@ -116,7 +119,6 @@ const commentBudget = {
 		const blocks = [];
 		const dataLiterals = [];
 
-		/** True when nothing but indentation precedes the comment on its line. */
 		function isOwnLine(comment) {
 			for (let i = comment.range[0] - 1; i >= 0 && text[i] !== '\n' && text[i] !== '\r'; i--) {
 				if (text[i] !== ' ' && text[i] !== '\t') { return false; }
@@ -124,9 +126,15 @@ const commentBudget = {
 			return true;
 		}
 
-		/** The data literal whose rows this trailing comment annotates, if it sits inside one. */
 		function annotatedLiteralFor(comment) {
-			return innermostEnclosing(comment.range, dataLiterals);
+			const literal = innermostEnclosing(comment.range, dataLiterals);
+			if (!literal) { return undefined; }
+
+			// A comment inside a block that is itself nested in the literal — an object method body —
+			// annotates logic that merely lives in a literal, not a row of data. Without this the
+			// whole method collapses to one site and its block budget stops applying.
+			const block = innermostEnclosing(comment.range, blocks);
+			return block && block.range[0] > literal.range[0] ? undefined : literal;
 		}
 
 		return {

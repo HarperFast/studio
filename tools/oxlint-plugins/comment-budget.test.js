@@ -184,7 +184,7 @@ describe('comment-budget', () => {
 	});
 
 	it('treats a bare CR as a line boundary, so the comment after code is still own-line', () => {
-		// Scanning left for indentation has to stop at CR too. It if only stops at LF it runs on into
+		// Scanning left for indentation has to stop at CR too. If it only stops at LF it runs on into
 		// the previous line, finds the `;`, and calls both of these trailing asides instead of one
 		// paragraph.
 		const crOnly = ['const a = 1;', '// one', '// two', 'export const b = a;'].join('\r');
@@ -249,6 +249,43 @@ describe('comment-budget', () => {
 		];`;
 
 		expect(lint(prose, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 2 }]);
+	});
+
+	it('does not let a literal absorb comments from a method body nested inside it', () => {
+		const handlers = `export const handlers = {
+			run(n: number) {
+				let x = n; // step one
+				x += 1;    // step two
+				x *= 2;    // step three
+				return x;  // step four
+			},
+		};`;
+
+		expect(lint(handlers, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 4 }]);
+	});
+
+	it('charges prose that merely opens with a tool name', () => {
+		const prose = `export function f(n: number) {
+			// eslint has different behavior here
+			let x = n;
+			// webpack injects this value
+			x += 1;
+			// oxlint used to complain about this
+			x *= 2;
+			// global state is shared across these
+			return x;
+		}`;
+
+		expect(lint(prose, { maxPerFile: 99, maxPerBlock: 2 })).toMatchObject([{ scope: 'block', count: 4 }]);
+	});
+
+	it('still exempts the inline eslint config form, which is not prose', () => {
+		expect(lint(
+			`/* eslint no-console: "error" */
+			// webpackChunkName: "editor"
+			export const a = 1;`,
+			{ maxPerFile: 0 },
+		)).toEqual([]);
 	});
 
 	it('honours an inline disable directive for the rule itself', () => {
