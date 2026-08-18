@@ -27,8 +27,8 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 		return null;
 	}
 	const kind = classifyOperationsValue(permission, allowlistSupported);
-	// `database` is a pre-5.0 role granting a database named `operations` — not a restriction.
-	if (kind === 'absent' || kind === 'database') {
+	// Below the floor the key is either a real database grant or inert; neither is a restriction.
+	if (kind === 'absent' || kind === 'database' || kind === 'inert') {
 		return null;
 	}
 	// Assignment is what makes the fatal kind fatal, so this surface says so; the notice keeps the

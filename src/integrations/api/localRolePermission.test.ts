@@ -131,15 +131,30 @@ describe('classifyOperationsValue', () => {
 		}
 	});
 
-	it('does not call a value fatal below the floor, where no expansion runs', () => {
-		// Pre-allowlist Harper has no expandOperationsPerms to throw, so the same value is merely
-		// invalid there — claiming an auth outage would be a false alarm on an old instance.
-		for (const fatal of [{ tables: {} }, true, 42]) {
-			const permission = { operations: fatal } as unknown as LocalRolePermission;
-			expect(classifyOperationsValue(permission, false)).not.toBe('breaks-auth');
+	it('calls every non-record value inert below the floor, including a well-formed allowlist', () => {
+		// Pre-allowlist Harper has no gate, no expansion and no validation for the key, so nothing
+		// there restricts or breaks — saying otherwise would tell an operator a role is locked down
+		// when it is not.
+		for (const value of [true, 42, 'read_only', ['read_only'], ['read_only', 42], false, null]) {
+			const permission = { operations: value } as unknown as LocalRolePermission;
+			expect(classifyOperationsValue(permission, false)).toBe('inert');
 		}
-		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission, false))
-			.toBe('malformed');
+		// …while a real table-permission record is still recognized as the database grant it is.
+		expect(classifyOperationsValue({ operations: { tables: {} } } as unknown as LocalRolePermission, false))
+			.toBe('database');
+	});
+
+	it('reserves the instance-wide warning for values the cache-load guard actually expands', () => {
+		// cacheExpandedOperationsPerms returns early on a falsy value, so those never reach the
+		// expansion that rejects listUsers — they fail per request instead.
+		for (const truthy of [{ tables: {} }, true, 42]) {
+			expect(classifyOperationsValue({ operations: truthy } as unknown as LocalRolePermission, true))
+				.toBe('breaks-auth');
+		}
+		for (const falsy of [false, null, 0]) {
+			expect(classifyOperationsValue({ operations: falsy } as unknown as LocalRolePermission, true))
+				.toBe('malformed');
+		}
 	});
 
 	it('reports absent and invalid values distinctly', () => {
