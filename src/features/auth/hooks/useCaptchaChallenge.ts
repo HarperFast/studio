@@ -21,7 +21,8 @@ export function useCaptchaChallenge(action: string) {
 	// Mint came back empty with a key configured: a later 403 should say the
 	// check couldn't run, not ask the user to retry something that can't succeed.
 	const mintFailed = useRef(false);
-	// Also stops concurrent submits racing mintFailed to the wrong message.
+	// Disabling submit during the mint also stops concurrent submits racing
+	// mintFailed to the wrong message.
 	const [minting, setMinting] = useState(false);
 
 	const getToken = useCallback(async (): Promise<string | undefined> => {
