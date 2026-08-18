@@ -111,6 +111,22 @@ describe('checkImportDataPermission', () => {
 		expect(checkSchemaTablePermission(csvOnly, 'data', 'dog', 'insert')).toBe(false);
 	});
 
+	// The Import launcher checks the table it was opened from, but the modal's target is editable, so
+	// the submit path re-asks this for whatever table was finally chosen.
+	it('answers per destination table, not per launcher', () => {
+		const permission = perm({
+			operations: ['insert'],
+			data: {
+				tables: {
+					dog: { read: true, insert: true, update: false, delete: false, attribute_permissions: null },
+					cat: { read: true, insert: false, update: false, delete: false, attribute_permissions: null },
+				},
+			},
+		});
+		expect(checkImportDataPermission(permission, 'data', 'dog')).toBe(true);
+		expect(checkImportDataPermission(permission, 'data', 'cat')).toBe(false);
+	});
+
 	it('denies when the allowlist reaches no import operation', () => {
 		expect(checkImportDataPermission(perm({ operations: ['read_only'], ...tables }), 'data', 'dog')).toBe(false);
 		expect(checkImportDataPermission(perm({ super_user: true, operations: [] }), 'data', 'dog')).toBe(true);

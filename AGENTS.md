@@ -335,8 +335,12 @@ things on either side of the 5.0.0-alpha.8 floor (the feature's first tagged bui
 The two facts that decide Studio's permission hooks (`src/hooks/checkOperationPermission.ts`):
 
 - **Gate admin chrome on the allowlist and you hide UI that works.** Because super users never reach
-  the gate, table read/write is the only surface it can actually deny — so
-  `useInstanceManagePermission` and `useInstanceBrowseManagePermission` are deliberately NOT gated.
+  the gate, `useInstanceManagePermission` and `useInstanceBrowseManagePermission` are deliberately NOT
+  gated. Note browse-manage is only half short-circuited: its DDL half is, but the application-editor
+  operations behind it (`set_component_file`, `drop_component`, `deploy_component`, `set_env_value`,
+  `restart_service`) are not in `STRUCTURE_USER_OPS`, so for a non-super role they do reach the gate —
+  where an allowlist listing them _grants_ them via gate 2. Denying that half on the allowlist would
+  therefore hide UI a scoped role can legitimately use.
 - **`isElevatedRole` is the wrong question for a specific operation.** It answers "is the list
   unenforceable anywhere for this role", which is what the editor warns about. For DML,
   `structure_user` and `cluster_user` are still gated.

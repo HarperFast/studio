@@ -248,6 +248,7 @@ export function useInstanceImportOperationsPermission(entityId?: EntityIds): boo
 export function useInstanceImportCapabilities(entityId?: EntityIds): {
 	methods: Record<ImportMethod, boolean>;
 	allowsSource: (kind: ImportSource['kind']) => boolean;
+	allowsDestination: (databaseName: string, tableName: string) => boolean;
 } {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
@@ -257,6 +258,9 @@ export function useInstanceImportCapabilities(entityId?: EntityIds): {
 			IMPORT_METHODS.map((method) => [method, checkImportMethodAllowed(permission, method)]),
 		) as Record<ImportMethod, boolean>,
 		allowsSource: (kind: ImportSource['kind']) => checkImportSourceAllowed(permission, kind),
+		// The launcher checked the table it was launched from, but the modal lets the target change.
+		allowsDestination: (databaseName: string, tableName: string) =>
+			checkImportDataPermission(permission, databaseName, tableName),
 	}), [permission]);
 }
 

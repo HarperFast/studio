@@ -277,6 +277,14 @@ export function ImportDataModal({
 			source = { kind: 'csv-url', url: values.url };
 		}
 
+		// The launcher checked the table it was opened from; the target is editable, so an existing table
+		// chosen here needs its own insert grant. A table that does not exist yet has none to check --
+		// creating it is the browse-manage authority the launcher already required.
+		if (tableExists && !importCapabilities.allowsDestination(database, table)) {
+			form.setError('table', { message: `This role cannot insert into "${table}".` });
+			return;
+		}
+
 		// A file's extension decides its operation, so `file` is the one method whose source is unknown
 		// until here; the sample picker offers only granted sources already.
 		if (!importCapabilities.allowsSource(source.kind)) {
