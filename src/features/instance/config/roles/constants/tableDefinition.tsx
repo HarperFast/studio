@@ -92,13 +92,13 @@ function OperationsCell({ permission }: { permission: LocalRole['permission'] })
 			</>
 		);
 	}
-	if (kind === 'database-collision') {
+	if (kind === 'breaks-auth') {
 		return (
 			<span
-				className="text-warning"
-				title="Table permissions on a database named operations, which this version reserves"
+				className="text-destructive"
+				title="Harper cannot expand this value; assigning the role breaks authentication instance-wide"
 			>
-				database grant
+				breaks auth
 			</span>
 		);
 	}

@@ -2,7 +2,7 @@ import {
 	expandEffectiveOperations,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
-import { OperationsCollisionNotice } from '@/features/instance/config/roles/operations/OperationsCollisionNotice';
+import { OperationsValueNotice } from '@/features/instance/config/roles/operations/OperationsValueNotice';
 import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
@@ -31,10 +31,10 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	if (kind === 'absent' || kind === 'database') {
 		return null;
 	}
-	// Every non-array value fails the same way at user-cache load, so both verdicts get the same
-	// warning — and here it is the assignment itself that pulls the trigger.
-	if (kind === 'database-collision' || kind === 'malformed') {
-		return <OperationsCollisionNotice assigning />;
+	// Assignment is what makes the fatal kind fatal, so this surface says so; the notice keeps the
+	// two severities apart rather than borrowing the scarier wording for both.
+	if (kind === 'breaks-auth' || kind === 'malformed') {
+		return <OperationsValueNotice kind={kind} assigning />;
 	}
 	if (rolePreventsOperationsAllowlist(permission)) {
 		return (
