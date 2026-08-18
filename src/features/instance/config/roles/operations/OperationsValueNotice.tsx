@@ -15,6 +15,7 @@
 export function OperationsValueNotice({
 	kind,
 	assigning,
+	databaseCollision,
 }: {
 	kind: 'breaks-auth' | 'malformed';
 	/** The value is a table-permission record, so a database of that name is the other half. */
@@ -42,10 +43,13 @@ export function OperationsValueNotice({
 				: (
 					<>
 						authentication breaks for every user on the instance as soon as a user holds this role. Remove the{' '}
-						<span className="font-mono">operations</span> key in the JSON below, then drop the{' '}
-						<span className="font-mono">operations</span>{' '}
-						database — while one exists, no role on this instance can use an allowlist at all. To keep the table grants,
-						move them to a differently-named database and re-key them here first.
+						<span className="font-mono">operations</span> key in the JSON below.{databaseCollision && (
+							<>
+								{' '}Then drop the <span className="font-mono">operations</span>{' '}
+								database — while one exists, no role on this instance can use an allowlist at all. To keep its table
+								grants, move them to a differently-named database and re-key them here first.
+							</>
+						)}
 					</>
 				)}
 		</p>

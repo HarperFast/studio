@@ -64,8 +64,11 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
-				This role's operations allowlist is empty — users with it cannot run any Operations API call (SQL is authorized
-				by table permissions instead, so it is unaffected)
+				{(getOperationsAllowlist(permission) ?? []).length
+					? "Every entry in this role's operations allowlist is inert"
+					: "This role's operations allowlist is empty"}{' '}
+				— users with it cannot run any Operations API call (SQL is authorized by table permissions instead, so it is
+				unaffected)
 				{ddlScope ? '' : '.'}
 				{ddlNote}
 			</p>

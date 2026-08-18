@@ -17,6 +17,7 @@ import {
 	getOperationInfo,
 	GrantableOperation,
 	isGrantGateInert,
+	isInertGrant,
 	isOperationGroupName,
 	OPERATION_CATALOG,
 	OPERATION_CATEGORIES,
@@ -192,8 +193,9 @@ export function OperationsAllowlistEditor({
 					{effective.length === 0
 						? (
 							<p className="text-xs text-destructive">
-								Nothing selected — this role cannot run any Operations API call
-								{structureUserDdl ? ', except the DDL noted above' : ''}{' '}
+								{value?.length ? 'Every entry here is inert' : 'Nothing selected'}{' '}
+								— this role cannot run any Operations API call{structureUserDdl ? ', except the DDL noted above' : ''}
+								{' '}
 								(SQL is gated by table permissions, not this list).
 							</p>
 						)
@@ -423,7 +425,7 @@ function OperationChip({
 	disabled?: boolean;
 }) {
 	const info = getOperationInfo(name);
-	const inert = info?.nonDelegable || info?.aliasOf || isGrantGateInert(name);
+	const inert = isInertGrant(name);
 	const variant = inert ? 'destructive' : info?.su ? 'warning' : info ? 'secondary' : 'outline';
 	const title = info?.aliasOf
 		? `Legacy alias: Harper authorizes this operation under '${info.aliasOf}', so this entry grants nothing. `

@@ -157,10 +157,16 @@ describe('expandEffectiveOperations', () => {
 	});
 
 	it('de-duplicates group members against explicit names and passes unknown names through', () => {
-		const effective = expandEffectiveOperations(['read_only', 'sql', 'deploy_component', 'my_component_op']);
+		const effective = expandEffectiveOperations(['read_only', 'sql', 'my_component_op']);
 		expect(effective.filter((name) => name === 'sql')).toHaveLength(1);
-		expect(effective).toContain('deploy_component');
+		// A component-registered name is unknown to the catalog, so it cannot be judged inert.
 		expect(effective).toContain('my_component_op');
+	});
+
+	it('does not count a grant the server cannot currently match', () => {
+		// deploy_component's authorization entry omits api_name, so the chip calls it inert; counting
+		// it here would have the same component claim access it denies.
+		expect(expandEffectiveOperations(['deploy_component', 'get_status'])).toEqual([]);
 	});
 
 	it('expands an empty allowlist to nothing', () => {
