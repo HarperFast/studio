@@ -170,4 +170,21 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 		expect(event.resource?.url).toBe('https://api.harper.fast/HDBInstance/ins-1/operation');
 	});
+
+	// The SDK swallows a throw from this hook and can't drop a view event at all, so a non-string
+	// field must not take the redaction down mid-way and ship a half-redacted event.
+	it('survives a non-string view URL instead of throwing', () => {
+		const event = { type: 'view', view: { url: 12345 } } as unknown as DatadogErrorEvent;
+		expect(() => beforeSend(event)).not.toThrow();
+		expect(beforeSend(event)).toBe(true);
+	});
+
+	it('redacts a reset token from the view URL', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: { url: 'https://fabric.harper.fast/#/reset-password?token=eyJhbGciOiJIUzI1NiJ9.abc' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
+	});
 });
