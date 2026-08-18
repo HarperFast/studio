@@ -200,6 +200,12 @@ describe('redactSensitiveParams', () => {
 			.toBe('Navigation to /#/reset-password?token=<redacted> failed');
 	});
 
+	// The free-text pass has its own anchor, and the URL pass's ampersand case does not exercise it.
+	it('still redacts a credential param after an ampersand in free text', () => {
+		expect(redactCredentialParams('Navigation to /#/reset-password?next=/apps&token=abc.def failed'))
+			.toBe('Navigation to /#/reset-password?next=/apps&token=<redacted> failed');
+	});
+
 	it.each([
 		'api-key',
 		'api_key',
@@ -230,6 +236,7 @@ describe('redactSensitiveParams', () => {
 		'first.last%40my-company.io',
 		'someone@acme-corp.co.uk',
 		'someone%40mail.acme-corp.com',
+		'mary-jane%40acme-corp.com',
 	])('redacts an address on a hyphenated domain (%s)', (address) => {
 		expect(redactSensitiveParams(`https://fabric.harper.fast/#/o/c/config/users/${address}`))
 			.toBe('https://fabric.harper.fast/#/o/c/config/users/<redacted>');
