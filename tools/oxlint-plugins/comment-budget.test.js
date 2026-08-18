@@ -122,6 +122,8 @@ describe('comment-budget', () => {
 			// #region setup
 			// #endregion
 			// prettier-ignore
+			// @ts-expect-error: the vendor types are wrong here
+			// @ts-ignore: same story
 			// biome-ignore lint: deliberate
 			// @vite-ignore
 			/* istanbul ignore next */

@@ -28,7 +28,8 @@
  *
  * Each fixed form ends in `(?=\s|$)` rather than `\b`, because `\b` also succeeds before a hyphen:
  * `prettier-ignore\b` matches `// prettier-ignore-this explanation`. Every one of the ten `\b`
- * forms had that leak too.
+ * forms had that leak too. The `@ts-` family additionally accepts `:` as a delimiter, because
+ * `// @ts-expect-error: reason` is the form typescript-eslint's `descriptionFormat` asks for.
  */
 const DIRECTIVE = new RegExp(`^\\s*(?:${
 	[
@@ -38,7 +39,7 @@ const DIRECTIVE = new RegExp(`^\\s*(?:${
 		String.raw`prettier-ignore(?=\s|$)`,
 		String.raw`dprint-ignore(?:-start|-end|-file)?(?=\s|$)`,
 		String.raw`biome-ignore(?=\s|$)`,
-		String.raw`@ts-(?:ignore|expect-error|nocheck|check)(?=\s|$)`,
+		String.raw`@ts-(?:ignore|expect-error|nocheck|check)(?=[:\s]|$)`,
 		String.raw`@vite-ignore(?=\s|$)`,
 		String.raw`type-coverage:ignore-(?:next-line|line|file)(?=\s|$)`,
 		String.raw`[cv]8 ignore(?=\s|$)`,
