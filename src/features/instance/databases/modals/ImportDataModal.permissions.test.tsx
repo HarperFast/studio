@@ -6,7 +6,7 @@ import { LocalRolePermission } from '@/integrations/api/api.patch';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-// Only the auth store and the router are stubbed, so these assertions run the real
+// Only the auth store and the router are stubbed, so these run the real
 // allowlist -> checkImportMethodAllowed -> rendered-radio chain.
 const permission = vi.hoisted(() => ({ current: undefined as LocalRolePermission | undefined }));
 
@@ -50,13 +50,17 @@ afterEach(() => {
 	permission.current = undefined;
 });
 
+const withColumn = {
+	data: { dog: { attributes: [{ attribute: 'id', is_primary_key: true }, { attribute: 'name', type: 'String' }] } },
+};
+
 function renderModal(rolePermission?: Record<string, unknown>) {
 	permission.current = rolePermission as unknown as LocalRolePermission | undefined;
 	render(
 		<ImportDataModal
 			isModalOpen
 			setIsModalOpen={() => undefined}
-			instanceDatabaseMap={{ data: { dog: {} } } as never}
+			instanceDatabaseMap={withColumn as never}
 			databaseName="data"
 			tableName="dog"
 			onImported={() => undefined}
@@ -76,14 +80,12 @@ describe('ImportDataModal method gating', () => {
 		]);
 	});
 
-	// An insert-only role can post records (sample/random, .json upload) but cannot run either CSV
-	// load, so the URL method -- which has no non-CSV path -- must not be offered.
+	// The URL method has no non-CSV path, so an insert-only role cannot use it at all.
 	it('drops the URL method for an insert-only role', () => {
 		renderModal({ operations: ['insert'], data: { tables: { dog: tableGrant() } } });
 		expect(methodNames()).toEqual(['import-method-sample', 'import-method-file']);
 	});
 
-	// The mirror image: a URL-load role cannot insert records, so only the URL method survives.
 	it('keeps only the URL method for a csv_url_load role', () => {
 		renderModal({ operations: ['csv_url_load', 'get_job'], data: { tables: { dog: tableGrant() } } });
 		expect(methodNames()).toEqual(['import-method-url']);
