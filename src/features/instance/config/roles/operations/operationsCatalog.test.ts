@@ -146,11 +146,14 @@ describe('expandEffectiveOperations', () => {
 		]);
 	});
 
-	it('folds an explicitly granted alias into its canonical name', () => {
-		expect(expandEffectiveOperations(['describe_database', 'search_by_id'])).toEqual([
-			'describe_schema',
-			'search_by_hash',
-		]);
+	it('does not credit a directly granted alias with its canonical operation', () => {
+		// The chip beside the count says an alias grant does nothing, so folding it here would have
+		// the same component claiming access the server denies.
+		expect(expandEffectiveOperations(['describe_database', 'search_by_id'])).toEqual([]);
+	});
+
+	it('leaves out entries the server can never honor', () => {
+		expect(expandEffectiveOperations(['set_secret', 'sql'])).toEqual(['sql']);
 	});
 
 	it('de-duplicates group members against explicit names and passes unknown names through', () => {

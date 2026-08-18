@@ -28,6 +28,15 @@ import {
 } from '@/integrations/api/localRolePermission';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { safeParse } from '@/lib/string/safeParse';
+
+/** JSON.parse without safeParse's console.error, for text that is expected to be invalid mid-edit. */
+function quietParse<T>(value: string): T | null {
+	try {
+		return JSON.parse(value) as T;
+	} catch {
+		return null;
+	}
+}
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -107,11 +116,13 @@ export function EditRoleModal({
 	// truth. Monaco applies programmatic value updates without firing onChange, so this can't loop.
 	const operationsSupported = supportsOperationsAllowlist(registrationInfo?.version);
 	const lastParsedRef = useRef<LocalRolePermission | null>(null);
-	const { operationsJson, operationsKind, allowlistRejected, structureUserDdl } = useMemo(() => {
+	const { operationsRaw, operationsJson, operationsKind, allowlistRejected, structureUserDdl } = useMemo(() => {
 		// Without the operations section there is no reader for this parse, so skip it — the
 		// permission document can be large and this recomputes per keystroke.
+		// Not safeParse: it console.errors on failure, and a half-typed document is invalid on most
+		// keystrokes — that would flood the console and RUM with expected syntax errors.
 		const parsed = operationsSupported && updatedPermissions
-			? safeParse<LocalRolePermission>(updatedPermissions)
+			? quietParse<LocalRolePermission>(updatedPermissions)
 			: null;
 		const usable = isValidJSON && parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
 			? parsed
@@ -120,6 +131,7 @@ export function EditRoleModal({
 			: lastParsedRef.current;
 		if (usable === null) {
 			return {
+				operationsRaw: undefined,
 				operationsJson: undefined,
 				operationsKind: 'absent' as const,
 				allowlistRejected: false,
@@ -131,6 +143,7 @@ export function EditRoleModal({
 		// A present-but-not-string-array `operations` (e.g. `true`) is left to the JSON editor
 		// rather than clobbered from the structured one.
 		return {
+			operationsRaw: usable.operations,
 			operationsJson: allowlist && JSON.stringify(allowlist),
 			operationsKind: classifyOperationsValue(usable, operationsSupported),
 			allowlistRejected: rolePreventsOperationsAllowlist(usable),
@@ -200,6 +213,11 @@ export function EditRoleModal({
 		);
 	}, [data.id, dropRole, instanceParams, onChangesSaved, onSelectRole]);
 
+	const operationsUnusable = operationsKind === 'breaks-auth' || operationsKind === 'malformed';
+	// Only a record implies a database of that name, which is the half the remedy has to mention.
+	const operationsIsRecord = operationsRaw !== null && typeof operationsRaw === 'object'
+		&& !Array.isArray(operationsRaw);
+
 	const onSubmitClick = useCallback(() => {
 		if (updatedPermissions && isValidJSON) {
 			onRoleUpdated(updatedPermissions);
@@ -222,8 +240,13 @@ export function EditRoleModal({
 							: "Edit the role's permissions in JSON format or remove the role entirely."}
 					</DialogDescription>
 					{operationsSupported && registrationInfo && (
-						operationsKind === 'breaks-auth' || operationsKind === 'malformed'
-							? <OperationsValueNotice kind={operationsKind} />
+						operationsUnusable
+							? (
+								<OperationsValueNotice
+									kind={operationsKind as 'breaks-auth' | 'malformed'}
+									databaseCollision={operationsIsRecord}
+								/>
+							)
 							: (
 								<OperationsAllowlistEditor
 									allowlistRejected={allowlistRejected}
@@ -278,7 +301,9 @@ export function EditRoleModal({
 								<Button
 									variant="submit"
 									onClick={onSubmitClick}
-									disabled={isPending || !isValidJSON}
+									// Saving past an unusable `operations` value would normalize it away and widen the
+									// role, so the value has to be repaired in the JSON first.
+									disabled={isPending || !isValidJSON || operationsUnusable}
 								>
 									Save Changes
 								</Button>

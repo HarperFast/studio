@@ -1,8 +1,8 @@
+import { AllowlistSupportedContext } from '@/features/instance/config/roles/operations/AllowlistSupportedContext';
 import {
 	expandEffectiveOperations,
 	summarizeOperations,
 } from '@/features/instance/config/roles/operations/operationsCatalog';
-import { useOperationsAllowlistSupported } from '@/features/instance/config/roles/operations/useOperationsAllowlistSupported';
 import { LocalRole } from '@/integrations/api/api.patch';
 import {
 	classifyOperationsValue,
@@ -11,6 +11,7 @@ import {
 } from '@/integrations/api/localRolePermission';
 import { ColumnDef, createColumnHelper } from '@/lib/table';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
+import { useContext } from 'react';
 
 const columnHelper = createColumnHelper<LocalRole>();
 
@@ -76,7 +77,9 @@ export const dataTableColumns: Array<ColumnDef<LocalRole>> = [
  * depends on the instance version, which takes a hook to read.
  */
 function OperationsCell({ permission }: { permission: LocalRole['permission'] }) {
-	const allowlistSupported = useOperationsAllowlistSupported();
+	// One observer for the whole table: the query is shared, but a hook per row would still
+	// allocate an observer and query options for every one of them.
+	const allowlistSupported = useContext(AllowlistSupportedContext);
 	if (allowlistSupported === undefined) {
 		// The verdict depends on the version; render nothing rather than guess it for a frame.
 		return null;

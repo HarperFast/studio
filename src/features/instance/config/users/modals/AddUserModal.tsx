@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { RoleOperationsSummary } from '@/features/instance/config/roles/operations/RoleOperationsSummary';
+import { useRoleBlocksAssignment } from '@/features/instance/config/roles/operations/useRoleBlocksAssignment';
 import { useAddUserMutation } from '@/integrations/api/instance/auth/addUser';
 import { AddUserFormSchema } from '@/integrations/api/instance/auth/addUserFormSchema';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
@@ -56,6 +57,10 @@ export function AddUserModal({
 		},
 	});
 	const { mutate: addUser, isPending: isAddPending } = useAddUserMutation();
+	// Assigning a role whose operations value Harper cannot expand takes authentication down for
+	// every user, so the form refuses rather than only warning.
+	const selectedRoleId = form.watch('role');
+	const assignmentBlocked = useRoleBlocksAssignment(roles?.find((role) => role.id === selectedRoleId));
 
 	const onSubmitClick = useCallback(async (formData: z.infer<typeof AddUserFormSchema>) => {
 		if (formData) {
@@ -187,7 +192,7 @@ export function AddUserModal({
 
 						<DialogFooter>
 							<div className="flex justify-between w-full">
-								<Button type="submit" variant="submit" disabled={isAddPending}>
+								<Button type="submit" variant="submit" disabled={isAddPending || assignmentBlocked}>
 									<Save /> Add User
 								</Button>
 							</div>

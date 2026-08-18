@@ -192,8 +192,9 @@ export function OperationsAllowlistEditor({
 					{effective.length === 0
 						? (
 							<p className="text-xs text-destructive">
-								Nothing selected — this role cannot run any operation
-								{structureUserDdl ? ' except the DDL noted above' : ''}.
+								Nothing selected — this role cannot run any Operations API call
+								{structureUserDdl ? ', except the DDL noted above' : ''}{' '}
+								(SQL is gated by table permissions, not this list).
 							</p>
 						)
 						: (

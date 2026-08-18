@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { dataTableColumns } from '@/features/instance/config/roles/constants/tableDefinition';
 import { AddRoleModal } from '@/features/instance/config/roles/modals/AddRoleModal';
+import { AllowlistSupportedProvider } from '@/features/instance/config/roles/operations/AllowlistSupportedContext';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { LocalRole } from '@/integrations/api/api.patch';
 import { getListRolesQueryOptions } from '@/integrations/api/instance/auth/getListRoles';
@@ -66,25 +67,27 @@ export function ConfigRolesIndex() {
 
 	return (
 		<Suspense fallback={<Loading className="flex flex-col items-center justify-center h-full" text="Loading..." />}>
-			<SimpleBrowseDataTable
-				columns={dataTableColumns}
-				data={localRoles}
-				isFetching={isFetching}
-				onRowClick={onRowClick}
-			>
-				<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
-					<RefreshCwIcon />
-					<span className="hidden lg:inline-block">
-						<u>R</u>efresh
-					</span>
-				</Button>
-				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a" disabled={isAddModalOpen}>
-					<PlusIcon />
-					<span>
-						<u>A</u>dd
-					</span>
-				</Button>
-			</SimpleBrowseDataTable>
+			<AllowlistSupportedProvider>
+				<SimpleBrowseDataTable
+					columns={dataTableColumns}
+					data={localRoles}
+					isFetching={isFetching}
+					onRowClick={onRowClick}
+				>
+					<Button variant="defaultOutline" onClick={onRefreshClick} accessKey="r" disabled={isFetching || isRefetching}>
+						<RefreshCwIcon />
+						<span className="hidden lg:inline-block">
+							<u>R</u>efresh
+						</span>
+					</Button>
+					<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a" disabled={isAddModalOpen}>
+						<PlusIcon />
+						<span>
+							<u>A</u>dd
+						</span>
+					</Button>
+				</SimpleBrowseDataTable>
+			</AllowlistSupportedProvider>
 			<AddRoleModal isModalOpen={isAddModalOpen} onChangesSaved={onRoleAdded} setIsModalOpen={setIsAddModalOpen} />
 			{isEditModalOpen && (
 				<EditRoleModal

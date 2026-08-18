@@ -13,6 +13,12 @@ import {
 } from '@/integrations/api/localRolePermission';
 import { pluralize } from '@/lib/pluralize';
 
+/** A record under `operations` means a database of that name is the other half of the problem. */
+function isRecordShaped(permission: LocalRole['permission']): boolean {
+	const operations = permission.operations;
+	return operations !== null && typeof operations === 'object' && !Array.isArray(operations);
+}
+
 /**
  * One-line effective-operations summary for a role carrying an `operations` allowlist, shown
  * where a role is assigned to a user so the restriction isn't a surprise (HarperFast/studio#1627).
@@ -34,7 +40,7 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	// Assignment is what makes the fatal kind fatal, so this surface says so; the notice keeps the
 	// two severities apart rather than borrowing the scarier wording for both.
 	if (kind === 'breaks-auth' || kind === 'malformed') {
-		return <OperationsValueNotice kind={kind} assigning />;
+		return <OperationsValueNotice kind={kind} assigning databaseCollision={isRecordShaped(permission)} />;
 	}
 	if (rolePreventsOperationsAllowlist(permission)) {
 		return (
@@ -58,7 +64,8 @@ export function RoleOperationsSummary({ role }: { role: LocalRole | undefined })
 	if (effective.length === 0) {
 		return (
 			<p className="text-xs text-destructive">
-				This role's operations allowlist is empty — users with it cannot run any operation
+				This role's operations allowlist is empty — users with it cannot run any Operations API call (SQL is authorized
+				by table permissions instead, so it is unaffected)
 				{ddlScope ? '' : '.'}
 				{ddlNote}
 			</p>
