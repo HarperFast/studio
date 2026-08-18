@@ -76,4 +76,30 @@ describe('redactEmailParams', () => {
 		expect(redactEmailParams('Tried https://fabric.harper.fast/#/sign-in?me=someone%40example.com and gave up'))
 			.toBe('Tried https://fabric.harper.fast/#/sign-in?me=<redacted> and gave up');
 	});
+
+	// `encodeURIComponent` escapes neither `'` nor `(`/`)`/`!`/`~`/`*`, and all of them pass our
+	// e-mail validator, so they reach the URL verbatim. Terminating the value on any of them would
+	// leave the bulk of the address behind — a partial redaction that still identifies the person.
+	it.each([
+		["o'reilly@example.com", "o'reilly%40example.com"],
+		["mary-jane.o'neill+tag@sub.example.co.uk", "mary-jane.o'neill%2Btag%40sub.example.co.uk"],
+		["o'brien(work)@example.com", "o'brien(work)%40example.com"],
+		['zed!~*@example.com', 'zed!~*%40example.com'],
+	])('fully redacts %s, whose encoding keeps URL-terminating characters', (_address, encoded) => {
+		expect(redactEmailParams(`https://fabric.harper.fast/#/verifying?email=${encoded}`))
+			.toBe('https://fabric.harper.fast/#/verifying?email=<redacted>');
+	});
+
+	// The router's own serialiser percent-encodes the apostrophe; both spellings must redact whole.
+	it('fully redacts the percent-encoded spelling of the same address', () => {
+		expect(redactEmailParams('https://fabric.harper.fast/#/sign-in?me=o%27reilly%40example.com'))
+			.toBe('https://fabric.harper.fast/#/sign-in?me=<redacted>');
+	});
+
+	// Deliberate: a wrapping quote is consumed rather than risk ending the value early. Losing a
+	// delimiter from a log line is the cheaper failure.
+	it('consumes a quote wrapping the URL rather than ending the value at it', () => {
+		expect(redactEmailParams(`Failed to load "https://fabric.harper.fast/#/sign-in?me=someone%40example.com"`))
+			.toBe('Failed to load "https://fabric.harper.fast/#/sign-in?me=<redacted>');
+	});
 });
