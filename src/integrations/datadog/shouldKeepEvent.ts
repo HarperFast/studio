@@ -1,6 +1,10 @@
 /**
- * A structural subset of Datadog's RUM event, covering only the fields this filter
- * inspects. Kept narrow so it stays assignable to RUM's `beforeSend` signature.
+ * A structural subset of Datadog's RUM event, covering only the fields this filter and
+ * `beforeSend`'s redaction touch. Kept narrow so it stays assignable to RUM's `beforeSend`
+ * signature.
+ *
+ * `view` is present on every event type, not just errors — a resource or long task recorded on an
+ * auth screen carries that screen's URL, which is why `beforeSend` redacts it for all of them.
  */
 export interface DatadogErrorEvent {
 	type: string;
@@ -9,6 +13,10 @@ export interface DatadogErrorEvent {
 		source?: string;
 		stack?: string;
 		resource?: { url?: string };
+	};
+	view?: {
+		url?: string;
+		referrer?: string;
 	};
 }
 
