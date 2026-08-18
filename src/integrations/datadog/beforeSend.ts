@@ -1,5 +1,5 @@
-import { redactEmailParams } from './redactEmailParams';
 import { redactErrorText } from './redactErrorText';
+import { redactSensitiveParams } from './redactSensitiveParams';
 import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
 /**
@@ -17,7 +17,7 @@ import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
  * `https://api.github.com/repos/<owner>/<repo>`, so a 404 on a private repo would otherwise ship
  * the repo name verbatim while the message beside it is redacted.
  *
- * The URL fields get `redactEmailParams` for *every* event type, not just errors: `shouldKeepEvent`
+ * The URL fields get `redactSensitiveParams` for *every* event type, not just errors: `shouldKeepEvent`
  * returns early for non-errors, so nothing here used to run for the view and resource events that
  * carry an auth screen's address. `view.url`, `view.referrer` and a resource event's own
  * `resource.url` are all on the SDK's editable-property list.
@@ -28,35 +28,35 @@ export function beforeSend(event: DatadogErrorEvent) {
 	}
 	const error = event.error;
 	if (error) {
-		if (error.message) {
-			error.message = redactErrorAndEmails(error.message);
+		if (typeof error.message === 'string') {
+			error.message = redactErrorAndParams(error.message);
 		}
-		if (error.stack) {
-			error.stack = redactErrorAndEmails(error.stack);
+		if (typeof error.stack === 'string') {
+			error.stack = redactErrorAndParams(error.stack);
 		}
-		if (error.handling_stack) {
-			error.handling_stack = redactErrorAndEmails(error.handling_stack);
+		if (typeof error.handling_stack === 'string') {
+			error.handling_stack = redactErrorAndParams(error.handling_stack);
 		}
-		if (error.resource?.url) {
-			error.resource.url = redactErrorAndEmails(error.resource.url);
+		if (typeof error.resource?.url === 'string') {
+			error.resource.url = redactErrorAndParams(error.resource.url);
 		}
 	}
 	const view = event.view;
 	if (view) {
-		if (view.url) {
-			view.url = redactEmailParams(view.url);
+		if (typeof view.url === 'string') {
+			view.url = redactSensitiveParams(view.url);
 		}
-		if (view.referrer) {
-			view.referrer = redactEmailParams(view.referrer);
+		if (typeof view.referrer === 'string') {
+			view.referrer = redactSensitiveParams(view.referrer);
 		}
 	}
-	if (event.resource?.url) {
-		event.resource.url = redactEmailParams(event.resource.url);
+	if (typeof event.resource?.url === 'string') {
+		event.resource.url = redactSensitiveParams(event.resource.url);
 	}
 	return true;
 }
 
-/** `redactErrorText` leaves Harper-host paths whole, so the address needs its own pass after it. */
-function redactErrorAndEmails(text: string) {
-	return redactEmailParams(redactErrorText(text));
+/** `redactErrorText` leaves Harper-host paths whole, so the params need their own pass after it. */
+function redactErrorAndParams(text: string) {
+	return redactSensitiveParams(redactErrorText(text));
 }
