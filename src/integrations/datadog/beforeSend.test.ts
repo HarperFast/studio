@@ -178,6 +178,7 @@ describe('beforeSend', () => {
 	// truthiness guard passes too: `WORTH_SCANNING.test(12345)` coerces, finds no separator, and
 	// returns early without ever reaching the call that would throw.
 	it.each([
+		['view name', { type: 'view', view: { name: ['?me=a%40b.com'] } }],
 		['view URL', { type: 'view', view: { url: ['?me=a%40b.com'] } }],
 		['view referrer', { type: 'view', view: { referrer: ['?me=a%40b.com'] } }],
 		['resource URL', { type: 'resource', resource: { url: ['?me=a%40b.com'] } }],
@@ -256,5 +257,44 @@ describe('beforeSend', () => {
 	it('keeps an event whose message is not a string', () => {
 		const event = { type: 'error', error: { message: 12345 } } as unknown as DatadogErrorEvent;
 		expect(beforeSend(event)).toBe(true);
+	});
+
+	// The error-text fields take the same non-string value down the same path as the URL fields, and
+	// each is read twice — once by the filter, once by the redaction — so one case pins both guards.
+	// A 5xx message is used throughout because it is what makes the filter coerce `resource.url`:
+	// under `?? ''` the array stringifies into an instance endpoint and the event is silently dropped.
+	it.each([
+		'stack',
+		'handling_stack',
+		'resource',
+	])('keeps an event whose %s is not a string', (field) => {
+		const malformed = ['https://api.harper.fast/HDBInstance/ins-1/operation'];
+		const event = {
+			type: 'error',
+			error: {
+				message: 'Request failed with status code 500',
+				[field]: field === 'resource' ? { url: malformed } : malformed,
+			},
+		} as unknown as DatadogErrorEvent;
+		expect(() => beforeSend(event)).not.toThrow();
+		expect(beforeSend(event)).toBe(true);
+	});
+
+	it('redacts an address from the view name', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: { name: '/o/c/config/users/someone%40example.com/' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.name).toBe('/o/c/config/users/<redacted>/');
+	});
+
+	it('leaves a parameterised view name untouched', () => {
+		const event: DatadogErrorEvent = {
+			type: 'view',
+			view: { name: '/$organizationId/$clusterId/config/users/$username/' },
+		};
+		expect(beforeSend(event)).toBe(true);
+		expect(event.view?.name).toBe('/$organizationId/$clusterId/config/users/$username/');
 	});
 });

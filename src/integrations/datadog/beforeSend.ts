@@ -15,6 +15,11 @@ export function beforeSend(event: DatadogErrorEvent) {
 	try {
 		const view = event.view;
 		if (view) {
+			// `translateUrlForDatadog` drops the query and parameterises route values, so this is
+			// already clean in practice — belt to the URL fields' braces, since it is equally editable.
+			if (typeof view.name === 'string') {
+				view.name = redactSensitiveParams(view.name);
+			}
 			if (typeof view.url === 'string') {
 				view.url = redactSensitiveParams(view.url);
 			}
