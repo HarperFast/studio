@@ -188,15 +188,18 @@ describe('beforeSend', () => {
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
 	});
 
-	// `shouldKeepEvent` can throw on a malformed error field, and the SDK swallows that into
-	// shipping the event — so the URL redaction has to have already happened.
-	it('redacts the view URL even when the filter throws on a malformed error field', () => {
+	// The URL redaction must already have happened before anything downstream can throw: the SDK
+	// swallows a throw and sends the event regardless, and a view event can't be dismissed at all.
+	// A throwing getter is what actually forces that, now that the filter itself is type-safe.
+	it('has already redacted the view URL when the filter throws', () => {
 		const event = {
 			type: 'error',
-			error: { message: 12345 },
 			view: { url: 'https://fabric.harper.fast/#/reset-password?token=abc.def' },
+			get error(): never {
+				throw new Error('malformed event');
+			},
 		} as unknown as DatadogErrorEvent;
-		expect(() => beforeSend(event)).not.toThrow();
+		expect(beforeSend(event)).toBe(false);
 		expect(event.view?.url).toBe('https://fabric.harper.fast/#/reset-password?token=<redacted>');
 	});
 });
