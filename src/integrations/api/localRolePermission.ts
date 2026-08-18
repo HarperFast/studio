@@ -124,9 +124,12 @@ export function classifyOperationsValue(
 	if (!allowlistSupported && getDatabasePermissionRecord(permission, 'operations', false) !== undefined) {
 		return 'database';
 	}
-	// Only what Harper's expansion cannot iterate takes the instance down; a string or an array of
-	// the wrong contents expands fine and merely fails validation on save.
-	return typeof operations === 'string' || Array.isArray(operations) ? 'malformed' : 'breaks-auth';
+	// Only what Harper's expansion cannot iterate takes the instance down, and only where that
+	// expansion exists: below the floor there is no allowlist machinery to throw, so the same value
+	// is merely invalid there. A string or an array of the wrong contents always iterates fine.
+	return !allowlistSupported || typeof operations === 'string' || Array.isArray(operations)
+		? 'malformed'
+		: 'breaks-auth';
 }
 
 /**

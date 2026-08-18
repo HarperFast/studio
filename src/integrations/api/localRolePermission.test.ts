@@ -131,6 +131,17 @@ describe('classifyOperationsValue', () => {
 		}
 	});
 
+	it('does not call a value fatal below the floor, where no expansion runs', () => {
+		// Pre-allowlist Harper has no expandOperationsPerms to throw, so the same value is merely
+		// invalid there — claiming an auth outage would be a false alarm on an old instance.
+		for (const fatal of [{ tables: {} }, true, 42]) {
+			const permission = { operations: fatal } as unknown as LocalRolePermission;
+			expect(classifyOperationsValue(permission, false)).not.toBe('breaks-auth');
+		}
+		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission, false))
+			.toBe('malformed');
+	});
+
 	it('reports absent and invalid values distinctly', () => {
 		expect(classifyOperationsValue({ operations: ['sql', 42] } as unknown as LocalRolePermission, true))
 			.toBe('malformed');
