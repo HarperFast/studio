@@ -43,15 +43,16 @@ describe('getDatabasePermissionRecord', () => {
 			{ operations: { tables: {} } } as unknown as LocalRolePermission,
 			{ operations: {} } as unknown as LocalRolePermission,
 			{ operations: true } as unknown as LocalRolePermission,
+			{ operations: 'read_only' } as unknown as LocalRolePermission,
+			{ operations: ['read_only', 42] } as unknown as LocalRolePermission,
 		];
 		for (const permission of cases) {
-			// Asserted against the record reading (`false`), which is the shared shape test — comparing
-			// against `supported` would make the above-floor half compare undefined to never-'database'.
+			// The shared claim is about what a *record* is, so it is asserted where both functions
+			// speak about records: below the floor, `database` must mean exactly "a record is here".
+			// Above it the verdicts diverge by design — `breaks-auth` also covers non-records like
+			// `true`, which is why the biconditional is stated for the one reading they share.
 			const isRecord = getDatabasePermissionRecord(permission, 'operations', false) !== undefined;
-			for (const supported of [true, false]) {
-				expect(['database', 'database-collision'].includes(classifyOperationsValue(permission, supported)))
-					.toBe(isRecord);
-			}
+			expect(classifyOperationsValue(permission, false) === 'database').toBe(isRecord);
 		}
 	});
 
@@ -103,7 +104,7 @@ describe('classifyOperationsValue', () => {
 		expect(classifyOperationsValue(v4, false)).toBe('database');
 		expect(isUneditableOperationsValue(v4, false)).toBe(false);
 		// …but on a supporting instance the editor must not touch it.
-		expect(classifyOperationsValue(v4, true)).toBe('database-collision');
+		expect(classifyOperationsValue(v4, true)).toBe('breaks-auth');
 		expect(isUneditableOperationsValue(v4, true)).toBe(true);
 	});
 
@@ -111,13 +112,26 @@ describe('classifyOperationsValue', () => {
 		// Same value, two instances: above the floor it is an unmanageable collision the editor must
 		// not overwrite, below it an ordinary database grant.
 		const record = { operations: { tables: {} } } as unknown as LocalRolePermission;
-		expect(classifyOperationsValue(record, true)).toBe('database-collision');
+		expect(classifyOperationsValue(record, true)).toBe('breaks-auth');
 		expect(classifyOperationsValue(record, false)).toBe('database');
 		expect(isUneditableOperationsValue(record, true)).toBe(true);
 	});
 
-	it('still reports genuinely malformed values', () => {
-		expect(classifyOperationsValue({ operations: true } as unknown as LocalRolePermission, true)).toBe('malformed');
+	it('separates the fatal shapes from the merely invalid ones', () => {
+		// Verified against harper's compiled expandOperationsPerms: only non-iterables throw during
+		// the user-cache load. A string iterates per character and a mixed array iterates fine, so
+		// neither takes authentication down — they just fail write-time validation.
+		for (const fatal of [{ tables: {} }, true, 42]) {
+			expect(classifyOperationsValue({ operations: fatal } as unknown as LocalRolePermission, true))
+				.toBe('breaks-auth');
+		}
+		for (const invalid of ['read_only', ['read_only', 42], ['read_only', { a: 1 }]]) {
+			expect(classifyOperationsValue({ operations: invalid } as unknown as LocalRolePermission, true))
+				.toBe('malformed');
+		}
+	});
+
+	it('reports absent and invalid values distinctly', () => {
 		expect(classifyOperationsValue({ operations: ['sql', 42] } as unknown as LocalRolePermission, true))
 			.toBe('malformed');
 		expect(classifyOperationsValue({}, true)).toBe('absent');

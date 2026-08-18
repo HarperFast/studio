@@ -27,11 +27,21 @@ describe('RoleOperationsSummary', () => {
 		expect(render(<RoleOperationsSummary role={role({})} />).container.textContent).toBe('');
 	});
 
-	it('warns that assigning a role with an unusable operations value breaks instance-wide auth', () => {
-		// expandOperationsPerms throws on any non-array during the user-cache load, which rejects
+	it('warns that assigning a role with a non-iterable operations value breaks instance-wide auth', () => {
+		// expandOperationsPerms throws on a non-iterable during the user-cache load, rejecting
 		// listUsers for every user — so silence here would understate it badly.
 		render(<RoleOperationsSummary role={role({ operations: true } as unknown as LocalRole['permission'])} />);
 		expect(screen.getByText(/breaks authentication for every user/)).toBeTruthy();
+	});
+
+	it('does not borrow the fatal wording for a value that merely fails validation', () => {
+		// A mixed array expands cleanly, so nothing breaks at runtime — it is just rejected on save.
+		const mixed = role({ operations: ['read_only', 42] } as unknown as LocalRole['permission']);
+		render(<RoleOperationsSummary role={mixed} />);
+		expect(screen.getByText(/Harper rejects it as an allowlist/)).toBeTruthy();
+		expect(screen.queryByText(/breaks authentication/)).toBeNull();
+		// …and the remedy has to be actionable from a user form, which has no JSON editor.
+		expect(screen.getByText(/in the role editor/)).toBeTruthy();
 	});
 
 	it('flags the super_user/cluster_user combination Harper refuses to store', () => {

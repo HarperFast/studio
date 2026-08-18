@@ -8,8 +8,9 @@ import { LocalRolePermission, LocalRoleSchemaRecord } from '@/integrations/api/a
 // - "Is this the allowlist?" (the role editor) — yes at or above the floor, where a non-array is a
 //   broken allowlist Harper's role_validation rejects.
 // - "Is there a table-permission record here?" (the access checks) — yes whenever the value is
-//   record-shaped, on every version: permissionsTranslator hands a role those table permissions
-//   for a database of that name regardless, so an upgraded v4 role still holds a live grant.
+//   record-shaped, on every version, because that is the shape a pre-allowlist role stored. (Such
+//   a role is broken on a supporting instance rather than usefully granted — see the fatal note on
+//   classifyOperationsValue — but the access checks answer about the value, not about the outcome.)
 // getDatabasePermissionRecord takes that question as `operationsIsAllowlist`; the access-check
 // callers pass `false` deliberately, and classifyOperationsValue delegates for the shape test so
 // the two never disagree about what a *record* is.
@@ -100,42 +101,45 @@ export function getOperationsAllowlist(permission: LocalRolePermission | undefin
  * - `database`: a table-permission record on an instance BELOW the allowlist floor, i.e. a role
  *   granting a database that happens to be named `operations`. Legitimate there, and not something
  *   to ask the author to "fix".
- * - `database-collision`: the same record at or above the floor, typically a v4 role carried
- *   through an upgrade. role_validation would reject re-saving it, yet permissionsTranslator still
- *   grants those tables — so it must be described, never "fixed" in place: replacing it with an
- *   array makes `perms.operations.tables[t]` throw and fails permission translation for every
- *   request that user makes.
- * - `malformed`: anything else — `true`, a bare string, a mixed array.
+ * - `breaks-auth`: a NON-ITERABLE value at or above the floor — a record (typically a v4 role
+ *   carried through an upgrade), `true`, a number. Harper expands every assigned role's allowlist
+ *   during the user-cache load behind a truthiness-only guard, so `for…of` throws there and
+ *   authentication fails for the whole instance once a user holds the role.
+ * - `malformed`: iterable but not a list of names — a bare string (which expands per character) or
+ *   an array containing non-strings. These expand without error and only fail write-time
+ *   validation, so they are wrong but never fatal.
  */
 export function classifyOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
-): 'absent' | 'allowlist' | 'database' | 'database-collision' | 'malformed' {
-	if (permission?.operations === undefined) {
+): 'absent' | 'allowlist' | 'database' | 'breaks-auth' | 'malformed' {
+	const operations = permission?.operations;
+	if (permission === undefined || operations === undefined) {
 		return 'absent';
 	}
 	if (allowlistSupported && getOperationsAllowlist(permission) !== undefined) {
 		return 'allowlist';
 	}
 	// The same shape test the access checks use, so the two never disagree about what a record is.
-	if (getDatabasePermissionRecord(permission, 'operations', false) !== undefined) {
-		return allowlistSupported ? 'database-collision' : 'database';
+	if (!allowlistSupported && getDatabasePermissionRecord(permission, 'operations', false) !== undefined) {
+		return 'database';
 	}
-	return 'malformed';
+	// Only what Harper's expansion cannot iterate takes the instance down; a string or an array of
+	// the wrong contents expands fine and merely fails validation on save.
+	return typeof operations === 'string' || Array.isArray(operations) ? 'malformed' : 'breaks-auth';
 }
 
 /**
  * Whether the structured editor must keep its hands off this value: anything present that isn't a
- * well-formed allowlist. Every such value — a record, `true`, a mixed array — throws the same way
- * in Harper's user-cache expansion, so the surfaces treat them alike; classifyOperationsValue
- * still separates them for anyone who needs the distinction.
+ * well-formed allowlist. Use classifyOperationsValue to say WHY — the wording differs sharply
+ * between the fatal and merely invalid kinds.
  */
 export function isUneditableOperationsValue(
 	permission: LocalRolePermission | undefined,
 	allowlistSupported: boolean,
 ): boolean {
 	const kind = classifyOperationsValue(permission, allowlistSupported);
-	return kind === 'malformed' || kind === 'database-collision';
+	return kind === 'malformed' || kind === 'breaks-auth';
 }
 
 /**
