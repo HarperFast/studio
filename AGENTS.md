@@ -31,8 +31,15 @@ lines is one site however long it runs, so a five-line paragraph explaining a ra
 as a lone `// increment i`. Budgeting per line would price the considered explanation above the
 throwaway, which is backwards. Trailing comments never merge with their neighbours (two
 `x = 1; // why` lines in a row are two asides, not a paragraph). Linter/compiler/formatter
-directives (`eslint-*`, `oxlint-*`, `@ts-*`, `dprint-*`, `c8 ignore`, `#region`, …) and JSDoc/TSDoc
-are exempt; a `/*** banner ***/` is not.
+directives (`eslint-*`, `oxlint-*`, `@ts-*`, `dprint-*`, `c8 ignore`, `#region`, TS triple-slash
+`/// <reference>`) and JSDoc/TSDoc are exempt; a `/*** banner ***/` is not.
+
+**Annotated data literals are charged once, not once per row.** A trailing comment on an element of
+an array, object, tuple, type literal, or enum — `'org-', // empty body` in a table of test cases —
+describes the row it sits on rather than the logic around it, and no renaming can absorb it. The
+whole literal costs one site however many rows carry a note, so a thoroughly documented fixture
+table is cheap. Own-line prose inside a literal is _not_ covered by this and follows the normal
+paragraph rules, so the exemption can't be used to park commentary inside an array.
 
 **Read a block warning as "this scope does too much", not "these comments are bad."** That is what
 calibrating it against this repo actually showed: the densest scopes here

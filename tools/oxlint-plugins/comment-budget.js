@@ -30,15 +30,38 @@ function isDocComment(comment) {
 }
 
 /**
- * Collapse a comment list into sites. Consecutive lines of *own-line* comments are one wrapped
- * paragraph and are charged once. A trailing comment (code to its left) never merges, in either
- * direction: `a = 1; // why` followed by `b = 2; // why` is two separate asides that happen to be
- * neighbours, not one paragraph.
+ * Collapse a comment list into sites.
+ *
+ * Consecutive lines of *own-line* comments are one wrapped paragraph and are charged once. A
+ * trailing comment (code to its left) never merges with a neighbour: `a = 1; // why` followed by
+ * `b = 2; // why` is two separate asides, not one paragraph.
+ *
+ * The exception is a trailing comment annotating an element of a data literal —
+ * `'org-', // empty body` in a table of test cases. That describes the row it sits on rather than
+ * the logic around it, and no amount of renaming can absorb it, so the whole annotated literal is
+ * charged once however many rows carry a note. Without this, documenting fixture data was the most
+ * expensive thing you could write under the rule.
  */
-function toSites(comments, isOwnLine) {
+function toSites(comments, isOwnLine, annotatedLiteralFor) {
 	const sites = [];
+	const literalSites = new Map();
+
 	for (const comment of comments) {
 		const ownLine = isOwnLine(comment);
+		const literal = ownLine ? undefined : annotatedLiteralFor(comment);
+
+		if (literal) {
+			const opened = literalSites.get(literal);
+			if (opened) {
+				opened.endLine = comment.loc.end.line;
+			} else {
+				const site = { first: comment, endLine: comment.loc.end.line, ownLine };
+				literalSites.set(literal, site);
+				sites.push(site);
+			}
+			continue;
+		}
+
 		const previous = sites.at(-1);
 		if (ownLine && previous?.ownLine && comment.loc.start.line - previous.endLine <= 1) {
 			previous.endLine = comment.loc.end.line;
@@ -46,16 +69,17 @@ function toSites(comments, isOwnLine) {
 			sites.push({ first: comment, endLine: comment.loc.end.line, ownLine });
 		}
 	}
+
 	return sites;
 }
 
-/** Of the candidate blocks containing `site`, the one that starts latest is the innermost. */
-function innermostBlock(site, blocks, fallback) {
-	const [start, end] = site.first.range;
-	let innermost = fallback;
-	for (const block of blocks) {
-		if (block.range[0] <= start && end <= block.range[1] && block.range[0] >= innermost.range[0]) {
-			innermost = block;
+/** Of `nodes`, the innermost one enclosing `[start, end]` — i.e. the enclosing node starting latest. */
+function innermostEnclosing([start, end], nodes) {
+	let innermost;
+	for (const node of nodes) {
+		const encloses = node.range[0] <= start && end <= node.range[1];
+		if (encloses && (!innermost || node.range[0] >= innermost.range[0])) {
+			innermost = node;
 		}
 	}
 	return innermost;
@@ -90,6 +114,7 @@ const commentBudget = {
 		const sourceCode = context.sourceCode ?? context.getSourceCode();
 		const text = sourceCode.getText();
 		const blocks = [];
+		const dataLiterals = [];
 
 		/** True when nothing but indentation precedes the comment on its line. */
 		function isOwnLine(comment) {
@@ -99,16 +124,25 @@ const commentBudget = {
 			return true;
 		}
 
+		/** The data literal whose rows this trailing comment annotates, if it sits inside one. */
+		function annotatedLiteralFor(comment) {
+			return innermostEnclosing(comment.range, dataLiterals);
+		}
+
 		return {
 			'BlockStatement, StaticBlock, ClassBody, SwitchCase, TSModuleBlock'(node) {
 				blocks.push(node);
+			},
+
+			'ArrayExpression, ObjectExpression, TSTupleType, TSTypeLiteral, TSEnumBody'(node) {
+				dataLiterals.push(node);
 			},
 
 			'Program:exit'(program) {
 				const counted = sourceCode.getAllComments().filter((comment) =>
 					!DIRECTIVE.test(comment.value) && !(allowJSDoc && isDocComment(comment))
 				);
-				const sites = toSites(counted, isOwnLine);
+				const sites = toSites(counted, isOwnLine, annotatedLiteralFor);
 
 				// One report per scope, on the site that broke the budget, so a file that is far over
 				// gets a single actionable warning instead of a wall of them.
@@ -122,7 +156,7 @@ const commentBudget = {
 
 				const byBlock = new Map();
 				for (const site of sites) {
-					const block = innermostBlock(site, blocks, program);
+					const block = innermostEnclosing(site.first.range, blocks) ?? program;
 					if (block === program) { continue; }
 					const blockSites = byBlock.get(block);
 					if (blockSites) {

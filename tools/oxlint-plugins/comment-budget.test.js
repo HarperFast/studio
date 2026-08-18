@@ -208,6 +208,49 @@ describe('comment-budget', () => {
 		)).toEqual([]);
 	});
 
+	it('charges an annotated data literal once, not once per annotated row', () => {
+		const table = `export const CASES = [
+			'org',   // no body
+			'org-',  // empty body
+			'Org-1', // uppercase prefix is a title, not an id
+			'org 1', // space, not a hyphen
+		];`;
+
+		expect(lint(table, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 1 }]);
+	});
+
+	it('does the same for an annotated object literal', () => {
+		const table = `export const LIMITS = {
+			retries: 3,     // matches the gateway's own ceiling
+			backoffMs: 250, // half the observed p50 round trip
+		};`;
+
+		expect(lint(table, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 1 }]);
+	});
+
+	it('charges two sibling literals separately', () => {
+		const tables = `export const A = [
+			1, // one
+		];
+		export const B = [
+			2, // two
+		];`;
+
+		expect(lint(tables, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 2 }]);
+	});
+
+	it('does not exempt own-line prose that merely sits inside a literal', () => {
+		const prose = `export const CASES = [
+			// the parser accepted this until #1199
+			'org-1',
+
+			// and this one only on 4.7
+			'org-2',
+		];`;
+
+		expect(lint(prose, { maxPerFile: 0 })).toMatchObject([{ scope: 'file', count: 2 }]);
+	});
+
 	it('honours an inline disable directive for the rule itself', () => {
 		expect(lint(
 			`// oxlint-disable comment-budget/comment-budget
