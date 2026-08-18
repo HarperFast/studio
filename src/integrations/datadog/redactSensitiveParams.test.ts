@@ -171,8 +171,15 @@ describe('redactSensitiveParams', () => {
 		expect(redactSensitiveParams(url)).toBe(url);
 	});
 
-	it('redacts an address in a URL path segment', () => {
-		expect(redactSensitiveParams('https://fabric.harper.fast/#/o/c/config/users/someone%40example.com'))
+	// The apostrophe/paren cases above sit behind `?email=` and so only exercise the credential
+	// branch. These reach `ADDRESS`, which needs the same punctuation in its local part: without it
+	// `o'brien(work)@…` matches nothing and ships whole, and `o'reilly@…` redacts to `o'<redacted>`.
+	it.each([
+		'someone%40example.com',
+		"o'reilly@example.com",
+		"o'brien(work)%40example.com",
+	])('redacts an address in a URL path segment (%s)', (address) => {
+		expect(redactSensitiveParams(`https://fabric.harper.fast/#/o/c/config/users/${address}`))
 			.toBe('https://fabric.harper.fast/#/o/c/config/users/<redacted>');
 	});
 

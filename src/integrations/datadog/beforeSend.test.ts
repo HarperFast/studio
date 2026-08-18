@@ -173,8 +173,11 @@ describe('beforeSend', () => {
 
 	// The SDK swallows a throw from this hook and can't drop a view event at all, so a non-string
 	// field must not take the redaction down mid-way and ship a half-redacted event.
+	// The value has to stringify into something the pre-test matches but carry no `.replace`, or a
+	// truthiness guard passes too: `WORTH_SCANNING.test(12345)` coerces, finds no separator, and
+	// returns early without ever reaching the call that would throw.
 	it('survives a non-string view URL instead of throwing', () => {
-		const event = { type: 'view', view: { url: 12345 } } as unknown as DatadogErrorEvent;
+		const event = { type: 'view', view: { url: ['?me=a%40b.com'] } } as unknown as DatadogErrorEvent;
 		expect(() => beforeSend(event)).not.toThrow();
 		expect(beforeSend(event)).toBe(true);
 	});
@@ -240,5 +243,13 @@ describe('beforeSend', () => {
 		} as unknown as DatadogErrorEvent;
 		expect(() => beforeSend(event)).not.toThrow();
 		expect(beforeSend(event)).toBe(false);
+	});
+
+	// Pins `shouldKeepEvent`'s type checks rather than `beforeSend`'s: a non-string message sails
+	// past the leading `.test()` calls, which coerce, and reaches a `.includes` that would throw.
+	// Under `?? ''` that throw is caught here and the event is dropped instead of kept.
+	it('keeps an event whose message is not a string', () => {
+		const event = { type: 'error', error: { message: 12345 } } as unknown as DatadogErrorEvent;
+		expect(beforeSend(event)).toBe(true);
 	});
 });
