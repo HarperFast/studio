@@ -41,4 +41,10 @@ describe('useEntryActions', () => {
 
 		expect(result.current.canDeleteEntry).toBe(true);
 	});
+
+	it('refuses delete when there is no entry', () => {
+		const { result } = renderHook(() => useEntryActions(undefined));
+
+		expect(result.current.canDeleteEntry).toBe(false);
+	});
 });

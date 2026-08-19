@@ -1,6 +1,7 @@
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
 import type { FileEntry } from '@/features/instance/applications/context/fileEntry';
 import { isDirectory } from '@/features/instance/applications/context/isDirectory';
+import { isProtectedPath } from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
 import { useRenameFiles } from '@/features/instance/applications/hooks/useRenameFiles';
 import { confirmOverwrite } from '@/features/instance/applications/modals/confirmOverwrite';
@@ -74,6 +75,12 @@ export function ApplicationsSidebar() {
 	const renameFiles = useRenameFiles();
 	const onInternalDrop = useCallback(
 		async (droppedItems: TreeItem<FileEntry | DirectoryEntry | undefined>[], target: DraggingPosition) => {
+			if (droppedItems.some(item => isProtectedPath(rootEntries, String(item.index)))) {
+				toast.error('Move refused', {
+					description: 'That component is managed by Harper and keeps this instance in the load balancer.',
+				});
+				return;
+			}
 			switch (target.targetType) {
 				case 'item': {
 					if (items[target.targetItem]?.data?.package) {
@@ -110,7 +117,7 @@ export function ApplicationsSidebar() {
 					break;
 			}
 		},
-		[items, renameFiles, entryExists],
+		[entryExists, items, renameFiles, rootEntries],
 	);
 
 	return (
