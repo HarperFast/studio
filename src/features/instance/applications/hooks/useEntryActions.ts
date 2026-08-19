@@ -38,7 +38,7 @@ export function useEntryActions(entry: DirectoryEntry | FileEntry | undefined): 
 	const canRename = !!entry && !isReadOnlyPackage && canManageBrowseInstance && !isApplicationRoot;
 	const canAddEntries = !!entry && !isReadOnlyPackage && canManageBrowseInstance;
 	const canAddTable = !!entry && entry.path.endsWith('.graphql') && canManageBrowseInstance;
-	const canDeleteEntry = !isProtected && canManageBrowseInstance;
+	const canDeleteEntry = !!entry && !isProtected && canManageBrowseInstance;
 	const canDownload = isApplicationRoot;
 	const canRedeploy = isReadOnlyPackage && canManageBrowseInstance && !isProtected;
 

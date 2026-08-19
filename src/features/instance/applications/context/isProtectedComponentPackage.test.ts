@@ -1,4 +1,11 @@
-import { isProtectedComponentPackage } from '@/features/instance/applications/context/isProtectedComponentPackage';
+import {
+	importedApplications,
+	newApplication,
+} from '@/features/instance/applications/components/ApplicationsSidebar/specialItems';
+import {
+	isProtectedComponentPackage,
+	isProtectedEntry,
+} from '@/features/instance/applications/context/isProtectedComponentPackage';
 import { describe, expect, it } from 'vitest';
 
 describe('isProtectedComponentPackage', () => {
@@ -26,7 +33,17 @@ describe('isProtectedComponentPackage', () => {
 		'@acme/status-check-fabric-clone',
 		'@acme/akamai-status.dashboard',
 		'git+https://git@github.com/akamai-status/their-component.git',
+		'https://github.com/HarperFast/akamai-status/archive/v1.0.0.tar.gz',
+		'https://registry.npmjs.org/@harperdb/akamai-status/-/akamai-status-1.0.0.tgz',
+		'npm:akamai-status@1.0.0',
+		'@harperdb/akamai-status ',
 	])('does not protect %s', (packageSpec) => {
 		expect(isProtectedComponentPackage(packageSpec)).toBe(false);
+	});
+});
+
+describe('isProtectedEntry', () => {
+	it.each([importedApplications, newApplication])('protects the synthetic %s entry', (path) => {
+		expect(isProtectedEntry({ name: path, path, project: '' })).toBe(true);
 	});
 });
