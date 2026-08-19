@@ -10,10 +10,28 @@ import {
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
+import { getLocalStorage } from '@/lib/storage/getLocalStorage';
+import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { setLocalStorage } from '@/lib/storage/setLocalStorage';
 import { isCluster } from '@/lib/types/isCluster';
 import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
+
+/**
+ * Drop the API explorer's persisted server/credentials for one entity. The explorer keeps a Basic
+ * password or Bearer token per entity in localStorage; sign-out must not leave it for a later
+ * connection to reuse. (Full sign-out clears all of localStorage; this covers per-entity sign-out.)
+ */
+function forgetApiExplorerSettings(id: EntityIds): void {
+	const settings = getLocalStorage<Record<string, unknown>>(LocalStorageKeys.ApiExplorerSettings, {});
+	// A corrupted value (a primitive, or an array) must not throw and abort sign-out; hasOwnProperty
+	// (not `in`) so an entity id can't match an inherited prototype key.
+	if (settings && typeof settings === 'object' && !Array.isArray(settings) && Object.hasOwn(settings, id)) {
+		delete settings[id];
+		setLocalStorage(LocalStorageKeys.ApiExplorerSettings, settings);
+	}
+}
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -410,15 +428,17 @@ class AuthStore {
 
 	/**
 	 * Clears every locally-held credential and flag for an entity — the potentially-authenticated
-	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token —
-	 * without posting a logout to it. For when a server-side logout elsewhere already invalidated
-	 * the entity's session, e.g. signing out of an instance also signs Studio out of its cluster.
+	 * marker, stored basic-auth credentials, the Fabric Connect flag and its in-memory token, and the
+	 * API explorer's persisted server/credentials — without posting a logout to it. For when a
+	 * server-side logout elsewhere already invalidated the entity's session, e.g. signing out of an
+	 * instance also signs Studio out of its cluster.
 	 */
 	public signOutLocally(id: EntityIds): void {
 		this.flagForBasicAuth(id, null);
 		this.flagForFabricConnect(id, false);
 		this.flagKeyAsSignedOut(id);
 		this.updateConnectionIfChanged(id, false, null);
+		forgetApiExplorerSettings(id);
 	}
 
 	/**

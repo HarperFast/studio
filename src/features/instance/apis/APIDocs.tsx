@@ -3,8 +3,8 @@ import { Loading } from '@/components/Loading';
 import { Button } from '@/components/ui/button';
 import { useEntityRestURL } from '@/config/useEntityRestURL';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { plugins } from '@/features/instance/apis/plugins';
-import { requestSnippets } from '@/features/instance/apis/requestSnippets';
+import { ApiExplorer } from '@/features/instance/apis/explorer/ApiExplorer';
+import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getOpenAPIQueryOptions } from '@/integrations/api/instance/status/getOpenAPI';
@@ -13,11 +13,7 @@ import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { lazy, Suspense, useCallback } from 'react';
-
-const SwaggerUI = lazy(() => import('swagger-ui-react'));
-import 'swagger-ui-react/swagger-ui.css';
-import './swagger.css';
+import { useCallback } from 'react';
 
 export function APIDocs() {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
@@ -35,9 +31,9 @@ export function APIDocs() {
 		isLoading: isLoadingDocs,
 		error,
 	} = useQuery(getOpenAPIQueryOptions(operationsParams));
-	if (spec?.servers?.length) {
-		spec.servers[0].url = baseURL;
-	}
+	// The explorer builds its own server list from `baseURL` (Studio's computed REST URL) plus the
+	// spec's declared servers, and lets the user pick — so we no longer mutate the spec's servers as
+	// the previous Swagger integration did.
 	const http = configurationInfo?.http;
 
 	let apiInaccessibleWarning: string = '';
@@ -100,11 +96,11 @@ export function APIDocs() {
 	}
 
 	return (
-		<div className="pt-6">
+		<div className="px-4 pt-6 pb-12 md:px-8">
 			{apiInaccessibleWarning && (
 				<ErrorComponent
 					title="CORS Disabled: HTTP API Not Accessible"
-					className="mt-0 mx-4 mb-4 border-yellow text-yellow"
+					className="mt-0 mb-6 border-yellow text-yellow"
 					error={{ message: apiInaccessibleWarning }}
 					showReturnToHome={false}
 				>
@@ -119,18 +115,16 @@ export function APIDocs() {
 					</Button>
 				</ErrorComponent>
 			)}
-			<Suspense fallback={<Loading centered={true} text="Loading API documentation..." />}>
-				<SwaggerUI
-					spec={spec}
-					persistAuthorization={true}
-					withCredentials={true}
-					requestSnippetsEnabled={true}
-					defaultModelRendering="model"
-					requestSnippets={requestSnippets}
-					plugins={plugins}
-					tryItOutEnabled={true}
-				/>
-			</Suspense>
+			{
+				/* Key by entity so switching instances remounts the explorer — no draft request body or
+			    response from one instance can carry over to (or be sent against) another. */
+			}
+			<ApiExplorer
+				key={operationsParams.entityId}
+				spec={spec as OpenApiSpec | undefined}
+				baseURL={baseURL}
+				entityId={operationsParams.entityId}
+			/>
 		</div>
 	);
 }

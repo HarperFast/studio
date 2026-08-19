@@ -141,7 +141,7 @@ export default defineConfig(({ mode }) => ({
 		sourcemap: sourcemapFor(mode),
 		// Every chunk on the initial critical path is now well under 500 kB. The
 		// chunks that exceed it are all loaded on demand — the Monaco editor core
-		// (~2.7 MB, lazy <MonacoEditor>), swagger-ui (API docs route) and mermaid
+		// (~2.7 MB, lazy <MonacoEditor>) and mermaid
 		// (markdown diagrams) — and can't be split further without loading them all
 		// anyway. Monaco's language workers are larger still but run off-thread and
 		// don't count toward this limit. Raise the threshold above the largest of
@@ -159,7 +159,7 @@ export default defineConfig(({ mode }) => ({
 				// costs no extra initial bytes — it just keeps this stable code in its
 				// own cacheable chunk instead of churning with the app on every deploy.
 				//
-				// Heavy, route-specific libraries (Monaco, the AI SDK, recharts, swagger,
+				// Heavy, route-specific libraries (Monaco, the AI SDK, recharts,
 				// mermaid/viz, motion, katex, react-markdown, …) are deliberately NOT
 				// listed: they're reachable only through dynamic imports (lazy routes,
 				// the lazy <MonacoEditor> wrapper, the lazy FloatingChat), and rolldown's
