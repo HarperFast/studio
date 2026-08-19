@@ -11,7 +11,7 @@ import { setWatchedValue, useWatchedValue } from '@/lib/events/watcher';
 import { pluralize } from '@/lib/pluralize';
 import { errorHandler } from '@/react-query/queryClient';
 import { Trash } from 'lucide-react';
-import { MouseEvent, useCallback, useMemo } from 'react';
+import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
 
 export function DeleteDirectoryOrFileModal() {
@@ -20,13 +20,6 @@ export function DeleteDirectoryOrFileModal() {
 	const instanceParams = useInstanceClientIdParams();
 	const { openedEntry, reloadRootEntries, rootEntries, setFocusedItem, setSelectedItems, selectedItems } =
 		useEditorView();
-
-	// Reached by a global Cmd+Delete shortcut that checks no capability, and deletes the whole
-	// selection rather than the entry the flags were computed for — so refuse here, at the mutation.
-	const protectedSelection = useMemo(
-		() => (isModalOpen ? selectedItems.filter(item => isProtectedPath(rootEntries, String(item))) : []),
-		[isModalOpen, rootEntries, selectedItems],
-	);
 
 	const multipleSelected = selectedItems.length > 1;
 	const isDirectorySelected = isDirectory(openedEntry);
@@ -49,6 +42,9 @@ export function DeleteDirectoryOrFileModal() {
 	const handleDeleteFolderOrFile = useCallback(async () => {
 		closeModal();
 
+		// Reached by a global Cmd+Delete shortcut that checks no capability, and deletes the whole
+		// selection rather than the entry the flags were computed for — so refuse here, at the mutation.
+		const protectedSelection = selectedItems.filter(item => isProtectedPath(rootEntries, String(item)));
 		if (protectedSelection.length) {
 			toast.error(`${action} refused`, {
 				description: `${protectedSelection.join(', ')} is managed by Harper and keeps this instance in the `
@@ -106,8 +102,8 @@ export function DeleteDirectoryOrFileModal() {
 		action,
 		closeModal,
 		instanceParams,
-		protectedSelection,
 		reloadRootEntries,
+		rootEntries,
 		selectedItems,
 		setFocusedItem,
 		setSelectedItems,

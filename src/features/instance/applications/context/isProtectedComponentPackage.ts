@@ -19,7 +19,10 @@ const PROTECTED_PATTERNS = PROTECTED_COMPONENT_REPOS.map(
 );
 
 export function isProtectedComponentPackage(packageSpec: string | undefined) {
-	return Boolean(packageSpec) && PROTECTED_PATTERNS.some((pattern) => pattern.test(packageSpec!));
+	if (!packageSpec) {
+		return false;
+	}
+	return PROTECTED_PATTERNS.some((pattern) => pattern.test(packageSpec));
 }
 
 /**
@@ -45,7 +48,7 @@ export function isProtectedEntry(entry: DirectoryEntry | FileEntry | undefined) 
  * of allowing a wrong one is an instance dropping out of the load balancer.
  */
 export function isProtectedPath(rootEntries: ReadonlyArray<DirectoryEntry | FileEntry>, path: string) {
-	const project = String(path).split('/')[0];
+	const project = path.split('/')[0];
 	const root = rootEntries.find((entry) => entry.name === project);
 	return root ? isProtectedEntry(root) : true;
 }
