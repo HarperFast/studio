@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { zodRequireEmail } from '@/lib/zod/email';
+import { errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
@@ -57,9 +58,13 @@ export function ForgotPassword() {
 				navigate({ to: '/sign-in', search: { me: email } });
 			},
 			onError: (error) => {
-				// Non-CAPTCHA failures keep their existing global toast.
 				const captchaMessage = captcha.describeCaptchaError(error);
-				if (captchaMessage) { setError('root', { type: 'server', message: captchaMessage }); }
+				if (captchaMessage) {
+					setError('root', { type: 'server', message: captchaMessage });
+					return;
+				}
+				// Everything else keeps the toast it has always had.
+				errorHandler(error);
 			},
 		});
 	};

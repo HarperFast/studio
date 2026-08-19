@@ -28,5 +28,8 @@ export async function onResetPasswordSubmit(
 export function useForgotPasswordMutation() {
 	return useMutation<ForgotPasswordResponse, Error, ForgotPasswordCredential>({
 		mutationFn: (loginData) => onResetPasswordSubmit(loginData),
+		// The form renders CAPTCHA failures inline and re-raises everything else
+		// through errorHandler, so the global toast would double up here.
+		meta: { skipGlobalErrorToast: true },
 	});
 }
