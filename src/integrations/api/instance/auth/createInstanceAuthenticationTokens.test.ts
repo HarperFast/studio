@@ -51,13 +51,16 @@ describe('mintOperationTokenWithCredentials', () => {
 	it('refuses to POST credentials to a non-direct (proxy) URL, without fetching', async () => {
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
-		await expect(
-			mintOperationTokenWithCredentials({
-				operationsUrl: 'https://cm.example/HDBInstance/ins-1/operation',
-				username: 'admin',
-				password: 'pw',
-			}),
-		).rejects.toThrow('non-direct operations URL');
+		for (
+			const operationsUrl of [
+				'https://cm.example/HDBInstance/ins-1/operation',
+				'https://cm.example/hdbinstance/ins-1/operation',
+			]
+		) {
+			await expect(
+				mintOperationTokenWithCredentials({ operationsUrl, username: 'admin', password: 'pw' }),
+			).rejects.toThrow('non-direct operations URL');
+		}
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
