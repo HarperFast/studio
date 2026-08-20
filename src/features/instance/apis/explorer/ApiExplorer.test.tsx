@@ -66,6 +66,16 @@ describe('ApiExplorer', () => {
 		expect(screen.getByText('Request body')).toBeTruthy();
 	});
 
+	it('renders a resize separator wired to the persisted sidebar width', () => {
+		const { container } = renderExplorer();
+		const separator = screen.getByRole('separator', { name: 'Resize sidebar' });
+		expect(separator.getAttribute('aria-valuenow')).toBe('320');
+		expect(separator.getAttribute('aria-valuemin')).toBe('240');
+		expect(separator.getAttribute('aria-valuemax')).toBe('512'); // half of jsdom's 1024 innerWidth
+		const aside = container.querySelector('aside');
+		expect(aside?.style.getPropertyValue('--api-sidebar-width')).toBe('320px');
+	});
+
 	it('binds a path-parameter input into the built request URL', () => {
 		renderExplorer();
 		// The single POST is unambiguous; its Monaco body editor is mocked out above, so this
