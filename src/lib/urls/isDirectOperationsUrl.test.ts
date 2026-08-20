@@ -7,9 +7,11 @@ describe('isDirectOperationsUrl', () => {
 		expect(isDirectOperationsUrl('http://localhost:9925')).toBe(true);
 	});
 
-	it('rejects Fabric Connect proxy paths', () => {
+	it('rejects Fabric Connect proxy paths (case-insensitively)', () => {
 		expect(isDirectOperationsUrl('https://cm.example/HDBInstance/ins-1/operation')).toBe(false);
 		expect(isDirectOperationsUrl('https://cm.example/Cluster/clu-1/operation')).toBe(false);
+		expect(isDirectOperationsUrl('https://cm.example/hdbinstance/ins-1/operation')).toBe(false);
+		expect(isDirectOperationsUrl('https://cm.example/cluster/clu-1/operation')).toBe(false);
 	});
 
 	it('rejects empty / missing URLs', () => {
