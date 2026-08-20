@@ -1,41 +1,82 @@
 /** @vitest-environment jsdom */
-import { readEntitySettings, writeEntitySettings } from '@/features/instance/apis/explorer/settings';
-import { beforeEach, describe, expect, it } from 'vitest';
+import {
+	forgetEntitySettings,
+	readEntitySettings,
+	writeEntitySettings,
+} from '@/features/instance/apis/explorer/settings';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const KEY = 'ApiExplorerSettings';
 
-describe('explorer settings persistence', () => {
-	beforeEach(() => localStorage.clear());
-
-	it('round-trips one entity without touching others', () => {
-		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
-		writeEntitySettings('ins-b', { server: 'http://b' });
-		expect(readEntitySettings('ins-a')).toEqual({ auth: { type: 'bearer', token: 'A' } });
-		expect(readEntitySettings('ins-b')).toEqual({ server: 'http://b' });
+describe('explorer settings persistence (sessionStorage)', () => {
+	beforeEach(() => {
+		sessionStorage.clear();
+		localStorage.clear();
 	});
 
-	it('a write does not resurrect an entity another tab signed out (fresh read-merge-write)', () => {
+	it('round-trips one entity in sessionStorage without touching others or localStorage', () => {
+		writeEntitySettings('ins-a', { method: 'bearer', auth: { type: 'bearer', token: 'A' } });
+		writeEntitySettings('ins-b', { server: 'http://b' });
+		expect(readEntitySettings('ins-a')).toEqual({ method: 'bearer', auth: { type: 'bearer', token: 'A' } });
+		expect(readEntitySettings('ins-b')).toEqual({ server: 'http://b' });
+		expect(sessionStorage.getItem(KEY)).toBeTruthy();
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('forgetEntitySettings drops only the named entity', () => {
 		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'A' } });
 		writeEntitySettings('ins-b', { auth: { type: 'bearer', token: 'B' } });
-
-		// Another tab signs ins-b out: it deletes ins-b's key directly in localStorage.
-		const map = JSON.parse(localStorage.getItem(KEY)!);
-		delete map['ins-b'];
-		localStorage.setItem(KEY, JSON.stringify(map));
-
-		// This tab (which still had a stale full map in memory) edits ins-a.
-		writeEntitySettings('ins-a', { server: 'http://a' });
-
-		const after = JSON.parse(localStorage.getItem(KEY)!);
-		expect(Object.hasOwn(after, 'ins-b')).toBe(false); // B stays signed out, not resurrected
-		expect(after['ins-a']).toEqual({ auth: { type: 'bearer', token: 'A' }, server: 'http://a' });
+		forgetEntitySettings('ins-a');
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(readEntitySettings('ins-b')).toEqual({ auth: { type: 'bearer', token: 'B' } });
 	});
 
-	it('reads a corrupted (non-object) stored value as empty', () => {
-		localStorage.setItem(KEY, '5');
+	it('reads a corrupted (non-object) stored value as empty and recovers on write', () => {
+		sessionStorage.setItem(KEY, '5');
 		expect(readEntitySettings('ins-a')).toEqual({});
-		// And a subsequent write recovers to a valid map.
 		writeEntitySettings('ins-a', { server: 'http://a' });
 		expect(readEntitySettings('ins-a')).toEqual({ server: 'http://a' });
+	});
+
+	it('normalizes unknown method/auth shapes and drops non-string fields', () => {
+		sessionStorage.setItem(
+			KEY,
+			JSON.stringify({
+				'ins-a': { method: 'nonsense', auth: { type: 'weird' }, server: 5 },
+				'ins-b': { method: 'basic', auth: { type: 'basic', username: 'u', password: 2 } },
+			}),
+		);
+		expect(readEntitySettings('ins-a')).toEqual({});
+		expect(readEntitySettings('ins-b')).toEqual({
+			method: 'basic',
+			auth: { type: 'basic', username: 'u', password: '' },
+		});
+	});
+});
+
+describe('explorer settings legacy scrub', () => {
+	beforeEach(() => {
+		sessionStorage.clear();
+		localStorage.clear();
+	});
+
+	// The one-time scrub runs on a module's first read, so each case imports a fresh module instance.
+	it('drops the legacy localStorage secrets on first read (never migrating them)', async () => {
+		vi.resetModules();
+		localStorage.setItem(
+			KEY,
+			JSON.stringify({ 'ins-a': { auth: { type: 'basic', username: 'u', password: 'secret' } } }),
+		);
+		const mod = await import('@/features/instance/apis/explorer/settings');
+		expect(mod.readEntitySettings('ins-a')).toEqual({});
+		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('removes a corrupted legacy value too', async () => {
+		vi.resetModules();
+		localStorage.setItem(KEY, 'corrupt-not-json');
+		const mod = await import('@/features/instance/apis/explorer/settings');
+		mod.readEntitySettings('ins-a');
+		expect(localStorage.getItem(KEY)).toBeNull();
 	});
 });

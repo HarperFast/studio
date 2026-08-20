@@ -1,8 +1,12 @@
 /** @vitest-environment jsdom */
 import { ApiExplorer } from '@/features/instance/apis/explorer/ApiExplorer';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+function storedAuth() {
+	return JSON.parse(sessionStorage.getItem('ApiExplorerSettings')!)['ins-test'];
+}
 
 // The Try-it-out tab (not exercised here) is the only thing that mounts Monaco; mock it so importing
 // the tree never pulls the editor in, matching how the repo's other component tests handle Monaco.
@@ -18,6 +22,8 @@ const spec: OpenApiSpec = {
 			post: {
 				parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
 				requestBody: { content: { 'application/json': { schema: { type: 'object' } } } },
+				// Marks this operation as requiring auth, so the deep-link to Authorize appears.
+				security: [{ bearerAuth: [] }],
 				responses: {},
 			},
 		},
@@ -27,8 +33,21 @@ const spec: OpenApiSpec = {
 	},
 };
 
-function renderExplorer() {
-	return render(<ApiExplorer spec={spec} baseURL="http://localhost:9926" entityId="ins-test" />);
+function renderExplorer(overrides: {
+	onSessionMint?: () => Promise<string>;
+	onCredentialMint?: ((c: { username: string; password: string }) => Promise<string>) | null;
+} = {}) {
+	return render(
+		<ApiExplorer
+			spec={spec}
+			baseURL="http://localhost:9926"
+			entityId="ins-test"
+			onSessionMint={overrides.onSessionMint ?? (() => Promise.resolve('session-tok'))}
+			onCredentialMint={overrides.onCredentialMint === undefined
+				? (() => Promise.resolve('cred-tok'))
+				: overrides.onCredentialMint}
+		/>,
+	);
 }
 
 describe('ApiExplorer', () => {
@@ -37,7 +56,10 @@ describe('ApiExplorer', () => {
 		Element.prototype.hasPointerCapture = () => false;
 		Element.prototype.scrollIntoView = () => {};
 	});
-	beforeEach(() => localStorage.clear());
+	beforeEach(() => {
+		localStorage.clear();
+		sessionStorage.clear();
+	});
 	afterEach(cleanup);
 
 	it('renders the resource → path → method hierarchy and the first operation by default', () => {
@@ -48,22 +70,123 @@ describe('ApiExplorer', () => {
 		expect(screen.getByText('Responses')).toBeTruthy();
 	});
 
-	it('takes over the detail pane with Server + Authorization when Authorize is clicked', () => {
+	it('takes over the detail pane with Server + Authorization docs when Authorize is clicked', () => {
 		renderExplorer();
 		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
 		expect(screen.getByRole('heading', { name: 'Server' })).toBeTruthy();
 		expect(screen.getByRole('heading', { name: 'Authorization' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Cookie' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Bearer token' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Documentation' })).toBeTruthy();
+		expect(screen.getByRole('tab', { name: 'Try it out' })).toBeTruthy();
+		// Documentation is the default tab; the method selector lives under Try it out.
+		expect(screen.queryByRole('button', { name: 'Cookie' })).toBeNull();
 		// The operation docs are replaced, not merely appended.
 		expect(screen.queryByText('Responses')).toBeNull();
 	});
 
-	it('selecting an operation from the sidebar shows its documentation', () => {
+	it('shows the method selector and session log-in under Try it out, defaulting to Log in (locked)', () => {
 		renderExplorer();
-		// Exactly one POST in the spec, so its method button is unambiguous.
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		// Method selector (Log in is the default) plus the primary session log-in action.
+		expect(screen.getByRole('button', { name: 'Basic' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Bearer token' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Cookie' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /authorize with your current session/i })).toBeTruthy();
+		expect(screen.getByText('Not signed in — authenticated requests will be rejected.')).toBeTruthy();
+	});
+
+	it('session log-in mints a token, unlocks, and stores the token (never a password)', async () => {
+		const onSessionMint = vi.fn().mockResolvedValue('session-tok');
+		renderExplorer({ onSessionMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+
+		expect(await screen.findByText(/Authorized —/)).toBeTruthy();
+		expect(onSessionMint).toHaveBeenCalledTimes(1);
+
+		const stored = sessionStorage.getItem('ApiExplorerSettings')!;
+		expect(JSON.parse(stored)['ins-test']).toEqual({ method: 'login', auth: { type: 'bearer', token: 'session-tok' } });
+		expect(stored).not.toContain('password');
+	});
+
+	it('logs in with typed credentials via the credential fallback', async () => {
+		const onCredentialMint = vi.fn().mockResolvedValue('cred-token');
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'bob' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+
+		expect(await screen.findByText(/Authorized —/)).toBeTruthy();
+		expect(onCredentialMint).toHaveBeenCalledWith({ username: 'bob', password: 'pw' });
+		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'cred-token' });
+	});
+
+	it('discards a late session mint when the user switched methods while it was pending', async () => {
+		let resolveMint!: (token: string) => void;
+		const onSessionMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onSessionMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+		// Switch to Basic and apply a credential while the session mint is still pending.
+		fireEvent.click(screen.getByRole('button', { name: 'Basic' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+		// The stale mint resolves last — it must not overwrite the Basic credential.
+		await act(async () => {
+			resolveMint('late-session-token');
+			await Promise.resolve();
+		});
+		expect(storedAuth()).toEqual({ method: 'basic', auth: { type: 'basic', username: 'alice', password: '' } });
+	});
+
+	it('does not present a manually pasted Bearer token as a session login when Log in is selected', () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Bearer token' }));
+		fireEvent.change(screen.getByLabelText('Token'), { target: { value: 'pasted' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+		expect(screen.getByText(/Authorized —/)).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+		expect(screen.queryByText(/Authorized —/)).toBeNull();
+		expect(storedAuth()).toEqual({ method: 'login', auth: { type: 'cookie' } });
+	});
+
+	it('surfaces a log-in error without unlocking', async () => {
+		const onSessionMint = vi.fn().mockRejectedValue(new Error('proxy unauthorized'));
+		renderExplorer({ onSessionMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+
+		expect(await screen.findByText('proxy unauthorized')).toBeTruthy();
+		expect(screen.queryByText(/Authorized —/)).toBeNull();
+	});
+
+	it('hides the password fallback when no direct instance URL is available', () => {
+		renderExplorer({ onCredentialMint: null });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		expect(screen.getByRole('button', { name: /authorize with your current session/i })).toBeTruthy();
+		expect(screen.queryByText('Or use different credentials')).toBeNull();
+	});
+
+	it('an auth-required operation deep-links to the Try-it-out log-in view', () => {
+		renderExplorer();
+		// Exactly one POST in the spec, and it declares security.
 		fireEvent.click(screen.getByRole('button', { name: 'post' }));
-		expect(screen.getByText('Request body')).toBeTruthy();
+		fireEvent.click(screen.getByRole('button', { name: /auth required — authorize/i }));
+		// Landed on the Authorize panel's Try it out tab with the log-in action ready.
+		expect(screen.getByRole('button', { name: /authorize with your current session/i })).toBeTruthy();
 	});
 
 	it('renders a resize separator wired to the persisted sidebar width', () => {

@@ -5,7 +5,7 @@ import { CodeBlock } from '@/features/instance/apis/explorer/CodeBlock';
 import { MethodBadge } from '@/features/instance/apis/explorer/MethodBadge';
 import { ApiAuth } from '@/features/instance/apis/explorer/request';
 import { SchemaView } from '@/features/instance/apis/explorer/SchemaView';
-import { generateExample, jsonSchemaFromContent } from '@/features/instance/apis/explorer/spec';
+import { generateExample, jsonSchemaFromContent, requiresAuth } from '@/features/instance/apis/explorer/spec';
 import { httpStatusColorClass, STATUS_UNKNOWN_CLASS, StatusBadge } from '@/features/instance/apis/explorer/StatusBadge';
 import { TryItOut } from '@/features/instance/apis/explorer/TryItOut';
 import { FlatOperation, OpenApiSpec, Parameter, ResponseObject } from '@/features/instance/apis/explorer/types';
@@ -25,14 +25,18 @@ export function OperationDetail({
 	spec,
 	baseURL,
 	auth,
+	authorized,
+	onOpenAuthorize,
 }: {
 	op: FlatOperation;
 	spec: OpenApiSpec | undefined;
 	baseURL: string | null;
 	auth: ApiAuth;
+	authorized: boolean;
+	onOpenAuthorize: () => void;
 }) {
 	const [copyPath] = useCopyToClipboard(op.path);
-	const requiresAuth = (op.operation.security ?? spec?.security ?? []).length > 0;
+	const authRequired = requiresAuth(op.operation, spec);
 	const summary = op.operation.summary;
 	const description = op.operation.description;
 
@@ -53,10 +57,17 @@ export function OperationDetail({
 						<CopyIcon className="size-3.5" />
 					</Button>
 					{op.operation.deprecated && <Badge variant="warning">Deprecated</Badge>}
-					{requiresAuth && (
-						<Badge variant="secondary" className="gap-1">
-							<Lock className="size-3" /> Auth required
-						</Badge>
+					{authRequired && (
+						<button
+							type="button"
+							onClick={onOpenAuthorize}
+							className="border-border hover:bg-accent/60 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs transition-colors"
+						>
+							{authorized
+								? <Lock className="text-green size-3" />
+								: <Lock className="text-muted-foreground size-3" />}
+							{authorized ? 'Authorized' : 'Auth required — Authorize'}
+						</button>
 					)}
 				</div>
 				{summary && <h2 className="text-lg font-medium">{summary}</h2>}
@@ -76,7 +87,15 @@ export function OperationDetail({
 				</TabsContent>
 
 				<TabsContent value="try">
-					<TryItOut op={op} spec={spec} baseURL={baseURL} auth={auth} />
+					<TryItOut
+						op={op}
+						spec={spec}
+						baseURL={baseURL}
+						auth={auth}
+						authRequired={authRequired}
+						authorized={authorized}
+						onOpenAuthorize={onOpenAuthorize}
+					/>
 				</TabsContent>
 			</Tabs>
 		</div>

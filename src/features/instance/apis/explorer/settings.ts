@@ -1,18 +1,113 @@
-import { ApiAuth } from '@/features/instance/apis/explorer/request';
-import { getLocalStorage } from '@/lib/storage/getLocalStorage';
-import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { setLocalStorage } from '@/lib/storage/setLocalStorage';
+import { ApiAuth, AuthMethod } from '@/features/instance/apis/explorer/request';
+import { getSessionStorage } from '@/lib/storage/getSessionStorage';
+import { setSessionStorage } from '@/lib/storage/setSessionStorage';
 
-/** Per-entity server + auth selections, persisted under `LocalStorageKeys.ApiExplorerSettings`. */
+const KEY = 'ApiExplorerSettings' as const;
+
+/**
+ * Per-entity Authorize selections. `method` is the UI credential source; `auth` is the wire
+ * credential the request builder consumes. They are stored together (rather than deriving one from
+ * the other) so a logged-in `bearer` stays distinguishable from a manually pasted `bearer`. Persisted
+ * per browser tab in sessionStorage — cleared when the tab closes — under a single map key.
+ */
 export interface ExplorerEntitySettings {
+	method?: AuthMethod;
 	auth?: ApiAuth;
 	server?: string;
 }
 
-/** The whole persisted map, guarded so a corrupted (non-object) value reads as empty rather than throwing. */
+function normalizeMethod(value: unknown): AuthMethod | undefined {
+	return value === 'login' || value === 'basic' || value === 'bearer' || value === 'cookie' ? value : undefined;
+}
+
+/** Coerce an untrusted stored `auth` into a known `ApiAuth` shape, dropping unknown types/fields. */
+function normalizeAuth(value: unknown): ApiAuth | undefined {
+	if (!value || typeof value !== 'object') {
+		return undefined;
+	}
+	const v = value as Record<string, unknown>;
+	if (v.type === 'cookie') {
+		return { type: 'cookie' };
+	}
+	if (v.type === 'basic') {
+		return {
+			type: 'basic',
+			username: typeof v.username === 'string' ? v.username : '',
+			password: typeof v.password === 'string' ? v.password : '',
+		};
+	}
+	if (v.type === 'bearer') {
+		return { type: 'bearer', token: typeof v.token === 'string' ? v.token : '' };
+	}
+	return undefined;
+}
+
+function normalizeEntity(value: unknown): ExplorerEntitySettings {
+	if (!value || typeof value !== 'object') {
+		return {};
+	}
+	const v = value as Record<string, unknown>;
+	const out: ExplorerEntitySettings = {};
+	const method = normalizeMethod(v.method);
+	if (method) {
+		out.method = method;
+	}
+	const auth = normalizeAuth(v.auth);
+	if (auth) {
+		out.auth = auth;
+	}
+	if (typeof v.server === 'string') {
+		out.server = v.server;
+	}
+	return out;
+}
+
+let legacyScrubbed = false;
+
+/**
+ * One-time removal of the pre-sessionStorage `localStorage` map. That map persisted Basic passwords
+ * and Bearer tokens in plaintext across sessions; simply switching this module to sessionStorage would
+ * leave the old value readable indefinitely. We drop it wholesale (no secret is migrated) and always
+ * attempt removal even if reading threw. Bounded limitation: a concurrently-open pre-upgrade tab can
+ * write the key back — this runs on every explorer init, but not continuously.
+ */
+function scrubLegacySettings(): void {
+	if (legacyScrubbed) {
+		return;
+	}
+	legacyScrubbed = true;
+	try {
+		localStorage.removeItem(KEY);
+	} catch {
+		// Storage disabled by policy — nothing to scrub, nothing to fail.
+	}
+}
+
+/** The whole persisted map, guarded so disabled/corrupted storage reads as empty rather than throwing. */
 function readMap(): Record<string, ExplorerEntitySettings> {
-	const map = getLocalStorage<Record<string, ExplorerEntitySettings>>(LocalStorageKeys.ApiExplorerSettings, {});
-	return map && typeof map === 'object' && !Array.isArray(map) ? map : {};
+	scrubLegacySettings();
+	let raw: Record<string, unknown> = {};
+	try {
+		const stored = getSessionStorage<unknown, typeof KEY>(KEY, {});
+		if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+			raw = stored as Record<string, unknown>;
+		}
+	} catch {
+		return {};
+	}
+	const map: Record<string, ExplorerEntitySettings> = {};
+	for (const [id, value] of Object.entries(raw)) {
+		map[id] = normalizeEntity(value);
+	}
+	return map;
+}
+
+function writeMap(map: Record<string, ExplorerEntitySettings>): void {
+	try {
+		setSessionStorage<Record<string, ExplorerEntitySettings>, typeof KEY>(KEY, map);
+	} catch {
+		// Storage disabled/full — the in-memory state still drives the current session's requests.
+	}
 }
 
 export function readEntitySettings(entityId: string): ExplorerEntitySettings {
@@ -20,14 +115,18 @@ export function readEntitySettings(entityId: string): ExplorerEntitySettings {
 	return Object.hasOwn(map, entityId) ? map[entityId] ?? {} : {};
 }
 
-/**
- * Persist one entity's settings with a fresh read-merge-write against localStorage — never a stale
- * in-memory copy of the whole map. Another tab may have signed an entity out (deleting its key) since
- * this tab loaded; writing back a stale full map would resurrect that entity's credentials and break
- * the sign-out guarantee. Merging into a fresh read touches only this entity.
- */
+/** Persist one entity's settings with a fresh read-merge-write, touching only that entity's slot. */
 export function writeEntitySettings(entityId: string, patch: Partial<ExplorerEntitySettings>): void {
 	const map = readMap();
 	map[entityId] = { ...map[entityId], ...patch };
-	setLocalStorage(LocalStorageKeys.ApiExplorerSettings, map);
+	writeMap(map);
+}
+
+/** Drop one entity's persisted settings — used on per-entity sign-out so credentials aren't reusable. */
+export function forgetEntitySettings(entityId: string): void {
+	const map = readMap();
+	if (Object.hasOwn(map, entityId)) {
+		delete map[entityId];
+		writeMap(map);
+	}
 }

@@ -1,4 +1,5 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 import type { AxiosRequestConfig } from 'axios';
 
 export interface InstanceAuthenticationTokens {
@@ -27,6 +28,44 @@ export async function createInstanceAuthenticationTokens(
 		throw new Error('Fabric Connect did not return an operation token');
 	}
 	return { operationToken, refreshToken };
+}
+
+/**
+ * Mints an operation token from an explicit username/password, sent DIRECTLY to a Harper instance's
+ * operations endpoint with `fetch` — never through the Fabric Connect proxy. The direct-URL check is
+ * enforced here, not just at the call site, so no future caller can regress the boundary and POST
+ * credentials to a proxy path. `credentials` is omitted so no ambient session cookie rides along, and
+ * neither the body nor the token is logged.
+ */
+export async function mintOperationTokenWithCredentials(
+	{ operationsUrl, username, password }: { operationsUrl: string; username: string; password: string },
+): Promise<string> {
+	if (!isDirectOperationsUrl(operationsUrl)) {
+		throw new Error('Refusing to send credentials to a non-direct operations URL.');
+	}
+	const response = await fetch(operationsUrl, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'omit',
+		// Fail on a redirect rather than replaying the credential-bearing POST to an unchecked origin.
+		redirect: 'error',
+		body: JSON.stringify({ operation: 'create_authentication_tokens', username, password }),
+	});
+	const data = (await response.json().catch(() => undefined)) as
+		| { operation_token?: string; error?: string; message?: string }
+		| undefined;
+	if (!response.ok) {
+		throw new Error(
+			data?.error || data?.message
+				|| (response.status === 401 || response.status === 403
+					? 'Those credentials were not accepted by this instance.'
+					: `The instance returned ${response.status} ${response.statusText}`.trim()),
+		);
+	}
+	if (!data?.operation_token) {
+		throw new Error(data?.error || data?.message || 'The instance did not return an operation token.');
+	}
+	return data.operation_token;
 }
 
 /**

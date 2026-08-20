@@ -1,6 +1,7 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
+import { forgetEntitySettings } from '@/features/instance/apis/explorer/settings';
 import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
 import {
@@ -10,28 +11,11 @@ import {
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { sleep } from '@/lib/sleep';
-import { getLocalStorage } from '@/lib/storage/getLocalStorage';
-import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { setLocalStorage } from '@/lib/storage/setLocalStorage';
 import { isCluster } from '@/lib/types/isCluster';
 import { isInstance } from '@/lib/types/isInstance';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
-
-/**
- * Drop the API explorer's persisted server/credentials for one entity. The explorer keeps a Basic
- * password or Bearer token per entity in localStorage; sign-out must not leave it for a later
- * connection to reuse. (Full sign-out clears all of localStorage; this covers per-entity sign-out.)
- */
-function forgetApiExplorerSettings(id: EntityIds): void {
-	const settings = getLocalStorage<Record<string, unknown>>(LocalStorageKeys.ApiExplorerSettings, {});
-	// A corrupted value (a primitive, or an array) must not throw and abort sign-out; hasOwnProperty
-	// (not `in`) so an entity id can't match an inherited prototype key.
-	if (settings && typeof settings === 'object' && !Array.isArray(settings) && Object.hasOwn(settings, id)) {
-		delete settings[id];
-		setLocalStorage(LocalStorageKeys.ApiExplorerSettings, settings);
-	}
-}
+import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 
 type AuthStoreListenerCleanup = () => void;
 
@@ -60,13 +44,6 @@ type OverallAppSignInType = typeof OverallAppSignIn;
 
 export type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
 type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
-
-// The Fabric Connect proxy routes through these central-manager paths (see getInstanceClient). A
-// direct operations URL must never be one of them, or we'd send the instance Bearer JWT to the proxy
-// origin instead of the instance.
-function isDirectOperationsUrl(url: string | null | undefined): url is string {
-	return !!url && !url.includes('/HDBInstance/') && !url.includes('/Cluster/');
-}
 
 class AuthStore {
 	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
@@ -438,7 +415,7 @@ class AuthStore {
 		this.flagForFabricConnect(id, false);
 		this.flagKeyAsSignedOut(id);
 		this.updateConnectionIfChanged(id, false, null);
-		forgetApiExplorerSettings(id);
+		forgetEntitySettings(id);
 	}
 
 	/**

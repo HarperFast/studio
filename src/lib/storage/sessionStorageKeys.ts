@@ -1,4 +1,5 @@
 export interface SessionStorageKeys {
+	'ApiExplorerSettings': true;
 	'ApplicationChat': true;
 	'ApplicationChatOpen': true;
 	'ApplicationChatPosition': true;

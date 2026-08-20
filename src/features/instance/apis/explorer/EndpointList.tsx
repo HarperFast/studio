@@ -1,15 +1,16 @@
 import { Input } from '@/components/ui/input';
 import { MethodBadge } from '@/features/instance/apis/explorer/MethodBadge';
-import { ApiAuth } from '@/features/instance/apis/explorer/request';
+import { AuthMethod } from '@/features/instance/apis/explorer/request';
 import { EndpointResourceNode } from '@/features/instance/apis/explorer/types';
 import { cn } from '@/lib/cn';
 import { ChevronDown, ChevronRight, Lock, LockOpen, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-const AUTH_TYPE_LABEL: Record<ApiAuth['type'], string> = {
-	cookie: 'Cookie',
+const AUTH_METHOD_LABEL: Record<AuthMethod, string> = {
+	login: 'Log in',
 	basic: 'Basic',
 	bearer: 'Bearer',
+	cookie: 'Cookie',
 };
 
 /**
@@ -28,7 +29,8 @@ export function EndpointList({
 	onSelect,
 	filter,
 	onFilterChange,
-	authType,
+	method,
+	authorized,
 	settingsActive,
 	onOpenSettings,
 }: {
@@ -40,7 +42,8 @@ export function EndpointList({
 	onSelect: (id: string) => void;
 	filter: string;
 	onFilterChange: (value: string) => void;
-	authType: ApiAuth['type'];
+	method: AuthMethod;
+	authorized: boolean;
 	settingsActive: boolean;
 	onOpenSettings: () => void;
 }) {
@@ -56,8 +59,6 @@ export function EndpointList({
 			}
 			return next;
 		});
-
-	const usingHeaderAuth = authType === 'basic' || authType === 'bearer';
 
 	return (
 		// On lg the parent (`ApiExplorer`) is a fixed-height app-shell, so the sidebar fills it
@@ -75,11 +76,11 @@ export function EndpointList({
 						: 'border-border hover:bg-accent/60',
 				)}
 			>
-				{usingHeaderAuth
+				{authorized
 					? <Lock className="text-green size-4 shrink-0" />
 					: <LockOpen className="text-muted-foreground size-4 shrink-0" />}
 				<span className="flex-1 font-medium">Authorize</span>
-				<span className="text-muted-foreground text-xs">{AUTH_TYPE_LABEL[authType]}</span>
+				<span className="text-muted-foreground text-xs">{AUTH_METHOD_LABEL[method]}</span>
 			</button>
 
 			<div className="relative shrink-0">

@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { EndpointList } from '@/features/instance/apis/explorer/EndpointList';
 import { OperationDetail } from '@/features/instance/apis/explorer/OperationDetail';
-import { ApiAuth } from '@/features/instance/apis/explorer/request';
-import { readEntitySettings, writeEntitySettings } from '@/features/instance/apis/explorer/settings';
-import { SettingsPanel } from '@/features/instance/apis/explorer/SettingsPanel';
+import { ApiAuth, AuthMethod, isAuthorized } from '@/features/instance/apis/explorer/request';
+import {
+	ExplorerEntitySettings,
+	readEntitySettings,
+	writeEntitySettings,
+} from '@/features/instance/apis/explorer/settings';
+import { LoginController, SettingsPanel } from '@/features/instance/apis/explorer/SettingsPanel';
 import {
 	buildEndpointTree,
 	buildServerOptions,
@@ -18,43 +22,146 @@ import {
 } from '@/features/instance/apis/explorer/useResizableSidebar';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/cn';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
- * The custom Harper API explorer: a hierarchical, searchable list of the spec's operations alongside
- * a detail pane. The sidebar's "Authorize" item takes over the detail pane with Server + Auth
- * settings; selecting an endpoint shows its documentation and an interactive "Try it out" runner.
- * Built entirely from the in-house design system — this replaces the previous Swagger UI embed.
- *
- * The CORS warning/enable flow that wraps this component lives in the parent (`APIDocs`).
+ * The custom Harper API explorer: a searchable operation list beside a detail pane, with an
+ * "Authorize" view for server + auth. The token-minting callbacks come from the parent (`APIDocs`) so
+ * the auth-client coupling stays there and this tree stays presentational.
  */
 export function ApiExplorer(
-	{ spec, baseURL, entityId }: { spec: OpenApiSpec | undefined; baseURL: string | null; entityId: string },
+	{ spec, baseURL, entityId, onSessionMint, onCredentialMint }: {
+		spec: OpenApiSpec | undefined;
+		baseURL: string | null;
+		entityId: string;
+		onSessionMint: () => Promise<string>;
+		// Null when no direct instance URL is provable, which withholds the password fallback.
+		onCredentialMint: ((credentials: { username: string; password: string }) => Promise<string>) | null;
+	},
 ) {
 	const allOperations = useMemo(() => flattenOperations(spec), [spec]);
 	const serverOptions = useMemo(() => buildServerOptions(spec, baseURL), [spec, baseURL]);
 	const [filter, setFilter] = useState('');
 	const [view, setView] = useState<'operation' | 'settings'>('operation');
+	const [authorizeTab, setAuthorizeTab] = useState<'docs' | 'try'>('docs');
 	const [selectedId, setSelectedId] = useState<string | undefined>(() => allOperations[0]?.id);
 
-	// Server + auth selections persist per entity, so credentials for one instance never apply to
-	// another. Writes go straight to localStorage via a fresh read-merge-write (see settings.ts) so a
-	// concurrent sign-out in another tab isn't clobbered; local state mirrors it for rendering and
-	// refreshes on the cross-tab `storage` event. Ephemeral navigation state (filter, selected
-	// endpoint, which pane is open) is deliberately not persisted.
+	// Opening Authorize from the sidebar lands on Documentation; a deep-link from an auth-required
+	// operation lands on the actionable "Try it out" log-in view.
+	const openAuthorize = (targetTab: 'docs' | 'try') => {
+		setAuthorizeTab(targetTab);
+		setView('settings');
+	};
+
+	// Server + auth selections persist per entity in sessionStorage (this browser tab only), so
+	// credentials never cross entities and are cleared when the tab closes. Ephemeral navigation state
+	// (filter, selected endpoint, which pane is open) is deliberately not persisted.
 	const [entitySettings, setEntitySettings] = useState(() => readEntitySettings(entityId));
-	useEffect(() => {
-		const refresh = () => setEntitySettings(readEntitySettings(entityId));
-		window.addEventListener('storage', refresh);
-		return () => window.removeEventListener('storage', refresh);
-	}, [entityId]);
-	const updateEntitySettings = (patch: { auth?: ApiAuth; server?: string }) => {
+	const updateEntitySettings = (patch: Partial<ExplorerEntitySettings>) => {
 		writeEntitySettings(entityId, patch);
 		setEntitySettings(prev => ({ ...prev, ...patch }));
 	};
 
-	const auth = entitySettings.auth ?? { type: 'cookie' };
-	const setAuth = (next: ApiAuth) => updateEntitySettings({ auth: next });
+	const method: AuthMethod = entitySettings.method ?? 'login';
+	const auth: ApiAuth = entitySettings.auth ?? { type: 'cookie' };
+	const authorized = isAuthorized(auth);
+
+	// Mint race guard: each mint captures an attempt id; only the latest, on a still-mounted panel,
+	// may apply its token. Clearing authorization or unmounting bumps the id so an in-flight mint that
+	// resolves afterwards can't silently re-authorize.
+	const attemptRef = useRef(0);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			attemptRef.current++;
+		};
+	}, []);
+	const [loginStatus, setLoginStatus] = useState<'idle' | 'pending' | 'error'>('idle');
+	const [loginError, setLoginError] = useState<string | null>(null);
+
+	const runMint = async (mint: () => Promise<string>) => {
+		const attempt = ++attemptRef.current;
+		setLoginStatus('pending');
+		setLoginError(null);
+		try {
+			const token = await mint();
+			if (!mountedRef.current || attempt !== attemptRef.current) {
+				return;
+			}
+			if (typeof token !== 'string' || token === '') {
+				setLoginError('The instance did not return a usable token.');
+				setLoginStatus('error');
+				return;
+			}
+			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token } });
+			setLoginStatus('idle');
+		} catch (error) {
+			if (!mountedRef.current || attempt !== attemptRef.current) {
+				return;
+			}
+			setLoginError(error instanceof Error ? error.message : 'Log in failed.');
+			setLoginStatus('error');
+		}
+	};
+
+	const login: LoginController = {
+		status: loginStatus,
+		error: loginError,
+		runSession: () => runMint(onSessionMint),
+		runCredentials: onCredentialMint ? credentials => runMint(() => onCredentialMint(credentials)) : null,
+	};
+
+	// Any explicit auth change invalidates a mint that's still in flight, so a slow session mint can't
+	// resolve later and overwrite the credential the user just chose.
+	const selectMethod = (next: AuthMethod) => {
+		attemptRef.current++;
+		if (next === 'cookie') {
+			updateEntitySettings({ method: 'cookie', auth: { type: 'cookie' } });
+		} else if (next === 'basic') {
+			updateEntitySettings({
+				method: 'basic',
+				auth: auth.type === 'basic' ? auth : { type: 'basic', username: '', password: '' },
+			});
+		} else if (next === 'bearer') {
+			updateEntitySettings({
+				method: 'bearer',
+				auth: auth.type === 'bearer' ? auth : { type: 'bearer', token: '' },
+			});
+		} else {
+			// A bearer from the Bearer tab is not a login credential — only keep it when re-selecting Login
+			// while already logged in; otherwise Login starts logged-out.
+			updateEntitySettings({
+				method: 'login',
+				auth: method === 'login' && auth.type === 'bearer' ? auth : { type: 'cookie' },
+			});
+		}
+		setLoginStatus('idle');
+		setLoginError(null);
+	};
+
+	const applyBasic = (username: string, password: string) => {
+		attemptRef.current++;
+		updateEntitySettings({ method: 'basic', auth: { type: 'basic', username, password } });
+	};
+	const applyBearer = (token: string) => {
+		attemptRef.current++;
+		updateEntitySettings({ method: 'bearer', auth: { type: 'bearer', token } });
+	};
+	const clearAuth = () => {
+		attemptRef.current++;
+		setLoginStatus('idle');
+		setLoginError(null);
+		// Keep the user on their chosen method; just drop the credential it carries.
+		const cleared: ApiAuth = method === 'basic'
+			? { type: 'basic', username: '', password: '' }
+			: method === 'bearer'
+			? { type: 'bearer', token: '' }
+			: { type: 'cookie' };
+		updateEntitySettings({ auth: cleared });
+	};
+
 	const setSelectedServer = (url: string) => updateEntitySettings({ server: url });
 
 	const activeServer = serverOptions.find(s => s.url === entitySettings.server)?.url
@@ -115,9 +222,10 @@ export function ApiExplorer(
 								onSelect={selectOperation}
 								filter={filter}
 								onFilterChange={setFilter}
-								authType={auth.type}
+								method={method}
+								authorized={authorized}
 								settingsActive={view === 'settings'}
-								onOpenSettings={() => setView('settings')}
+								onOpenSettings={() => openAuthorize('docs')}
 							/>
 							{
 								/* Drag (or focus + Arrow keys) to resize the sidebar — lg+ only; below that it stacks
@@ -152,8 +260,16 @@ export function ApiExplorer(
 								? (
 									<SettingsPanel
 										spec={spec}
+										method={method}
 										auth={auth}
-										onAuthChange={setAuth}
+										authorized={authorized}
+										tab={authorizeTab}
+										onTabChange={setAuthorizeTab}
+										onSelectMethod={selectMethod}
+										onApplyBasic={applyBasic}
+										onApplyBearer={applyBearer}
+										onClearAuth={clearAuth}
+										login={login}
 										serverOptions={serverOptions}
 										activeServer={activeServer ?? undefined}
 										onServerChange={setSelectedServer}
@@ -169,6 +285,8 @@ export function ApiExplorer(
 										spec={spec}
 										baseURL={activeServer ?? null}
 										auth={auth}
+										authorized={authorized}
+										onOpenAuthorize={() => openAuthorize('try')}
 									/>
 								)
 								: <p className="text-muted-foreground text-sm">Select an endpoint to see its documentation.</p>}

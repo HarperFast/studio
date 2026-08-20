@@ -4,6 +4,7 @@ import {
 	buildRequest,
 	executeRequest,
 	formatResponseBody,
+	isAuthorized,
 	joinUrl,
 	MAX_DISPLAY_BODY_CHARS,
 	methodHasBody,
@@ -119,6 +120,19 @@ describe('buildRequest', () => {
 		}, noAuth);
 		expect(req.headers['X-Trace']).toBe('abc');
 		expect(req.headers['X-Blank']).toBeUndefined();
+	});
+});
+
+describe('isAuthorized', () => {
+	it('is true only for a Basic username or a non-empty Bearer token', () => {
+		expect(isAuthorized({ type: 'basic', username: 'u', password: 'p' })).toBe(true);
+		expect(isAuthorized({ type: 'bearer', token: 'tok' })).toBe(true);
+	});
+
+	it('is false for cookie and for empty explicit credentials', () => {
+		expect(isAuthorized({ type: 'cookie' })).toBe(false);
+		expect(isAuthorized({ type: 'basic', username: '', password: '' })).toBe(false);
+		expect(isAuthorized({ type: 'bearer', token: '' })).toBe(false);
 	});
 });
 
