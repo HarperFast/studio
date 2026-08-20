@@ -11,8 +11,14 @@ import {
 	operationMatchesFilter,
 } from '@/features/instance/apis/explorer/spec';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
+import {
+	maxSidebarWidth,
+	MIN_SIDEBAR_WIDTH,
+	useResizableSidebar,
+} from '@/features/instance/apis/explorer/useResizableSidebar';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
-import { useEffect, useMemo, useState } from 'react';
+import { cn } from '@/lib/cn';
+import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 
 /**
  * The custom Harper API explorer: a hierarchical, searchable list of the spec's operations alongside
@@ -56,6 +62,10 @@ export function ApiExplorer(
 		?? baseURL;
 	const [copyServer] = useCopyToClipboard(activeServer ?? '');
 
+	// Width drives a CSS variable applied only at lg+; below that the sidebar stacks full-width.
+	const { width: sidebarWidth, isResizing, startResizing, handleKeyDown } = useResizableSidebar();
+	const sidebarWidthVar = { '--api-sidebar-width': `${sidebarWidth}px` } as CSSProperties;
+
 	const filteredOperations = useMemo(
 		() => allOperations.filter(op => operationMatchesFilter(op, filter)),
 		[allOperations, filter],
@@ -90,7 +100,12 @@ export function ApiExplorer(
 				)
 				: (
 					<div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
-						<aside className="w-full shrink-0 lg:h-full lg:min-h-0 lg:w-80">
+						<aside
+							style={sidebarWidthVar}
+							// overflow-y-clip (not -hidden) so a broken min-h-0 chain can't paint the tree over the
+							// detail pane, while the resize handle still extends horizontally into the gap.
+							className="relative w-full shrink-0 overflow-y-clip lg:h-full lg:min-h-0 lg:w-[var(--api-sidebar-width)]"
+						>
 							<EndpointList
 								tree={filteredTree}
 								totalCount={allOperations.length}
@@ -104,9 +119,35 @@ export function ApiExplorer(
 								settingsActive={view === 'settings'}
 								onOpenSettings={() => setView('settings')}
 							/>
+							{
+								/* Drag (or focus + Arrow keys) to resize the sidebar — lg+ only; below that it stacks
+								   full-width. The grab zone straddles the aside's right edge into the inter-pane gap so
+								   it doesn't fight the tree's scrollbar; only the thin centered line shows (on
+								   hover / drag / focus). */
+							}
+							<div
+								role="separator"
+								tabIndex={0}
+								aria-orientation="vertical"
+								aria-label="Resize sidebar"
+								aria-valuenow={sidebarWidth}
+								aria-valuemin={MIN_SIDEBAR_WIDTH}
+								aria-valuemax={maxSidebarWidth(window.innerWidth)}
+								onMouseDown={startResizing}
+								onKeyDown={handleKeyDown}
+								className="group absolute top-0 right-0 bottom-0 z-40 hidden w-4 translate-x-1/2 cursor-col-resize outline-none lg:block"
+							>
+								<div
+									className={cn(
+										'absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 transition-colors',
+										'group-hover:bg-violet-400/60 dark:group-hover:bg-violet-500/60 group-focus-visible:bg-violet-500/80',
+										isResizing && 'bg-violet-400/60 dark:bg-violet-500/60',
+									)}
+								/>
+							</div>
 						</aside>
 
-						<main className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
+						<main className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pb-6">
 							{view === 'settings'
 								? (
 									<SettingsPanel
