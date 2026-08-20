@@ -10,11 +10,12 @@ import {
 	operationMatchesFilter,
 	pathParametersFor,
 	refName,
+	requiresAuth,
 	resolveRef,
 	resourceOf,
 	schemaTypeLabel,
 } from '@/features/instance/apis/explorer/spec';
-import { JsonSchema, OpenApiSpec } from '@/features/instance/apis/explorer/types';
+import { JsonSchema, OpenApiSpec, Operation } from '@/features/instance/apis/explorer/types';
 import { describe, expect, it } from 'vitest';
 
 const spec: OpenApiSpec = {
@@ -368,5 +369,37 @@ describe('buildServerOptions', () => {
 
 	it('falls back to spec servers when there is no computed URL', () => {
 		expect(buildServerOptions(spec, null)).toEqual([{ url: 'http://localhost:9926/', label: 'REST API' }]);
+	});
+});
+
+describe('requiresAuth', () => {
+	const op = (security?: unknown): Operation => ({ security: security as Operation['security'] });
+
+	it('is false when no security is declared at operation or spec level', () => {
+		expect(requiresAuth({}, undefined)).toBe(false);
+		expect(requiresAuth({}, { security: [] })).toBe(false);
+	});
+
+	it('is true when every alternative is a non-empty requirement object', () => {
+		expect(requiresAuth(op([{ bearerAuth: [] }]), undefined)).toBe(true);
+		expect(requiresAuth(op([{ basicAuth: [] }, { bearerAuth: [] }]), undefined)).toBe(true);
+	});
+
+	it('is false when an empty-object alternative permits anonymous access', () => {
+		expect(requiresAuth(op([{}]), undefined)).toBe(false);
+		expect(requiresAuth(op([{}, { bearerAuth: [] }]), undefined)).toBe(false);
+	});
+
+	it('treats an empty operation-level array as an explicit override of spec security', () => {
+		expect(requiresAuth(op([]), { security: [{ bearerAuth: [] }] })).toBe(false);
+	});
+
+	it('inherits spec-level security when the operation declares none', () => {
+		expect(requiresAuth({}, { security: [{ bearerAuth: [] }] })).toBe(true);
+	});
+
+	it('tolerates malformed entries (null / non-object) as not requiring auth', () => {
+		expect(requiresAuth(op([null]), undefined)).toBe(false);
+		expect(requiresAuth(op('nope'), undefined)).toBe(false);
 	});
 });

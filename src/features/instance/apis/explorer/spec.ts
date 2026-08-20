@@ -4,6 +4,7 @@ import {
 	HTTP_METHODS,
 	JsonSchema,
 	OpenApiSpec,
+	Operation,
 	Parameter,
 	PathItem,
 } from '@/features/instance/apis/explorer/types';
@@ -14,6 +15,33 @@ const DEFAULT_TAG = 'default';
 export function resourceOf(path: string): string {
 	const segment = path.split('/').find(Boolean);
 	return segment ?? '/';
+}
+
+/**
+ * Whether an operation actually requires authentication. An OpenAPI security requirement is an array
+ * of alternatives (OR): an empty object `{}` in it means "unauthenticated access is also allowed", and
+ * an empty array `[]` at the operation level explicitly overrides a secured document root. So auth is
+ * required only when every listed alternative is a non-empty requirement object. The spec is fetched
+ * untyped, so a malformed entry (`null`, non-object) is treated as not requiring auth rather than
+ * throwing.
+ */
+export function requiresAuth(operation: Operation, spec: OpenApiSpec | undefined): boolean {
+	const security = operation.security ?? spec?.security;
+	if (!Array.isArray(security) || security.length === 0) {
+		return false;
+	}
+	return security.every(hasSecurityRequirement);
+}
+
+/** A single security alternative that actually demands a credential: a non-empty requirement object. */
+function hasSecurityRequirement(requirement: unknown): boolean {
+	if (!requirement || typeof requirement !== 'object' || Array.isArray(requirement)) {
+		return false;
+	}
+	for (const _ in requirement) {
+		return true;
+	}
+	return false;
 }
 
 /** Flatten `spec.paths` into a flat, document-ordered list of operations. */

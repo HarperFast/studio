@@ -11,6 +11,25 @@ export type ApiAuth =
 	| { type: 'basic'; username: string; password: string }
 	| { type: 'bearer'; token: string };
 
+/**
+ * The credential-acquisition method the user picked in the Authorize panel. Distinct from the wire
+ * `ApiAuth` so "Log in" can be a real, representable default and a logged-in state stays
+ * distinguishable from a manually pasted Bearer token: `login` resolves to a `bearer` credential once
+ * a token has been minted, but is presented and defaulted to on its own.
+ */
+export type AuthMethod = 'login' | 'basic' | 'bearer' | 'cookie';
+
+/**
+ * Whether the auth carries an explicit credential the request will actually send — a Basic username
+ * or a Bearer token. `cookie` (and an empty Basic/Bearer) is not "authorized" in this sense: it only
+ * relies on an ambient session cookie that may not be sent cross-site. Branch-only, allocation-free:
+ * it runs on the sidebar's lock indicator during ordinary renders.
+ */
+export function isAuthorized(auth: ApiAuth): boolean {
+	return (auth.type === 'basic' && typeof auth.username === 'string' && auth.username !== '')
+		|| (auth.type === 'bearer' && typeof auth.token === 'string' && auth.token !== '');
+}
+
 export interface RequestInputs {
 	pathParams: Record<string, string>;
 	queryParams: Record<string, string>;

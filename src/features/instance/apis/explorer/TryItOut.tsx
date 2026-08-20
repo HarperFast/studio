@@ -42,11 +42,17 @@ export function TryItOut({
 	spec,
 	baseURL,
 	auth,
+	authRequired,
+	authorized,
+	onOpenAuthorize,
 }: {
 	op: FlatOperation;
 	spec: OpenApiSpec | undefined;
 	baseURL: string | null;
 	auth: ApiAuth;
+	authRequired: boolean;
+	authorized: boolean;
+	onOpenAuthorize: () => void;
 }) {
 	const monacoTheme = useMonacoTheme();
 
@@ -90,6 +96,18 @@ export function TryItOut({
 
 	return (
 		<div className="flex flex-col gap-5">
+			{authRequired && !authorized && (
+				<div className="border-border bg-muted/40 text-muted-foreground flex flex-wrap items-center gap-1.5 rounded-md border px-3 py-2 text-xs">
+					<span>This endpoint requires authorization.</span>
+					<button
+						type="button"
+						onClick={onOpenAuthorize}
+						className="text-foreground font-medium underline underline-offset-2"
+					>
+						Authorize →
+					</button>
+				</div>
+			)}
 			{pathParamDefs.length > 0 && (
 				<ParamInputs
 					title="Path parameters"

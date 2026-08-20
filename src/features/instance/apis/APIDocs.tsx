@@ -6,14 +6,19 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { ApiExplorer } from '@/features/instance/apis/explorer/ApiExplorer';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
 import { useRollingConfigUpdate } from '@/hooks/useRollingConfigUpdate';
+import {
+	createInstanceAuthenticationTokens,
+	mintOperationTokenWithCredentials,
+} from '@/integrations/api/instance/auth/createInstanceAuthenticationTokens';
 import { getConfigurationQueryOptions } from '@/integrations/api/instance/status/getConfiguration';
 import { getOpenAPIQueryOptions } from '@/integrations/api/instance/status/getOpenAPI';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
+import { isDirectOperationsUrl } from '@/lib/urls/isDirectOperationsUrl';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 export function APIDocs() {
 	const { instanceId, clusterId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
@@ -31,6 +36,25 @@ export function APIDocs() {
 		isLoading: isLoadingDocs,
 		error,
 	} = useQuery(getOpenAPIQueryOptions(operationsParams));
+
+	// The credential (username/password) log-in mints directly against the operations client's own
+	// base URL — the address Studio already talks to this instance on. When that address is the Fabric
+	// Connect proxy path, it fails the direct check and the credential fallback is withheld so typed
+	// credentials never reach central manager; session mint (below) still works there.
+	const operationsBaseURL = operationsParams.instanceClient.defaults.baseURL;
+	const onSessionMint = useCallback(
+		async () =>
+			(await createInstanceAuthenticationTokens({ instanceClient: operationsParams.instanceClient })).operationToken,
+		[operationsParams.instanceClient],
+	);
+	const onCredentialMint = useMemo(
+		() =>
+			isDirectOperationsUrl(operationsBaseURL)
+				? (credentials: { username: string; password: string }) =>
+					mintOperationTokenWithCredentials({ operationsUrl: operationsBaseURL, ...credentials })
+				: null,
+		[operationsBaseURL],
+	);
 	// The explorer builds its own server list from `baseURL` (Studio's computed REST URL) plus the
 	// spec's declared servers, and lets the user pick — so we no longer mutate the spec's servers as
 	// the previous Swagger integration did.
@@ -128,6 +152,8 @@ export function APIDocs() {
 				spec={spec as OpenApiSpec | undefined}
 				baseURL={baseURL}
 				entityId={operationsParams.entityId}
+				onSessionMint={onSessionMint}
+				onCredentialMint={onCredentialMint}
 			/>
 		</div>
 	);
