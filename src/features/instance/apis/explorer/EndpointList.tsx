@@ -60,13 +60,16 @@ export function EndpointList({
 	const usingHeaderAuth = authType === 'basic' || authType === 'bearer';
 
 	return (
-		<div className="flex h-full flex-col gap-3">
+		// On lg the parent (`ApiExplorer`) is a fixed-height app-shell, so the sidebar fills it
+		// (`h-full`) and the tree scrolls internally via `flex-1 min-h-0`. On small screens it stacks
+		// above the detail and the page scrolls, so a `max-h` keeps it from dominating the viewport.
+		<div className="flex max-h-[28rem] flex-col gap-3 lg:h-full lg:max-h-none lg:min-h-0">
 			<button
 				type="button"
 				onClick={onOpenSettings}
 				aria-pressed={settingsActive}
 				className={cn(
-					'flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors',
+					'flex w-full shrink-0 items-center gap-2 rounded-md border px-2.5 py-2 text-left text-sm transition-colors',
 					settingsActive
 						? 'border-primary bg-primary/10 text-foreground'
 						: 'border-border hover:bg-accent/60',
@@ -79,7 +82,7 @@ export function EndpointList({
 				<span className="text-muted-foreground text-xs">{AUTH_TYPE_LABEL[authType]}</span>
 			</button>
 
-			<div className="relative">
+			<div className="relative shrink-0">
 				<Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
 				<Input
 					value={filter}
@@ -90,7 +93,7 @@ export function EndpointList({
 				/>
 			</div>
 
-			<div className="flex-1 overflow-y-auto pr-1">
+			<div className="flex-1 overflow-y-auto overscroll-contain min-h-0 pr-1">
 				{filteredCount === 0
 					? (
 						<p className="text-muted-foreground px-1 py-6 text-center text-sm">

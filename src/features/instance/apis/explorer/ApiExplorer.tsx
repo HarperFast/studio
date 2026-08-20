@@ -70,8 +70,11 @@ export function ApiExplorer(
 	}
 
 	return (
-		<div className="flex flex-col gap-5">
-			<header className="flex min-w-0 flex-col">
+		// On lg this is a fixed-height app-shell (its parent sets the height): the header takes its
+		// natural space and the two-pane row fills the rest, so the sidebar reaches the viewport bottom
+		// exactly and the panes scroll internally instead of the page — no page-plus-tree double scroll.
+		<div className="flex flex-col gap-5 lg:min-h-0 lg:flex-1">
+			<header className="flex min-w-0 flex-col lg:shrink-0">
 				<div className="flex items-center gap-2">
 					<h1 className="font-radioGrotesk truncate text-2xl">{spec?.info?.title ?? 'API Explorer'}</h1>
 					{spec?.info?.version && <Badge variant="secondary">v{spec.info.version}</Badge>}
@@ -86,30 +89,24 @@ export function ApiExplorer(
 					</div>
 				)
 				: (
-					<div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-						<aside className="lg:sticky lg:top-4 w-full shrink-0 lg:w-80">
-							{
-								/* Definite height (not max-height) so EndpointList's `h-full` resolves and its inner
-							    tree actually scrolls instead of spilling past the cap on a large spec. */
-							}
-							<div className="h-[28rem] lg:h-[calc(100vh-11rem)]">
-								<EndpointList
-									tree={filteredTree}
-									totalCount={allOperations.length}
-									filteredCount={filteredOperations.length}
-									isFiltering={filter.trim() !== ''}
-									selectedId={view === 'operation' ? selectedOp?.id : undefined}
-									onSelect={selectOperation}
-									filter={filter}
-									onFilterChange={setFilter}
-									authType={auth.type}
-									settingsActive={view === 'settings'}
-									onOpenSettings={() => setView('settings')}
-								/>
-							</div>
+					<div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
+						<aside className="w-full shrink-0 lg:h-full lg:min-h-0 lg:w-80">
+							<EndpointList
+								tree={filteredTree}
+								totalCount={allOperations.length}
+								filteredCount={filteredOperations.length}
+								isFiltering={filter.trim() !== ''}
+								selectedId={view === 'operation' ? selectedOp?.id : undefined}
+								onSelect={selectOperation}
+								filter={filter}
+								onFilterChange={setFilter}
+								authType={auth.type}
+								settingsActive={view === 'settings'}
+								onOpenSettings={() => setView('settings')}
+							/>
 						</aside>
 
-						<main className="min-w-0 flex-1">
+						<main className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:pb-6">
 							{view === 'settings'
 								? (
 									<SettingsPanel
