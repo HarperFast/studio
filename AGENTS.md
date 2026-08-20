@@ -405,3 +405,13 @@ is also an scp-style git remote, and `redactErrorText` deliberately keeps the ho
 None of that helps anywhere else. Every third-party pixel we load reads the page URL, so those
 addresses also reach HubSpot, Meta, LinkedIn and GA — `beforeSend` cannot touch what they send.
 Carry the value in router state or `sessionStorage`, and key routes by an opaque id.
+
+## Tailwind — `--spacing(N)` in an arbitrary value is a function, not a variable
+
+`h-[calc(100vh-(--spacing(32)))]` (used by the databases, log, and API-explorer sidebars) is valid
+Tailwind v4: `--spacing(N)` is the framework's spacing **function**, compiled to
+`calc(var(--spacing) * N)` = 8rem here. It is **not** `var(--spacing-32)` — the default theme defines
+only the base `--spacing: 0.25rem`, so a `var(--spacing-32)` "fix" resolves to nothing and collapses
+the `calc()` (the container height drops to `auto`). Multiple code-review models flag the function form
+as invalid CSS and suggest the `var()` form; don't take the bait. Verify by measuring, not by reading:
+the container computes to exactly `innerHeight − 128px` when the function resolved.
