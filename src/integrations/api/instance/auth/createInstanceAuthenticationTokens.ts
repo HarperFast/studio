@@ -47,6 +47,7 @@ export async function mintOperationTokenWithCredentials(
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), 30_000);
 	let response: Response;
+	let data: { operation_token?: string; error?: string; message?: string } | undefined;
 	try {
 		response = await fetch(operationsUrl, {
 			method: 'POST',
@@ -57,6 +58,15 @@ export async function mintOperationTokenWithCredentials(
 			signal: controller.signal,
 			body: JSON.stringify({ operation: 'create_authentication_tokens', username, password }),
 		});
+		// Body consumption stays inside the timer: an instance that sends headers and then stalls the body
+		// would otherwise leave the log-in pending forever. A non-JSON body is tolerated (handled below),
+		// but an abort must propagate rather than read as "no token returned".
+		data = (await response.json().catch((error: unknown) => {
+			if (controller.signal.aborted) {
+				throw error;
+			}
+			return undefined;
+		})) as typeof data;
 	} catch (error) {
 		// Replace the browser's opaque abort/network text with something the log-in form can explain.
 		throw new Error(
@@ -67,9 +77,6 @@ export async function mintOperationTokenWithCredentials(
 	} finally {
 		clearTimeout(timeout);
 	}
-	const data = (await response.json().catch(() => undefined)) as
-		| { operation_token?: string; error?: string; message?: string }
-		| undefined;
 	if (!response.ok) {
 		throw new Error(
 			data?.error || data?.message

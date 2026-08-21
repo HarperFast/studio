@@ -5,7 +5,6 @@ import { OperationDetail } from '@/features/instance/apis/explorer/OperationDeta
 import { ApiAuth, AuthMethod, isAuthorized } from '@/features/instance/apis/explorer/request';
 import {
 	ExplorerEntitySettings,
-	forgetEntitySettings,
 	readEntitySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
@@ -90,13 +89,14 @@ export function ApiExplorer(
 	const [loginStatus, setLoginStatus] = useState<'idle' | 'pending' | 'error'>('idle');
 	const [loginError, setLoginError] = useState<string | null>(null);
 
-	// When another tab signs this entity out, clear this tab's stored credential and reset auth state —
-	// sessionStorage is per-tab, so a sign-out elsewhere can't reach it without this cross-tab signal.
+	// A sign-out in another tab changes the shared generation. Re-read from storage (the bootstrap
+	// reconciler strips revoked credentials there) rather than assuming this entity was the one signed
+	// out, and cancel any in-flight mint. The render-time generation check below is the real guard, so
+	// this is only about reflecting it promptly.
 	useEffect(() => {
 		return authStore.onExplorerAuthInvalidated(entityId, () => {
 			attemptRef.current++;
-			forgetEntitySettings(entityId);
-			setEntitySettings({});
+			setEntitySettings(readEntitySettings(entityId));
 			setLoginStatus('idle');
 			setLoginError(null);
 		});
@@ -129,7 +129,12 @@ export function ApiExplorer(
 			// A minted token belongs to the instance the mint client talks to — Studio's computed URL for
 			// this entity — NOT to whatever server the spec's picker currently names. Stamping the trusted
 			// server means selecting a foreign declared server withholds the token instead of sending it there.
-			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token }, authServer: baseURL ?? undefined });
+			updateEntitySettings({
+				method: 'login',
+				auth: { type: 'bearer', token },
+				authServer: baseURL ?? undefined,
+				authGeneration: authStore.getExplorerAuthEpoch(entityId),
+			});
 			setLoginStatus('idle');
 		} catch (error) {
 			if (!mountedRef.current || attempt !== attemptRef.current) {
@@ -180,11 +185,17 @@ export function ApiExplorer(
 			method: 'basic',
 			auth: { type: 'basic', username, password },
 			authServer: activeServer ?? undefined,
+			authGeneration: authStore.getExplorerAuthEpoch(entityId),
 		});
 	};
 	const applyBearer = (token: string) => {
 		attemptRef.current++;
-		updateEntitySettings({ method: 'bearer', auth: { type: 'bearer', token }, authServer: activeServer ?? undefined });
+		updateEntitySettings({
+			method: 'bearer',
+			auth: { type: 'bearer', token },
+			authServer: activeServer ?? undefined,
+			authGeneration: authStore.getExplorerAuthEpoch(entityId),
+		});
 	};
 	const clearAuth = () => {
 		attemptRef.current++;
@@ -208,7 +219,12 @@ export function ApiExplorer(
 	// active server can't send a token/credential to a different one. Plain string compare (no URL
 	// parsing) so a relative or unusual base URL can't strip a valid credential.
 	const credentialMatchesServer = entitySettings.authServer != null && entitySettings.authServer === activeServer;
-	const effectiveAuth: ApiAuth = isAuthorized(auth) && credentialMatchesServer ? auth : COOKIE_AUTH;
+	// A credential stamped under an older sign-out generation was revoked while this tab wasn't watching
+	// (it was reloaded or closed) — sessionStorage outlives a reload, so this comparison is the guard.
+	const credentialIsCurrent = entitySettings.authGeneration === authStore.getExplorerAuthEpoch(entityId);
+	const effectiveAuth: ApiAuth = isAuthorized(auth) && credentialMatchesServer && credentialIsCurrent
+		? auth
+		: COOKIE_AUTH;
 	const authorized = isAuthorized(effectiveAuth);
 
 	// Width drives a CSS variable applied only at lg+; below that the sidebar stacks full-width.

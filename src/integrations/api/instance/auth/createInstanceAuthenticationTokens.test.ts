@@ -65,6 +65,36 @@ describe('mintOperationTokenWithCredentials', () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
+	it('aborts when the response body never resolves (timer covers body consumption)', async () => {
+		vi.useFakeTimers();
+		try {
+			// Headers arrive, then the body stalls until the request is aborted — as a real stalled body does.
+			const fetchMock = vi.fn((_url: string, init: RequestInit) => {
+				const signal = init.signal!;
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					statusText: 'OK',
+					json: () =>
+						new Promise((_resolve, reject) =>
+							signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+						),
+				} as unknown as Response);
+			});
+			vi.stubGlobal('fetch', fetchMock);
+			const pending = mintOperationTokenWithCredentials({
+				operationsUrl: 'https://host:9925/',
+				username: 'admin',
+				password: 'pw',
+			});
+			const assertion = expect(pending).rejects.toThrow('did not respond within 30 seconds');
+			await vi.advanceTimersByTimeAsync(30_000);
+			await assertion;
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('surfaces a server-provided error message (200 or non-OK) instead of a generic one', async () => {
 		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'account locked' }, { status: 200 })));
 		await expect(

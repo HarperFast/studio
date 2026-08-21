@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import {
 	forgetEntitySettings,
+	pruneStaleEntitySettings,
 	readEntitySettings,
 	scrubLegacySettings,
 	writeEntitySettings,
@@ -124,5 +125,51 @@ describe('explorer legacy scrub (exported, re-runnable)', () => {
 		localStorage.setItem(KEY, 'rewritten');
 		scrubLegacySettings();
 		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+});
+
+describe('stale-credential reconciliation (missed invalidation, e.g. tab reloaded)', () => {
+	beforeEach(() => {
+		sessionStorage.clear();
+		localStorage.clear();
+	});
+
+	it('strips a credential stamped under an older generation, keeping non-secret selections', () => {
+		writeEntitySettings('ins-a', {
+			method: 'bearer',
+			auth: { type: 'bearer', token: 'revoked' },
+			authServer: 'https://a',
+			authGeneration: 1,
+			server: 'https://a',
+		});
+		// The entity was signed out while this tab wasn't listening, so the generation moved on.
+		pruneStaleEntitySettings(() => 2);
+		expect(readEntitySettings('ins-a')).toEqual({ method: 'bearer', server: 'https://a' });
+	});
+
+	it('keeps a credential whose generation still matches', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'live' }, authGeneration: 7 });
+		pruneStaleEntitySettings(() => 7);
+		expect(readEntitySettings('ins-a').auth).toEqual({ type: 'bearer', token: 'live' });
+	});
+
+	it('strips a credential that carries no generation stamp at all', () => {
+		writeEntitySettings('ins-a', { auth: { type: 'basic', username: 'u', password: 'p' } });
+		pruneStaleEntitySettings(() => 0);
+		expect(readEntitySettings('ins-a').auth).toBeUndefined();
+	});
+
+	it('honors an invalidation written before any listener was installed (bootstrap path)', async () => {
+		const { authStore } = await import('@/features/auth/store/authStore');
+		writeEntitySettings('ins-a', {
+			auth: { type: 'bearer', token: 'stale' },
+			authGeneration: authStore.getExplorerAuthEpoch('ins-a'),
+		});
+		// Another tab signs out; this tab is not running, so no storage event is ever delivered here.
+		authStore.signOutLocally('ins-a');
+		writeEntitySettings('ins-a', { auth: { type: 'bearer', token: 'stale' }, authGeneration: 0 });
+		// Bootstrap reconciliation (what installExplorerCrossTabCleanup runs immediately) must drop it.
+		pruneStaleEntitySettings(id => authStore.getExplorerAuthEpoch(id));
+		expect(readEntitySettings('ins-a').auth).toBeUndefined();
 	});
 });
