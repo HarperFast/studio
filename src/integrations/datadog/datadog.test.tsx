@@ -13,7 +13,7 @@ const { rum, routerState } = vi.hoisted(() => ({
 		clearUser: vi.fn(),
 		addAction: vi.fn(),
 	},
-	routerState: { href: '/#/org-1/cluster-1/apps', params: [{ organizationId: 'org-1' }] },
+	routerState: { href: '/org-1/clu-2/apps', params: [{ organizationId: 'org-1', clusterId: 'clu-2' }] },
 }));
 
 vi.mock('@datadog/browser-rum', () => ({ datadogRum: rum }));
@@ -35,30 +35,59 @@ async function loadDatadogModule() {
 	return import('./datadog');
 }
 
+beforeEach(() => {
+	routerState.href = '/org-1/clu-2/apps';
+	routerState.params = [{ organizationId: 'org-1', clusterId: 'clu-2' }];
+});
+
 afterEach(() => {
 	cleanup();
 	vi.unstubAllEnvs();
 	vi.clearAllMocks();
 });
 
-describe('useDatadog', () => {
-	it('initializes RUM', async () => {
-		const { useDatadog } = await loadDatadogModule();
-		function Harness() {
-			useDatadog();
+describe('Datadog view tracking', () => {
+	// Only the first `startView` of a page load becomes an `initial_load` view, and only an
+	// `initial_load` view collects LCP/FCP — so a second one on boot zeroes Core Web Vitals
+	// (#1570). This mirrors the production tree: App calls useDatadog, then StudioCloud (the
+	// root route component) calls useOnRouteLoadTracker.
+	it('starts exactly one view when the whole tree boots', async () => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModule();
+		function CloudRoot() {
+			useOnRouteLoadTracker();
 			return null;
 		}
+		function App() {
+			useDatadog();
+			return <CloudRoot />;
+		}
 
-		render(<Harness />);
+		render(<App />);
 
 		expect(rum.init).toHaveBeenCalledTimes(1);
+		expect(rum.startView).toHaveBeenCalledTimes(1);
 	});
 
-	// The guard for #1570. Under `trackViewsManually` only the FIRST startView becomes an
-	// `initial_load` view, and only an `initial_load` view collects LCP/FCP — so a startView
-	// here is destroyed by `useOnRouteLoadTracker`'s call in the same effect flush, taking
-	// Studio's Core Web Vitals with it. Ownership of that first call must stay in one place.
-	it("does not start a view — that is useOnRouteLoadTracker's job", async () => {
+	it("names that view by route, not by the hash router's pathname", async () => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModule();
+		function CloudRoot() {
+			useOnRouteLoadTracker();
+			return null;
+		}
+		function App() {
+			useDatadog();
+			return <CloudRoot />;
+		}
+
+		render(<App />);
+
+		expect(rum.startView).toHaveBeenCalledWith(
+			expect.objectContaining({ name: '/$organizationId/$clusterId/apps/' }),
+		);
+	});
+
+	// Narrows a failure of the tree-level assertion above to the hook that regressed.
+	it('does not start a view from useDatadog', async () => {
 		const { useDatadog } = await loadDatadogModule();
 		function Harness() {
 			useDatadog();
@@ -68,25 +97,5 @@ describe('useDatadog', () => {
 		render(<Harness />);
 
 		expect(rum.startView).not.toHaveBeenCalled();
-	});
-});
-
-describe('useOnRouteLoadTracker', () => {
-	beforeEach(() => {
-		routerState.href = '/#/org-1/cluster-1/apps';
-		routerState.params = [{ organizationId: 'org-1' }];
-	});
-
-	it('starts exactly one view per render pass, named by route', async () => {
-		const { useOnRouteLoadTracker } = await loadDatadogModule();
-		function Harness() {
-			useOnRouteLoadTracker();
-			return null;
-		}
-
-		render(<Harness />);
-
-		expect(rum.startView).toHaveBeenCalledTimes(1);
-		expect(rum.startView.mock.calls[0][0]).toMatchObject({ name: expect.any(String) });
 	});
 });
