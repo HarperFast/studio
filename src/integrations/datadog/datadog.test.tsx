@@ -47,10 +47,7 @@ afterEach(() => {
 });
 
 describe('Datadog view tracking', () => {
-	// Only the first `startView` of a page load becomes an `initial_load` view, and only an
-	// `initial_load` view collects LCP/FCP — so a second one on boot zeroes Core Web Vitals
-	// (#1570). This mirrors the production tree: App calls useDatadog, then StudioCloud (the
-	// root route component) calls useOnRouteLoadTracker.
+	// The nesting mirrors production: App calls useDatadog, StudioCloud calls the tracker.
 	it('starts exactly one view when the whole tree boots', async () => {
 		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModule();
 		function CloudRoot() {
@@ -86,7 +83,6 @@ describe('Datadog view tracking', () => {
 		);
 	});
 
-	// Narrows a failure of the tree-level assertion above to the hook that regressed.
 	it('does not start a view from useDatadog', async () => {
 		const { useDatadog } = await loadDatadogModule();
 		function Harness() {
@@ -97,5 +93,22 @@ describe('Datadog view tracking', () => {
 		render(<Harness />);
 
 		expect(rum.startView).not.toHaveBeenCalled();
+	});
+
+	it('starts a further view on each subsequent navigation', async () => {
+		const { useOnRouteLoadTracker } = await loadDatadogModule();
+		function CloudRoot() {
+			useOnRouteLoadTracker();
+			return null;
+		}
+
+		const { rerender } = render(<CloudRoot />);
+		routerState.href = '/org-1/clu-2/config';
+		rerender(<CloudRoot />);
+
+		expect(rum.startView.mock.calls.map(([options]) => options.name)).toEqual([
+			'/$organizationId/$clusterId/apps/',
+			'/$organizationId/$clusterId/config/',
+		]);
 	});
 });
