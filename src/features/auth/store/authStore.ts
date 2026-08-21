@@ -1,7 +1,11 @@
 import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
-import { forgetEntitySettings } from '@/features/instance/apis/explorer/settings';
+import {
+	forgetAllEntitySettings,
+	forgetEntitySettings,
+	scrubLegacySettings,
+} from '@/features/instance/apis/explorer/settings';
 import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
 import { Cluster, Instance, LocalUser, User } from '@/integrations/api/api.patch';
 import {
@@ -90,7 +94,7 @@ class AuthStore {
 		return this.explorerAuthEpoch.get(id) ?? 0;
 	}
 
-	private bumpExplorerAuthEpoch(id: EntityIds): void {
+	private writeExplorerInvalidation(id: EntityIds | '*'): void {
 		this.explorerAuthEpoch.set(id, this.getExplorerAuthEpoch(id) + 1);
 		try {
 			// Value must differ each write so other tabs' `storage` listeners fire.
@@ -100,25 +104,61 @@ class AuthStore {
 		}
 	}
 
+	private bumpExplorerAuthEpoch(id: EntityIds): void {
+		this.writeExplorerInvalidation(id);
+	}
+
+	/** Signal every tab's explorer to clear, regardless of entity — used on a global (all-entity) logout. */
+	private bumpExplorerAuthEpochAll(): void {
+		this.writeExplorerInvalidation('*');
+	}
+
+	/** The entity a mirrored invalidation names (`'*'` = all), or null if the event isn't one. */
+	private parseExplorerInvalidation(event: StorageEvent): string | null {
+		if (event.key !== this.explorerAuthEpochKey || !event.newValue) {
+			return null;
+		}
+		try {
+			const parsed = JSON.parse(event.newValue) as { id?: string };
+			return typeof parsed.id === 'string' ? parsed.id : null;
+		} catch {
+			return null;
+		}
+	}
+
 	/**
-	 * Subscribe to cross-tab sign-out of one entity. Fires when another tab signs `id` out (via the
-	 * mirrored epoch key); the caller clears its own tab's stored explorer credential in response. The
-	 * browser only delivers `storage` events to other documents, so the tab that signed out is
-	 * unaffected (it clears itself directly).
+	 * Subscribe to cross-tab sign-out of one entity (or a global `'*'` logout). Fires when another tab
+	 * signs `id` out via the mirrored epoch key; the caller resets its live auth state. The browser only
+	 * delivers `storage` events to other documents, so the signing-out tab is unaffected (it clears
+	 * itself directly). This is component-lifetime; a tab whose explorer is unmounted relies on the
+	 * always-on `installExplorerCrossTabCleanup` listener to scrub its stored credential.
 	 */
 	public onExplorerAuthInvalidated(id: EntityIds, callback: () => void): () => void {
 		const handler = (event: StorageEvent) => {
-			if (event.key !== this.explorerAuthEpochKey || !event.newValue) {
-				return;
+			const invalidated = this.parseExplorerInvalidation(event);
+			if (invalidated === id || invalidated === '*') {
+				callback();
 			}
-			try {
-				const parsed = JSON.parse(event.newValue) as { id?: string };
-				if (parsed.id === id) {
-					callback();
-				}
-			} catch {
-				// Ignore a malformed signal rather than throwing into the storage-event dispatch.
+		};
+		window.addEventListener('storage', handler);
+		return () => window.removeEventListener('storage', handler);
+	}
+
+	/**
+	 * App-level (always-on) listener that clears the per-tab explorer credential for an entity another
+	 * tab signed out — even when this tab's explorer is unmounted, so a tab that navigated away can't
+	 * later restore a revoked token. Also re-scrubs the legacy localStorage secret if a pre-upgrade tab
+	 * rewrote it. Installed once at bootstrap.
+	 */
+	public installExplorerCrossTabCleanup(): () => void {
+		const handler = (event: StorageEvent) => {
+			const invalidated = this.parseExplorerInvalidation(event);
+			if (invalidated === '*') {
+				forgetAllEntitySettings();
+			} else if (invalidated) {
+				forgetEntitySettings(invalidated);
 			}
+			scrubLegacySettings();
 		};
 		window.addEventListener('storage', handler);
 		return () => window.removeEventListener('storage', handler);
@@ -490,6 +530,9 @@ class AuthStore {
 		this.fabricConnectInFlight.clear();
 		this.operationTokenRefreshInFlight.clear();
 		this.setUserForEntity(OverallAppSignIn, null);
+		// Broadcast a global clear so other tabs' explorers drop their credentials even for entities not
+		// in this tab's potentiallyAuthenticated set.
+		this.bumpExplorerAuthEpochAll();
 	}
 
 	private calculateKeyFromEntity(entity: EntityTypes): AuthenticatedConnectionKey | undefined {

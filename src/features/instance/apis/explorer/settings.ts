@@ -80,7 +80,6 @@ export function scrubLegacySettings(): void {
 
 /** The whole persisted map, guarded so disabled/corrupted storage reads as empty rather than throwing. */
 function readMap(): Record<string, ExplorerEntitySettings> {
-	scrubLegacySettings();
 	let raw: Record<string, unknown> = {};
 	try {
 		const stored = getSessionStorage<unknown, typeof KEY>(KEY, {});
@@ -123,5 +122,14 @@ export function forgetEntitySettings(entityId: string): void {
 	if (Object.hasOwn(map, entityId)) {
 		delete map[entityId];
 		writeMap(map);
+	}
+}
+
+/** Drop every entity's persisted settings — used on a global (all-entity) sign-out. */
+export function forgetAllEntitySettings(): void {
+	try {
+		sessionStorage.removeItem(KEY);
+	} catch {
+		// Storage disabled — nothing to clear.
 	}
 }

@@ -43,14 +43,23 @@ export async function mintOperationTokenWithCredentials(
 	if (!isDirectOperationsUrl(operationsUrl)) {
 		throw new Error('Refusing to send credentials to a non-direct operations URL.');
 	}
-	const response = await fetch(operationsUrl, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		credentials: 'omit',
-		// Fail on a redirect rather than replaying the credential-bearing POST to an unchecked origin.
-		redirect: 'error',
-		body: JSON.stringify({ operation: 'create_authentication_tokens', username, password }),
-	});
+	// Bound the request so an unreachable instance can't hang the log-in indefinitely.
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 30_000);
+	let response: Response;
+	try {
+		response = await fetch(operationsUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			credentials: 'omit',
+			// Fail on a redirect rather than replaying the credential-bearing POST to an unchecked origin.
+			redirect: 'error',
+			signal: controller.signal,
+			body: JSON.stringify({ operation: 'create_authentication_tokens', username, password }),
+		});
+	} finally {
+		clearTimeout(timeout);
+	}
 	const data = (await response.json().catch(() => undefined)) as
 		| { operation_token?: string; error?: string; message?: string }
 		| undefined;
