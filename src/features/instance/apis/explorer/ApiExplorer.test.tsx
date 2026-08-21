@@ -232,6 +232,33 @@ describe('ApiExplorer', () => {
 		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'tok-2' });
 	});
 
+	it('withholds a minted token when the active server is not the instance it was minted for', async () => {
+		// Pre-select a foreign declared server, then mint: the token is stamped for the trusted instance
+		// URL (baseURL), so it must not be sent to the selected server.
+		sessionStorage.setItem(
+			'ApiExplorerSettings',
+			JSON.stringify({ 'ins-test': { server: 'https://foreign.example' } }),
+		);
+		const specWithServers: OpenApiSpec = { ...spec, servers: [{ url: 'https://foreign.example' }] };
+		render(
+			<ApiExplorer
+				spec={specWithServers}
+				baseURL="http://localhost:9926"
+				entityId="ins-test"
+				onSessionMint={() => Promise.resolve('minted-for-instance')}
+				onCredentialMint={null}
+			/>,
+		);
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+
+		await waitFor(() => expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'minted-for-instance' }));
+		// Stamped to the instance, not the foreign selection — so the credential is withheld.
+		expect(storedAuth().authServer).toBe('http://localhost:9926');
+		expect(screen.queryByText(/Credential set —/)).toBeNull();
+	});
+
 	it('clears the stored credential when another tab signs the entity out (cross-tab)', async () => {
 		renderExplorer();
 		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));

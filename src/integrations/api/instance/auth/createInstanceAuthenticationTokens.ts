@@ -57,6 +57,13 @@ export async function mintOperationTokenWithCredentials(
 			signal: controller.signal,
 			body: JSON.stringify({ operation: 'create_authentication_tokens', username, password }),
 		});
+	} catch (error) {
+		// Replace the browser's opaque abort/network text with something the log-in form can explain.
+		throw new Error(
+			controller.signal.aborted
+				? 'The instance did not respond within 30 seconds.'
+				: `Could not reach the instance to log in. ${error instanceof Error ? error.message : ''}`.trim(),
+		);
 	} finally {
 		clearTimeout(timeout);
 	}

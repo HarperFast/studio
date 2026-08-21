@@ -126,7 +126,10 @@ export function ApiExplorer(
 				setLoginStatus('error');
 				return;
 			}
-			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token }, authServer: activeServer ?? undefined });
+			// A minted token belongs to the instance the mint client talks to — Studio's computed URL for
+			// this entity — NOT to whatever server the spec's picker currently names. Stamping the trusted
+			// server means selecting a foreign declared server withholds the token instead of sending it there.
+			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token }, authServer: baseURL ?? undefined });
 			setLoginStatus('idle');
 		} catch (error) {
 			if (!mountedRef.current || attempt !== attemptRef.current) {

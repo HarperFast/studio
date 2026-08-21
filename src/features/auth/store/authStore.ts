@@ -118,17 +118,27 @@ class AuthStore {
 		this.writeExplorerInvalidation('*');
 	}
 
-	/** The entity a mirrored invalidation names (`'*'` = all), or null if the event isn't one. */
+	/**
+	 * The entity a mirrored invalidation names (`'*'` = all), or null if the event isn't one. Advances
+	 * this tab's in-memory epoch for that entity as a side effect, so an in-flight mint here is
+	 * invalidated by another tab's sign-out too — the epoch stays authoritative in every tab. Each
+	 * installed listener advances it, which is fine: only a *change* in the value is meaningful.
+	 */
 	private parseExplorerInvalidation(event: StorageEvent): string | null {
 		if (event.key !== this.explorerAuthEpochKey || !event.newValue) {
 			return null;
 		}
+		let id: string | null = null;
 		try {
 			const parsed = JSON.parse(event.newValue) as { id?: string };
-			return typeof parsed.id === 'string' ? parsed.id : null;
+			id = typeof parsed.id === 'string' ? parsed.id : null;
 		} catch {
 			return null;
 		}
+		if (id !== null) {
+			this.explorerAuthEpoch.set(id, (this.explorerAuthEpoch.get(id) ?? 0) + 1);
+		}
+		return id;
 	}
 
 	/**
@@ -489,6 +499,8 @@ class AuthStore {
 			this.updateConnectionIfChanged(entityId, false, null);
 			this.flagKeyAsSignedOut(entityId);
 			this.fabricConnectAuth.delete(entityId);
+			forgetEntitySettings(entityId);
+			this.bumpExplorerAuthEpoch(entityId);
 			if (entityId === OverallAppSignIn) {
 				continue;
 			}
