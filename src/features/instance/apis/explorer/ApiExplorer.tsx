@@ -26,6 +26,18 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/cn';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
+/** The origin of a URL, or null if it can't be parsed — used to scope a credential to one server. */
+function originOf(url: string | null): string | null {
+	if (!url) {
+		return null;
+	}
+	try {
+		return new URL(url).origin;
+	} catch {
+		return null;
+	}
+}
+
 /**
  * The custom Harper API explorer: a searchable operation list beside a detail pane, with an
  * "Authorize" view for server + auth. The token-minting callbacks come from the parent (`APIDocs`) so
@@ -66,7 +78,6 @@ export function ApiExplorer(
 
 	const method: AuthMethod = entitySettings.method ?? 'login';
 	const auth: ApiAuth = entitySettings.auth ?? { type: 'cookie' };
-	const authorized = isAuthorized(auth);
 
 	// Mint race guard: each mint captures an attempt id; only the latest, on a still-mounted panel,
 	// may apply its token. Clearing authorization or unmounting bumps the id so an in-flight mint that
@@ -179,23 +190,21 @@ export function ApiExplorer(
 		updateEntitySettings({ auth: cleared });
 	};
 
-	const setSelectedServer = (url: string) => {
-		if (url === activeServer) {
-			updateEntitySettings({ server: url });
-			return;
-		}
-		// Credentials are scoped to the server they were entered/minted for: switching targets clears
-		// them (and cancels any in-flight mint) so a token minted for one origin is never sent to another.
-		attemptRef.current++;
-		setLoginStatus('idle');
-		setLoginError(null);
-		updateEntitySettings({ server: url, method: 'login', auth: { type: 'cookie' } });
-	};
+	const setSelectedServer = (url: string) => updateEntitySettings({ server: url });
 
 	const activeServer = serverOptions.find(s => s.url === entitySettings.server)?.url
 		?? serverOptions[0]?.url
 		?? baseURL;
 	const [copyServer] = useCopyToClipboard(activeServer ?? '');
+
+	// The credential is scoped to the instance we authorized against (the computed REST origin). Send it
+	// only when the active server shares that origin — whether the user picked another declared server or
+	// the active server recomputed implicitly — so a token/credential never reaches a different origin.
+	const trustedOrigin = originOf(baseURL);
+	const effectiveAuth: ApiAuth = trustedOrigin !== null && originOf(activeServer) === trustedOrigin
+		? auth
+		: { type: 'cookie' };
+	const authorized = isAuthorized(effectiveAuth);
 
 	// Width drives a CSS variable applied only at lg+; below that the sidebar stacks full-width.
 	const { width: sidebarWidth, isResizing, startResizing, handleKeyDown } = useResizableSidebar();
@@ -312,7 +321,7 @@ export function ApiExplorer(
 										op={selectedOp}
 										spec={spec}
 										baseURL={activeServer ?? null}
-										auth={auth}
+										auth={effectiveAuth}
 										authorized={authorized}
 										onOpenAuthorize={() => openAuthorize('try')}
 									/>

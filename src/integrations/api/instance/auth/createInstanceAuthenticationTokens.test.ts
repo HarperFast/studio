@@ -30,6 +30,7 @@ describe('mintOperationTokenWithCredentials', () => {
 			headers: { 'Content-Type': 'application/json' },
 			credentials: 'omit',
 			redirect: 'error',
+			signal: expect.any(AbortSignal),
 			body: JSON.stringify({ operation: 'create_authentication_tokens', username: 'admin', password: 'pw' }),
 		});
 	});

@@ -1,4 +1,5 @@
 import { App } from '@/App';
+import { authStore } from '@/features/auth/store/authStore';
 import { scrubLegacySettings } from '@/features/instance/apis/explorer/settings';
 import { installApiUnauthorizedRedirect } from '@/lib/installApiUnauthorizedRedirect';
 import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
@@ -20,6 +21,9 @@ installApiUnauthorizedRedirect();
 // Remove the pre-sessionStorage API-explorer credential map (plaintext Basic passwords / Bearer
 // tokens) at boot, so an upgraded user who never reopens the explorer is still scrubbed.
 scrubLegacySettings();
+// Clear the explorer's per-tab credential when another tab signs an entity out, even while this tab's
+// explorer is unmounted — so a tab that navigated away can't later restore a revoked token.
+authStore.installExplorerCrossTabCleanup();
 
 createRoot(
 	document.getElementById('root')!,

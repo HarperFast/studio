@@ -2,9 +2,10 @@
 import {
 	forgetEntitySettings,
 	readEntitySettings,
+	scrubLegacySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 const KEY = 'ApiExplorerSettings';
 
@@ -60,24 +61,27 @@ describe('explorer settings legacy scrub', () => {
 		localStorage.clear();
 	});
 
-	// The one-time scrub runs on a module's first read, so each case imports a fresh module instance.
-	it('drops the legacy localStorage secrets on first read (never migrating them)', async () => {
-		vi.resetModules();
+	it('drops the legacy localStorage secrets, never migrating them', () => {
 		localStorage.setItem(
 			KEY,
 			JSON.stringify({ 'ins-a': { auth: { type: 'basic', username: 'u', password: 'secret' } } }),
 		);
-		const mod = await import('@/features/instance/apis/explorer/settings');
-		expect(mod.readEntitySettings('ins-a')).toEqual({});
+		scrubLegacySettings();
 		expect(localStorage.getItem(KEY)).toBeNull();
 	});
 
-	it('removes a corrupted legacy value too', async () => {
-		vi.resetModules();
+	it('removes a corrupted legacy value too', () => {
 		localStorage.setItem(KEY, 'corrupt-not-json');
-		const mod = await import('@/features/instance/apis/explorer/settings');
-		mod.readEntitySettings('ins-a');
+		scrubLegacySettings();
 		expect(localStorage.getItem(KEY)).toBeNull();
+	});
+
+	it('does not scrub on ordinary reads (bootstrap/installer-driven only)', () => {
+		localStorage.setItem(KEY, 'legacy');
+		readEntitySettings('ins-a');
+		writeEntitySettings('ins-a', { server: 'http://a' });
+		// A read/write must not touch the legacy localStorage key.
+		expect(localStorage.getItem(KEY)).toBe('legacy');
 	});
 });
 
