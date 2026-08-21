@@ -72,8 +72,56 @@ class AuthStore {
 	private readonly fabricConnectInFlight = new Map<EntityIds, Promise<LocalUser>>();
 	private readonly operationTokenRefreshInFlight = new Map<EntityIds, Promise<string | null>>();
 
+	// Per-entity count of sign-out events. The API explorer keeps its credential per browser tab
+	// (sessionStorage), so a sign-out in one tab can't reach another's storage directly: this epoch is
+	// bumped on every sign-out and mirrored to localStorage, letting the explorer (a) reject an
+	// in-flight token mint that resolves after a sign-out and (b) clear its own tab's stored credential
+	// when another tab signs the entity out.
+	private readonly explorerAuthEpoch = new Map<EntityIds, number>();
+	private explorerEpochSeq = Date.now();
+	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
+
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
+	}
+
+	/** Current per-entity sign-out epoch; the explorer stamps a mint with it and re-checks before applying. */
+	public getExplorerAuthEpoch(id: EntityIds): number {
+		return this.explorerAuthEpoch.get(id) ?? 0;
+	}
+
+	private bumpExplorerAuthEpoch(id: EntityIds): void {
+		this.explorerAuthEpoch.set(id, this.getExplorerAuthEpoch(id) + 1);
+		try {
+			// Value must differ each write so other tabs' `storage` listeners fire.
+			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ id, seq: ++this.explorerEpochSeq }));
+		} catch {
+			// Storage disabled — the in-memory epoch still guards the same-tab in-flight-mint race.
+		}
+	}
+
+	/**
+	 * Subscribe to cross-tab sign-out of one entity. Fires when another tab signs `id` out (via the
+	 * mirrored epoch key); the caller clears its own tab's stored explorer credential in response. The
+	 * browser only delivers `storage` events to other documents, so the tab that signed out is
+	 * unaffected (it clears itself directly).
+	 */
+	public onExplorerAuthInvalidated(id: EntityIds, callback: () => void): () => void {
+		const handler = (event: StorageEvent) => {
+			if (event.key !== this.explorerAuthEpochKey || !event.newValue) {
+				return;
+			}
+			try {
+				const parsed = JSON.parse(event.newValue) as { id?: string };
+				if (parsed.id === id) {
+					callback();
+				}
+			} catch {
+				// Ignore a malformed signal rather than throwing into the storage-event dispatch.
+			}
+		};
+		window.addEventListener('storage', handler);
+		return () => window.removeEventListener('storage', handler);
 	}
 
 	public getAllConnections(): Record<EntityIds, AuthenticatedConnection> {
@@ -153,6 +201,11 @@ class AuthStore {
 			this.flagKeyAsSignedIn(id, key);
 		} else {
 			this.flagKeyAsSignedOut(id);
+			// Every per-entity disconnect funnels through here (ClusterHome/ClusterCard call
+			// setUserForEntity(entity, null)), so clear the API explorer's stored credentials for the
+			// entity here too — otherwise the next user to sign into the same entity would inherit them.
+			forgetEntitySettings(id);
+			this.bumpExplorerAuthEpoch(id);
 		}
 		this.updateConnectionIfChanged(id, false, user);
 	}
@@ -416,6 +469,7 @@ class AuthStore {
 		this.flagKeyAsSignedOut(id);
 		this.updateConnectionIfChanged(id, false, null);
 		forgetEntitySettings(id);
+		this.bumpExplorerAuthEpoch(id);
 	}
 
 	/**
