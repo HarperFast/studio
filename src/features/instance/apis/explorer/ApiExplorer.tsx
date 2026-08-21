@@ -1,9 +1,11 @@
 import { Badge } from '@/components/ui/badge';
+import { authStore } from '@/features/auth/store/authStore';
 import { EndpointList } from '@/features/instance/apis/explorer/EndpointList';
 import { OperationDetail } from '@/features/instance/apis/explorer/OperationDetail';
 import { ApiAuth, AuthMethod, isAuthorized } from '@/features/instance/apis/explorer/request';
 import {
 	ExplorerEntitySettings,
+	forgetEntitySettings,
 	readEntitySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
@@ -81,13 +83,28 @@ export function ApiExplorer(
 	const [loginStatus, setLoginStatus] = useState<'idle' | 'pending' | 'error'>('idle');
 	const [loginError, setLoginError] = useState<string | null>(null);
 
+	// When another tab signs this entity out, clear this tab's stored credential and reset auth state —
+	// sessionStorage is per-tab, so a sign-out elsewhere can't reach it without this cross-tab signal.
+	useEffect(() => {
+		return authStore.onExplorerAuthInvalidated(entityId, () => {
+			attemptRef.current++;
+			forgetEntitySettings(entityId);
+			setEntitySettings({});
+			setLoginStatus('idle');
+			setLoginError(null);
+		});
+	}, [entityId]);
+
 	const runMint = async (mint: () => Promise<string>) => {
 		const attempt = ++attemptRef.current;
+		// Stamp the mint with the entity's sign-out epoch; a sign-out (this tab or another) advances it
+		// so a mint resolving after logout can't write the old user's token back.
+		const epoch = authStore.getExplorerAuthEpoch(entityId);
 		setLoginStatus('pending');
 		setLoginError(null);
 		try {
 			const token = await mint();
-			if (!mountedRef.current || attempt !== attemptRef.current) {
+			if (!mountedRef.current || attempt !== attemptRef.current || authStore.getExplorerAuthEpoch(entityId) !== epoch) {
 				return;
 			}
 			if (typeof token !== 'string' || token === '') {
@@ -162,7 +179,18 @@ export function ApiExplorer(
 		updateEntitySettings({ auth: cleared });
 	};
 
-	const setSelectedServer = (url: string) => updateEntitySettings({ server: url });
+	const setSelectedServer = (url: string) => {
+		if (url === activeServer) {
+			updateEntitySettings({ server: url });
+			return;
+		}
+		// Credentials are scoped to the server they were entered/minted for: switching targets clears
+		// them (and cancels any in-flight mint) so a token minted for one origin is never sent to another.
+		attemptRef.current++;
+		setLoginStatus('idle');
+		setLoginError(null);
+		updateEntitySettings({ server: url, method: 'login', auth: { type: 'cookie' } });
+	};
 
 	const activeServer = serverOptions.find(s => s.url === entitySettings.server)?.url
 		?? serverOptions[0]?.url

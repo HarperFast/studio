@@ -66,7 +66,7 @@ export function OperationDetail({
 							{authorized
 								? <Lock className="text-green size-3" />
 								: <Lock className="text-muted-foreground size-3" />}
-							{authorized ? 'Authorized' : 'Auth required — Authorize'}
+							{authorized ? 'Credential set' : 'Auth required — Authorize'}
 						</button>
 					)}
 				</div>

@@ -1,4 +1,5 @@
 import { App } from '@/App';
+import { scrubLegacySettings } from '@/features/instance/apis/explorer/settings';
 import { installApiUnauthorizedRedirect } from '@/lib/installApiUnauthorizedRedirect';
 import { installBrowserTranslationDomGuard } from '@/lib/installBrowserTranslationDomGuard';
 import { installStaleDeployReload } from '@/lib/installStaleDeployReload';
@@ -16,6 +17,9 @@ installStaleDeployReload();
 // Redirect to /sign-in when a CM call returns 401 (lost/expired session), instead
 // of leaving the SPA on a stale user while every data call fails.
 installApiUnauthorizedRedirect();
+// Remove the pre-sessionStorage API-explorer credential map (plaintext Basic passwords / Bearer
+// tokens) at boot, so an upgraded user who never reopens the explorer is still scrubbed.
+scrubLegacySettings();
 
 createRoot(
 	document.getElementById('root')!,

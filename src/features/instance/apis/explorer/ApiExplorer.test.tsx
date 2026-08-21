@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { ApiExplorer } from '@/features/instance/apis/explorer/ApiExplorer';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function storedAuth() {
@@ -102,7 +102,7 @@ describe('ApiExplorer', () => {
 		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
 		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
 
-		expect(await screen.findByText(/Authorized —/)).toBeTruthy();
+		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
 		expect(onSessionMint).toHaveBeenCalledTimes(1);
 
 		const stored = sessionStorage.getItem('ApiExplorerSettings')!;
@@ -119,7 +119,7 @@ describe('ApiExplorer', () => {
 		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
 
-		expect(await screen.findByText(/Authorized —/)).toBeTruthy();
+		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
 		expect(onCredentialMint).toHaveBeenCalledWith({ username: 'bob', password: 'pw' });
 		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'cred-token' });
 	});
@@ -154,10 +154,10 @@ describe('ApiExplorer', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Bearer token' }));
 		fireEvent.change(screen.getByLabelText('Token'), { target: { value: 'pasted' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
-		expect(screen.getByText(/Authorized —/)).toBeTruthy();
+		expect(screen.getByText(/Credential set —/)).toBeTruthy();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
-		expect(screen.queryByText(/Authorized —/)).toBeNull();
+		expect(screen.queryByText(/Credential set —/)).toBeNull();
 		expect(storedAuth()).toEqual({ method: 'login', auth: { type: 'cookie' } });
 	});
 
@@ -169,7 +169,7 @@ describe('ApiExplorer', () => {
 		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
 
 		expect(await screen.findByText('proxy unauthorized')).toBeTruthy();
-		expect(screen.queryByText(/Authorized —/)).toBeNull();
+		expect(screen.queryByText(/Credential set —/)).toBeNull();
 	});
 
 	it('hides the password fallback when no direct instance URL is available', () => {
@@ -187,6 +187,84 @@ describe('ApiExplorer', () => {
 		fireEvent.click(screen.getByRole('button', { name: /auth required — authorize/i }));
 		// Landed on the Authorize panel's Try it out tab with the log-in action ready.
 		expect(screen.getByRole('button', { name: /authorize with your current session/i })).toBeTruthy();
+	});
+
+	it('Clear empties the Basic form and drops the stored credential', () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Basic' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'carol' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'secret' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+		expect(screen.getByText(/Credential set —/)).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+		expect(storedAuth().auth).toEqual({ type: 'basic', username: '', password: '' });
+	});
+
+	it('clears the login password after re-authenticating while already authorized', async () => {
+		const onCredentialMint = vi.fn().mockResolvedValue('tok-1');
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'dave' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw1' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
+
+		// Re-authenticate (already authorized) with different credentials — the password must still clear.
+		onCredentialMint.mockResolvedValue('tok-2');
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'erin' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw2' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+		await waitFor(() => expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe(''));
+		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'tok-2' });
+	});
+
+	it('clears the stored credential when another tab signs the entity out (cross-tab)', async () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
+
+		// Another tab signs ins-test out: authStore mirrors that to localStorage, firing a storage event.
+		act(() => {
+			window.dispatchEvent(
+				new StorageEvent('storage', {
+					key: 'Studio:ExplorerAuthEpoch',
+					newValue: JSON.stringify({ id: 'ins-test', seq: 999 }),
+				}),
+			);
+		});
+		expect(screen.queryByText(/Credential set —/)).toBeNull();
+		expect(JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? '{}')['ins-test']).toBeUndefined();
+	});
+
+	it('discards a session mint that resolves after the entity was signed out', async () => {
+		let resolveMint!: (token: string) => void;
+		const onSessionMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onSessionMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
+
+		// Full logout while the mint is pending bumps the entity's auth epoch.
+		const { authStore } = await import('@/features/auth/store/authStore');
+		act(() => authStore.setUserForIdAndKey('ins-test', 'ins-test-fqdn', null));
+		await act(async () => {
+			resolveMint('late-token');
+			await Promise.resolve();
+		});
+		// The stale token must not be written back after sign-out.
+		expect(JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? '{}')['ins-test']).toBeUndefined();
 	});
 
 	it('renders a resize separator wired to the persisted sidebar width', () => {

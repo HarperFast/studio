@@ -62,20 +62,15 @@ function normalizeEntity(value: unknown): ExplorerEntitySettings {
 	return out;
 }
 
-let legacyScrubbed = false;
-
 /**
- * One-time removal of the pre-sessionStorage `localStorage` map. That map persisted Basic passwords
- * and Bearer tokens in plaintext across sessions; simply switching this module to sessionStorage would
- * leave the old value readable indefinitely. We drop it wholesale (no secret is migrated) and always
- * attempt removal even if reading threw. Bounded limitation: a concurrently-open pre-upgrade tab can
- * write the key back — this runs on every explorer init, but not continuously.
+ * Removal of the pre-sessionStorage `localStorage` map. That map persisted Basic passwords and Bearer
+ * tokens in plaintext across sessions; switching this module to sessionStorage would otherwise leave
+ * the old value readable indefinitely. It's dropped wholesale (no secret is migrated). Called at app
+ * bootstrap (so upgraded users who never open the explorer are still scrubbed) and again on every
+ * explorer read — not one-shot, so a pre-upgrade tab that rewrites the key is re-scrubbed on the next
+ * read. Idempotent and cheap (a `removeItem`).
  */
-function scrubLegacySettings(): void {
-	if (legacyScrubbed) {
-		return;
-	}
-	legacyScrubbed = true;
+export function scrubLegacySettings(): void {
 	try {
 		localStorage.removeItem(KEY);
 	} catch {

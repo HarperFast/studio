@@ -8,7 +8,7 @@ import { ServerOption } from '@/features/instance/apis/explorer/spec';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
 import { cn } from '@/lib/cn';
 import { CopyIcon, Lock, LockOpen } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface LoginController {
 	status: 'idle' | 'pending' | 'error';
@@ -119,7 +119,7 @@ export function SettingsPanel({
 						{authorized && (
 							<div className="border-green/40 bg-green/10 text-foreground flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
 								<Lock className="text-green size-4" />
-								<span className="flex-1">Authorized — &quot;Try it out&quot; requests will send this credential.</span>
+								<span className="flex-1">Credential set — &quot;Try it out&quot; requests will send it.</span>
 								<Button type="button" variant="outline" size="sm" onClick={onClearAuth}>Clear</Button>
 							</div>
 						)}
@@ -209,13 +209,17 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 	const [password, setPassword] = useState('');
 	const pending = login.status === 'pending';
 
-	// Don't keep the typed credentials in memory once a token has been minted from them.
+	// Drop the typed credentials once a mint from them succeeds (pending → idle). Keyed on the status
+	// transition, not the `authorized` boolean, so re-authenticating while already authorized (where
+	// `authorized` never changes) still clears the password from memory.
+	const prevStatus = useRef(login.status);
 	useEffect(() => {
-		if (authorized) {
+		if (prevStatus.current === 'pending' && login.status === 'idle') {
 			setUsername('');
 			setPassword('');
 		}
-	}, [authorized]);
+		prevStatus.current = login.status;
+	}, [login.status]);
 
 	return (
 		<div className="flex max-w-sm flex-col gap-4">
@@ -275,6 +279,12 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 function BasicForm({ auth, onApply }: { auth: ApiAuth; onApply: (username: string, password: string) => void }) {
 	const [username, setUsername] = useState(auth.type === 'basic' ? auth.username : '');
 	const [password, setPassword] = useState(auth.type === 'basic' ? auth.password : '');
+	// Resync when the applied credential changes underneath the form (e.g. Clear empties it), so a
+	// cleared password doesn't linger in the input and get resubmitted.
+	useEffect(() => {
+		setUsername(auth.type === 'basic' ? auth.username : '');
+		setPassword(auth.type === 'basic' ? auth.password : '');
+	}, [auth]);
 	return (
 		<form
 			className="flex max-w-sm flex-col gap-3"
@@ -309,6 +319,10 @@ function BasicForm({ auth, onApply }: { auth: ApiAuth; onApply: (username: strin
 
 function BearerForm({ auth, onApply }: { auth: ApiAuth; onApply: (token: string) => void }) {
 	const [token, setToken] = useState(auth.type === 'bearer' ? auth.token : '');
+	// Resync when the applied token changes underneath the form (e.g. Clear empties it).
+	useEffect(() => {
+		setToken(auth.type === 'bearer' ? auth.token : '');
+	}, [auth]);
 	return (
 		<form
 			className="flex max-w-sm flex-col gap-1.5"
