@@ -14,6 +14,8 @@ export interface ExplorerEntitySettings {
 	method?: AuthMethod;
 	auth?: ApiAuth;
 	server?: string;
+	/** The server the credential was authorized against; it's only sent when the active server matches. */
+	authServer?: string;
 }
 
 function normalizeMethod(value: unknown): AuthMethod | undefined {
@@ -58,6 +60,9 @@ function normalizeEntity(value: unknown): ExplorerEntitySettings {
 	}
 	if (typeof v.server === 'string') {
 		out.server = v.server;
+	}
+	if (typeof v.authServer === 'string') {
+		out.authServer = v.authServer;
 	}
 	return out;
 }

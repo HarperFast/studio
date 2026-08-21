@@ -26,17 +26,9 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/cn';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 
-/** The origin of a URL, or null if it can't be parsed — used to scope a credential to one server. */
-function originOf(url: string | null): string | null {
-	if (!url) {
-		return null;
-	}
-	try {
-		return new URL(url).origin;
-	} catch {
-		return null;
-	}
-}
+// Stable reference for "no explicit credential" so downstream memoized children don't re-render when a
+// credential is withheld (server mismatch).
+const COOKIE_AUTH: ApiAuth = { type: 'cookie' };
 
 /**
  * The custom Harper API explorer: a searchable operation list beside a detail pane, with an
@@ -78,6 +70,10 @@ export function ApiExplorer(
 
 	const method: AuthMethod = entitySettings.method ?? 'login';
 	const auth: ApiAuth = entitySettings.auth ?? { type: 'cookie' };
+	// The server "Try it out" targets; a credential is stamped with it on apply and only sent back to it.
+	const activeServer = serverOptions.find(s => s.url === entitySettings.server)?.url
+		?? serverOptions[0]?.url
+		?? baseURL;
 
 	// Mint race guard: each mint captures an attempt id; only the latest, on a still-mounted panel,
 	// may apply its token. Clearing authorization or unmounting bumps the id so an in-flight mint that
@@ -115,7 +111,14 @@ export function ApiExplorer(
 		setLoginError(null);
 		try {
 			const token = await mint();
-			if (!mountedRef.current || attempt !== attemptRef.current || authStore.getExplorerAuthEpoch(entityId) !== epoch) {
+			// Superseded by a newer attempt or unmounted — that owner manages the status; leave it alone.
+			if (!mountedRef.current || attempt !== attemptRef.current) {
+				return;
+			}
+			// Signed out (this tab or another) while the mint was in flight — drop the token and clear the
+			// pending state rather than writing the old user's token back.
+			if (authStore.getExplorerAuthEpoch(entityId) !== epoch) {
+				setLoginStatus('idle');
 				return;
 			}
 			if (typeof token !== 'string' || token === '') {
@@ -123,7 +126,7 @@ export function ApiExplorer(
 				setLoginStatus('error');
 				return;
 			}
-			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token } });
+			updateEntitySettings({ method: 'login', auth: { type: 'bearer', token }, authServer: activeServer ?? undefined });
 			setLoginStatus('idle');
 		} catch (error) {
 			if (!mountedRef.current || attempt !== attemptRef.current) {
@@ -146,7 +149,7 @@ export function ApiExplorer(
 	const selectMethod = (next: AuthMethod) => {
 		attemptRef.current++;
 		if (next === 'cookie') {
-			updateEntitySettings({ method: 'cookie', auth: { type: 'cookie' } });
+			updateEntitySettings({ method: 'cookie', auth: { type: 'cookie' }, authServer: undefined });
 		} else if (next === 'basic') {
 			updateEntitySettings({
 				method: 'basic',
@@ -157,13 +160,12 @@ export function ApiExplorer(
 				method: 'bearer',
 				auth: auth.type === 'bearer' ? auth : { type: 'bearer', token: '' },
 			});
+		} else if (method === 'login' && auth.type === 'bearer') {
+			// Re-selecting Login while already logged in keeps the minted token (and its authServer stamp).
+			updateEntitySettings({ method: 'login' });
 		} else {
-			// A bearer from the Bearer tab is not a login credential — only keep it when re-selecting Login
-			// while already logged in; otherwise Login starts logged-out.
-			updateEntitySettings({
-				method: 'login',
-				auth: method === 'login' && auth.type === 'bearer' ? auth : { type: 'cookie' },
-			});
+			// Otherwise Login starts logged-out — a bearer from the Bearer tab is not a login credential.
+			updateEntitySettings({ method: 'login', auth: { type: 'cookie' }, authServer: undefined });
 		}
 		setLoginStatus('idle');
 		setLoginError(null);
@@ -171,11 +173,15 @@ export function ApiExplorer(
 
 	const applyBasic = (username: string, password: string) => {
 		attemptRef.current++;
-		updateEntitySettings({ method: 'basic', auth: { type: 'basic', username, password } });
+		updateEntitySettings({
+			method: 'basic',
+			auth: { type: 'basic', username, password },
+			authServer: activeServer ?? undefined,
+		});
 	};
 	const applyBearer = (token: string) => {
 		attemptRef.current++;
-		updateEntitySettings({ method: 'bearer', auth: { type: 'bearer', token } });
+		updateEntitySettings({ method: 'bearer', auth: { type: 'bearer', token }, authServer: activeServer ?? undefined });
 	};
 	const clearAuth = () => {
 		attemptRef.current++;
@@ -187,23 +193,19 @@ export function ApiExplorer(
 			: method === 'bearer'
 			? { type: 'bearer', token: '' }
 			: { type: 'cookie' };
-		updateEntitySettings({ auth: cleared });
+		updateEntitySettings({ auth: cleared, authServer: undefined });
 	};
 
 	const setSelectedServer = (url: string) => updateEntitySettings({ server: url });
 
-	const activeServer = serverOptions.find(s => s.url === entitySettings.server)?.url
-		?? serverOptions[0]?.url
-		?? baseURL;
 	const [copyServer] = useCopyToClipboard(activeServer ?? '');
 
-	// The credential is scoped to the instance we authorized against (the computed REST origin). Send it
-	// only when the active server shares that origin — whether the user picked another declared server or
-	// the active server recomputed implicitly — so a token/credential never reaches a different origin.
-	const trustedOrigin = originOf(baseURL);
-	const effectiveAuth: ApiAuth = trustedOrigin !== null && originOf(activeServer) === trustedOrigin
-		? auth
-		: { type: 'cookie' };
+	// The credential is stamped with the server it was authorized against (see applyBasic/applyBearer and
+	// the mint) and is sent only when the active server still matches — so switching or recomputing the
+	// active server can't send a token/credential to a different one. Plain string compare (no URL
+	// parsing) so a relative or unusual base URL can't strip a valid credential.
+	const credentialMatchesServer = entitySettings.authServer != null && entitySettings.authServer === activeServer;
+	const effectiveAuth: ApiAuth = isAuthorized(auth) && credentialMatchesServer ? auth : COOKIE_AUTH;
 	const authorized = isAuthorized(effectiveAuth);
 
 	// Width drives a CSS variable applied only at lg+; below that the sidebar stacks full-width.
