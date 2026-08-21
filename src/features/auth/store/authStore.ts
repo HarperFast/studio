@@ -89,13 +89,18 @@ class AuthStore {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
 	}
 
-	/** Current per-entity sign-out epoch; the explorer stamps a mint with it and re-checks before applying. */
+	/**
+	 * Current sign-out epoch for an entity — its own count plus the global (`'*'`) count, so a global
+	 * logout advances every entity's epoch even in the same tab (where no `storage` event fires). The
+	 * explorer stamps a mint with it and re-checks before applying.
+	 */
 	public getExplorerAuthEpoch(id: EntityIds): number {
-		return this.explorerAuthEpoch.get(id) ?? 0;
+		return (this.explorerAuthEpoch.get(id) ?? 0) + (this.explorerAuthEpoch.get('*') ?? 0);
 	}
 
 	private writeExplorerInvalidation(id: EntityIds | '*'): void {
-		this.explorerAuthEpoch.set(id, this.getExplorerAuthEpoch(id) + 1);
+		// Increment the raw slot (not getExplorerAuthEpoch, which folds in the '*' count).
+		this.explorerAuthEpoch.set(id, (this.explorerAuthEpoch.get(id) ?? 0) + 1);
 		try {
 			// Value must differ each write so other tabs' `storage` listeners fire.
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ id, seq: ++this.explorerEpochSeq }));

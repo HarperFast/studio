@@ -106,7 +106,11 @@ describe('ApiExplorer', () => {
 		expect(onSessionMint).toHaveBeenCalledTimes(1);
 
 		const stored = sessionStorage.getItem('ApiExplorerSettings')!;
-		expect(JSON.parse(stored)['ins-test']).toEqual({ method: 'login', auth: { type: 'bearer', token: 'session-tok' } });
+		expect(JSON.parse(stored)['ins-test']).toEqual({
+			method: 'login',
+			auth: { type: 'bearer', token: 'session-tok' },
+			authServer: 'http://localhost:9926',
+		});
 		expect(stored).not.toContain('password');
 	});
 
@@ -144,7 +148,11 @@ describe('ApiExplorer', () => {
 			resolveMint('late-session-token');
 			await Promise.resolve();
 		});
-		expect(storedAuth()).toEqual({ method: 'basic', auth: { type: 'basic', username: 'alice', password: '' } });
+		expect(storedAuth()).toEqual({
+			method: 'basic',
+			auth: { type: 'basic', username: 'alice', password: '' },
+			authServer: 'http://localhost:9926',
+		});
 	});
 
 	it('does not present a manually pasted Bearer token as a session login when Log in is selected', () => {
