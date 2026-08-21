@@ -383,6 +383,36 @@ Only fields on the SDK's modifiable-field allowlist can be mutated here. `view.n
 `error.fingerprint`; resource events add `resource.url` (plus GraphQL/header/websocket fields).
 Grep the installed bundle for `"view.referrer":"string"` to re-check after an SDK bump.
 
+## Datadog RUM — exactly one `startView` per page load, or Core Web Vitals vanish
+
+[`datadog.ts`](src/integrations/datadog/datadog.ts) sets `trackViewsManually: true`, and the SDK's
+contract for that flag is narrower than it looks. It stays stopped until the **first** `startView`,
+adopts that call's options as its single `initial_load` view, then turns every later call into a
+`route_change` view (`preStartRum.ts` `tryStartRum`, `trackViews.ts` `startView`). Only an
+`initial_load` view runs `trackInitialViewMetrics`, so it is the only view that can ever carry LCP
+or FCP.
+
+A second `startView` on boot therefore ends the one view that collects paint metrics. That is what
+zeroed Studio's vitals for a month (#1570): `useDatadog` and `useOnRouteLoadTracker` both called
+it, 0.3ms apart, and every `initial_load` event shipped with `dom_complete` but no `lcp` and no
+`fcp`. Ownership of that first call now lives in `useOnRouteLoadTracker` alone — it mounts on the
+root route (`rootRoute.ts`), so it runs on every cloud route.
+
+Two traps when reading this from RUM data:
+
+- `view.time_spent` on an `initial_load` view is measured from `clocksOrigin()` — page origin, not
+  SDK start — so a ~1s `time_spent` does **not** mean the view was alive and observing for a
+  second. It says nothing about the observation window.
+- Never name a view from `window.location.pathname`. Studio uses hash routing, so that is
+  permanently `/` — which is why all 880 `initial_load` views in one week were named `/` whatever
+  route actually loaded, and why #1405's "`/` view regression" was really every deep-link entry
+  conflated into one bucket.
+
+Verifying a change here needs a **visible** browser on a production build: a headless or background
+tab reports `visibilityState: 'hidden'`, emits zero paint and LCP entries, and `trackFirstHidden`
+discards them anyway — so vitals always read as absent, and a broken fix looks identical to a
+working one.
+
 ## Never put an address or a credential in a URL
 
 Studio uses **hash routing**, so a query param lives in the fragment: for

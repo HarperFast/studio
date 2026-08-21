@@ -42,13 +42,8 @@ export function useDatadog() {
 				plugins: [reactPlugin()],
 			});
 
-			// Deliberately no `startView` here. Under `trackViewsManually` the SDK stays stopped
-			// until the FIRST `startView`, adopts that call's options as its one `initial_load`
-			// view, and downgrades every later call to `route_change` — and only an `initial_load`
-			// view ever collects LCP/FCP. A second call therefore destroys the vitals (#1570). That
-			// one call belongs to `useOnRouteLoadTracker`, which mounts on the root route (so it
-			// runs on every cloud route) and names the view by route rather than by the hash
-			// router's permanently-`/` pathname.
+			// No `startView` here: `useOnRouteLoadTracker` must own the sole boot view, because
+			// only the first one is an `initial_load` view and only that view collects LCP/FCP.
 		}
 	}, []);
 }
