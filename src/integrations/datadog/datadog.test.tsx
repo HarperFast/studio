@@ -20,13 +20,21 @@ vi.mock('@datadog/browser-rum', () => ({ datadogRum: rum }));
 vi.mock('@datadog/browser-rum-react', () => ({ reactPlugin: () => ({ name: 'react' }) }));
 vi.mock('@/config/constants', () => ({ isLocalStudio: false }));
 vi.mock('@/hooks/useAuth', () => ({ useOverallAuth: () => ({ user: undefined }) }));
-vi.mock('@tanstack/react-router', () => ({
-	useLocation: () => ({ href: routerState.href }),
-	useRouter: () => ({
-		state: { location: { href: routerState.href } },
+// One stable `router` identity, as the real `useRouter` returns — the tracker's effect lists
+// `router` in its deps, so a fresh object per render would re-fire it on every render and the
+// navigation assertions below would hold even if `location.href` were not a dependency.
+vi.mock('@tanstack/react-router', () => {
+	const router = {
+		get state() {
+			return { location: { href: routerState.href } };
+		},
 		matchRoutes: () => routerState.params.map((params) => ({ params })),
-	}),
-}));
+	};
+	return {
+		useLocation: () => ({ href: routerState.href }),
+		useRouter: () => router,
+	};
+});
 
 async function loadDatadogModule() {
 	vi.resetModules();
@@ -102,9 +110,11 @@ describe('Datadog view tracking', () => {
 		}
 
 		const { rerender } = render(<CloudRoot />);
+		rerender(<CloudRoot />);
 		routerState.href = '/org-1/clu-2/config';
 		rerender(<CloudRoot />);
 
+		// The middle re-render changed nothing, so it must not have produced a view.
 		expect(rum.startView.mock.calls.map(([options]) => options.name)).toEqual([
 			'/$organizationId/$clusterId/apps/',
 			'/$organizationId/$clusterId/config/',
