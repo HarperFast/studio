@@ -178,6 +178,34 @@ and collapses. Fix: make the wrapper `flex flex-col` (or add `block`/`w-full` to
 anchor). The GitHub button (`.github-signin-btn`) sets `display: flex` explicitly and is
 not affected. (Hit while building the "Last used" sign-in badge, #1316.)
 
+## A mocked hook whose value lands in a dependency array must keep a stable identity
+
+If you `vi.mock` a hook and the code under test puts its return value in a `useEffect` dependency
+array, returning a fresh object per call re-fires that effect on **every render** — and any
+assertion counting effect side-effects then passes for the wrong reason. `vi.mock('@tanstack/
+react-router', () => ({ useRouter: () => ({ ... }) }))` did exactly that to
+[`datadog.test.tsx`](src/integrations/datadog/datadog.test.tsx): the test that claimed to prove
+"one view per navigation" would have passed with `location.href` removed from the deps entirely.
+The real `useRouter` returns a stable reference, so the mock was also lying about production.
+
+Instantiate once in the factory and expose changing state through a getter:
+
+```ts
+vi.mock('@tanstack/react-router', () => {
+	const router = {
+		get state() {
+			return { location: { href: routerState.href } };
+		},
+	};
+	return { useRouter: () => router };
+});
+```
+
+The general check, worth running on any effect-counting test: **re-render without changing
+anything and assert nothing happened.** That assertion is what distinguishes "the effect re-ran
+because its input changed" from "the effect re-runs constantly"; it fails immediately against an
+unstable mock.
+
 ## Testing Radix menus in jsdom
 
 This repo has NO `@testing-library/user-event` — only `@testing-library/react` +
