@@ -2,8 +2,8 @@ import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
-	forgetAllEntitySettings,
 	forgetEntitySettings,
+	pruneStaleEntitySettings,
 	scrubLegacySettings,
 } from '@/features/instance/apis/explorer/settings';
 import { SchemaCluster, SchemaHdbInstance } from '@/integrations/api/api.gen';
@@ -76,36 +76,47 @@ class AuthStore {
 	private readonly fabricConnectInFlight = new Map<EntityIds, Promise<LocalUser>>();
 	private readonly operationTokenRefreshInFlight = new Map<EntityIds, Promise<string | null>>();
 
-	// Per-entity count of sign-out events. The API explorer keeps its credential per browser tab
-	// (sessionStorage), so a sign-out in one tab can't reach another's storage directly: this epoch is
-	// bumped on every sign-out and mirrored to localStorage, letting the explorer (a) reject an
-	// in-flight token mint that resolves after a sign-out and (b) clear its own tab's stored credential
-	// when another tab signs the entity out.
-	private readonly explorerAuthEpoch = new Map<EntityIds, number>();
-	private explorerEpochSeq = Date.now();
+	// Sign-out generations for the API explorer, per entity plus a global `'*'` slot. The explorer keeps
+	// its credential per browser tab (sessionStorage), which SURVIVES a reload — so an event-only signal
+	// is not enough: a tab that reloads after another tab signed out would never see the event. The
+	// generation therefore lives in localStorage (durable, shared) and each stored credential records the
+	// generation it was created under, so a stale credential is detected by comparison at read time
+	// regardless of whether this tab was running when the sign-out happened.
 	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
 	}
 
+	private readExplorerGenerations(): Record<string, number> {
+		try {
+			const raw = JSON.parse(localStorage.getItem(this.explorerAuthEpochKey) || '{}') as unknown;
+			return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, number> : {};
+		} catch {
+			return {};
+		}
+	}
+
 	/**
-	 * Current sign-out epoch for an entity — its own count plus the global (`'*'`) count, so a global
-	 * logout advances every entity's epoch even in the same tab (where no `storage` event fires). The
-	 * explorer stamps a mint with it and re-checks before applying.
+	 * Current sign-out generation for an entity — its own count plus the global (`'*'`) count, so a
+	 * global logout advances every entity's generation. The explorer stamps a credential with this and
+	 * compares before using it (and before applying an in-flight mint).
 	 */
 	public getExplorerAuthEpoch(id: EntityIds): number {
-		return (this.explorerAuthEpoch.get(id) ?? 0) + (this.explorerAuthEpoch.get('*') ?? 0);
+		const generations = this.readExplorerGenerations();
+		const own = typeof generations[id] === 'number' ? generations[id] : 0;
+		const all = typeof generations['*'] === 'number' ? generations['*'] : 0;
+		return own + all;
 	}
 
 	private writeExplorerInvalidation(id: EntityIds | '*'): void {
-		// Increment the raw slot (not getExplorerAuthEpoch, which folds in the '*' count).
-		this.explorerAuthEpoch.set(id, (this.explorerAuthEpoch.get(id) ?? 0) + 1);
 		try {
-			// Value must differ each write so other tabs' `storage` listeners fire.
-			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ id, seq: ++this.explorerEpochSeq }));
+			const generations = this.readExplorerGenerations();
+			const current = typeof generations[id] === 'number' ? generations[id] : 0;
+			// The value changes on every write, so other tabs' `storage` listeners still fire.
+			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ ...generations, [id]: current + 1 }));
 		} catch {
-			// Storage disabled — the in-memory epoch still guards the same-tab in-flight-mint race.
+			// Storage disabled: the explorer's per-tab clearing on sign-out still applies within this tab.
 		}
 	}
 
@@ -119,39 +130,13 @@ class AuthStore {
 	}
 
 	/**
-	 * The entity a mirrored invalidation names (`'*'` = all), or null if the event isn't one. Advances
-	 * this tab's in-memory epoch for that entity as a side effect, so an in-flight mint here is
-	 * invalidated by another tab's sign-out too — the epoch stays authoritative in every tab. Each
-	 * installed listener advances it, which is fine: only a *change* in the value is meaningful.
+	 * Subscribe to a change in the explorer sign-out generation (any entity, or a global logout). The
+	 * caller re-compares its own entity's stamped generation rather than trusting the event to name one,
+	 * which is the same check that runs at bootstrap — so a missed event can't leave a stale credential.
 	 */
-	private parseExplorerInvalidation(event: StorageEvent): string | null {
-		if (event.key !== this.explorerAuthEpochKey || !event.newValue) {
-			return null;
-		}
-		let id: string | null = null;
-		try {
-			const parsed = JSON.parse(event.newValue) as { id?: string };
-			id = typeof parsed.id === 'string' ? parsed.id : null;
-		} catch {
-			return null;
-		}
-		if (id !== null) {
-			this.explorerAuthEpoch.set(id, (this.explorerAuthEpoch.get(id) ?? 0) + 1);
-		}
-		return id;
-	}
-
-	/**
-	 * Subscribe to cross-tab sign-out of one entity (or a global `'*'` logout). Fires when another tab
-	 * signs `id` out via the mirrored epoch key; the caller resets its live auth state. The browser only
-	 * delivers `storage` events to other documents, so the signing-out tab is unaffected (it clears
-	 * itself directly). This is component-lifetime; a tab whose explorer is unmounted relies on the
-	 * always-on `installExplorerCrossTabCleanup` listener to scrub its stored credential.
-	 */
-	public onExplorerAuthInvalidated(id: EntityIds, callback: () => void): () => void {
+	public onExplorerAuthInvalidated(_id: EntityIds, callback: () => void): () => void {
 		const handler = (event: StorageEvent) => {
-			const invalidated = this.parseExplorerInvalidation(event);
-			if (invalidated === id || invalidated === '*') {
+			if (event.key === this.explorerAuthEpochKey) {
 				callback();
 			}
 		};
@@ -160,20 +145,21 @@ class AuthStore {
 	}
 
 	/**
-	 * App-level (always-on) listener that clears the per-tab explorer credential for an entity another
-	 * tab signed out — even when this tab's explorer is unmounted, so a tab that navigated away can't
-	 * later restore a revoked token. Also re-scrubs the legacy localStorage secret if a pre-upgrade tab
-	 * rewrote it. Installed once at bootstrap.
+	 * App-level cleanup, installed once at bootstrap. Runs immediately — reconciling credentials stored
+	 * in this tab's sessionStorage (which survives a reload) against the durable generation, so a
+	 * sign-out that happened while this tab was closed or reloading is still honored — and again whenever
+	 * the generation changes, so an unmounted explorer's credential is dropped too.
 	 */
 	public installExplorerCrossTabCleanup(): () => void {
-		const handler = (event: StorageEvent) => {
-			const invalidated = this.parseExplorerInvalidation(event);
-			if (invalidated === '*') {
-				forgetAllEntitySettings();
-			} else if (invalidated) {
-				forgetEntitySettings(invalidated);
-			}
+		const reconcile = () => {
+			pruneStaleEntitySettings(entityId => this.getExplorerAuthEpoch(entityId));
 			scrubLegacySettings();
+		};
+		reconcile();
+		const handler = (event: StorageEvent) => {
+			if (event.key === this.explorerAuthEpochKey) {
+				reconcile();
+			}
 		};
 		window.addEventListener('storage', handler);
 		return () => window.removeEventListener('storage', handler);

@@ -106,11 +106,11 @@ describe('ApiExplorer', () => {
 		expect(onSessionMint).toHaveBeenCalledTimes(1);
 
 		const stored = sessionStorage.getItem('ApiExplorerSettings')!;
-		expect(JSON.parse(stored)['ins-test']).toEqual({
+		expect(JSON.parse(stored)['ins-test']).toEqual(expect.objectContaining({
 			method: 'login',
 			auth: { type: 'bearer', token: 'session-tok' },
 			authServer: 'http://localhost:9926',
-		});
+		}));
 		expect(stored).not.toContain('password');
 	});
 
@@ -148,11 +148,11 @@ describe('ApiExplorer', () => {
 			resolveMint('late-session-token');
 			await Promise.resolve();
 		});
-		expect(storedAuth()).toEqual({
+		expect(storedAuth()).toEqual(expect.objectContaining({
 			method: 'basic',
 			auth: { type: 'basic', username: 'alice', password: '' },
 			authServer: 'http://localhost:9926',
-		});
+		}));
 	});
 
 	it('does not present a manually pasted Bearer token as a session login when Log in is selected', () => {
@@ -166,7 +166,7 @@ describe('ApiExplorer', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 		expect(screen.queryByText(/Credential set —/)).toBeNull();
-		expect(storedAuth()).toEqual({ method: 'login', auth: { type: 'cookie' } });
+		expect(storedAuth()).toEqual(expect.objectContaining({ method: 'login', auth: { type: 'cookie' } }));
 	});
 
 	it('surfaces a log-in error without unlocking', async () => {
@@ -266,17 +266,14 @@ describe('ApiExplorer', () => {
 		fireEvent.click(screen.getByRole('button', { name: /authorize with your current session/i }));
 		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
 
-		// Another tab signs ins-test out: authStore mirrors that to localStorage, firing a storage event.
+		// Another tab signs ins-test out: it advances the durable generation, then this tab gets the event.
 		act(() => {
-			window.dispatchEvent(
-				new StorageEvent('storage', {
-					key: 'Studio:ExplorerAuthEpoch',
-					newValue: JSON.stringify({ id: 'ins-test', seq: 999 }),
-				}),
-			);
+			const bumped = JSON.stringify({ 'ins-test': 99 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
 		});
+		// The credential no longer matches the current generation, so it is not sent.
 		expect(screen.queryByText(/Credential set —/)).toBeNull();
-		expect(JSON.parse(sessionStorage.getItem('ApiExplorerSettings') ?? '{}')['ins-test']).toBeUndefined();
 	});
 
 	it('discards a session mint that resolves after the entity was signed out', async () => {

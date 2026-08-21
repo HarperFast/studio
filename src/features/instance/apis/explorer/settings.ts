@@ -16,6 +16,12 @@ export interface ExplorerEntitySettings {
 	server?: string;
 	/** The server the credential was authorized against; it's only sent when the active server matches. */
 	authServer?: string;
+	/**
+	 * The sign-out generation this credential was created under. sessionStorage survives a reload, so a
+	 * tab that restarts after another tab signed out would otherwise keep a revoked credential; comparing
+	 * this against the current durable generation catches that without relying on a live event.
+	 */
+	authGeneration?: number;
 }
 
 function normalizeMethod(value: unknown): AuthMethod | undefined {
@@ -63,6 +69,9 @@ function normalizeEntity(value: unknown): ExplorerEntitySettings {
 	}
 	if (typeof v.authServer === 'string') {
 		out.authServer = v.authServer;
+	}
+	if (typeof v.authGeneration === 'number' && Number.isFinite(v.authGeneration)) {
+		out.authGeneration = v.authGeneration;
 	}
 	return out;
 }
@@ -126,6 +135,29 @@ export function forgetEntitySettings(entityId: string): void {
 	const map = readMap();
 	if (Object.hasOwn(map, entityId)) {
 		delete map[entityId];
+		writeMap(map);
+	}
+}
+
+/**
+ * Strip the credential from every stored entity whose stamped generation no longer matches the current
+ * one — i.e. a sign-out happened that this tab may never have observed as an event (it was reloaded, or
+ * had not started yet). Non-secret state (server/method selection) is kept. The current generation is
+ * injected so this module doesn't depend on the auth store (which depends on this one).
+ */
+export function pruneStaleEntitySettings(currentGeneration: (entityId: string) => number): void {
+	const map = readMap();
+	let changed = false;
+	for (const [entityId, settings] of Object.entries(map)) {
+		if (!settings.auth || settings.auth.type === 'cookie') {
+			continue;
+		}
+		if ((settings.authGeneration ?? -1) !== currentGeneration(entityId)) {
+			map[entityId] = { method: settings.method, server: settings.server };
+			changed = true;
+		}
+	}
+	if (changed) {
 		writeMap(map);
 	}
 }
