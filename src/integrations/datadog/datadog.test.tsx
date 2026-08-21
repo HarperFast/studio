@@ -47,7 +47,6 @@ afterEach(() => {
 });
 
 describe('Datadog view tracking', () => {
-	// The nesting mirrors production: App calls useDatadog, StudioCloud calls the tracker.
 	it('starts exactly one view when the whole tree boots', async () => {
 		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModule();
 		function CloudRoot() {
