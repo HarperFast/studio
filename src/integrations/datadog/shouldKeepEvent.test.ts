@@ -347,6 +347,23 @@ describe('shouldKeepEvent', () => {
 			).toBe(true);
 		});
 
+		// A CRLF-terminated stack leaves a trailing `\r` on every line after the `\n` split. It has
+		// to be tolerated at the frame level, because a frame that fails to parse is skipped as
+		// unlocatable — so one stray `\r` would silently disable attribution for the whole stack.
+		it('discards extension-only stacks with CRLF line endings', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: "Cannot read properties of undefined (reading 'M_ID')",
+						stack: [
+							"TypeError: Cannot read properties of undefined (reading 'M_ID')",
+							'  at Z @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:24680',
+						].join('\r\n') + '\r\n',
+					}),
+				),
+			).toBe(false);
+		});
+
 		it('discards extension errors whose stack is topped by the Datadog fetch wrapper', () => {
 			expect(
 				shouldKeepEvent(
