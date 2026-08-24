@@ -1,1 +1,5 @@
 * @HarperFast/front-end
+
+# Dependency bumps (Renovate and manual) need one reviewer, not the whole team.
+package.json   @dawsontoth
+pnpm-lock.yaml @dawsontoth
