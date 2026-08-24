@@ -1,7 +1,7 @@
 name: Deploy to Prod
 on:
-  # Pushes to `prod` deploy with the defaults below (Harper 4.x template, no restart).
-  # Use the manual run to override either — see .github/deploy-templates.md.
+  # Pushes to `prod` deploy with the defaults below (Harper 4.x, no restart). Use the
+  # manual run to override either — see .github/deploying.md.
   workflow_dispatch:
     inputs:
       restart:
@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       harper_version:
-        description: 'Harper major version running on the target CM (picks the deploy template)'
+        description: 'Harper major version running on the target CM'
         type: choice
         default: v4
         options:
@@ -33,68 +33,17 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Set up pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      # Everything past the checkout is shared with the other environments — see
+      # .github/actions/deploy-studio/action.yaml.
+      - name: Build and deploy
+        uses: ./.github/actions/deploy-studio
         with:
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-          node-version-file: '.nvmrc'
-      - name: Disable Husky
-        run: echo "HUSKY=0" >> $GITHUB_ENV
-      - name: Install dependencies
-        run: pnpm install
-      - name: Run unit tests
-        run: pnpm test
-      - name: Run lint
-        run: pnpm lint
-      - name: Determine version tag for build
-        run: |
-          VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
-          if [ -z "$VERSION_TAG" ]; then
-            VERSION_TAG="prod_${GITHUB_SHA:0:7}"
-          fi
-          echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
-      - name: Build prod
-        run: pnpm build --mode prod
-      - name: Upload sourcemaps to Datadog
-        run: |
-          pnpm datadog-ci sourcemaps upload web/assets \
-            --service "studio" \
-            --release-version "$VITE_STUDIO_VERSION" \
-            --minified-path-prefix "https://fabric.harper.fast/assets"
-        env:
-          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
-      # Datadog now holds the maps and is their only consumer. They are 76% of the build output
-      # (~71 MB, mostly `sourcesContent`), so shipping them too would replicate that to every
-      # node for nothing. See `sourcemapFor` in vite.config.ts, which emits these as `'hidden'`
-      # so no bundle references the files deleted here.
-      - name: Strip sourcemaps from the deployed bundle
-        run: find web/assets -name '*.js.map' -delete
-      # `inputs.*` is empty for anything but a manual run, and anything that is not
-      # exactly `true`/`v5` falls back to the safe default, so a push deploys the
-      # Harper 4.x template without restarting.
-      - name: Resolve deploy options
-        env:
-          RESTART_INPUT: ${{ inputs.restart }}
-          HARPER_INPUT: ${{ inputs.harper_version }}
-        run: |
-          RESTART=false
-          TEMPLATE=.github/deploy-template
-          if [ "$RESTART_INPUT" = 'true' ]; then
-            RESTART=true
-          fi
-          if [ "$HARPER_INPUT" = 'v5' ]; then
-            TEMPLATE=.github/deploy-template-v5
-          fi
-          echo "DEPLOY_RESTART=$RESTART" >> "$GITHUB_ENV"
-          echo "DEPLOY_TEMPLATE=$TEMPLATE" >> "$GITHUB_ENV"
-          echo "Deploying $TEMPLATE with restart=$RESTART"
-      - name: Deploy to prod
-        run: |
-          mkdir deploy
-          mv web deploy/
-          cp -R "$DEPLOY_TEMPLATE"/* deploy/
-          cd deploy
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_PROD }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_PROD }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_PROD }}' restart="$DEPLOY_RESTART" replicated=true
+          environment: prod
+          sourcemap-url-prefix: https://fabric.harper.fast/assets
+          # `inputs.*` is empty outside a manual run, which lands on the action's defaults.
+          restart: ${{ inputs.restart }}
+          harper-version: ${{ inputs.harper_version }}
+          datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
+          cli-target-username: ${{ secrets.CLI_TARGET_USERNAME_PROD }}
+          cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_PROD }}
+          cli-deploy-target: ${{ secrets.CLI_DEPLOY_TARGET_PROD }}
