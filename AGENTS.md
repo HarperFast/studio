@@ -474,6 +474,16 @@ Two traps when reading this from RUM data:
   route actually loaded, and why #1405's "`/` view regression" was really every deep-link entry
   conflated into one bucket.
 
+A boot-time redirect does **not** cost you that first view, and which path you are on decides it.
+`dashboardLayout.beforeLoad` redirects only once auth is known (`!isLoading && !user`), and
+`authStore.getAllConnections()` reports `isLoading: false` synchronously unless the
+`Studio:PotentiallyAuthenticated` localStorage record holds an `OverallAppSignIn` entry. So an
+ordinary signed-out deep link resolves the redirect _during_ the router's initial load and the root
+component never commits the deep-link location — one `startView`, named `/sign-in/`. Only a stale
+flag (expired session) boots at `isLoading: true`, renders the deep link, and redirects after
+`AppRouted`'s `router.invalidate()` — two views, a network round trip apart, the second a genuine
+navigation.
+
 Verifying a change here needs a **visible** browser on a production build: a headless or background
 tab reports `visibilityState: 'hidden'`, emits zero paint and LCP entries, and `trackFirstHidden`
 discards them anyway — so vitals always read as absent, and a broken fix looks identical to a
