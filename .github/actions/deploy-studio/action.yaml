@@ -60,9 +60,8 @@ runs:
     - name: Run lint
       shell: bash
       run: pnpm lint
-    # Two callers need this. A verify-only run (the stage merge queue) has no later build
-    # to catch a break, and a releasing run must fail *before* `pnpm release` tags a
-    # version that nothing can ship. A plain deploy skips it: the real build follows.
+    # A verify-only run has no later build to catch a break, and a releasing run must fail
+    # before `pnpm release` tags a version nothing can ship. A plain deploy skips it.
     - name: Verify ${{ inputs.environment }} can build
       if: ${{ inputs.deploy != 'true' || inputs.release == 'true' }}
       shell: bash
@@ -83,12 +82,9 @@ runs:
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        # Tolerating grep alone is load-bearing: a composite step must name its shell, and
-        # `shell: bash` runs with `-o pipefail`, which the workflows' default `bash -e` did
-        # not. grep exits 1 when HEAD carries no tag — the normal case for a dev deploy — and
-        # without this the step would die here rather than reach the fallback below. Scoped to
-        # grep so a real `git tag` failure still fails the step instead of quietly labelling
-        # the build with a SHA.
+        # `shell: bash` implies -o pipefail, which the workflows' default `bash -e` lacked, and
+        # grep exits 1 on an untagged HEAD — every dev deploy. Tolerate that alone, so a real
+        # `git tag` failure still fails rather than labelling the build with a SHA.
         VERSION_TAG=$(git tag --points-at HEAD | { grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' || true; } | sort -V | tail -n1)
         if [ -z "$VERSION_TAG" ]; then
           VERSION_TAG="${ENVIRONMENT}_${GITHUB_SHA:0:7}"
@@ -140,7 +136,7 @@ runs:
         fi
 
         mkdir deploy
-        cp -R .github/deploy-template/* deploy/
+        cp -R .github/deploy-template/. deploy/
         if [ "$HARPER" = 'v5' ]; then
           jq --arg range "$FASTIFY_STATIC_V5" '.dependencies["@fastify/static"] = $range' \
             .github/deploy-template/package.json > deploy/package.json
