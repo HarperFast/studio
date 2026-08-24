@@ -223,6 +223,146 @@ describe('shouldKeepEvent', () => {
 		});
 	});
 
+	// Regression tests for #1645. Stacks below are the real ones RUM recorded, truncated.
+	describe('browser extension content scripts', () => {
+		it('discards errors whose stack is nothing but extension frames', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: "Cannot read properties of undefined (reading 'M_ID')",
+						stack: [
+							"TypeError: Cannot read properties of undefined (reading 'M_ID')",
+							'  at Z @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:24680',
+							'  at f @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:23104',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		// Not an enumeration of the schemes that exist — `ms-browser-extension` and any future
+		// spelling must attribute the same way, or they score as Studio frames instead.
+		it.each([
+			'moz-extension',
+			'safari-web-extension',
+			'safari-extension',
+			'ms-browser-extension',
+			'edge-extension',
+		])(
+			'discards errors from %s frames',
+			(scheme) => {
+				expect(
+					shouldKeepEvent(
+						errorEvent({
+							message: 'Boom',
+							stack: ['TypeError: Boom', `  at h @ ${scheme}://abc-123/content.js:1:10`].join('\n'),
+						}),
+					),
+				).toBe(false);
+			},
+		);
+
+		// An extension can call into Studio code (a patched event handler, a click it
+		// synthesises). Once one of our frames is on the stack the error is ours to answer for,
+		// so the extension frame must not be enough on its own to drop it.
+		it('keeps errors with a Studio frame alongside the extension frames', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: "Cannot read properties of undefined (reading 'M_ID')",
+						stack: [
+							"TypeError: Cannot read properties of undefined (reading 'M_ID')",
+							'  at Z @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:24680',
+							'  at useOrganization @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		// The message line is not a frame. A Studio error that merely quotes an extension URL
+		// must not be attributed to the extension.
+		it('keeps errors whose only extension mention is in the message text', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to load chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js',
+						stack: [
+							'TypeError: Failed to load chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js',
+							'  at loadScript @ [native code]',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		// Only the frame's URL field decides its origin, so an extension URL sitting in the
+		// function-name half of a Studio frame must not attribute the frame to the extension.
+		it("keeps errors whose extension URL is in a Studio frame's function name", () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'TypeError: Boom',
+							'  at chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		// A Studio frame's URL is not always plain https: Monaco's language workers run from
+		// `blob:https://…`. The nested origin is what attributes the frame, so such a frame must
+		// still count as ours even with an extension frame beside it.
+		it('keeps errors with a blob-URL Studio frame alongside the extension frames', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'TypeError: Boom',
+							'  at s @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:900',
+							'  at run @ blob:https://fabric.harper.fast/9f0e5d1c-uuid:1:1',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		// The scheme only means anything at the start of the URL. A Studio script whose own URL
+		// carries an extension URL in a query or hash is still Studio's frame.
+		it('keeps errors whose Studio frame URL embeds an extension URL in a query param', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'TypeError: Boom',
+							'  at s @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:900',
+							'  at go @ https://fabric.harper.fast/assets/index-A1b2C3d4.js?redirect=chrome-extension://abcdef/login.html:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('discards extension errors whose stack is topped by the Datadog fetch wrapper', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to fetch',
+						stack: [
+							'TypeError: Failed to fetch',
+							'  at <anonymous> @ https://fabric.harper.fast/assets/vendor-datadog-DBn-aOxh.js:3:3213',
+							'  at s @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:900',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+	});
+
 	it('keeps non-timeout network failures that are not attributable to an instance endpoint', () => {
 		// Without an instance/cluster URL we cannot tell a real backend failure from an
 		// expected one, so a bare "Network Error" stays visible (unlike timeouts).
