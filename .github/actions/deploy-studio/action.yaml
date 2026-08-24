@@ -1,9 +1,7 @@
 name: Deploy Studio
 description: Test, build and deploy Studio to a Harper CM as a component.
 
-# The three environment workflows (deploy-dev/stage/prod.yaml) differ only in the values
-# below, so the whole job body lives here and they stay declarative. Checkout has to stay
-# in the caller: a local action reference can only resolve once the repo is on disk.
+# Checkout stays in the caller: a local action reference only resolves once the repo is on disk.
 inputs:
   environment:
     description: 'dev | stage | prod — selects the vite mode and the version-tag prefix'
@@ -83,7 +81,11 @@ runs:
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
+        # `|| true` is load-bearing: a composite step must name its shell, and `shell: bash`
+        # runs with `-o pipefail`, which the workflows' default `bash -e` did not. grep exits
+        # 1 when HEAD carries no tag — the normal case for a dev deploy — so without this the
+        # step dies here instead of reaching the fallback two lines down.
+        VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1 || true)
         if [ -z "$VERSION_TAG" ]; then
           VERSION_TAG="${ENVIRONMENT}_${GITHUB_SHA:0:7}"
         fi
@@ -119,14 +121,9 @@ runs:
       env:
         RESTART_INPUT: ${{ inputs.restart }}
         HARPER_INPUT: ${{ inputs.harper-version }}
-        # @fastify/static majors track fastify majors and Harper embeds fastify, so the
-        # template is Harper-major-specific: v7 -> fastify 4 (harperdb 4.x), v8 -> fastify 5
-        # (Harper 5.x). Register the wrong one and nothing fails at deploy time —
-        # `fastify-plugin`'s version check rejects it, `reply.sendFile` is never decorated,
-        # and the CM serves `{"error":"reply.sendFile is not a function"}` with every asset
-        # 404ing. The checked-in template carries the 4.x pin and this is the 5.x override
-        # applied below, which keeps the range the only difference between a v4 and a v5
-        # deploy — with no second copy of the template to drift.
+        # The template carries the harperdb 4.x pin; this is the Harper 5.x override, so the
+        # range stays the only difference between a v4 and a v5 deploy. Pairing it wrong fails
+        # silently on the CM rather than here — see .github/deploying.md.
         FASTIFY_STATIC_V5: '^8.3.0'
       run: |
         RESTART=false
