@@ -25,7 +25,31 @@ export interface DatadogErrorEvent {
  * bundle (`src/integrations/reo/reo.ts` loads it from this CDN). Errors thrown inside
  * them are vendor bugs we can neither reproduce nor fix.
  */
-const THIRD_PARTY_SCRIPT_FRAME = /https?:\/\/static\.reo\.dev\//;
+const THIRD_PARTY_SCRIPT_FRAME = /^https?:\/\/static\.reo\.dev\//;
+
+/**
+ * A content script the user's own browser extension injected into the page. Matched on the
+ * scheme suffix rather than the known spellings (`chrome-`, `moz-`, `safari-web-`,
+ * `ms-browser-`, …): Studio is only ever served over http(s), so no scheme spelled
+ * `*-extension:` can be ours, and an enumeration would leave every unlisted one scoring as a
+ * Studio frame.
+ */
+const EXTENSION_SCHEME = String.raw`[\w-]+-extension`;
+const BROWSER_EXTENSION_FRAME = new RegExp(String.raw`^${EXTENSION_SCHEME}://`);
+
+/**
+ * The script URL of one stack frame. The SDK re-serializes every stack it records as
+ * `<Name>: <message>` followed by one `  at <func> @ <url>:<line>:<col>` line per frame
+ * (`toStackTraceString`, `@datadog/browser-core/cjs/tools/stackTrace/handlingStack.js`), so the
+ * URL is browser-independently the trailing token. Isolating it is what keeps a URL sitting in
+ * the message text or a function name from standing in for a frame's origin.
+ */
+const FRAME_URL = new RegExp(
+	String.raw`^\s*at\s.* @ ((?:blob:)?(?:https?|${EXTENSION_SCHEME})://\S*)$`,
+);
+
+/** A worker or object URL nests the real origin: `blob:https://host/<uuid>`. */
+const NESTED_ORIGIN_PREFIX = /^blob:/;
 
 /**
  * The Datadog browser SDK monkey-patches `fetch`/XHR, so its own bundle sits at the top
@@ -35,19 +59,21 @@ const THIRD_PARTY_SCRIPT_FRAME = /https?:\/\/static\.reo\.dev\//;
 const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
 
 /**
- * True when every located frame in the stack belongs to a third-party script (or to the
- * Datadog SDK's own instrumentation), i.e. no Studio code is on the stack at all.
+ * True when every located frame in the stack belongs to a third-party script or a browser
+ * extension (or to the Datadog SDK's own instrumentation), i.e. no Studio code is on the
+ * stack at all.
  */
 function originatesInThirdPartyScript(stack: string) {
 	let sawThirdPartyFrame = false;
 	for (const line of stack.split('\n')) {
-		// Skips the leading message line and any frame the browser couldn't resolve to a URL.
-		if (!/https?:\/\//.test(line)) {
+		// Skips the message line and any frame the browser couldn't resolve to a script.
+		const url = FRAME_URL.exec(line)?.[1].replace(NESTED_ORIGIN_PREFIX, '');
+		if (!url) {
 			continue;
 		}
-		if (THIRD_PARTY_SCRIPT_FRAME.test(line)) {
+		if (THIRD_PARTY_SCRIPT_FRAME.test(url) || BROWSER_EXTENSION_FRAME.test(url)) {
 			sawThirdPartyFrame = true;
-		} else if (!INSTRUMENTATION_FRAME.test(line)) {
+		} else if (!INSTRUMENTATION_FRAME.test(url)) {
 			// Studio code is on the stack, so the error is ours to answer for.
 			return false;
 		}
@@ -116,14 +142,16 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
-	// Errors thrown entirely inside an embedded third-party script are that vendor's bugs,
-	// not Studio's: we can't reproduce them, fix them, or act on them, and they arrive with
-	// stacks that point only at minified vendor code. Reo.dev alone contributed two distinct
-	// "issues" to Error Tracking within a day of first appearing (2026-07-28): a
-	// `RangeError: Invalid time zone specified: Etc/Unknown` from its own `DateTimeFormat`
-	// call, and a `TypeError: Failed to fetch` when its beacon is blocked. Attribute on the
-	// stack rather than the message, so a genuine Studio error that happens to share a
-	// message is still kept.
+	// Errors thrown entirely inside an embedded third-party script or an injected extension
+	// content script are that vendor's bugs, not Studio's: we can't reproduce them, fix them,
+	// or act on them, and they arrive with stacks that point only at minified foreign code.
+	// Reo.dev alone contributed two distinct "issues" to Error Tracking within a day of first
+	// appearing (2026-07-28): a `RangeError: Invalid time zone specified: Etc/Unknown` from its
+	// own `DateTimeFormat` call, and a `TypeError: Failed to fetch` when its beacon is blocked.
+	// An extension's per-session rate is unbounded: four sessions emitted 1,486 identical
+	// unhandled TypeErrors in four days, 87% of all RUM errors in the last of them (#1645).
+	// Attribute on the stack rather than the message, so a genuine Studio error that happens to
+	// share a message is still kept.
 	const stack = typeof event.error?.stack === 'string' ? event.error.stack : '';
 	if (stack && originatesInThirdPartyScript(stack)) {
 		return false;
