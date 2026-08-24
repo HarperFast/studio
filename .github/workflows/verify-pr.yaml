@@ -14,6 +14,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The two deploy templates must stay identical apart from the @fastify/static
+      # major, so a fix to one can't silently skip the other. See
+      # .github/deploy-templates.md.
+      - name: Verify deploy templates only differ by @fastify/static
+        run: |
+          diff -r -x package.json .github/deploy-template .github/deploy-template-v5
+          diff \
+            <(jq -S '.dependencies["@fastify/static"] = "pinned"' .github/deploy-template/package.json) \
+            <(jq -S '.dependencies["@fastify/static"] = "pinned"' .github/deploy-template-v5/package.json)
+          jq -e '.dependencies["@fastify/static"] | startswith("^7.")' .github/deploy-template/package.json
+          jq -e '.dependencies["@fastify/static"] | startswith("^8.")' .github/deploy-template-v5/package.json
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - name: Set up Node.js

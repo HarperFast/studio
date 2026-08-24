@@ -1,0 +1,2 @@
+fastifyRoutes:
+  files: fastify/*.js

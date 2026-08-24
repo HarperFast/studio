@@ -1,6 +1,20 @@
 name: Deploy to Dev
 on:
+  # Pushes to `dev` deploy with the defaults below (Harper 4.x template, no restart).
+  # Use the manual run to override either — see .github/deploy-templates.md.
   workflow_dispatch:
+    inputs:
+      restart:
+        description: 'Restart the component after deploying'
+        type: boolean
+        default: false
+      harper_version:
+        description: 'Harper major version running on the target CM (picks the deploy template)'
+        type: choice
+        default: v4
+        options:
+          - v4
+          - v5
   push:
     branches:
       - dev
@@ -58,10 +72,29 @@ jobs:
       # so no bundle references the files deleted here.
       - name: Strip sourcemaps from the deployed bundle
         run: find web/assets -name '*.js.map' -delete
+      # `inputs.*` is empty for anything but a manual run, and anything that is not
+      # exactly `true`/`v5` falls back to the safe default, so a push deploys the
+      # Harper 4.x template without restarting.
+      - name: Resolve deploy options
+        env:
+          RESTART_INPUT: ${{ inputs.restart }}
+          HARPER_INPUT: ${{ inputs.harper_version }}
+        run: |
+          RESTART=false
+          TEMPLATE=.github/deploy-template
+          if [ "$RESTART_INPUT" = 'true' ]; then
+            RESTART=true
+          fi
+          if [ "$HARPER_INPUT" = 'v5' ]; then
+            TEMPLATE=.github/deploy-template-v5
+          fi
+          echo "DEPLOY_RESTART=$RESTART" >> "$GITHUB_ENV"
+          echo "DEPLOY_TEMPLATE=$TEMPLATE" >> "$GITHUB_ENV"
+          echo "Deploying $TEMPLATE with restart=$RESTART"
       - name: Deploy to dev
         run: |
           mkdir deploy
           mv web deploy/
-          cp -R .github/deploy-template/* deploy/
+          cp -R "$DEPLOY_TEMPLATE"/* deploy/
           cd deploy
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart=false replicated=true
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME_DEV }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET_DEV }}' restart="$DEPLOY_RESTART" replicated=true
