@@ -1,6 +1,5 @@
 name: Deploy to Prod
 on:
-  # A manual run can restart the component or target a Harper 5.x CM — .github/deploying.md.
   workflow_dispatch:
     inputs:
       restart:
