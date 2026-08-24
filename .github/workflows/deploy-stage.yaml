@@ -1,6 +1,5 @@
 name: Deploy to Stage
 on:
-  # A manual run can restart the component or target a Harper 5.x CM — .github/deploying.md.
   workflow_dispatch:
     inputs:
       restart:
@@ -46,8 +45,7 @@ jobs:
         with:
           environment: stage
           sourcemap-url-prefix: https://stage.studio.harperfabric.com/assets
-          # A merge-queue run verifies the merged combination without shipping it, and only
-          # a push is allowed to cut a version — a manual run redeploys, it does not release.
+          # A manual run redeploys but never releases; the merge queue only verifies.
           deploy: ${{ github.event_name != 'merge_group' }}
           release: ${{ github.event_name == 'push' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}

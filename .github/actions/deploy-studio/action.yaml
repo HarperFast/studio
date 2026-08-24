@@ -70,7 +70,9 @@ runs:
         ENVIRONMENT: ${{ inputs.environment }}
       run: pnpm build --mode "$ENVIRONMENT"
     - name: Semantic release
-      if: ${{ inputs.release == 'true' }}
+      # Never cut a version a run isn't going to ship: no caller asks for release without
+      # deploy, and the contract shouldn't let a future one.
+      if: ${{ inputs.release == 'true' && inputs.deploy == 'true' }}
       shell: bash
       run: pnpm release
       env:
@@ -81,11 +83,13 @@ runs:
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        # `|| true` is load-bearing: a composite step must name its shell, and `shell: bash`
-        # runs with `-o pipefail`, which the workflows' default `bash -e` did not. grep exits
-        # 1 when HEAD carries no tag — the normal case for a dev deploy — so without this the
-        # step dies here instead of reaching the fallback two lines down.
-        VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1 || true)
+        # Tolerating grep alone is load-bearing: a composite step must name its shell, and
+        # `shell: bash` runs with `-o pipefail`, which the workflows' default `bash -e` did
+        # not. grep exits 1 when HEAD carries no tag — the normal case for a dev deploy — and
+        # without this the step would die here rather than reach the fallback below. Scoped to
+        # grep so a real `git tag` failure still fails the step instead of quietly labelling
+        # the build with a SHA.
+        VERSION_TAG=$(git tag --points-at HEAD | { grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' || true; } | sort -V | tail -n1)
         if [ -z "$VERSION_TAG" ]; then
           VERSION_TAG="${ENVIRONMENT}_${GITHUB_SHA:0:7}"
         fi
@@ -136,12 +140,12 @@ runs:
         fi
 
         mkdir deploy
-        mv web deploy/
         cp -R .github/deploy-template/* deploy/
         if [ "$HARPER" = 'v5' ]; then
           jq --arg range "$FASTIFY_STATIC_V5" '.dependencies["@fastify/static"] = $range' \
             .github/deploy-template/package.json > deploy/package.json
         fi
+        mv web deploy/
 
         echo "DEPLOY_RESTART=$RESTART" >> "$GITHUB_ENV"
         echo "Deploying the Harper $HARPER template with restart=$RESTART"
