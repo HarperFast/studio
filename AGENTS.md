@@ -377,6 +377,28 @@ Same reason the URL redaction runs **before** `shouldKeepEvent` and the error-te
 can't be rewritten ahead of it — but it reads no URL field, and it can itself throw on a malformed
 error field, which would ship the event with its URLs untouched.
 
+`error.stack` is **not** the engine's stack string. The SDK parses it and re-serializes every stack
+it records, so what reaches `beforeSend` is always this shape, whatever the engine produced — no V8
+`at fn (url)` or Safari `fn@url` variants get through:
+
+```
+<Name>: <message>
+  at <func>[(args)] @ <url>[:<line>[:<column>]]
+```
+
+(`toStackTraceString` in `@datadog/browser-core/cjs/tools/stackTrace/handlingStack.js`, reached from
+`domain/error/error.js`.) Note the two-space indent and the space-padded `@` separator: the frame's
+URL is reliably the trailing token, which is what lets
+[`shouldKeepEvent`](src/integrations/datadog/shouldKeepEvent.ts) attribute a frame by parsing its
+URL rather than substring-matching the whole line.
+
+Two traps when re-checking this after an SDK bump. The pnpm store can hold several `browser-core`
+versions at once, so resolve the one `browser-rum` actually uses (`require.resolve` from the
+`browser-rum` entry) instead of globbing `.pnpm` — a stale sibling copy reads as authoritative. And
+a frame that fails to parse is treated as _unlocatable_ and silently skipped, not flagged, so a
+regex anchored to end-of-line must tolerate a trailing carriage return from a CRLF stack; one stray
+character otherwise disables attribution for the whole stack without any symptom.
+
 Only fields on the SDK's modifiable-field allowlist can be mutated here. `view.name`, `view.url`,
 `view.referrer`, `context`, `service` and `version` are shared by every event type; errors add
 `error.message`, `error.stack`, `error.handling_stack`, `error.resource.url` and
