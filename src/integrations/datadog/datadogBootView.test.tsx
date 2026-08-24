@@ -23,9 +23,8 @@ vi.mock('@/features/notifications/NotificationsSubscriptionManager', () => ({
 }));
 vi.mock('@/components/NotificationBanner', () => ({ NotificationBanner: () => null }));
 
-// The real root route and the real dashboard guard, with stub leaves: the point is that
-// `rootRoute`'s component is what mounts the tracker, so this fails if the tracker ever stops
-// being mounted at the root — the failure mode the SDK cannot report, because it is "no data".
+// Real `rootRoute` and real `dashboardLayout`, stub leaves: mocking either would stop this from
+// guarding the one thing it exists for — that the tracker is still mounted at the root.
 async function bootDeepLink() {
 	vi.resetModules();
 	vi.stubEnv('DEV', false);

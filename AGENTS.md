@@ -436,15 +436,16 @@ Two traps when reading this from RUM data:
   route actually loaded, and why #1405's "`/` view regression" was really every deep-link entry
   conflated into one bucket.
 
-A boot-time redirect does **not** cost you that first view, and which path you are on decides it.
-`dashboardLayout.beforeLoad` redirects only once auth is known (`!isLoading && !user`), and
-`authStore.getAllConnections()` reports `isLoading: false` synchronously unless the
-`Studio:PotentiallyAuthenticated` localStorage record holds an `OverallAppSignIn` entry. So an
-ordinary signed-out deep link resolves the redirect _during_ the router's initial load and the root
-component never commits the deep-link location — one `startView`, named `/sign-in/`. Only a stale
-flag (expired session) boots at `isLoading: true`, renders the deep link, and redirects after
-`AppRouted`'s `router.invalidate()` — two views, a network round trip apart, the second a genuine
-navigation.
+A boot-time redirect does **not** cost you that first view, and the deciding factor is whether
+`getAllConnections()` can answer synchronously. It synthesizes `{ user: null, isLoading: false }`
+for `OverallAppSignIn` only when the `Studio:PotentiallyAuthenticated` localStorage record has no
+entry for it; with an entry it returns the record untouched, so the key is simply **absent**.
+`dashboardLayout.beforeLoad` guards on `auth && !auth.isLoading && !auth.user`, so those are two
+different outcomes: a signed-out deep link redirects _during_ the router's initial load and the root
+component never commits the deep-link location — one `startView`, named `/sign-in/` — while an
+expired session short-circuits on the missing key, renders the deep link, and only redirects once
+auth resolves and `AppRouted` calls `router.invalidate()`. Two views there, a network round trip
+apart, the second a genuine navigation.
 
 Verifying a change here needs a **visible** browser on a production build: a headless or background
 tab reports `visibilityState: 'hidden'`, emits zero paint and LCP entries, and `trackFirstHidden`
