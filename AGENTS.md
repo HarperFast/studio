@@ -100,6 +100,28 @@ explicit `sorting: undefined` _replaces_ the default and the first header click 
 `toggleSorting`. Default optional sorting props before handing them over (see
 `SimpleBrowseDataTable`).
 
+## Deploys — one composite action, and `shell: bash` is not the shell the workflows had
+
+`deploy-dev/stage/prod.yaml` own only what differs per environment; the whole job body lives in
+`.github/actions/deploy-studio`. It is a **composite action, not a reusable workflow**, on
+purpose: composite steps run inside the caller's job, so the job stays named `Deploy to Stage`
+and the merge queue's required check on that name keeps resolving. A `workflow_call` renames
+every check to `<caller> / <called>` and silently breaks branch protection.
+
+Moving a step in there changes its shell. A composite `run` step **must** declare `shell:`, and
+`shell: bash` runs as `bash --noprofile --norc -eo pipefail`, where a workflow's default is a
+plain `bash -e`. **`-o pipefail` is the trap**: any `cmd | grep …` that legitimately finds
+nothing now fails the whole step, because grep exits 1. That is how the version-tag lookup
+(`git tag --points-at HEAD | grep -E '^v?[0-9]+…'`) came to abort before reaching its own
+no-tag fallback, which would have failed every dev deploy. Audit each pipeline you move, and
+tolerate only the status you mean — `{ grep … || true; }`, never `|| true` on the whole
+pipeline, which would also swallow a real `git` failure.
+
+Which Harper major a CM runs is a deploy **input**, not a commit: `@fastify/static` majors track
+fastify majors (v7 ↔ fastify 4 ↔ harperdb 4.x, v8 ↔ fastify 5 ↔ Harper 5.x) and pairing them
+wrong fails _silently on the CM_ — `reply.sendFile` is never decorated and every asset 404s. See
+`.github/deploying.md` for the pairing, both dispatch inputs, and how to retire the split.
+
 ## Builds — sourcemaps are per mode, and `localstudio` deliberately has none
 
 `build.sourcemap` in `vite.config.ts` is a function (`sourcemapFor`), not a flag, because the
