@@ -1,6 +1,21 @@
 name: Deploy to Stage
 on:
+  # Pushes to `stage` cut a release and deploy with the defaults below (Harper 4.x
+  # template, no restart). Use the manual run to override either — see
+  # .github/deploy-templates.md. `merge_group` runs verify only: no release, no deploy.
   workflow_dispatch:
+    inputs:
+      restart:
+        description: 'Restart the component after deploying'
+        type: boolean
+        default: false
+      harper_version:
+        description: 'Harper major version running on the target CM (picks the deploy template)'
+        type: choice
+        default: v4
+        options:
+          - v4
+          - v5
   push:
     branches:
       - stage
@@ -10,7 +25,8 @@ on:
 
 concurrency:
   group: stage-${{ github.event_name }}-${{ github.ref || github.head_ref }}
-  cancel-in-progress: ${{ github.event_name != 'push' }}
+  # Only merge-queue verification runs are disposable; a push or a manual run deploys.
+  cancel-in-progress: ${{ github.event_name == 'merge_group' }}
 
 jobs:
   deployToStage:
@@ -40,6 +56,8 @@ jobs:
         run: pnpm test
       - name: Run lint
         run: pnpm lint
+      # Deliberately ahead of the release step and unconditional: a push that cannot
+      # build must fail before `pnpm release` tags a version nothing can ship.
       - name: Verify stage can build
         run: pnpm build --mode stage
       - name: Semantic release
@@ -48,7 +66,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Determine version tag for build
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'merge_group' }}
         run: |
           VERSION_TAG=$(git tag --points-at HEAD | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -n1)
           if [ -z "$VERSION_TAG" ]; then
@@ -56,10 +74,10 @@ jobs:
           fi
           echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> $GITHUB_ENV
       - name: Build stage for release
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'merge_group' }}
         run: pnpm build --mode stage
       - name: Upload sourcemaps to Datadog
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'merge_group' }}
         run: |
           pnpm datadog-ci sourcemaps upload web/assets \
             --service "studio" \
@@ -72,13 +90,33 @@ jobs:
       # node for nothing. See `sourcemapFor` in vite.config.ts, which emits these as `'hidden'`
       # so no bundle references the files deleted here.
       - name: Strip sourcemaps from the deployed bundle
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'merge_group' }}
         run: find web/assets -name '*.js.map' -delete
+      # `inputs.*` is empty for anything but a manual run, and anything that is not
+      # exactly `true`/`v5` falls back to the safe default, so a push deploys the
+      # Harper 4.x template without restarting.
+      - name: Resolve deploy options
+        if: ${{ github.event_name != 'merge_group' }}
+        env:
+          RESTART_INPUT: ${{ inputs.restart }}
+          HARPER_INPUT: ${{ inputs.harper_version }}
+        run: |
+          RESTART=false
+          TEMPLATE=.github/deploy-template
+          if [ "$RESTART_INPUT" = 'true' ]; then
+            RESTART=true
+          fi
+          if [ "$HARPER_INPUT" = 'v5' ]; then
+            TEMPLATE=.github/deploy-template-v5
+          fi
+          echo "DEPLOY_RESTART=$RESTART" >> "$GITHUB_ENV"
+          echo "DEPLOY_TEMPLATE=$TEMPLATE" >> "$GITHUB_ENV"
+          echo "Deploying $TEMPLATE with restart=$RESTART"
       - name: Deploy to stage
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name != 'merge_group' }}
         run: |
           mkdir deploy
           mv web deploy/
-          cp -R .github/deploy-template/* deploy/
+          cp -R "$DEPLOY_TEMPLATE"/* deploy/
           cd deploy
-          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET }}' restart=false replicated=true
+          CLI_TARGET_USERNAME=${{ secrets.CLI_TARGET_USERNAME }} CLI_TARGET_PASSWORD='${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}' pnpm harper deploy_component project=hdbms target='${{ secrets.CLI_DEPLOY_TARGET }}' restart="$DEPLOY_RESTART" replicated=true
