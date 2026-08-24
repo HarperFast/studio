@@ -45,7 +45,7 @@ const BROWSER_EXTENSION_FRAME = new RegExp(String.raw`^${EXTENSION_SCHEME}://`);
  * the message text or a function name from standing in for a frame's origin.
  */
 const FRAME_URL = new RegExp(
-	String.raw`^\s*at\s.* @ ((?:blob:)?(?:https?|${EXTENSION_SCHEME})://\S*)$`,
+	String.raw`^\s*at\s.* @ ((?:blob:)?(?:https?|${EXTENSION_SCHEME})://\S*)\s*$`,
 );
 
 /** A worker or object URL nests the real origin: `blob:https://host/<uuid>`. */
@@ -67,7 +67,7 @@ function originatesInThirdPartyScript(stack: string) {
 	let sawThirdPartyFrame = false;
 	for (const line of stack.split('\n')) {
 		// Skips the message line and any frame the browser couldn't resolve to a script.
-		const url = FRAME_URL.exec(line)?.[1].replace(NESTED_ORIGIN_PREFIX, '');
+		const url = FRAME_URL.exec(line)?.[1]?.replace(NESTED_ORIGIN_PREFIX, '');
 		if (!url) {
 			continue;
 		}
