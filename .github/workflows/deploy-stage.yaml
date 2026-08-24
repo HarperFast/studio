@@ -24,7 +24,7 @@ concurrency:
   # Every deploying run shares one group, so a push and a manual run cannot both reach
   # `deploy_component` at once — dev and prod already behave this way. Merge-queue runs stay
   # per-ref, and are the only ones safe to cancel: cancelling mid-deploy is worse than queueing.
-  group: ${{ github.event_name == 'merge_group' && format('stage-verify-{0}', github.ref) || 'stage-deploy' }}
+  group: stage-${{ github.event_name == 'merge_group' && github.ref || 'deploy' }}
   cancel-in-progress: ${{ github.event_name == 'merge_group' }}
 
 jobs:
