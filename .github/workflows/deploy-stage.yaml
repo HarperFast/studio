@@ -1,8 +1,6 @@
 name: Deploy to Stage
 on:
-  # Pushes to `stage` cut a release and deploy with the defaults below (Harper 4.x, no
-  # restart). Use the manual run to override either — see .github/deploying.md.
-  # `merge_group` runs the tests and a build only: no release, no deploy.
+  # A manual run can restart the component or target a Harper 5.x CM — .github/deploying.md.
   workflow_dispatch:
     inputs:
       restart:
@@ -24,8 +22,10 @@ on:
       - stage
 
 concurrency:
-  group: stage-${{ github.event_name }}-${{ github.ref || github.head_ref }}
-  # Only merge-queue verification runs are disposable; a push or a manual run deploys.
+  # Every deploying run shares one group, so a push and a manual run cannot both reach
+  # `deploy_component` at once — dev and prod already behave this way. Merge-queue runs stay
+  # per-ref, and are the only ones safe to cancel: cancelling mid-deploy is worse than queueing.
+  group: ${{ github.event_name == 'merge_group' && format('stage-verify-{0}', github.ref) || 'stage-deploy' }}
   cancel-in-progress: ${{ github.event_name == 'merge_group' }}
 
 jobs:
@@ -41,8 +41,6 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      # Everything past the checkout is shared with the other environments — see
-      # .github/actions/deploy-studio/action.yaml.
       - name: Build and deploy
         uses: ./.github/actions/deploy-studio
         with:
@@ -53,9 +51,8 @@ jobs:
           deploy: ${{ github.event_name != 'merge_group' }}
           release: ${{ github.event_name == 'push' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # `inputs.*` is empty outside a manual run, which lands on the action's defaults.
-          restart: ${{ inputs.restart }}
-          harper-version: ${{ inputs.harper_version }}
+          restart: ${{ inputs.restart || false }}
+          harper-version: ${{ inputs.harper_version || 'v4' }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}

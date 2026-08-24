@@ -1,7 +1,6 @@
 name: Deploy to Dev
 on:
-  # Pushes to `dev` deploy with the defaults below (Harper 4.x, no restart). Use the
-  # manual run to override either — see .github/deploying.md.
+  # A manual run can restart the component or target a Harper 5.x CM — .github/deploying.md.
   workflow_dispatch:
     inputs:
       restart:
@@ -33,16 +32,13 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-      # Everything past the checkout is shared with the other environments — see
-      # .github/actions/deploy-studio/action.yaml.
       - name: Build and deploy
         uses: ./.github/actions/deploy-studio
         with:
           environment: dev
           sourcemap-url-prefix: https://dev.studio.harperfabric.com/assets
-          # `inputs.*` is empty outside a manual run, which lands on the action's defaults.
-          restart: ${{ inputs.restart }}
-          harper-version: ${{ inputs.harper_version }}
+          restart: ${{ inputs.restart || false }}
+          harper-version: ${{ inputs.harper_version || 'v4' }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME_DEV }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}
