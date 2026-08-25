@@ -28,7 +28,7 @@ workflow.
 Two knobs are exposed on every environment's **Run workflow** button, and only there:
 
 - **Restart the component after deploying** — off by default. This replaced three
-  `… with Restart` workflows that were copies of these differing only in `restart=`.
+  `… with Restart` workflows, now deleted, that differed only in `restart=`.
 - **Harper major version running on the target CM** — `v4` (default) or `v5`.
 
 `inputs.*` is empty for anything but a manual run. Note that an empty value _overrides_ an
@@ -69,9 +69,19 @@ copy of the template to drift out of sync. Renovate is configured not to touch
 `@fastify/static` (`renovate.json`), so both versions only move deliberately.
 
 **Harper 4.x is the default.** The Harper 5 rollout is shelved after stage testing, so nothing
-deploys the 5.x range unless someone picks `v5` for a specific environment. If a CM is _already_
-on Harper 5.x, its next push deploys the 4.x range and its static assets will 404 until it is
-either rolled back or deployed manually with `harper_version: v5`.
+deploys the 5.x range unless someone picks `v5` for a specific environment.
+
+Getting this wrong for a CM already on Harper 5.x does **not** break at deploy time, and does not
+break at the next push either. `deploy_component` writes the 4.x range to disk while the running
+workers keep the 5.x one they already imported, so the deploy is green and Studio keeps serving.
+The break lands at the _next restart_ — a CM upgrade, a host reboot, a worker respawn — with no
+deploy anywhere near it in the timeline, which is considerably harder to diagnose than an
+immediate failure. Set the environment's literal correctly rather than planning to fix it later.
+
+The input also assumes a **homogeneous cluster**: `deploy_component … replicated=true` pushes one
+`package.json` to every node, so mid-rolling-upgrade a cluster running both majors gets a single
+range cluster-wide, and Studio works or 404s depending on which node the load balancer picks.
+Flip the literal at the boundary of a major rollout, not during one.
 
 Once every CM is on one major again, drop the `harper_version` input and the override step, and
 pin the template to whatever that major needs.

@@ -40,6 +40,11 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          # Checkout otherwise leaves the job's write-capable token in `.git/config` as an
+          # http.extraheader, and a merge-queue run then executes PR-controlled `pnpm test`
+          # over it — which could push to `stage` and reach the credentialed push path. Only
+          # semantic-release needs it, and that runs on push alone.
+          persist-credentials: ${{ github.event_name == 'push' }}
       - name: Verify
         uses: ./.github/actions/studio-verify
         with:
@@ -56,8 +61,7 @@ jobs:
           sourcemap-url-prefix: https://stage.studio.harperfabric.com/assets
           release: ${{ github.event_name == 'push' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # The Harper major this environment's CM runs. This literal is the source of truth —
-          # keep it in step with central manager; the dispatch input overrides one run only.
+          # This literal, not the dispatch input, is what the CM runs — .github/deploying.md.
           harper-version: ${{ inputs.harper_version || 'v4' }}
           restart: ${{ inputs.restart || false }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
