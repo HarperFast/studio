@@ -11,9 +11,7 @@ concurrency:
 
 jobs:
   verifyMergeGroup:
-    # This is the check name to require on the queue. Requiring it is what makes the queue
-    # verify anything — without a required check GitHub has nothing to wait on and merges the
-    # batch immediately, which is why `merge_group` never fired here despite being subscribed.
+    # `Verify Stage` is the check name to require on the merge queue.
     name: Verify Stage
     runs-on: ubuntu-latest
     # A merge-group run executes the candidate PR's own workflow and action YAML. Nothing here
