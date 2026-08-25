@@ -15,20 +15,33 @@ and whether a push releases — and hand the rest to two composite actions:
 - **`.github/actions/studio-deploy`** — release, version, build, sourcemap upload, staging the
   component, deploy. Every credentialed step lives here. Assumes verify installed first.
 
-The split is a security boundary, not tidiness. A `merge_group` run executes these actions from
-the merge-group ref, which contains the candidate PR's code — including any edit to the actions
-themselves — and `pnpm install` alone runs PR-controlled postinstall scripts. So the stage
-workflow skips `studio-deploy` outright on a merge-queue run, and checkout does not persist the
-job's token into `.git/config` except on the push that releases. Keep it that way: **never add a
-credential input to `studio-verify`**, and never move an installing or test-running step into
-`studio-deploy`.
+The split is a security boundary, not tidiness: `pnpm install` alone runs postinstall scripts
+from whatever ref is checked out, so the installing side must never hold a credential. Keep it
+that way — **never add a credential input to `studio-verify`**, and never move an installing or
+test-running step into `studio-deploy`.
 
-**What this does not buy, stated plainly:** the five deploy secrets and the persisted git
-credential are out of reach of an unmerged PR, but `permissions: contents: write` on the stage
-job applies to every event, and a `merge_group` run executes candidate-controlled YAML — which
-can read `${{ github.token }}` directly. Closing that means giving the merge-queue check
-read-only permissions and moving the release into its own job, which renames the check branch
-protection gates on. Worth doing deliberately; it is not something `persist-credentials` can fix.
+## No deploy workflow accepts `merge_group`
+
+A `merge_group` run executes the workflow and action YAML _from the merge-group ref_ — the
+candidate PR's own code. So it can request `contents: write`, delete an event guard, or replace a
+local action. **A boundary expressed in candidate-controlled YAML is not a boundary**, which is
+why stage does not accept the event at all rather than trying to be safe while accepting it
+(studio#1649). `src/lib/workflowPrivilege.test.ts` asserts this for any workflow that writes
+contents or receives deploy secrets; `actionlint` cannot, because it never evaluates the event
+set against job permissions.
+
+Two consequences worth knowing:
+
+- **Enabling a merge queue needs its own change.** Add a separate credential-free verification
+  workflow and make its check required in the same reviewed change. A required merge-queue check
+  with no producer stays pending, so forgetting fails closed rather than merging unchecked.
+- **This is detection plus review, not platform enforcement.** A PR could re-add the trigger and
+  delete the test in one diff; required code-owner review is what stands in the way. The durable
+  fix is GitHub's workflow-execution protections at the org control plane, which cannot be
+  weakened from inside the repo — an org-admin setting, noted on studio#1649.
+
+Every workflow declares `permissions:` explicitly, because the repo default is **write**. A job
+that omits the block gets a write-capable token whether or not it needs one; only stage does.
 
 A change to how Studio deploys belongs in an action; a change to where it deploys belongs in the
 workflow.
