@@ -30,11 +30,20 @@ why stage does not accept the event at all rather than trying to be safe while a
 contents or receives deploy secrets; `actionlint` cannot, because it never evaluates the event
 set against job permissions.
 
-**The merge queue is off, and that was checked rather than assumed** (2026-08-25): `stage` branch
-protection carries no `required_status_checks` and no merge-queue block, the one active ruleset
-has no `merge_queue` rule, and the repo has recorded **zero** `merge_group` runs against 1198
-pushes and 2770 pull requests. So removing the trigger stranded nothing. Re-check those three
-before assuming it is still true.
+**The merge queue IS in use on `stage`** — PRs #1642, #1646 and #1647 all carry
+`added_to_merge_queue`, and the first two were batched into one merge. I originally concluded the
+opposite from run counts and branch protection, and was wrong; the reconciliation is worth keeping
+because it is counter-intuitive:
+
+**`stage` has no required status checks, so the queue has nothing to wait on.** It batches
+entries and merges them without dispatching `merge_group` at all — which is why the trigger that
+used to sit in `deploy-stage.yaml` recorded **zero** runs while the queue was actively merging.
+The consequence is that a batch merges with _nothing_ verifying the combined ref: two PRs that are
+independently green can land together and break `stage`.
+
+`verify-stage.yaml` is the check that fixes it, and **it only takes effect once its check
+(`Verify Stage`) is marked required for the queue in repo settings.** Adding the workflow alone
+changes nothing, for exactly the reason above.
 
 Two consequences worth knowing:
 

@@ -111,9 +111,12 @@ from an unmerged ref.
 **No deploy workflow may accept `merge_group`.** That event runs the candidate PR's own workflow
 and action YAML, so it can request `contents: write` or edit the actions outright — a boundary
 inside candidate-controlled YAML is not a boundary. `src/lib/workflowPrivilege.test.ts` asserts
-it for any workflow that writes contents or receives deploy secrets, because `actionlint` never
-evaluates the event set against job permissions. If a merge queue is ever wanted, give it a
-separate credential-free workflow, and make its required check part of the same reviewed change
+it for any workflow that writes contents or receives deploy credentials, because `actionlint`
+never evaluates the event set against job permissions.
+
+The queue **is** in use on `stage`, and `verify-stage.yaml` is its credential-free check — that
+separation is the point, so never move a deploy step into it. Note `stage` requires no status
+checks, so until `Verify Stage` is marked required the queue still merges batches unverified
 (studio#1649).
 
 Every workflow declares `permissions:` explicitly. The repo default is **write**, so omitting the
