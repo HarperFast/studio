@@ -100,13 +100,20 @@ explicit `sorting: undefined` _replaces_ the default and the first header click 
 `toggleSorting`. Default optional sorting props before handing them over (see
 `SimpleBrowseDataTable`).
 
-## Deploys — one composite action, and `shell: bash` is not the shell the workflows had
+## Deploys — two composite actions, and `shell: bash` is not the shell the workflows had
 
-`deploy-dev/stage/prod.yaml` own only what differs per environment; the whole job body lives in
-`.github/actions/deploy-studio`. It is a **composite action, not a reusable workflow**, on
-purpose: composite steps run inside the caller's job, so the job stays named `Deploy to Stage`
-and the merge queue's required check on that name keeps resolving. A `workflow_call` renames
-every check to `<caller> / <called>` and silently breaks branch protection.
+`deploy-dev/stage/prod.yaml` own only what differs per environment; the job body lives in two
+composite actions. **The split is a security boundary, not a refactor** — do not reunify them:
+`studio-verify` installs, tests and lints and takes **no credentials**, because a `merge_group`
+run executes it from the candidate PR's own code; `studio-deploy` holds every credentialed step
+and the stage workflow skips it outright on a merge-queue run. Checkout also needs
+`persist-credentials` off on that path, or the job's write token sits in `.git/config` where
+PR-controlled test scripts can read it.
+
+They are **composite actions, not a reusable workflow**, on purpose: composite steps run inside
+the caller's job, so the job stays named `Deploy to Stage` and the merge queue's required check
+on that name keeps resolving. A `workflow_call` renames every check to `<caller> / <called>` and
+silently breaks branch protection.
 
 Moving a step in there changes its shell. A composite `run` step **must** declare `shell:`, and
 `shell: bash` runs as `bash --noprofile --norc -eo pipefail`, where a workflow's default is a
