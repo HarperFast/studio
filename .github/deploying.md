@@ -18,9 +18,17 @@ and whether a push releases — and hand the rest to two composite actions:
 The split is a security boundary, not tidiness. A `merge_group` run executes these actions from
 the merge-group ref, which contains the candidate PR's code — including any edit to the actions
 themselves — and `pnpm install` alone runs PR-controlled postinstall scripts. So the stage
-workflow skips `studio-deploy` outright on a merge-queue run, and nothing that a merge-queue run
-does execute is ever handed a token. Keep it that way: **never add a credential input to
-`studio-verify`**, and never move an installing or test-running step into `studio-deploy`.
+workflow skips `studio-deploy` outright on a merge-queue run, and checkout does not persist the
+job's token into `.git/config` except on the push that releases. Keep it that way: **never add a
+credential input to `studio-verify`**, and never move an installing or test-running step into
+`studio-deploy`.
+
+**What this does not buy, stated plainly:** the five deploy secrets and the persisted git
+credential are out of reach of an unmerged PR, but `permissions: contents: write` on the stage
+job applies to every event, and a `merge_group` run executes candidate-controlled YAML — which
+can read `${{ github.token }}` directly. Closing that means giving the merge-queue check
+read-only permissions and moving the release into its own job, which renames the check branch
+protection gates on. Worth doing deliberately; it is not something `persist-credentials` can fix.
 
 A change to how Studio deploys belongs in an action; a change to where it deploys belongs in the
 workflow.

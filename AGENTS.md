@@ -157,7 +157,8 @@ the workflows delete them after the upload and before `mv web deploy/` rather th
 but omits the trailing `//# sourceMappingURL=` comment, which under `true` would dangle onto a
 404 once the files are gone. `datadog-ci sourcemaps upload` pairs each `.js.map` with its bundle
 by filename and never needs that comment (verified with `--dry-run`: 173/173 paired). The strip
-step lives in all six `deploy-*.yaml` workflows — add it to any new one.
+step now lives once, in `.github/actions/studio-deploy`, so a new environment workflow inherits
+it by calling that action rather than repeating it.
 
 (The repo is public, so none of this is about keeping `sourcesContent` unreadable — it is purely
 size containment.)
