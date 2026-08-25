@@ -392,6 +392,22 @@ URL is reliably the trailing token, which is what lets
 [`shouldKeepEvent`](src/integrations/datadog/shouldKeepEvent.ts) attribute a frame by parsing its
 URL rather than substring-matching the whole line.
 
+**Only the frames are normalized — the message is not**, and that distinction is load-bearing.
+`formatErrorMessage` is just `` `${name}: ${message}` ``, so any newlines the thrower put in the
+message land in `error.stack` ahead of the real frames. Monaco's DI errors do exactly this: their
+message embeds a whole _V8-native_ stack, which looks like frames but is text:
+
+```
+Error: [createInstance] Fm depends on UNKNOWN service ICodeLensCache.
+    at e._createInstance (https://fabric.harper.fast/assets/editor.api-OBQnf1nL.js:817:2045)
+  at <anonymous>
+```
+
+The four-space parenthesised lines are the message; only the last, two-space `@`-separated line
+is a frame the SDK emitted. Attribution therefore has to match the SDK's frame shape rather than
+hunt for a URL anywhere on the line — otherwise those message lines read as first-party frames.
+Roughly a third of Studio's RUM error volume is this family, so it is not an edge case.
+
 Two traps when re-checking this after an SDK bump. The pnpm store can hold several `browser-core`
 versions at once, so resolve the one `browser-rum` actually uses (`require.resolve` from the
 `browser-rum` entry) instead of globbing `.pnpm` — a stale sibling copy reads as authoritative. And
