@@ -364,6 +364,49 @@ describe('shouldKeepEvent', () => {
 			).toBe(false);
 		});
 
+		// A message can embed a whole foreign-format stack — Monaco's DI errors carry a V8-native
+		// one, four-space indented and parenthesised. Those lines hold first-party URLs but are
+		// text, not frames; matching a URL anywhere on the line would read them as Studio frames.
+		it('does not read a V8-native stack embedded in the message as frames', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: '[createInstance] Fm depends on UNKNOWN service ICodeLensCache.',
+						stack: [
+							'Error: [createInstance] Fm depends on UNKNOWN service ICodeLensCache.',
+							'',
+							'Error: [createInstance] Fm depends on UNKNOWN service ICodeLensCache.',
+							'    at e._createInstance (https://fabric.harper.fast/assets/editor.api-OBQnf1nL.js:817:2045)',
+							'    at kP._instantiateById (https://fabric.harper.fast/assets/editor.api-OBQnf1nL.js:240:40224)',
+							'  at s @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:900',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		// Pins the trade-off reviewed on #1646: a frame the browser could not resolve carries no
+		// URL, so it cannot be attributed and is skipped rather than assumed to be ours. An error
+		// whose *only* frames are unresolvable is therefore dropped when an extension frame sits
+		// beside them. Measured against 14 days of RUM (4,475 events) this shape never occurred,
+		// and the safer alternative — treating an unresolvable frame as Studio's — would readmit
+		// most of the flood, since extension stacks routinely carry a `[native code]` frame.
+		it('drops an extension stack whose only other frames are unresolvable', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'TypeError: Boom',
+							'  at handle @ chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:900',
+							'  at dispatchEvent @ [native code]',
+							'  at a.onload @ <anonymous>:1:256',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
 		it('discards extension errors whose stack is topped by the Datadog fetch wrapper', () => {
 			expect(
 				shouldKeepEvent(
