@@ -30,6 +30,12 @@ why stage does not accept the event at all rather than trying to be safe while a
 contents or receives deploy secrets; `actionlint` cannot, because it never evaluates the event
 set against job permissions.
 
+**The merge queue is off, and that was checked rather than assumed** (2026-08-25): `stage` branch
+protection carries no `required_status_checks` and no merge-queue block, the one active ruleset
+has no `merge_queue` rule, and the repo has recorded **zero** `merge_group` runs against 1198
+pushes and 2770 pull requests. So removing the trigger stranded nothing. Re-check those three
+before assuming it is still true.
+
 Two consequences worth knowing:
 
 - **Enabling a merge queue needs its own change.** Add a separate credential-free verification

@@ -1,11 +1,10 @@
 name: Verify Studio
 description: Install, test, lint and optionally build Studio. Takes no credentials.
 
-# Deliberately secret-free, and deliberately separate from studio-deploy. A `merge_group` run
-# executes this from the merge-group ref, which contains the candidate PR's code — including any
-# edit to this file — so nothing here may be handed a token. `pnpm install` alone is enough to
-# run PR-controlled postinstall scripts. studio-deploy holds every credentialed step and the
-# callers skip it outright on a merge-queue run.
+# Deliberately secret-free, and deliberately separate from studio-deploy: `pnpm install` alone
+# runs postinstall scripts from whatever ref is checked out, so the installing side must never
+# hold a credential. No deploy workflow accepts `merge_group` any more (studio#1649), but keep
+# this side credential-free regardless — that is what makes the separation worth having.
 inputs:
   environment:
     description: 'dev | stage | prod — the vite mode to build'
@@ -37,8 +36,8 @@ runs:
     - name: Run lint
       shell: bash
       run: pnpm lint
-    # A merge-queue run has no later build to catch a break, and a releasing run must fail before
-    # `pnpm release` tags a version nothing can ship. A plain deploy skips it: the real build follows.
+    # A releasing run must fail before `pnpm release` tags a version nothing can ship. A plain
+    # deploy skips it: the real build follows.
     - name: Verify ${{ inputs.environment }} can build
       if: ${{ inputs.build == 'true' }}
       shell: bash
