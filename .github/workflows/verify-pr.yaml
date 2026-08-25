@@ -39,8 +39,8 @@ jobs:
         run: pnpm install
       # Whole-app type-check: vitest only type-checks what tests import, so a cross-feature break
       # (e.g. an import of a symbol another in-flight PR deleted) can pass tests. `tsc -b` sees the
-      # whole app. Nothing verifies the *combined* result of two in-flight PRs — there is no merge
-      # queue (see .github/deploying.md) — so this is the last check before stage.
+      # whole app. This sees one PR; `verify-stage.yaml` runs the same check over the merge-queue
+      # batch, which is where two independently-green PRs break each other.
       - name: Type-check
         run: pnpm exec tsc -b
       - name: Run unit tests

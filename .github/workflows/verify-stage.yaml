@@ -1,0 +1,38 @@
+name: Verify Stage Merge Group
+on:
+  merge_group:
+    branches:
+      - stage
+
+concurrency:
+  # Per merge-group ref, and cancellable: a superseded batch is disposable, unlike a deploy.
+  group: stage-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifyMergeGroup:
+    # This is the check name to require on the queue. Requiring it is what makes the queue
+    # verify anything — without a required check GitHub has nothing to wait on and merges the
+    # batch immediately, which is why `merge_group` never fired here despite being subscribed.
+    name: Verify Stage
+    runs-on: ubuntu-latest
+    # A merge-group run executes the candidate PR's own workflow and action YAML. Nothing here
+    # may hold a credential, which is why this is a separate workflow from the deploy one and
+    # why `.github/actions/studio-verify` takes no credential inputs. See .github/deploying.md.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify
+        uses: ./.github/actions/studio-verify
+        with:
+          environment: stage
+          build: 'true'
+      # The whole point of a queue check: vitest only type-checks what tests import, so one PR
+      # deleting a symbol another still imports passes both PRs' own runs and only breaks once
+      # they are combined. `tsc -b` over the merged ref is what catches it.
+      - name: Type-check
+        run: pnpm exec tsc -b
