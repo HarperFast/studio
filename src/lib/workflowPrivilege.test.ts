@@ -61,9 +61,11 @@ describe('workflow privilege boundary', () => {
 
 	it.each(workflowFiles())('%s does not expose privilege to an unmerged ref', (name) => {
 		const raw = readFileSync(join(WORKFLOWS_DIR, name), 'utf8');
-		if (!isPrivileged(parse(raw), raw)) { return; }
+		const doc = parse(raw);
+		if (!isPrivileged(doc, raw)) { return; }
+		const declared = triggers(doc);
 		for (const event of UNTRUSTED_REF_EVENTS) {
-			expect(triggers(parse(raw))).not.toContain(event);
+			expect(declared).not.toContain(event);
 		}
 	});
 
