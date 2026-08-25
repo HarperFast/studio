@@ -18,8 +18,10 @@ on:
       - stage
 
 concurrency:
-  # Both events deploy, so they share a group and never cancel: two `deploy_component` calls must
-  # not overlap, and cancelling one mid-flight is worse than queueing behind it.
+  # Both events deploy, so they share a group: two `deploy_component` calls must never overlap.
+  # `false` protects the run in flight only — GitHub keeps a single pending slot per group, so a
+  # third push does displace a queued second one. Benign here: the surviving run builds a ref that
+  # already contains the skipped commits.
   group: stage-deploy
   cancel-in-progress: false
 

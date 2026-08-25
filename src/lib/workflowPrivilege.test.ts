@@ -42,10 +42,11 @@ function grantsWrite(permissions: unknown): boolean {
 function isPrivileged(doc: Record<string, unknown>, raw: string): boolean {
 	const jobs = Object.values((doc.jobs ?? {}) as Record<string, Job>);
 	const writes = jobs.some((job) => grantsWrite(job.permissions ?? doc.permissions));
-	// Any secret at all, however the expression is spelled. An allowlist of known-sensitive names
-	// would fail open: the first draft matched only CLI_/HARPERDB_ and so declared a workflow
-	// holding the Datadog key — which studio-deploy really does use — unprivileged.
-	const takesSecrets = /secrets\s*[.[]/.test(raw) || /secrets:\s*inherit/.test(raw);
+	// The word anywhere, not `secrets.` or `secrets[`: whole-context forwarding (`${{ secrets }}`,
+	// `toJSON(secrets)`, or an indirection through an action input) is a valid way to hand every
+	// secret to a step. A match inside a comment only fails closed. An allowlist of sensitive
+	// names would fail open, which is the direction that matters here.
+	const takesSecrets = /\bsecrets\b/.test(raw);
 	return writes || takesSecrets;
 }
 
@@ -61,15 +62,13 @@ describe('workflow privilege boundary', () => {
 	it.each(workflowFiles())('%s does not expose privilege to an unmerged ref', (name) => {
 		const raw = readFileSync(join(WORKFLOWS_DIR, name), 'utf8');
 		if (!isPrivileged(parse(raw), raw)) { return; }
-		// One assertion per event: `toContain` takes a single argument, so a spread would drop all
-		// but the first.
 		for (const event of UNTRUSTED_REF_EVENTS) {
 			expect(triggers(parse(raw))).not.toContain(event);
 		}
 	});
 
-	// Both halves of the scan can pass vacuously: `not.toContain` is satisfied by an empty trigger
-	// list, and the loop body never runs if nothing classifies as privileged. These pin both.
+	// The scan above passes vacuously if triggers come back empty or nothing classifies as
+	// privileged. These two pin both halves.
 	it('still reads triggers, so an empty list cannot pass the scan silently', () => {
 		const raw = readFileSync(join(WORKFLOWS_DIR, 'deploy-stage.yaml'), 'utf8');
 		expect(triggers(parse(raw))).toContain('push');
