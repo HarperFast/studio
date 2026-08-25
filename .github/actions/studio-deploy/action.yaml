@@ -120,4 +120,4 @@ runs:
       run: |
         cd deploy
         pnpm harper deploy_component project=hdbms target="$CLI_DEPLOY_TARGET" \
-          restart="$DEPLOY_RESTART" replicated=true
+          restart="${DEPLOY_RESTART:?staging step did not run}" replicated=true
