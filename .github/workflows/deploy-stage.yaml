@@ -16,23 +16,22 @@ on:
   push:
     branches:
       - stage
-  merge_group:
-    branches:
-      - stage
 
 concurrency:
-  # Every deploying run shares one group, so a push and a manual run cannot both reach
-  # `deploy_component` at once — dev and prod already behave this way. Merge-queue runs stay
-  # per-ref, and are the only ones safe to cancel: cancelling mid-deploy is worse than queueing.
-  group: stage-${{ github.event_name == 'merge_group' && github.ref || 'deploy' }}
-  cancel-in-progress: ${{ github.event_name == 'merge_group' }}
+  # Both remaining events deploy, so they share one group and never cancel each other: a push
+  # and a manual run must not reach `deploy_component` at once, and cancelling mid-deploy is
+  # worse than queueing behind one. dev and prod behave the same way.
+  group: stage-deploy
+  cancel-in-progress: false
 
 jobs:
   deployToStage:
     name: Deploy to Stage
     runs-on: ubuntu-latest
     permissions:
-      # semantic-release pushes the tag and the GitHub release.
+      # semantic-release pushes the tag and the GitHub release. Safe to hold at job scope only
+      # because every event this workflow accepts is trusted — see the `merge_group` note in
+      # .github/deploying.md before adding a trigger here.
       contents: write
     steps:
       - name: Checkout code
@@ -40,23 +39,17 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
-          # Checkout otherwise leaves the job's write-capable token in `.git/config` as an
-          # http.extraheader, and a merge-queue run then executes PR-controlled `pnpm test`
-          # over it — which could push to `stage` and reach the credentialed push path. Only
-          # semantic-release needs it, and that runs on push alone.
+          # Only semantic-release needs the token, and it runs on push alone; anywhere else it
+          # would just sit in `.git/config` for the rest of the job.
           persist-credentials: ${{ github.event_name == 'push' }}
       - name: Verify
         uses: ./.github/actions/studio-verify
         with:
           environment: stage
-          # A merge-queue run has no later build, and a releasing push must fail before the tag.
-          build: ${{ github.event_name != 'workflow_dispatch' }}
-      # Skipped outright on a merge-queue run, which is what keeps the five deploy secrets away
-      # from an unmerged PR's code. It does not make the job safe on its own: `contents: write`
-      # spans every event, so candidate YAML can still read `github.token` directly. Closing
-      # that needs the release moved to its own job — see .github/deploying.md.
+          # A releasing push must fail before `pnpm release` tags a version nothing can ship.
+          # A manual run does not release, so it skips this and builds once, in the deploy step.
+          build: ${{ github.event_name == 'push' }}
       - name: Build and deploy
-        if: ${{ github.event_name != 'merge_group' }}
         uses: ./.github/actions/studio-deploy
         with:
           environment: stage
