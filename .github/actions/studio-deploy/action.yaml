@@ -1,7 +1,10 @@
 name: Deploy Studio
-description: Test, build and deploy Studio to a Harper CM as a component.
+description: Release, build and deploy Studio to a Harper CM. Runs after studio-verify, which installs.
 
-# Checkout stays in the caller: a local action reference only resolves once the repo is on disk.
+# Every credentialed step lives here so callers can skip the whole action on runs that must not
+# see secrets — see studio-verify. Depends on studio-verify having installed dependencies in the
+# same job. Checkout stays in the caller: a local action reference only resolves once the repo is
+# on disk.
 inputs:
   environment:
     description: 'dev | stage | prod — selects the vite mode and the version-tag prefix'
@@ -9,14 +12,11 @@ inputs:
   sourcemap-url-prefix:
     description: 'Public URL the deployed assets are served from, for Datadog sourcemaps'
     required: true
-  deploy:
-    description: 'Set to false to test and build only, without releasing or deploying'
-    default: 'true'
   release:
     description: 'Cut a semantic release before building the bundle that gets deployed'
     default: 'false'
   restart:
-    description: 'Restart the component after deploying'
+    description: 'Restart the component after deploying. Required for a Harper-major switch to take effect'
     default: 'false'
   harper-version:
     description: 'v4 | v5 — Harper major running on the target CM'
@@ -40,44 +40,13 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up pnpm
-      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-    - name: Set up Node.js
-      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-      with:
-        cache: 'pnpm'
-        cache-dependency-path: 'pnpm-lock.yaml'
-        node-version-file: '.nvmrc'
-    - name: Disable Husky
-      shell: bash
-      run: echo "HUSKY=0" >> "$GITHUB_ENV"
-    - name: Install dependencies
-      shell: bash
-      run: pnpm install
-    - name: Run unit tests
-      shell: bash
-      run: pnpm test
-    - name: Run lint
-      shell: bash
-      run: pnpm lint
-    # A verify-only run has no later build to catch a break, and a releasing run must fail
-    # before `pnpm release` tags a version nothing can ship. A plain deploy skips it.
-    - name: Verify ${{ inputs.environment }} can build
-      if: ${{ inputs.deploy != 'true' || inputs.release == 'true' }}
-      shell: bash
-      env:
-        ENVIRONMENT: ${{ inputs.environment }}
-      run: pnpm build --mode "$ENVIRONMENT"
     - name: Semantic release
-      # Never cut a version a run isn't going to ship: no caller asks for release without
-      # deploy, and the contract shouldn't let a future one.
-      if: ${{ inputs.release == 'true' && inputs.deploy == 'true' }}
+      if: ${{ inputs.release == 'true' }}
       shell: bash
       run: pnpm release
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
     - name: Determine version tag for build
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
@@ -91,13 +60,11 @@ runs:
         fi
         echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> "$GITHUB_ENV"
     - name: Build ${{ inputs.environment }}
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: pnpm build --mode "$ENVIRONMENT"
     - name: Upload sourcemaps to Datadog
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       env:
         DATADOG_API_KEY: ${{ inputs.datadog-api-key }}
@@ -112,11 +79,9 @@ runs:
     # node for nothing. See `sourcemapFor` in vite.config.ts, which emits these as `'hidden'`
     # so no bundle references the files deleted here.
     - name: Strip sourcemaps from the deployed bundle
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       run: find web/assets -name '*.js.map' -delete
     - name: Stage the deploy directory
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       env:
         RESTART_INPUT: ${{ inputs.restart }}
@@ -147,7 +112,6 @@ runs:
         echo "Deploying the Harper $HARPER template with restart=$RESTART"
         cat deploy/package.json
     - name: Deploy to ${{ inputs.environment }}
-      if: ${{ inputs.deploy == 'true' }}
       shell: bash
       env:
         CLI_TARGET_USERNAME: ${{ inputs.cli-target-username }}

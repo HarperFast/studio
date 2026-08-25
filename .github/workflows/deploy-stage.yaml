@@ -40,17 +40,26 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - name: Verify
+        uses: ./.github/actions/studio-verify
+        with:
+          environment: stage
+          # A merge-queue run has no later build, and a releasing push must fail before the tag.
+          build: ${{ github.event_name != 'workflow_dispatch' }}
+      # Skipped outright on a merge-queue run, so no credential is ever handed to code from an
+      # unmerged PR — the whole reason verify and deploy are separate actions.
       - name: Build and deploy
-        uses: ./.github/actions/deploy-studio
+        if: ${{ github.event_name != 'merge_group' }}
+        uses: ./.github/actions/studio-deploy
         with:
           environment: stage
           sourcemap-url-prefix: https://stage.studio.harperfabric.com/assets
-          # A manual run redeploys but never releases; the merge queue only verifies.
-          deploy: ${{ github.event_name != 'merge_group' }}
           release: ${{ github.event_name == 'push' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          restart: ${{ inputs.restart || false }}
+          # The Harper major this environment's CM runs. This literal is the source of truth —
+          # keep it in step with central manager; the dispatch input overrides one run only.
           harper-version: ${{ inputs.harper_version || 'v4' }}
+          restart: ${{ inputs.restart || false }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD }}
