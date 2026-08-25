@@ -23,8 +23,7 @@ const UNTRUSTED_REF_EVENTS = ['merge_group'];
 type Job = { permissions?: unknown };
 
 function triggers(doc: Record<string, unknown>): string[] {
-	// `on` is the YAML 1.1 boolean `true`, so a parser may key it either way.
-	const on = doc.on ?? doc[true as unknown as keyof typeof doc];
+	const on = doc.on;
 	if (typeof on === 'string') { return [on]; }
 	if (Array.isArray(on)) { return on as string[]; }
 	return Object.keys((on ?? {}) as Record<string, unknown>);
@@ -43,9 +42,11 @@ function grantsWrite(permissions: unknown): boolean {
 function isPrivileged(doc: Record<string, unknown>, raw: string): boolean {
 	const jobs = Object.values((doc.jobs ?? {}) as Record<string, Job>);
 	const writes = jobs.some((job) => grantsWrite(job.permissions ?? doc.permissions));
-	// Any deployment credential reaching the run, however the expression is spelled.
-	const takesDeploySecrets = /secrets\s*[.[]\s*'?"?(CLI_|HARPERDB_)/.test(raw) || /secrets:\s*inherit/.test(raw);
-	return writes || takesDeploySecrets;
+	// Any secret at all, however the expression is spelled. An allowlist of known-sensitive names
+	// would fail open: the first draft matched only CLI_/HARPERDB_ and so declared a workflow
+	// holding the Datadog key — which studio-deploy really does use — unprivileged.
+	const takesSecrets = /secrets\s*[.[]/.test(raw) || /secrets:\s*inherit/.test(raw);
+	return writes || takesSecrets;
 }
 
 function workflowFiles() {
@@ -60,11 +61,18 @@ describe('workflow privilege boundary', () => {
 	it.each(workflowFiles())('%s does not expose privilege to an unmerged ref', (name) => {
 		const raw = readFileSync(join(WORKFLOWS_DIR, name), 'utf8');
 		if (!isPrivileged(parse(raw), raw)) { return; }
-		// One assertion per event: `toContain` takes a single argument, so `toContain(...events)`
-		// would silently ignore everything after the first.
+		// One assertion per event: `toContain` takes a single argument, so a spread would drop all
+		// but the first.
 		for (const event of UNTRUSTED_REF_EVENTS) {
 			expect(triggers(parse(raw))).not.toContain(event);
 		}
+	});
+
+	// Both halves of the scan can pass vacuously: `not.toContain` is satisfied by an empty trigger
+	// list, and the loop body never runs if nothing classifies as privileged. These pin both.
+	it('still reads triggers, so an empty list cannot pass the scan silently', () => {
+		const raw = readFileSync(join(WORKFLOWS_DIR, 'deploy-stage.yaml'), 'utf8');
+		expect(triggers(parse(raw))).toContain('push');
 	});
 
 	it('still recognises the stage workflow as privileged, so the scan cannot pass by finding nothing', () => {
@@ -95,6 +103,10 @@ describe('isPrivileged recognises every privileged form', () => {
 			),
 		],
 		['secrets: inherit', job('    permissions:\n      contents: read\n    secrets: inherit\n')],
+		[
+			'the Datadog key, which studio-deploy also consumes',
+			job('    permissions:\n      contents: read\n    steps:\n      - run: echo ${{ secrets.DATADOG_API_KEY }}\n'),
+		],
 	])('flags %s', (_label, raw) => {
 		expect(isPrivileged(parse(raw), raw)).toBe(true);
 	});
@@ -102,10 +114,6 @@ describe('isPrivileged recognises every privileged form', () => {
 	it.each([
 		['read-only with no secrets', job('    permissions:\n      contents: read\n    steps:\n      - run: echo hi\n')],
 		['read-all', job('    permissions: read-all\n')],
-		[
-			'an unrelated secret',
-			job('    permissions:\n      contents: read\n    steps:\n      - run: echo ${{ secrets.DATADOG_API_KEY }}\n'),
-		],
 	])('does not flag %s', (_label, raw) => {
 		expect(isPrivileged(parse(raw), raw)).toBe(false);
 	});
