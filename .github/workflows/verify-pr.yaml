@@ -15,9 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # This is the one workflow that installs and runs code from the PR under review, and it
-          # holds `pull-requests: write` for the coverage comment. Persisting would leave that
-          # token in `.git/config` for `pnpm install` to find.
+          # This workflow installs and runs code from the PR under review; persisting would leave
+          # the token in `.git/config` for `pnpm install` to find.
           persist-credentials: false
       # Nothing else in the repo evaluates `.github/` — these workflows are asserted in prose only,
       # and their first real execution is a deploy. Covers workflow syntax, expressions,
