@@ -30,7 +30,7 @@ jobs:
           cache-dependency-path: 'pnpm-lock.yaml'
           node-version-file: '.nvmrc'
       - name: Disable Husky
-        run: echo "HUSKY=0" >> $GITHUB_ENV
+        run: echo "HUSKY=0" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: pnpm install
       # Whole-app type-check: vitest only type-checks what tests import, so a
