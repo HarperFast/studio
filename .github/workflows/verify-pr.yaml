@@ -14,9 +14,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Nothing else in the repo evaluates `.github/` — these workflows and actions are asserted
-      # in prose only, and their first real execution is a production deploy. actionlint catches
-      # shape errors (bad expressions, unknown contexts, undeclared inputs), not semantics.
+      # Nothing else in the repo evaluates `.github/` — these workflows are asserted in prose only,
+      # and their first real execution is a deploy. Covers workflow syntax, expressions,
+      # permissions, local-action metadata and the inputs callers pass. Does NOT cover the `steps`
+      # inside a composite action (actionlint 1.7 skips those) and does not exercise the event
+      # matrix, so `studio-verify`/`studio-deploy` bodies stay unchecked.
       - name: Lint workflows and actions
         uses: rhysd/actionlint@914e7df21a07ef503a81201c76d2b11c789d3fca # v1.7.12
       - name: Set up pnpm
