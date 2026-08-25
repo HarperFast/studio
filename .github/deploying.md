@@ -76,15 +76,19 @@ is by construction the only thing that differs between a v4 and a v5 deploy, wit
 copy of the template to drift out of sync. Renovate is configured not to touch
 `@fastify/static` (`renovate.json`), so both versions only move deliberately.
 
-**Harper 4.x is the default.** The Harper 5 rollout is shelved after stage testing, so nothing
-deploys the 5.x range unless someone picks `v5` for a specific environment.
+**Each environment defaults to the major its CM runs today** — dev `v5`, stage `v5`, prod `v4` —
+not to the major we intend to end up on. That is deliberate: the rest position of a switch should
+be where the system is, so merging a change to this repo never moves a CM by itself, and shelving
+or resuming Harper 5 is an explicit act. **When a CM changes major in central manager, change its
+literal here in the same breath**, or the next ordinary push quietly re-introduces the mismatch.
 
-Getting this wrong for a CM already on Harper 5.x does **not** break at deploy time, and does not
-break at the next push either. `deploy_component` writes the 4.x range to disk while the running
-workers keep the 5.x one they already imported, so the deploy is green and Studio keeps serving.
-The break lands at the _next restart_ — a CM upgrade, a host reboot, a worker respawn — with no
-deploy anywhere near it in the timeline, which is considerably harder to diagnose than an
-immediate failure. Set the environment's literal correctly rather than planning to fix it later.
+Getting it wrong does **not** fail the deploy, and does not break at the next push either.
+`deploy_component` writes the range to disk while the running workers keep the major they already
+imported, so the deploy is green and Studio keeps serving. The break lands at the _next restart_ —
+a CM upgrade, a host reboot, a worker respawn — with no deploy anywhere near it in the timeline,
+which is considerably harder to diagnose than an immediate failure. For the same reason, a
+deliberate major switch must be deployed from **Run workflow** with **restart** on; without it the
+new range sits on disk unused and the switch silently has not happened yet.
 
 The input also assumes a **homogeneous cluster**: `deploy_component … replicated=true` pushes one
 `package.json` to every node, so mid-rolling-upgrade a cluster running both majors gets a single
