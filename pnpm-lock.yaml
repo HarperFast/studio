@@ -266,6 +266,9 @@ importers:
       vitest:
         specifier: ^4.0.0
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(happy-dom@20.11.6(bufferutil@4.1.0)(utf-8-validate@5.0.10))(jsdom@30.0.1)(vite@8.2.2(@types/node@24.13.3)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.0))
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
 packages:
 
