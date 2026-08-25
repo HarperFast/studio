@@ -104,16 +104,26 @@ explicit `sorting: undefined` _replaces_ the default and the first header click 
 
 `deploy-dev/stage/prod.yaml` own only what differs per environment; the job body lives in two
 composite actions. **The split is a security boundary, not a refactor** — do not reunify them:
-`studio-verify` installs, tests and lints and takes **no credentials**, because a `merge_group`
-run executes it from the candidate PR's own code; `studio-deploy` holds every credentialed step
-and the stage workflow skips it outright on a merge-queue run. Checkout also needs
-`persist-credentials` off on that path, or the job's write token sits in `.git/config` where
-PR-controlled test scripts can read it.
+`studio-verify` installs, tests and lints and takes **no credentials**; `studio-deploy` holds
+every credentialed step. That keeps deploy secrets away from anything that could execute code
+from an unmerged ref.
 
-They are **composite actions, not a reusable workflow**, on purpose: composite steps run inside
-the caller's job, so the job stays named `Deploy to Stage` and the merge queue's required check
-on that name keeps resolving. A `workflow_call` renames every check to `<caller> / <called>` and
-silently breaks branch protection.
+**No deploy workflow may accept `merge_group`.** That event runs the candidate PR's own workflow
+and action YAML, so it can request `contents: write` or edit the actions outright — a boundary
+inside candidate-controlled YAML is not a boundary. `src/lib/workflowPrivilege.test.ts` asserts
+it for any workflow that writes contents or receives deploy secrets, because `actionlint` never
+evaluates the event set against job permissions. If a merge queue is ever wanted, give it a
+separate credential-free workflow, and make its required check part of the same reviewed change
+(studio#1649).
+
+Every workflow declares `permissions:` explicitly. The repo default is **write**, so omitting the
+block hands a job a write-capable token it almost never needs.
+
+They are **composite actions, not a reusable workflow**. Composite steps run inside the caller's
+job, so job names stay `Deploy to Dev/Stage/Prod` rather than becoming `<caller> / <called>`.
+Note this is about keeping check names stable and the run graph flat — **not** about branch
+protection: `stage` has no `required_status_checks` block, so nothing currently gates on those
+names. Verify before repeating that claim.
 
 Moving a step in there changes its shell. A composite `run` step **must** declare `shell:`, and
 `shell: bash` runs as `bash --noprofile --norc -eo pipefail`, where a workflow's default is a
