@@ -4,14 +4,26 @@ Studio ships to a Harper CM as a component: a deploy drops the built `web/` bund
 `deploy-template/` and hands the result to `harper deploy_component`. The template is what
 teaches Harper's fastify server to serve those files.
 
-## One action, three workflows
+## Two actions, three workflows
 
-`deploy-dev.yaml`, `deploy-stage.yaml` and `deploy-prod.yaml` are deliberately thin. They own
-only what actually differs per environment — trigger branch, concurrency group, sourcemap URL,
-which secrets, and whether a push releases — and hand the rest to
-`.github/actions/deploy-studio`, which holds the whole job body (test, lint, release, build,
-sourcemap upload, staging the component, deploy). A change to how Studio deploys belongs in the
-action; a change to where it deploys belongs in the workflow.
+`deploy-dev.yaml`, `deploy-stage.yaml` and `deploy-prod.yaml` are deliberately thin. They own only
+what differs per environment — trigger branch, concurrency group, sourcemap URL, which secrets,
+and whether a push releases — and hand the rest to two composite actions:
+
+- **`.github/actions/studio-verify`** — install, test, lint, and optionally build. **Takes no
+  credentials, by design.**
+- **`.github/actions/studio-deploy`** — release, version, build, sourcemap upload, staging the
+  component, deploy. Every credentialed step lives here. Assumes verify installed first.
+
+The split is a security boundary, not tidiness. A `merge_group` run executes these actions from
+the merge-group ref, which contains the candidate PR's code — including any edit to the actions
+themselves — and `pnpm install` alone runs PR-controlled postinstall scripts. So the stage
+workflow skips `studio-deploy` outright on a merge-queue run, and nothing that a merge-queue run
+does execute is ever handed a token. Keep it that way: **never add a credential input to
+`studio-verify`**, and never move an installing or test-running step into `studio-deploy`.
+
+A change to how Studio deploys belongs in an action; a change to where it deploys belongs in the
+workflow.
 
 Two knobs are exposed on every environment's **Run workflow** button, and only there:
 
@@ -19,16 +31,26 @@ Two knobs are exposed on every environment's **Run workflow** button, and only t
   `… with Restart` workflows that were copies of these differing only in `restart=`.
 - **Harper major version running on the target CM** — `v4` (default) or `v5`.
 
-A manual run of any of the three now **deploys**. That is new for stage: _Deploy to Stage_ used
-to run tests and a build only on a manual trigger, because deploying on dispatch lived solely in
-the deleted `Deploy to Stage with Restart`. If you used _Run workflow_ there as a pre-merge check,
-use the merge queue or a PR instead.
-
 `inputs.*` is empty for anything but a manual run. Note that an empty value _overrides_ an
 action input's declared default rather than falling back to it, so the callers default it
 themselves (`inputs.restart || false`) and the action re-normalizes in shell, treating anything
 that is not exactly `true`/`v5` as the default. Two independent guards, either of which is
 sufficient — a restart or a v5 deploy only happens because someone asked for it.
+
+**The per-environment default is the source of truth, not the dispatch input.** Each caller's
+`harper-version: ${{ inputs.harper_version || '<major>' }}` line records the major that
+environment's CM actually runs; the dispatch input overrides a single run and does _not_ stick.
+So a one-off manual `v5` deploy is undone by the next ordinary push unless that literal is
+updated too — when a CM changes major in central manager, change it here in the same breath.
+
+## Switching majors requires a restart
+
+Deploying a template writes it to disk; it does not reload the running workers, which have
+already imported — or already failed to register — the previous `@fastify/static`. A push
+resolves `restart` to false, so **a deploy that changes the Harper major has no effect until the
+workers restart**, and a CM currently broken on the wrong major stays broken. Any major switch
+must therefore be deployed from **Run workflow** with **restart** on, and the two inputs are
+deliberately independent because an ordinary redeploy should not bounce workers.
 
 ## Why the Harper major matters
 

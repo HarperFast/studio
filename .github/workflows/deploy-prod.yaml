@@ -31,13 +31,19 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - name: Verify
+        uses: ./.github/actions/studio-verify
+        with:
+          environment: prod
       - name: Build and deploy
-        uses: ./.github/actions/deploy-studio
+        uses: ./.github/actions/studio-deploy
         with:
           environment: prod
           sourcemap-url-prefix: https://fabric.harper.fast/assets
-          restart: ${{ inputs.restart || false }}
+          # The Harper major this environment's CM runs. This literal is the source of truth —
+          # keep it in step with central manager; the dispatch input overrides one run only.
           harper-version: ${{ inputs.harper_version || 'v4' }}
+          restart: ${{ inputs.restart || false }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME_PROD }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_PROD }}
