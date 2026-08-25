@@ -20,8 +20,10 @@ on:
 concurrency:
   # Both events deploy, so they share a group: two `deploy_component` calls must never overlap.
   # `false` protects the run in flight only — GitHub keeps a single pending slot per group, so a
-  # third push does displace a queued second one. Benign here: the surviving run builds a ref that
-  # already contains the skipped commits.
+  # third run displaces a queued second one. Harmless between two pushes (the survivor's ref
+  # already contains the skipped commits) but *not* when the displaced run is a manual one: its
+  # `harper_version`/`restart` choices are lost and the push deploys the defaults instead. Re-run
+  # the dispatch if a queued manual deploy shows as cancelled.
   group: stage-deploy
   cancel-in-progress: false
 

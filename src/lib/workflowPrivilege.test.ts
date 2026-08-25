@@ -103,6 +103,12 @@ describe('isPrivileged recognises every privileged form', () => {
 		],
 		['secrets: inherit', job('    permissions:\n      contents: read\n    secrets: inherit\n')],
 		[
+			'whole-context forwarding, which a `secrets.`-only matcher missed',
+			job(
+				'    permissions:\n      contents: read\n    steps:\n      - uses: ./.github/actions/x\n        with:\n          blob: ${{ toJSON(secrets) }}\n',
+			),
+		],
+		[
 			'the Datadog key, which studio-deploy also consumes',
 			job('    permissions:\n      contents: read\n    steps:\n      - run: echo ${{ secrets.DATADOG_API_KEY }}\n'),
 		],
