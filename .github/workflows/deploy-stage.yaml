@@ -51,8 +51,10 @@ jobs:
           environment: stage
           # A merge-queue run has no later build, and a releasing push must fail before the tag.
           build: ${{ github.event_name != 'workflow_dispatch' }}
-      # Skipped outright on a merge-queue run, so no credential is ever handed to code from an
-      # unmerged PR — the whole reason verify and deploy are separate actions.
+      # Skipped outright on a merge-queue run, which is what keeps the five deploy secrets away
+      # from an unmerged PR's code. It does not make the job safe on its own: `contents: write`
+      # spans every event, so candidate YAML can still read `github.token` directly. Closing
+      # that needs the release moved to its own job — see .github/deploying.md.
       - name: Build and deploy
         if: ${{ github.event_name != 'merge_group' }}
         uses: ./.github/actions/studio-deploy
