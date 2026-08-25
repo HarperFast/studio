@@ -26,7 +26,6 @@ jobs:
     name: Deploy to Prod
     runs-on: ubuntu-latest
     permissions:
-      # The repo default is write; nothing here releases or pushes, so take the rest away too.
       contents: read
     steps:
       - name: Checkout code
