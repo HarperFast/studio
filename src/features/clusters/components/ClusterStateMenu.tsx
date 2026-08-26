@@ -11,6 +11,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -48,6 +49,12 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const isStopped = cluster.status === 'STOPPED';
 	const isPartial = cluster.status === 'PARTIAL';
 	const opsDisabled = !canRunContainerOps || isPending;
+	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
+	// can still be RUNNING or PARTIAL. Hiding the whole group on this alone left an up-and-billing
+	// cluster with Terminate as its only control.
+	const startBlocked = isStartBlockedByPlan(cluster);
+	// Hidden only when the group would be a heading over nothing.
+	const planEndedAndDown = startBlocked && !isRunning && !isPartial;
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
@@ -99,42 +106,49 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-56">
-					<DropdownMenuLabel className="text-gray-600 text-xs">
-						Container
-						{!canRunContainerOps && <span className="block font-normal">Requires an organization admin</span>}
-					</DropdownMenuLabel>
-					<DisabledReasonTooltip
-						reason={canRunContainerOps
-							? undefined
-							: 'Only an organization administrator can start, stop, or restart this cluster.'}
-					>
-						<DropdownMenuItem
-							disabled={opsDisabled || !(isStopped || isPartial)}
-							onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
-						>
-							<PlayIcon /> Start
-						</DropdownMenuItem>
-						<DropdownMenuItem disabled={opsDisabled || !isStopped} onClick={() => setSafeModeAction('start')}>
-							<LifeBuoyIcon /> Start in safe mode
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							disabled={opsDisabled || !(isRunning || isPartial)}
-							onClick={() => setRestartOpen(true)}
-						>
-							<RotateCwIcon /> Restart
-						</DropdownMenuItem>
-						<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
-							<LifeBuoyIcon /> Restart in safe mode
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							variant="destructive"
-							disabled={opsDisabled || !(isRunning || isPartial)}
-							onClick={() => setStopOpen(true)}
-						>
-							<SquareIcon /> Stop
-						</DropdownMenuItem>
-					</DisabledReasonTooltip>
-					<DropdownMenuSeparator />
+					{!planEndedAndDown && (
+						<>
+							<DropdownMenuLabel className="text-gray-600 text-xs">
+								Container
+								{!canRunContainerOps && <span className="block font-normal">Requires an organization admin</span>}
+							</DropdownMenuLabel>
+							<DisabledReasonTooltip
+								reason={canRunContainerOps
+									? undefined
+									: 'Only an organization administrator can start, stop, or restart this cluster.'}
+							>
+								<DropdownMenuItem
+									disabled={opsDisabled || startBlocked || !(isStopped || isPartial)}
+									onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
+								>
+									<PlayIcon /> Start
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={opsDisabled || startBlocked || !isStopped}
+									onClick={() => setSafeModeAction('start')}
+								>
+									<LifeBuoyIcon /> Start in safe mode
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={opsDisabled || !(isRunning || isPartial)}
+									onClick={() => setRestartOpen(true)}
+								>
+									<RotateCwIcon /> Restart
+								</DropdownMenuItem>
+								<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
+									<LifeBuoyIcon /> Restart in safe mode
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									variant="destructive"
+									disabled={opsDisabled || !(isRunning || isPartial)}
+									onClick={() => setStopOpen(true)}
+								>
+									<SquareIcon /> Stop
+								</DropdownMenuItem>
+							</DisabledReasonTooltip>
+							<DropdownMenuSeparator />
+						</>
+					)}
 					<DropdownMenuItem variant="destructive" disabled={!remove} onClick={() => setTerminateOpen(true)}>
 						<TrashIcon /> Terminate
 					</DropdownMenuItem>
