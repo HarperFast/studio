@@ -13,6 +13,7 @@ import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAct
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
@@ -85,6 +86,10 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
 		[cluster.status],
 	);
+	const expiry = useMemo(() => describeGrantExpiry(cluster), [cluster]);
+	// A plan-ended cluster can't be restarted — the start gate refuses it with a 402. Buying a plan
+	// is the only way back up, so the card routes to the editor instead of the instances page.
+	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
 	const isSelfManaged = clusterIsSelfManaged(cluster);
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
@@ -172,6 +177,8 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// running) opens the cluster overview like a normal cluster.
 	const cardHref = !view || isTerminated
 		? undefined
+		: upgradeHref && update
+		? upgradeHref
 		: cluster.status === 'STOPPED'
 		? `/${cluster.organizationId}/${cluster.id}/instances`
 		: cluster.status === 'PARTIAL'
@@ -207,6 +214,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			onClick: onSignOutClick,
 			disabled: signingOut,
 			label: 'Direct Sign Out',
+		},
+		upgradeHref && update && {
+			key: 'upgrade',
+			to: `${cluster.id}/edit`,
+			disabled: signingOut,
+			icon: <ScaleIcon className="text-purple-600" />,
+			label: 'Choose a Plan',
 		},
 		isActive && update && {
 			key: 'edit',
@@ -248,14 +262,14 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		&& { type: 'separator' as const, key: 'container-separator' },
 		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
-		showContainerActions && (isClusterStopped || isClusterPartial) && {
+		showContainerActions && !expiry?.needsUpgrade && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
 			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		showContainerActions && isClusterStopped && {
+		showContainerActions && !expiry?.needsUpgrade && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('start'),
@@ -375,6 +389,19 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				</CardHeader>
 				<CardContent className="flex items-center justify-between gap-2">
 					<ClusterProgress cluster={cluster} />
+					{expiry && (
+						<Badge
+							variant={expiry.severity === 'critical'
+								? 'destructive'
+								: expiry.severity === 'warning'
+								? 'warning'
+								: 'secondary'}
+							title={expiry.detail ?? expiry.title}
+						>
+							{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
+							{expiry.badgeLabel}
+						</Badge>
+					)}
 					{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 					{showContainerOpBadge && cluster.status && (
 						<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
