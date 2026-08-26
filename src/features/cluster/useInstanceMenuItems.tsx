@@ -3,8 +3,10 @@ import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -16,6 +18,7 @@ import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import {
 	ClipboardIcon,
 	LifeBuoyIcon,
@@ -47,6 +50,13 @@ export function useInstanceMenuItems(
 	enabled: boolean,
 ): { items: EntityMenuItem[]; dialog: ReactNode } {
 	const { user: instanceUser } = useInstanceAuth(instance.id);
+	// Both callers render under the cluster route, so this reuses that cached query rather than
+	// threading a flag through InstanceActionsMenu and InstanceRowContextMenu.
+	const { clusterId } = useParams({ strict: false }) as { clusterId?: string };
+	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	// Same rule as the cluster card and ClusterStateMenu: once the plan has ended the start gate
+	// refuses the instance with a 402, so offering Start is offering a guaranteed failure.
+	const planEnded = !!describeGrantExpiry(cluster ?? {})?.needsUpgrade;
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update: canManage } = useOrganizationClusterInstancePermissions();
@@ -89,7 +99,9 @@ export function useInstanceMenuItems(
 	// container lifecycle (Harper doesn't control their runtime), so the group is hidden for them.
 	const isRunning = instance.status === 'RUNNING';
 	const isStopped = instance.status === 'STOPPED';
-	const hasContainerOps = canManage && !isSelfManaged && (isRunning || isStopped);
+	// Only the stopped-instance actions die with the plan: Start is refused with a 402, while a
+	// still-running instance keeps Restart and Stop, which central-manager allows on the way down.
+	const hasContainerOps = canManage && !isSelfManaged && (isRunning || (isStopped && !planEnded));
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
