@@ -5,7 +5,7 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
-import { hobbyistPlanId } from '@/config/constants';
+import { hobbyistPlanId, regionFrozenPlanIds } from '@/config/constants';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
 import { HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
@@ -60,6 +60,10 @@ export function UpsertCluster() {
 	// cluster runs today. Anything else in `upgrade` is ignored.
 	const { upgrade }: { upgrade?: string } = useSearch({ strict: false });
 	const upgradingToHobbyist = upgrade === HOBBYIST_UPGRADE;
+	// central-manager freezes the region set while a trial or level-0 plan is on the cluster, so a
+	// plan change and a region change cannot go in one request. Keyed on what the cluster runs NOW,
+	// not on what is being selected — the freeze lifts as soon as the paid plan lands.
+	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId!));
 	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
@@ -305,6 +309,7 @@ export function UpsertCluster() {
 				planTypes={planTypes}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
+				regionSetFrozen={regionSetFrozen}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
