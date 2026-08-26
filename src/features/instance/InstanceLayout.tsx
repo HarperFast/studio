@@ -1,5 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
+import { ClusterExpiryStrip } from '@/features/cluster/components/ClusterExpiryStrip';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useChatPermission } from '@/hooks/usePermissions';
@@ -27,8 +28,9 @@ export function InstanceLayout() {
 		<>
 			<div className="studio-subnav fixed top-20 w-full z-39 h-12 px-4 lg:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none">
 				<InstanceNavBar />
-			</div>
-			<div className="mt-32 min-h-[calc(100vh-(--spacing(32))-var(--notification-banner-height))]">
+			</nav>
+			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">
+				<ClusterExpiryStrip />
 				<RestartingNotice
 					entityId={isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId}
 					clusterId={clusterId}
