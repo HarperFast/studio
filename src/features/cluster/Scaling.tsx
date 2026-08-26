@@ -2,11 +2,11 @@ import { ContactUs } from '@/components/ContactUs';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
-import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
+import { isConversionComplete } from '@/features/clusters/lib/grantExpiry';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { CloudAlertIcon } from 'lucide-react';
@@ -24,9 +24,12 @@ export function Scaling() {
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
 	const status = cluster?.status;
-	const updateIsDone = useMemo(() => {
-		return status && activeClusterStatuses.includes(status) && allClusterInstancesSettled(cluster);
-	}, [status, cluster]);
+	// Not RUNNING alone: a trial->paid conversion reaches RUNNING before the server applies the plan,
+	// and a scale-up reaches it while new members are still cloning.
+	const updateIsDone = useMemo(
+		() => !!cluster && isConversionComplete(cluster) && allClusterInstancesSettled(cluster),
+		[cluster],
+	);
 
 	if (clusterIsLoading || !cluster) {
 		return (
