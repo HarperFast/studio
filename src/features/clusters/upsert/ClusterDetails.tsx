@@ -18,6 +18,7 @@ import { ClusterInstances } from './components/ClusterInstances';
 import { calculatePremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { calculateUsageScale } from './lib/calculateUsageScale';
 import { PartialUpgrade } from './lib/detectPartialUpgrade';
+import { selectablePlansByTier } from './lib/selectablePlans';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
@@ -34,6 +35,7 @@ interface ClusterDetailsProps {
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	regionSetFrozen?: boolean;
+	currentPlanId?: string;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -54,6 +56,7 @@ export function ClusterDetails({
 	regionLocations,
 	regionNameToLatencyToRegion,
 	regionSetFrozen,
+	currentPlanId,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -63,7 +66,10 @@ export function ClusterDetails({
 	// Hobbyist is colocated-only, so the deployment picker has nothing to offer while it is selected.
 	const isHobbyist = selectedPlan?.id === hobbyistPlanId;
 	const availablePerformanceDescriptions = useMemo(() => {
-		const plansByTier = deploymentToPerformanceToPlan[selectedDeployment] || {};
+		const plansByTier = selectablePlansByTier(deploymentToPerformanceToPlan[selectedDeployment] || {}, {
+			isExistingCluster: !!clusterId,
+			currentPlanId,
+		});
 		const planLevels = Object.values(plansByTier).map(plan => plan.planLevel ?? 0);
 		const minPlanLevel = planLevels.length ? Math.min(...planLevels) : 0;
 		return Object.keys(plansByTier).map(performanceTier => {
@@ -93,7 +99,7 @@ export function ClusterDetails({
 				isPremium,
 			};
 		});
-	}, [deploymentToPerformanceToPlan, selectedDeployment]);
+	}, [clusterId, currentPlanId, deploymentToPerformanceToPlan, selectedDeployment]);
 	const availableDeploymentTypes = useMemo(() => Object.keys(deploymentToPerformanceToPlan).sort(), [
 		deploymentToPerformanceToPlan,
 	]);
