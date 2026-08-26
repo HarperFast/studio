@@ -1,11 +1,12 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
+import { ClusterExpiryBanner } from '@/features/cluster/components/ClusterExpiryBanner';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
+import { useLocation, useParams } from '@tanstack/react-router';
 import { ChartColumnIncreasing, GaugeIcon, GlobeIcon, LayoutDashboardIcon, ServerIcon, TagIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
@@ -24,6 +25,8 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
 	const selfManaged = cluster ? clusterIsSelfManaged(cluster) : false;
 	const base = `/${organizationId}/${clusterId}`;
+	// Exact: /edit is the plan page the banner's button opens; /edit/version is not.
+	const onPlanPage = useLocation({ select: (location) => location.pathname === `${base}/edit` });
 
 	const items = [
 		{ to: base, label: 'Overview', icon: LayoutDashboardIcon, exact: true },
@@ -42,6 +45,7 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 
 	return (
 		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+			<ClusterExpiryBanner cluster={cluster} canUpdate={!!update} onPlanPage={onPlanPage} />
 			<div className="md:grid gap-6 md:grid-cols-12">
 				<aside className="section-rail-aside md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
 					<SectionRail items={items} ariaLabel="Cluster sections" />
