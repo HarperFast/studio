@@ -61,9 +61,10 @@ Two limits worth knowing:
   studio#1649.
 - **This workflow gates only once `Verify Stage` is a required check for the queue.** Whether it
   already is lives in repo settings, not here — if you are relying on it, confirm it there. The
-  failure mode if the name and the setting disagree is a _silent stall_: a required check with no
-  producer stays pending forever rather than merging unchecked, which is the safe direction but
-  has no detector beyond noticing merges stopped.
+  failure mode if the name and the setting disagree is that entries never merge: the queue waits
+  for a check nothing reports, hits its check-response timeout, and ejects the entry as failed.
+  That is the safe direction — it never merges unchecked — but the signal is "my PR keeps falling
+  out of the queue", not an error naming the missing check.
 
 ### What the queue check is for
 

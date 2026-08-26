@@ -24,9 +24,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # `build` is what makes this a queue check rather than a second per-PR run: the `build`
-      # script is `tsc -b && vite build`, so this type-checks the *merged* ref. Two PRs that are
-      # each green can still fail combined — see .github/deploying.md.
+      # `build: true` is load-bearing: the `build` script is `tsc -b && vite build`, so this is
+      # what type-checks the merged ref. See .github/deploying.md for why that matters.
       - name: Verify
         uses: ./.github/actions/studio-verify
         with:
