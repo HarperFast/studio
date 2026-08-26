@@ -15,6 +15,8 @@ import { regionCohortKey, RegionLookup } from './lib/regionLookup';
 import { RegionPlanEntry, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
+	/** Lock the region set: the plan prescribes it, so changing it can only be refused. */
+	disabled?: boolean;
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	regionLocations: SchemaRegion[] | undefined;
 	regionLookup: RegionLookup;
@@ -33,6 +35,7 @@ interface ClusterRegionsProps {
 }
 
 export function ClusterRegions({
+	disabled,
 	form,
 	regionLocations,
 	regionLookup,
@@ -55,33 +58,16 @@ export function ClusterRegions({
 		name: 'regionPlans',
 	});
 
-	const nextAvailableRegionToAdd = useMemo<RegionPlanEntry | null>(() => {
-		if (!totalPrice) {
-			// Free plans can only add a single region.
+	const nextAvailableRegionToAdd = useMemo(() => {
+		const selectedRegionNames = selectedRegionPlans.map(region =>
+			regionNameToLatencyToRegion?.[region.regionName!]?.[region.latencyDescription!]?.region
+		);
+		if (!totalPrice || disabled) {
+			// Free plans — and any plan whose region set is fixed — get a single region.
 			return null;
 		}
-		const selectedCohorts = new Set(
-			selectedRegionPlans.map(entry => {
-				const region = regionLookup.get(entry.regionId);
-				return region ? regionCohortKey(region) : null;
-			}),
-		);
-		const nextCatalogRegion = regionLocations?.find(r => !selectedCohorts.has(r.region));
-		if (nextCatalogRegion) {
-			return { regionId: nextCatalogRegion.id };
-		}
-		if (canUseCustomRegions) {
-			for (const region of regionLookup.values()) {
-				if (
-					region.kind === 'organization' && region.active && region.instanceCount > 0
-					&& !selectedCohorts.has(region.id)
-				) {
-					return { regionId: region.id, quantity: 1 };
-				}
-			}
-		}
-		return null;
-	}, [canUseCustomRegions, regionLocations, regionLookup, selectedRegionPlans, totalPrice]);
+		return regionLocations?.find(r => !selectedRegionNames.includes(r.region));
+	}, [disabled, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans, totalPrice]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {
@@ -127,6 +113,7 @@ export function ClusterRegions({
 			{regionPlansFieldArray.fields.map((field, index) => (
 				<RegionFormInputs
 					control={form.control}
+					disabled={disabled}
 					fieldArray={regionPlansFieldArray}
 					form={form}
 					index={index}
