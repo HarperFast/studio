@@ -91,9 +91,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
 	const isSelfManaged = clusterIsSelfManaged(cluster);
+	// A cluster stopped because its plan ended has no container action that can succeed: the start
+	// gate refuses it with a 402 for everyone, and there is nothing running to restart or stop.
+	// Buying a plan is the whole menu, so the group goes rather than leaving a dead section header.
+	const planEndedAndDown = isClusterStopped && !!expiry?.needsUpgrade;
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
-	const showContainerActions = update && !isSelfManaged;
+	const showContainerActions = update && !isSelfManaged && !planEndedAndDown;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
@@ -262,14 +266,14 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		&& { type: 'separator' as const, key: 'container-separator' },
 		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
-		showContainerActions && !expiry?.needsUpgrade && (isClusterStopped || isClusterPartial) && {
+		showContainerActions && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
 			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		showContainerActions && !expiry?.needsUpgrade && isClusterStopped && {
+		showContainerActions && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('start'),
