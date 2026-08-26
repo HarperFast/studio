@@ -18,3 +18,8 @@ export const maxFabricConnectUploadFileSize = 100 /* mb */ * 1024 /* kb */ * 102
 // plans by catalogue description, but this one is named in the flow itself, so the id is pinned
 // here rather than matched on a display string.
 export const hobbyistPlanId = 'fabric-block-hobbyist';
+
+// Plans whose region set central-manager freezes: while one of these is on the cluster, a region
+// change in the same request as a plan change is refused ("upgrade first, then change regions").
+// Keyed on the cluster's CURRENT plan, not the one being selected.
+export const regionFrozenPlanIds = ['fabric-block-trial', 'fabric-block-level-0'];

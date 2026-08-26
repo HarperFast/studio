@@ -103,6 +103,12 @@ export function ClusterRegions({
 				/>
 			))}
 
+			{disabled && (
+				<p className="md:col-span-6 col-span-3 text-xs font-light text-muted-foreground">
+					Your region stays as it is while you change plans. Once the new plan is active you can add or move regions.
+				</p>
+			)}
+
 			{nextAvailableRegionToAdd && (
 				<div className="md:col-span-6 col-span-3">
 					<Button
