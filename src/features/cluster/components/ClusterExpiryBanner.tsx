@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { buttonVariants } from '@/components/ui/buttonVariants';
-import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
+import { describeGrantExpiry, HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
 import { Cluster } from '@/integrations/api/api.patch';
 import { Link } from '@tanstack/react-router';
 import { CircleAlertIcon, Loader2, TriangleAlertIcon } from 'lucide-react';
@@ -36,12 +36,13 @@ export function ClusterExpiryBanner({
 		>
 			<Icon className={expiry.stage === 'AWAITING_PLAN' ? 'animate-spin' : undefined} />
 			<AlertTitle>{expiry.title}</AlertTitle>
-			{(expiry.detail || (expiry.needsUpgrade && canUpdate)) && (
+			{(expiry.detail || (expiry.offerUpgrade && canUpdate)) && (
 				<AlertDescription>
 					{expiry.detail && <p>{expiry.detail}</p>}
-					{expiry.needsUpgrade && canUpdate && (
+					{expiry.offerUpgrade && canUpdate && (
 						<Link
 							to={`/${cluster.organizationId}/${cluster.id}/edit`}
+							search={{ upgrade: HOBBYIST_UPGRADE }}
 							className={buttonVariants({ size: 'sm' })}
 						>
 							Choose a Plan
