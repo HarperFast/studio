@@ -68,6 +68,8 @@ interface ClusterFormProps {
 	recordLocksOn?: boolean;
 	regionLocationsColocated: SchemaRegion[];
 	regionLocationsDedicated: SchemaRegion[];
+	/** The cluster's current plan freezes its region set (see central-manager's plan.js). */
+	regionSetFrozen?: boolean;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -91,6 +93,7 @@ export function ClusterForm({
 	recordLocksOn = false,
 	regionLocationsColocated,
 	regionLocationsDedicated,
+	regionSetFrozen,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -774,10 +777,7 @@ export function ClusterForm({
 									regionLocations={regionLocations}
 									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-									organizationId={organizationId}
-									canUseCustomRegions={canUseCustomRegions}
-									canDefineCustomRegions={canDefineCustomRegions}
-									lockedOrganizationRegionIds={lockedOrganizationRegionIds}
+									regionSetFrozen={regionSetFrozen}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
