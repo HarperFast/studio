@@ -141,6 +141,33 @@ describe('describeGrantExpiry', () => {
 		expect(suspended?.detail).toContain('has been stopped');
 	});
 
+	// Data loss is the real stake of a shut-down trial, and the old copy never mentioned it.
+	it('warns that a shut-down trial will be deleted with its data', () => {
+		const shutdown = grant({
+			isActive: false,
+			status: 'EXPIRED',
+			expiryPolicy: 'consumer-trial',
+			currentStage: 'SHUTDOWN',
+			endsAt: daysFromNow(-7),
+		});
+		const detail = describeGrantExpiry({ grant: shutdown, status: 'STOPPED' }, NOW)?.detail;
+		expect(detail).toContain('deleted');
+		expect(detail).toContain('data');
+	});
+
+	it('warns about deletion on the enterprise timeline too', () => {
+		const grace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'SHUTDOWN' });
+		expect(describeGrantExpiry({ grant: grace, status: 'STOPPED' }, NOW)?.detail).toContain('deleted');
+	});
+
+	// A lapsed purchased grant carries no policy, so nothing deletes it — saying otherwise is a lie.
+	it('does not threaten deletion when no policy deletes the cluster', () => {
+		const lapsed = grant({ source: 'purchased', isActive: false, expiryPolicy: null, currentStage: 'SHUTDOWN' });
+		const detail = describeGrantExpiry({ grant: lapsed, status: 'STOPPED' }, NOW)?.detail;
+		expect(detail).toContain('has been stopped');
+		expect(detail).not.toContain('deleted');
+	});
+
 	it('survives a malformed date rather than rendering NaN', () => {
 		const broken = grant({ currentStage: 'WARNED', endsAt: 'not-a-date' });
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
