@@ -89,8 +89,10 @@ describe('workflow privilege boundary', () => {
 	// silently stalled queue, so pin it here.
 	it('keeps the merge-queue job named `Verify Stage`, which repo settings require by name', () => {
 		const doc = parse(readFileSync(join(WORKFLOWS_DIR, 'verify-stage.yaml'), 'utf8'));
-		const jobs = Object.values((doc.jobs ?? {}) as Record<string, { name?: string }>);
-		expect(jobs.map((job) => job.name)).toContain('Verify Stage');
+		const jobs = (doc.jobs ?? {}) as Record<string, { name?: string }>;
+		// The job itself, not "some job in this file called that" — a stub carrying the name
+		// beside a renamed real job would satisfy the looser assertion and stall the queue.
+		expect(jobs.verifyMergeGroup?.name).toBe('Verify Stage');
 	});
 
 	it('still recognises the stage workflow as privileged, so the scan cannot pass by finding nothing', () => {
