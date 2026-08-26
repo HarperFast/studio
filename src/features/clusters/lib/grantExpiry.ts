@@ -34,6 +34,17 @@ export const HOBBYIST_UPGRADE = 'hobbyist';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Stages worth interrupting someone's work for. The first warning is deliberately excluded: on a
+ * surface a customer is actively working in, a banner shown for a week becomes furniture, and the
+ * warning that matters gets ignored with it.
+ */
+const URGENT_STAGES = new Set(['FINAL_WARNING', 'GRACE', 'SHUTDOWN', 'DELETED', 'EXPIRED']);
+
+export function isUrgentExpiry(description: GrantExpiryDescription | null): boolean {
+	return !!description && URGENT_STAGES.has(description.stage);
+}
+
 /** A conversion that hasn't finished applying its plan yet. Bounded window, not the real terms. */
 export function isConversionPending(grant: ClusterGrant | null | undefined): boolean {
 	return grant?.expiryPolicy === 'conversion-pending';
