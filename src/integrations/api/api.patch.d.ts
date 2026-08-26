@@ -276,6 +276,21 @@ export interface ClusterGrant {
 	 */
 	allowedPlanIds: string[] | null;
 	allowedRegionIds: string[] | null;
+	/**
+	 * The whole expiry schedule with each stage's due date. Computed by central-manager on every
+	 * read, never stored, so editing a policy moves these immediately — don't cache them.
+	 *
+	 * Null when the policy has no stage table (`none`) or the grant has no usable `endsAt`. Length
+	 * varies by policy: `enterprise-grace` has five stages, `consumer-trial` four — read the array,
+	 * never assume a shape, and never infer the policy from `source`.
+	 */
+	timeline: ExpiryStageDue[] | null;
+}
+
+export interface ExpiryStageDue {
+	stage: ExpiryStage;
+	dueAt: string | null;
+	applied: boolean;
 }
 
 export type ExpiryStage = 'AWAITING_PLAN' | 'WARNED' | 'FINAL_WARNING' | 'GRACE' | 'SHUTDOWN' | 'DELETED';
