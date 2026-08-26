@@ -1,4 +1,5 @@
 import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
+import { ClusterExpiryBanner } from '@/features/cluster/components/ClusterExpiryBanner';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -46,7 +47,10 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 				<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
 					<SubNavRail items={items} ariaLabel="Cluster sections" />
 				</aside>
-				<section className="md:col-span-9 lg:col-span-10 min-w-0">{children}</section>
+				<section className="md:col-span-9 lg:col-span-10 min-w-0">
+					<ClusterExpiryBanner cluster={cluster} canUpdate={!!update} />
+					{children}
+				</section>
 			</div>
 		</div>
 	);
