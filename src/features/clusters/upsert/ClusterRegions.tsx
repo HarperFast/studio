@@ -132,28 +132,22 @@ export function ClusterRegions({
 				/>
 			))}
 
-			{(nextAvailableRegionToAdd || canDefineCustomRegions) && (
-				<div className="md:col-span-6 col-span-3 flex flex-wrap gap-3">
-					{nextAvailableRegionToAdd && (
-						<Button
-							type="button"
-							variant="positiveOutline"
-							onClick={onAddARegionClick}
-						>
-							<PlusIcon />
-							Add Additional Region Usage
-						</Button>
-					)}
-					{canDefineCustomRegions && (
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setDefiningCustomRegion(true)}
-						>
-							<MapPinnedIcon />
-							Define custom region
-						</Button>
-					)}
+			{disabled && (
+				<p className="md:col-span-6 col-span-3 text-xs font-light text-muted-foreground">
+					Your region stays as it is while you change plans. Once the new plan is active you can add or move regions.
+				</p>
+			)}
+
+			{nextAvailableRegionToAdd && (
+				<div className="md:col-span-6 col-span-3">
+					<Button
+						type="button"
+						variant="positiveOutline"
+						onClick={onAddARegionClick}
+					>
+						<PlusIcon />
+						Add Additional Region Usage
+					</Button>
 				</div>
 			)}
 			{canDefineCustomRegions && (
