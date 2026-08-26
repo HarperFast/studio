@@ -1,4 +1,5 @@
 import { isLocalStudio } from '@/config/constants';
+import { ClusterExpiryStrip } from '@/features/cluster/components/ClusterExpiryStrip';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { Outlet } from '@tanstack/react-router';
 import { lazy, Suspense } from 'react';
@@ -17,6 +18,7 @@ export function InstanceLayout() {
 				<InstanceNavBar />
 			</nav>
 			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">
+				<ClusterExpiryStrip />
 				<Outlet />
 			</div>
 			{!isLocalStudio && (

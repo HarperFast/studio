@@ -1,6 +1,6 @@
 import { ClusterGrant } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { describeGrantExpiry, isConversionComplete, isConversionPending } from './grantExpiry';
+import { describeGrantExpiry, isConversionComplete, isConversionPending, isUrgentExpiry } from './grantExpiry';
 
 const NOW = new Date('2026-08-25T12:00:00.000Z').getTime();
 const daysFromNow = (days: number) => new Date(NOW + days * 24 * 60 * 60 * 1000).toISOString();
@@ -178,5 +178,32 @@ describe('isConversionPending', () => {
 		expect(isConversionPending(null)).toBe(false);
 		expect(isConversionPending(undefined)).toBe(false);
 		expect(isConversionPending(grant())).toBe(false);
+	});
+});
+
+describe('isUrgentExpiry', () => {
+	const at = (overrides: Partial<ClusterGrant>) => describeGrantExpiry({ grant: grant(overrides) }, NOW);
+
+	// The first warning runs for a week. Repeating it on a surface someone is working in turns it
+	// into furniture, and the warning that matters gets ignored along with it.
+	it('excludes the first warning', () => {
+		expect(isUrgentExpiry(at({ currentStage: 'WARNED', endsAt: daysFromNow(6) }))).toBe(false);
+	});
+
+	it('includes the last warning onward', () => {
+		expect(isUrgentExpiry(at({ currentStage: 'FINAL_WARNING', endsAt: daysFromNow(2) }))).toBe(true);
+		expect(isUrgentExpiry(at({ isActive: false, currentStage: 'GRACE', endsAt: daysFromNow(0) }))).toBe(true);
+		expect(isUrgentExpiry(at({ isActive: false, currentStage: 'SHUTDOWN', endsAt: daysFromNow(-1) }))).toBe(true);
+	});
+
+	// A lapsed grant the runner has not staged yet still means service is gone.
+	it('includes an expired grant with no stage stamped', () => {
+		expect(isUrgentExpiry(at({ isActive: false, currentStage: null, endsAt: daysFromNow(-1) }))).toBe(true);
+	});
+
+	it('is false for a healthy cluster, no grant, or a conversion in flight', () => {
+		expect(isUrgentExpiry(at({}))).toBe(false);
+		expect(isUrgentExpiry(describeGrantExpiry({ grant: null }, NOW))).toBe(false);
+		expect(isUrgentExpiry(at({ expiryPolicy: 'conversion-pending' }))).toBe(false);
 	});
 });
