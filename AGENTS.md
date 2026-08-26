@@ -192,6 +192,29 @@ Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Scoped keys work to
 `'undici@>=7.0.0': '^7.28.0'`). After editing, run `pnpm install --lockfile-only` and
 grep the lockfile to confirm the stale versions are gone.
 
+## vitest — no test may open a real WebSocket (undici 8 cross-realm `Event`)
+
+`src/testSetup/inertWebSocket.ts` replaces the global `WebSocket` for the whole suite. Keep
+it wired in `vitest.config.ts`, and don't "restore" the real one in a test.
+
+Anything that mounts the app shell starts the SystemStatus socket — `TestProvider` mounts the
+real router, so a component test that never mentions sockets still opens one. Under jsdom that
+resolves to **undici 8's** WebSocket, whose `Event` comes from a different realm than jsdom's,
+so connecting throws
+
+```
+TypeError: The "event" argument must be an instance of Event. Received an instance of Event
+```
+
+as an **unhandled** error. The trap is that every test still passes — vitest prints
+`2741 passed | 1 error` and exits non-zero. So CI and the pre-commit hook reject a commit
+whose tests are all green, and because it depends on whether the socket connects before the
+run ends, it's racy: the same tree commits on one attempt and is rejected on the next.
+
+This is **not** the undici-7 pin below. That one is jsdom importing a module undici 8 removed
+(`wrap-handler.js`), fixed by pinning `jsdom>undici`. This is a realm mismatch in code that
+reaches undici's WebSocket directly, which that pin does not touch.
+
 ## vitest/jsdom requires undici 7
 
 `undici` is a transitive dev/CI-only dep (jsdom for vitest; semantic-release /
