@@ -5,8 +5,10 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { hobbyistPlanId, regionFrozenPlanIds } from '@/config/constants';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
+import { HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -18,7 +20,7 @@ import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouteContext } from '@tanstack/react-router';
+import { useParams, useRouteContext, useSearch } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
@@ -53,11 +55,19 @@ function UpsertClusterLayout({ isEdit, className, children }: {
 export function UpsertCluster() {
 	const { organizationId, clusterId, mode }: { organizationId: string; clusterId?: string; mode?: 'version' } =
 		useParams({ strict: false });
+	// The expiry banner's CTA lands here asking for the conversion target rather than the plan the
+	// cluster runs today. Anything else in `upgrade` is ignored.
+	const { upgrade }: { upgrade?: string } = useSearch({ strict: false });
+	const upgradingToHobbyist = upgrade === HOBBYIST_UPGRADE;
 	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
 		cluster?: Cluster;
 	} = useRouteContext({ strict: false });
+	// central-manager freezes the region set while a trial or level-0 plan is on the cluster, so a
+	// plan change and a region change cannot go in one request. Keyed on what the cluster runs NOW,
+	// not on what is being selected — the freeze lifts as soon as the paid plan lands.
+	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId));
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<
 		| null
 		| ({
@@ -66,6 +76,12 @@ export function UpsertCluster() {
 	>(LocalStorageKeys.SavedClusterState, null);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
+	// central-manager refuses a lower planLevel in any region the cluster already runs (self-hosted
+	// updates skip that check), so the picker greys out what would be refused.
+	const currentPlans = cluster?.plans?.map(clusterPlan => planTypes?.find(p => p.id === clusterPlan.planId));
+	const planLevelFloor = !currentPlans?.length || currentPlans.some(p => !p || p.deploymentType === 'self-hosted')
+		? undefined
+		: Math.max(...currentPlans.map(p => p!.planLevel));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
 		availableHosts: true,
 		organizationId,
@@ -151,7 +167,10 @@ export function UpsertCluster() {
 			}
 		}
 
-		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
+		const currentPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0]?.planId);
+		const hobbyistPlan = planTypes?.find(planType => planType.id === hobbyistPlanId);
+		// Arriving from the upgrade CTA opens on Hobbyist; the picker still lets them choose otherwise.
+		const selectedPlan = (upgradingToHobbyist && hobbyistPlan) || currentPlan;
 
 		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
@@ -214,11 +233,14 @@ export function UpsertCluster() {
 			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 			instances,
 			regionPlans,
+			// Soonest-ending first is the server's order, so the default is the one about to lapse.
+			grantId: clusterId ? undefined : organization?.unboundGrants?.[0]?.id,
 		};
 	}, [
 		alreadyUsingFree,
 		cluster,
 		clusterId,
+		upgradingToHobbyist,
 		mode,
 		partialUpgrade,
 		planTypes,
@@ -226,6 +248,7 @@ export function UpsertCluster() {
 		regionLocationsColocated,
 		regionLocationsDedicated,
 		savedClusterState,
+		organization,
 	]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated
@@ -287,6 +310,10 @@ export function UpsertCluster() {
 				planTypes={planTypes}
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
+				regionSetFrozen={regionSetFrozen}
+				currentPlanId={cluster?.plans?.[0]?.planId}
+				planLevelFloor={planLevelFloor}
+				currentGrant={cluster?.grant?.isActive ? cluster.grant : null}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
