@@ -76,18 +76,6 @@ function whenPhrase(days: number | null): string {
 	return `${Math.abs(days)} days ago`;
 }
 
-/**
- * Policies whose timeline ends in `deleteCluster`. Consumer-trial deletes 14 days after shutdown
- * and enterprise-grace 21 — but the day counts are deliberately NOT copied here. That table is
- * server-side and its own comment says changing the timeline is a change to that file only, so a
- * duplicated number would quietly start showing a wrong date for a destructive action. Naming the
- * policies is stable in a way the offsets are not; a new policy simply doesn't claim deletion.
- *
- * A precise date needs central-manager to expose the next stage and its due date, which it does
- * not yet — `stageDueAt` is computed per request and never stored.
- */
-const DELETING_POLICIES = new Set(['consumer-trial', 'enterprise-grace']);
-
 const SOURCE_LABEL: Record<string, string> = {
 	trial: 'Trial',
 	comp: 'Complimentary plan',
@@ -95,6 +83,20 @@ const SOURCE_LABEL: Record<string, string> = {
 	enterprise: 'Enterprise agreement',
 	purchased: 'Plan',
 };
+
+/**
+ * When this cluster is due to be deleted, or null if nothing will delete it. Read off the server's
+ * schedule rather than guessed from the policy name: stage lists differ per policy (enterprise-grace
+ * has five, consumer-trial four) and the day offsets live server-side where they can be edited.
+ */
+function deletionDueAt(grant: ClusterGrant): Date | null {
+	const deletion = grant.timeline?.find((entry) => entry.stage === 'DELETED' && !entry.applied);
+	if (!deletion?.dueAt) { return null; }
+	const at = new Date(deletion.dueAt);
+	return Number.isNaN(at.getTime()) ? null : at;
+}
+
+const onDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(at);
 
 function sourceLabel(grant: ClusterGrant): string {
 	return SOURCE_LABEL[grant.source] ?? 'Plan';
@@ -153,9 +155,9 @@ export function describeGrantExpiry(
 		// same stage for a consumer trial, but it can also lag, and enterprise splits them entirely —
 		// so read whether the cluster is actually down rather than assuming it followed.
 		const stopped = cluster.status === 'STOPPED' || cluster.suspendedReason != null;
-		// Only some policies end in deletion — a lapsed purchased grant carries no policy at all, so
-		// threatening deletion there would be a lie.
-		const willBeDeleted = DELETING_POLICIES.has(grant.expiryPolicy ?? '');
+		// Nothing deletes a lapsed purchased grant — it carries no policy — so the schedule decides
+		// whether deletion is mentioned at all.
+		const deletedAt = deletionDueAt(grant);
 		return {
 			stage,
 			severity: 'critical',
@@ -165,10 +167,14 @@ export function describeGrantExpiry(
 				: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
 			detail: stage === 'DELETED'
 				? undefined
-				: willBeDeleted
+				: deletedAt
 				? stopped
-					? 'The cluster has been stopped, and it and its data will be deleted if you do not choose a paid plan.'
-					: 'The cluster will be stopped, then it and its data deleted, if you do not choose a paid plan.'
+					? `The cluster has been stopped. It and its data will be deleted on ${
+						onDate(deletedAt)
+					} unless you choose a paid plan.`
+					: `The cluster will be stopped, and it and its data deleted on ${
+						onDate(deletedAt)
+					}, unless you choose a paid plan.`
 				: stopped
 				? 'The cluster has been stopped. Choose a paid plan to start it again.'
 				: 'The cluster will be stopped shortly. Choose a paid plan to keep it running.',
