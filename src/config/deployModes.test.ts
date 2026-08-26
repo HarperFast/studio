@@ -9,7 +9,12 @@ const envDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..
 function envNameByMode() {
 	const byMode = new Map<string, string>();
 	for (const file of readdirSync(envDir)) {
-		const mode = file.replace(/^\.env\./, '');
+		// Only `.env.<mode>` names a build mode; anything else here (a subdirectory, `.DS_Store`)
+		// would either throw from `readFileSync` or invent a mode that cannot be built.
+		if (!file.startsWith('.env.')) {
+			continue;
+		}
+		const mode = file.slice('.env.'.length);
 		const name = readFileSync(path.join(envDir, file), 'utf8').match(/^VITE_ENV_NAME=(.+)$/m)?.[1];
 		if (name) {
 			byMode.set(mode, name.trim());
