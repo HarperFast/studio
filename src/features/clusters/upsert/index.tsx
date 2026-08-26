@@ -310,6 +310,7 @@ export function UpsertCluster() {
 				regionLocationsColocated={regionLocationsColocated}
 				regionLocationsDedicated={regionLocationsDedicated}
 				regionSetFrozen={regionSetFrozen}
+				currentPlanId={cluster?.plans?.[0]?.planId}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
