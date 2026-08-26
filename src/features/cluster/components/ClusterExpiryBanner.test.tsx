@@ -5,23 +5,9 @@ import { Cluster, ClusterGrant } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
 import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { ClusterExpiryBanner } from './ClusterExpiryBanner';
 
-// TestProvider mounts the real router, which starts the app's SystemStatus WebSocket. Under vitest
-// that resolves to undici 8's implementation, whose Event class is from a different realm than
-// jsdom's, so connecting throws ERR_INVALID_ARG_TYPE and vitest reports an unhandled error. A
-// banner test has no business opening a socket at all — see AGENTS.md on undici for the wider issue.
-class InertWebSocket {
-	readyState = 3;
-	close() {}
-	send() {}
-	addEventListener() {}
-	removeEventListener() {}
-}
-
-beforeAll(() => vi.stubGlobal('WebSocket', InertWebSocket));
-afterAll(() => vi.unstubAllGlobals());
 afterEach(() => cleanup());
 
 const DAY_MS = 24 * 60 * 60 * 1000;
