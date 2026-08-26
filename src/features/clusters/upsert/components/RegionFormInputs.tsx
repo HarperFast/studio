@@ -18,6 +18,8 @@ import { ResourcesPerInstance } from './ResourcesPerInstance';
 
 type RegionFormInputsProps = {
 	control: Control<UpsertClusterSchemaType>;
+	/** The plan fixes the region and distribution, so both selects are read-only. */
+	disabled?: boolean;
 	fieldArray: UseFieldArrayReturn<UpsertClusterSchemaType, 'regionPlans'>;
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	index: number;
@@ -31,6 +33,7 @@ type RegionFormInputsProps = {
 
 export function RegionFormInputs({
 	control,
+	disabled,
 	fieldArray,
 	form,
 	index,
@@ -109,6 +112,7 @@ export function RegionFormInputs({
 									form.trigger();
 								}}
 								{...regionField}
+								disabled={disabled}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Region" />
@@ -145,7 +149,7 @@ export function RegionFormInputs({
 									form.trigger();
 								}}
 								{...regionField}
-								disabled={!availableLatencyDescriptions?.length}
+								disabled={disabled || !availableLatencyDescriptions?.length}
 							>
 								<SelectTrigger className="w-full">
 									<SelectValue placeholder="Choose Latency Tier" />
@@ -176,7 +180,7 @@ export function RegionFormInputs({
 				)}
 			/>
 
-			{fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && (
+			{!disabled && fieldArray?.fields?.length && fieldArray?.fields?.length > 1 && (
 				<div className="flex-none mt-6">
 					<Button
 						type="button"
