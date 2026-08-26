@@ -494,8 +494,15 @@ it, 0.3ms apart, and every `initial_load` event shipped with `dom_complete` but 
 `fcp`. Ownership of that first call now lives in `useOnRouteLoadTracker` alone — it mounts on the
 root route (`rootRoute.ts`), so it runs on every cloud route.
 
-Two traps when reading this from RUM data:
+Three traps when reading this from RUM data:
 
+- Scope every query to `env:prod`. Until `isDeployedBuild` started gating on the build **mode**, a
+  bare `vite build` reported into the same app with **no `env` tag at all**: its mode is
+  `production`, so Vite reads nothing from `.github/deploy-public-env` and neither `DEV` nor
+  `VITE_LOCAL_STUDIO` is set. On 2026-08-26 that was 192 of 227 error events — 85%, all from one
+  developer's `127.0.0.2:9926` — and it manufactured a 135-event "Monaco DI regression" that had
+  zero production occurrences. An unscoped count is not a production count, and historical data
+  from before that fix still contains this traffic.
 - `view.time_spent` on an `initial_load` view is measured from `clocksOrigin()` — page origin, not
   SDK start — so a ~1s `time_spent` does **not** mean the view was alive and observing for a
   second. It says nothing about the observation window.

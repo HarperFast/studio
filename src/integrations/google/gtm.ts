@@ -1,8 +1,8 @@
-import { isLocalStudio } from '@/config/constants';
+import { isDeployedBuild } from '@/config/constants';
 import { useEffect } from 'react';
 
 let initialized = false;
-const enabled = !import.meta.env.DEV && !isLocalStudio;
+const enabled = isDeployedBuild;
 
 export function useGTM() {
 	useEffect(() => {
