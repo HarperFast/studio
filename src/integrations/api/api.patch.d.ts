@@ -270,7 +270,10 @@ export interface ClusterGrant {
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
-	/** Scope ceilings for an admin-issued grant; null when unrestricted. */
+	/**
+	 * What an admin-issued grant covers, or null when unrestricted. Both are EXACT lists — an id not
+	 * named is not covered, with no family or size inference. A picker should offer exactly these.
+	 */
 	allowedPlanIds: string[] | null;
 	allowedRegionIds: string[] | null;
 }
