@@ -21,7 +21,16 @@ export interface GrantExpiryDescription {
 	detail?: string;
 	/** Service has been withdrawn: buying a plan is the only way back up. */
 	needsUpgrade: boolean;
+	/** Worth showing a route to the plan editor — true well before service is actually withdrawn. */
+	offerUpgrade: boolean;
 }
+
+/**
+ * Search-param value that tells the cluster editor to open on the Hobbyist plan. The upgrade CTA
+ * is a one-click path off an expiring trial, so it lands on the conversion target rather than on
+ * whatever the cluster runs today.
+ */
+export const HOBBYIST_UPGRADE = 'hobbyist';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -89,6 +98,7 @@ export function describeGrantExpiry(
 			title: 'Your new plan is being applied',
 			detail: 'The cluster is starting. This usually takes a few minutes.',
 			needsUpgrade: false,
+			offerUpgrade: false,
 		};
 	}
 
@@ -112,6 +122,7 @@ export function describeGrantExpiry(
 				? undefined
 				: 'The cluster has been stopped. Choose a paid plan to start it again.',
 			needsUpgrade: stage !== 'DELETED',
+			offerUpgrade: stage !== 'DELETED',
 		};
 	}
 
@@ -124,6 +135,7 @@ export function describeGrantExpiry(
 				title: `${sourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'Choose a paid plan to keep this cluster running.',
 				needsUpgrade: false,
+				offerUpgrade: true,
 			};
 		case 'FINAL_WARNING':
 			return {
@@ -133,6 +145,7 @@ export function describeGrantExpiry(
 				title: `${sourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
 				needsUpgrade: false,
+				offerUpgrade: true,
 			};
 		case 'GRACE':
 			return {
@@ -142,6 +155,7 @@ export function describeGrantExpiry(
 				title: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
 				detail: 'The cluster is still running while we sort out renewal. Contact us to continue service.',
 				needsUpgrade: false,
+				offerUpgrade: true,
 			};
 		// The runner stamps these only alongside a stop/delete, so isActive is false above and this
 		// is unreachable in practice — kept so a stage that outlives its grant still renders.
@@ -154,6 +168,7 @@ export function describeGrantExpiry(
 				title: `${sourceLabel(grant)} has ended`,
 				detail: 'Choose a paid plan to start this cluster again.',
 				needsUpgrade: grant.currentStage !== 'DELETED',
+				offerUpgrade: grant.currentStage !== 'DELETED',
 			};
 		default:
 			return null;
