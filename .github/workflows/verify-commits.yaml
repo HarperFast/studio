@@ -8,6 +8,12 @@ jobs:
   commitlint:
     name: Verify Commits
     runs-on: ubuntu-latest
+    permissions:
+      # The repo default is write. `pull-requests: read` is not optional — the pinned
+      # commitlint action documents it, and it lists a PR's commits through the Pulls API, so
+      # `contents: read` alone zeroes the scope it needs and breaks every PR run.
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

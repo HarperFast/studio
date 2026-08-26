@@ -14,6 +14,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This workflow installs and runs code from the PR under review; persisting would leave
+          # the token in `.git/config` for `pnpm install` to find.
+          persist-credentials: false
       # Nothing else in the repo evaluates `.github/` — these workflows are asserted in prose only,
       # and their first real execution is a deploy. Covers workflow syntax, expressions,
       # permissions, local-action metadata and the inputs callers pass. Does NOT cover the `steps`
@@ -33,10 +37,10 @@ jobs:
         run: echo "HUSKY=0" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: pnpm install
-      # Whole-app type-check: vitest only type-checks what tests import, so a
-      # cross-feature break (e.g. an import of a symbol another in-flight PR
-      # deleted) can pass tests and reach stage via the merge queue. tsc -b
-      # sees the merged combination.
+      # Whole-app type-check: vitest only type-checks what tests import, so a cross-feature break
+      # (e.g. an import of a symbol another in-flight PR deleted) can pass tests. `tsc -b` sees the
+      # whole app. This sees one PR; `verify-stage.yaml` runs the same check over the merge-queue
+      # batch, which is where two independently-green PRs break each other.
       - name: Type-check
         run: pnpm exec tsc -b
       - name: Run unit tests
