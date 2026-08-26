@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { DialogFooter } from '@/components/ui/dialog';
+import { hobbyistPlanId } from '@/config/constants';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
@@ -57,6 +58,10 @@ export function ClusterDetails({
 	totalPrice,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
+	// Hobbyist is a single fixed shape: colocated, one region, one distribution. Offering those
+	// choices would only produce a request central-manager refuses (it freezes the region set while
+	// a trial or level-0 plan is on the cluster), so they are locked rather than left to fail.
+	const isHobbyist = selectedPlan?.id === hobbyistPlanId;
 	const availablePerformanceDescriptions = useMemo(() => {
 		const plansByTier = deploymentToPerformanceToPlan[selectedDeployment] || {};
 		const planLevels = Object.values(plansByTier).map(plan => plan.planLevel ?? 0);
@@ -190,7 +195,11 @@ export function ClusterDetails({
 					? <ClusterFQDN form={form} disabled={!!clusterId} />
 					: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
 
-				<ClusterDeploymentDescription form={form} availableDeploymentTypes={availableDeploymentTypes} />
+				<ClusterDeploymentDescription
+					form={form}
+					availableDeploymentTypes={availableDeploymentTypes}
+					disabled={isHobbyist}
+				/>
 
 				<ClusterPerformanceDescription
 					availablePerformanceDescriptions={availablePerformanceDescriptions}
@@ -202,6 +211,7 @@ export function ClusterDetails({
 					? <ClusterInstances form={form} />
 					: (
 						<ClusterRegions
+							disabled={isHobbyist}
 							form={form}
 							regionLocations={regionLocations}
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
