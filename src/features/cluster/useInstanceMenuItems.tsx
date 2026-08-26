@@ -2,8 +2,10 @@ import type { EntityMenuItem } from '@/components/ui/entityMenu';
 import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -48,7 +50,12 @@ export function useInstanceMenuItems(
 	enabled: boolean,
 ): { items: EntityMenuItem[]; dialog: ReactNode } {
 	const { user: instanceUser } = useInstanceAuth(instance.id);
+	// Both callers render under the cluster route, so this reuses that cached query rather than
+	// threading a flag through InstanceActionsMenu and InstanceRowContextMenu.
 	const { organizationId, clusterId }: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
+	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
+	// Same rule as the cluster card and ClusterStateMenu, keyed on the server's own gate.
+	const planEnded = isStartBlockedByPlan(cluster ?? {});
 	const instanceHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id });
 	const signInHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id }, 'sign-in');
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
@@ -94,7 +101,9 @@ export function useInstanceMenuItems(
 	// container lifecycle (Harper doesn't control their runtime), so the group is hidden for them.
 	const isRunning = instance.status === 'RUNNING';
 	const isStopped = instance.status === 'STOPPED';
-	const hasContainerOps = canRunContainerOps && !isSelfManaged && (isRunning || isStopped);
+	// Only the stopped-instance actions die with the plan: Start is refused with a 402, while a
+	// still-running instance keeps Restart and Stop, which central-manager allows on the way down.
+	const hasContainerOps = canRunContainerOps && !isSelfManaged && (isRunning || (isStopped && !planEnded));
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
