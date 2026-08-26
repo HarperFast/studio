@@ -62,6 +62,8 @@ interface ClusterFormProps {
 	regionLocationsDedicated: SchemaRegion[];
 	/** The cluster's current plan freezes its region set (see central-manager's plan.js). */
 	regionSetFrozen?: boolean;
+	/** What the cluster runs today — kept selectable even when its tier is otherwise not offered. */
+	currentPlanId?: string;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -85,6 +87,7 @@ export function ClusterForm({
 	regionLocationsColocated,
 	regionLocationsDedicated,
 	regionSetFrozen,
+	currentPlanId,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -691,6 +694,7 @@ export function ClusterForm({
 									regionLookup={regionLookup}
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									regionSetFrozen={regionSetFrozen}
+									currentPlanId={currentPlanId}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
