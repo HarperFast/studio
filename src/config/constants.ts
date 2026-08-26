@@ -13,3 +13,8 @@ export const defaultInstanceRouteUpOne = '../';
 
 export const maxUploadFileSize = 1024 /* mb */ * 1024 /* kb */ * 1024 /* b */;
 export const maxFabricConnectUploadFileSize = 100 /* mb */ * 1024 /* kb */ * 1024 /* b */;
+
+// The self-serve conversion target: what an expiring trial upgrades to. Studio otherwise picks
+// plans by catalogue description, but this one is named in the flow itself, so the id is pinned
+// here rather than matched on a display string.
+export const hobbyistPlanId = 'fabric-block-hobbyist';

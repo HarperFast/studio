@@ -5,8 +5,10 @@ import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
 import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { hobbyistPlanId } from '@/config/constants';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
+import { HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
 import { getHarperVersionsOptions, HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { getRegionLocationsOptions } from '@/features/clusters/queries/getRegionLocationsQuery';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -20,7 +22,7 @@ import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { compareVersions, wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useRouteContext } from '@tanstack/react-router';
+import { useParams, useRouteContext, useSearch } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
@@ -54,6 +56,10 @@ function UpsertClusterLayout({ isEdit, className, children }: {
 export function UpsertCluster() {
 	const { organizationId, clusterId, mode }: { organizationId: string; clusterId?: string; mode?: 'version' } =
 		useParams({ strict: false });
+	// The expiry banner's CTA lands here asking for the conversion target rather than the plan the
+	// cluster runs today. Anything else in `upgrade` is ignored.
+	const { upgrade }: { upgrade?: string } = useSearch({ strict: false });
+	const upgradingToHobbyist = upgrade === HOBBYIST_UPGRADE;
 	const { create, update } = useOrganizationClusterPermissions(organizationId);
 	const { organization, cluster }: {
 		organization: Organization;
@@ -166,7 +172,10 @@ export function UpsertCluster() {
 			}
 		}
 
-		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
+		const currentPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
+		const hobbyistPlan = planTypes?.find(planType => planType.id === hobbyistPlanId);
+		// Arriving from the upgrade CTA opens on Hobbyist; the picker still lets them choose otherwise.
+		const selectedPlan = (upgradingToHobbyist && hobbyistPlan) || currentPlan;
 
 		const regionPlans: z.infer<typeof UpsertClusterSchema.shape.regionPlans> = [];
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
@@ -229,6 +238,7 @@ export function UpsertCluster() {
 		alreadyUsingFree,
 		cluster,
 		clusterId,
+		upgradingToHobbyist,
 		planTypes,
 		harperVersions,
 		regionLocationsColocated,
