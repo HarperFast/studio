@@ -30,7 +30,7 @@ async function bootDeepLink() {
 	vi.resetModules();
 	// Without this the build has reporting off and starts no view, so the assertions below pass
 	// only where a root `.env.local` happens to supply the values.
-	stubDeployBuild({ mode: 'prod', envName: 'prod' });
+	stubDeployBuild({ mode: 'prod', envName: 'prod', telemetryEnabled: 'true' });
 	const router = await import('@tanstack/react-router');
 	const { rootRoute } = await import('@/router/rootRoute');
 	const { dashboardLayout } = await import('@/router/dashboardRoute');

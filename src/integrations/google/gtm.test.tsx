@@ -6,9 +6,9 @@ import { stubDeployBuild } from '@/test/stubDeployBuild';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-async function loadGTMForMode(mode: string | undefined) {
+async function loadGTMForMode(mode: string | undefined, telemetryEnabled: string | undefined) {
 	vi.resetModules();
-	stubDeployBuild({ mode, envName: mode });
+	stubDeployBuild({ mode, envName: mode, telemetryEnabled });
 	return import('./gtm');
 }
 
@@ -35,7 +35,7 @@ describe('GTM loading guard', () => {
 	it.each([...deployModes])('injects the tag from a %s deploy', async (mode) => {
 		// The tag is inserted before an existing script, so the document needs one.
 		document.head.append(document.createElement('script'));
-		const { useGTM } = await loadGTMForMode(mode);
+		const { useGTM } = await loadGTMForMode(mode, 'true');
 
 		renderGTM(useGTM);
 
@@ -45,7 +45,7 @@ describe('GTM loading guard', () => {
 	// A bare `vite build` on localhost used to put developer click-throughs in customer analytics.
 	it.each([undefined, '', 'production', 'localstudio', 'test'])('injects nothing in mode %o', async (mode) => {
 		document.head.append(document.createElement('script'));
-		const { useGTM } = await loadGTMForMode(mode);
+		const { useGTM } = await loadGTMForMode(mode, 'true');
 
 		renderGTM(useGTM);
 
@@ -54,12 +54,21 @@ describe('GTM loading guard', () => {
 
 	it('injects the tag once however many times the hook mounts', async () => {
 		document.head.append(document.createElement('script'));
-		const { useGTM } = await loadGTMForMode('prod');
+		const { useGTM } = await loadGTMForMode('prod', 'true');
 
 		renderGTM(useGTM);
 		cleanup();
 		renderGTM(useGTM);
 
 		expect(gtmScripts()).toHaveLength(1);
+	});
+
+	it.each([...deployModes])('injects nothing in a locally built %s bundle', async (mode) => {
+		document.head.append(document.createElement('script'));
+		const { useGTM } = await loadGTMForMode(mode, undefined);
+
+		renderGTM(useGTM);
+
+		expect(gtmScripts()).toHaveLength(0);
 	});
 });
