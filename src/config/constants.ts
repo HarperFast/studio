@@ -5,17 +5,16 @@ export const isLocalStudio = import.meta.env.VITE_LOCAL_STUDIO === 'true';
 export const deployModes: ReadonlySet<string> = new Set(['dev', 'stage', 'prod']);
 
 /**
- * Whether this bundle was built *and shipped* by the deploy pipeline, and so may report to
- * third-party telemetry.
+ * Whether this bundle may report to third-party telemetry.
  *
- * `VITE_TELEMETRY_ENABLED` is the load-bearing clause, and it is deliberately absent from
- * `.github/deploy-public-env` — only the deploy action's build step sets it. Nothing about a build
- * a person runs can forge it, including `pnpm build --mode prod`, which otherwise produces a
- * bundle identical to production and would report as `env:prod` from localhost.
+ * `VITE_TELEMETRY_ENABLED` carries it: only the deploy action's build step sets it, and no file in
+ * `.github/deploy-public-env` does, because those are read by a local `pnpm build --mode prod`
+ * too — which otherwise produces a bundle identical to production. Setting the variable by hand
+ * does enable reporting; the point is that no documented local workflow sets it by accident.
  *
- * The rest is defence in depth: `MODE` must name a deploy, and `VITE_ENV_NAME` must exist, so a
- * mode added to `deployModes` but missed in `vite.config.ts` gets no `envDir` and reports untagged
- * rather than silently mislabelled.
+ * `MODE` and `VITE_ENV_NAME` are defence in depth: a mode added here but missed in
+ * `vite.config.ts` gets no `envDir`, so its env file is never read and it stays silent instead of
+ * reporting with no `env` tag.
  */
 export const isDeployedBuild = import.meta.env.VITE_TELEMETRY_ENABLED === 'true'
 	&& !import.meta.env.DEV && !isLocalStudio
