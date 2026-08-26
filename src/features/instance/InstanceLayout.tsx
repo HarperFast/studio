@@ -1,5 +1,6 @@
 import { isLocalStudio } from '@/config/constants';
 import { OverallAppSignIn } from '@/features/auth/store/authStore';
+import { ClusterExpiryStrip } from '@/features/cluster/components/ClusterExpiryStrip';
 import { InstanceNavBar } from '@/features/instance/InstanceNavBar';
 import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { Outlet, useParams } from '@tanstack/react-router';
@@ -20,6 +21,7 @@ export function InstanceLayout() {
 				<InstanceNavBar />
 			</nav>
 			<div className="mt-32 min-h-[calc(100vh-(--spacing(32)))]">
+				<ClusterExpiryStrip />
 				<RestartingNotice
 					entityId={isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId}
 					clusterId={clusterId}
