@@ -82,7 +82,7 @@ function sourceLabel(grant: ClusterGrant): string {
  * one the runner hasn't staged yet.
  */
 export function describeGrantExpiry(
-	cluster: Pick<Cluster, 'grant'>,
+	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason'>,
 	now: number = Date.now(),
 ): GrantExpiryDescription | null {
 	const grant = cluster.grant;
@@ -104,6 +104,21 @@ export function describeGrantExpiry(
 
 	const days = daysUntil(grant.endsAt, now);
 
+	// GRACE expires the grant but does NOT stop the cluster — the shutdown is a separate stage days
+	// later. So this has to be answered before the !isActive branch below, or an running cluster in
+	// its grace period gets told it has been stopped.
+	if (grant.currentStage === 'GRACE') {
+		return {
+			stage: 'GRACE',
+			severity: 'warning',
+			badgeLabel: 'Grace period',
+			title: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
+			detail: 'Your cluster is still running while we sort out renewal. Contact us to continue service.',
+			needsUpgrade: false,
+			offerUpgrade: true,
+		};
+	}
+
 	// isActive, not status: an ACTIVE row past its endsAt is not live until the runner stamps it.
 	if (!grant.isActive) {
 		const stage = grant.currentStage === 'DELETED'
@@ -111,6 +126,10 @@ export function describeGrantExpiry(
 			: grant.currentStage === 'SHUTDOWN'
 			? 'SHUTDOWN'
 			: 'EXPIRED';
+		// Don't infer the stop from the grant. The runner expires a grant and stops the cluster in the
+		// same stage for a consumer trial, but it can also lag, and enterprise splits them entirely —
+		// so read whether the cluster is actually down rather than assuming it followed.
+		const stopped = cluster.status === 'STOPPED' || cluster.suspendedReason != null;
 		return {
 			stage,
 			severity: 'critical',
@@ -120,7 +139,9 @@ export function describeGrantExpiry(
 				: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
 			detail: stage === 'DELETED'
 				? undefined
-				: 'The cluster has been stopped. Choose a paid plan to start it again.',
+				: stopped
+				? 'The cluster has been stopped. Choose a paid plan to start it again.'
+				: 'The cluster will be stopped shortly. Choose a paid plan to keep it running.',
 			needsUpgrade: stage !== 'DELETED',
 			offerUpgrade: stage !== 'DELETED',
 		};
@@ -144,16 +165,6 @@ export function describeGrantExpiry(
 				badgeLabel: `Ends ${whenPhrase(days)}`,
 				title: `${sourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
-				needsUpgrade: false,
-				offerUpgrade: true,
-			};
-		case 'GRACE':
-			return {
-				stage: 'GRACE',
-				severity: 'critical',
-				badgeLabel: 'Grace period',
-				title: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
-				detail: 'The cluster is still running while we sort out renewal. Contact us to continue service.',
 				needsUpgrade: false,
 				offerUpgrade: true,
 			};
