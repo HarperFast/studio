@@ -37,7 +37,6 @@ vi.mock('@tanstack/react-router', () => {
 	};
 });
 
-// Defaultless: a default would substitute a deployed value for an explicit `undefined`.
 async function loadDatadogModuleForMode(
 	mode: string | undefined,
 	envName: string | undefined,
@@ -171,8 +170,7 @@ describe('Datadog reporting guard', () => {
 		expect(rum.init).not.toHaveBeenCalled();
 	});
 
-	// `pnpm build --mode prod` run by hand: byte-identical to production apart from the flag only
-	// the deploy action sets. Without this clause it would report as `env:prod` from localhost.
+	// `pnpm build --mode prod` run by hand — identical to production but for the deploy-only flag.
 	it.each([...deployModes])('stays silent in a locally built %s bundle', async (mode) => {
 		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, undefined);
 
