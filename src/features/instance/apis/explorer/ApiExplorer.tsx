@@ -8,7 +8,7 @@ import {
 	readEntitySettings,
 	writeEntitySettings,
 } from '@/features/instance/apis/explorer/settings';
-import { LoginController, SettingsPanel } from '@/features/instance/apis/explorer/SettingsPanel';
+import { LoginController, MintOutcome, SettingsPanel } from '@/features/instance/apis/explorer/SettingsPanel';
 import {
 	buildEndpointTree,
 	buildServerOptions,
@@ -88,21 +88,36 @@ export function ApiExplorer(
 	}, []);
 	const [loginStatus, setLoginStatus] = useState<'idle' | 'pending' | 'error'>('idle');
 	const [loginError, setLoginError] = useState<string | null>(null);
+	const [authRevocation, setAuthRevocation] = useState(0);
+	// Revocation is the one clear that beats live typing, so it has to be this entity's: the store's
+	// signal names no entity, and every explorer hears every sign-out. Comparing against the last epoch
+	// we acted on keeps an unrelated sign-out a no-op, and makes the two callers below idempotent.
+	const observedEpochRef = useRef(authStore.getExplorerAuthEpoch(entityId));
+	const noteRevocation = () => {
+		const epoch = authStore.getExplorerAuthEpoch(entityId);
+		if (epoch === observedEpochRef.current) {
+			return;
+		}
+		observedEpochRef.current = epoch;
+		setAuthRevocation(n => n + 1);
+	};
 
 	// A sign-out in another tab changes the shared generation. Re-read from storage (the bootstrap
 	// reconciler strips revoked credentials there) rather than assuming this entity was the one signed
 	// out, and cancel any in-flight mint. The render-time generation check below is the real guard, so
 	// this is only about reflecting it promptly.
 	useEffect(() => {
+		observedEpochRef.current = authStore.getExplorerAuthEpoch(entityId);
 		return authStore.onExplorerAuthInvalidated(entityId, () => {
 			attemptRef.current++;
 			setEntitySettings(readEntitySettings(entityId));
 			setLoginStatus('idle');
 			setLoginError(null);
+			noteRevocation();
 		});
 	}, [entityId]);
 
-	const runMint = async (mint: () => Promise<string>) => {
+	const runMint = async (mint: () => Promise<string>): Promise<MintOutcome> => {
 		const attempt = ++attemptRef.current;
 		// Stamp the mint with the entity's sign-out epoch; a sign-out (this tab or another) advances it
 		// so a mint resolving after logout can't write the old user's token back.
@@ -113,18 +128,19 @@ export function ApiExplorer(
 			const token = await mint();
 			// Superseded by a newer attempt or unmounted — that owner manages the status; leave it alone.
 			if (!mountedRef.current || attempt !== attemptRef.current) {
-				return;
+				return 'discarded';
 			}
 			// Signed out (this tab or another) while the mint was in flight — drop the token and clear the
 			// pending state rather than writing the old user's token back.
 			if (authStore.getExplorerAuthEpoch(entityId) !== epoch) {
 				setLoginStatus('idle');
-				return;
+				noteRevocation();
+				return 'discarded';
 			}
 			if (typeof token !== 'string' || token === '') {
 				setLoginError('The instance did not return a usable token.');
 				setLoginStatus('error');
-				return;
+				return 'failed';
 			}
 			// A minted token belongs to the instance the mint client talks to — Studio's computed URL for
 			// this entity — NOT to whatever server the spec's picker currently names. Stamping the trusted
@@ -136,18 +152,21 @@ export function ApiExplorer(
 				authGeneration: authStore.getExplorerAuthEpoch(entityId),
 			});
 			setLoginStatus('idle');
+			return 'applied';
 		} catch (error) {
 			if (!mountedRef.current || attempt !== attemptRef.current) {
-				return;
+				return 'discarded';
 			}
 			setLoginError(error instanceof Error ? error.message : 'Log in failed.');
 			setLoginStatus('error');
+			return 'failed';
 		}
 	};
 
 	const login: LoginController = {
 		status: loginStatus,
 		error: loginError,
+		revocation: authRevocation,
 		runSession: () => runMint(onSessionMint),
 		runCredentials: onCredentialMint ? credentials => runMint(() => onCredentialMint(credentials)) : null,
 	};
