@@ -38,9 +38,9 @@ describe('deployModes', () => {
 	});
 });
 
-// Losing this env key is the one way telemetry can go to zero across every environment without
-// anything failing: the build succeeds, the deploy succeeds, and the only symptom is an absence of
-// data nobody watches. It is asserted here because no other test reaches the deploy action.
+// Lose this env key and telemetry goes to zero everywhere with nothing failing: the build and the
+// deploy both succeed, and the only symptom is missing data. Asserted here because nothing else in
+// the suite reads the deploy action.
 describe('the deploy action', () => {
 	const action = readFileSync(deployAction, 'utf8');
 
