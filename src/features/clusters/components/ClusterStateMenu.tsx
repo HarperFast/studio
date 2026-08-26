@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -45,6 +46,10 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const isStopped = cluster.status === 'STOPPED';
 	const isPartial = cluster.status === 'PARTIAL';
 	const opsDisabled = !update || isPending;
+	// Matches ClusterCard: a cluster stopped because its plan ended has no container action that can
+	// succeed — the start gate refuses it with a 402 — so the Container group goes entirely rather
+	// than offering a Start that fails. Terminate stays: leaving is always allowed.
+	const planEndedAndDown = isStopped && !!describeGrantExpiry(cluster)?.needsUpgrade;
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
@@ -96,33 +101,37 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="w-56">
-					<DropdownMenuLabel className="text-gray-600 text-xs">Container</DropdownMenuLabel>
-					<DropdownMenuItem
-						disabled={opsDisabled || !(isStopped || isPartial)}
-						onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
-					>
-						<PlayIcon /> Start
-					</DropdownMenuItem>
-					<DropdownMenuItem disabled={opsDisabled || !isStopped} onClick={() => setSafeModeAction('start')}>
-						<LifeBuoyIcon /> Start in safe mode
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						disabled={opsDisabled || !(isRunning || isPartial)}
-						onClick={() => setRestartOpen(true)}
-					>
-						<RotateCwIcon /> Restart
-					</DropdownMenuItem>
-					<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
-						<LifeBuoyIcon /> Restart in safe mode
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						variant="destructive"
-						disabled={opsDisabled || !(isRunning || isPartial)}
-						onClick={() => setStopOpen(true)}
-					>
-						<SquareIcon /> Stop
-					</DropdownMenuItem>
-					<DropdownMenuSeparator />
+					{!planEndedAndDown && (
+						<>
+							<DropdownMenuLabel className="text-gray-600 text-xs">Container</DropdownMenuLabel>
+							<DropdownMenuItem
+								disabled={opsDisabled || !(isStopped || isPartial)}
+								onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
+							>
+								<PlayIcon /> Start
+							</DropdownMenuItem>
+							<DropdownMenuItem disabled={opsDisabled || !isStopped} onClick={() => setSafeModeAction('start')}>
+								<LifeBuoyIcon /> Start in safe mode
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								disabled={opsDisabled || !(isRunning || isPartial)}
+								onClick={() => setRestartOpen(true)}
+							>
+								<RotateCwIcon /> Restart
+							</DropdownMenuItem>
+							<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
+								<LifeBuoyIcon /> Restart in safe mode
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								variant="destructive"
+								disabled={opsDisabled || !(isRunning || isPartial)}
+								onClick={() => setStopOpen(true)}
+							>
+								<SquareIcon /> Stop
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+						</>
+					)}
 					<DropdownMenuItem variant="destructive" disabled={!remove} onClick={() => setTerminateOpen(true)}>
 						<TrashIcon /> Terminate
 					</DropdownMenuItem>
