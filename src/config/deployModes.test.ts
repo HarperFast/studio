@@ -4,13 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const envDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.github/deploy-public-env');
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const envDir = path.join(repoRoot, '.github/deploy-public-env');
+const deployAction = path.join(repoRoot, '.github/actions/studio-deploy/action.yaml');
 
 function envNameByMode() {
 	const byMode = new Map<string, string>();
 	for (const file of readdirSync(envDir)) {
-		// Only `.env.<mode>` names a build mode; anything else here (a subdirectory, `.DS_Store`)
-		// would either throw from `readFileSync` or invent a mode that cannot be built.
+		// A subdirectory or a stray `.DS_Store` is not a build mode.
 		if (!file.startsWith('.env.')) {
 			continue;
 		}
@@ -33,6 +34,26 @@ describe('deployModes', () => {
 	it('names each environment the same as its mode, so the reported env tag is the mode', () => {
 		for (const [mode, envName] of envNameByMode()) {
 			expect(envName).toBe(mode);
+		}
+	});
+});
+
+// Losing this env key is the one way telemetry can go to zero across every environment without
+// anything failing: the build succeeds, the deploy succeeds, and the only symptom is an absence of
+// data nobody watches. It is asserted here because no other test reaches the deploy action.
+describe('the deploy action', () => {
+	const action = readFileSync(deployAction, 'utf8');
+
+	it('sets VITE_TELEMETRY_ENABLED on the step that builds the deployed bundle', () => {
+		const buildStep = action.slice(action.indexOf('- name: Build '), action.indexOf('- name: Upload sourcemaps'));
+
+		expect(buildStep).toContain('pnpm build --mode');
+		expect(buildStep).toMatch(/^\s*VITE_TELEMETRY_ENABLED: 'true'$/m);
+	});
+
+	it('is the only place that enables telemetry — an env file would also enable local builds', () => {
+		for (const file of readdirSync(envDir)) {
+			expect(readFileSync(path.join(envDir, file), 'utf8')).not.toContain('VITE_TELEMETRY_ENABLED');
 		}
 	});
 });

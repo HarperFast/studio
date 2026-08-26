@@ -54,14 +54,14 @@ export function useOnRouteLoadTracker() {
 	const { user } = useOverallAuth();
 
 	useEffect(() => {
+		if (!enabled) {
+			return;
+		}
 		const currentMatches = router.matchRoutes(router.state.location);
 		const name = translateUrlForDatadog(
 			location.href,
 			currentMatches.map((m) => m.params),
 		);
-		if (!enabled) {
-			return;
-		}
 
 		datadogRum.onReady(() => {
 			datadogRum.startView({
