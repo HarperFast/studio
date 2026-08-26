@@ -19,6 +19,7 @@ function grant(overrides: Partial<ClusterGrant> = {}): ClusterGrant {
 		stageUpdatedAt: null,
 		allowedPlanIds: null,
 		allowedRegionIds: null,
+		timeline: null,
 		...overrides,
 	};
 }
@@ -141,31 +142,58 @@ describe('describeGrantExpiry', () => {
 		expect(suspended?.detail).toContain('has been stopped');
 	});
 
-	// Data loss is the real stake of a shut-down trial, and the old copy never mentioned it.
-	it('warns that a shut-down trial will be deleted with its data', () => {
+	// Data loss is the real stake of a shut-down trial, and a date is what makes it actionable.
+	it('names the deletion date from the server schedule', () => {
 		const shutdown = grant({
 			isActive: false,
 			status: 'EXPIRED',
 			expiryPolicy: 'consumer-trial',
 			currentStage: 'SHUTDOWN',
 			endsAt: daysFromNow(-7),
+			timeline: [
+				{ stage: 'SHUTDOWN', dueAt: daysFromNow(-7), applied: true },
+				{ stage: 'DELETED', dueAt: daysFromNow(7), applied: false },
+			],
 		});
 		const detail = describeGrantExpiry({ grant: shutdown, status: 'STOPPED' }, NOW)?.detail;
-		expect(detail).toContain('deleted');
+		expect(detail).toContain('will be deleted on');
+		expect(detail).toContain(
+			new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(new Date(daysFromNow(7))),
+		);
 		expect(detail).toContain('data');
 	});
 
-	it('warns about deletion on the enterprise timeline too', () => {
-		const grace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'SHUTDOWN' });
-		expect(describeGrantExpiry({ grant: grace, status: 'STOPPED' }, NOW)?.detail).toContain('deleted');
+	// Five stages, not four — most trial grants are on enterprise-grace, so nothing may assume shape.
+	it('finds the deletion stage wherever it sits in the policy', () => {
+		const enterprise = grant({
+			isActive: false,
+			expiryPolicy: 'enterprise-grace',
+			currentStage: 'SHUTDOWN',
+			timeline: [
+				{ stage: 'WARNED', dueAt: daysFromNow(-21), applied: true },
+				{ stage: 'FINAL_WARNING', dueAt: daysFromNow(-16), applied: true },
+				{ stage: 'GRACE', dueAt: daysFromNow(-14), applied: true },
+				{ stage: 'SHUTDOWN', dueAt: daysFromNow(-7), applied: true },
+				{ stage: 'DELETED', dueAt: daysFromNow(14), applied: false },
+			],
+		});
+		expect(describeGrantExpiry({ grant: enterprise, status: 'STOPPED' }, NOW)?.detail).toContain('will be deleted on');
 	});
 
 	// A lapsed purchased grant carries no policy, so nothing deletes it — saying otherwise is a lie.
-	it('does not threaten deletion when no policy deletes the cluster', () => {
+	it('does not threaten deletion when the schedule has none', () => {
 		const lapsed = grant({ source: 'purchased', isActive: false, expiryPolicy: null, currentStage: 'SHUTDOWN' });
 		const detail = describeGrantExpiry({ grant: lapsed, status: 'STOPPED' }, NOW)?.detail;
 		expect(detail).toContain('has been stopped');
 		expect(detail).not.toContain('deleted');
+	});
+
+	// Timeline is null for a forever grant or an unparseable endsAt; the copy stays true without it.
+	it('falls back to the undated wording when there is no schedule', () => {
+		const noSchedule = grant({ isActive: false, currentStage: 'SHUTDOWN', timeline: null });
+		expect(describeGrantExpiry({ grant: noSchedule, status: 'STOPPED' }, NOW)?.detail).toBe(
+			'The cluster has been stopped. Choose a paid plan to start it again.',
+		);
 	});
 
 	it('survives a malformed date rather than rendering NaN', () => {
