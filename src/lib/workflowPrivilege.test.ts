@@ -5,9 +5,17 @@ import { parse } from 'yaml';
 
 /**
  * A workflow that can mint a repository-write token, or that receives deployment credentials,
- * must not accept an event whose SHA carries unmerged code. `merge_group` is the one such event
- * GitHub offers: it runs the candidate PR's own workflow and action YAML, so a boundary written
- * in that YAML is not a boundary. See studio#1649 and .github/deploying.md.
+ * must not accept `merge_group`: that event runs the candidate PR's own workflow and action YAML,
+ * so a boundary written in that YAML is not a boundary. See studio#1649.
+ *
+ * This is NOT a claim that no unmerged code can reach a credential. A same-repo `pull_request`
+ * also runs the workflow definition from the PR's ref, with repository secrets available — only
+ * fork PRs get a read-only token and no secrets. So anyone who can push a branch can already
+ * read any secret a workflow references, with no approval gate at all. `pull_request` is
+ * deliberately absent from the list below because adding it would fail `verify-pr.yaml`, whose
+ * `pull-requests: write` is load-bearing; the fix for that class is scoping the credentials
+ * (environment secrets with required reviewers, or org workflow-execution policy), tracked on
+ * studio#1651 — not a list edit here.
  *
  * `actionlint` cannot check this — it never evaluates a workflow's event set against its job
  * permissions, and it skips composite action bodies entirely.
@@ -74,6 +82,15 @@ describe('workflow privilege boundary', () => {
 	it('still reads triggers, so an empty list cannot pass the scan silently', () => {
 		const raw = readFileSync(join(WORKFLOWS_DIR, 'deploy-stage.yaml'), 'utf8');
 		expect(triggers(parse(raw))).toContain('push');
+	});
+
+	// The merge queue is configured to require a check by name, and that string lives in repo
+	// settings — nothing in the repo would notice a rename. A rename plus a required check is a
+	// silently stalled queue, so pin it here.
+	it('keeps the merge-queue job named `Verify Stage`, which repo settings require by name', () => {
+		const doc = parse(readFileSync(join(WORKFLOWS_DIR, 'verify-stage.yaml'), 'utf8'));
+		const jobs = Object.values((doc.jobs ?? {}) as Record<string, { name?: string }>);
+		expect(jobs.map((job) => job.name)).toContain('Verify Stage');
 	});
 
 	it('still recognises the stage workflow as privileged, so the scan cannot pass by finding nothing', () => {

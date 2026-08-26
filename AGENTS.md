@@ -105,8 +105,11 @@ explicit `sorting: undefined` _replaces_ the default and the first header click 
 `deploy-dev/stage/prod.yaml` own only what differs per environment; the job body lives in two
 composite actions. **The split is a security boundary, not a refactor** — do not reunify them:
 `studio-verify` installs, tests and lints and takes **no credentials**; `studio-deploy` holds
-every credentialed step. That keeps deploy secrets away from anything that could execute code
-from an unmerged ref.
+every credentialed step. That keeps deploy secrets out of the merge-queue path — **not** out of
+reach of unmerged code generally: a same-repo `pull_request` also runs the workflow definition
+from the PR's own ref with repository secrets available, so anyone who can push a branch can
+already read any secret a workflow references. Scoping the credentials is the fix for that, and
+it is tracked on studio#1651.
 
 **No deploy workflow may accept `merge_group`.** That event runs the candidate PR's own workflow
 and action YAML, so it can request `contents: write` or edit the actions outright — a boundary
@@ -115,18 +118,19 @@ it for any workflow that writes contents or receives deploy credentials, because
 never evaluates the event set against job permissions.
 
 The queue **is** in use on `stage`, and `verify-stage.yaml` is its credential-free check — that
-separation is the point, so never move a deploy step into it. Note `stage` requires no status
-checks, so until `Verify Stage` is marked required the queue still merges batches unverified
-(studio#1649).
+separation is the point, so never move a deploy step into it. `Verify Stage` is the check name
+the queue must require; whether it already does is a repo setting, not something this repo
+records (studio#1649).
 
 Every workflow declares `permissions:` explicitly. The repo default is **write**, so omitting the
 block hands a job a write-capable token it almost never needs.
 
 They are **composite actions, not a reusable workflow**. Composite steps run inside the caller's
 job, so job names stay `Deploy to Dev/Stage/Prod` rather than becoming `<caller> / <called>`.
-Note this is about keeping check names stable and the run graph flat — **not** about branch
-protection: `stage` has no `required_status_checks` block, so nothing currently gates on those
-names. Verify before repeating that claim.
+This is about keeping check names stable and the run graph flat. **Do not reason about which
+checks are required from the API alone** — `branches/stage/protection` and `rules/branches/stage`
+both read as empty here while the queue demonstrably gates on checks, so a partial read will
+tell you the opposite of the truth. Ask, or look at the settings UI.
 
 Moving a step in there changes its shell. A composite `run` step **must** declare `shell:`, and
 `shell: bash` runs as `bash --noprofile --norc -eo pipefail`, where a workflow's default is a
