@@ -1,8 +1,8 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
+import { isConversionComplete } from '@/features/clusters/lib/grantExpiry';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useMemo } from 'react';
@@ -17,10 +17,9 @@ export function Scaling() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
-	const status = cluster?.status;
-	const clusterIsActive = useMemo(() => {
-		return status && activeClusterStatuses.includes(status);
-	}, [status]);
+	// Not RUNNING alone: a trial->paid conversion reaches RUNNING before the server applies the plan,
+	// so status by itself declares the update finished while the plan change is still in flight.
+	const clusterIsActive = useMemo(() => cluster && isConversionComplete(cluster), [cluster]);
 
 	if (clusterIsLoading || !cluster) {
 		return (
