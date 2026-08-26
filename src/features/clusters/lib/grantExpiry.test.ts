@@ -90,6 +90,24 @@ describe('describeGrantExpiry', () => {
 		expect(describeGrantExpiry({ grant: comp }, NOW)?.title).toBe('Complimentary plan ends in 4 days');
 	});
 
+	// The upgrade route is the point of the warning stages — it must not wait for the shutdown.
+	it('offers an upgrade well before service is withdrawn', () => {
+		for (const stage of ['WARNED', 'FINAL_WARNING', 'GRACE'] as const) {
+			const result = describeGrantExpiry({ grant: grant({ currentStage: stage, endsAt: daysFromNow(3) }) }, NOW);
+			expect({ stage, offerUpgrade: result?.offerUpgrade }).toEqual({ stage, offerUpgrade: true });
+			// Still running: an upgrade is available, but nothing needs restoring.
+			expect(result?.needsUpgrade).toBe(false);
+		}
+	});
+
+	it('offers no upgrade once the cluster is deleted or while a conversion is settling', () => {
+		const deleted = grant({ isActive: false, status: 'EXPIRED', currentStage: 'DELETED' });
+		expect(describeGrantExpiry({ grant: deleted }, NOW)?.offerUpgrade).toBe(false);
+
+		const converting = grant({ source: 'purchased', expiryPolicy: 'conversion-pending' });
+		expect(describeGrantExpiry({ grant: converting }, NOW)?.offerUpgrade).toBe(false);
+	});
+
 	it('survives a malformed date rather than rendering NaN', () => {
 		const broken = grant({ currentStage: 'WARNED', endsAt: 'not-a-date' });
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
