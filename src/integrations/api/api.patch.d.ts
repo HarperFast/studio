@@ -244,11 +244,48 @@ export interface Instance extends SchemaHdbInstance {
 	safeMode?: boolean;
 }
 
+/**
+ * A cluster's commercial terms, as projected for customers by central-manager. Returned on
+ * `GET /Cluster/:id` and on each cluster in `GET /Organization/:id`. Not in the generated OpenAPI
+ * types yet, so declared here (see the note at the top of this file).
+ *
+ * When no grant is live this carries the last finished one instead, so a suspended cluster can say
+ * what ended and when. Staff-only fields (reason, actor ids, origin) are deliberately not projected.
+ */
+export interface ClusterGrant {
+	id: string;
+	source: 'trial' | 'purchased' | 'enterprise' | 'gift' | 'comp' | string;
+	status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | string;
+	/**
+	 * Server-computed. Use this rather than deriving from `status`: an ACTIVE row past its `endsAt`
+	 * is not live until the expiry runner stamps it, so status alone reads as live when service
+	 * has already been withdrawn.
+	 */
+	isActive: boolean;
+	startsAt: string | null;
+	endsAt: string | null;
+	cycleAnchor: string | null;
+	/** `conversion-pending` is a bounded conversion window, not the customer's terms. */
+	expiryPolicy: 'consumer-trial' | 'enterprise-grace' | 'conversion-pending' | null;
+	/** Last expiry-policy stage the runner applied; null before the first one. */
+	currentStage: ExpiryStage | null;
+	stageUpdatedAt: string | null;
+	/** Scope ceilings for an admin-issued grant; null when unrestricted. */
+	allowedPlanIds: string[] | null;
+	allowedRegionIds: string[] | null;
+}
+
+export type ExpiryStage = 'AWAITING_PLAN' | 'WARNED' | 'FINAL_WARNING' | 'GRACE' | 'SHUTDOWN' | 'DELETED';
+
 export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
+	/** The governing grant, or null for a cluster that never had one (self-hosted, or pre-grant). */
+	grant?: ClusterGrant | null;
+	/** Set when service was deliberately withdrawn. Distinguishes an expiry stop from a user stop. */
+	suspendedReason?: string | null;
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {
