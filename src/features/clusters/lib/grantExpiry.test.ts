@@ -108,6 +108,39 @@ describe('describeGrantExpiry', () => {
 		expect(describeGrantExpiry({ grant: converting }, NOW)?.offerUpgrade).toBe(false);
 	});
 
+	// The bug this covers: GRACE runs expireGrant but NOT stopCluster — the shutdown is a separate
+	// stage days later — so a running cluster in its grace period was being told it had been stopped.
+	it('does not claim a grace-period cluster has been stopped', () => {
+		const inGrace = grant({
+			isActive: false,
+			status: 'EXPIRED',
+			expiryPolicy: 'enterprise-grace',
+			currentStage: 'GRACE',
+			endsAt: daysFromNow(0),
+		});
+		const result = describeGrantExpiry({ grant: inGrace, status: 'RUNNING' }, NOW);
+		expect(result).toMatchObject({ stage: 'GRACE', severity: 'warning', needsUpgrade: false, offerUpgrade: true });
+		expect(result?.detail).toContain('still running');
+		expect(result?.detail).not.toContain('has been stopped');
+	});
+
+	// The runner expires the grant and stops the cluster in one stage, but it can lag behind.
+	it('says the cluster will stop, not that it has, while it is still running', () => {
+		const lagging = grant({ isActive: false, status: 'EXPIRED', currentStage: null, endsAt: daysFromNow(-1) });
+		const result = describeGrantExpiry({ grant: lagging, status: 'RUNNING' }, NOW);
+		expect(result?.detail).toContain('will be stopped');
+		expect(result?.detail).not.toContain('has been stopped');
+	});
+
+	it('says the cluster has been stopped once it actually is', () => {
+		const shutdown = grant({ isActive: false, status: 'EXPIRED', currentStage: 'SHUTDOWN', endsAt: daysFromNow(-1) });
+		const stopped = describeGrantExpiry({ grant: shutdown, status: 'STOPPED' }, NOW);
+		expect(stopped?.detail).toContain('has been stopped');
+		// suspendedReason alone is enough — it is what marks a withdrawal rather than a user stop.
+		const suspended = describeGrantExpiry({ grant: shutdown, status: 'RUNNING', suspendedReason: 'PLAN_ENDED' }, NOW);
+		expect(suspended?.detail).toContain('has been stopped');
+	});
+
 	it('survives a malformed date rather than rendering NaN', () => {
 		const broken = grant({ currentStage: 'WARNED', endsAt: 'not-a-date' });
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
