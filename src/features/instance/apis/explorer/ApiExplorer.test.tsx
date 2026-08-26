@@ -8,6 +8,21 @@ function storedAuth() {
 	return JSON.parse(sessionStorage.getItem('ApiExplorerSettings')!)['ins-test'];
 }
 
+/**
+ * Force React's Scheduler to split a commit from the passive effects it schedules, and return the
+ * undo. `shouldYieldToHost()` compares `performance.now()` against a 5ms frame budget, so an
+ * always-advancing clock yields between every task — the ordering a loaded machine produces, and why
+ * #1655 only reproduced in full-suite runs.
+ */
+function yieldBetweenReactTasks(): () => void {
+	const realNow = performance.now.bind(performance);
+	let drift = 0;
+	performance.now = () => realNow() + (drift += 10);
+	return () => {
+		performance.now = realNow;
+	};
+}
+
 // The Try-it-out tab (not exercised here) is the only thing that mounts Monaco; mock it so importing
 // the tree never pulls the editor in, matching how the repo's other component tests handle Monaco.
 vi.mock('@/lib/monaco/MonacoEditor', () => ({ Editor: () => null, MonacoEditor: () => null }));
@@ -220,8 +235,17 @@ describe('ApiExplorer', () => {
 		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
 		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'dave' } });
 		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw1' } });
-		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
-		expect(await screen.findByText(/Credential set —/)).toBeTruthy();
+
+		// A clear deferred to an effect is still outstanding here, and lands on the next keystroke instead.
+		const restoreClock = yieldBetweenReactTasks();
+		try {
+			fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+			expect(await screen.findByText(/Credential set —/)).toBeTruthy();
+			expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('');
+			expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+		} finally {
+			restoreClock();
+		}
 
 		// Re-authenticate (already authorized) with different credentials — the password must still clear.
 		onCredentialMint.mockResolvedValue('tok-2');
@@ -230,6 +254,34 @@ describe('ApiExplorer', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
 		await waitFor(() => expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe(''));
 		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'tok-2' });
+	});
+
+	it('leaves credentials retyped while a superseded mint was settling alone', async () => {
+		let resolveMint!: (token: string) => void;
+		const onCredentialMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+
+		// The method buttons stay live while a mint is pending, so re-picking one supersedes it.
+		fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'bob' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 's3cret' } });
+		await act(async () => {
+			resolveMint('stale-token');
+			await Promise.resolve();
+		});
+
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('bob');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('s3cret');
+		expect((screen.getByRole('button', { name: 'Authorize' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it('withholds a minted token when the active server is not the instance it was minted for', async () => {
@@ -274,6 +326,77 @@ describe('ApiExplorer', () => {
 		});
 		// The credential no longer matches the current generation, so it is not sent.
 		expect(screen.queryByText(/Credential set —/)).toBeNull();
+	});
+
+	it('empties the typed credentials when another tab signs the entity out', () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+
+		act(() => {
+			const bumped = JSON.stringify({ 'ins-test': 99 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
+		});
+
+		// Unlike the post-mint clear, this one must beat whatever the user was mid-way through typing.
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+	});
+
+	it('leaves the typed credentials alone when a different entity is signed out', () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+
+		// The store's signal names no entity, so every explorer hears every sign-out. This one is not
+		// ins-test's, and must not blank a form the user is still typing into.
+		act(() => {
+			const bumped = JSON.stringify({ 'ins-other': 7 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
+		});
+
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('alice');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('hunter2');
+	});
+
+	it('leaves the retyped credentials alone when a mint cancelled by a sign-out settles', async () => {
+		let resolveMint!: (token: string) => void;
+		const onCredentialMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+
+		act(() => {
+			const bumped = JSON.stringify({ 'ins-test': 99 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
+		});
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+
+		// The user retypes, and only then does the mint the sign-out cancelled settle. Its continuation
+		// must not empty the fresh form under them.
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'bob' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 's3cret' } });
+		await act(async () => {
+			resolveMint('stale-token');
+			await Promise.resolve();
+		});
+
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('bob');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('s3cret');
 	});
 
 	it('discards a session mint that resolves after the entity was signed out', async () => {

@@ -8,14 +8,18 @@ import { ServerOption } from '@/features/instance/apis/explorer/spec';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
 import { cn } from '@/lib/cn';
 import { CopyIcon, Lock, LockOpen } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+
+export type MintOutcome = 'applied' | 'discarded' | 'failed';
 
 export interface LoginController {
 	status: 'idle' | 'pending' | 'error';
 	error: string | null;
-	runSession: () => void;
+	/** Bumped when this entity's auth is revoked; keys the form, so a sign-out empties it. */
+	revocation: number;
+	runSession: () => Promise<MintOutcome>;
 	// Null when no direct instance URL can be proven, which hides the credential form.
-	runCredentials: ((credentials: { username: string; password: string }) => void) | null;
+	runCredentials: ((credentials: { username: string; password: string }) => Promise<MintOutcome>) | null;
 }
 
 /** Which explicit-header auth forms to offer, derived from the spec's declared security schemes. */
@@ -123,7 +127,7 @@ export function SettingsPanel({
 								<Button type="button" variant="outline" size="sm" onClick={onClearAuth}>Clear</Button>
 							</div>
 						)}
-						{method === 'login' && <LoginForm login={login} authorized={authorized} />}
+						{method === 'login' && <LoginForm key={login.revocation} login={login} authorized={authorized} />}
 						{method === 'basic' && <BasicForm auth={auth} onApply={onApplyBasic} />}
 						{method === 'bearer' && <BearerForm auth={auth} onApply={onApplyBearer} />}
 						{method === 'cookie' && <CookieNotice />}
@@ -209,22 +213,24 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 	const [password, setPassword] = useState('');
 	const pending = login.status === 'pending';
 
-	// Drop the typed credentials once a mint from them succeeds (pending → idle). Keyed on the status
-	// transition, not the `authorized` boolean, so re-authenticating while already authorized (where
-	// `authorized` never changes) still clears the password from memory.
-	const prevStatus = useRef(login.status);
-	useEffect(() => {
-		if (prevStatus.current === 'pending' && login.status === 'idle') {
+	// Not an effect watching for `pending` → `idle`: passive effects flush a commit late, so that clear
+	// landed on credentials typed since (#1655). A discarded mint no longer owns the form.
+	const dropTypedCredentials = (outcome: MintOutcome) => {
+		if (outcome === 'applied') {
 			setUsername('');
 			setPassword('');
 		}
-		prevStatus.current = login.status;
-	}, [login.status]);
+	};
 
 	return (
 		<div className="flex max-w-sm flex-col gap-4">
 			<div className="flex flex-col gap-1.5">
-				<Button type="button" variant="submit" disabled={pending} onClick={login.runSession}>
+				<Button
+					type="button"
+					variant="submit"
+					disabled={pending}
+					onClick={() => void login.runSession().then(dropTypedCredentials)}
+				>
 					{pending ? 'Authorizing…' : 'Authorize with your current session'}
 				</Button>
 				<span className="text-muted-foreground text-xs">
@@ -237,7 +243,7 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 					className="flex flex-col gap-3"
 					onSubmit={event => {
 						event.preventDefault();
-						login.runCredentials?.({ username, password });
+						void login.runCredentials?.({ username, password }).then(dropTypedCredentials);
 					}}
 				>
 					<span className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
