@@ -24,13 +24,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # `build` is what makes this a queue check rather than a second per-PR run: the `build`
+      # script is `tsc -b && vite build`, so this type-checks the *merged* ref. Two PRs that are
+      # each green can still fail combined — see .github/deploying.md.
       - name: Verify
         uses: ./.github/actions/studio-verify
         with:
           environment: stage
           build: 'true'
-      # The whole point of a queue check: vitest only type-checks what tests import, so one PR
-      # deleting a symbol another still imports passes both PRs' own runs and only breaks once
-      # they are combined. `tsc -b` over the merged ref is what catches it.
-      - name: Type-check
-        run: pnpm exec tsc -b

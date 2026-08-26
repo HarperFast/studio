@@ -59,9 +59,11 @@ Two limits worth knowing:
   stands in the way. The durable fix is GitHub's workflow-execution protections at the org
   control plane, which cannot be weakened from inside the repo — an org-admin setting, noted on
   studio#1649.
-- **A required check with no producer stays pending.** So if the queue's required check is ever
-  renamed or its workflow retired, the queue stalls rather than merging unchecked. That fails in
-  the safe direction, but it stalls silently — check the queue if merges stop.
+- **This workflow gates only once `Verify Stage` is a required check for the queue.** Whether it
+  already is lives in repo settings, not here — if you are relying on it, confirm it there. The
+  failure mode if the name and the setting disagree is a _silent stall_: a required check with no
+  producer stays pending forever rather than merging unchecked, which is the safe direction but
+  has no detector beyond noticing merges stopped.
 
 ### What the queue check is for
 
@@ -70,8 +72,8 @@ Demonstrated against real code on `stage`: rename an export and update all ten i
 PR, add a new file importing the old name in another, and each PR passes `tsc -b` and vitest on
 its own — while the two together fail type-check with
 `Module '"@/lib/humanFileSize"' has no exported member 'humanFileSize'`. Unit tests pass the
-combination; only `tsc -b` over the merged ref catches it. That is why `verify-stage.yaml` runs
-the type-check as well as test, lint and build.
+combination; only `tsc -b` over the merged ref catches it — which is why `verify-stage.yaml`
+passes `build: 'true'`, since the `build` script is `tsc -b && vite build`.
 
 ## Choosing the Harper major
 
