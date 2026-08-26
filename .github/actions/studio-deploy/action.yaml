@@ -63,6 +63,10 @@ runs:
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
+        # The signal `isDeployedBuild` gates telemetry on. Deliberately set here and not in
+        # .github/deploy-public-env, so a `pnpm build --mode prod` someone runs locally cannot
+        # produce a bundle that reports as production.
+        VITE_TELEMETRY_ENABLED: 'true'
       run: pnpm build --mode "$ENVIRONMENT"
     - name: Upload sourcemaps to Datadog
       shell: bash

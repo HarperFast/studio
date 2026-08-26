@@ -7,6 +7,8 @@ interface ImportMetaEnv {
 	readonly VITE_FORCE_BASIC_AUTH: string;
 	/** Absent outside the deploy modes — a bare `vite build` reads no file that sets it. */
 	readonly VITE_ENV_NAME: string | undefined;
+	/** `'true'` only in a bundle the deploy action built; no env file sets it. */
+	readonly VITE_TELEMETRY_ENABLED: string | undefined;
 	readonly VITE_PUBLIC_STRIPE_KEY: string;
 	readonly VITE_LOCAL_STUDIO_DEV_URL: string;
 	readonly VITE_REO_DEV_CLIENT_ID: string;

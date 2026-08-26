@@ -38,14 +38,18 @@ vi.mock('@tanstack/react-router', () => {
 });
 
 // Defaultless: a default would substitute a deployed value for an explicit `undefined`.
-async function loadDatadogModuleForMode(mode: string | undefined, envName: string | undefined) {
+async function loadDatadogModuleForMode(
+	mode: string | undefined,
+	envName: string | undefined,
+	telemetryEnabled: string | undefined,
+) {
 	vi.resetModules();
-	stubDeployBuild({ mode, envName });
+	stubDeployBuild({ mode, envName, telemetryEnabled });
 	return import('./datadog');
 }
 
 async function loadDatadogModule() {
-	return loadDatadogModuleForMode('prod', 'prod');
+	return loadDatadogModuleForMode('prod', 'prod', 'true');
 }
 
 beforeEach(() => {
@@ -141,7 +145,7 @@ describe('Datadog reporting guard', () => {
 	}
 
 	it.each([...deployModes])('reports from a %s deploy, tagged with its environment', async (mode) => {
-		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode);
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, 'true');
 
 		renderApp(useDatadog, useOnRouteLoadTracker);
 
@@ -151,7 +155,7 @@ describe('Datadog reporting guard', () => {
 
 	// `production` is the mode a bare `vite build` runs in — the one that shipped untagged events.
 	it.each([undefined, '', 'production', 'localstudio', 'test'])('stays silent in mode %o', async (mode) => {
-		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode);
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, 'true');
 
 		renderApp(useDatadog, useOnRouteLoadTracker);
 
@@ -160,7 +164,17 @@ describe('Datadog reporting guard', () => {
 	});
 
 	it('stays silent in a bare build whose .env.local names a deploy environment', async () => {
-		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('production', 'prod');
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('production', 'prod', 'true');
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).not.toHaveBeenCalled();
+	});
+
+	// `pnpm build --mode prod` run by hand: byte-identical to production apart from the flag only
+	// the deploy action sets. Without this clause it would report as `env:prod` from localhost.
+	it.each([...deployModes])('stays silent in a locally built %s bundle', async (mode) => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, undefined);
 
 		renderApp(useDatadog, useOnRouteLoadTracker);
 
@@ -169,7 +183,7 @@ describe('Datadog reporting guard', () => {
 
 	// The shape of a mode listed here but missing from vite.config.ts's DEPLOY_MODES.
 	it('stays silent in a deploy mode whose env file was never read', async () => {
-		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('prod', undefined);
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('prod', undefined, 'true');
 
 		renderApp(useDatadog, useOnRouteLoadTracker);
 
