@@ -33,6 +33,7 @@ interface ClusterDetailsProps {
 	partialUpgrade: PartialUpgrade | null;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	regionSetFrozen?: boolean;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -52,15 +53,14 @@ export function ClusterDetails({
 	partialUpgrade,
 	regionLocations,
 	regionNameToLatencyToRegion,
+	regionSetFrozen,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
 	totalPrice,
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
-	// Hobbyist is a single fixed shape: colocated, one region, one distribution. Offering those
-	// choices would only produce a request central-manager refuses (it freezes the region set while
-	// a trial or level-0 plan is on the cluster), so they are locked rather than left to fail.
+	// Hobbyist is colocated-only, so the deployment picker has nothing to offer while it is selected.
 	const isHobbyist = selectedPlan?.id === hobbyistPlanId;
 	const availablePerformanceDescriptions = useMemo(() => {
 		const plansByTier = deploymentToPerformanceToPlan[selectedDeployment] || {};
@@ -211,7 +211,7 @@ export function ClusterDetails({
 					? <ClusterInstances form={form} />
 					: (
 						<ClusterRegions
-							disabled={isHobbyist}
+							disabled={regionSetFrozen}
 							form={form}
 							regionLocations={regionLocations}
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
