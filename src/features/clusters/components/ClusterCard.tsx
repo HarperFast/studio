@@ -15,6 +15,14 @@ import { ClusterContainerOpModals } from '@/features/clusters/components/Cluster
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
+import {
+	describeGrantExpiry,
+	describeTrial,
+	type ExpirySeverity,
+	HOBBYIST_UPGRADE,
+	isConversionApplying,
+	isStartBlockedByPlan,
+} from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
@@ -25,6 +33,7 @@ import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { cn } from '@/lib/cn';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
@@ -37,6 +46,7 @@ import {
 	GlobeIcon,
 	KeyIcon,
 	LifeBuoyIcon,
+	Loader2,
 	PlayIcon,
 	RefreshCwIcon,
 	RocketIcon,
@@ -48,6 +58,19 @@ import {
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+// Every status pill on the card shares one size; the expiry and Trial pills are also tinted by
+// urgency, and each tone clears AA in both themes. The date beside a pill uses 70% foreground in
+// dark, where the theme's muted grey falls under AA on the card.
+const STATUS_PILL = 'rounded-md px-2.5 py-1';
+const PILL_TONE: Record<ExpirySeverity, string> = {
+	info:
+		'border-violet-400/70 bg-violet-50 text-violet-700 dark:border-violet-400/60 dark:bg-violet-400/10 dark:text-violet-200',
+	warning:
+		'border-amber-500/60 bg-amber-50 text-amber-800 dark:border-amber-400/60 dark:bg-amber-400/10 dark:text-amber-200',
+	critical: 'border-red-500/60 bg-red-50 text-red-700 dark:border-red-400/60 dark:bg-red-400/10 dark:text-red-200',
+};
+const PILL_DATE = 'text-sm text-muted-foreground dark:text-foreground/70';
 
 export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const { cluster } = summary;
@@ -81,10 +104,22 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
 		[cluster.status],
 	);
+	const expiry = useMemo(() => describeGrantExpiry(cluster), [cluster]);
+	const trial = useMemo(() => describeTrial(cluster), [cluster]);
+	// A plan-ended cluster can't be restarted — the start gate refuses it with a 402. Buying a plan
+	// is the only way back up, so the card routes to the editor instead of the instances page.
+	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
 	const isSelfManaged = clusterIsSelfManaged(cluster);
+	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
+	// can still be RUNNING or PARTIAL for the whole grace window. Hiding the group on this alone took
+	// Stop and Restart away from a running cluster and left Terminate as the only offer.
+	const startBlocked = isStartBlockedByPlan(cluster);
+	// The group is hidden only when it would otherwise be a heading over nothing: a stopped cluster
+	// whose only actions are the two Starts that are now refused.
+	const planEndedAndDown = startBlocked && !isClusterRunning && !isClusterPartial;
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
-	const showContainerActions = canRunContainerOps && !isSelfManaged;
+	const showContainerActions = canRunContainerOps && !isSelfManaged && !planEndedAndDown;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
@@ -179,6 +214,8 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		? undefined
 		: progressHref
 		? progressHref
+		: upgradeHref && update
+		? upgradeHref
 		: cluster.status === 'STOPPED'
 		? `/${cluster.organizationId}/${cluster.id}/instances`
 		: cluster.status === 'PARTIAL'
@@ -215,6 +252,16 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 			onClick: onSignOutClick,
 			disabled: signingOut,
 			label: 'Direct Sign Out',
+		},
+		!!upgradeHref && update && {
+			key: 'upgrade',
+			to: `${cluster.id}/edit`,
+			// Same as the banner and the strip: land on the conversion target, not on the plan that
+			// just expired — without it the editor opens on the dead trial with submit disabled.
+			search: { upgrade: HOBBYIST_UPGRADE },
+			disabled: signingOut,
+			icon: <ScaleIcon className="text-purple-600" />,
+			label: 'Choose a Plan',
 		},
 		isActive && update && {
 			key: 'edit',
@@ -256,14 +303,14 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		&& { type: 'separator' as const, key: 'container-separator' },
 		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
-		showContainerActions && (isClusterStopped || isClusterPartial) && {
+		showContainerActions && !startBlocked && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
 			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		showContainerActions && isClusterStopped && {
+		showContainerActions && !startBlocked && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('start'),
@@ -337,6 +384,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 				{cardHref && (
 					<Link
 						to={cardHref}
+						search={cardHref === upgradeHref ? { upgrade: HOBBYIST_UPGRADE } : undefined}
 						aria-label={opensProgress
 							? `View progress for ${cluster.name}`
 							: `${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
@@ -437,6 +485,28 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 								<p className="mt-1 text-muted-foreground">Open cluster options to retry or manage this cluster.</p>
 							)}
 						</div>
+						{expiry && (
+							<span className="inline-flex items-center gap-2">
+								<Badge
+									variant="outline"
+									className={cn(STATUS_PILL, PILL_TONE[expiry.severity])}
+									title={expiry.detail ?? expiry.title}
+								>
+									{isConversionApplying(cluster) && <Loader2 className="animate-spin" />}
+									{expiry.badgeLabel}
+								</Badge>
+								{expiry.endsOn && <span className={PILL_DATE}>{expiry.endsOn}</span>}
+							</span>
+						)}
+						{trial && (
+							// One flex item, so the row's justify-between keeps the date beside its pill.
+							<span className="inline-flex items-center gap-2">
+								<Badge variant="outline" className={cn(STATUS_PILL, PILL_TONE.info)} title={trial.detail}>
+									Trial
+								</Badge>
+								{trial.endsOn && <span className={PILL_DATE}>Ends {trial.endsOn}</span>}
+							</span>
+						)}
 						{opensProgress && <CardLinkAffordance>View progress</CardLinkAffordance>}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 					</div>
