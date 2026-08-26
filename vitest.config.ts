@@ -25,6 +25,7 @@ export default defineConfig({
 			'**/e2e/**',
 		],
 		setupFiles: [
+			'./src/testSetup/inertWebSocket.ts',
 			'./src/testSetup/failOnRenderPhaseUpdate.ts',
 			'./src/testSetup/failOnRealWebSocket.ts',
 			'./src/features/instance/status/analytics/__tests__/setup.ts',
