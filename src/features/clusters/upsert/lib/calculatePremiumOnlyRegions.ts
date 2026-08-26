@@ -10,10 +10,13 @@ function planServesRegion(plan: SchemaPlan, regionId: string): boolean {
 }
 
 /**
- * Determines which regions and latencies are only reachable via premium tiers — i.e. plans above the
- * lowest planLevel for the deployment. A region/latency is "premium-only" when no base-level plan can
- * serve it but at least one higher-level plan can. A region name is premium-only when every selectable
- * latency under it is premium-only.
+ * Determines which regions and latencies cost money to reach. A region/latency is "premium-only"
+ * when no free plan can serve it but at least one paid plan can. A region name is premium-only when
+ * every selectable latency under it is premium-only.
+ *
+ * Keyed on price, not planLevel: Hobbyist is planLevel 0 like the trial, so treating the lowest
+ * level as the baseline made a $20 plan's reach define what counts as free — and the moment
+ * Hobbyist's region list opened up, every badge silently disappeared.
  */
 export function calculatePremiumOnlyRegions(
 	deploymentPlans: SchemaPlan[],
@@ -25,10 +28,10 @@ export function calculatePremiumOnlyRegions(
 		return { regionNames, regionIds };
 	}
 
-	const minPlanLevel = Math.min(...deploymentPlans.map(plan => plan.planLevel ?? 0));
-	const basePlans = deploymentPlans.filter(plan => (plan.planLevel ?? 0) === minPlanLevel);
-	const premiumPlans = deploymentPlans.filter(plan => (plan.planLevel ?? 0) > minPlanLevel);
-	if (!premiumPlans.length) {
+	const basePlans = deploymentPlans.filter(plan => !plan.priceUsd);
+	const premiumPlans = deploymentPlans.filter(plan => !!plan.priceUsd);
+	// Nothing to contrast against: an all-free or all-paid deployment has no premium tier.
+	if (!premiumPlans.length || !basePlans.length) {
 		return { regionNames, regionIds };
 	}
 
