@@ -1,4 +1,4 @@
-import { describeGrantExpiry, HOBBYIST_UPGRADE, isUrgentExpiry } from '@/features/clusters/lib/grantExpiry';
+import { describeGrantExpiry, HOBBYIST_UPGRADE, isExpiryWarning } from '@/features/clusters/lib/grantExpiry';
 import { Cluster } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { Link, useParams, useRouteContext } from '@tanstack/react-router';
@@ -8,9 +8,9 @@ import { useMemo } from 'react';
  * The expiry warning, for the surface a customer actually works on.
  *
  * The cluster-settings banner is where the full story lives; a developer building against their
- * cluster may never open those pages before it stops. So this repeats the warning where they are —
- * but only from the last warning onward (`isUrgentExpiry`), and as a single line rather than a
- * block, because everything here sits above something they came to do.
+ * cluster may never open those pages before it stops. So this repeats the warning where they are,
+ * from the first stage on — as a single line rather than a block, because everything here sits
+ * above something they came to do.
  *
  * Renders nothing for a cluster with no grant, which is every self-hosted one.
  */
@@ -22,7 +22,7 @@ export function ClusterExpiryStrip() {
 	const { cluster } = useRouteContext({ strict: false }) as { cluster?: Cluster };
 	const expiry = useMemo(() => (cluster ? describeGrantExpiry(cluster) : null), [cluster]);
 
-	if (!isUrgentExpiry(expiry) || !expiry || !organizationId || !clusterId) { return null; }
+	if (!isExpiryWarning(expiry) || !expiry || !organizationId || !clusterId) { return null; }
 
 	return (
 		<div

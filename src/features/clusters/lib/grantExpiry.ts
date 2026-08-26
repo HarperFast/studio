@@ -35,14 +35,14 @@ export const HOBBYIST_UPGRADE = 'hobbyist';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Stages worth interrupting someone's work for. The first warning is deliberately excluded: on a
- * surface a customer is actively working in, a banner shown for a week becomes furniture, and the
- * warning that matters gets ignored with it.
+ * Whether to repeat the warning on a surface the customer is working in, which is every expiry
+ * stage — including the first, so nobody reaches the last two days without having seen it.
+ *
+ * A conversion in flight is the exception: it is progress, not a warning, and the customer is
+ * already mid-purchase.
  */
-const URGENT_STAGES = new Set(['FINAL_WARNING', 'GRACE', 'SHUTDOWN', 'DELETED', 'EXPIRED']);
-
-export function isUrgentExpiry(description: GrantExpiryDescription | null): boolean {
-	return !!description && URGENT_STAGES.has(description.stage);
+export function isExpiryWarning(description: GrantExpiryDescription | null): boolean {
+	return !!description && description.stage !== 'AWAITING_PLAN';
 }
 
 /** A conversion that hasn't finished applying its plan yet. Bounded window, not the real terms. */
