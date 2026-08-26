@@ -51,4 +51,15 @@ describe('GTM loading guard', () => {
 
 		expect(gtmScripts()).toHaveLength(0);
 	});
+
+	it('injects the tag once however many times the hook mounts', async () => {
+		document.head.append(document.createElement('script'));
+		const { useGTM } = await loadGTMForMode('prod');
+
+		renderGTM(useGTM);
+		cleanup();
+		renderGTM(useGTM);
+
+		expect(gtmScripts()).toHaveLength(1);
+	});
 });
