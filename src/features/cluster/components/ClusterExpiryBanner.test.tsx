@@ -5,9 +5,23 @@ import { Cluster, ClusterGrant } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
 import { cleanup, render, screen } from '@testing-library/react';
 import { act } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClusterExpiryBanner } from './ClusterExpiryBanner';
 
+// TestProvider mounts the real router, which starts the app's SystemStatus WebSocket. Under vitest
+// that resolves to undici 8's implementation, whose Event class is from a different realm than
+// jsdom's, so connecting throws ERR_INVALID_ARG_TYPE and vitest reports an unhandled error. A
+// banner test has no business opening a socket at all — see AGENTS.md on undici for the wider issue.
+class InertWebSocket {
+	readyState = 3;
+	close() {}
+	send() {}
+	addEventListener() {}
+	removeEventListener() {}
+}
+
+beforeAll(() => vi.stubGlobal('WebSocket', InertWebSocket));
+afterAll(() => vi.unstubAllGlobals());
 afterEach(() => cleanup());
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,11 +81,11 @@ describe('ClusterExpiryBanner', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	it('warns with a countdown once the runner stages the grant', async () => {
+	it('warns with a countdown once the runner stages the grant, and offers the upgrade', async () => {
 		await renderBanner(cluster({ currentStage: 'WARNED', endsAt: daysFromNow(5) }));
 		expect(screen.getByRole('alert').textContent).toContain('Trial ends in 5 days');
-		// Still running, so there is nothing to restore — no upgrade CTA yet.
-		expect(upgradeLink()).toBeNull();
+		// The upgrade is offered while the cluster is still healthy — that is the point of warning.
+		expect(upgradeLink()?.getAttribute('href')).toBe('/#/org-test/clu-test/edit?upgrade=hobbyist');
 	});
 
 	it('offers the upgrade route once service has been withdrawn', async () => {
@@ -79,7 +93,7 @@ describe('ClusterExpiryBanner', () => {
 			cluster({ isActive: false, status: 'EXPIRED', currentStage: 'SHUTDOWN', endsAt: daysFromNow(-2) }),
 		);
 		expect(screen.getByRole('alert').textContent).toContain('Trial ended 2 days ago');
-		expect(upgradeLink()?.getAttribute('href')).toBe('/#/org-test/clu-test/edit');
+		expect(upgradeLink()?.getAttribute('href')).toBe('/#/org-test/clu-test/edit?upgrade=hobbyist');
 	});
 
 	// A viewer without update permission can't act on it, so the link would only lead to a refusal.
