@@ -9,8 +9,8 @@ import { useStaffPermission } from '@/hooks/useAuth';
 import { AdminClusterGrant, ClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { PencilIcon, PlusIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowUpIcon, PencilIcon, PlusIcon } from 'lucide-react';
+import { ReactNode, useMemo, useState } from 'react';
 import { CreateGrantModal } from './components/CreateGrantModal';
 import { ExpiryPolicyPanel } from './components/ExpiryPolicyPanel';
 import { GrantFormModal } from './components/GrantFormModal';
@@ -53,6 +53,30 @@ function nextDue(grant: AdminClusterGrant): string {
 }
 
 /** 'any' is the unfiltered state. */
+/**
+ * A column that is also the sort control. central-manager offers exactly two orderings and they
+ * correspond to these two columns, so a separate dropdown was an indirection — the arrow marks
+ * which column the server ordered by. Both orderings are ascending (soonest first), so there is no
+ * direction to toggle.
+ */
+function SortableHead(
+	{ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode },
+) {
+	return (
+		<TableHead>
+			<button
+				type="button"
+				onClick={onClick}
+				aria-pressed={active}
+				className="inline-flex items-center gap-1 hover:text-foreground"
+			>
+				{children}
+				<ArrowUpIcon className={`size-3 ${active ? 'opacity-100' : 'opacity-0'}`} aria-hidden />
+			</button>
+		</TableHead>
+	);
+}
+
 const ANY = 'any';
 
 // The API's own enum values, not derived from fetched rows: with server-side narrowing the fetched
@@ -157,17 +181,6 @@ export function GrantsAdminIndex() {
 										</SelectGroup>
 									</SelectContent>
 								</Select>
-								<Select value={order} onValueChange={(value) => setOrder(value as GrantOrder)}>
-									<SelectTrigger className="w-44" aria-label="Sort order">
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectGroup>
-											<SelectItem value="ends-at">Soonest ending</SelectItem>
-											<SelectItem value="next-due">Next stage due</SelectItem>
-										</SelectGroup>
-									</SelectContent>
-								</Select>
 								<Select value={status} onValueChange={setStatus}>
 									<SelectTrigger className="w-36" aria-label="Filter by status">
 										<SelectValue />
@@ -222,8 +235,12 @@ export function GrantsAdminIndex() {
 													<TableHead>Organization</TableHead>
 													<TableHead>Cluster</TableHead>
 													<TableHead>Source</TableHead>
-													<TableHead>Next due</TableHead>
-													<TableHead>Ends</TableHead>
+													<SortableHead active={order === 'next-due'} onClick={() => setOrder('next-due')}>
+														Next due
+													</SortableHead>
+													<SortableHead active={order === 'ends-at'} onClick={() => setOrder('ends-at')}>
+														Ends
+													</SortableHead>
 													<TableHead className="w-0" />
 												</TableRow>
 											</TableHeader>
