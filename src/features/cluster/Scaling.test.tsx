@@ -25,14 +25,19 @@ vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
 }));
 
 let clusterStatus = 'UPDATING';
+// The grant matters: a trial->paid conversion reaches RUNNING before the server applies the plan, so
+// completion is RUNNING *plus* a grant that is no longer `conversion-pending`. Mocking the cluster
+// without one made every assertion here collapse to `status === 'RUNNING'`.
+let clusterGrant: { expiryPolicy: string | null } | null = null;
 let clusterInstances: Record<string, unknown>[] = [];
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
-		queryKey: [clusterId],
+		queryKey: [clusterId, clusterStatus, clusterGrant?.expiryPolicy],
 		queryFn: async () => ({
 			id: clusterId,
 			organizationId: 'org-1',
 			status: clusterStatus,
+			grant: clusterGrant,
 			instances: clusterInstances,
 		}),
 		retry: false,
@@ -56,6 +61,7 @@ function mount() {
 beforeEach(() => {
 	currentSearch = {};
 	clusterStatus = 'UPDATING';
+	clusterGrant = null;
 	clusterInstances = [];
 });
 
@@ -97,6 +103,25 @@ describe('Scaling status copy', () => {
 	it('still shows the completion state once the cluster is active again', async () => {
 		clusterStatus = 'RUNNING';
 		currentSearch = { immediate: true };
+		mount();
+		await waitFor(() => screen.getByText('All done!'));
+		expect(screen.getByText(/finished updating/)).toBeTruthy();
+	});
+
+	// The server starts the cluster BEFORE applying the owed plan change, so RUNNING alone is
+	// reached while the conversion is still in flight. Announcing completion there told a customer
+	// their upgrade had landed when it had not.
+	it('does not announce completion while a conversion is still applying', async () => {
+		clusterStatus = 'RUNNING';
+		clusterGrant = { expiryPolicy: 'conversion-pending' };
+		mount();
+		await waitFor(() => screen.getByText('Here we go!'));
+		expect(screen.queryByText('All done!')).toBeNull();
+	});
+
+	it('announces completion once the provisional grant has been replaced', async () => {
+		clusterStatus = 'RUNNING';
+		clusterGrant = { expiryPolicy: null };
 		mount();
 		await waitFor(() => screen.getByText('All done!'));
 		expect(screen.getByText(/finished updating/)).toBeTruthy();
