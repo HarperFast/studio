@@ -320,6 +320,27 @@ export interface AdminClusterGrant {
 	timeline?: ExpiryStageDue[] | null;
 }
 
+/**
+ * GET /Admin/ExpiryPolicy — the expiry policy tables as central-manager runs them. Reference data:
+ * the tables are code (`editableAtRuntime: false`), served so admin surfaces can show a timeline's
+ * meaning without studio encoding any of it. `destructive` marks stages whose actions stop or
+ * delete the cluster; which actions those are stays server-side.
+ */
+export interface AdminExpiryPolicies {
+	editableAtRuntime: false;
+	policies: Record<string, AdminExpiryPolicyStage[]>;
+}
+
+export interface AdminExpiryPolicyStage {
+	stage: ExpiryStage;
+	/** Offset from the grant's endsAt; negative = before it. */
+	daysFromEnd: number;
+	/** Usage percentage that can trigger the stage early, when the policy sets one. */
+	orUsagePct?: number | null;
+	actions: string[];
+	destructive: boolean;
+}
+
 export interface ExpiryStageDue {
 	stage: ExpiryStage;
 	dueAt: string | null;
