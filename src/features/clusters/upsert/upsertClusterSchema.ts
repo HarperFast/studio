@@ -48,6 +48,9 @@ export const UpsertClusterSchema = z.object({
 		}),
 	).max(100, { error: 'A maximum of 100 instances can be added to each cluster.' }),
 
+	/** Unbound grant to claim on create; the server ignores it on edit. */
+	grantId: z.string().optional(),
+
 	skipToBilling: z.boolean().optional(),
 	skipGtmWait: z.boolean().optional(),
 	sourceClusterId: z.string().optional(),
