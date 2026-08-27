@@ -68,10 +68,18 @@ async function mount(rows: AdminClusterGrant[]) {
 }
 
 describe('GrantsAdminIndex', () => {
-	it('lists grants with the org name resolved', async () => {
+	// The name is what a reader scans; the opaque org id would eat the column, so it moves to the
+	// cell's tooltip.
+	it('shows the org name, keeping the full id on hover', async () => {
 		await mount([grant({})]);
 		expect(screen.getByText('cgr-a')).toBeTruthy();
-		expect(screen.getByText(/org-1 \(Acme\)/)).toBeTruthy();
+		const orgCell = screen.getByText('Acme');
+		expect(orgCell.getAttribute('title')).toBe('org-1 (Acme)');
+	});
+
+	it('falls back to the org id when no name is known', async () => {
+		await mount([grant({ organizationId: 'org-unknown' })]);
+		expect(screen.getByText('org-unknown')).toBeTruthy();
 	});
 
 	it('marks an unbound voucher instead of linking a cluster', async () => {
