@@ -7,6 +7,8 @@ export interface ScopeOption {
 	label: string;
 	/** Right-aligned detail — what tells two similarly named options apart. */
 	hint?: string;
+	/** Retired, but still selectable: an existing grant may be scoped to one. */
+	inactive?: boolean;
 }
 
 interface ScopePickerProps {
@@ -31,7 +33,7 @@ interface ScopePickerProps {
 export function ScopePicker({ options, value, onChange, unrestrictedLabel, emptyLabel, ariaLabel }: ScopePickerProps) {
 	const selected = new Set(value);
 	const missing = value.filter((id) => !options.some((option) => option.id === id));
-	const rows = [...options, ...missing.map((id) => ({ id, label: id, hint: 'no longer exists' }))];
+	const rows: ScopeOption[] = [...options, ...missing.map((id) => ({ id, label: id, hint: 'no longer exists' }))];
 
 	const toggle = (id: string) => onChange(selected.has(id) ? value.filter((entry) => entry !== id) : [...value, id]);
 
@@ -47,7 +49,10 @@ export function ScopePicker({ options, value, onChange, unrestrictedLabel, empty
 							role="checkbox"
 							aria-checked={selected.has(option.id)}
 							onClick={() => toggle(option.id)}
-							className="flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/60"
+							className={cn(
+								'flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/60',
+								option.inactive && 'opacity-60',
+							)}
 						>
 							<span
 								aria-hidden
@@ -58,8 +63,12 @@ export function ScopePicker({ options, value, onChange, unrestrictedLabel, empty
 							>
 								{selected.has(option.id) && <CheckIcon className="size-3" />}
 							</span>
-							<span className="truncate">{option.label}</span>
-							{option.hint && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{option.hint}</span>}
+							<span className="truncate font-mono text-xs">{option.label}</span>
+							{option.hint && (
+								<span className="ml-auto truncate text-xs text-muted-foreground">
+									{option.inactive ? `inactive · ${option.hint}` : option.hint}
+								</span>
+							)}
 						</button>
 					))}
 			</div>

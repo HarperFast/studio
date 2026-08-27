@@ -36,21 +36,29 @@ export function GrantScopeFields({ enabled }: { enabled: boolean }) {
 	const plans = plansQuery.data;
 	const regions = regionsQuery.data;
 
-	// Grouped the way the cluster form groups them — deployment first, then price — so a reader
-	// picking "every colocated tier" finds them together.
+	// Both lists are labelled by id, not display name: the id is what a grant stores and what the
+	// server validates against, and for plans it is also the shorter, more distinct of the two —
+	// every plan name carries the same "Fabric Managed Service …" prefix. Sorting by id keeps each
+	// family (dedicated, block level, self-hosted) together.
 	const planOptions: ScopeOption[] = useMemo(() =>
 		[...(plans ?? [])]
-			.sort((a, b) => a.deploymentDescription.localeCompare(b.deploymentDescription) || a.priceUsd - b.priceUsd)
+			.sort((a, b) => a.id.localeCompare(b.id))
 			.map((plan) => ({
 				id: plan.id,
-				label: plan.name,
-				hint: `${plan.deploymentDescription} · ${plan.performanceDescription}`,
+				label: plan.id,
+				hint: plan.performanceDescription,
+				inactive: plan.status != null && plan.status !== 'ACTIVE',
 			})), [plans]);
 
 	const regionOptions: ScopeOption[] = useMemo(() =>
 		[...(regions ?? [])]
 			.sort((a, b) => a.id.localeCompare(b.id))
-			.map((region) => ({ id: region.id, label: region.id, hint: region.region })), [regions]);
+			.map((region) => ({
+				id: region.id,
+				label: region.id,
+				hint: region.region,
+				inactive: region.active === false,
+			})), [regions]);
 
 	return (
 		<>
