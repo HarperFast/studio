@@ -244,7 +244,7 @@ export function ClusterDetails({
 							cloudProvider={cloudProvider}
 						/>
 					)}
-				{!clusterId && <ClusterGrantId className="col-span-3 md:col-span-6" form={form} />}
+				{!clusterId && <ClusterGrantId className="col-span-3" form={form} />}
 				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 			</div>
 			{footer}
