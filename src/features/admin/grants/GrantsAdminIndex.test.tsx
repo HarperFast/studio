@@ -98,6 +98,13 @@ describe('GrantsAdminIndex', () => {
 		expect(screen.getByText('org-unknown')).toBeTruthy();
 	});
 
+	// Both ids are the reader's jumping-off point from a grant into what it authorizes.
+	it('links the organization and the cluster to their own pages', async () => {
+		await mount([grant({})]);
+		expect(screen.getByRole('link', { name: 'Acme' }).getAttribute('href')).toContain('/org-1');
+		expect(screen.getByRole('link', { name: 'clu-a' }).getAttribute('href')).toContain('/org-1/clu-a');
+	});
+
 	it('marks an unbound voucher instead of linking a cluster', async () => {
 		await mount([grant({ id: 'cgr-voucher', clusterId: null })]);
 		expect(screen.getByText('Unbound')).toBeTruthy();

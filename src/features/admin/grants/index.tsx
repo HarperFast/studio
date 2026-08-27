@@ -287,11 +287,14 @@ export function GrantsAdminIndex() {
 																	)
 																	: '—'}
 															</TableCell>
-															<TableCell
-																className="max-w-48 truncate"
-																title={formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
-															>
-																{orgNameById.get(grant.organizationId) ?? grant.organizationId}
+															<TableCell className="max-w-48 truncate">
+																<Link
+																	className="underline underline-offset-2 hover:no-underline"
+																	to={`/${grant.organizationId}`}
+																	title={formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
+																>
+																	{orgNameById.get(grant.organizationId) ?? grant.organizationId}
+																</Link>
 															</TableCell>
 															<TableCell>
 																{grant.clusterId
