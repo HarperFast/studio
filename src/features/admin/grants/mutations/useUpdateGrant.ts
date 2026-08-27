@@ -40,3 +40,33 @@ export async function updateGrant({ id, changes }: UpdateGrantInput): Promise<Ad
 export function useUpdateGrantMutation() {
 	return useMutation<AdminClusterGrant, Error, UpdateGrantInput>({ mutationFn: updateGrant });
 }
+
+/**
+ * What `POST /Admin/ClusterGrant` accepts. Exactly one of `clusterId` or `organizationId` — the
+ * server enforces the xor, and the two mean different things: bound to a cluster now, or an
+ * unbound voucher that cluster creation claims later.
+ */
+export interface CreateGrantBody {
+	clusterId?: string;
+	organizationId?: string;
+	source: 'trial' | 'gift' | 'comp';
+	startsAt?: string;
+	/** Omitted or null = forever, which only gift and comp may be. */
+	endsAt?: string | null;
+	expiryPolicy?: string;
+	allowedPlanIds?: string[] | null;
+	allowedRegionIds?: string[] | null;
+	reason: string;
+}
+
+const GRANTS_COLLECTION = '/Admin/ClusterGrant' as unknown as keyof paths;
+
+/** POST /Admin/ClusterGrant → mint a grant. Requires `grant:write`. */
+export async function createGrant(body: CreateGrantBody): Promise<AdminClusterGrant> {
+	const { data } = await apiClient.post(GRANTS_COLLECTION, body);
+	return data as unknown as AdminClusterGrant;
+}
+
+export function useCreateGrantMutation() {
+	return useMutation<AdminClusterGrant, Error, CreateGrantBody>({ mutationFn: createGrant });
+}
