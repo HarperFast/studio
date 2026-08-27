@@ -181,7 +181,11 @@ export function GrantsAdminIndex() {
 														<TableRow key={grant.id} title={grant.reason ?? undefined}>
 															<TableCell className="font-mono text-xs font-medium">{grant.id}</TableCell>
 															<TableCell>
-																<Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+																{
+																	/* Fixed width so the column reads as one edge: the variants' labels differ in
+																    length, and w-fit badges left it ragged. */
+																}
+																<Badge variant={badge.variant} className="w-20 text-[10px]">{badge.label}</Badge>
 															</TableCell>
 															<TableCell
 																className="max-w-48 truncate"
