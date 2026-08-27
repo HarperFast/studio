@@ -91,7 +91,7 @@ export function GrantsAdminIndex() {
 	}, [grants, search, orgNameById]);
 
 	return (
-		<div className="max-w-5xl">
+		<div className="max-w-6xl">
 			<div>
 				<h1 className="text-2xl font-light">Grants</h1>
 				<p className="mt-2 text-sm text-muted-foreground">
@@ -156,36 +156,38 @@ export function GrantsAdminIndex() {
 								? <p className="text-sm text-muted-foreground">No grants match the current filters.</p>
 								: (
 									<div className="overflow-x-auto">
-										<Table>
+										<Table className="[&_th]:pr-4 [&_td]:pr-4 [&_td]:py-2.5">
 											<TableHeader>
 												<TableRow>
 													<TableHead>Grant</TableHead>
+													<TableHead>Status</TableHead>
 													<TableHead>Organization</TableHead>
 													<TableHead>Cluster</TableHead>
 													<TableHead>Source</TableHead>
 													<TableHead>Next due</TableHead>
 													<TableHead>Ends</TableHead>
-													<TableHead>Reason</TableHead>
 												</TableRow>
 											</TableHeader>
 											<TableBody>
 												{filtered.map((grant) => {
 													const badge = stateBadge(grant);
 													return (
-														<TableRow key={grant.id} className={isSettled(grant) ? 'opacity-60' : undefined}>
-															<TableCell className="font-mono text-xs font-medium">
-																<span className="inline-flex items-center gap-2 whitespace-nowrap">
-																	{grant.id}
-																	{badge && (
-																		<Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
-																	)}
-																</span>
+														<TableRow
+															key={grant.id}
+															className={isSettled(grant) ? 'opacity-60' : undefined}
+															title={grant.reason ?? undefined}
+														>
+															<TableCell className="font-mono text-xs font-medium">{grant.id}</TableCell>
+															<TableCell>
+																{badge
+																	? <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+																	: <Badge variant="success" className="text-[10px]">Active</Badge>}
 															</TableCell>
 															<TableCell
 																className="max-w-48 truncate"
 																title={formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
 															>
-																{formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
+																{orgNameById.get(grant.organizationId) ?? grant.organizationId}
 															</TableCell>
 															<TableCell>
 																{grant.clusterId
@@ -202,12 +204,6 @@ export function GrantsAdminIndex() {
 															<TableCell>{grant.source}</TableCell>
 															<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
-															<TableCell
-																className="max-w-56 truncate text-muted-foreground"
-																title={grant.reason ?? undefined}
-															>
-																{grant.reason ?? '—'}
-															</TableCell>
 														</TableRow>
 													);
 												})}
