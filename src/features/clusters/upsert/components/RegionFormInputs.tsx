@@ -76,6 +76,9 @@ export function RegionFormInputs({
 	);
 
 	useEffect(function autoPickLatencyDescription() {
+		// Frozen means frozen: rewriting the distribution here submits a region set the cluster does
+		// not have, which the server refuses.
+		if (disabled) { return; }
 		if (
 			selectedRegionName && availableLatencyDescriptions?.length
 			&& !availableLatencyDescriptions?.includes(selectedLatencyDescription)
@@ -87,7 +90,7 @@ export function RegionFormInputs({
 			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
 			void form.trigger();
 		}
-	}, [availableLatencyDescriptions, form, index, selectedLatencyDescription, selectedRegionName]);
+	}, [availableLatencyDescriptions, disabled, form, index, selectedLatencyDescription, selectedRegionName]);
 
 	const onRemoveClicked = useCallback(() => {
 		fieldArray?.remove(index);
