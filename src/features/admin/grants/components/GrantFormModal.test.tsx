@@ -18,6 +18,35 @@ vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 		isPending: false,
 	}),
 }));
+vi.mock('@/features/admin/plans/queries/getPlans', () => ({
+	getPlansQueryOptions: () => ({
+		queryKey: ['test-plans'],
+		queryFn: async () => [
+			{
+				id: 'plan-hobby',
+				name: 'Hobbyist',
+				deploymentDescription: 'Colocated',
+				performanceDescription: 'Small',
+				priceUsd: 20,
+			},
+			{
+				id: 'plan-ded',
+				name: 'Dedicated 1',
+				deploymentDescription: 'Dedicated',
+				performanceDescription: 'Large',
+				priceUsd: 400,
+			},
+		],
+		retry: false,
+	}),
+}));
+vi.mock('@/features/admin/regions/queries/getRegions', () => ({
+	getRegionsQueryOptions: () => ({
+		queryKey: ['test-regions'],
+		queryFn: async () => [{ id: 'us-east-1', region: 'US East' }, { id: 'eu-west-1', region: 'EU West' }],
+		retry: false,
+	}),
+}));
 vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 	getExpiryPoliciesQueryOptions: () => ({
 		queryKey: ['test-policies'],
