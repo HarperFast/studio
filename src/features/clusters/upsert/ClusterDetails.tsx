@@ -72,6 +72,7 @@ export function ClusterDetails({
 		const plansByTier = selectablePlansByTier(deploymentToPerformanceToPlan[selectedDeployment] || {}, {
 			isExistingCluster: !!clusterId,
 			currentPlanId,
+			selectedPerformance,
 		});
 		// Premium means "costs money", matching calculatePremiumOnlyRegions. Keyed on planLevel it
 		// disagreed with itself inside one form: Hobbyist is planLevel 0 like the trial, so the $20
@@ -104,7 +105,7 @@ export function ClusterDetails({
 				isPremium,
 			};
 		});
-	}, [clusterId, currentPlanId, deploymentToPerformanceToPlan, selectedDeployment]);
+	}, [clusterId, currentPlanId, deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
 	const availableDeploymentTypes = useMemo(() => Object.keys(deploymentToPerformanceToPlan).sort(), [
 		deploymentToPerformanceToPlan,
 	]);
@@ -140,13 +141,20 @@ export function ClusterDetails({
 	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
 	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried.
 	const allowVersionResubmit = mode === 'version' && !!partialUpgrade;
+	// The upgrade CTA opens the editor already showing the plan the customer came to buy, which makes
+	// it the form's default — so `isDirty` is false and the submit button sits disabled on a form that
+	// does have something to submit. Same shape as the version resubmit above: the intent came from
+	// the route, not from a field the customer touched.
+	const allowUpgradeResubmit = !!clusterId && !!currentPlanId && selectedPlan?.id !== currentPlanId;
 
 	const footer = (
 		<DialogFooter className="mt-3 mb-12">
 			<Button
 				type="submit"
 				variant="submit"
-				disabled={isPending || (clusterId && !isDirty && !allowVersionResubmit) || !isValid}
+				disabled={isPending
+					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
+					|| !isValid}
 			>
 				{mode !== 'version' && totalPrice > 0
 					? 'Confirm Payment Details'

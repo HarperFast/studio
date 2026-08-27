@@ -46,9 +46,12 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const isStopped = cluster.status === 'STOPPED';
 	const isPartial = cluster.status === 'PARTIAL';
 	const opsDisabled = !update || isPending;
-	// Matches ClusterCard, and the server's own start gate — see isStartBlockedByPlan. Terminate
-	// stays either way: leaving is always allowed.
-	const planEndedAndDown = isStartBlockedByPlan(cluster);
+	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
+	// can still be RUNNING or PARTIAL. Hiding the whole group on this alone left an up-and-billing
+	// cluster with Terminate as its only control.
+	const startBlocked = isStartBlockedByPlan(cluster);
+	// Hidden only when the group would be a heading over nothing.
+	const planEndedAndDown = startBlocked && !isRunning && !isPartial;
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
@@ -104,12 +107,15 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 						<>
 							<DropdownMenuLabel className="text-gray-600 text-xs">Container</DropdownMenuLabel>
 							<DropdownMenuItem
-								disabled={opsDisabled || !(isStopped || isPartial)}
+								disabled={opsDisabled || startBlocked || !(isStopped || isPartial)}
 								onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
 							>
 								<PlayIcon /> Start
 							</DropdownMenuItem>
-							<DropdownMenuItem disabled={opsDisabled || !isStopped} onClick={() => setSafeModeAction('start')}>
+							<DropdownMenuItem
+								disabled={opsDisabled || startBlocked || !isStopped}
+								onClick={() => setSafeModeAction('start')}
+							>
 								<LifeBuoyIcon /> Start in safe mode
 							</DropdownMenuItem>
 							<DropdownMenuItem
