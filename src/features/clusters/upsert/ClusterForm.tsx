@@ -354,6 +354,10 @@ export function ClusterForm({
 
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
+		// A frozen region set must reach the server exactly as the cluster already has it. Disabling
+		// the select only stopped the customer changing it — these effects still rewrote the value
+		// underneath, and the mutated set was what got submitted, which the server then refused.
+		if (regionSetFrozen) { return; }
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
 			const firstRegionId = selectedRegionPlans[0].regionId;
 			if (!isOrganizationRegionId(firstRegionId) && !allowedRegionIds.includes(firstRegionId)) {
@@ -367,47 +371,23 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [selectedPlan, selectedRegionPlans, form, regionLookup, regionLocations]);
+	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations, regionSetFrozen]);
 
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
 		const isSelfManaged = selectedDeployment === 'Self-Hosted';
-		if (isSelfManaged || !regionLookup.size || !selectedRegionPlans.length) {
-			return;
-		}
-		for (let i = 0; i < selectedRegionPlans.length; i++) {
-			const { regionId } = selectedRegionPlans[i];
-			// A custom region is deployment-agnostic; one the lookup lacks is pending a refetch (or gone),
-			// which validation reports without discarding the selection.
-			if (!regionId || regionLookup.has(regionId) || isOrganizationRegionId(regionId)) {
-				continue;
+		// Blanking a frozen region leaves the form unsatisfiable: the control is disabled, so nothing
+		// can put a value back, and the schema requires one. The cluster is running in that region
+		// whether or not it currently accepts new placements.
+		if (regionSetFrozen) { return; }
+		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
+			for (let i = 0; i < selectedRegionPlans.length; i++) {
+				const regionPlan = selectedRegionPlans[i];
+				if (!regionNameToLatencyToRegion[regionPlan.regionName]) {
+					form.setValue(`regionPlans.${i}.regionName`, '');
+				}
 			}
-			// Switching deployment swaps the catalog: carry the choice over by name and latency tier
-			// where the new catalog has a match, otherwise clear it.
-			const previous = colocatedRegionLookup.get(regionId) ?? dedicatedRegionLookup.get(regionId);
-			const previousTier = previous?.kind === 'catalog' ? previous.latencyDescription.split(' ')[0].toLowerCase() : '';
-			const replacement = previous
-				&& (regionLocations?.find(r =>
-					r.region === previous.name && r.latencyDescription.split(' ')[0].toLowerCase() === previousTier
-				)
-					?? regionLocations?.find(r => r.region === previous.name));
-			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
 		}
-	}, [
-		colocatedRegionLookup,
-		dedicatedRegionLookup,
-		form,
-		regionLocations,
-		regionLookup,
-		selectedDeployment,
-		selectedRegionPlans,
-	]);
-
-	useEffect(function revalidateCustomRegionsWhenLookupChanges() {
-		// A custom region defined inline only resolves once its refetch lands.
-		if (form.getValues('regionPlans').some(entry => isOrganizationRegionId(entry.regionId))) {
-			void form.trigger('regionPlans');
-		}
-	}, [form, regionLookup]);
+	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans, regionSetFrozen]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
