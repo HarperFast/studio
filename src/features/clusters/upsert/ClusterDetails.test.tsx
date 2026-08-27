@@ -237,14 +237,14 @@ describe('ClusterDetails — arriving from the upgrade CTA', () => {
 
 		it('creates directly once a grant id is entered', async () => {
 			await mountEditor();
-			fireEvent.change(screen.getByPlaceholderText(/cgr-/), { target: { value: 'cgr-abc' } });
+			fireEvent.change(screen.getByLabelText('Voucher ID'), { target: { value: 'cgr-abc' } });
 			await act(() => null);
 			expect(screen.getByRole('button', { name: /Create New Cluster/ })).toBeTruthy();
 		});
 
 		it('has no grant field when editing an existing cluster', async () => {
 			await mountEditor({ clusterId: 'clu-1' });
-			expect(screen.queryByPlaceholderText(/cgr-/)).toBeNull();
+			expect(screen.queryByLabelText('Voucher ID')).toBeNull();
 		});
 	});
 });
