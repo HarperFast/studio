@@ -10,13 +10,22 @@ import { GrantsAdminIndex } from './index';
 
 let grantRows: AdminClusterGrant[] = [];
 let truncated = false;
+let matchedTotal: number | null | undefined;
 const requestedFilters = vi.fn();
 vi.mock('./queries/getGrants', () => ({
 	getGrantsQueryOptions: (filters: { source?: string; status?: string } = {}) => ({
 		queryKey: ['test-grants', JSON.stringify(grantRows.map((g) => g.id)), filters.source ?? '', filters.status ?? ''],
 		queryFn: async () => {
 			requestedFilters(filters);
-			return { grants: grantRows, returned: grantRows.length, truncated, limit: 500 };
+			// `matched` is omitted entirely when matchedTotal is null, standing in for a
+			// central-manager that predates the field.
+			return {
+				grants: grantRows,
+				returned: grantRows.length,
+				...(matchedTotal === null ? {} : { matched: matchedTotal ?? grantRows.length }),
+				truncated,
+				limit: 500,
+			};
 		},
 		retry: false,
 	}),
@@ -33,6 +42,7 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 afterEach(() => {
 	cleanup();
 	truncated = false;
+	matchedTotal = undefined;
 	requestedFilters.mockClear();
 });
 
@@ -149,6 +159,25 @@ describe('GrantsAdminIndex', () => {
 	it('opens on live grants rather than the whole history', async () => {
 		await mount([grant({})]);
 		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE' });
+	});
+
+	// central-manager orders the whole filtered set before capping, so the notice can name the
+	// shortfall exactly rather than gesturing at it.
+	it('names how many matched when the server capped the result', async () => {
+		truncated = true;
+		matchedTotal = 3412;
+		await mount([grant({})]);
+		expect(screen.getByRole('alert').textContent).toContain('of 3412 matching grants');
+	});
+
+	// An older central-manager omits `matched`; the notice must still be true without it.
+	it('falls back to a true statement when the server sends no match count', async () => {
+		truncated = true;
+		matchedTotal = null;
+		await mount([grant({})]);
+		const notice = screen.getByRole('alert').textContent ?? '';
+		expect(notice).toContain('This list is incomplete');
+		expect(notice).not.toContain('matching grants');
 	});
 
 	// "No grants match" reads as "no such grant exists" when the row simply fell past the cap.
