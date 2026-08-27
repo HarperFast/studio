@@ -1,15 +1,19 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
+import { useStaffPermission } from '@/hooks/useAuth';
 import { AdminClusterGrant, ClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { PencilIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ExpiryPolicyPanel } from './components/ExpiryPolicyPanel';
-import { getGrantsQueryOptions } from './queries/getGrants';
+import { GrantFormModal } from './components/GrantFormModal';
+import { getGrantsQueryOptions, GrantOrder } from './queries/getGrants';
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const fmtDate = (iso: string | null | undefined) => {
@@ -62,10 +66,17 @@ export function GrantsAdminIndex() {
 	// would eventually be all a reader sees. Live grants are bounded by the cluster count, and are
 	// the ones anyone acts on, so the page opens on them.
 	const [status, setStatus] = useState<string>('ACTIVE');
+	// ends-at reads as history ("when did this end"); next-due answers the pipeline question
+	// ("what fires next"). They genuinely disagree, so it is a choice rather than a default.
+	const [order, setOrder] = useState<GrantOrder>('ends-at');
+	const [editing, setEditing] = useState<AdminClusterGrant | null>(null);
+	// The page needs grant:read; changing terms posts to the grant:write-gated endpoint.
+	const canWriteGrants = useStaffPermission('grant:write');
 	// Source and status narrow on the server, so the page stops fetching the world at fleet scale.
 	const { data: report, isLoading, isError } = useQuery(getGrantsQueryOptions({
 		source: source === ANY ? undefined : source,
 		status: status === ANY ? undefined : status,
+		order,
 	}));
 	const { data: orgResult } = useQuery(getOrganizationsQueryOptions());
 	const grants = report?.grants;
@@ -88,13 +99,9 @@ export function GrantsAdminIndex() {
 				|| g.status.toLowerCase().includes(q)
 				|| (g.currentStage ?? '').toLowerCase().includes(q)
 				|| (g.reason ?? '').toLowerCase().includes(q)
-			)
-			// Soonest-ending first; forever grants (null endsAt) sink to the bottom.
-			.sort((a, b) => {
-				const at = a.endsAt ? new Date(a.endsAt).getTime() : Infinity;
-				const bt = b.endsAt ? new Date(b.endsAt).getTime() : Infinity;
-				return at - bt;
-			});
+			);
+		// No client sort: the server orders the whole filtered set before capping, and re-sorting
+		// here by endsAt would silently undo the next-due ordering it does not know about.
 	}, [grants, search, orgNameById]);
 
 	return (
@@ -137,6 +144,17 @@ export function GrantsAdminIndex() {
 										<SelectGroup>
 											<SelectItem value={ANY}>Any source</SelectItem>
 											{SOURCES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+										</SelectGroup>
+									</SelectContent>
+								</Select>
+								<Select value={order} onValueChange={(value) => setOrder(value as GrantOrder)}>
+									<SelectTrigger className="w-44" aria-label="Sort order">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectGroup>
+											<SelectItem value="ends-at">Soonest ending</SelectItem>
+											<SelectItem value="next-due">Next stage due</SelectItem>
 										</SelectGroup>
 									</SelectContent>
 								</Select>
@@ -196,6 +214,7 @@ export function GrantsAdminIndex() {
 													<TableHead>Source</TableHead>
 													<TableHead>Next due</TableHead>
 													<TableHead>Ends</TableHead>
+													<TableHead className="w-0" />
 												</TableRow>
 											</TableHeader>
 											<TableBody>
@@ -251,6 +270,22 @@ export function GrantsAdminIndex() {
 															<TableCell>{grant.source}</TableCell>
 															<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
+															<TableCell className="text-right">
+																{
+																	/* Only an ACTIVE grant is editable: central-manager answers 409 for a
+																    settled one, since its terms are history rather than knobs. */
+																}
+																{canWriteGrants && grant.status === 'ACTIVE' && (
+																	<Button
+																		variant="ghost"
+																		size="icon"
+																		aria-label={`Edit ${grant.id}`}
+																		onClick={() => setEditing(grant)}
+																	>
+																		<PencilIcon />
+																	</Button>
+																)}
+															</TableCell>
 														</TableRow>
 													);
 												})}
@@ -265,6 +300,8 @@ export function GrantsAdminIndex() {
 			<div className="mt-8">
 				<ExpiryPolicyPanel />
 			</div>
+
+			<GrantFormModal open={!!editing} onOpenChange={(next) => !next && setEditing(null)} grant={editing} />
 		</div>
 	);
 }
