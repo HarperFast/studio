@@ -249,7 +249,7 @@ const CUSTOM_OPERATION_PATTERN = /^[A-Za-z][A-Za-z0-9_.:-]*$/;
 
 /**
  * Grouped checkbox dropdown over the grantable catalog, borrowing the filter/typeahead handling
- * from `features/admin/regions/components/MultiSelect` (which fits chips of known options but not
+ * from `features/admin/components/MultiSelect` (which fits chips of known options but not
  * category sections, super_user badges, or free-text names for component-registered operations).
  */
 function OperationsPicker({
