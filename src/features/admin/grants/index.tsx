@@ -73,11 +73,12 @@ function SortableHead(
 			>
 				{children}
 				{
-					/* The inactive arrow fades in on hover. With no affordance at all, a header that only
-				    reveals itself once clicked reads as an arrow that moved, not a control. */
+					/* Both arrows are always drawn, the inactive one dimmed. Revealing it only on hover made the
+				    column look unsortable until you happened to point at it, and made clicking read as an arrow
+				    appearing rather than a sort being applied. */
 				}
 				<ArrowUpIcon
-					className={`size-3.5 transition-opacity ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}
+					className={`size-3.5 transition-opacity ${active ? 'opacity-100' : 'opacity-30 group-hover:opacity-60'}`}
 					aria-hidden
 				/>
 			</button>
