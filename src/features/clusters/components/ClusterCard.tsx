@@ -219,7 +219,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 			disabled: signingOut,
 			label: 'Direct Sign Out',
 		},
-		upgradeHref && update && {
+		!!upgradeHref && update && {
 			key: 'upgrade',
 			to: `${cluster.id}/edit`,
 			disabled: signingOut,
