@@ -8,11 +8,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CreateGrantModal } from './CreateGrantModal';
 
 const createGrant = vi.fn();
+const onCreated = vi.fn();
 vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 	useCreateGrantMutation: () => ({
-		mutate: (body: unknown, opts?: { onSuccess?: () => void }) => {
+		mutate: (body: unknown, opts?: { onSuccess?: (grant: unknown) => void }) => {
 			createGrant(body);
-			opts?.onSuccess?.();
+			opts?.onSuccess?.({ id: 'grt-created', ...(body as object) });
 		},
 		isPending: false,
 	}),
@@ -24,6 +25,35 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 			editableAtRuntime: false,
 			policies: { 'consumer-trial': [], 'conversion-pending': [] },
 		}),
+		retry: false,
+	}),
+}));
+vi.mock('@/features/admin/plans/queries/getPlans', () => ({
+	getPlansQueryOptions: () => ({
+		queryKey: ['test-plans'],
+		queryFn: async () => [
+			{
+				id: 'plan-hobby',
+				name: 'Hobbyist',
+				deploymentDescription: 'Colocated',
+				performanceDescription: 'Small',
+				priceUsd: 20,
+			},
+			{
+				id: 'plan-ded',
+				name: 'Dedicated 1',
+				deploymentDescription: 'Dedicated',
+				performanceDescription: 'Large',
+				priceUsd: 400,
+			},
+		],
+		retry: false,
+	}),
+}));
+vi.mock('@/features/admin/regions/queries/getRegions', () => ({
+	getRegionsQueryOptions: () => ({
+		queryKey: ['test-regions'],
+		queryFn: async () => [{ id: 'us-east-1', region: 'US East' }, { id: 'eu-west-1', region: 'EU West' }],
 		retry: false,
 	}),
 }));
@@ -39,12 +69,13 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 afterEach(() => {
 	cleanup();
 	createGrant.mockClear();
+	onCreated.mockClear();
 });
 
 async function mount() {
 	const result = render(
 		<TestProvider>
-			<CreateGrantModal open onOpenChange={() => {}} />
+			<CreateGrantModal open onOpenChange={() => {}} onCreated={onCreated} />
 		</TestProvider>,
 	);
 	await act(() => null);
@@ -133,6 +164,40 @@ describe('CreateGrantModal', () => {
 		await act(() => null);
 		const options = screen.getAllByRole('option').map((o) => o.textContent);
 		expect(options).toEqual(['comp', 'gift', 'trial']);
+	});
+
+	// The server refuses an empty array and stores null for "any", so an untouched picker must send
+	// nothing at all rather than [].
+	it('omits the scopes when nothing is picked, and sends what is', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		fireEvent.change(reasonBox(), { target: { value: 'unscoped' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedPlanIds');
+		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedRegionIds');
+
+		fireEvent.click(screen.getByRole('checkbox', { name: /Hobbyist/ }));
+		fireEvent.click(screen.getByRole('checkbox', { name: /us-east-1/ }));
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		const [body] = createGrant.mock.calls[1];
+		expect(body.allowedPlanIds).toEqual(['plan-hobby']);
+		expect(body.allowedRegionIds).toEqual(['us-east-1']);
+	});
+
+	// The id is generated server-side and is the only handle on an unbound grant, so the caller is
+	// handed the created record rather than a toast that disappears.
+	it('hands the created grant to its caller', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(onCreated.mock.calls[0][0].id).toBe('grt-created');
 	});
 
 	// A window that never opens would occupy the cluster's live slot while authorizing nothing.
