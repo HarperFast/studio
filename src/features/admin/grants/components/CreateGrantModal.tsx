@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
 import {
 	CreateGrantSchema,
 	CreateGrantValues,
@@ -18,6 +19,7 @@ import { useCreateGrantMutation } from '@/features/admin/grants/mutations/useUpd
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
+import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
@@ -35,6 +37,8 @@ const DEFAULTS: CreateGrantValues = {
 	startsAt: '',
 	endsAt: '',
 	expiryPolicy: NO_EXPIRY_POLICY,
+	allowedPlanIds: [],
+	allowedRegionIds: [],
 	reason: '',
 };
 
@@ -47,7 +51,12 @@ const DEFAULTS: CreateGrantValues = {
  * creation claims. The server takes exactly one of the two, so the form asks which rather than
  * offering both fields and letting the xor fail server-side.
  */
-export function CreateGrantModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+export function CreateGrantModal({ open, onOpenChange, onCreated }: {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	/** Handed the created grant so the caller can show its server-generated id. */
+	onCreated: (grant: AdminClusterGrant) => void;
+}) {
 	const queryClient = useQueryClient();
 	const { mutate: create, isPending } = useCreateGrantMutation();
 	const { data: policyData } = useQuery({ ...getExpiryPoliciesQueryOptions(), enabled: open });
@@ -103,12 +112,17 @@ export function CreateGrantModal({ open, onOpenChange }: { open: boolean; onOpen
 			// Omitted means forever, which only gift and comp may be.
 			endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
 			expiryPolicy: values.expiryPolicy,
+			// An empty list is refused by the server; null — omitted here — is "any".
+			...(values.allowedPlanIds.length ? { allowedPlanIds: values.allowedPlanIds } : {}),
+			...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
 			reason: values.reason.trim(),
 		}, {
-			onSuccess: () => {
-				toast.success('Grant created');
+			onSuccess: (grant) => {
 				void queryClient.invalidateQueries({ queryKey: grantsQueryKey });
 				onOpenChange(false);
+				// No toast: the id is generated server-side and is the only handle on an unbound
+				// grant, so it is handed over in a dialog the reader can copy from.
+				onCreated(grant);
 			},
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
@@ -275,6 +289,8 @@ export function CreateGrantModal({ open, onOpenChange }: { open: boolean; onOpen
 								</FormItem>
 							)}
 						/>
+
+						<GrantScopeFields enabled={open} />
 
 						<FormField
 							control={form.control}
