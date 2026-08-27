@@ -6,9 +6,13 @@ import { queryOptions } from '@tanstack/react-query';
 /** Served by central-manager but not yet in the generated spec; shapes declared in api.patch.d.ts. */
 const GRANT_REPORTING_PATH = '/Admin/GrantReporting' as unknown as keyof paths;
 
+export type GrantOrder = 'ends-at' | 'next-due';
+
 export interface GrantReportingFilters {
 	source?: string;
 	status?: string;
+	/** `ends-at` (default) reads as history; `next-due` is the pipeline question. */
+	order?: GrantOrder;
 }
 
 export interface GrantReportingResult {
@@ -27,6 +31,8 @@ export interface GrantReportingResult {
 	 */
 	truncated: boolean;
 	limit: number;
+	/** Echoed back, so a control can reflect what the server actually applied. */
+	order?: GrantOrder;
 }
 
 /**
@@ -41,6 +47,7 @@ export async function getGrants(filters: GrantReportingFilters): Promise<GrantRe
 	const params: Record<string, string> = {};
 	if (filters.source) { params.source = filters.source; }
 	if (filters.status) { params.status = filters.status; }
+	if (filters.order) { params.order = filters.order; }
 	const { data } = await apiClient.get(GRANT_REPORTING_PATH, { params });
 	return data as unknown as GrantReportingResult;
 }
@@ -49,7 +56,7 @@ export const grantsQueryKey = ['fabric-admin', 'grants'];
 
 export function getGrantsQueryOptions(filters: GrantReportingFilters = {}) {
 	return queryOptions({
-		queryKey: [...grantsQueryKey, filters.source ?? '', filters.status ?? ''],
+		queryKey: [...grantsQueryKey, filters.source ?? '', filters.status ?? '', filters.order ?? ''],
 		queryFn: () => getGrants(filters),
 		retry: false,
 	});
