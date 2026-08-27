@@ -57,6 +57,10 @@ export function GrantScopeFields({ enabled }: { enabled: boolean }) {
 				id: region.id,
 				label: region.id,
 				hint: region.region,
+				// Region size, not occupancy: instanceCount is how many instances a cluster gets when
+				// it deploys here, which is what makes one region a bigger commitment than another.
+				meta: `${region.instanceCount} ${region.instanceCount === 1 ? 'instance' : 'instances'}`,
+				title: `${region.instanceCount} instance(s) per cluster deployed in ${region.id}`,
 				inactive: region.active === false,
 			})), [regions]);
 
