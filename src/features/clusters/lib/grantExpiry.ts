@@ -172,13 +172,19 @@ export function describeGrantExpiry(
 	// GRACE expires the grant but does NOT stop the cluster — the shutdown is a separate stage days
 	// later — so it has to be answered before the !isActive branch. Only while the cluster really is
 	// up: once it is down, the withdrawn branch below tells the truth and this would not.
-	if (grant.currentStage === 'GRACE' && !stopped) {
+	if (grant.currentStage === 'GRACE') {
 		return {
 			stage: 'GRACE',
 			severity: 'warning',
 			badgeLabel: 'Grace period',
 			title: endedTitle(grant, days),
-			detail: 'Your cluster is still running while we sort out renewal. Contact us to continue service.',
+			// Read the state rather than assert it, but stay in this arm either way: a stopped grace
+			// cluster fell through to the withdrawn copy, which told an enterprise account mid-renewal
+			// to buy a $20 plan — and was wrong twice over, since nothing suspended it and the server
+			// would accept a plain Start.
+			detail: stopped
+				? 'Your cluster is stopped while we sort out renewal. Contact us to continue service.'
+				: 'Your cluster is still running while we sort out renewal. Contact us to continue service.',
 			needsUpgrade: false,
 			// No self-serve CTA: grace belongs to the enterprise policy, so this is an account with a
 			// negotiated agreement. Offering a $20 Hobbyist plan would be the wrong answer to it.
