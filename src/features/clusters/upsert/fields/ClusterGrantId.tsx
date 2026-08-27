@@ -36,7 +36,7 @@ export function ClusterGrantId({
 				<FormItem className={className}>
 					<FormLabel className="pb-1">Voucher ID</FormLabel>
 					<FormControl>
-						<Input type="text" placeholder="cgr-…" {...field} value={field.value ?? ''} />
+						<Input type="text" {...field} value={field.value ?? ''} />
 					</FormControl>
 					<FormMessage />
 				</FormItem>
