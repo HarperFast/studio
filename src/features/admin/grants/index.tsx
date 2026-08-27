@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
 import { AdminClusterGrant, ClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
@@ -188,11 +189,21 @@ export function GrantsAdminIndex() {
 																}
 																<Badge variant={badge.variant} className="w-20 text-[10px]">{badge.label}</Badge>
 															</TableCell>
-															<TableCell
-																className="max-w-44 truncate text-muted-foreground"
-																title={grant.reason ?? undefined}
-															>
-																{grant.reason ?? '—'}
+															<TableCell className="max-w-44 text-muted-foreground">
+																{grant.reason
+																	? (
+																		<Tooltip>
+																			{
+																				/* The cell truncates, so the tooltip is the only way to read a long
+																			    reason — the native title attribute was too slow to discover. */
+																			}
+																			<TooltipTrigger asChild>
+																				<span className="block truncate">{grant.reason}</span>
+																			</TooltipTrigger>
+																			<TooltipContent className="max-w-96">{grant.reason}</TooltipContent>
+																		</Tooltip>
+																	)
+																	: '—'}
 															</TableCell>
 															<TableCell
 																className="max-w-48 truncate"
