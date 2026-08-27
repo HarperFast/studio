@@ -2,7 +2,7 @@ import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { hasStaffPermission, useCloudAuth } from '@/hooks/useAuth';
 import { LocalUser, StaffPermission, User } from '@/integrations/api/api.patch';
 import { Navigate, Outlet, useLocation } from '@tanstack/react-router';
-import { BellIcon, GlobeIcon, KeyRoundIcon, ServerIcon, SirenIcon } from 'lucide-react';
+import { BellIcon, GlobeIcon, KeyRoundIcon, ReceiptTextIcon } from 'lucide-react';
 
 /**
  * Shell for the Admin section: a responsive sub-nav rail (so future admin
@@ -18,10 +18,9 @@ const items: Array<
 > = [
 	{ to: '/admin/notifications', label: 'Notifications', icon: BellIcon, permission: 'systemStatus:write' },
 	{ to: '/admin/regions', label: 'Regions', icon: GlobeIcon, permission: 'region:read' },
-	{ to: '/admin/hosts', label: 'Hosts', icon: ServerIcon, permission: 'host:read' },
-	{ to: '/admin/monitoring', label: 'Monitoring', icon: SirenIcon, permission: 'cluster:read' },
-	// Only an API that sends apiToken:self has the token endpoints this page drives (DESIGN.md);
-	// super_user cannot mint a staff credential.
+	{ to: '/admin/grants', label: 'Grants', icon: ReceiptTextIcon, permission: 'grant:read' },
+	// Minting a token requires the Google SSO session only staff sign-ins have;
+	// super_user may password-login, so the mint would 403 for it.
 	{
 		to: '/admin/api-token',
 		label: 'API Tokens',
