@@ -5,10 +5,12 @@ import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVer
 import { ClusterAbbreviatedName } from '@/features/clusters/upsert/fields/ClusterAbbreviatedName';
 import { ClusterDeploymentDescription } from '@/features/clusters/upsert/fields/ClusterDeploymentDescription';
 import { ClusterFQDN } from '@/features/clusters/upsert/fields/ClusterFQDN';
+import { ClusterGrantId } from '@/features/clusters/upsert/fields/ClusterGrantId';
 import { ClusterName } from '@/features/clusters/upsert/fields/ClusterName';
 import { ClusterPerformanceDescription } from '@/features/clusters/upsert/fields/ClusterPerformanceDescription';
 import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSkipGtmWait';
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
+import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
@@ -156,7 +158,7 @@ export function ClusterDetails({
 					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
 					|| !isValid}
 			>
-				{mode !== 'version' && totalPrice > 0
+				{needsBillingStep({ mode, totalPrice, grantId: form.watch('grantId') })
 					? 'Confirm Payment Details'
 					: clusterId
 					? 'Edit Cluster'
@@ -242,6 +244,7 @@ export function ClusterDetails({
 							cloudProvider={cloudProvider}
 						/>
 					)}
+				{!clusterId && <ClusterGrantId className="col-span-3 md:col-span-6" form={form} />}
 				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 			</div>
 			{footer}
