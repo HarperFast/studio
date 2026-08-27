@@ -127,3 +127,52 @@ describe('ClusterStateMenu', () => {
 		expect(screen.queryByRole('button', { name: 'Cluster actions' })).toBeNull();
 	});
 });
+
+// A plan-ended cluster is not necessarily a stopped one. central-manager writes `suspendedReason`
+// BEFORE it stops the cluster and defers to a later pass if the cluster is mid-transition, so
+// RUNNING or PARTIAL with a lapsed grant is a real, persistent state — and its container gate
+// admits `stop` unconditionally. Hiding the whole group on "start is blocked" left a customer's
+// running, billing cluster with Terminate as its only control.
+const lapsedGrant = { isActive: false, status: 'EXPIRED', source: 'trial' } as Cluster['grant'];
+const menuItemsFor = (c: Cluster) => {
+	state.user = member('admin', { update: true, delete: true });
+	render(<ClusterStateMenu cluster={c} />);
+	openMenu();
+	return screen.getAllByRole('menuitem').map(node => (node.textContent ?? '').trim());
+};
+
+describe('ClusterStateMenu — a suspended cluster that is still up', () => {
+	it('keeps Stop and Restart on a RUNNING cluster whose plan has ended', () => {
+		const items = menuItemsFor(cluster({ status: 'RUNNING', suspendedReason: 'PLAN_ENDED', grant: lapsedGrant }));
+		// The server admits `stop` unconditionally — taking it away strands a billing cluster.
+		expect(items).toContain('Stop');
+		expect(items).toContain('Restart');
+		expect(items).toContain('Terminate');
+	});
+
+	it('keeps them on a PARTIAL cluster too', () => {
+		const items = menuItemsFor(cluster({ status: 'PARTIAL', suspendedReason: 'PLAN_ENDED', grant: lapsedGrant }));
+		expect(items).toContain('Stop');
+	});
+
+	// Start is the one action the server refuses with a 402, so it is offered but not usable.
+	it('disables Start rather than pretending it will work', () => {
+		menuItemsFor(cluster({ status: 'PARTIAL', suspendedReason: 'PLAN_ENDED', grant: lapsedGrant }));
+		expect(isDisabled('Start')).toBe(true);
+		expect(isDisabled('Stop')).toBe(false);
+	});
+});
+
+describe('ClusterStateMenu — a suspended cluster that is down', () => {
+	// Here the group really would be a heading over two refused Starts, so it goes.
+	it('drops the container group entirely, leaving Terminate', () => {
+		const items = menuItemsFor(cluster({ status: 'STOPPED', suspendedReason: 'PLAN_ENDED', grant: lapsedGrant }));
+		expect(items).toEqual(['Terminate']);
+	});
+
+	it('keeps the full group for an ordinary stopped cluster', () => {
+		const items = menuItemsFor(cluster({ status: 'STOPPED' }));
+		expect(items).toContain('Start');
+		expect(items).toContain('Stop');
+	});
+});
