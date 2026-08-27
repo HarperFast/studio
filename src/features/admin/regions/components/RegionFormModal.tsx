@@ -9,7 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
+import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import { useCreateRegionMutation } from '@/features/admin/regions/mutations/useCreateRegion';
 import { useUpdateRegionMutation } from '@/features/admin/regions/mutations/useUpdateRegion';
 import { getLocationsQueryOptions } from '@/features/admin/regions/queries/getLocations';

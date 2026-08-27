@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
+import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
