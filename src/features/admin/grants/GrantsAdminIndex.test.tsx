@@ -13,8 +13,14 @@ let truncated = false;
 let matchedTotal: number | null | undefined;
 const requestedFilters = vi.fn();
 vi.mock('./queries/getGrants', () => ({
-	getGrantsQueryOptions: (filters: { source?: string; status?: string } = {}) => ({
-		queryKey: ['test-grants', JSON.stringify(grantRows.map((g) => g.id)), filters.source ?? '', filters.status ?? ''],
+	getGrantsQueryOptions: (filters: { source?: string; status?: string; order?: string } = {}) => ({
+		queryKey: [
+			'test-grants',
+			JSON.stringify(grantRows.map((g) => g.id)),
+			filters.source ?? '',
+			filters.status ?? '',
+			filters.order ?? '',
+		],
 		queryFn: async () => {
 			requestedFilters(filters);
 			// `matched` is omitted entirely when matchedTotal is null, standing in for a
@@ -122,14 +128,28 @@ describe('GrantsAdminIndex', () => {
 		expect(bareRow?.textContent).toContain('—');
 	});
 
-	it('sorts soonest-ending first, forever grants last', async () => {
+	// The server orders the whole filtered set before capping, so the page must render its order
+	// verbatim — re-sorting here by endsAt would silently undo a next-due request.
+	it('renders the server ordering rather than re-sorting', async () => {
 		await mount([
 			grant({ id: 'cgr-forever', clusterId: 'clu-f', endsAt: null }),
 			grant({ id: 'cgr-soon', clusterId: 'clu-s', endsAt: daysFromNow(2) }),
 			grant({ id: 'cgr-later', clusterId: 'clu-l', endsAt: daysFromNow(30) }),
 		]);
 		const ids = screen.getAllByText(/^cgr-/).map((node) => node.textContent);
-		expect(ids).toEqual(['cgr-soon', 'cgr-later', 'cgr-forever']);
+		expect(ids).toEqual(['cgr-forever', 'cgr-soon', 'cgr-later']);
+	});
+
+	it('asks the server for next-due ordering when the control is switched', async () => {
+		await mount([grant({})]);
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'ends-at' });
+
+		const { fireEvent } = await import('@testing-library/react');
+		fireEvent.keyDown(screen.getByLabelText('Sort order'), { key: 'ArrowDown' });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('option', { name: 'Next stage due' }));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'next-due' });
 	});
 
 	it('counts what the server returned', async () => {
@@ -158,7 +178,7 @@ describe('GrantsAdminIndex', () => {
 	// Settled grants are permanent history and grow without bound; live ones are what anyone acts on.
 	it('opens on live grants rather than the whole history', async () => {
 		await mount([grant({})]);
-		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE' });
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'ends-at' });
 	});
 
 	// central-manager orders the whole filtered set before capping, so the notice can name the
@@ -209,14 +229,14 @@ describe('GrantsAdminIndex', () => {
 	// wired (the vacuous-assertion trap in AGENTS.md).
 	it('passes a picked source to the server rather than filtering locally', async () => {
 		await mount([grant({})]);
-		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE' });
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'ends-at' });
 
 		const { fireEvent } = await import('@testing-library/react');
 		fireEvent.keyDown(screen.getByLabelText('Filter by source'), { key: 'ArrowDown' });
 		await act(() => null);
 		fireEvent.click(screen.getByRole('option', { name: 'trial' }));
 		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-		expect(requestedFilters).toHaveBeenLastCalledWith({ source: 'trial', status: 'ACTIVE' });
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: 'trial', status: 'ACTIVE', order: 'ends-at' });
 	});
 
 	it('filters by free text across id, cluster, org and reason', async () => {
