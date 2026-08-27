@@ -12,6 +12,10 @@ const fetches = vi.fn();
 const POLICIES: AdminExpiryPolicies = {
 	editableAtRuntime: false,
 	policies: {
+		'conversion-pending': [
+			{ stage: 'AWAITING_PLAN', daysFromEnd: 0, actions: [], destructive: false },
+			{ stage: 'SHUTDOWN', daysFromEnd: 0, actions: ['stopCluster'], destructive: true },
+		],
 		'consumer-trial': [
 			{ stage: 'WARNED', daysFromEnd: -7, orUsagePct: 80, actions: ['email:trial-ending'], destructive: false },
 			{ stage: 'SHUTDOWN', daysFromEnd: 0, actions: ['expireGrant', 'stopCluster'], destructive: true },
@@ -65,6 +69,16 @@ describe('ExpiryPolicyPanel', () => {
 		expect(screen.getByText(/WARNED · 7d before end · or 80% usage/)).toBeTruthy();
 		expect(screen.getByText(/SHUTDOWN · at end/)).toBeTruthy();
 		expect(screen.getByText(/DELETED · \+14d after end/)).toBeTruthy();
+	});
+
+	// central-manager mints and clears conversion-pending on its own while a conversion is in
+	// flight; it is not a timeline anyone chooses or needs explained here.
+	it('hides the policy central-manager applies to itself', async () => {
+		await mount();
+		fireEvent.click(toggle());
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(screen.queryByText('conversion-pending')).toBeNull();
+		expect(screen.getByText('consumer-trial')).toBeTruthy();
 	});
 
 	it('marks destructive stages and says what red means', async () => {

@@ -8,7 +8,12 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GrantFormSchema, GrantFormValues, NO_EXPIRY_POLICY } from '@/features/admin/grants/GrantFormSchema';
+import {
+	GrantFormSchema,
+	GrantFormValues,
+	INTERNAL_EXPIRY_POLICIES,
+	NO_EXPIRY_POLICY,
+} from '@/features/admin/grants/GrantFormSchema';
 import { useUpdateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
@@ -73,7 +78,10 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 
 	// Offered policies come from the server's own tables, so a new policy needs no studio change.
 	const policies = useMemo(
-		() => [NO_EXPIRY_POLICY, ...Object.keys(policyData?.policies ?? {})],
+		() => [
+			NO_EXPIRY_POLICY,
+			...Object.keys(policyData?.policies ?? {}).filter((policy) => !INTERNAL_EXPIRY_POLICIES.includes(policy)),
+		],
 		[policyData],
 	);
 
