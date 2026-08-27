@@ -122,11 +122,52 @@ describe('GrantsAdminIndex', () => {
 		expect(ids).toEqual(['cgr-soon', 'cgr-later', 'cgr-forever']);
 	});
 
+	it('counts what the server returned', async () => {
+		await mount([grant({}), grant({ id: 'cgr-b', clusterId: 'clu-b' })]);
+		expect(screen.getByText('2 grants')).toBeTruthy();
+	});
+
+	it('singularises a lone result', async () => {
+		await mount([grant({})]);
+		expect(screen.getByText('1 grant')).toBeTruthy();
+	});
+
+	// Free text narrows client-side, so the count has to say both numbers or it looks like the
+	// server returned fewer rows than it did.
+	it('shows both numbers when the text filter narrows the server result', async () => {
+		await mount([
+			grant({ id: 'cgr-one', reason: 'conference comp' }),
+			grant({ id: 'cgr-two', clusterId: 'clu-t' }),
+		]);
+		const { fireEvent } = await import('@testing-library/react');
+		fireEvent.change(screen.getByLabelText('Filter grants'), { target: { value: 'conference' } });
+		await act(() => null);
+		expect(screen.getByText('1 of 2 grants')).toBeTruthy();
+	});
+
+	// Settled grants are permanent history and grow without bound; live ones are what anyone acts on.
+	it('opens on live grants rather than the whole history', async () => {
+		await mount([grant({})]);
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE' });
+	});
+
+	// "No grants match" reads as "no such grant exists" when the row simply fell past the cap.
+	it('says a match may exist past the limit when the result was truncated', async () => {
+		truncated = true;
+		await mount([grant({ id: 'cgr-one' })]);
+		const { fireEvent } = await import('@testing-library/react');
+		fireEvent.change(screen.getByLabelText('Filter grants'), { target: { value: 'nothing-matches-this' } });
+		await act(() => null);
+		expect(screen.getByText(/may exist past the server/)).toBeTruthy();
+	});
+
 	// A silently-capped list reads as "nothing else is due" — the worst lie a billing view can tell.
 	it('says so when the server truncated the result', async () => {
 		truncated = true;
 		await mount([grant({})]);
-		expect(screen.getByRole('alert').textContent).toContain('truncated');
+		expect(screen.getByRole('alert').textContent).toContain('This list is incomplete');
+		// The wording must not promise an ordered prefix — the server caps before it sorts.
+		expect(screen.getByRole('alert').textContent).not.toContain('the first');
 	});
 
 	it('shows no truncation warning on a complete result', async () => {
@@ -139,14 +180,14 @@ describe('GrantsAdminIndex', () => {
 	// wired (the vacuous-assertion trap in AGENTS.md).
 	it('passes a picked source to the server rather than filtering locally', async () => {
 		await mount([grant({})]);
-		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: undefined });
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE' });
 
 		const { fireEvent } = await import('@testing-library/react');
 		fireEvent.keyDown(screen.getByLabelText('Filter by source'), { key: 'ArrowDown' });
 		await act(() => null);
 		fireEvent.click(screen.getByRole('option', { name: 'trial' }));
 		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-		expect(requestedFilters).toHaveBeenLastCalledWith({ source: 'trial', status: undefined });
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: 'trial', status: 'ACTIVE' });
 	});
 
 	it('filters by free text across id, cluster, org and reason', async () => {

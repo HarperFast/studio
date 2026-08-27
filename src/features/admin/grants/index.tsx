@@ -58,7 +58,10 @@ const STATUSES: ClusterGrant['status'][] = ['ACTIVE', 'EXPIRED', 'REVOKED'];
 export function GrantsAdminIndex() {
 	const [search, setSearch] = useState('');
 	const [source, setSource] = useState(ANY);
-	const [status, setStatus] = useState(ANY);
+	// Settled grants are permanent history — nothing deletes them — so they grow without bound and
+	// would eventually be all a reader sees. Live grants are bounded by the cluster count, and are
+	// the ones anyone acts on, so the page opens on them.
+	const [status, setStatus] = useState<string>('ACTIVE');
 	// Source and status narrow on the server, so the page stops fetching the world at fleet scale.
 	const { data: report, isLoading, isError } = useQuery(getGrantsQueryOptions({
 		source: source === ANY ? undefined : source,
@@ -149,15 +152,36 @@ export function GrantsAdminIndex() {
 									</SelectContent>
 								</Select>
 							</div>
+							<p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
+								{filtered.length === (report?.returned ?? 0)
+									? `${filtered.length} ${filtered.length === 1 ? 'grant' : 'grants'}`
+									: `${filtered.length} of ${report?.returned} ${report?.returned === 1 ? 'grant' : 'grants'}`}
+							</p>
+
+							{
+								/* Deliberately not "the first N": the server caps the walk before ordering, so a
+							    truncated result is a sample rather than a prefix. Wording that stays true either
+							    way, since sorting-before-capping is an open ask on the central-manager side. */
+							}
 							{report?.truncated && (
-								<p className="mb-4 text-sm text-amber-600 dark:text-amber-400" role="alert">
-									Showing the first {report.limit}{' '}
-									grants only — the server truncated the result. Anything past the limit is not in this list, and this
-									filter only searches what was returned.
+								<p
+									className="mb-4 rounded-md border border-amber-500/50 bg-amber-50/50 px-3 py-2 text-sm text-amber-600 dark:bg-amber-950/20 dark:text-amber-400"
+									role="alert"
+								>
+									<span className="font-medium">This list is incomplete.</span> The server returned {report.limit}{' '}
+									grants and stopped there, so some grants are not shown — and the filter box only searches the ones
+									that loaded, so a grant that exists can look missing. Narrow the source or status filters to see the
+									rest.
 								</p>
 							)}
 							{filtered.length === 0
-								? <p className="text-sm text-muted-foreground">No grants match the current filters.</p>
+								? (
+									<p className="text-sm text-muted-foreground">
+										No grants match the current filters.
+										{report?.truncated
+											&& " A matching grant may exist past the server's limit — narrow the source or status filters and try again."}
+									</p>
+								)
 								: (
 									<div className="overflow-x-auto">
 										<Table className="[&_th]:pr-4 [&_td]:pr-4 [&_td]:py-2.5">
