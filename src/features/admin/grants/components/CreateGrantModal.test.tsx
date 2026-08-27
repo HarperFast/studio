@@ -20,7 +20,10 @@ vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 	getExpiryPoliciesQueryOptions: () => ({
 		queryKey: ['test-policies'],
-		queryFn: async () => ({ editableAtRuntime: false, policies: { 'consumer-trial': [] } }),
+		queryFn: async () => ({
+			editableAtRuntime: false,
+			policies: { 'consumer-trial': [], 'conversion-pending': [] },
+		}),
 		retry: false,
 	}),
 }));
@@ -110,6 +113,17 @@ describe('CreateGrantModal', () => {
 		await act(() => null);
 		expect(submit().hasAttribute('disabled')).toBe(true);
 		expect(screen.getByText('A trial must have an end date')).toBeTruthy();
+	});
+
+	// central-manager mints conversion-pending itself while a conversion runs; choosing it by hand
+	// would time-box a grant against a conversion that is not happening.
+	it('does not offer the policy central-manager applies to itself', async () => {
+		await mount();
+		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+		await act(() => null);
+		const options = screen.getAllByRole('option').map((o) => o.textContent);
+		expect(options).not.toContain('conversion-pending');
+		expect(options).toContain('consumer-trial');
 	});
 
 	// Only trial, gift and comp — purchased and enterprise belong to the flows that bill.
