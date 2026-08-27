@@ -92,7 +92,9 @@ export function ApiExplorer(
 	// Revocation is the one clear that beats live typing, so it has to be this entity's: the store's
 	// signal names no entity, and every explorer hears every sign-out. Comparing against the last epoch
 	// we acted on keeps an unrelated sign-out a no-op, and makes the two callers below idempotent.
-	const observedEpochRef = useRef(authStore.getExplorerAuthEpoch(entityId));
+	// Baselined by the effect below rather than here — a `useRef` initializer is evaluated on every
+	// render, and reading the epoch parses localStorage, which a sidebar drag would do per mousemove.
+	const observedEpochRef = useRef(0);
 	const noteRevocation = () => {
 		const epoch = authStore.getExplorerAuthEpoch(entityId);
 		if (epoch === observedEpochRef.current) {
