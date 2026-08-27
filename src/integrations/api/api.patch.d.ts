@@ -379,6 +379,11 @@ export interface ClusterSyncSummary {
 export interface ClusterUpsert extends SchemaClusterUpsert {
 	skipGtmWait?: boolean;
 	version?: string;
+	/**
+	 * Unbound grant to claim for the new cluster, binding it in place of a payment method. Accepted
+	 * by POST /Cluster (validation.js) but absent from the generated spec. Create only.
+	 */
+	grantId?: string;
 }
 
 export interface InstanceDatabaseMap {
