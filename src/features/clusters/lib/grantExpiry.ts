@@ -66,12 +66,28 @@ export function isConversionPending(grant: ClusterGrant | null | undefined): boo
 }
 
 /**
+ * A conversion still doing its work. `conversionState` is the direct signal; the grant check is the
+ * belt for a lost marker write — the marker is best-effort, so a missing one on a cluster whose
+ * grant is still `conversion-pending` means "probably still applying", never success.
+ */
+export function isConversionApplying(cluster: Pick<Cluster, 'status' | 'grant' | 'conversionState'>): boolean {
+	if (cluster.conversionState === 'FAILED') { return false; }
+	return cluster.conversionState === 'APPLYING'
+		|| (isConversionPending(cluster.grant) && cluster.grant?.isActive === true);
+}
+
+/** The server's single catch marks this; unlike a missing marker, FAILED is reliable. */
+export function isConversionFailed(cluster: Pick<Cluster, 'conversionState'>): boolean {
+	return cluster.conversionState === 'FAILED';
+}
+
+/**
  * True once a trial->paid conversion has actually landed. The server starts the cluster before it
  * applies the plan, so RUNNING alone is reached while the change is still in flight — the plan
- * landing is what replaces the provisional grant.
+ * landing is what clears the marker and replaces the provisional grant.
  */
-export function isConversionComplete(cluster: Pick<Cluster, 'status' | 'grant'>): boolean {
-	return cluster.status === 'RUNNING' && !isConversionPending(cluster.grant);
+export function isConversionComplete(cluster: Pick<Cluster, 'status' | 'grant' | 'conversionState'>): boolean {
+	return cluster.status === 'RUNNING' && !isConversionApplying(cluster) && !isConversionFailed(cluster);
 }
 
 /** Whole days from now until `iso`; negative once it has passed. Null if there is no date. */
@@ -142,7 +158,7 @@ function sourceLabel(grant: ClusterGrant): string {
  * one the runner hasn't staged yet.
  */
 export function describeGrantExpiry(
-	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason'>,
+	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
 	now: number = Date.now(),
 ): GrantExpiryDescription | null {
 	const grant = cluster.grant;
@@ -154,10 +170,27 @@ export function describeGrantExpiry(
 	// enterprise policy separates them by a week.
 	const stopped = cluster.status === 'STOPPED' || cluster.suspendedReason != null;
 
-	// A conversion in flight — but only while its provisional grant is still live. Nothing ever
-	// rewrites expiryPolicy, so once that window lapses the row still says `conversion-pending`
-	// forever; testing it first made a FAILED conversion render as a permanent spinner.
-	if (isConversionPending(grant) && grant.isActive) {
+	// A failed conversion says so, before anything can dress it as progress or as a plain expiry.
+	// Nothing is charged in that window (payment is only verified up front; blocks are minted inside
+	// the plan change), so the copy can promise that flatly.
+	if (isConversionFailed(cluster)) {
+		return {
+			stage: 'AWAITING_PLAN',
+			severity: 'critical',
+			badgeLabel: 'Upgrade failed',
+			title: 'Your upgrade did not go through',
+			detail: stopped
+				? 'Nothing was charged. The cluster is stopped — choose a paid plan to start it again.'
+				: 'Nothing was charged. Choose a plan to try again.',
+			needsUpgrade: stopped,
+			offerUpgrade: true,
+		};
+	}
+
+	// A conversion in flight — the marker is the direct signal, with the still-live provisional
+	// grant as the belt for a lost write. A lapsed provisional grant without a marker falls through
+	// to the honest withdrawn copy below.
+	if (isConversionApplying(cluster)) {
 		return {
 			stage: 'AWAITING_PLAN',
 			severity: 'info',
