@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { INTERNAL_EXPIRY_POLICIES } from '@/features/admin/grants/GrantFormSchema';
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { AdminExpiryPolicyStage } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
@@ -44,22 +45,29 @@ export function ExpiryPolicyPanel() {
 							Could not load the policy tables. You need <code>grant:read</code> to view them.
 						</p>
 					)}
-					{data && Object.entries(data.policies).map(([policy, stages]) => (
-						<div key={policy}>
-							<h3 className="font-mono text-sm font-semibold mb-1.5">{policy}</h3>
-							<ol className="flex flex-wrap items-center gap-1.5">
-								{stages.map((stage, index) => (
-									<li key={stage.stage} className="flex items-center gap-1.5">
-										{index > 0 && <span className="text-muted-foreground">→</span>}
-										<Badge variant={stage.destructive ? 'destructive' : 'secondary'} title={stage.actions.join(', ')}>
-											{stage.stage} · {offsetLabel(stage)}
-											{stage.orUsagePct != null && ` · or ${stage.orUsagePct}% usage`}
-										</Badge>
-									</li>
-								))}
-							</ol>
-						</div>
-					))}
+					{/* conversion-pending is excluded: central-manager mints and clears it on its own. */}
+					{data
+						&& Object.entries(data.policies)
+							.filter(([policy]) => !INTERNAL_EXPIRY_POLICIES.includes(policy))
+							.map(([policy, stages]) => (
+								<div key={policy}>
+									<h3 className="font-mono text-sm font-semibold mb-1.5">{policy}</h3>
+									<ol className="flex flex-wrap items-center gap-1.5">
+										{stages.map((stage, index) => (
+											<li key={stage.stage} className="flex items-center gap-1.5">
+												{index > 0 && <span className="text-muted-foreground">→</span>}
+												<Badge
+													variant={stage.destructive ? 'destructive' : 'secondary'}
+													title={stage.actions.join(', ')}
+												>
+													{stage.stage} · {offsetLabel(stage)}
+													{stage.orUsagePct != null && ` · or ${stage.orUsagePct}% usage`}
+												</Badge>
+											</li>
+										))}
+									</ol>
+								</div>
+							))}
 					{data && (
 						<p className="text-xs font-light text-muted-foreground">
 							Red stages stop or delete the cluster. These tables are code in central-manager
