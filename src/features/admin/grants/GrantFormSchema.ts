@@ -32,6 +32,16 @@ export type GrantFormValues = z.infer<typeof GrantFormSchema>;
 export const NO_EXPIRY_POLICY = 'none';
 
 /**
+ * Policies central-manager applies to itself, which an admin never picks. `conversion-pending` is
+ * the bounded window it mints while a trial->paid conversion is in flight; setting it by hand would
+ * time-box a grant against a conversion that is not happening.
+ *
+ * central-manager's create validation accepts any policy value, so filtering here is what keeps it
+ * off the menu.
+ */
+export const INTERNAL_EXPIRY_POLICIES = ['conversion-pending'];
+
+/**
  * What `POST /Admin/ClusterGrant` accepts. Wider than the patch schema: a grant's source and what
  * it binds to are decided at birth and never again.
  *
