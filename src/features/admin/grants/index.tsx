@@ -9,8 +9,9 @@ import { useStaffPermission } from '@/hooks/useAuth';
 import { AdminClusterGrant, ClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { PencilIcon } from 'lucide-react';
+import { PencilIcon, PlusIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { CreateGrantModal } from './components/CreateGrantModal';
 import { ExpiryPolicyPanel } from './components/ExpiryPolicyPanel';
 import { GrantFormModal } from './components/GrantFormModal';
 import { getGrantsQueryOptions, GrantOrder } from './queries/getGrants';
@@ -70,6 +71,7 @@ export function GrantsAdminIndex() {
 	// ("what fires next"). They genuinely disagree, so it is a choice rather than a default.
 	const [order, setOrder] = useState<GrantOrder>('ends-at');
 	const [editing, setEditing] = useState<AdminClusterGrant | null>(null);
+	const [creating, setCreating] = useState(false);
 	// The page needs grant:read; changing terms posts to the grant:write-gated endpoint.
 	const canWriteGrants = useStaffPermission('grant:write');
 	// Source and status narrow on the server, so the page stops fetching the world at fleet scale.
@@ -106,13 +108,21 @@ export function GrantsAdminIndex() {
 
 	return (
 		<div className="max-w-6xl">
-			<div>
-				<h1 className="text-2xl font-light">Grants</h1>
-				<p className="mt-2 text-sm text-muted-foreground">
-					Why each cluster may run and on what terms. Every grant across the fleet — its source, when it ends, and the
-					next thing the expiry runner will do to it. A grant with no cluster is a voucher waiting for cluster creation
-					to claim it.
-				</p>
+			<div className="flex items-start justify-between gap-4">
+				<div>
+					<h1 className="text-2xl font-light">Grants</h1>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Why each cluster may run and on what terms. Every grant across the fleet — its source, when it ends, and the
+						next thing the expiry runner will do to it. A grant with no cluster is a voucher waiting for cluster
+						creation to claim it.
+					</p>
+				</div>
+				{canWriteGrants && (
+					<Button variant="submit" onClick={() => setCreating(true)} className="shrink-0">
+						<PlusIcon />
+						Create grant
+					</Button>
+				)}
 			</div>
 
 			<div className="mt-6">
@@ -302,6 +312,7 @@ export function GrantsAdminIndex() {
 			</div>
 
 			<GrantFormModal open={!!editing} onOpenChange={(next) => !next && setEditing(null)} grant={editing} />
+			<CreateGrantModal open={creating} onOpenChange={setCreating} />
 		</div>
 	);
 }
