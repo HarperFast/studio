@@ -168,10 +168,11 @@ export function GrantsAdminIndex() {
 									className="mb-4 rounded-md border border-amber-500/50 bg-amber-50/50 px-3 py-2 text-sm text-amber-600 dark:bg-amber-950/20 dark:text-amber-400"
 									role="alert"
 								>
-									<span className="font-medium">This list is incomplete.</span> The server returned {report.limit}{' '}
-									grants and stopped there, so some grants are not shown — and the filter box only searches the ones
-									that loaded, so a grant that exists can look missing. Narrow the source or status filters to see the
-									rest.
+									<span className="font-medium">This list is incomplete.</span> {report.matched != null
+										? `Showing the ${report.returned} soonest-ending of ${report.matched} matching grants.`
+										: `The server returned ${report.returned} grants and stopped there.`}{' '}
+									The filter box only searches the ones that loaded, so a grant that exists can look missing. Narrow the
+									source or status filters to see the rest.
 								</p>
 							)}
 							{filtered.length === 0
