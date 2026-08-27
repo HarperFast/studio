@@ -63,15 +63,23 @@ function SortableHead(
 	{ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode },
 ) {
 	return (
-		<TableHead>
+		<TableHead className={active ? 'text-foreground' : undefined}>
 			<button
 				type="button"
 				onClick={onClick}
 				aria-pressed={active}
-				className="inline-flex items-center gap-1 hover:text-foreground"
+				title={active ? 'Sorted by this column' : 'Sort by this column'}
+				className="group inline-flex cursor-pointer items-center gap-1 hover:text-foreground"
 			>
 				{children}
-				<ArrowUpIcon className={`size-3 ${active ? 'opacity-100' : 'opacity-0'}`} aria-hidden />
+				{
+					/* The inactive arrow fades in on hover. With no affordance at all, a header that only
+				    reveals itself once clicked reads as an arrow that moved, not a control. */
+				}
+				<ArrowUpIcon
+					className={`size-3.5 transition-opacity ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'}`}
+					aria-hidden
+				/>
 			</button>
 		</TableHead>
 	);
