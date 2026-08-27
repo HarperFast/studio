@@ -186,6 +186,25 @@ describe('shouldKeepEvent', () => {
 			).toBe(false);
 		});
 
+		// Pins the premise of the `.catch` in `src/integrations/reo/reo.ts`: the loader rejects
+		// from the injected script's `onerror`, so the only located frame is Studio's bundle and
+		// this filter cannot suppress it. Broadening the reo.dev rule is therefore not an
+		// alternative fix — it would have to match the message, which this file's stack-based
+		// attribution deliberately avoids.
+		it('keeps the Reo loader rejection, whose only frame is the Studio bundle', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Failed to load the JS script of the agent',
+						stack: [
+							'Error: Failed to load the JS script of the agent',
+							'  at r.onerror @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:3:5781',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
 		it('keeps errors with the same message when Studio code is on the stack', () => {
 			expect(
 				shouldKeepEvent(

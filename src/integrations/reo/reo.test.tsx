@@ -46,8 +46,6 @@ afterEach(() => {
 });
 
 describe('useReo', () => {
-	// The loader rejects from the injected script's `onerror` whenever an ad blocker blocks
-	// static.reo.dev; uncaught, that reached RUM as an unhandled Studio error.
 	it('does not let a blocked script load escape as an unhandled rejection', async () => {
 		loadReoScript.mockRejectedValue(new Error('Failed to load the JS script of the agent'));
 
@@ -56,7 +54,6 @@ describe('useReo', () => {
 		expect(reasons).toEqual([]);
 	});
 
-	// `init` runs inside the same chain, so a throw there rejects it just as a blocked load does.
 	it('does not let a throwing init escape as an unhandled rejection', async () => {
 		loadReoScript.mockResolvedValue({
 			init: () => {
@@ -67,6 +64,14 @@ describe('useReo', () => {
 		const reasons = await collectUnhandledRejections(() => renderUseReo('client-1'));
 
 		expect(reasons).toEqual([]);
+	});
+
+	it('does not let a synchronous loader throw escape the effect', async () => {
+		loadReoScript.mockImplementation(() => {
+			throw new Error('thrown before a promise exists');
+		});
+
+		await expect(renderUseReo('client-1')).resolves.toBeUndefined();
 	});
 
 	it('initialises Reo with the client id when the script loads', async () => {
