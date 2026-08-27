@@ -170,21 +170,21 @@ export function ClusterForm({
 			const selectedRegions: RegionCohort[] = [];
 			for (let i = 0; i < data.regionPlans.length; i++) {
 				const regionPlan = data.regionPlans[i];
-				const region = regionLookup.get(regionPlan.regionId);
+				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
+				// A region that no longer resolves has to fail validation. The base schema only requires
+				// non-empty strings, so a cluster sitting in a region that has dropped out of the live
+				// list — deactivated, out of capacity, or org-scoped away — used to be caught by an
+				// effect blanking the value. A frozen region set must not be rewritten, so the objection
+				// belongs here instead: without it submit stays enabled and the click throws.
 				if (!region) {
-					if (regionPlan.regionId) {
-						ctx.addIssue({
-							code: 'custom',
-							path: [`regionPlans.${i}.regionId`],
-							message: 'This region is no longer available.',
-						});
-					}
-					continue;
+					ctx.addIssue({
+						code: 'custom',
+						path: [`regionPlans.${i}.regionName`],
+						message: 'This region is not currently available. Contact us to move this cluster.',
+					});
 				}
-				const cohort = regionCohortKey(region);
-				selectedRegions.push({ key: cohort, name: region.name });
-				if (!names.has(cohort)) {
-					names.add(cohort);
+				if (!names.has(regionPlan.regionName)) {
+					names.add(regionPlan.regionName);
 				} else {
 					ctx.addIssue({
 						code: 'custom',
@@ -504,9 +504,13 @@ export function ClusterForm({
 			}
 		} else if (mode !== 'version') {
 			for (const regionPlan of formData.regionPlans) {
-				const region = regionLookup.get(regionPlan.regionId);
+				const region = regionNameToLatencyToRegion[regionPlan.regionName]?.[regionPlan.latencyDescription];
+				// Validation above refuses an unresolvable region, so reaching here means the two
+				// disagree. Throwing past the toast leaves a dead button; say so instead.
 				if (!region) {
-					toast.error('A selected region is no longer available. Please review your regions.');
+					toast.error('Region unavailable', {
+						description: `${regionPlan.regionName} is not currently available. Contact us to move this cluster.`,
+					});
 					return;
 				}
 				plans.push({
