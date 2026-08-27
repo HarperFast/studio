@@ -15,6 +15,12 @@ export interface GrantReportingResult {
 	grants: AdminClusterGrant[];
 	returned: number;
 	/**
+	 * Every row matching the filters, not just those returned. Lets the page name the shortfall
+	 * exactly when the server capped the result. Optional so the page still renders honestly against
+	 * a central-manager that predates the field.
+	 */
+	matched?: number;
+	/**
 	 * True when the server hit its row limit before draining the table. The UI must say so: a
 	 * silently-capped list reads as "nothing else is due", which on a billing view is the worst
 	 * possible lie.
