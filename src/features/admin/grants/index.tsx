@@ -7,6 +7,7 @@ import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
+import { ExpiryPolicyPanel } from './components/ExpiryPolicyPanel';
 import { getGrantsQueryOptions } from './queries/getGrants';
 
 /** 'any' is the unfiltered state; the ids come off the rows so new sources need no code change. */
@@ -183,6 +184,8 @@ export function GrantsAdminIndex() {
 					</Table>
 				</div>
 			)}
+
+			<ExpiryPolicyPanel />
 		</div>
 	);
 }
