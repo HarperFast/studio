@@ -25,6 +25,8 @@ export type EntityMenuItem =
 		icon?: ReactNode;
 		/** Relative router path; renders the item inside a Link. */
 		to?: string;
+		/** Search params for `to` — a query string inside `to` is not parsed by the router. */
+		search?: Record<string, string>;
 		onClick?: MouseEventHandler<HTMLDivElement>;
 		disabled?: boolean;
 		className?: string;
@@ -70,7 +72,7 @@ export function renderEntityMenuItems(items: EntityMenuItem[], variant: 'dropdow
 			</Item>
 		);
 		return item.to
-			? <Link key={item.key} to={item.to} disabled={item.disabled}>{node}</Link>
+			? <Link key={item.key} to={item.to} search={item.search} disabled={item.disabled}>{node}</Link>
 			: <Fragment key={item.key}>{node}</Fragment>;
 	});
 }

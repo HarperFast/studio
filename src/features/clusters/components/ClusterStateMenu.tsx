@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdownMenu';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
+import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -46,10 +46,9 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const isStopped = cluster.status === 'STOPPED';
 	const isPartial = cluster.status === 'PARTIAL';
 	const opsDisabled = !update || isPending;
-	// Matches ClusterCard: a cluster stopped because its plan ended has no container action that can
-	// succeed — the start gate refuses it with a 402 — so the Container group goes entirely rather
-	// than offering a Start that fails. Terminate stays: leaving is always allowed.
-	const planEndedAndDown = isStopped && !!describeGrantExpiry(cluster)?.needsUpgrade;
+	// Matches ClusterCard, and the server's own start gate — see isStartBlockedByPlan. Terminate
+	// stays either way: leaving is always allowed.
+	const planEndedAndDown = isStartBlockedByPlan(cluster);
 
 	const onTerminate = useCallback(() => {
 		terminateCluster(cluster.id, {
