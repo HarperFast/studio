@@ -263,7 +263,7 @@ export function GrantsAdminIndex() {
 													const badge = stateBadge(grant);
 													return (
 														<TableRow key={grant.id}>
-															<TableCell className="font-mono text-xs font-medium">{grant.id}</TableCell>
+															<TableCell className="font-mono font-medium">{grant.id}</TableCell>
 															<TableCell>
 																{
 																	/* Fixed width so the column reads as one edge: the variants' labels differ in
@@ -297,7 +297,7 @@ export function GrantsAdminIndex() {
 																{grant.clusterId
 																	? (
 																		<Link
-																			className="font-mono text-xs underline underline-offset-2 hover:no-underline"
+																			className="font-mono underline underline-offset-2 hover:no-underline"
 																			to={`/${grant.organizationId}/${grant.clusterId}`}
 																		>
 																			{grant.clusterId}
