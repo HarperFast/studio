@@ -12,6 +12,8 @@ import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 export interface MultiSelectOption {
 	value: string;
 	label: string;
+	/** Detail shown beside the option in the menu only — chips stay as short as the label. */
+	hint?: string;
 }
 
 interface MultiSelectProps {
@@ -169,7 +171,8 @@ export function MultiSelect({
 								onCheckedChange={() => pick(o.value)}
 								onSelect={(e) => e.preventDefault()}
 							>
-								{o.label}
+								<span className="truncate">{o.label}</span>
+								{o.hint && <span className="ml-auto pl-3 text-xs text-muted-foreground">{o.hint}</span>}
 							</DropdownMenuCheckboxItem>
 						))}
 					{overflowCount > 0 && (
