@@ -71,7 +71,9 @@ describe('useReo', () => {
 			throw new Error('thrown before a promise exists');
 		});
 
-		await expect(renderUseReo('client-1')).resolves.toBeUndefined();
+		const reasons = await collectUnhandledRejections(() => expect(renderUseReo('client-1')).resolves.toBeUndefined());
+
+		expect(reasons).toEqual([]);
 	});
 
 	it('initialises Reo with the client id when the script loads', async () => {
