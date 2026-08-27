@@ -10,7 +10,12 @@ export function useReo() {
 				.then((Reo) => {
 					Reo?.init?.({ clientID: import.meta.env.VITE_REO_DEV_CLIENT_ID });
 					return reoClient = Reo;
-				});
+				})
+				// Reo is optional analytics whose CDN ad blockers routinely block. Its loader rejects
+				// from the injected script's own `onerror`, so the rejection's only stack frame is our
+				// bundle and `shouldKeepEvent`'s reo.dev filter cannot attribute it away — unhandled,
+				// it lands in Error Tracking as a Studio error. Nothing degrades when Reo is absent.
+				.catch(() => {});
 		}
 	}, []);
 }
