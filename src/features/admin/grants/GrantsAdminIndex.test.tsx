@@ -9,10 +9,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GrantsAdminIndex } from './index';
 
 let grantRows: AdminClusterGrant[] = [];
+let truncated = false;
+const requestedFilters = vi.fn();
 vi.mock('./queries/getGrants', () => ({
-	getGrantsQueryOptions: () => ({
-		queryKey: ['test-grants', JSON.stringify(grantRows.map((g) => g.id))],
-		queryFn: async () => grantRows,
+	getGrantsQueryOptions: (filters: { source?: string; status?: string } = {}) => ({
+		queryKey: ['test-grants', JSON.stringify(grantRows.map((g) => g.id)), filters.source ?? '', filters.status ?? ''],
+		queryFn: async () => {
+			requestedFilters(filters);
+			return { grants: grantRows, returned: grantRows.length, truncated, limit: 500 };
+		},
 		retry: false,
 	}),
 }));
@@ -25,7 +30,11 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 	}),
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	truncated = false;
+	requestedFilters.mockClear();
+});
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
@@ -103,6 +112,33 @@ describe('GrantsAdminIndex', () => {
 		]);
 		const ids = screen.getAllByText(/^cgr-/).map((node) => node.textContent);
 		expect(ids).toEqual(['cgr-soon', 'cgr-later', 'cgr-forever']);
+	});
+
+	// A silently-capped list reads as "nothing else is due" — the worst lie a billing view can tell.
+	it('says so when the server truncated the result', async () => {
+		truncated = true;
+		await mount([grant({})]);
+		expect(screen.getByRole('alert').textContent).toContain('truncated');
+	});
+
+	it('shows no truncation warning on a complete result', async () => {
+		await mount([grant({})]);
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	// Source/status narrow on the server so the page stops fetching the world; the mock captures
+	// what the query was asked for. The select must actually be driven — asserting only the default
+	// call passes whether or not the filter is wired (the vacuous-assertion trap in AGENTS.md).
+	it('passes a picked source to the server rather than filtering locally', async () => {
+		await mount([grant({})]);
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: undefined });
+
+		const { fireEvent } = await import('@testing-library/react');
+		fireEvent.keyDown(screen.getByLabelText('Filter by source'), { key: 'ArrowDown' });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('option', { name: 'trial' }));
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(requestedFilters).toHaveBeenLastCalledWith({ source: 'trial', status: undefined });
 	});
 
 	it('filters by free text across id, cluster, org and reason', async () => {
