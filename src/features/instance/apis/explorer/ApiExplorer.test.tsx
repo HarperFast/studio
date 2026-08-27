@@ -365,6 +365,26 @@ describe('ApiExplorer', () => {
 		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('hunter2');
 	});
 
+	it('leaves the typed credentials alone for an unrelated sign-out when this entity was signed out before', () => {
+		// The epoch this entity mounts on is not zero, so the baseline has to be read rather than assumed:
+		// otherwise the first unrelated sign-out reads as a change and blanks the form.
+		localStorage.setItem('Studio:ExplorerAuthEpoch', JSON.stringify({ 'ins-test': 4 }));
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+
+		act(() => {
+			const bumped = JSON.stringify({ 'ins-test': 4, 'ins-other': 7 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
+		});
+
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('alice');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('hunter2');
+	});
+
 	it('leaves the retyped credentials alone when a mint cancelled by a sign-out settles', async () => {
 		let resolveMint!: (token: string) => void;
 		const onCredentialMint = vi.fn(() =>
