@@ -188,9 +188,7 @@ describe('shouldKeepEvent', () => {
 
 		// Pins the premise of the `.catch` in `src/integrations/reo/reo.ts`: the loader rejects
 		// from the injected script's `onerror`, so the only located frame is Studio's bundle and
-		// this filter cannot suppress it. Broadening the reo.dev rule is therefore not an
-		// alternative fix — it would have to match the message, which this file's stack-based
-		// attribution deliberately avoids.
+		// this filter cannot suppress it.
 		it('keeps the Reo loader rejection, whose only frame is the Studio bundle', () => {
 			expect(
 				shouldKeepEvent(
