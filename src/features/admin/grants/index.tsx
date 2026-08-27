@@ -155,58 +155,65 @@ export function GrantsAdminIndex() {
 							{filtered.length === 0
 								? <p className="text-sm text-muted-foreground">No grants match the current filters.</p>
 								: (
-									<Table>
-										<TableHeader>
-											<TableRow>
-												<TableHead>Grant</TableHead>
-												<TableHead>Organization</TableHead>
-												<TableHead>Cluster</TableHead>
-												<TableHead>Source</TableHead>
-												<TableHead>Next due</TableHead>
-												<TableHead>Ends</TableHead>
-												<TableHead>Reason</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
-											{filtered.map((grant) => {
-												const badge = stateBadge(grant);
-												return (
-													<TableRow key={grant.id} className={isSettled(grant) ? 'opacity-60' : undefined}>
-														<TableCell className="font-mono font-medium">
-															<span className="inline-flex items-center gap-2">
-																{grant.id}
-																{badge && <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>}
-															</span>
-														</TableCell>
-														<TableCell className="break-words">
-															{formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
-														</TableCell>
-														<TableCell>
-															{grant.clusterId
-																? (
-																	<Link
-																		className="font-mono underline underline-offset-2 hover:no-underline"
-																		to={`/${grant.organizationId}/${grant.clusterId}`}
-																	>
-																		{grant.clusterId}
-																	</Link>
-																)
-																: <Badge variant="secondary" className="text-[10px]">Unbound</Badge>}
-														</TableCell>
-														<TableCell>{grant.source}</TableCell>
-														<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
-														<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
-														<TableCell
-															className="max-w-56 truncate text-muted-foreground"
-															title={grant.reason ?? undefined}
-														>
-															{grant.reason ?? '—'}
-														</TableCell>
-													</TableRow>
-												);
-											})}
-										</TableBody>
-									</Table>
+									<div className="overflow-x-auto">
+										<Table>
+											<TableHeader>
+												<TableRow>
+													<TableHead>Grant</TableHead>
+													<TableHead>Organization</TableHead>
+													<TableHead>Cluster</TableHead>
+													<TableHead>Source</TableHead>
+													<TableHead>Next due</TableHead>
+													<TableHead>Ends</TableHead>
+													<TableHead>Reason</TableHead>
+												</TableRow>
+											</TableHeader>
+											<TableBody>
+												{filtered.map((grant) => {
+													const badge = stateBadge(grant);
+													return (
+														<TableRow key={grant.id} className={isSettled(grant) ? 'opacity-60' : undefined}>
+															<TableCell className="font-mono text-xs font-medium">
+																<span className="inline-flex items-center gap-2 whitespace-nowrap">
+																	{grant.id}
+																	{badge && (
+																		<Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
+																	)}
+																</span>
+															</TableCell>
+															<TableCell
+																className="max-w-48 truncate"
+																title={formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
+															>
+																{formatOrgLabel(grant.organizationId, orgNameById.get(grant.organizationId))}
+															</TableCell>
+															<TableCell>
+																{grant.clusterId
+																	? (
+																		<Link
+																			className="font-mono text-xs underline underline-offset-2 hover:no-underline"
+																			to={`/${grant.organizationId}/${grant.clusterId}`}
+																		>
+																			{grant.clusterId}
+																		</Link>
+																	)
+																	: <Badge variant="secondary" className="text-[10px]">Unbound</Badge>}
+															</TableCell>
+															<TableCell>{grant.source}</TableCell>
+															<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
+															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
+															<TableCell
+																className="max-w-56 truncate text-muted-foreground"
+																title={grant.reason ?? undefined}
+															>
+																{grant.reason ?? '—'}
+															</TableCell>
+														</TableRow>
+													);
+												})}
+											</TableBody>
+										</Table>
+									</div>
 								)}
 						</>
 					)}
