@@ -164,6 +164,7 @@ export function GrantsAdminIndex() {
 												<TableRow>
 													<TableHead>Grant</TableHead>
 													<TableHead>Status</TableHead>
+													<TableHead>Reason</TableHead>
 													<TableHead>Organization</TableHead>
 													<TableHead>Cluster</TableHead>
 													<TableHead>Source</TableHead>
@@ -178,7 +179,7 @@ export function GrantsAdminIndex() {
 													// badge carries the state instead.
 													const badge = stateBadge(grant);
 													return (
-														<TableRow key={grant.id} title={grant.reason ?? undefined}>
+														<TableRow key={grant.id}>
 															<TableCell className="font-mono text-xs font-medium">{grant.id}</TableCell>
 															<TableCell>
 																{
@@ -186,6 +187,12 @@ export function GrantsAdminIndex() {
 																    length, and w-fit badges left it ragged. */
 																}
 																<Badge variant={badge.variant} className="w-20 text-[10px]">{badge.label}</Badge>
+															</TableCell>
+															<TableCell
+																className="max-w-44 truncate text-muted-foreground"
+																title={grant.reason ?? undefined}
+															>
+																{grant.reason ?? '—'}
 															</TableCell>
 															<TableCell
 																className="max-w-48 truncate"
