@@ -58,6 +58,10 @@ export const CreateGrantSchema = z
 		startsAt: z.string(),
 		endsAt: z.string(),
 		expiryPolicy: z.string(),
+		// Empty is unrestricted, which is what the server stores as null. No length rule here: the
+		// server refuses an empty array, and the form never sends one.
+		allowedPlanIds: z.array(z.string()),
+		allowedRegionIds: z.array(z.string()),
 		reason: z.string().trim().min(1, 'A reason is required').max(512, 'Keep the reason under 512 characters'),
 	})
 	.superRefine((values, ctx) => {
