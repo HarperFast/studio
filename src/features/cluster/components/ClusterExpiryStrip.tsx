@@ -1,4 +1,5 @@
 import { describeGrantExpiry, HOBBYIST_UPGRADE, isExpiryWarning } from '@/features/clusters/lib/grantExpiry';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { Link, useParams, useRouteContext } from '@tanstack/react-router';
@@ -20,6 +21,9 @@ export function ClusterExpiryStrip() {
 		clusterId?: string;
 	};
 	const { cluster } = useRouteContext({ strict: false }) as { cluster?: Cluster };
+	// Same gate as the banner: without it a read-only viewer follows this link into "You do not have
+	// permission to update clusters in this org."
+	const { update } = useOrganizationClusterPermissions(organizationId, clusterId);
 	const expiry = useMemo(() => (cluster ? describeGrantExpiry(cluster) : null), [cluster]);
 
 	if (!isExpiryWarning(expiry) || !expiry || !organizationId || !clusterId) { return null; }
@@ -35,7 +39,7 @@ export function ClusterExpiryStrip() {
 			)}
 		>
 			<span className="font-medium">{expiry.title}</span>
-			{expiry.offerUpgrade && (
+			{expiry.offerUpgrade && update && (
 				<Link
 					to={`/${organizationId}/${clusterId}/edit`}
 					search={{ upgrade: HOBBYIST_UPGRADE }}
