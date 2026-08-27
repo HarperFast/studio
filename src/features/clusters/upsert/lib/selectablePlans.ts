@@ -11,17 +11,25 @@ import { SchemaPlan } from '@/integrations/api/api.gen';
  * Keyed on price rather than a plan id so a catalogue rename can't quietly re-admit it. Self-hosted
  * plans are exempt — their free tier is a real ongoing plan, not a trial.
  *
- * The cluster's current plan always stays listed, or a customer still on the trial would open the
- * editor to an empty picker instead of seeing what they are on.
+ * A free plan survives only while it is the tier currently SHOWING — otherwise the picker would
+ * open blank for a customer still on the trial. Once they have moved the selection (or arrived from
+ * the upgrade CTA, which preselects the paid target), it drops out: leaving it listed offers a
+ * change back onto a plan that cannot be re-entered.
  */
 export function selectablePlansByTier(
 	plansByTier: Record<string, SchemaPlan>,
-	{ isExistingCluster, currentPlanId }: { isExistingCluster: boolean; currentPlanId?: string },
+	{ isExistingCluster, currentPlanId, selectedPerformance }: {
+		isExistingCluster: boolean;
+		currentPlanId?: string;
+		selectedPerformance?: string;
+	},
 ): Record<string, SchemaPlan> {
 	if (!isExistingCluster) { return plansByTier; }
 	return Object.fromEntries(
-		Object.entries(plansByTier).filter(([, plan]) =>
-			!!plan.priceUsd || plan.deploymentType === 'self-hosted' || plan.id === currentPlanId
+		Object.entries(plansByTier).filter(([tier, plan]) =>
+			!!plan.priceUsd
+			|| plan.deploymentType === 'self-hosted'
+			|| (plan.id === currentPlanId && tier === selectedPerformance)
 		),
 	);
 }
