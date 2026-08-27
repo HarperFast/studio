@@ -7,6 +7,10 @@ export interface ScopeOption {
 	label: string;
 	/** Right-aligned detail — what tells two similarly named options apart. */
 	hint?: string;
+	/** A short value in a fixed slot after the hint, so the column lines up down the list. */
+	meta?: string;
+	/** Hover explanation for the row — what `meta` is counting. */
+	title?: string;
 	/** Retired, but still selectable: an existing grant may be scoped to one. */
 	inactive?: boolean;
 }
@@ -48,6 +52,7 @@ export function ScopePicker({ options, value, onChange, unrestrictedLabel, empty
 							type="button"
 							role="checkbox"
 							aria-checked={selected.has(option.id)}
+							title={option.title}
 							onClick={() => toggle(option.id)}
 							className={cn(
 								'flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/60',
@@ -64,11 +69,12 @@ export function ScopePicker({ options, value, onChange, unrestrictedLabel, empty
 								{selected.has(option.id) && <CheckIcon className="size-3" />}
 							</span>
 							<span className="truncate font-mono text-xs">{option.label}</span>
-							{option.hint && (
-								<span className="ml-auto truncate text-xs text-muted-foreground">
-									{option.inactive ? `inactive · ${option.hint}` : option.hint}
-								</span>
-							)}
+							<span className="ml-auto flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+								{option.hint && (
+									<span className="truncate">{option.inactive ? `inactive · ${option.hint}` : option.hint}</span>
+								)}
+								{option.meta && <span className="w-20 shrink-0 text-right tabular-nums">{option.meta}</span>}
+							</span>
 						</button>
 					))}
 			</div>
