@@ -45,6 +45,21 @@ export function isExpiryWarning(description: GrantExpiryDescription | null): boo
 	return !!description && description.stage !== 'AWAITING_PLAN';
 }
 
+/**
+ * Whether a start would be refused. Mirrors central-manager's `clusterStartBlockedReason`, which
+ * gates on the cluster carrying a `suspendedReason` with no live grant — NOT on the grant alone.
+ *
+ * Gating UI on "the grant lapsed" instead was wrong in both directions: it hid the container group
+ * from a cluster the customer had stopped themselves whose grant later lapsed (a start the server
+ * would have accepted), and permanently from one whose grant was revoked, since the expiry runner
+ * skips revoked grants and so never writes `suspendedReason`.
+ */
+export function isStartBlockedByPlan(
+	cluster: Pick<Cluster, 'grant' | 'suspendedReason'>,
+): boolean {
+	return cluster.suspendedReason != null && !cluster.grant?.isActive;
+}
+
 /** A conversion that hasn't finished applying its plan yet. Bounded window, not the real terms. */
 export function isConversionPending(grant: ClusterGrant | null | undefined): boolean {
 	return grant?.expiryPolicy === 'conversion-pending';
@@ -64,7 +79,16 @@ function daysUntil(iso: string | null, now: number): number | null {
 	if (!iso) { return null; }
 	const at = new Date(iso).getTime();
 	if (Number.isNaN(at)) { return null; }
-	return Math.ceil((at - now) / DAY_MS);
+	// Calendar days, not elapsed 24-hour blocks: rounding up made two hours before midnight read as
+	// "ends tomorrow", and that lands inside the final-warning window where the next stage stops the
+	// cluster. Comparing local midnights makes "today" mean today.
+	return Math.round((startOfDay(at) - startOfDay(now)) / DAY_MS);
+}
+
+function startOfDay(at: number): number {
+	const day = new Date(at);
+	day.setHours(0, 0, 0, 0);
+	return day.getTime();
 }
 
 function whenPhrase(days: number | null): string {
@@ -89,11 +113,22 @@ const SOURCE_LABEL: Record<string, string> = {
  * schedule rather than guessed from the policy name: stage lists differ per policy (enterprise-grace
  * has five, consumer-trial four) and the day offsets live server-side where they can be edited.
  */
-function deletionDueAt(grant: ClusterGrant): Date | null {
+function deletionDueAt(grant: ClusterGrant, now: number): Date | null {
+	// The expiry runner skips revoked grants, so their schedule is projected but will never be
+	// walked. Promising a deletion date from one would be quoting a timetable nothing runs.
+	if (grant.status === 'REVOKED') { return null; }
 	const deletion = grant.timeline?.find((entry) => entry.stage === 'DELETED' && !entry.applied);
 	if (!deletion?.dueAt) { return null; }
 	const at = new Date(deletion.dueAt);
-	return Number.isNaN(at.getTime()) ? null : at;
+	// A date already past means the runner is behind; "will be deleted on August 23" on August 25
+	// reads as a system that has lost track, so say nothing rather than name a stale date.
+	return Number.isNaN(at.getTime()) || at.getTime() <= now ? null : at;
+}
+
+/** Tense-correct: only claims a past ending when the date actually is in the past. */
+function endedTitle(grant: ClusterGrant, days: number | null): string {
+	const label = sourceLabel(grant);
+	return days == null || days > 0 ? `${label} has ended` : `${label} ended ${whenPhrase(days)}`;
 }
 
 const onDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(at);
@@ -113,9 +148,16 @@ export function describeGrantExpiry(
 	const grant = cluster.grant;
 	if (!grant) { return null; }
 
-	// A conversion mid-flight is a bounded window, not the customer's terms — never dressed up as
-	// an expiring plan, or an upgrade in progress would read as a warning.
-	if (isConversionPending(grant)) {
+	const days = daysUntil(grant.endsAt, now);
+	// Read whether the cluster is really down rather than inferring it from the grant: expiring a
+	// grant and stopping a cluster are separate acts, the runner can lag between them, and the
+	// enterprise policy separates them by a week.
+	const stopped = cluster.status === 'STOPPED' || cluster.suspendedReason != null;
+
+	// A conversion in flight — but only while its provisional grant is still live. Nothing ever
+	// rewrites expiryPolicy, so once that window lapses the row still says `conversion-pending`
+	// forever; testing it first made a FAILED conversion render as a permanent spinner.
+	if (isConversionPending(grant) && grant.isActive) {
 		return {
 			stage: 'AWAITING_PLAN',
 			severity: 'info',
@@ -127,20 +169,20 @@ export function describeGrantExpiry(
 		};
 	}
 
-	const days = daysUntil(grant.endsAt, now);
-
 	// GRACE expires the grant but does NOT stop the cluster — the shutdown is a separate stage days
-	// later. So this has to be answered before the !isActive branch below, or an running cluster in
-	// its grace period gets told it has been stopped.
-	if (grant.currentStage === 'GRACE') {
+	// later — so it has to be answered before the !isActive branch. Only while the cluster really is
+	// up: once it is down, the withdrawn branch below tells the truth and this would not.
+	if (grant.currentStage === 'GRACE' && !stopped) {
 		return {
 			stage: 'GRACE',
 			severity: 'warning',
 			badgeLabel: 'Grace period',
-			title: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
+			title: endedTitle(grant, days),
 			detail: 'Your cluster is still running while we sort out renewal. Contact us to continue service.',
 			needsUpgrade: false,
-			offerUpgrade: true,
+			// No self-serve CTA: grace belongs to the enterprise policy, so this is an account with a
+			// negotiated agreement. Offering a $20 Hobbyist plan would be the wrong answer to it.
+			offerUpgrade: false,
 		};
 	}
 
@@ -151,20 +193,16 @@ export function describeGrantExpiry(
 			: grant.currentStage === 'SHUTDOWN'
 			? 'SHUTDOWN'
 			: 'EXPIRED';
-		// Don't infer the stop from the grant. The runner expires a grant and stops the cluster in the
-		// same stage for a consumer trial, but it can also lag, and enterprise splits them entirely —
-		// so read whether the cluster is actually down rather than assuming it followed.
-		const stopped = cluster.status === 'STOPPED' || cluster.suspendedReason != null;
 		// Nothing deletes a lapsed purchased grant — it carries no policy — so the schedule decides
 		// whether deletion is mentioned at all.
-		const deletedAt = deletionDueAt(grant);
+		const deletedAt = deletionDueAt(grant, now);
 		return {
 			stage,
 			severity: 'critical',
 			badgeLabel: stage === 'DELETED' ? 'Deleted' : 'Plan ended',
 			title: stage === 'DELETED'
 				? 'This cluster was deleted after its plan ended'
-				: `${sourceLabel(grant)} ended ${whenPhrase(days)}`,
+				: endedTitle(grant, days),
 			detail: stage === 'DELETED'
 				? undefined
 				: deletedAt
@@ -203,19 +241,6 @@ export function describeGrantExpiry(
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
 				needsUpgrade: false,
 				offerUpgrade: true,
-			};
-		// The runner stamps these only alongside a stop/delete, so isActive is false above and this
-		// is unreachable in practice — kept so a stage that outlives its grant still renders.
-		case 'SHUTDOWN':
-		case 'DELETED':
-			return {
-				stage: grant.currentStage,
-				severity: 'critical',
-				badgeLabel: 'Plan ended',
-				title: `${sourceLabel(grant)} has ended`,
-				detail: 'Choose a paid plan to start this cluster again.',
-				needsUpgrade: grant.currentStage !== 'DELETED',
-				offerUpgrade: grant.currentStage !== 'DELETED',
 			};
 		default:
 			return null;
