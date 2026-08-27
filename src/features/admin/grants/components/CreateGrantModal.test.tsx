@@ -178,7 +178,7 @@ describe('CreateGrantModal', () => {
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedPlanIds');
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedRegionIds');
 
-		fireEvent.click(screen.getByRole('checkbox', { name: /Hobbyist/ }));
+		fireEvent.click(screen.getByRole('checkbox', { name: /plan-hobby/ }));
 		fireEvent.click(screen.getByRole('checkbox', { name: /us-east-1/ }));
 		await act(() => null);
 		fireEvent.click(submit());
