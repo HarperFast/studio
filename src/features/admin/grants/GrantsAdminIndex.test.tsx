@@ -76,14 +76,14 @@ describe('GrantsAdminIndex', () => {
 
 	it('marks an unbound voucher instead of linking a cluster', async () => {
 		await mount([grant({ id: 'cgr-voucher', clusterId: null })]);
-		expect(screen.getByText('unbound voucher')).toBeTruthy();
+		expect(screen.getByText('Unbound')).toBeTruthy();
 	});
 
 	// Server-computed liveness beats stored status: an ACTIVE row past endsAt is not live until the
 	// runner stamps it — the same rule every customer surface applies.
 	it('flags an ACTIVE row the server says has lapsed', async () => {
 		await mount([grant({ isActive: false })]);
-		expect(screen.getByText('ACTIVE (lapsed)')).toBeTruthy();
+		expect(screen.getByText('Lapsed')).toBeTruthy();
 	});
 
 	// Studio holds no expiry offsets, so without a server timeline the column must not guess.
@@ -126,9 +126,9 @@ describe('GrantsAdminIndex', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	// Source/status narrow on the server so the page stops fetching the world; the mock captures
-	// what the query was asked for. The select must actually be driven — asserting only the default
-	// call passes whether or not the filter is wired (the vacuous-assertion trap in AGENTS.md).
+	// Source/status narrow on the server; the mock captures what the query was asked for. The select
+	// must actually be driven — asserting only the default call passes whether or not the filter is
+	// wired (the vacuous-assertion trap in AGENTS.md).
 	it('passes a picked source to the server rather than filtering locally', async () => {
 		await mount([grant({})]);
 		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: undefined });
@@ -146,7 +146,7 @@ describe('GrantsAdminIndex', () => {
 			grant({ id: 'cgr-one', reason: 'conference comp' }),
 			grant({ id: 'cgr-two', clusterId: 'clu-other' }),
 		]);
-		const search = screen.getByPlaceholderText(/Search id/);
+		const search = screen.getByLabelText('Filter grants');
 		await act(async () => {
 			const { fireEvent } = await import('@testing-library/react');
 			fireEvent.change(search, { target: { value: 'conference' } });
