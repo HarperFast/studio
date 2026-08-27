@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
-import { AdminClusterGrant } from '@/integrations/api/api.patch';
+import { AdminClusterGrant, ClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
@@ -45,26 +45,30 @@ function nextDue(grant: AdminClusterGrant): string {
 	return `${next.stage} ${fmtDate(next.dueAt)}`;
 }
 
+// The API's own enum values (see ClusterGrant), not data-derived: with server-side filtering the
+// fetched rows only contain the value already picked, which would leave nothing to switch to.
+const SOURCES: ClusterGrant['source'][] = ['trial', 'purchased', 'enterprise', 'gift', 'comp'];
+const STATUSES: ClusterGrant['status'][] = ['ACTIVE', 'EXPIRED', 'REVOKED'];
+
 export function GrantsAdminIndex() {
-	const { data: grants, isLoading, isError } = useQuery(getGrantsQueryOptions());
-	const { data: orgResult } = useQuery(getOrganizationsQueryOptions());
 	const [search, setSearch] = useState('');
 	const [source, setSource] = useState(ANY);
 	const [status, setStatus] = useState(ANY);
+	const { data: report, isLoading, isError } = useQuery(getGrantsQueryOptions({
+		source: source === ANY ? undefined : source,
+		status: status === ANY ? undefined : status,
+	}));
+	const grants = report?.grants;
+	const { data: orgResult } = useQuery(getOrganizationsQueryOptions());
 
 	const orgNameById = useMemo(
 		() => new Map((orgResult?.organizations ?? []).map((o) => [o.id, o.name])),
 		[orgResult],
 	);
 
-	const sources = useMemo(() => [...new Set((grants ?? []).map((g) => g.source))].sort(), [grants]);
-	const statuses = useMemo(() => [...new Set((grants ?? []).map((g) => g.status))].sort(), [grants]);
-
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		return (grants ?? [])
-			.filter((g) => source === ANY || g.source === source)
-			.filter((g) => status === ANY || g.status === status)
 			.filter((g) =>
 				!q
 				|| g.id.toLowerCase().includes(q)
@@ -80,7 +84,7 @@ export function GrantsAdminIndex() {
 				const bt = b.endsAt ? new Date(b.endsAt).getTime() : Infinity;
 				return at - bt;
 			});
-	}, [grants, search, source, status, orgNameById]);
+	}, [grants, search, orgNameById]);
 
 	if (isError) {
 		return (
@@ -107,7 +111,7 @@ export function GrantsAdminIndex() {
 					<SelectContent>
 						<SelectGroup>
 							<SelectItem value={ANY}>Any source</SelectItem>
-							{sources.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+							{SOURCES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
 						</SelectGroup>
 					</SelectContent>
 				</Select>
@@ -118,11 +122,19 @@ export function GrantsAdminIndex() {
 					<SelectContent>
 						<SelectGroup>
 							<SelectItem value={ANY}>Any status</SelectItem>
-							{statuses.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
+							{STATUSES.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}
 						</SelectGroup>
 					</SelectContent>
 				</Select>
 			</div>
+
+			{report?.truncated && (
+				<p className="text-sm text-amber-600 dark:text-amber-400" role="alert">
+					Showing the first {report.limit}{' '}
+					grants only — the server truncated the result. Narrow the filters; anything past the limit is not in this
+					list.
+				</p>
+			)}
 
 			{isLoading ? <p className="text-sm text-muted-foreground">Loading grants…</p> : (
 				<div className="overflow-x-auto">
