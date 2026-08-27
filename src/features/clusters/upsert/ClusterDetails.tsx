@@ -64,16 +64,21 @@ export function ClusterDetails({
 }: ClusterDetailsProps) {
 	const { isDirty, isValid } = useFormState();
 	// Hobbyist is colocated-only, so the deployment picker has nothing to offer while it is selected.
-	const isHobbyist = selectedPlan?.id === hobbyistPlanId;
+	// Only when editing: on the create page Hobbyist can be the default selection for an org that
+	// already holds a free cluster, and locking deployment there would strand someone who wanted a
+	// dedicated or self-hosted cluster on a picker they cannot change.
+	const isHobbyist = !!clusterId && selectedPlan?.id === hobbyistPlanId;
 	const availablePerformanceDescriptions = useMemo(() => {
 		const plansByTier = selectablePlansByTier(deploymentToPerformanceToPlan[selectedDeployment] || {}, {
 			isExistingCluster: !!clusterId,
 			currentPlanId,
 		});
-		const planLevels = Object.values(plansByTier).map(plan => plan.planLevel ?? 0);
-		const minPlanLevel = planLevels.length ? Math.min(...planLevels) : 0;
+		// Premium means "costs money", matching calculatePremiumOnlyRegions. Keyed on planLevel it
+		// disagreed with itself inside one form: Hobbyist is planLevel 0 like the trial, so the $20
+		// tier carried no badge while the regions inside it did.
+		const hasFreeTier = Object.values(plansByTier).some(plan => !plan.priceUsd);
 		return Object.keys(plansByTier).map(performanceTier => {
-			const isPremium = (plansByTier[performanceTier].planLevel ?? 0) > minPlanLevel;
+			const isPremium = hasFreeTier && !!plansByTier[performanceTier].priceUsd;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
 				return {

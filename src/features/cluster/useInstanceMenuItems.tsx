@@ -5,7 +5,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
+import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
@@ -54,9 +54,8 @@ export function useInstanceMenuItems(
 	// threading a flag through InstanceActionsMenu and InstanceRowContextMenu.
 	const { organizationId, clusterId }: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
 	const { data: cluster } = useQuery(getClusterInfoQueryOptions(clusterId, false));
-	// Same rule as the cluster card and ClusterStateMenu: once the plan has ended the start gate
-	// refuses the instance with a 402, so offering Start is offering a guaranteed failure.
-	const planEnded = !!describeGrantExpiry(cluster ?? {})?.needsUpgrade;
+	// Same rule as the cluster card and ClusterStateMenu, keyed on the server's own gate.
+	const planEnded = isStartBlockedByPlan(cluster ?? {});
 	const instanceHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id });
 	const signInHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id }, 'sign-in');
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);

@@ -261,6 +261,10 @@ export function ClusterForm({
 
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
+		// A frozen region set must reach the server exactly as the cluster already has it. Disabling
+		// the select only stopped the customer changing it — these effects still rewrote the value
+		// underneath, and the mutated set was what got submitted, which the server then refused.
+		if (regionSetFrozen) { return; }
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
 			const firstRegion = selectedRegionPlans[0];
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]
@@ -275,10 +279,14 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations]);
+	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations, regionSetFrozen]);
 
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
 		const isSelfManaged = selectedDeployment === 'Self-Hosted';
+		// Blanking a frozen region leaves the form unsatisfiable: the control is disabled, so nothing
+		// can put a value back, and the schema requires one. The cluster is running in that region
+		// whether or not it currently accepts new placements.
+		if (regionSetFrozen) { return; }
 		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
 			for (let i = 0; i < selectedRegionPlans.length; i++) {
 				const regionPlan = selectedRegionPlans[i];
@@ -287,7 +295,7 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans]);
+	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans, regionSetFrozen]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0

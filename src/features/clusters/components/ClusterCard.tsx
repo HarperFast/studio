@@ -13,7 +13,7 @@ import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAct
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
+import { describeGrantExpiry, HOBBYIST_UPGRADE, isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
@@ -91,10 +91,9 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
 	const isSelfManaged = clusterIsSelfManaged(cluster);
-	// A cluster stopped because its plan ended has no container action that can succeed: the start
-	// gate refuses it with a 402 for everyone, and there is nothing running to restart or stop.
-	// Buying a plan is the whole menu, so the group goes rather than leaving a dead section header.
-	const planEndedAndDown = isClusterStopped && !!expiry?.needsUpgrade;
+	// Mirrors the server's own start gate rather than the grant's state — see isStartBlockedByPlan.
+	// Buying a plan is the whole menu here, so the group goes rather than leaving a dead header.
+	const planEndedAndDown = isStartBlockedByPlan(cluster);
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
 	const showContainerActions = update && !isSelfManaged && !planEndedAndDown;
@@ -222,6 +221,9 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		!!upgradeHref && update && {
 			key: 'upgrade',
 			to: `${cluster.id}/edit`,
+			// Same as the banner and the strip: land on the conversion target, not on the plan that
+			// just expired — without it the editor opens on the dead trial with submit disabled.
+			search: { upgrade: HOBBYIST_UPGRADE },
 			disabled: signingOut,
 			icon: <ScaleIcon className="text-purple-600" />,
 			label: 'Choose a Plan',
@@ -347,6 +349,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 				{cardHref && (
 					<Link
 						to={cardHref}
+						search={cardHref === upgradeHref ? { upgrade: HOBBYIST_UPGRADE } : undefined}
 						aria-label={`${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
 						className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
 					/>
