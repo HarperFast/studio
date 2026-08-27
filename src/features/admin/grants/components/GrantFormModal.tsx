@@ -8,6 +8,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
 import {
 	GrantFormSchema,
 	GrantFormValues,
@@ -183,6 +184,8 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 								</FormItem>
 							)}
 						/>
+
+						<GrantScopeFields enabled={open} />
 
 						<FormField
 							control={form.control}
