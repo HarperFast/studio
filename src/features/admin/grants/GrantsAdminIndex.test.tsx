@@ -140,14 +140,13 @@ describe('GrantsAdminIndex', () => {
 		expect(ids).toEqual(['cgr-forever', 'cgr-soon', 'cgr-later']);
 	});
 
-	it('asks the server for next-due ordering when the control is switched', async () => {
+	// The two orderings the server offers are these two columns, so the header is the control.
+	it('asks the server for next-due ordering when that column header is clicked', async () => {
 		await mount([grant({})]);
 		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'ends-at' });
 
 		const { fireEvent } = await import('@testing-library/react');
-		fireEvent.keyDown(screen.getByLabelText('Sort order'), { key: 'ArrowDown' });
-		await act(() => null);
-		fireEvent.click(screen.getByRole('option', { name: 'Next stage due' }));
+		fireEvent.click(screen.getByRole('button', { name: /Next due/ }));
 		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 		expect(requestedFilters).toHaveBeenLastCalledWith({ source: undefined, status: 'ACTIVE', order: 'next-due' });
 	});
@@ -173,6 +172,12 @@ describe('GrantsAdminIndex', () => {
 		fireEvent.change(screen.getByLabelText('Filter grants'), { target: { value: 'conference' } });
 		await act(() => null);
 		expect(screen.getByText('1 of 2 grants')).toBeTruthy();
+	});
+
+	it('marks which column the server ordered by', async () => {
+		await mount([grant({})]);
+		expect(screen.getByRole('button', { name: /Ends/ }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: /Next due/ }).getAttribute('aria-pressed')).toBe('false');
 	});
 
 	// Settled grants are permanent history and grow without bound; live ones are what anyone acts on.
