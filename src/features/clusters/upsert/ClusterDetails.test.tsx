@@ -154,9 +154,21 @@ describe('ClusterDetails — plans a customer may move onto', () => {
 	});
 
 	// Otherwise a customer still on the trial opens the editor with nothing selected.
-	it('keeps the trial listed for the cluster that is on it', async () => {
-		await mountEditor({ clusterId: 'clu-test', currentPlanId: TRIAL.id });
+	it('keeps the trial listed while it is the tier being shown', async () => {
+		await mountEditor({
+			clusterId: 'clu-test',
+			currentPlanId: TRIAL.id,
+			selectedPerformance: TRIAL.performanceDescription!,
+			selectedPlan: TRIAL,
+		});
 		expect((await openedOptions(/Performance/)).some((text) => /30-day trial/.test(text))).toBe(true);
+	});
+
+	// Arriving from the upgrade CTA preselects Hobbyist, so the trial is not being displayed and
+	// listing it only offers a move back onto a plan that cannot be re-entered.
+	it('drops the trial once the selection has moved onto the upgrade target', async () => {
+		await mountEditor({ clusterId: 'clu-test', currentPlanId: TRIAL.id, selectedPlan: HOBBYIST });
+		expect((await openedOptions(/Performance/)).some((text) => /30-day trial/.test(text))).toBe(false);
 	});
 });
 
@@ -189,5 +201,22 @@ describe('ClusterDetails — the Hobbyist deployment lock', () => {
 	it('locks it while editing a cluster onto Hobbyist, which is colocated-only', async () => {
 		await mountEditor({ clusterId: 'clu-test', selectedPlan: HOBBYIST });
 		expect(isLocked(selectFor('Harper Deployment'))).toBe(true);
+	});
+});
+
+describe('ClusterDetails — arriving from the upgrade CTA', () => {
+	const submitButton = () =>
+		screen.getAllByRole('button').find((b) => /Edit Cluster|Confirm Payment/.test(b.textContent ?? ''));
+
+	// Preselecting the target plan makes it the form's default, so nothing is dirty — the CTA used to
+	// land on a disabled button, which is the dead end it was supposed to fix.
+	it('enables submit when the preselected plan differs from what the cluster runs', async () => {
+		await mountEditor({ clusterId: 'clu-test', currentPlanId: TRIAL.id, selectedPlan: HOBBYIST });
+		expect(submitButton()?.hasAttribute('disabled')).toBe(false);
+	});
+
+	it('leaves submit disabled when nothing has actually changed', async () => {
+		await mountEditor({ clusterId: 'clu-test', currentPlanId: HOBBYIST.id, selectedPlan: HOBBYIST });
+		expect(submitButton()?.hasAttribute('disabled')).toBe(true);
 	});
 });
