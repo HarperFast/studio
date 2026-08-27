@@ -7,6 +7,7 @@ import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreate
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
+import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
 import { Organization } from '@/integrations/api/api.patch';
@@ -459,6 +460,8 @@ export function ClusterForm({
 				version: formData.version,
 				organizationId,
 				regionPlans: plans,
+				// Omitted unless one was entered: the server claims a grant only when asked to.
+				grantId: formData.grantId?.trim() || undefined,
 			}, {
 				onSuccess: (data) =>
 					onClusterSavedCallback({
@@ -486,12 +489,12 @@ export function ClusterForm({
 	]);
 
 	const submitClusterDetailsForm = useCallback(() => {
-		if (mode !== 'version' && totalPrice > 0) {
+		if (needsBillingStep({ mode, totalPrice, grantId: form.getValues('grantId') })) {
 			setConfirmingPaymentDetails(true);
 			return;
 		}
 		return executeChangesToCluster();
-	}, [mode, executeChangesToCluster, totalPrice]);
+	}, [form, mode, executeChangesToCluster, totalPrice]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
 		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);

@@ -13,9 +13,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { act, ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterDetails } from './ClusterDetails';
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
+
+// The Grant ID field is staff-gated; everything else from this module stays real.
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	useStaffPermission: () => true,
+}));
 
 afterEach(() => cleanup());
 
@@ -218,5 +224,27 @@ describe('ClusterDetails — arriving from the upgrade CTA', () => {
 	it('leaves submit disabled when nothing has actually changed', async () => {
 		await mountEditor({ clusterId: 'clu-test', currentPlanId: HOBBYIST.id, selectedPlan: HOBBYIST });
 		expect(submitButton()?.hasAttribute('disabled')).toBe(true);
+	});
+
+	// The billing step's own submit requires a valid payment method, so it would block a create that
+	// central-manager would have allowed on a claimed grant. Button label and destination read one
+	// predicate, so the button can never promise the step it does not take.
+	describe('claiming a grant on create', () => {
+		it('sends a paid plan to billing when no grant is entered', async () => {
+			await mountEditor();
+			expect(screen.getByRole('button', { name: /Confirm Payment Details/ })).toBeTruthy();
+		});
+
+		it('creates directly once a grant id is entered', async () => {
+			await mountEditor();
+			fireEvent.change(screen.getByPlaceholderText(/cgr-/), { target: { value: 'cgr-abc' } });
+			await act(() => null);
+			expect(screen.getByRole('button', { name: /Create New Cluster/ })).toBeTruthy();
+		});
+
+		it('has no grant field when editing an existing cluster', async () => {
+			await mountEditor({ clusterId: 'clu-1' });
+			expect(screen.queryByPlaceholderText(/cgr-/)).toBeNull();
+		});
 	});
 });
