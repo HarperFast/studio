@@ -68,7 +68,7 @@ export function UpsertCluster() {
 	// central-manager freezes the region set while a trial or level-0 plan is on the cluster, so a
 	// plan change and a region change cannot go in one request. Keyed on what the cluster runs NOW,
 	// not on what is being selected — the freeze lifts as soon as the paid plan lands.
-	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId!));
+	const regionSetFrozen = !!cluster?.plans?.some(plan => regionFrozenPlanIds.includes(plan.planId));
 	const [savedClusterState, setSavedClusterState] = useLocalStorage<
 		| null
 		| ({
