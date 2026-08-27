@@ -20,6 +20,9 @@ export function useReo() {
 				Reo?.init?.({ clientID });
 				return reoClient = Reo;
 			})
-			.catch(() => {});
+			// `console.debug`, never `console.error`: the RUM SDK collects `console.error` as an error
+			// (`source: "console"`), which would send this straight back to the Error Tracking issue
+			// this catch exists to remove. Debug keeps a real Reo breakage visible in devtools.
+			.catch((error) => console.debug('Reo analytics unavailable', error));
 	}, []);
 }
