@@ -163,28 +163,22 @@ export function RegionFormInputs({
 		[allowedRegionIds, regionNameToLatencyToRegion, selectedRegionName],
 	);
 
-	const setEntry = useCallback((regionId: string, quantity: number | undefined) => {
-		form.setValue(`regionPlans.${index}.regionId`, regionId, { shouldDirty: true });
-		form.setValue(`regionPlans.${index}.quantity`, quantity, { shouldDirty: true });
-		void form.trigger();
-	}, [form, index]);
-
-	const onRegionValueChange = useCallback((value: string) => {
-		if (isOrganizationRegionId(value)) {
-			setEntry(value, entryQuantity ?? 1);
-			return;
+	useEffect(function autoPickLatencyDescription() {
+		// Frozen means frozen: rewriting the distribution here submits a region set the cluster does
+		// not have, which the server refuses.
+		if (disabled) { return; }
+		if (
+			selectedRegionName && availableLatencyDescriptions?.length
+			&& !availableLatencyDescriptions?.includes(selectedLatencyDescription)
+		) {
+			const oldValue = selectedLatencyDescription?.split(' ')[0].toLowerCase();
+			const newValue = availableLatencyDescriptions.find(description =>
+				!oldValue ? true : description.split(' ')[0].toLowerCase() === oldValue
+			) || availableLatencyDescriptions[0];
+			form.setValue(`regionPlans.${index}.latencyDescription`, newValue);
+			void form.trigger();
 		}
-		const latencyOptions = Object.keys(regionNameToLatencyToRegion[value] || {}).sort(sortByNumberPrefix).reverse();
-		const latency = pickLatencyDescription(latencyOptions, selectedLatencyDescription);
-		setEntry((latency && regionNameToLatencyToRegion[value]?.[latency]?.id) || '', undefined);
-	}, [entryQuantity, regionNameToLatencyToRegion, selectedLatencyDescription, setEntry]);
-
-	const onLatencyValueChange = useCallback((value: string) => {
-		const region = regionNameToLatencyToRegion[selectedRegionName]?.[value];
-		if (region) {
-			setEntry(region.id, undefined);
-		}
-	}, [regionNameToLatencyToRegion, selectedRegionName, setEntry]);
+	}, [availableLatencyDescriptions, disabled, form, index, selectedLatencyDescription, selectedRegionName]);
 
 	const onRemoveClicked = useCallback(() => {
 		fieldArray?.remove(index);
