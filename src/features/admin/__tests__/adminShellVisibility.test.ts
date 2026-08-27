@@ -33,11 +33,12 @@ describe('admin section visibility', () => {
 	it('never shows the API Token page to super_user', () => {
 		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
 		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
-		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions']);
+		// Legacy API without staffPermissions: the fallback grants everything, so Grants shows too —
+		// but the SSO carve-out still hides API Token.
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Grants']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Grants', 'API Token']);
 	});
 });
