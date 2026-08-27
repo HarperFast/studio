@@ -93,12 +93,21 @@ describe('describeGrantExpiry', () => {
 
 	// The upgrade route is the point of the warning stages — it must not wait for the shutdown.
 	it('offers an upgrade well before service is withdrawn', () => {
-		for (const stage of ['WARNED', 'FINAL_WARNING', 'GRACE'] as const) {
+		for (const stage of ['WARNED', 'FINAL_WARNING'] as const) {
 			const result = describeGrantExpiry({ grant: grant({ currentStage: stage, endsAt: daysFromNow(3) }) }, NOW);
 			expect({ stage, offerUpgrade: result?.offerUpgrade }).toEqual({ stage, offerUpgrade: true });
 			// Still running: an upgrade is available, but nothing needs restoring.
 			expect(result?.needsUpgrade).toBe(false);
 		}
+	});
+
+	// GRACE only exists on the enterprise policy, so the account has a negotiated agreement. A $20
+	// self-serve CTA is the wrong answer to it, and the copy says to contact us instead.
+	it('offers no self-serve upgrade during an enterprise grace period', () => {
+		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
+		const result = describeGrantExpiry({ grant: inGrace, status: 'RUNNING' }, NOW);
+		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
+		expect(result?.detail).toContain('Contact us');
 	});
 
 	it('offers no upgrade once the cluster is deleted or while a conversion is settling', () => {
@@ -120,7 +129,7 @@ describe('describeGrantExpiry', () => {
 			endsAt: daysFromNow(0),
 		});
 		const result = describeGrantExpiry({ grant: inGrace, status: 'RUNNING' }, NOW);
-		expect(result).toMatchObject({ stage: 'GRACE', severity: 'warning', needsUpgrade: false, offerUpgrade: true });
+		expect(result).toMatchObject({ stage: 'GRACE', severity: 'warning', needsUpgrade: false });
 		expect(result?.detail).toContain('still running');
 		expect(result?.detail).not.toContain('has been stopped');
 	});
@@ -193,6 +202,77 @@ describe('describeGrantExpiry', () => {
 		const noSchedule = grant({ isActive: false, currentStage: 'SHUTDOWN', timeline: null });
 		expect(describeGrantExpiry({ grant: noSchedule, status: 'STOPPED' }, NOW)?.detail).toBe(
 			'The cluster has been stopped. Choose a paid plan to start it again.',
+		);
+	});
+
+	// B2: nothing ever rewrites expiryPolicy, so a lapsed provisional grant still reads
+	// `conversion-pending`. Testing that before isActive rendered a failed conversion as a spinner
+	// with no CTA, permanently — not for the four-hour window, forever.
+	it('reports a failed conversion as ended, not as still upgrading', () => {
+		const failed = grant({
+			source: 'purchased',
+			isActive: false,
+			status: 'EXPIRED',
+			expiryPolicy: 'conversion-pending',
+			currentStage: 'SHUTDOWN',
+			endsAt: daysFromNow(-1),
+		});
+		const result = describeGrantExpiry({ grant: failed, status: 'STOPPED' }, NOW);
+		expect(result?.stage).not.toBe('AWAITING_PLAN');
+		expect(result).toMatchObject({ severity: 'critical', needsUpgrade: true });
+	});
+
+	it('still shows a live conversion as upgrading', () => {
+		const live = grant({ source: 'purchased', isActive: true, expiryPolicy: 'conversion-pending' });
+		expect(describeGrantExpiry({ grant: live, status: 'STARTING' }, NOW)?.stage).toBe('AWAITING_PLAN');
+	});
+
+	// S8: the mirror of the grace bug already fixed once — asserting a state instead of reading it.
+	it('does not claim a grace-period cluster is running when it is down', () => {
+		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
+		const result = describeGrantExpiry({ grant: inGrace, status: 'STOPPED' }, NOW);
+		expect(result?.stage).not.toBe('GRACE');
+		expect(result?.detail).toContain('has been stopped');
+	});
+
+	// S5: reachable via a revoked forever-grant (endsAt null) and via a future startsAt.
+	it('does not claim a past ending when the date is absent or still ahead', () => {
+		const forever = grant({ source: 'comp', isActive: false, status: 'REVOKED', endsAt: null });
+		expect(describeGrantExpiry({ grant: forever, status: 'STOPPED' }, NOW)?.title).toBe('Complimentary plan has ended');
+
+		const future = grant({ source: 'comp', isActive: false, endsAt: daysFromNow(30) });
+		expect(describeGrantExpiry({ grant: future, status: 'STOPPED' }, NOW)?.title).toBe('Complimentary plan has ended');
+	});
+
+	// S4: the runner skips revoked grants, so their schedule is never walked.
+	it('quotes no deletion date for a revoked grant', () => {
+		const revoked = grant({
+			isActive: false,
+			status: 'REVOKED',
+			currentStage: 'SHUTDOWN',
+			timeline: [{ stage: 'DELETED', dueAt: daysFromNow(7), applied: false }],
+		});
+		expect(describeGrantExpiry({ grant: revoked, status: 'STOPPED' }, NOW)?.detail).not.toContain('deleted on');
+	});
+
+	// S6: a date already past means the runner is behind; naming it reads as a system losing track.
+	it('quotes no deletion date that has already passed', () => {
+		const stale = grant({
+			isActive: false,
+			currentStage: 'SHUTDOWN',
+			timeline: [{ stage: 'DELETED', dueAt: daysFromNow(-2), applied: false }],
+		});
+		expect(describeGrantExpiry({ grant: stale, status: 'STOPPED' }, NOW)?.detail).not.toContain('deleted on');
+	});
+
+	// S7: rounding up put two hours before midnight into "tomorrow", inside the window where the
+	// next stage stops the cluster.
+	it('counts calendar days, so hours left today read as today', () => {
+		const hoursLeft = new Date(NOW + 2 * 60 * 60 * 1000);
+		const nearlyUp = grant({ currentStage: 'FINAL_WARNING', endsAt: hoursLeft.toISOString() });
+		const sameDay = hoursLeft.getDate() === new Date(NOW).getDate();
+		expect(describeGrantExpiry({ grant: nearlyUp }, NOW)?.title).toBe(
+			sameDay ? 'Trial ends today' : 'Trial ends tomorrow',
 		);
 	});
 
