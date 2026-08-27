@@ -22,11 +22,17 @@ const fmtDate = (iso: string | null | undefined) => {
  * an inactive region. "Lapsed" is the server-computed case a stored status can't show: an ACTIVE
  * row past its endsAt that the runner hasn't stamped yet.
  */
-function stateBadge(grant: AdminClusterGrant): { label: string; variant: 'warning' | 'secondary' } | null {
+type BadgeVariant = 'success' | 'warning' | 'destructive' | 'secondary';
+
+function stateBadge(grant: AdminClusterGrant): { label: string; variant: BadgeVariant } {
+	// Lapsed is the one that wants attention: the server says the grant is no longer live, but the
+	// runner has not stamped it, so nothing has acted on the cluster yet.
 	if (grant.isActive === false && grant.status === 'ACTIVE') { return { label: 'Lapsed', variant: 'warning' }; }
+	// Revoked and Expired both end a grant, but not the same way — one ran its course, the other was
+	// taken away by an admin. Sharing a colour lost the only distinction worth scanning for.
+	if (grant.status === 'REVOKED') { return { label: 'Revoked', variant: 'destructive' }; }
 	if (grant.status === 'EXPIRED') { return { label: 'Expired', variant: 'secondary' }; }
-	if (grant.status === 'REVOKED') { return { label: 'Revoked', variant: 'secondary' }; }
-	return null;
+	return { label: 'Active', variant: 'success' };
 }
 
 /**
@@ -39,9 +45,6 @@ function nextDue(grant: AdminClusterGrant): string {
 	if (!next) { return '—'; }
 	return `${next.stage} · ${fmtDate(next.dueAt)}`;
 }
-
-/** A finished grant reads as history, not as a live row — same dimming as an inactive region. */
-const isSettled = (grant: AdminClusterGrant) => grant.status !== 'ACTIVE' || grant.isActive === false;
 
 /** 'any' is the unfiltered state. */
 const ANY = 'any';
@@ -170,18 +173,15 @@ export function GrantsAdminIndex() {
 											</TableHeader>
 											<TableBody>
 												{filtered.map((grant) => {
+													// No row dimming here, unlike the regions table: most grants are settled, so
+													// fading them faded the whole table and washed out the status colours. The
+													// badge carries the state instead.
 													const badge = stateBadge(grant);
 													return (
-														<TableRow
-															key={grant.id}
-															className={isSettled(grant) ? 'opacity-60' : undefined}
-															title={grant.reason ?? undefined}
-														>
+														<TableRow key={grant.id} title={grant.reason ?? undefined}>
 															<TableCell className="font-mono text-xs font-medium">{grant.id}</TableCell>
 															<TableCell>
-																{badge
-																	? <Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
-																	: <Badge variant="success" className="text-[10px]">Active</Badge>}
+																<Badge variant={badge.variant} className="text-[10px]">{badge.label}</Badge>
 															</TableCell>
 															<TableCell
 																className="max-w-48 truncate"
