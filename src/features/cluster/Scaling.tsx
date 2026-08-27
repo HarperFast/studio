@@ -2,7 +2,7 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
-import { isConversionComplete } from '@/features/clusters/lib/grantExpiry';
+import { isConversionComplete, isConversionFailed } from '@/features/clusters/lib/grantExpiry';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useMemo } from 'react';
@@ -25,6 +25,23 @@ export function Scaling() {
 		return (
 			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<TextLoadingSkeleton />
+			</ClusterContentWithSubNavMenu>
+		);
+	}
+
+	// A failed conversion must not sit behind the progress copy — the server marked it, nothing was
+	// charged (payment is only verified up front; blocks mint inside the plan change), and the only
+	// useful next step is trying again.
+	if (isConversionFailed(cluster)) {
+		return (
+			<ClusterContentWithSubNavMenu className="flex justify-center">
+				<div className="center w-2xl flex flex-col gap-4">
+					<h1 className="text-xl text-center">Your upgrade did not go through</h1>
+					<p>
+						The plan change could not be applied, and nothing was charged. You can try again from the plan editor, or
+						contact us if this keeps happening.
+					</p>
+				</div>
 			</ClusterContentWithSubNavMenu>
 		);
 	}

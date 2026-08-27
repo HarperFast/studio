@@ -27,11 +27,14 @@ let clusterStatus = 'UPDATING';
 // The grant matters: a trial->paid conversion reaches RUNNING before the server applies the plan, so
 // completion is RUNNING *plus* a grant that is no longer `conversion-pending`. Mocking the cluster
 // without one made every assertion here collapse to `status === 'RUNNING'`.
-let clusterGrant: { expiryPolicy: string | null } | null = null;
+// The real projection always sends isActive; the belt predicate rightly demands it true, since a
+// LAPSED provisional grant must read as ended, not as still applying.
+let clusterGrant: { expiryPolicy: string | null; isActive?: boolean } | null = null;
+let conversionState: 'APPLYING' | 'FAILED' | null = null;
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
-		queryKey: [clusterId, clusterStatus, clusterGrant?.expiryPolicy],
-		queryFn: async () => ({ id: clusterId, status: clusterStatus, grant: clusterGrant }),
+		queryKey: [clusterId, clusterStatus, clusterGrant?.expiryPolicy, conversionState],
+		queryFn: async () => ({ id: clusterId, status: clusterStatus, grant: clusterGrant, conversionState }),
 		retry: false,
 		enabled: !!clusterId,
 	}),
@@ -54,6 +57,7 @@ beforeEach(() => {
 	currentSearch = {};
 	clusterStatus = 'UPDATING';
 	clusterGrant = null;
+	conversionState = null;
 });
 
 afterEach(() => {
@@ -104,10 +108,21 @@ describe('Scaling status copy', () => {
 	// their upgrade had landed when it had not.
 	it('does not announce completion while a conversion is still applying', async () => {
 		clusterStatus = 'RUNNING';
-		clusterGrant = { expiryPolicy: 'conversion-pending' };
+		clusterGrant = { expiryPolicy: 'conversion-pending', isActive: true };
 		mount();
 		await waitFor(() => screen.getByText('Here we go!'));
 		expect(screen.queryByText('All done!')).toBeNull();
+	});
+
+	// The server's single failure catch marks this; the screen must not dress it as progress.
+	it('shows the failure, not progress or completion, when the conversion is marked FAILED', async () => {
+		clusterStatus = 'RUNNING';
+		conversionState = 'FAILED';
+		mount();
+		await waitFor(() => screen.getByText(/did not go through/));
+		expect(screen.getByText(/nothing was charged/)).toBeTruthy();
+		expect(screen.queryByText('All done!')).toBeNull();
+		expect(screen.queryByText('Here we go!')).toBeNull();
 	});
 
 	it('announces completion once the provisional grant has been replaced', async () => {
