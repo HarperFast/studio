@@ -176,7 +176,7 @@ export function UpsertCluster() {
 			}
 		}
 
-		const currentPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
+		const currentPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0]?.planId);
 		const hobbyistPlan = planTypes?.find(planType => planType.id === hobbyistPlanId);
 		// Arriving from the upgrade CTA opens on Hobbyist; the picker still lets them choose otherwise.
 		const selectedPlan = (upgradingToHobbyist && hobbyistPlan) || currentPlan;

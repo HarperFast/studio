@@ -192,6 +192,35 @@ Add a top-level `overrides:` block to `pnpm-workspace.yaml`. Scoped keys work to
 `'undici@>=7.0.0': '^7.28.0'`). After editing, run `pnpm install --lockfile-only` and
 grep the lockfile to confirm the stale versions are gone.
 
+## Testing a Radix Select — an absent option proves nothing unless you opened it
+
+`src/testSetup/jsdomPolyfills.ts` supplies `scrollIntoView`, `hasPointerCapture` and
+`releasePointerCapture`, which jsdom lacks and Radix calls while opening a Select. Without them
+the test dies inside Radix with `candidate?.scrollIntoView is not a function`, which reads like a
+library bug.
+
+**The quieter trap is the one that matters.** A Radix Select renders its options ONLY while open,
+and in jsdom **`pointerDown` does not open one — `keyDown` with `ArrowDown` does** (unlike
+DropdownMenu, which pointerDown opens). So:
+
+```ts
+expect(screen.queryByText(/30-day trial/)).toBeNull(); // passes even if the filter does nothing
+```
+
+That assertion is green whether or not the code under test removes the option, because the option
+was never in the DOM. The cluster editor's plan filter survived a mutation pass for exactly this
+reason. Open the select first, then assert over `getAllByRole('option')` — and assert something is
+still _present_ alongside the absence, so an empty menu can't pass either:
+
+```ts
+fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+await act(() => null);
+const options = screen.getAllByRole('option').map(o => o.textContent ?? '');
+```
+
+`ClusterDetails.test.tsx` has the working pattern, including looking a field's trigger up by its
+label via `[data-slot="form-item"]`.
+
 ## vitest — no test may open a real WebSocket (undici 8 cross-realm `Event`)
 
 `src/testSetup/inertWebSocket.ts` replaces the global `WebSocket` for the whole suite. Keep
