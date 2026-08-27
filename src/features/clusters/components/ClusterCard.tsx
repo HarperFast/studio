@@ -91,9 +91,13 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
 	const isSelfManaged = clusterIsSelfManaged(cluster);
-	// Mirrors the server's own start gate rather than the grant's state — see isStartBlockedByPlan.
-	// Buying a plan is the whole menu here, so the group goes rather than leaving a dead header.
-	const planEndedAndDown = isStartBlockedByPlan(cluster);
+	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
+	// can still be RUNNING or PARTIAL for the whole grace window. Hiding the group on this alone took
+	// Stop and Restart away from a running cluster and left Terminate as the only offer.
+	const startBlocked = isStartBlockedByPlan(cluster);
+	// The group is hidden only when it would otherwise be a heading over nothing: a stopped cluster
+	// whose only actions are the two Starts that are now refused.
+	const planEndedAndDown = startBlocked && !isClusterRunning && !isClusterPartial;
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
 	const showContainerActions = update && !isSelfManaged && !planEndedAndDown;
@@ -268,14 +272,14 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		&& { type: 'separator' as const, key: 'container-separator' },
 		showContainerActions && (isClusterRunning || isClusterStopped || isClusterPartial)
 		&& { type: 'label' as const, key: 'container-label', className: 'text-gray-600 text-xs', label: 'Container' },
-		showContainerActions && (isClusterStopped || isClusterPartial) && {
+		showContainerActions && !startBlocked && (isClusterStopped || isClusterPartial) && {
 			key: 'container-start',
 			disabled: isClusterOpPending,
 			onClick: () => void runClusterOp('start', { safeMode: false, strategy: 'parallel' }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		showContainerActions && isClusterStopped && {
+		showContainerActions && !startBlocked && isClusterStopped && {
 			key: 'container-start-safe',
 			disabled: isClusterOpPending,
 			onClick: () => setSafeModeAction('start'),
