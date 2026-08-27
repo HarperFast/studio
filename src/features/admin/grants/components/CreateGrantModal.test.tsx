@@ -98,6 +98,16 @@ async function pick(label: string, option: string | RegExp) {
 	await act(() => null);
 }
 
+/** The scope pickers are dropdown menus, not selects: the trigger opens on pointerDown. */
+async function pickScope(label: string, option: string | RegExp) {
+	fireEvent.pointerDown(screen.getByRole('button', { name: label }), { button: 0, ctrlKey: false });
+	await act(() => null);
+	fireEvent.click(screen.getByRole('menuitemcheckbox', { name: option }));
+	await act(() => null);
+	fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+	await act(() => null);
+}
+
 describe('CreateGrantModal', () => {
 	// The server accepts clusterId XOR organizationId, so the form asks which rather than offering
 	// both and letting the xor fail server-side.
@@ -178,9 +188,8 @@ describe('CreateGrantModal', () => {
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedPlanIds');
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedRegionIds');
 
-		fireEvent.click(screen.getByRole('checkbox', { name: /plan-hobby/ }));
-		fireEvent.click(screen.getByRole('checkbox', { name: /us-east-1/ }));
-		await act(() => null);
+		await pickScope('Plans', /plan-hobby/);
+		await pickScope('Regions', /us-east-1/);
 		fireEvent.click(submit());
 		await act(() => null);
 		const [body] = createGrant.mock.calls[1];
