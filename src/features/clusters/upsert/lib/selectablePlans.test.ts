@@ -29,12 +29,24 @@ describe('selectablePlansByTier', () => {
 	});
 
 	// Otherwise a customer still on the trial opens the editor to a picker with nothing selected.
-	it('keeps the trial listed for the cluster that is actually on it', () => {
+	it('keeps the trial listed while it is the tier being shown', () => {
 		const result = selectablePlansByTier(COLOCATED, {
 			isExistingCluster: true,
 			currentPlanId: 'fabric-block-trial',
+			selectedPerformance: '30-day trial (1K read/min)',
 		});
 		expect(tiers(result)).toEqual(tiers(COLOCATED));
+	});
+
+	// Arriving from the upgrade CTA preselects the paid target, so the trial is no longer displayed —
+	// and listing it then just offers a move back onto a plan that cannot be re-entered.
+	it('drops the trial once the selection has moved off it', () => {
+		const result = selectablePlansByTier(COLOCATED, {
+			isExistingCluster: true,
+			currentPlanId: 'fabric-block-trial',
+			selectedPerformance: 'Hobbyist (1K read/min)',
+		});
+		expect(tiers(result)).toEqual(['Hobbyist (1K read/min)', 'Medium (10K read/min)']);
 	});
 
 	// The self-hosted free tier is a real ongoing plan, not a trial you cannot re-enter.

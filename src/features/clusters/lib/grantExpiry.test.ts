@@ -228,11 +228,14 @@ describe('describeGrantExpiry', () => {
 	});
 
 	// S8: the mirror of the grace bug already fixed once — asserting a state instead of reading it.
-	it('does not claim a grace-period cluster is running when it is down', () => {
+	// It must READ the status without leaving the grace arm: falling through to the withdrawn copy
+	// told an enterprise account mid-renewal to buy a $20 self-serve plan.
+	it('reads the status during grace without handing an enterprise account a self-serve upsell', () => {
 		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
 		const result = describeGrantExpiry({ grant: inGrace, status: 'STOPPED' }, NOW);
-		expect(result?.stage).not.toBe('GRACE');
-		expect(result?.detail).toContain('has been stopped');
+		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
+		expect(result?.detail).toContain('stopped while we sort out renewal');
+		expect(result?.detail).toContain('Contact us');
 	});
 
 	// S5: reachable via a revoked forever-grant (endsAt null) and via a future startsAt.
