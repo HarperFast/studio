@@ -55,6 +55,8 @@ export type StaffPermission =
 	| 'billing:write'
 	| 'region:read'
 	| 'region:write'
+	| 'grant:read'
+	| 'grant:write'
 	| 'systemStatus:write'
 	| 'apiToken:create';
 
@@ -285,6 +287,37 @@ export interface ClusterGrant {
 	 * never assume a shape, and never infer the policy from `source`.
 	 */
 	timeline: ExpiryStageDue[] | null;
+}
+
+/**
+ * A raw ClusterGrant row as `GET /Admin/ClusterGrant/` returns it — the full table row, staff-only
+ * fields included, unlike the customer projection on Cluster. `isActive` and `timeline` are
+ * computed by central-manager on the customer projection and requested for the admin rows too;
+ * optional here so the page renders honestly against a CM that doesn't compute them yet.
+ */
+export interface AdminClusterGrant {
+	id: string;
+	organizationId: string;
+	/** Null = an unbound voucher the cluster-create flow later claims. */
+	clusterId: string | null;
+	source: ClusterGrant['source'];
+	status: ClusterGrant['status'];
+	origin?: 'derived' | 'admin' | null;
+	startsAt: string | null;
+	cycleAnchor?: string | null;
+	endsAt: string | null;
+	expiryPolicy: ClusterGrant['expiryPolicy'];
+	currentStage: ExpiryStage | null;
+	stageUpdatedAt?: string | null;
+	allowedPlanIds?: string[] | null;
+	allowedRegionIds?: string[] | null;
+	grantedByUserId?: string | null;
+	updatedByUserId?: string | null;
+	reason?: string | null;
+	createdAt?: string;
+	updatedAt?: string;
+	isActive?: boolean;
+	timeline?: ExpiryStageDue[] | null;
 }
 
 export interface ExpiryStageDue {
