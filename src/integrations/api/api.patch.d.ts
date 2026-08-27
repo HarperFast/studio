@@ -358,6 +358,14 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	grant?: ClusterGrant | null;
 	/** Set when service was deliberately withdrawn. Distinguishes an expiry stop from a user stop. */
 	suspendedReason?: string | null;
+	/**
+	 * A trial->paid conversion in flight: APPLYING while the server starts the cluster and lands the
+	 * plan, FAILED if it did not land, null when none is in flight (a completed conversion looks the
+	 * same as a cluster that never converted). Best-effort — FAILED is reliable, but a missing marker
+	 * on a cluster whose grant is still `conversion-pending` means "probably still applying", never
+	 * success.
+	 */
+	conversionState?: 'APPLYING' | 'FAILED' | null;
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {

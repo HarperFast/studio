@@ -279,6 +279,30 @@ describe('describeGrantExpiry', () => {
 		);
 	});
 
+	// conversionState is the direct failure signal; it preempts both the progress copy and the
+	// plain-expiry copy, and can promise "nothing was charged" because payment is only verified up
+	// front while blocks mint inside the plan change itself.
+	it('reports a marked-FAILED conversion as failed, not as upgrading or expired', () => {
+		const failing = grant({ source: 'purchased', isActive: true, expiryPolicy: 'conversion-pending' });
+		const result = describeGrantExpiry({ grant: failing, status: 'RUNNING', conversionState: 'FAILED' }, NOW);
+		expect(result).toMatchObject({ stage: 'AWAITING_PLAN', severity: 'critical', offerUpgrade: true });
+		expect(result?.title).toContain('did not go through');
+		expect(result?.detail).toContain('Nothing was charged');
+	});
+
+	it('routes a failed conversion on a stopped cluster back to the plan editor', () => {
+		const failed = grant({ source: 'purchased', isActive: false, expiryPolicy: 'conversion-pending' });
+		const result = describeGrantExpiry({ grant: failed, status: 'STOPPED', conversionState: 'FAILED' }, NOW);
+		expect(result).toMatchObject({ needsUpgrade: true, offerUpgrade: true });
+		expect(result?.detail).toContain('stopped');
+	});
+
+	it('trusts an APPLYING marker directly, without needing the provisional grant', () => {
+		const converted = grant({ source: 'purchased', expiryPolicy: null });
+		expect(describeGrantExpiry({ grant: converted, status: 'STARTING', conversionState: 'APPLYING' }, NOW)?.stage)
+			.toBe('AWAITING_PLAN');
+	});
+
 	it('survives a malformed date rather than rendering NaN', () => {
 		const broken = grant({ currentStage: 'WARNED', endsAt: 'not-a-date' });
 		expect(describeGrantExpiry({ grant: broken }, NOW)?.title).toBe('Trial ends soon');
@@ -308,6 +332,17 @@ describe('isConversionComplete', () => {
 
 	it('is true for a normal update on a cluster with no grant', () => {
 		expect(isConversionComplete({ status: 'RUNNING', grant: null })).toBe(true);
+	});
+
+	// The marker is the direct signal: FAILED is never "complete", and a cleared marker with a
+	// replaced grant is.
+	it('is false while the marker says FAILED, whatever the grant says', () => {
+		expect(isConversionComplete({ status: 'RUNNING', grant: null, conversionState: 'FAILED' })).toBe(false);
+	});
+
+	it('is false while the marker says APPLYING even after the grant was replaced', () => {
+		const replaced = grant({ source: 'purchased', expiryPolicy: null });
+		expect(isConversionComplete({ status: 'RUNNING', grant: replaced, conversionState: 'APPLYING' })).toBe(false);
 	});
 });
 
