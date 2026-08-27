@@ -50,33 +50,17 @@ describe('admin section visibility', () => {
 		expect(canSeeAdminSection(null)).toBe(false);
 	});
 
-	it('never shows the API Tokens page to super_user', () => {
-		const withField = user('super_user', [
-			'systemStatus:write',
-			'region:read',
-			'host:read',
-			'apiToken:create',
-			'apiToken:self',
-		]);
-		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Hosts']);
-		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
+	// super_user may password-login; without a Google SSO session the token mint
+	// 403s, so the API Token page stays hidden even though it holds the permission.
+	it('never shows the API Token page to super_user', () => {
+		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
+		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
+		// Legacy API without staffPermissions: the fallback grants everything, so Grants shows too —
+		// but the SSO carve-out still hides API Token.
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Grants']);
 	});
 
-	it('keeps the older pages, not API Tokens, for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Hosts', 'Monitoring', 'Users']);
-	});
-
-	it('shows Users only to holders of user:status, not to every role that can read users', () => {
-		expect(labels(user('fabric_admin', ['user:read', 'user:status', 'cluster:read']))).toEqual([
-			'Monitoring',
-			'Users',
-		]);
-		expect(labels(user('fabric_readonly', ['user:read', 'cluster:read']))).toEqual(['Monitoring']);
-	});
-
-	it('hides Users from a holder of user:status who cannot also read the users and clusters it shows', () => {
-		expect(labels(user('fabric_admin', ['user:status', 'cluster:read']))).toEqual(['Monitoring']);
-		expect(labels(user('fabric_admin', ['user:status', 'user:read']))).toEqual([]);
+	it('keeps the whole section for a legacy-API fabric_admin', () => {
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Grants', 'API Token']);
 	});
 });
