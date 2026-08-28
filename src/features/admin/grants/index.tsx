@@ -249,6 +249,14 @@ export function GrantsAdminIndex() {
 													<SortableHead active={order === 'next-due'} onClick={() => setOrder('next-due')}>
 														Next due
 													</SortableHead>
+													<TableHead
+														className="whitespace-nowrap"
+														// A renewal, not a bill: comp and gift grants renew too, they are simply never
+														// invoiced — so the column can't be called "Next bill".
+														title="When the cluster's earliest live usage block renews. Comp and gift grants renew like any other; they are just never invoiced."
+													>
+														Renews
+													</TableHead>
 													<SortableHead active={order === 'ends-at'} onClick={() => setOrder('ends-at')}>
 														Ends
 													</SortableHead>
@@ -310,6 +318,7 @@ export function GrantsAdminIndex() {
 															</TableCell>
 															<TableCell>{grant.source}</TableCell>
 															<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
+															<TableCell className="whitespace-nowrap">{fmtDate(grant.nextCycleAt)}</TableCell>
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
 															<TableCell className="text-right">
 																{
