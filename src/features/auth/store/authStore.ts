@@ -83,6 +83,8 @@ class AuthStore {
 	// generation it was created under, so a stale credential is detected by comparison at read time
 	// regardless of whether this tab was running when the sign-out happened.
 	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
+	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
+	private readonly explorerInvalidationListeners = new Set<() => void>();
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -118,6 +120,10 @@ class AuthStore {
 		} catch {
 			// Storage disabled: the explorer's per-tab clearing on sign-out still applies within this tab.
 		}
+		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
+		for (const listener of this.explorerInvalidationListeners) {
+			listener();
+		}
 	}
 
 	private bumpExplorerAuthEpoch(id: EntityIds): void {
@@ -130,18 +136,36 @@ class AuthStore {
 	}
 
 	/**
-	 * Subscribe to a change in the explorer sign-out generation (any entity, or a global logout). The
-	 * caller re-compares its own entity's stamped generation rather than trusting the event to name one,
-	 * which is the same check that runs at bootstrap — so a missed event can't leave a stale credential.
+	 * Subscribe to a change in `id`'s explorer sign-out generation — its own or a global logout, which
+	 * advances every entity's. The comparison lives here rather than in the caller because the signal
+	 * itself names no entity: the durable epoch is one shared key, so every subscriber sees every
+	 * sign-out and would otherwise act on one belonging to an instance it knows nothing about. Fires for
+	 * a same-tab sign-out too, which emits no `storage` event of its own.
+	 *
+	 * The render-time generation comparison is still the real guard (it also catches a sign-out that
+	 * happened while the tab was closed); this is about reacting promptly to one seen live.
 	 */
-	public onExplorerAuthInvalidated(_id: EntityIds, callback: () => void): () => void {
-		const handler = (event: StorageEvent) => {
+	public onExplorerAuthInvalidated(id: EntityIds, callback: () => void): () => void {
+		let observed = this.getExplorerAuthEpoch(id);
+		const fire = () => {
+			const epoch = this.getExplorerAuthEpoch(id);
+			if (epoch === observed) {
+				return;
+			}
+			observed = epoch;
+			callback();
+		};
+		const onStorage = (event: StorageEvent) => {
 			if (event.key === this.explorerAuthEpochKey) {
-				callback();
+				fire();
 			}
 		};
-		window.addEventListener('storage', handler);
-		return () => window.removeEventListener('storage', handler);
+		window.addEventListener('storage', onStorage);
+		this.explorerInvalidationListeners.add(fire);
+		return () => {
+			window.removeEventListener('storage', onStorage);
+			this.explorerInvalidationListeners.delete(fire);
+		};
 	}
 
 	/**
