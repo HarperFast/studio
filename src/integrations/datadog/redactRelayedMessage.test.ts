@@ -46,79 +46,63 @@ describe('redactRelayedMessage', () => {
 			.toBe('Failed to clone package github:acme-corp/billing: 128');
 	});
 
-	it('keeps only the frames of a relayed stack', () => {
-		// The production shape: the server message spans many lines above the frames, so a rule that
-		// replaced just the first line would leave the rest — here the repository name is on line 1
-		// and two kilobytes of `git clone` usage follow it.
-		const stack = [
-			'SSEOperationError: Failed to clone package github:gh repo clone acme-corp/billing: fatal: Too many arguments.',
-			'',
-			'usage: git clone [<options>] [--] <repo> [<dir>]',
-			'    -v, --[no-]verbose    be more verbose',
-			'',
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-			'  at async Iv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:3162',
-		].join('\n');
-		expect(redactRelayedStack('SSEOperationError', stack)).toBe([
-			`SSEOperationError: ${WITHHELD}`,
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-			'  at async Iv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:3162',
-		].join('\n'));
-	});
-
-	// `join('\r\n')` leaves the LAST element unterminated, so the frame under test has to sit in the
-	// middle or the CRLF case silently tests nothing.
-	it('matches frames on a CRLF stack', () => {
-		const crlf = [
-			'SSEOperationError: Failed to clone package github:acme-corp/billing: boom',
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-			'  at async Iv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:3162',
-		].join('\r\n');
-		expect(redactRelayedStack('SSEOperationError', crlf)).toBe([
-			`SSEOperationError: ${WITHHELD}`,
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240\r',
-			'  at async Iv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:3162',
-		].join('\n'));
-	});
-
-	it('drops a message line that begins with "at" but names no script', () => {
-		const stack = [
-			'SSEOperationError: boom',
-			'  at acme-corp/billing the clone failed',
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-		].join('\n');
-		expect(redactRelayedStack('SSEOperationError', stack)).toBe([
-			`SSEOperationError: ${WITHHELD}`,
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-		].join('\n'));
-	});
-
-	// The whole rule hinges on this one string matching what RUM records as `error.type`, and a
-	// mismatch fails silently — `redactRelayedMessage` would return the server text unchanged with
-	// every other test still green. The literal is what ships: minification rewrites the class name
-	// but not the assignment in the constructor.
+	// Production shape: RUM's `message` already carries the `SSEOperationError: ` prefix, and the
+	// stack is that message followed by the frames.
+	// The rule hinges on this one literal matching what RUM records as `error.type`, and a mismatch
+	// fails silently — the server text would ship with every other test still green. The literal is
+	// what survives minification; the class name does not.
 	it('matches the name SSEOperationError actually carries', () => {
 		expect(new SSEOperationError('boom').name).toBe('SSEOperationError');
 		expect(redactRelayedMessage(new SSEOperationError('boom').name, 'boom')).toBe(WITHHELD);
 	});
 
-	it('drops a relayed stderr line shaped like a frame but naming no script', () => {
-		const stack = [
-			'SSEOperationError: boom',
-			'  at build step @ acme-corp/billing-service',
-			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
+	it('removes exactly the message and keeps what follows', () => {
+		const message = [
+			'SSEOperationError: Failed to clone package github:gh repo clone acme-corp/billing: fatal: Too many arguments.',
+			'',
+			'usage: git clone [<options>] [--] <repo> [<dir>]',
+			'    -v, --[no-]verbose    be more verbose',
 		].join('\n');
-		const redacted = redactRelayedStack('SSEOperationError', stack);
-		expect(redacted).not.toContain('acme-corp');
-		expect(redacted).toBe([
-			`SSEOperationError: ${WITHHELD}`,
+		const frames = [
+			'',
 			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
-		].join('\n'));
+			'  at async Iv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:3162',
+		].join('\n');
+		expect(redactRelayedStack('SSEOperationError', message, message + frames)).toBe(WITHHELD + frames);
+	});
+
+	// The reason this removes a span instead of selecting frame-shaped lines: server text can be
+	// shaped like a frame, and anything deciding line-by-line keeps it.
+	it('removes frame-shaped text that the server put in the message', () => {
+		const message = [
+			'SSEOperationError: deploy failed',
+			'  at acme-corp/billing @ https://scm.acme-corp.com/secret',
+		].join('\n');
+		const frames = '\n  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240';
+		const redacted = redactRelayedStack('SSEOperationError', message, message + frames);
+		expect(redacted).not.toContain('acme-corp');
+		expect(redacted).toBe(WITHHELD + frames);
+	});
+
+	it('withholds the whole stack when it does not begin with the message', () => {
+		expect(redactRelayedStack('SSEOperationError', 'SSEOperationError: boom', 'something else entirely'))
+			.toBe(WITHHELD);
+	});
+
+	// A CRLF stack needs no special handling once the message is removed as one span, but the
+	// message itself must then carry its own CRLFs to match.
+	it('removes a CRLF message span intact', () => {
+		const message = 'SSEOperationError: boom\r\ndetail: acme-corp/billing';
+		const frames = '\r\n  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240';
+		const redacted = redactRelayedStack('SSEOperationError', message, message + frames);
+		expect(redacted).not.toContain('acme-corp');
+		expect(redacted).toBe(WITHHELD + frames);
 	});
 
 	it('leaves the stack of every other error alone', () => {
-		const stack = 'TypeError: x is not a function\n  at f @ https://fabric.harper.fast/assets/index.js:1:1';
-		expect(redactRelayedStack('TypeError', stack)).toBe(stack);
-		expect(redactRelayedStack(undefined, stack)).toBe(stack);
+		const message = 'TypeError: x is not a function';
+		const stack = `${message}\n  at f @ https://fabric.harper.fast/assets/index.js:1:1`;
+		expect(redactRelayedStack('TypeError', message, stack)).toBe(stack);
+		expect(redactRelayedStack(undefined, message, stack)).toBe(stack);
 	});
 });

@@ -38,11 +38,13 @@ export function beforeSend(event: DatadogErrorEvent) {
 		}
 		const error = event.error;
 		if (error) {
+			// The stack quotes the message, so it has to be rewritten against the original.
+			const relayedMessage = typeof error.message === 'string' ? error.message : '';
 			if (typeof error.message === 'string') {
 				error.message = redactErrorAndParams(redactRelayedMessage(error.type, error.message));
 			}
 			if (typeof error.stack === 'string') {
-				error.stack = redactErrorAndParams(redactRelayedStack(error.type, error.stack));
+				error.stack = redactErrorAndParams(redactRelayedStack(error.type, relayedMessage, error.stack));
 			}
 			if (typeof error.handling_stack === 'string') {
 				error.handling_stack = redactErrorAndParams(error.handling_stack);
