@@ -23,7 +23,6 @@ describe('beforeSend', () => {
 		expect(beforeSend(event)).toBe(true);
 		expect(event.error?.message).toBe('Harper reported an operation failure (server message withheld).');
 		expect(event.error?.message).not.toContain('acme-corp');
-		// The stack is Studio's own frames, and `redactErrorText` still covers what it quotes.
 		expect(event.error?.stack).not.toContain('acme-corp');
 		expect(event.error?.stack).toContain('index-A1b2C3d4.js:5:1234');
 	});
