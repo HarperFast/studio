@@ -11,6 +11,23 @@ describe('beforeSend', () => {
 		expect(beforeSend(errorEvent({ message: 'AxiosError: Request failed with status code 401' }))).toBe(false);
 	});
 
+	it('withholds a relayed message but keeps the event and its own stack', () => {
+		const event = errorEvent({
+			type: 'SSEOperationError',
+			message: 'Failed to clone package github:gh repo clone acme-corp/billing: fatal: Too many arguments.',
+			stack: [
+				'SSEOperationError: Failed to clone package github:gh repo clone acme-corp/billing',
+				'  at deployComponentStream @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+			].join('\n'),
+		});
+		expect(beforeSend(event)).toBe(true);
+		expect(event.error?.message).toBe('Harper reported an operation failure (server message withheld).');
+		expect(event.error?.message).not.toContain('acme-corp');
+		// The stack is Studio's own frames, and `redactErrorText` still covers what it quotes.
+		expect(event.error?.stack).not.toContain('acme-corp');
+		expect(event.error?.stack).toContain('index-A1b2C3d4.js:5:1234');
+	});
+
 	it('redacts the repository path from a kept error message and stack', () => {
 		const event = errorEvent({
 			message: 'Failed to deploy git@github.com:acme-corp/billing-service.git: npm install failed',
