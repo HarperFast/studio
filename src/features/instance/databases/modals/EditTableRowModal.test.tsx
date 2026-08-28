@@ -278,8 +278,6 @@ describe('EditTableRowModal', () => {
 	});
 
 	// #1643: `update` merges what it is sent onto the stored record, so a deleted attribute used to
-	// come back on the next read and the editor claimed the save had worked.
-	// #1643: `update` merges what it is sent onto the stored record, so a deleted attribute used to
 	// come back on the next read while the editor claimed the save had worked. Removing one needs
 	// `put`, which replaces the record — so the modal routes those saves there instead.
 	describe('an edit that removes an attribute', () => {
@@ -325,16 +323,78 @@ describe('EditTableRowModal', () => {
 			expect(onSaveChanges).not.toHaveBeenCalled();
 			expect(toast.error).toHaveBeenCalledTimes(1);
 		});
+
+		// A replace is last-writer-wins over the whole record, so it must never reach a record the
+		// user only lightly touched. The editor's JSON is free text, so a pasted batch can mix the
+		// two — one removal used to send every record in it through `put`.
+		it('refuses a batch where only some records drop an attribute', () => {
+			const onSaveChanges = vi.fn();
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({
+				onSaveChanges,
+				onReplaceRecord,
+				data: [row, { id: 'def-456', name: 'Grace Hopper', rank: 'Rear Admiral' }],
+			});
+
+			// First record drops `city`; second only changes a value.
+			edit('[{"name":"Ada Lovelace","id":"abc-123"},{"id":"def-456","name":"Grace","rank":"Admiral"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).not.toHaveBeenCalled();
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(toast.error).toHaveBeenCalledTimes(1);
+		});
+
+		// Every record being a deliberate rewrite is safe: there is no untouched record to clobber.
+		it('replaces a batch where every record drops an attribute', () => {
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({
+				onReplaceRecord,
+				data: [row, { id: 'def-456', name: 'Grace Hopper', rank: 'Rear Admiral' }],
+			});
+
+			edit('[{"name":"Ada Lovelace","id":"abc-123"},{"id":"def-456","name":"Grace Hopper"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).toHaveBeenCalledTimes(1);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+
+		// `put` needs insert as well as update, so an update-only role would get a 403. Telling that
+		// user to upgrade their instance sends them somewhere that cannot help.
+		it('explains a permission block differently from a version block', () => {
+			renderAddressableModal({ canReplaceRecords: false, replaceBlockedReason: 'permission' });
+
+			edit('[{"name":"Ada Lovelace","id":"abc-123"}]');
+			fireEvent.click(saveButton());
+
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/permission/i);
+		});
+	});
+
+	// Delete and Save are cross-disabled in both directions. A delete that landed while a `put` was
+	// still in flight would be undone by the replace re-creating the record, so neither action may
+	// start while the other is going.
+	it('disables Delete Row while a save is in flight', () => {
+		renderModal({ isUpdateTableRecordsPending: true });
+
+		expect(screen.getByRole('button', { name: /Delete Row/i }).hasAttribute('disabled')).toBe(true);
+	});
+
+	it('disables Save Changes while a delete is in flight', () => {
+		renderModal({ isDeleteTableRecordsPending: true });
+
+		expect(saveButton().hasAttribute('disabled')).toBe(true);
 	});
 
 	// The editor hides `__createdtime__`/`__updatedtime__` and read-only synthetic attributes, so
 	// their absence from the edited JSON must never read as the user having removed them.
 	it('does not treat the attributes it hides from the editor as removed', () => {
 		const onSaveChanges = vi.fn();
-		const onRecreateRecord = vi.fn();
+		const onReplaceRecord = vi.fn();
 		renderAddressableModal({
 			onSaveChanges,
-			onRecreateRecord,
+			onReplaceRecord,
 			data: [{ id: 'abc-123', name: 'Ada', owner: { id: 'o-1' }, __createdtime__: 1, __updatedtime__: 2 }],
 			syntheticAttributes: ['owner'],
 		});
@@ -343,6 +403,6 @@ describe('EditTableRowModal', () => {
 		fireEvent.click(saveButton());
 
 		expect(onSaveChanges).toHaveBeenCalledWith([{ id: 'abc-123', name: 'Ada Lovelace' }]);
-		expect(onRecreateRecord).not.toHaveBeenCalled();
+		expect(onReplaceRecord).not.toHaveBeenCalled();
 	});
 });

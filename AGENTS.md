@@ -344,15 +344,27 @@ insert. Studio previously emulated this with delete-then-insert; don't go back t
 
 Four things worth knowing before changing the record editor:
 
-- **Only removals take the `put` route.** `functions/removedRecordAttributes.ts` decides, and an edit
-  that merely changes values stays an `update`. A replace is last-writer-wins over the whole record,
-  so routing every save through `put` would clobber a concurrent writer's change to an attribute the
-  edit never touched.
-- **It is version-gated, and unknown reads as unsupported.**
+- **Only removals take the `put` route, and only the records that made them.**
+  `functions/removedRecordAttributes.ts` reports removals **per record**, not as one flat list. An
+  edit that merely changes values stays an `update`; a pasted batch where only some records drop an
+  attribute is refused outright. A replace is last-writer-wins over the whole record, so routing a
+  co-edited record through `put` would clobber a concurrent writer's change to an attribute that
+  record's edit never touched. Use `Object.hasOwn`, never `in`, to test presence — an attribute named
+  `constructor`/`toString`/`valueOf` reads as present through the prototype chain and its removal
+  silently takes the merge path.
+- **Gated on version _and_ permission, and unknown reads as unsupported.**
   `integrations/api/instance/database/putTableRecords.ts` owns `supportsPutOperation()` off
-  `registration_info`. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this at all;
-  there the editor refuses with an explanation rather than sending an `update` that would report
-  success and keep the attribute.
+  `registration_info`; the table gate is insert **and** update, not just update, because `put`
+  creates as well as replaces. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this
+  at all. The editor refuses with an explanation rather than sending an `update` that would report
+  success and keep the attribute — and distinguishes "too old" from "not allowed", since telling a
+  permission-blocked user to upgrade sends them nowhere. Note `supportsPutOperation` refuses
+  `5.3.0` prereleases while the role catalog floors `put` at the earliest one; the divergence is
+  deliberate and explained at both sites.
+- **An attribute-scoped role cannot `put` at all.** Harper denies it outright
+  (`utility/operation_authorization.ts`, `PUT_WITH_ATTRIBUTE_PERMS`), because a replace removes every
+  attribute the request omits and the attribute check only sees what a request supplies. So a
+  column-restricted user gets a 403, not a silent erasure of the columns they can't read.
 - **On a legacy open table the removal works but the read still shows `null`.** The operations-API
   attribute projection reports every _registered_ attribute, filling in `null` for one the record
   doesn't have — verified by inserting a record that never had it. `SELECT *` reflects storage.
