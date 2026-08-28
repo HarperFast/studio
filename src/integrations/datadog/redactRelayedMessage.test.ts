@@ -46,8 +46,7 @@ describe('redactRelayedMessage', () => {
 			.toBe('Failed to clone package github:acme-corp/billing: 128');
 	});
 
-	// Production shape: RUM's `message` already carries the `SSEOperationError: ` prefix, and the
-	// stack is that message followed by the frames.
+	// Production shape: RUM's `message` already carries the `SSEOperationError: ` prefix.
 	// A mismatch here withholds nothing, silently. The literal is what survives minification; the
 	// class name does not.
 	it('matches the name SSEOperationError actually carries', () => {
@@ -81,8 +80,7 @@ describe('redactRelayedMessage', () => {
 		expect(redacted).toBe(WITHHELD + frames);
 	});
 
-	// The unhandled-rejection path records the message WITHOUT the name the stack still opens with,
-	// so a fixture built only from the handled shape would miss it and quietly cost every frame.
+	// The unhandled-rejection path records the message without the name the stack still opens with.
 	it('removes the message when the SDK prefixed only the stack with the name', () => {
 		const message = 'Failed to clone package github:acme-corp/billing: boom';
 		const frames = '\n  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240';
