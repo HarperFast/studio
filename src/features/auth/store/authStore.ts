@@ -118,7 +118,9 @@ class AuthStore {
 			// The value changes on every write, so other tabs' `storage` listeners still fire.
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ ...generations, [id]: current + 1 }));
 		} catch {
-			// Storage disabled: the explorer's per-tab clearing on sign-out still applies within this tab.
+			// Storage disabled or full. The durable generation therefore doesn't move, so subscribers below
+			// see no change and this tab's explorer keeps its credential until the render-time comparison
+			// is re-run against a generation that does move. Pre-existing, and tracked separately.
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
 		for (const listener of this.explorerInvalidationListeners) {
@@ -162,6 +164,10 @@ class AuthStore {
 		};
 		window.addEventListener('storage', onStorage);
 		this.explorerInvalidationListeners.add(fire);
+		// A sign-out landing between the baseline read and this line was dispatched before anyone was
+		// listening, so no event will ever arrive for it. Re-check now that we are subscribed; `fire`
+		// compares against the baseline, so this is a no-op unless the gap actually swallowed one.
+		fire();
 		return () => {
 			window.removeEventListener('storage', onStorage);
 			this.explorerInvalidationListeners.delete(fire);

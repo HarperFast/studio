@@ -99,8 +99,7 @@ export function ApiExplorer(
 	// subscription is scoped to this entity by the store, so an unrelated instance's sign-out doesn't
 	// discard a mint or empty a form that has nothing to do with it.
 	useEffect(() => {
-		setAuthEpoch(authStore.getExplorerAuthEpoch(entityId));
-		return authStore.onExplorerAuthInvalidated(entityId, () => {
+		const unsubscribe = authStore.onExplorerAuthInvalidated(entityId, () => {
 			attemptRef.current++;
 			setEntitySettings(readEntitySettings(entityId));
 			setLoginStatus('idle');
@@ -108,6 +107,11 @@ export function ApiExplorer(
 			setAuthEpoch(authStore.getExplorerAuthEpoch(entityId));
 			setAuthRevocation(n => n + 1);
 		});
+		// Read after subscribing, for the same reason the store baselines after subscribing: a sign-out
+		// racing this effect is then either caught by the subscription or already present in this read.
+		// Reading first leaves a window where it is in neither.
+		setAuthEpoch(authStore.getExplorerAuthEpoch(entityId));
+		return unsubscribe;
 	}, [entityId]);
 
 	const runMint = async (mint: () => Promise<string>): Promise<MintOutcome> => {
