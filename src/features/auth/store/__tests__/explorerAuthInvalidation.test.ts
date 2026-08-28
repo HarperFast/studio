@@ -56,6 +56,24 @@ describe('authStore.onExplorerAuthInvalidated', () => {
 		stop();
 	});
 
+	it('still revokes within the tab when the epoch write fails', () => {
+		// Storage disabled by policy, or full. Nothing durable can be recorded, but a sign-out still has
+		// to revoke this tab's explorer credential rather than leaving it comparing as current forever.
+		const mine = vi.fn();
+		const stop = authStore.onExplorerAuthInvalidated('ins-a', mine);
+		const before = authStore.getExplorerAuthEpoch('ins-a');
+		const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('QuotaExceededError');
+		});
+
+		authStore.signOutLocally('ins-a');
+		setItem.mockRestore();
+
+		expect(authStore.getExplorerAuthEpoch('ins-a')).toBe(before + 1);
+		expect(mine).toHaveBeenCalledTimes(1);
+		stop();
+	});
+
 	it('stops firing once unsubscribed', () => {
 		const mine = vi.fn();
 		authStore.onExplorerAuthInvalidated('ins-a', mine)();

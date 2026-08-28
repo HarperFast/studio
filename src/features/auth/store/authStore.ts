@@ -85,6 +85,14 @@ class AuthStore {
 	private readonly explorerAuthEpochKey = 'Studio:ExplorerAuthEpoch';
 	/** Same-tab epoch writes fire no `storage` event, so in-process subscribers are notified directly. */
 	private readonly explorerInvalidationListeners = new Set<() => void>();
+	/**
+	 * Per-entity sign-out count for this tab alone, added to the durable one. It advances only when the
+	 * durable write fails — storage disabled by policy, or full — which would otherwise leave the
+	 * generation frozen and a signed-out explorer credential comparing as current for the life of the
+	 * tab. Being memory-only it is lost on reload, which fails safe: a credential stamped under it then
+	 * compares as stale and is withheld.
+	 */
+	private readonly explorerEpochFallback: Record<string, number> = {};
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -108,7 +116,9 @@ class AuthStore {
 		const generations = this.readExplorerGenerations();
 		const own = typeof generations[id] === 'number' ? generations[id] : 0;
 		const all = typeof generations['*'] === 'number' ? generations['*'] : 0;
-		return own + all;
+		const fallbackOwn = this.explorerEpochFallback[id] ?? 0;
+		const fallbackAll = this.explorerEpochFallback['*'] ?? 0;
+		return own + all + fallbackOwn + fallbackAll;
 	}
 
 	private writeExplorerInvalidation(id: EntityIds | '*'): void {
@@ -118,9 +128,10 @@ class AuthStore {
 			// The value changes on every write, so other tabs' `storage` listeners still fire.
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ ...generations, [id]: current + 1 }));
 		} catch {
-			// Storage disabled or full. The durable generation therefore doesn't move, so subscribers below
-			// see no change and this tab's explorer keeps its credential until the render-time comparison
-			// is re-run against a generation that does move. Pre-existing, and tracked separately.
+			// Storage disabled or full, so the durable generation can't move. Advance this tab's own count
+			// instead: a sign-out has to revoke the explorer's credential here even when nothing about it
+			// can be recorded for the next tab or the next reload.
+			this.explorerEpochFallback[id] = (this.explorerEpochFallback[id] ?? 0) + 1;
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
 		for (const listener of this.explorerInvalidationListeners) {
