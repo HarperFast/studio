@@ -35,14 +35,11 @@ export function redactRelayedMessage(type: string | undefined, message: string) 
  * The same for a stack: the SDK writes the message above the frames, so a relayed stack repeats it
  * — in production one carried the repository name and two kilobytes of `git clone` usage text.
  *
- * Removes the message as one span rather than selecting the lines that look like frames. Server
- * text can be shaped like a frame — a customer pastes a newline and `  at x @ https://…` into the
- * import field and Harper interpolates it — and any rule deciding line-by-line keeps it.
- *
- * The SDK prefixes the error's name on the handled path (`console.error(rawErr)`,
- * `src/react-query/queryClient.ts`) but not on the unhandled one, so the header is the message
- * either way round. Anything else is a shape we do not recognise and goes whole: losing Studio's
- * frames is the safe direction.
+ * Removed as one span rather than by keeping the lines that look like frames, because server text
+ * can be shaped like a frame: a customer pastes `  at x @ https://…` into the import field and
+ * Harper interpolates it. The SDK prefixes the error's name on the handled path
+ * (`console.error(rawErr)`, `src/react-query/queryClient.ts`) but not on the unhandled one, so
+ * either header is accepted; an unrecognised shape goes whole, losing Studio's frames with it.
  */
 export function redactRelayedStack(type: string | undefined, message: string, stack: string) {
 	if (!isRelayed(type)) {
@@ -53,7 +50,7 @@ export function redactRelayedStack(type: string | undefined, message: string, st
 		return WITHHELD;
 	}
 	// Longest first: a message that is itself a prefix of the name (`'SSE'`) matches the bare form
-	// early and leaves the rest of the name — and the message — in the text.
+	// early and leaves the rest of the name, and the message, in the text.
 	for (const header of [`${type}: ${message}`, message]) {
 		if (stack.startsWith(header)) {
 			return `${WITHHELD}${stack.slice(header.length)}`;
