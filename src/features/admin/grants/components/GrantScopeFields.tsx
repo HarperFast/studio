@@ -2,8 +2,10 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
+import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
 import { getRegionsQueryOptions } from '@/features/admin/regions/queries/getRegions';
+import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -21,6 +23,20 @@ function emptyText(query: { isLoading: boolean; isError: boolean }, noun: string
 	return `No ${noun} exist`;
 }
 
+/**
+ * Says why the save will be refused, in the terms the server uses. Removing an entry is the obvious
+ * narrowing; adding a first restriction to an unscoped grant is the one that needs saying out loud,
+ * since nothing was taken away.
+ */
+function NarrowingNote({ field, clusterId }: { field: string; clusterId: string }) {
+	return (
+		<p className="text-xs text-destructive">
+			This narrows the {field} a grant already bound to {clusterId}{' '}
+			allows. A bound grant's scope may only widen — revoke it and mint a replacement to restrict it.
+		</p>
+	);
+}
+
 /** Retired rows stay selectable — an existing grant may already be scoped to one. */
 const withInactive = (hint: string, inactive: boolean) => (inactive ? `${hint} · inactive` : hint);
 
@@ -29,11 +45,17 @@ const withInactive = (hint: string, inactive: boolean) => (inactive ? `${hint} �
  * central-manager stores null for that and refuses an empty array, so nothing is sent for an empty
  * picker, and the trigger says "Any plan" rather than leaving that to be read as "none".
  *
- * Scoping a bound grant to less than the cluster already runs is refused server-side, since an
- * uncovered plan would otherwise surface later as an unexpected conversion to paid.
+ * Once a grant is bound to a cluster its scope may only widen — central-manager answers 409
+ * otherwise, because a narrowing does nothing until that cluster's next plan change and then
+ * converts it to paid. The rule is stated here, at the moment the admin makes the change, rather
+ * than left to a 409 after they hit save.
  */
-export function GrantScopeFields({ enabled }: { enabled: boolean }) {
-	const { control } = useFormContext<ScopeFieldValues>();
+export function GrantScopeFields({ enabled, existing }: {
+	enabled: boolean;
+	/** The grant being edited, when there is one — a create has no scope history to widen from. */
+	existing?: AdminClusterGrant | null;
+}) {
+	const { control, watch } = useFormContext<ScopeFieldValues>();
 	const plansQuery = useQuery({ ...getPlansQueryOptions(), enabled });
 	const regionsQuery = useQuery({ ...getRegionsQueryOptions(), enabled });
 
@@ -61,6 +83,11 @@ export function GrantScopeFields({ enabled }: { enabled: boolean }) {
 				),
 			})), [regionsQuery.data]);
 
+	// Unbound vouchers stay freely narrowable: nothing is running on them yet.
+	const boundTo = existing?.clusterId ?? null;
+	const planNarrows = boundTo != null && narrowsScope(existing?.allowedPlanIds, watch('allowedPlanIds'));
+	const regionNarrows = boundTo != null && narrowsScope(existing?.allowedRegionIds, watch('allowedRegionIds'));
+
 	return (
 		<>
 			<FormField
@@ -77,6 +104,7 @@ export function GrantScopeFields({ enabled }: { enabled: boolean }) {
 							placeholder="Any plan"
 							emptyText={emptyText(plansQuery, 'plans', 'plan:read')}
 						/>
+						{planNarrows && <NarrowingNote field="plans" clusterId={boundTo!} />}
 					</FormItem>
 				)}
 			/>
@@ -95,6 +123,7 @@ export function GrantScopeFields({ enabled }: { enabled: boolean }) {
 							placeholder="Any region"
 							emptyText={emptyText(regionsQuery, 'regions', 'region:read')}
 						/>
+						{regionNarrows && <NarrowingNote field="regions" clusterId={boundTo!} />}
 					</FormItem>
 				)}
 			/>
