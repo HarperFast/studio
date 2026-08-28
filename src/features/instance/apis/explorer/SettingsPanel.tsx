@@ -8,7 +8,7 @@ import { ServerOption } from '@/features/instance/apis/explorer/spec';
 import { OpenApiSpec } from '@/features/instance/apis/explorer/types';
 import { cn } from '@/lib/cn';
 import { CopyIcon, Lock, LockOpen } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type MintOutcome = 'applied' | 'discarded' | 'failed';
 
@@ -213,13 +213,22 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 	const [password, setPassword] = useState('');
 	const pending = login.status === 'pending';
 
-	// Not an effect watching for `pending` → `idle`: passive effects flush a commit late, so that clear
-	// landed on credentials typed since (#1655). A discarded mint no longer owns the form.
-	const dropTypedCredentials = (outcome: MintOutcome) => {
-		if (outcome === 'applied') {
-			setUsername('');
-			setPassword('');
-		}
+	// Clearing is driven by the mint's own promise, not by an effect watching for `pending` → `idle`:
+	// passive effects flush a commit late, so that clear landed on credentials typed since (#1655).
+	//
+	// It also has to still be *these* credentials. The inputs stay live while a mint runs, so the user
+	// can replace them with a second set before a slow first mint returns; clearing on its `applied`
+	// would erase a draft it never saw. Counting edits and comparing at settle keeps the clear tied to
+	// the values that were actually submitted, and a `discarded` mint never owns the form at all.
+	const editGeneration = useRef(0);
+	const runAndDropSubmitted = (run: () => Promise<MintOutcome>) => {
+		const submitted = editGeneration.current;
+		void run().then(outcome => {
+			if (outcome === 'applied' && editGeneration.current === submitted) {
+				setUsername('');
+				setPassword('');
+			}
+		});
 	};
 
 	return (
@@ -229,7 +238,7 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 					type="button"
 					variant="submit"
 					disabled={pending}
-					onClick={() => void login.runSession().then(dropTypedCredentials)}
+					onClick={() => runAndDropSubmitted(login.runSession)}
 				>
 					{pending ? 'Authorizing…' : 'Authorize with your current session'}
 				</Button>
@@ -243,7 +252,10 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 					className="flex flex-col gap-3"
 					onSubmit={event => {
 						event.preventDefault();
-						void login.runCredentials?.({ username, password }).then(dropTypedCredentials);
+						const run = login.runCredentials;
+						if (run) {
+							runAndDropSubmitted(() => run({ username, password }));
+						}
 					}}
 				>
 					<span className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
@@ -255,7 +267,10 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 							id="api-login-username"
 							value={username}
 							autoComplete="username"
-							onChange={e => setUsername(e.target.value)}
+							onChange={e => {
+								editGeneration.current++;
+								setUsername(e.target.value);
+							}}
 						/>
 					</div>
 					<div className="flex flex-col gap-1.5">
@@ -265,7 +280,10 @@ function LoginForm({ login, authorized }: { login: LoginController; authorized: 
 							type="password"
 							value={password}
 							autoComplete="current-password"
-							onChange={e => setPassword(e.target.value)}
+							onChange={e => {
+								editGeneration.current++;
+								setPassword(e.target.value);
+							}}
 						/>
 					</div>
 					<Button type="submit" variant="outline" disabled={pending || !username || !password}>

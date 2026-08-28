@@ -89,33 +89,24 @@ export function ApiExplorer(
 	const [loginStatus, setLoginStatus] = useState<'idle' | 'pending' | 'error'>('idle');
 	const [loginError, setLoginError] = useState<string | null>(null);
 	const [authRevocation, setAuthRevocation] = useState(0);
-	// Revocation is the one clear that beats live typing, so it has to be this entity's: the store's
-	// signal names no entity, and every explorer hears every sign-out. Comparing against the last epoch
-	// we acted on keeps an unrelated sign-out a no-op, and makes the two callers below idempotent.
-	// Baselined by the effect below rather than here — a `useRef` initializer is evaluated on every
-	// render, and reading the epoch parses localStorage, which a sidebar drag would do per mousemove.
-	const observedEpochRef = useRef(0);
-	const noteRevocation = () => {
-		const epoch = authStore.getExplorerAuthEpoch(entityId);
-		if (epoch === observedEpochRef.current) {
-			return;
-		}
-		observedEpochRef.current = epoch;
-		setAuthRevocation(n => n + 1);
-	};
+	// The epoch is compared on every render (see `credentialIsCurrent`), and reading it parses
+	// localStorage — which a sidebar drag would do per `mousemove`, since the drag re-renders this
+	// component. Hold it in state and let the subscription below advance it instead.
+	const [authEpoch, setAuthEpoch] = useState(() => authStore.getExplorerAuthEpoch(entityId));
 
-	// A sign-out in another tab changes the shared generation. Re-read from storage (the bootstrap
-	// reconciler strips revoked credentials there) rather than assuming this entity was the one signed
-	// out, and cancel any in-flight mint. The render-time generation check below is the real guard, so
-	// this is only about reflecting it promptly.
+	// A sign-out — this tab or another — advances this entity's generation. Re-read from storage (the
+	// bootstrap reconciler strips revoked credentials there) and cancel any in-flight mint. The
+	// subscription is scoped to this entity by the store, so an unrelated instance's sign-out doesn't
+	// discard a mint or empty a form that has nothing to do with it.
 	useEffect(() => {
-		observedEpochRef.current = authStore.getExplorerAuthEpoch(entityId);
+		setAuthEpoch(authStore.getExplorerAuthEpoch(entityId));
 		return authStore.onExplorerAuthInvalidated(entityId, () => {
 			attemptRef.current++;
 			setEntitySettings(readEntitySettings(entityId));
 			setLoginStatus('idle');
 			setLoginError(null);
-			noteRevocation();
+			setAuthEpoch(authStore.getExplorerAuthEpoch(entityId));
+			setAuthRevocation(n => n + 1);
 		});
 	}, [entityId]);
 
@@ -135,8 +126,9 @@ export function ApiExplorer(
 			// Signed out (this tab or another) while the mint was in flight — drop the token and clear the
 			// pending state rather than writing the old user's token back.
 			if (authStore.getExplorerAuthEpoch(entityId) !== epoch) {
+				// The subscription above already emptied the form for this sign-out; bumping again here
+				// would remount a second time and take the credentials retyped since with it.
 				setLoginStatus('idle');
-				noteRevocation();
 				return 'discarded';
 			}
 			if (typeof token !== 'string' || token === '') {
@@ -242,7 +234,7 @@ export function ApiExplorer(
 	const credentialMatchesServer = entitySettings.authServer != null && entitySettings.authServer === activeServer;
 	// A credential stamped under an older sign-out generation was revoked while this tab wasn't watching
 	// (it was reloaded or closed) — sessionStorage outlives a reload, so this comparison is the guard.
-	const credentialIsCurrent = entitySettings.authGeneration === authStore.getExplorerAuthEpoch(entityId);
+	const credentialIsCurrent = entitySettings.authGeneration === authEpoch;
 	const effectiveAuth: ApiAuth = isAuthorized(auth) && credentialMatchesServer && credentialIsCurrent
 		? auth
 		: COOKIE_AUTH;

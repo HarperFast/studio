@@ -284,6 +284,78 @@ describe('ApiExplorer', () => {
 		expect((screen.getByRole('button', { name: 'Authorize' }) as HTMLButtonElement).disabled).toBe(false);
 	});
 
+	it('keeps a second set of credentials typed while the first mint was still running', async () => {
+		let resolveMint!: (token: string) => void;
+		const onCredentialMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+
+		// The inputs stay live while the mint runs, so the user starts on a second set. Alice's mint then
+		// succeeds — it must clear the credentials it was given, not the draft it never saw.
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'bob' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 's3cret' } });
+		await act(async () => {
+			resolveMint('tok-alice');
+			await Promise.resolve();
+		});
+
+		expect(onCredentialMint).toHaveBeenCalledWith({ username: 'alice', password: 'hunter2' });
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('bob');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('s3cret');
+		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'tok-alice' });
+	});
+
+	it('does not discard an in-flight mint when a different entity is signed out', async () => {
+		let resolveMint!: (token: string) => void;
+		const onCredentialMint = vi.fn(() =>
+			new Promise<string>(res => {
+				resolveMint = res;
+			})
+		);
+		renderExplorer({ onCredentialMint });
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Authorize' }));
+
+		// Every explorer hears every sign-out, so an unrelated one must not cancel this entity's mint.
+		act(() => {
+			const bumped = JSON.stringify({ 'ins-other': 7 });
+			localStorage.setItem('Studio:ExplorerAuthEpoch', bumped);
+			window.dispatchEvent(new StorageEvent('storage', { key: 'Studio:ExplorerAuthEpoch', newValue: bumped }));
+		});
+		await act(async () => {
+			resolveMint('tok-1');
+			await Promise.resolve();
+		});
+
+		expect(storedAuth().auth).toEqual({ type: 'bearer', token: 'tok-1' });
+		expect(screen.getByText(/Credential set —/)).toBeTruthy();
+	});
+
+	it('empties the form on a same-tab sign-out, which fires no storage event', async () => {
+		renderExplorer();
+		fireEvent.click(screen.getByRole('button', { name: /authorize/i }));
+		fireEvent.focus(screen.getByRole('tab', { name: 'Try it out' }));
+		fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'alice' } });
+		fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2' } });
+
+		const { authStore } = await import('@/features/auth/store/authStore');
+		act(() => authStore.setUserForIdAndKey('ins-test', 'ins-test-fqdn', null));
+
+		expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('');
+		expect((screen.getByLabelText('Password') as HTMLInputElement).value).toBe('');
+	});
+
 	it('withholds a minted token when the active server is not the instance it was minted for', async () => {
 		// Pre-select a foreign declared server, then mint: the token is stamped for the trusted instance
 		// URL (baseURL), so it must not be sent to the selected server.
