@@ -318,6 +318,16 @@ export interface AdminClusterGrant {
 	updatedAt?: string;
 	isActive?: boolean;
 	timeline?: ExpiryStageDue[] | null;
+	/**
+	 * When the cluster's earliest live usage block renews — a RENEWAL boundary, not a billing one:
+	 * comp and gift grants renew like anything else, they are simply never invoiced. Read by
+	 * central-manager off the live PurchasedBlocks, so a cluster whose region plans sit on different
+	 * periods reports the soonest, already capped at the grant's own end.
+	 *
+	 * Null when there is nothing to renew: an unbound voucher, a cluster with no live blocks, or a
+	 * trial — a trial's block expiry is the trial end, which its timeline already shows.
+	 */
+	nextCycleAt?: string | null;
 }
 
 /**

@@ -105,6 +105,18 @@ describe('GrantsAdminIndex', () => {
 		expect(screen.getByRole('link', { name: 'clu-a' }).getAttribute('href')).toContain('/org-1/clu-a');
 	});
 
+	// A renewal boundary, not a bill: a comp renews like anything else, it is just never invoiced.
+	// Trials and unbound vouchers have nothing to renew and central-manager sends null for them.
+	it('shows the renewal date the server computed, and nothing when there is none', async () => {
+		await mount([
+			grant({ id: 'cgr-paid', source: 'purchased', nextCycleAt: '2026-09-28T18:57:06.812Z' }),
+			grant({ id: 'cgr-trial', source: 'trial', nextCycleAt: null }),
+		]);
+		const renewsCell = (id: string) => screen.getByText(id).closest('tr')!.children[7].textContent;
+		expect(renewsCell('cgr-paid')).toBe('Sep 28, 2026');
+		expect(renewsCell('cgr-trial')).toBe('—');
+	});
+
 	it('marks an unbound voucher instead of linking a cluster', async () => {
 		await mount([grant({ id: 'cgr-voucher', clusterId: null })]);
 		expect(screen.getByText('Unbound')).toBeTruthy();
