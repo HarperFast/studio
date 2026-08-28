@@ -68,12 +68,14 @@ function modal(overrides: Record<string, unknown> = {}) {
 	const props = {
 		canEditRecords: true,
 		canDeleteRecords: true,
+		canReplaceRecords: true,
 		setIsModalOpen: noop,
 		isModalOpen: true,
 		primaryKey: 'email',
 		syntheticAttributes: [],
 		data: [row],
 		onSaveChanges: noop,
+		onReplaceRecord: noop,
 		onDeleteRecord: noop,
 		isUpdateTableRecordsPending: false,
 		isDeleteTableRecordsPending: false,
@@ -88,6 +90,16 @@ function renderModal(overrides: Record<string, unknown> = {}) {
 
 function saveButton() {
 	return screen.getByRole('button', { name: /Save Changes/i });
+}
+
+/** Renders the modal on a row addressable by its primary key, which is what the removal check
+ * needs: an edit is only recognised as the same record when its primary-key value matches. */
+function renderAddressableModal(overrides: Record<string, unknown> = {}) {
+	return renderModal({ primaryKey: 'id', ...overrides });
+}
+
+function edit(json: string) {
+	fireEvent.change(screen.getByTestId('editor'), { target: { value: json } });
 }
 
 describe('EditTableRowModal', () => {
@@ -263,5 +275,74 @@ describe('EditTableRowModal', () => {
 		expect(onSaveChanges).not.toHaveBeenCalled();
 		expect(setIsModalOpen).not.toHaveBeenCalled();
 		expect(toast.error).toHaveBeenCalledTimes(1);
+	});
+
+	// #1643: `update` merges what it is sent onto the stored record, so a deleted attribute used to
+	// come back on the next read and the editor claimed the save had worked.
+	// #1643: `update` merges what it is sent onto the stored record, so a deleted attribute used to
+	// come back on the next read while the editor claimed the save had worked. Removing one needs
+	// `put`, which replaces the record — so the modal routes those saves there instead.
+	describe('an edit that removes an attribute', () => {
+		it('replaces the record instead of sending an update that would keep the attribute', () => {
+			const onSaveChanges = vi.fn();
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onSaveChanges, onReplaceRecord });
+
+			edit('[{"name":"Ada Lovelace","id":"abc-123"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).toHaveBeenCalledWith([{ name: 'Ada Lovelace', id: 'abc-123' }]);
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+
+		// No confirmation any more: a `put` is one atomic write that keeps `__createdtime__`, so there
+		// is nothing left to warn about. The earlier delete-then-insert needed the prompt because it
+		// could leave the record deleted.
+		it('saves without asking for confirmation', () => {
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onReplaceRecord });
+
+			edit('[{"name":"Ada Lovelace","id":"abc-123"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).toHaveBeenCalledTimes(1);
+			expect(screen.queryByRole('alertdialog')).toBeNull();
+		});
+
+		// The gate: `put` arrived in Harper 5.3.0, so on an older instance the removal is impossible
+		// rather than merely awkward. Refusing with an explanation beats sending an `update` that
+		// would report success and silently keep the attribute — the original bug.
+		it('refuses and explains when the instance predates the put operation', () => {
+			const onSaveChanges = vi.fn();
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onSaveChanges, onReplaceRecord, canReplaceRecords: false });
+
+			edit('[{"name":"Ada Lovelace","id":"abc-123"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).not.toHaveBeenCalled();
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(toast.error).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	// The editor hides `__createdtime__`/`__updatedtime__` and read-only synthetic attributes, so
+	// their absence from the edited JSON must never read as the user having removed them.
+	it('does not treat the attributes it hides from the editor as removed', () => {
+		const onSaveChanges = vi.fn();
+		const onRecreateRecord = vi.fn();
+		renderAddressableModal({
+			onSaveChanges,
+			onRecreateRecord,
+			data: [{ id: 'abc-123', name: 'Ada', owner: { id: 'o-1' }, __createdtime__: 1, __updatedtime__: 2 }],
+			syntheticAttributes: ['owner'],
+		});
+
+		edit('[{"id":"abc-123","name":"Ada Lovelace"}]');
+		fireEvent.click(saveButton());
+
+		expect(onSaveChanges).toHaveBeenCalledWith([{ id: 'abc-123', name: 'Ada Lovelace' }]);
+		expect(onRecreateRecord).not.toHaveBeenCalled();
 	});
 });
