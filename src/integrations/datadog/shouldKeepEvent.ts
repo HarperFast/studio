@@ -9,6 +9,8 @@ export interface DatadogErrorEvent {
 		source?: string;
 		stack?: string;
 		handling_stack?: string;
+		/** The thrown value's `name`; absent when a non-Error was thrown. */
+		type?: string;
 		resource?: { url?: string };
 	};
 	view?: {

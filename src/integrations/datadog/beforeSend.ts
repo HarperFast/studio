@@ -1,4 +1,5 @@
 import { redactErrorText } from './redactErrorText';
+import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
 import { redactCredentialParams, redactSensitiveParams } from './redactSensitiveParams';
 import { type DatadogErrorEvent, shouldKeepEvent } from './shouldKeepEvent';
 
@@ -38,10 +39,10 @@ export function beforeSend(event: DatadogErrorEvent) {
 		const error = event.error;
 		if (error) {
 			if (typeof error.message === 'string') {
-				error.message = redactErrorAndParams(error.message);
+				error.message = redactErrorAndParams(redactRelayedMessage(error.type, error.message));
 			}
 			if (typeof error.stack === 'string') {
-				error.stack = redactErrorAndParams(error.stack);
+				error.stack = redactErrorAndParams(redactRelayedStack(error.type, error.stack));
 			}
 			if (typeof error.handling_stack === 'string') {
 				error.handling_stack = redactErrorAndParams(error.handling_stack);
