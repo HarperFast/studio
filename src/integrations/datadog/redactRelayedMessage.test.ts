@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { SSEOperationError } from '../api/sse/errors';
 import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
@@ -87,6 +88,29 @@ describe('redactRelayedMessage', () => {
 			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
 		].join('\n');
 		expect(redactRelayedStack('SSEOperationError', stack)).toBe([
+			`SSEOperationError: ${WITHHELD}`,
+			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
+		].join('\n'));
+	});
+
+	// The whole rule hinges on this one string matching what RUM records as `error.type`, and a
+	// mismatch fails silently — `redactRelayedMessage` would return the server text unchanged with
+	// every other test still green. The literal is what ships: minification rewrites the class name
+	// but not the assignment in the constructor.
+	it('matches the name SSEOperationError actually carries', () => {
+		expect(new SSEOperationError('boom').name).toBe('SSEOperationError');
+		expect(redactRelayedMessage(new SSEOperationError('boom').name, 'boom')).toBe(WITHHELD);
+	});
+
+	it('drops a relayed stderr line shaped like a frame but naming no script', () => {
+		const stack = [
+			'SSEOperationError: boom',
+			'  at build step @ acme-corp/billing-service',
+			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
+		].join('\n');
+		const redacted = redactRelayedStack('SSEOperationError', stack);
+		expect(redacted).not.toContain('acme-corp');
+		expect(redacted).toBe([
 			`SSEOperationError: ${WITHHELD}`,
 			'  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240',
 		].join('\n'));

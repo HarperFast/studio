@@ -13,11 +13,11 @@
  * is the reliable signal instead — a relayed message is never composed by Studio, so none of it is
  * ours to publish and the whole string goes.
  *
- * The event itself is kept. Its rate is how an instance-side failure — a forge outage, a full disk
- * on the deploying node — stays visible in Error Tracking, and the stack is Studio's own frames.
- * Telling those causes apart needs `SSEOperationError`'s `code` and `phase`, which reach the
- * browser but are not on the RUM event; reporting them deliberately would restore that detail
- * without the message.
+ * Whatever `shouldKeepEvent` has not already dropped is still reported: the rate of these is how
+ * an instance-side failure — a forge outage, a full disk on the deploying node — stays visible in
+ * Error Tracking, and the stack keeps the frames that are ours. Telling those causes apart needs
+ * `SSEOperationError`'s `code` and `phase`, which reach the browser but are not on the RUM event;
+ * reporting them deliberately would restore that detail without the message.
  */
 const RELAYED_ERROR_TYPES = new Set(['SSEOperationError']);
 
@@ -25,16 +25,17 @@ const WITHHELD = 'Harper reported an operation failure (server message withheld)
 
 /**
  * One frame of a stack the SDK re-serialized: `  at <func> @ <url>:<line>:<col>`. Requiring the
- * ` @ <url>` tail is what separates a frame from a line of the message that happens to begin with
- * "at"; the trailing `\s*` keeps a CRLF stack from failing to match.
+ * ` @ <url>` tail is what separates a frame from a relayed line that merely begins with "at";
+ * requiring a scheme there — as `FRAME_URL` in `shouldKeepEvent.ts` does — is what stops a Harper
+ * stderr line like `  at build step @ acme-corp/service` from passing as one. The trailing `\s*`
+ * keeps a CRLF stack from failing to match.
  */
-const STACK_FRAME = /^\s*at\s.* @ \S+\s*$/;
+const STACK_FRAME = /^\s*at\s.* @ (?:blob:)?https?:\/\/\S*\s*$/;
 
 function isRelayed(type: string | undefined) {
 	return type !== undefined && RELAYED_ERROR_TYPES.has(type);
 }
 
-/** Returns `message` unchanged unless `type` names an error whose text the server composed. */
 export function redactRelayedMessage(type: string | undefined, message: string) {
 	return isRelayed(type) ? WITHHELD : message;
 }
