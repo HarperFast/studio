@@ -1,6 +1,11 @@
 import { AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
-import { PUT_OPERATION_MIN_VERSION, putTableRecords, supportsPutOperation } from './putTableRecords';
+import {
+	PUT_OPERATION_MIN_VERSION,
+	putTableRecords,
+	replaceRecordsBlockedReason,
+	supportsPutOperation,
+} from './putTableRecords';
 
 describe('supportsPutOperation', () => {
 	it('accepts the release that added the operation and anything after it', () => {
@@ -86,5 +91,28 @@ describe('putTableRecords', () => {
 		await expect(
 			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
 		).rejects.toThrow('Unauthorized');
+	});
+});
+
+describe('replaceRecordsBlockedReason', () => {
+	it('allows the save when the instance is new enough and the role has the grants', () => {
+		expect(replaceRecordsBlockedReason('5.3.0', true)).toBeUndefined();
+	});
+
+	// An unread version is not an old one. Collapsing the two sends the user to upgrade an instance
+	// that may already support the operation.
+	it('reports an unresolved version as unknown, not as too old', () => {
+		expect(replaceRecordsBlockedReason(undefined, true)).toBe('unknown');
+		expect(replaceRecordsBlockedReason(undefined, false)).toBe('unknown');
+	});
+
+	it('reports an old instance as a version problem even when grants are missing too', () => {
+		// Nothing can be granted on an instance that lacks the operation, so version is the useful answer.
+		expect(replaceRecordsBlockedReason('5.2.6', false)).toBe('version');
+		expect(replaceRecordsBlockedReason('5.2.6', true)).toBe('version');
+	});
+
+	it('reports missing grants as a permission problem on a supported instance', () => {
+		expect(replaceRecordsBlockedReason('5.3.0', false)).toBe('permission');
 	});
 });

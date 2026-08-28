@@ -4,6 +4,7 @@ import {
 	checkImportMethodAllowed,
 	checkImportSourceAllowed,
 	checkTableActionAllowed,
+	checkTableOperationsAllowed,
 	IMPORT_METHODS,
 	type ImportMethod,
 } from '@/hooks/checkOperationPermission';
@@ -219,6 +220,17 @@ export function useInstanceSchemaTablePermission(
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
 	return checkSchemaTablePermission(user?.role?.permission, databaseName, tableName, action);
+}
+
+/**
+ * The allowlist half of the `put` gate. `useInstanceSchemaTablePermission` answers the table grants
+ * (`put` needs insert AND update, since it creates as well as replaces), but a role can hold those
+ * and still be refused by `permission.operations` — the server checks both, so the editor has to.
+ */
+export function useInstanceReplaceRecordsOperationPermission(entityId?: EntityIds): boolean {
+	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
+	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
+	return checkTableOperationsAllowed(user?.role?.permission, ['put']);
 }
 
 export function useInstanceImportDataPermission(

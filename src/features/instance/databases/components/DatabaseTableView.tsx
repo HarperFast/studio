@@ -16,6 +16,7 @@ import { useEffectedState } from '@/hooks/useEffectedState';
 import {
 	useInstanceBrowseManagePermission,
 	useInstanceImportDataPermission,
+	useInstanceReplaceRecordsOperationPermission,
 	useInstanceSchemaTablePermission,
 } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
@@ -33,7 +34,7 @@ import {
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
-import { supportsPutOperation, usePutTableRecords } from '@/integrations/api/instance/database/putTableRecords';
+import { replaceRecordsBlockedReason, usePutTableRecords } from '@/integrations/api/instance/database/putTableRecords';
 import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { setWatchedValue } from '@/lib/events/watcher';
@@ -110,11 +111,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
-	const instanceSupportsPut = supportsPutOperation(registrationInfo?.version);
-	// `put` needs both insert and update on the table, not just update: it creates as well as replaces,
-	// so a role with update alone gets a 403 from the server. Checking here keeps the editor from
-	// offering a save that cannot land, and separates "too old" from "not allowed" in the message.
-	const canReplaceRecords = instanceSupportsPut && canEditRecords && canAddRecords;
+	// `put` needs both insert and update on the table, not just update (it creates as well as
+	// replaces), and it has to survive the role's operations allowlist as well — the server checks
+	// both, so a gate on the table grants alone would still offer a save that 403s.
+	const canReplaceOperation = useInstanceReplaceRecordsOperationPermission(instanceId ?? clusterId);
+	const hasReplaceGrants = canEditRecords && canAddRecords && canReplaceOperation;
+	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
+	const canReplaceRecords = replaceBlockedReason === undefined;
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
 	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
 	// they are also excluded from record add/edit JSON since the server rejects writes that
@@ -650,7 +653,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				canEditRecords={canEditRecords}
 				canDeleteRecords={canDeleteRecords}
 				canReplaceRecords={canReplaceRecords}
-				replaceBlockedReason={canReplaceRecords ? undefined : (instanceSupportsPut ? 'permission' : 'version')}
+				replaceBlockedReason={replaceBlockedReason}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}
