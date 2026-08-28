@@ -365,11 +365,17 @@ Four things worth knowing before changing the record editor:
   (`utility/operation_authorization.ts`, `PUT_WITH_ATTRIBUTE_PERMS`), because a replace removes every
   attribute the request omits and the attribute check only sees what a request supplies. So a
   column-restricted user gets a 403, not a silent erasure of the columns they can't read.
-- **On a legacy open table the removal works but the read still shows `null`.** The operations-API
-  attribute projection reports every _registered_ attribute, filling in `null` for one the record
-  doesn't have — verified by inserting a record that never had it. `SELECT *` reflects storage.
-  Browse reads through `search_by_conditions`/`search_by_id` with `get_attributes`, so a removed
-  attribute keeps rendering as an empty cell on those tables. Storage is correct; the read lies.
+- **On a legacy open table the read projection lies, and `put` writes the lie back.** The
+  operations-API attribute projection reports every _registered_ attribute, filling in `null` for one
+  the record doesn't have — verified by inserting a record that never had it. `SELECT *` reflects
+  real storage. Browse reads through `search_by_conditions`/`search_by_id` with `get_attributes`, so
+  two things follow. On the read side, a removed attribute keeps rendering as an empty cell: storage
+  is correct, the read lies. On the **write** side, those invented `null`s are in the editor buffer,
+  so a `put` stores them as explicit nulls — turning "absent" into "null" for attributes the user
+  never touched. Studio cannot fix that from the client: a projected `null` and a stored `null` are
+  indistinguishable in the response, which is the same ambiguity that made #1643 confusing. The
+  removal the user asked for still happens, and the record still reads the same; the difference is
+  visible in `SELECT *`, storage size, and replication.
 - **Only top-level attributes need any of this.** A patch replaces a nested object wholesale rather
   than merging into it (`resources/tracked.ts` `updateAndFreeze`), so deleting a property _inside_ an
   object already works through a plain `update`.
