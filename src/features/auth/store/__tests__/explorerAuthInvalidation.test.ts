@@ -13,6 +13,7 @@ function signOutElsewhere(generations: Record<string, number>) {
 describe('authStore.onExplorerAuthInvalidated', () => {
 	beforeEach(() => {
 		localStorage.clear();
+		sessionStorage.clear();
 	});
 
 	it('fires only for the entity it was given', () => {
@@ -72,6 +73,32 @@ describe('authStore.onExplorerAuthInvalidated', () => {
 		expect(authStore.getExplorerAuthEpoch('ins-a')).toBe(before + 1);
 		expect(mine).toHaveBeenCalledTimes(1);
 		stop();
+	});
+
+	it('destroys the credential when the epoch write fails, so a reload cannot resurrect it', () => {
+		// The in-memory count is lost on reload while sessionStorage is not, so recording the revocation
+		// is not enough on its own: the stamped credential would compare as current again. This is the
+		// global-logout path, which exists precisely for entities absent from `potentiallyAuthenticated`
+		// and therefore never reached by `forgetEntitySettings`.
+		sessionStorage.setItem(
+			'ApiExplorerSettings',
+			JSON.stringify({
+				'ins-x': {
+					method: 'login',
+					auth: { type: 'bearer', token: 'secret-token' },
+					authServer: 'http://localhost:9926',
+					authGeneration: 0,
+				},
+			}),
+		);
+		const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('QuotaExceededError');
+		});
+
+		authStore.signOutAllLocally();
+		setItem.mockRestore();
+
+		expect(sessionStorage.getItem('ApiExplorerSettings') ?? '').not.toContain('secret-token');
 	});
 
 	it('stops firing once unsubscribed', () => {

@@ -2,6 +2,7 @@ import { isLocalStudio, localStudioDevUrl } from '@/config/constants';
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { getCurrentUser } from '@/features/auth/queries/getCurrentUser';
 import {
+	forgetAllEntitySettings,
 	forgetEntitySettings,
 	pruneStaleEntitySettings,
 	scrubLegacySettings,
@@ -92,7 +93,7 @@ class AuthStore {
 	 * tab. Being memory-only it is lost on reload, which fails safe: a credential stamped under it then
 	 * compares as stale and is withheld.
 	 */
-	private readonly explorerEpochFallback: Record<string, number> = {};
+	private readonly explorerEpochFallback: Record<string, number> = Object.create(null);
 
 	constructor() {
 		this.potentiallyAuthenticated = JSON.parse(localStorage.getItem(this.potentiallyAuthenticatedKey) || '{}');
@@ -129,9 +130,17 @@ class AuthStore {
 			localStorage.setItem(this.explorerAuthEpochKey, JSON.stringify({ ...generations, [id]: current + 1 }));
 		} catch {
 			// Storage disabled or full, so the durable generation can't move. Advance this tab's own count
-			// instead: a sign-out has to revoke the explorer's credential here even when nothing about it
-			// can be recorded for the next tab or the next reload.
+			// so the sign-out is honored here, and destroy the credential rather than only recording that
+			// it was revoked: sessionStorage is a separate store and is usually still writable, and a
+			// deleted credential outlives the reload that drops the count. Without the purge, a sign-out
+			// this tab couldn't record comes BACK after a reload — the count is gone, the generation never
+			// moved, and the stamped credential compares as current again.
 			this.explorerEpochFallback[id] = (this.explorerEpochFallback[id] ?? 0) + 1;
+			if (id === '*') {
+				forgetAllEntitySettings();
+			} else {
+				forgetEntitySettings(id);
+			}
 		}
 		// `storage` only reaches *other* tabs, so this tab's own subscribers hear it from here.
 		for (const listener of this.explorerInvalidationListeners) {
