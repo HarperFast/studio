@@ -23,15 +23,6 @@ const RELAYED_ERROR_TYPES = new Set(['SSEOperationError']);
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
 
-/**
- * One frame of a stack the SDK re-serialized: `  at <func> @ <url>:<line>:<col>`. Requiring the
- * ` @ <url>` tail is what separates a frame from a relayed line that merely begins with "at";
- * requiring a scheme there — as `FRAME_URL` in `shouldKeepEvent.ts` does — is what stops a Harper
- * stderr line like `  at build step @ acme-corp/service` from passing as one. The trailing `\s*`
- * keeps a CRLF stack from failing to match.
- */
-const STACK_FRAME = /^\s*at\s.* @ (?:blob:)?https?:\/\/\S*\s*$/;
-
 function isRelayed(type: string | undefined) {
 	return type !== undefined && RELAYED_ERROR_TYPES.has(type);
 }
@@ -41,15 +32,20 @@ export function redactRelayedMessage(type: string | undefined, message: string) 
 }
 
 /**
- * The same for a stack: the SDK writes `<Name>: <message>` above the frames, so a relayed stack
- * repeats the whole server message — in production one carried the repository name and two
- * kilobytes of `git clone` usage text. Keep the frames, which are Studio's own, and rebuild the
- * header.
+ * The same for a stack: the SDK writes the message above the frames, so a relayed stack repeats it
+ * — in production one carried the repository name and two kilobytes of `git clone` usage text.
+ *
+ * Removes exactly the message and keeps the remainder rather than selecting lines that look like
+ * frames. Server text can be shaped like a frame: a customer pastes a newline and `  at x @
+ * https://…` into the import field, Harper interpolates it, and any pattern that decides
+ * line-by-line keeps it. There is nothing to decide if the span removed is the message itself.
+ *
+ * A stack that does not begin with the message is one whose shape we do not recognise, so it goes
+ * whole — losing Studio's frames is the safe direction.
  */
-export function redactRelayedStack(type: string | undefined, stack: string) {
+export function redactRelayedStack(type: string | undefined, message: string, stack: string) {
 	if (!isRelayed(type)) {
 		return stack;
 	}
-	const frames = stack.split('\n').filter((line) => STACK_FRAME.test(line));
-	return [`${type}: ${WITHHELD}`, ...frames].join('\n');
+	return stack.startsWith(message) ? `${WITHHELD}${stack.slice(message.length)}` : WITHHELD;
 }
