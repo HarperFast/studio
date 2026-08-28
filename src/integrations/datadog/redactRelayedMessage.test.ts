@@ -91,6 +91,11 @@ describe('redactRelayedMessage', () => {
 		expect(redacted).toBe(WITHHELD + frames);
 	});
 
+	it('removes the whole header when the message is a prefix of the error name', () => {
+		expect(redactRelayedStack('SSEOperationError', 'SSE', 'SSEOperationError: SSE\n  at f @ https://x/y.js:1:1'))
+			.toBe(`${WITHHELD}\n  at f @ https://x/y.js:1:1`);
+	});
+
 	// `startsWith('')` is true, so the fail-closed branch would otherwise emit the raw stack.
 	it('withholds the whole stack when the message is empty', () => {
 		const stack = 'SSEOperationError: Failed to clone package git@github.com:acme-corp/billing.git: boom';
