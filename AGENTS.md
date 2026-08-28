@@ -328,6 +328,44 @@ rather than the component (`refetchInterval: 60_000` in `src/features/notificati
 because an edge that accepts-then-drops the upgrade otherwise leaves the tab with no data path at
 all.
 
+## Browse — removing an attribute needs `put`, and only on Harper 5.3+
+
+`update` and `upsert` are both a **merge**. Both land on the same bridge path —
+`dataLayer/harperBridge/ResourceBridge.ts` `updateRecords` → `upsertRecords`, which calls
+`Table.patch` for an existing record — so an attribute left out of the payload keeps its stored
+value, and `null` stores a null rather than dropping the key. That is why deleting a property in the
+row editor silently did nothing (studio#1643).
+
+The fix is Harper's **`put`** operation (create-or-replace, HarperFast/harper#2347, **5.3.0**): the
+stored record becomes exactly what you send, so an omitted attribute is removed. It is the same
+`Table.put` REST's `PUT /Table/id` performs, so one atomic write — the record is never absent,
+`__createdtime__` survives, and subscribers see a single write rather than a delete followed by an
+insert. Studio previously emulated this with delete-then-insert; don't go back to that.
+
+Four things worth knowing before changing the record editor:
+
+- **Only removals take the `put` route.** `functions/removedRecordAttributes.ts` decides, and an edit
+  that merely changes values stays an `update`. A replace is last-writer-wins over the whole record,
+  so routing every save through `put` would clobber a concurrent writer's change to an attribute the
+  edit never touched.
+- **It is version-gated, and unknown reads as unsupported.**
+  `integrations/api/instance/database/putTableRecords.ts` owns `supportsPutOperation()` off
+  `registration_info`. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this at all;
+  there the editor refuses with an explanation rather than sending an `update` that would report
+  success and keep the attribute.
+- **On a legacy open table the removal works but the read still shows `null`.** The operations-API
+  attribute projection reports every _registered_ attribute, filling in `null` for one the record
+  doesn't have — verified by inserting a record that never had it. `SELECT *` reflects storage.
+  Browse reads through `search_by_conditions`/`search_by_id` with `get_attributes`, so a removed
+  attribute keeps rendering as an empty cell on those tables. Storage is correct; the read lies.
+- **Only top-level attributes need any of this.** A patch replaces a nested object wholesale rather
+  than merging into it (`resources/tracked.ts` `updateAndFreeze`), so deleting a property _inside_ an
+  object already works through a plain `update`.
+
+`__unset__` — field-scoped removal that keeps merge semantics for everything else — is
+HarperFast/harper#2350, not yet built. When it lands it is the better tool for "drop one field,
+leave the rest alone", because it does not clobber concurrent writes the way a replace does.
+
 ## Browse — relationship/computed attributes vary by Harper version
 
 `@relationship` and `@computed` attributes are read-only: Harper rejects any insert/update

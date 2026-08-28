@@ -2,6 +2,7 @@ import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { removedRecordAttributes } from '@/features/instance/databases/functions/removedRecordAttributes';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
@@ -14,6 +15,7 @@ import { useRecordJsonErrorMarker } from './recordJsonErrorMarker';
 export function EditTableRowModal({
 	canEditRecords,
 	canDeleteRecords,
+	canReplaceRecords,
 	setIsModalOpen,
 	isModalOpen,
 	primaryKey,
@@ -22,12 +24,17 @@ export function EditTableRowModal({
 	syntheticAttributes,
 	data,
 	onSaveChanges,
+	onReplaceRecord,
 	onDeleteRecord,
 	isUpdateTableRecordsPending,
 	isDeleteTableRecordsPending,
 }: {
 	canEditRecords: boolean;
 	canDeleteRecords: boolean;
+	/** Whether this instance supports the `put` operation, which is the only way to remove an
+	 * attribute: `update` merges, so an attribute left out of the payload keeps its stored value.
+	 * Added in Harper 5.3.0 (HarperFast/harper#2347); older instances cannot do it at all. */
+	canReplaceRecords: boolean;
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	primaryKey: string;
@@ -45,6 +52,9 @@ export function EditTableRowModal({
 	 * every read must tolerate it — the editor renders a loading state and the write actions guard it. */
 	data?: { __createdtime__?: number; __updatedtime__?: number; [record: string]: unknown }[];
 	onSaveChanges: (data: Record<string, unknown>[]) => void;
+	/** Replace the record wholesale via `put`, which is what removing an attribute requires. One
+	 * atomic write: the record is never absent, and `__createdtime__` survives. */
+	onReplaceRecord: (data: Record<string, unknown>[]) => void;
 	onDeleteRecord: (data: unknown[]) => void;
 	isUpdateTableRecordsPending: boolean;
 	isDeleteTableRecordsPending: boolean;
@@ -59,15 +69,20 @@ export function EditTableRowModal({
 	const [updatedTableRecordData, setUpdatedTableRecordData] = useState<string>();
 	const { onEditorMount, showRecordJsonError, clearRecordJsonError } = useRecordJsonErrorMarker();
 
-	const value = useMemo(() => {
-		const dataWithoutTimes = data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => {
-			for (const synthetic of syntheticAttributes ?? []) {
-				delete rowWithoutTime[synthetic];
-			}
-			return rowWithoutTime;
-		});
-		return JSON.stringify(dataWithoutTimes, null, 4);
-	}, [data, syntheticAttributes]);
+	// The record as the editor shows it: no `__createdtime__`/`__updatedtime__` (the server owns
+	// those) and no read-only synthetic attributes. Save compares against this rather than `data`,
+	// so an attribute hidden from the editor can never read as one the user removed.
+	const editableRecords = useMemo(
+		() =>
+			data?.map(({ __createdtime__, __updatedtime__, ...rowWithoutTime }) => {
+				for (const synthetic of syntheticAttributes ?? []) {
+					delete rowWithoutTime[synthetic];
+				}
+				return rowWithoutTime;
+			}),
+		[data, syntheticAttributes],
+	);
+	const value = useMemo(() => JSON.stringify(editableRecords, null, 4), [editableRecords]);
 
 	// This modal instance is reused across rows (it stays mounted; only `open` toggles), so the
 	// draft has to be reset both when a different record is loaded — otherwise a previous row's
@@ -223,9 +238,38 @@ export function EditTableRowModal({
 									}
 									// The editor opens on an array of one, but an edit that drops the brackets still
 									// means that record — `update` only takes a list, so send one either way.
-									onSaveChanges(Array.isArray(parsed.value) ? parsed.value : [parsed.value]);
+									const records = Array.isArray(parsed.value) ? parsed.value : [parsed.value];
+									// `update` merges what it is sent onto the stored record, so it cannot drop an
+									// attribute: an omitted one keeps its stored value and `null` stores a null
+									// (#1643). Removing one needs `put`, which replaces the record outright.
+									//
+									// Only removals take that route. An edit that just changes values stays an
+									// `update`, because a replace is last-writer-wins over the whole record — routing
+									// every save through `put` would clobber a concurrent writer's change to an
+									// attribute this edit never touched.
+									const removedAttributes = removedRecordAttributes(editableRecords, records, primaryKey);
+									if (removedAttributes.length) {
+										if (!canReplaceRecords) {
+											toast.error(
+												removedAttributes.length === 1
+													? "This Harper version can't remove an attribute"
+													: "This Harper version can't remove attributes",
+												{
+													description: `Removing ${
+														removedAttributes.join(', ')
+													} needs the 'put' operation, added in Harper 5.3.0. On this instance the update operation can only merge, so the attribute would silently stay. Upgrade the instance, or set the value to null instead of removing it.`,
+												},
+											);
+											return;
+										}
+										onReplaceRecord(records);
+										return;
+									}
+									onSaveChanges(records);
 								}}
-								disabled={isUpdateTableRecordsPending}
+								// Also waits out a delete in flight: this modal offers Delete Row beside Save, and a
+								// `put` racing that delete would re-create the record the user just removed.
+								disabled={isUpdateTableRecordsPending || isDeleteTableRecordsPending}
 							>
 								<Save />{' '}
 								<span>

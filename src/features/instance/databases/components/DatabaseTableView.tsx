@@ -33,7 +33,9 @@ import {
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
+import { supportsPutOperation, usePutTableRecords } from '@/integrations/api/instance/database/putTableRecords';
 import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
+import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
@@ -105,6 +107,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Newer Harper servers omit relationship attributes from describe entirely; the component
 	// schema files still declare them (with exact from/to key mappings), so browse reads those too.
 	const { data: schemaRelationshipMap } = useQuery(getSchemaRelationshipsQueryOptions(instanceParams));
+	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
+	// know before it offers the save, so the version is read here rather than discovered by a failure.
+	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
 	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
 	// they are also excluded from record add/edit JSON since the server rejects writes that
@@ -324,6 +329,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { mutate: updateTableRecords, isPending: isUpdateTableRecordsPending } = useUpdateTableRecords();
 	const { mutate: deleteTableRecords, isPending: isDeleteTableRecordsPending } = useDeleteTableRecords();
+	const { mutate: putTableRecords, isPending: isPutTableRecordsPending } = usePutTableRecords();
 	const { mutate: cleanupOrphanBlobs, isPending: isCleanupOrphanBlobsPending } = useCleanupOrphanBlobsMutation();
 
 	const queryClient = useQueryClient();
@@ -382,6 +388,31 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			},
 		);
 	}, [updateTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+
+	// Removing an attribute needs `put`, which replaces the record: `update` merges what it is sent,
+	// so an omitted attribute keeps its stored value and `null` stores a null (#1643). The modal
+	// reaches this only for an edit that actually removes one — an edit that just changes values
+	// stays an `update`, since a replace is last-writer-wins over the whole record.
+	//
+	// One atomic write, unlike the delete-then-insert a client would otherwise need: the record is
+	// never absent, `__createdtime__` survives, and subscribers see a single write.
+	const onRecordReplace = useCallback((records: Record<string, unknown>[]) => {
+		putTableRecords(
+			{
+				...instanceParams,
+				databaseName,
+				tableName,
+				records,
+			},
+			{
+				onSuccess: () => {
+					void refreshTable();
+					setIsEditModalOpen(false);
+					toast.success('Record updated successfully');
+				},
+			},
+		);
+	}, [putTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
 	const onDeleteRecord = useCallback((hashes: unknown[]) => {
 		deleteTableRecords(
@@ -613,6 +644,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			<EditTableRowModal
 				canEditRecords={canEditRecords}
 				canDeleteRecords={canDeleteRecords}
+				canReplaceRecords={supportsPutOperation(registrationInfo?.version)}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}
@@ -623,8 +655,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 					? (clickedRow ? [clickedRow] : undefined)
 					: searchByIdData?.data}
 				onSaveChanges={onRecordUpdate}
+				onReplaceRecord={onRecordReplace}
 				onDeleteRecord={onDeleteRecord}
-				isUpdateTableRecordsPending={isUpdateTableRecordsPending}
+				isUpdateTableRecordsPending={isUpdateTableRecordsPending || isPutTableRecordsPending}
 				isDeleteTableRecordsPending={isDeleteTableRecordsPending}
 			/>
 		</>

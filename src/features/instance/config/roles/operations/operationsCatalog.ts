@@ -113,6 +113,7 @@ export const OPERATIONS_ALLOWLIST_MIN_VERSION = '5.0.0-alpha.8';
 // Floors use the earliest prerelease so alpha/beta builds of a release pass the gate.
 const V5_1 = '5.1.0-alpha.1';
 const V5_2 = '5.2.0-alpha.1';
+const V5_3 = '5.3.0-alpha.1';
 
 const DATA = 'Data';
 const SCHEMA = 'Schema';
@@ -167,6 +168,9 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'insert', su: false, category: DATA },
 	{ name: 'update', su: false, category: DATA },
 	{ name: 'upsert', su: false, category: DATA },
+	// Create-or-replace, added by HarperFast/harper#2347. Requires insert + update, the same grants
+	// as `upsert`, because it both creates and replaces.
+	{ name: 'put', su: false, category: DATA, addedIn: V5_3 },
 	{ name: 'delete', su: false, category: DATA },
 	{ name: 'delete_records_before', su: true, category: DATA },
 	{ name: 'csv_data_load', su: false, category: DATA },
