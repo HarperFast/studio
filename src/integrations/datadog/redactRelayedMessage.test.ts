@@ -48,9 +48,8 @@ describe('redactRelayedMessage', () => {
 
 	// Production shape: RUM's `message` already carries the `SSEOperationError: ` prefix, and the
 	// stack is that message followed by the frames.
-	// The rule hinges on this one literal matching what RUM records as `error.type`, and a mismatch
-	// fails silently — the server text would ship with every other test still green. The literal is
-	// what survives minification; the class name does not.
+	// A mismatch here withholds nothing, silently. The literal is what survives minification; the
+	// class name does not.
 	it('matches the name SSEOperationError actually carries', () => {
 		expect(new SSEOperationError('boom').name).toBe('SSEOperationError');
 		expect(redactRelayedMessage(new SSEOperationError('boom').name, 'boom')).toBe(WITHHELD);
@@ -71,8 +70,6 @@ describe('redactRelayedMessage', () => {
 		expect(redactRelayedStack('SSEOperationError', message, message + frames)).toBe(WITHHELD + frames);
 	});
 
-	// The reason this removes a span instead of selecting frame-shaped lines: server text can be
-	// shaped like a frame, and anything deciding line-by-line keeps it.
 	it('removes frame-shaped text that the server put in the message', () => {
 		const message = [
 			'SSEOperationError: deploy failed',
@@ -84,13 +81,27 @@ describe('redactRelayedMessage', () => {
 		expect(redacted).toBe(WITHHELD + frames);
 	});
 
+	// The unhandled-rejection path records the message WITHOUT the name the stack still opens with,
+	// so a fixture built only from the handled shape would miss it and quietly cost every frame.
+	it('removes the message when the SDK prefixed only the stack with the name', () => {
+		const message = 'Failed to clone package github:acme-corp/billing: boom';
+		const frames = '\n  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240';
+		const redacted = redactRelayedStack('SSEOperationError', message, `SSEOperationError: ${message}${frames}`);
+		expect(redacted).not.toContain('acme-corp');
+		expect(redacted).toBe(WITHHELD + frames);
+	});
+
+	// `startsWith('')` is true, so the fail-closed branch would otherwise emit the raw stack.
+	it('withholds the whole stack when the message is empty', () => {
+		const stack = 'SSEOperationError: Failed to clone package git@github.com:acme-corp/billing.git: boom';
+		expect(redactRelayedStack('SSEOperationError', '', stack)).toBe(WITHHELD);
+	});
+
 	it('withholds the whole stack when it does not begin with the message', () => {
 		expect(redactRelayedStack('SSEOperationError', 'SSEOperationError: boom', 'something else entirely'))
 			.toBe(WITHHELD);
 	});
 
-	// A CRLF stack needs no special handling once the message is removed as one span, but the
-	// message itself must then carry its own CRLFs to match.
 	it('removes a CRLF message span intact', () => {
 		const message = 'SSEOperationError: boom\r\ndetail: acme-corp/billing';
 		const frames = '\r\n  at Nv @ https://fabric.harper.fast/assets/index-DFE8mV3G.js:18:2240';
