@@ -30,13 +30,17 @@ export function removedRecordAttributes(
 	editedRecords: readonly Record<string, unknown>[],
 	primaryKey: string,
 ): RecordAttributeRemoval[] {
+	if (!primaryKey || !storedRecords?.length) {
+		return [];
+	}
+	const storedById = new Map(storedRecords.map(record => [record[primaryKey], record]));
 	const removals: RecordAttributeRemoval[] = [];
 	for (const [index, edited] of editedRecords.entries()) {
-		const id = primaryKey ? edited[primaryKey] : undefined;
+		const id = edited[primaryKey];
 		if (id == null) {
 			continue;
 		}
-		const stored = storedRecords?.find(record => record[primaryKey] === id);
+		const stored = storedById.get(id);
 		if (!stored) {
 			continue;
 		}

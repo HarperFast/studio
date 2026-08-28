@@ -372,6 +372,22 @@ describe('EditTableRowModal', () => {
 		});
 	});
 
+	// The differ indexes edited records by primary key, which would throw on a null element. It
+	// never sees one: the shared parser rejects a non-object entry first. Pinned because the crash
+	// would be an unhandled TypeError in a click handler, not a toast.
+	it('rejects an array containing a non-object before routing the save', () => {
+		const onSaveChanges = vi.fn();
+		const onReplaceRecord = vi.fn();
+		renderAddressableModal({ onSaveChanges, onReplaceRecord });
+
+		edit('[null]');
+		fireEvent.click(saveButton());
+
+		expect(onSaveChanges).not.toHaveBeenCalled();
+		expect(onReplaceRecord).not.toHaveBeenCalled();
+		expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/valid JSON/i);
+	});
+
 	// Delete and Save are cross-disabled in both directions. A delete that landed while a `put` was
 	// still in flight would be undone by the replace re-creating the record, so neither action may
 	// start while the other is going.
