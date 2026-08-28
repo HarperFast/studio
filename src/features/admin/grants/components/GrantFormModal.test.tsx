@@ -94,6 +94,16 @@ async function mount(g: AdminClusterGrant) {
 const reasonBox = () => screen.getByPlaceholderText(/Why these terms/);
 const saveButton = () => screen.getByRole('button', { name: 'Save changes' });
 
+/** The scope pickers are dropdown menus, not selects: the trigger opens on pointerDown. */
+async function pickScope(label: string, option: RegExp) {
+	fireEvent.pointerDown(screen.getByRole('button', { name: label }), { button: 0, ctrlKey: false });
+	await act(() => null);
+	fireEvent.click(screen.getByRole('menuitemcheckbox', { name: option }));
+	await act(() => null);
+	fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+	await act(() => null);
+}
+
 describe('GrantFormModal', () => {
 	// The server requires a reason on every patch; catching it here beats earning a 400.
 	it('will not save without a reason', async () => {
@@ -118,9 +128,10 @@ describe('GrantFormModal', () => {
 	});
 
 	// An empty scope list is refused by the server; null is how a restriction is cleared.
-	it('clears an empty scope as null rather than an empty list', async () => {
-		await mount(grant({ allowedPlanIds: [] }));
+	it('clears a scope as null rather than an empty list', async () => {
+		await mount(grant({ allowedPlanIds: ['plan-a'] }));
 		fireEvent.change(reasonBox(), { target: { value: 'unscoped' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Remove plan-a' }));
 		await act(() => null);
 		fireEvent.click(saveButton());
 		await act(() => null);
@@ -135,6 +146,70 @@ describe('GrantFormModal', () => {
 		fireEvent.click(saveButton());
 		await act(() => null);
 		expect(updateGrant.mock.calls[0][0].changes.endsAt).toBeNull();
+	});
+
+	// Re-stating an untouched value is not free: the server refuses an internal expiryPolicy and reads
+	// every scope it receives through the widen-only guard, so an unedited field would fail a save
+	// that only meant to change something else.
+	it('sends only the fields that changed', async () => {
+		await mount(grant({ allowedPlanIds: ['plan-a'], allowedRegionIds: ['us-east-1'], expiryPolicy: 'consumer-trial' }));
+		fireEvent.change(reasonBox(), { target: { value: 'note only' } });
+		await act(() => null);
+		fireEvent.click(saveButton());
+		await act(() => null);
+
+		const [{ changes }] = updateGrant.mock.calls[0];
+		expect(changes).toEqual({ reason: 'note only' });
+	});
+
+	describe("a bound grant's scope may only widen", () => {
+		it('holds the save and says why when an entry is removed', async () => {
+			await mount(grant({ allowedRegionIds: ['us-east-1', 'eu-west-1'] }));
+			fireEvent.change(reasonBox(), { target: { value: 'narrowing' } });
+			fireEvent.click(screen.getByRole('button', { name: 'Remove eu-west-1' }));
+			await act(() => null);
+			expect(screen.getByText(/A bound grant's scope may only widen/)).toBeTruthy();
+			expect(saveButton().hasAttribute('disabled')).toBe(true);
+		});
+
+		// Unrestricted is the widest value a grant can hold, so a first restriction narrows it even
+		// though nothing was removed — the case a form gets wrong by treating null as empty.
+		it('holds the save when restricting a grant that had no scope', async () => {
+			await mount(grant({ allowedRegionIds: null }));
+			fireEvent.change(reasonBox(), { target: { value: 'first restriction' } });
+			await pickScope('Regions', /us-east-1/);
+			expect(saveButton().hasAttribute('disabled')).toBe(true);
+		});
+
+		it('allows adding to an existing restriction', async () => {
+			await mount(grant({ allowedRegionIds: ['us-east-1'] }));
+			fireEvent.change(reasonBox(), { target: { value: 'widening' } });
+			await pickScope('Regions', /eu-west-1/);
+			expect(saveButton().hasAttribute('disabled')).toBe(false);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			expect(updateGrant.mock.calls[0][0].changes.allowedRegionIds).toEqual(['us-east-1', 'eu-west-1']);
+		});
+
+		// Nothing is running on an unbound voucher, so the server lets it narrow freely.
+		it('lets an unbound voucher narrow', async () => {
+			await mount(grant({ clusterId: null, allowedRegionIds: ['us-east-1', 'eu-west-1'] }));
+			fireEvent.change(reasonBox(), { target: { value: 'narrowing a voucher' } });
+			fireEvent.click(screen.getByRole('button', { name: 'Remove eu-west-1' }));
+			await act(() => null);
+			expect(saveButton().hasAttribute('disabled')).toBe(false);
+		});
+	});
+
+	// A conversion in flight legitimately carries conversion-pending. The server refuses it from an
+	// admin, but the trigger must still show what the grant has rather than going blank.
+	it('shows an internal policy the grant already carries without offering it', async () => {
+		await mount(grant({ expiryPolicy: 'conversion-pending' }));
+		expect(screen.getByLabelText('Expiry policy').textContent).toContain('conversion-pending');
+		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+		await act(() => null);
+		const internal = screen.getAllByRole('option').find((o) => o.textContent === 'conversion-pending');
+		expect(internal?.getAttribute('aria-disabled')).toBe('true');
 	});
 
 	// Revoke is its own action: it ends the grant and is exempt from the other guards.
