@@ -8,10 +8,10 @@
  * siblings in harper `components/Application.js` — so the identifier can appear in any shape the
  * import field accepts, including free text with spaces.
  *
- * Searching that text for identifiers is the wrong shape of solution: every candidate rule is a
- * guess about where the reference ends, and a reference is whatever the customer typed. The type
- * is the reliable signal instead — a relayed message is never composed by Studio, so none of it is
- * ours to publish and the whole string goes.
+ * Searching that text for identifiers means guessing where the reference ends, and a reference is
+ * whatever the customer typed. The type is the reliable signal instead: everything this error
+ * carries is either the server's text or one of Studio's own constants for the same failure
+ * (`'The operation failed.'`), so nothing is lost by withholding all of it.
  *
  * Whatever `shouldKeepEvent` has not already dropped is still reported: the rate of these is how
  * an instance-side failure — a forge outage, a full disk on the deploying node — stays visible in
@@ -35,17 +35,27 @@ export function redactRelayedMessage(type: string | undefined, message: string) 
  * The same for a stack: the SDK writes the message above the frames, so a relayed stack repeats it
  * — in production one carried the repository name and two kilobytes of `git clone` usage text.
  *
- * Removes exactly the message and keeps the remainder rather than selecting lines that look like
- * frames. Server text can be shaped like a frame: a customer pastes a newline and `  at x @
- * https://…` into the import field, Harper interpolates it, and any pattern that decides
- * line-by-line keeps it. There is nothing to decide if the span removed is the message itself.
+ * Removes the message as one span rather than selecting the lines that look like frames. Server
+ * text can be shaped like a frame — a customer pastes a newline and `  at x @ https://…` into the
+ * import field and Harper interpolates it — and any rule deciding line-by-line keeps it.
  *
- * A stack that does not begin with the message is one whose shape we do not recognise, so it goes
- * whole — losing Studio's frames is the safe direction.
+ * The SDK prefixes the error's name on the handled path (`console.error(rawErr)`,
+ * `src/react-query/queryClient.ts`) but not on the unhandled one, so the header is the message
+ * either way round. Anything else is a shape we do not recognise and goes whole: losing Studio's
+ * frames is the safe direction.
  */
 export function redactRelayedStack(type: string | undefined, message: string, stack: string) {
 	if (!isRelayed(type)) {
 		return stack;
 	}
-	return stack.startsWith(message) ? `${WITHHELD}${stack.slice(message.length)}` : WITHHELD;
+	// Not merely defensive: `startsWith('')` is true, which would emit the raw stack in full.
+	if (!message) {
+		return WITHHELD;
+	}
+	for (const header of [message, `${type}: ${message}`]) {
+		if (stack.startsWith(header)) {
+			return `${WITHHELD}${stack.slice(header.length)}`;
+		}
+	}
+	return WITHHELD;
 }
