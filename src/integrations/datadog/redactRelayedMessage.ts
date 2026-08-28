@@ -52,7 +52,9 @@ export function redactRelayedStack(type: string | undefined, message: string, st
 	if (!message) {
 		return WITHHELD;
 	}
-	for (const header of [message, `${type}: ${message}`]) {
+	// Longest first: a message that is itself a prefix of the name (`'SSE'`) matches the bare form
+	// early and leaves the rest of the name — and the message — in the text.
+	for (const header of [`${type}: ${message}`, message]) {
 		if (stack.startsWith(header)) {
 			return `${WITHHELD}${stack.slice(header.length)}`;
 		}
