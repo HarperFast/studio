@@ -2,7 +2,10 @@ import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { removedRecordAttributes } from '@/features/instance/databases/functions/removedRecordAttributes';
+import {
+	removedAttributeNames,
+	removedRecordAttributes,
+} from '@/features/instance/databases/functions/removedRecordAttributes';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
@@ -16,6 +19,7 @@ export function EditTableRowModal({
 	canEditRecords,
 	canDeleteRecords,
 	canReplaceRecords,
+	replaceBlockedReason,
 	setIsModalOpen,
 	isModalOpen,
 	primaryKey,
@@ -31,10 +35,13 @@ export function EditTableRowModal({
 }: {
 	canEditRecords: boolean;
 	canDeleteRecords: boolean;
-	/** Whether this instance supports the `put` operation, which is the only way to remove an
-	 * attribute: `update` merges, so an attribute left out of the payload keeps its stored value.
-	 * Added in Harper 5.3.0 (HarperFast/harper#2347); older instances cannot do it at all. */
+	/** Whether this instance and this user can `put`, which is the only way to remove an attribute:
+	 * `update` merges, so an attribute left out of the payload keeps its stored value. Added in Harper
+	 * 5.3.0 (HarperFast/harper#2347), and it needs both insert and update on the table. */
 	canReplaceRecords: boolean;
+	/** Why a removal can't be saved, when `canReplaceRecords` is false — the two cases need different
+	 * advice, and telling a permission-blocked user to upgrade their instance sends them nowhere. */
+	replaceBlockedReason?: 'version' | 'permission';
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	primaryKey: string;
@@ -205,7 +212,10 @@ export function EditTableRowModal({
 										onDeleteRecord([primaryKeyValue]);
 									}
 								}}
-								disabled={isDeleteTableRecordsPending}
+								// Cross-disabled against a save in flight (the parent folds `put` into that prop): a
+								// delete that landed while a `put` was still going would be undone by the replace
+								// re-creating the record.
+								disabled={isDeleteTableRecordsPending || isUpdateTableRecordsPending}
 							>
 								<Trash /> Delete Row
 							</Button>
@@ -247,17 +257,35 @@ export function EditTableRowModal({
 									// `update`, because a replace is last-writer-wins over the whole record — routing
 									// every save through `put` would clobber a concurrent writer's change to an
 									// attribute this edit never touched.
-									const removedAttributes = removedRecordAttributes(editableRecords, records, primaryKey);
-									if (removedAttributes.length) {
+									const removals = removedRecordAttributes(editableRecords, records, primaryKey);
+									if (removals.length) {
+										// A replace is last-writer-wins over the whole record, so it is only safe for a
+										// record the user is deliberately rewriting. The editor loads one record, but its
+										// JSON is free text: a pasted batch where only some records drop an attribute
+										// would send the untouched ones through `put` too, clobbering concurrent writes
+										// to them. Refuse rather than pick a victim.
+										if (removals.length < records.length) {
+											toast.error("Removing an attribute can't be combined with other record edits", {
+												description:
+													'Removing an attribute replaces the whole record, which would overwrite any concurrent change to the other records in this payload. Save the removal on its own, or remove an attribute from every record in the payload.',
+											});
+											return;
+										}
 										if (!canReplaceRecords) {
+											const attributes = removedAttributeNames(removals);
+											const subject = attributes.length === 1 ? 'an attribute' : 'attributes';
 											toast.error(
-												removedAttributes.length === 1
-													? "This Harper version can't remove an attribute"
-													: "This Harper version can't remove attributes",
+												replaceBlockedReason === 'permission'
+													? `You don't have permission to remove ${subject}`
+													: `This Harper version can't remove ${subject}`,
 												{
-													description: `Removing ${
-														removedAttributes.join(', ')
-													} needs the 'put' operation, added in Harper 5.3.0. On this instance the update operation can only merge, so the attribute would silently stay. Upgrade the instance, or set the value to null instead of removing it.`,
+													description: replaceBlockedReason === 'permission'
+														? `Removing ${
+															attributes.join(', ')
+														} rewrites the record through the 'put' operation, which needs both insert and update on this table. Ask an administrator for those grants, or set the value to null instead of removing it.`
+														: `Removing ${
+															attributes.join(', ')
+														} needs the 'put' operation, added in Harper 5.3.0. On this instance the update operation can only merge, so the attribute would silently stay. Upgrade the instance, or set the value to null instead of removing it.`,
 												},
 											);
 											return;

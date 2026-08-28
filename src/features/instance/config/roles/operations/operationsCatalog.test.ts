@@ -116,6 +116,16 @@ describe('getAvailableGroups', () => {
 		]);
 	});
 
+	// Mirrors Harper's `OPERATION_PERMISSION_GROUPS.standard_user` (`utility/operationPermissions.ts`),
+	// which lists put alongside the other data writes. A missing member makes Studio's
+	// effective-operation summary deny a capability the server actually grants.
+	it('includes every data write Harper puts in standard_user', () => {
+		const standardUser = OPERATION_GROUPS.find((group) => group.name === 'standard_user');
+		expect(standardUser?.members).toEqual(
+			expect.arrayContaining(['insert', 'update', 'upsert', 'put', 'delete']),
+		);
+	});
+
 	it('only names catalog operations as members', () => {
 		for (const group of OPERATION_GROUPS) {
 			for (const member of group.members) {

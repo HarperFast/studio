@@ -10,7 +10,15 @@ import { useMutation } from '@tanstack/react-query';
  */
 export const PUT_OPERATION_MIN_VERSION = '5.3.0';
 
-/** Whether this instance can replace a record rather than only merge into it. */
+/**
+ * Whether this instance can replace a record rather than only merge into it.
+ *
+ * Prereleases of the adding release read as unsupported: a `5.3.0-alpha` cut before #2347 merged
+ * would take the request and merge, reporting success while keeping the attribute. Refusing costs an
+ * internal alpha user a clear, actionable message; accepting wrongly restores #1643 silently. The
+ * role catalog floors the same operation at the earliest prerelease instead, because an unusable
+ * grant there is inert — see the note beside its entry.
+ */
 export function supportsPutOperation(version: string | undefined): boolean {
 	return !!version && wasAReleasedBeforeB(PUT_OPERATION_MIN_VERSION, version);
 }

@@ -110,6 +110,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
+	const instanceSupportsPut = supportsPutOperation(registrationInfo?.version);
+	// `put` needs both insert and update on the table, not just update: it creates as well as replaces,
+	// so a role with update alone gets a 403 from the server. Checking here keeps the editor from
+	// offering a save that cannot land, and separates "too old" from "not allowed" in the message.
+	const canReplaceRecords = instanceSupportsPut && canEditRecords && canAddRecords;
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];
 	// Relationship attributes get resolved cell values, link chips, and sub-property filters;
 	// they are also excluded from record add/edit JSON since the server rejects writes that
@@ -644,7 +649,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			<EditTableRowModal
 				canEditRecords={canEditRecords}
 				canDeleteRecords={canDeleteRecords}
-				canReplaceRecords={supportsPutOperation(registrationInfo?.version)}
+				canReplaceRecords={canReplaceRecords}
+				replaceBlockedReason={canReplaceRecords ? undefined : (instanceSupportsPut ? 'permission' : 'version')}
 				setIsModalOpen={setIsEditModalOpen}
 				isModalOpen={isEditModalOpen}
 				primaryKey={primaryKey}

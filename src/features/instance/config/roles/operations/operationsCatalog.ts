@@ -170,6 +170,12 @@ export const OPERATION_CATALOG: readonly GrantableOperation[] = [
 	{ name: 'upsert', su: false, category: DATA },
 	// Create-or-replace, added by HarperFast/harper#2347. Requires insert + update, the same grants
 	// as `upsert`, because it both creates and replaces.
+	//
+	// Floored at the earliest 5.3 prerelease per this file's convention, which deliberately differs
+	// from `PUT_OPERATION_MIN_VERSION` (final 5.3.0) in `putTableRecords.ts`. The two gates fail in
+	// opposite directions: offering an unusable grant here is an inert catalog entry, while accepting
+	// an alpha that predates the merge there would send an `update` that reports success and silently
+	// keeps the attribute — the bug being fixed. Each gate takes the safe side of its own failure.
 	{ name: 'put', su: false, category: DATA, addedIn: V5_3 },
 	{ name: 'delete', su: false, category: DATA },
 	{ name: 'delete_records_before', su: true, category: DATA },
@@ -331,6 +337,7 @@ export const OPERATION_GROUPS: readonly OperationGroup[] = [
 			'insert',
 			'update',
 			'upsert',
+			'put',
 			'delete',
 			'csv_data_load',
 			'csv_file_load',
