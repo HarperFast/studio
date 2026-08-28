@@ -63,6 +63,8 @@ runs:
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
+        # Only telemetry reads this; `isDeployedBuild` explains why it lives here.
+        VITE_TELEMETRY_ENABLED: 'true'
       run: pnpm build --mode "$ENVIRONMENT"
     - name: Upload sourcemaps to Datadog
       shell: bash

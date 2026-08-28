@@ -5,12 +5,24 @@ export let reoClient: ReoClient | undefined;
 
 export function useReo() {
 	useEffect(() => {
-		if (import.meta.env.VITE_REO_DEV_CLIENT_ID && import.meta.env.VITE_REO_DEV_CLIENT_ID !== '0') {
-			loadReoScript({ clientID: import.meta.env.VITE_REO_DEV_CLIENT_ID })
-				.then((Reo) => {
-					Reo?.init?.({ clientID: import.meta.env.VITE_REO_DEV_CLIENT_ID });
-					return reoClient = Reo;
-				});
+		const clientID = import.meta.env.VITE_REO_DEV_CLIENT_ID;
+		if (!clientID || clientID === '0') {
+			return;
 		}
+		// Reo is optional analytics whose CDN ad blockers routinely block, and its loader rejects
+		// from the injected script's own `onerror`. That rejection's only located frame is our own
+		// bundle, so `shouldKeepEvent`'s reo.dev stack filter cannot attribute it away — left
+		// unhandled it lands in Error Tracking as a Studio error. `useReo` runs above the router with
+		// no error boundary over it, so a synchronous throw has to land here too or Studio blanks.
+		Promise.resolve()
+			.then(() => loadReoScript({ clientID }))
+			.then((Reo) => {
+				Reo?.init?.({ clientID });
+				return reoClient = Reo;
+			})
+			// `console.debug`, never `console.error`: the RUM SDK collects `console.error` as an error
+			// (`source: "console"`), which would send this straight back to the Error Tracking issue
+			// this catch exists to remove. Debug keeps a real Reo breakage visible in devtools.
+			.catch((error) => console.debug('Reo analytics unavailable', error));
 	}, []);
 }

@@ -1,6 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
+import { deployModes } from '@/config/constants';
+import { stubDeployBuild } from '@/test/stubDeployBuild';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,7 +20,6 @@ const { rum, routerState } = vi.hoisted(() => ({
 
 vi.mock('@datadog/browser-rum', () => ({ datadogRum: rum }));
 vi.mock('@datadog/browser-rum-react', () => ({ reactPlugin: () => ({ name: 'react' }) }));
-vi.mock('@/config/constants', () => ({ isLocalStudio: false }));
 vi.mock('@/hooks/useAuth', () => ({ useOverallAuth: () => ({ user: undefined }) }));
 // One stable `router` identity, as the real `useRouter` returns — the tracker's effect lists
 // `router` in its deps, so a fresh object per render would re-fire it on every render and the
@@ -36,11 +37,18 @@ vi.mock('@tanstack/react-router', () => {
 	};
 });
 
-async function loadDatadogModule() {
+async function loadDatadogModuleForMode(
+	mode: string | undefined,
+	envName: string | undefined,
+	telemetryEnabled: string | undefined,
+) {
 	vi.resetModules();
-	// `enabled` is a module-scope const, so DEV has to be false before the import.
-	vi.stubEnv('DEV', false);
+	stubDeployBuild({ mode, envName, telemetryEnabled });
 	return import('./datadog');
+}
+
+async function loadDatadogModule() {
+	return loadDatadogModuleForMode('prod', 'prod', 'true');
 }
 
 beforeEach(() => {
@@ -119,5 +127,64 @@ describe('Datadog view tracking', () => {
 			'/$organizationId/$clusterId/apps/',
 			'/$organizationId/$clusterId/config/',
 		]);
+	});
+});
+
+describe('Datadog reporting guard', () => {
+	function renderApp(useDatadog: () => void, useOnRouteLoadTracker: () => void) {
+		function CloudRoot() {
+			useOnRouteLoadTracker();
+			return null;
+		}
+		function App() {
+			useDatadog();
+			return <CloudRoot />;
+		}
+		render(<App />);
+	}
+
+	it.each([...deployModes])('reports from a %s deploy, tagged with its environment', async (mode) => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, 'true');
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).toHaveBeenCalledWith(expect.objectContaining({ env: mode }));
+		expect(rum.startView).toHaveBeenCalledTimes(1);
+	});
+
+	// `production` is the mode a bare `vite build` runs in — the one that shipped untagged events.
+	it.each([undefined, '', 'production', 'localstudio', 'test'])('stays silent in mode %o', async (mode) => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, 'true');
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).not.toHaveBeenCalled();
+		expect(rum.startView).not.toHaveBeenCalled();
+	});
+
+	it('stays silent in a bare build whose .env.local names a deploy environment', async () => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('production', 'prod', 'true');
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).not.toHaveBeenCalled();
+	});
+
+	// `pnpm build --mode prod` run by hand — identical to production but for the deploy-only flag.
+	it.each([...deployModes])('stays silent in a locally built %s bundle', async (mode) => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode(mode, mode, undefined);
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).not.toHaveBeenCalled();
+	});
+
+	// The shape of a mode listed here but missing from vite.config.ts's DEPLOY_MODES.
+	it('stays silent in a deploy mode whose env file was never read', async () => {
+		const { useDatadog, useOnRouteLoadTracker } = await loadDatadogModuleForMode('prod', undefined, 'true');
+
+		renderApp(useDatadog, useOnRouteLoadTracker);
+
+		expect(rum.init).not.toHaveBeenCalled();
 	});
 });

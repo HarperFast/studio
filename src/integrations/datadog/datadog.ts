@@ -1,4 +1,4 @@
-import { isLocalStudio } from '@/config/constants';
+import { isDeployedBuild } from '@/config/constants';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { beforeSend } from '@/integrations/datadog/beforeSend';
 import { translateUrlForDatadog } from '@/integrations/datadog/translateUrlForDatadog';
@@ -10,7 +10,7 @@ import { useLocation, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 let initialized = false;
-const enabled = !import.meta.env.DEV && !isLocalStudio;
+const enabled = isDeployedBuild;
 
 export function useDatadog() {
 	useEffect(() => {
@@ -54,14 +54,14 @@ export function useOnRouteLoadTracker() {
 	const { user } = useOverallAuth();
 
 	useEffect(() => {
+		if (!enabled) {
+			return;
+		}
 		const currentMatches = router.matchRoutes(router.state.location);
 		const name = translateUrlForDatadog(
 			location.href,
 			currentMatches.map((m) => m.params),
 		);
-		if (!enabled) {
-			return;
-		}
 
 		datadogRum.onReady(() => {
 			datadogRum.startView({

@@ -90,8 +90,9 @@ class AuthStore {
 	 * Per-entity sign-out count for this tab alone, added to the durable one. It advances only when the
 	 * durable write fails — storage disabled by policy, or full — which would otherwise leave the
 	 * generation frozen and a signed-out explorer credential comparing as current for the life of the
-	 * tab. Being memory-only it is lost on reload, which fails safe: a credential stamped under it then
-	 * compares as stale and is withheld.
+	 * tab. It is memory-only, so it does NOT survive a reload and is not sufficient by itself: the
+	 * credential is destroyed alongside the bump for exactly that reason. Null-prototype because reads
+	 * here are `?? 0` rather than type-guarded like the durable map's.
 	 */
 	private readonly explorerEpochFallback: Record<string, number> = Object.create(null);
 

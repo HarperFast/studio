@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import { stubDeployBuild } from '@/test/stubDeployBuild';
 import { QueryClient } from '@tanstack/react-query';
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +28,9 @@ vi.mock('@/components/NotificationBanner', () => ({ NotificationBanner: () => nu
 // guarding the one thing it exists for — that the tracker is still mounted at the root.
 async function bootDeepLink() {
 	vi.resetModules();
-	vi.stubEnv('DEV', false);
+	// Without this the build has reporting off and starts no view, so the assertions below pass
+	// only where a root `.env.local` happens to supply the values.
+	stubDeployBuild({ mode: 'prod', envName: 'prod', telemetryEnabled: 'true' });
 	const router = await import('@tanstack/react-router');
 	const { rootRoute } = await import('@/router/rootRoute');
 	const { dashboardLayout } = await import('@/router/dashboardRoute');
