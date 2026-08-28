@@ -39,9 +39,10 @@ export function EditTableRowModal({
 	 * `update` merges, so an attribute left out of the payload keeps its stored value. Added in Harper
 	 * 5.3.0 (HarperFast/harper#2347), and it needs both insert and update on the table. */
 	canReplaceRecords: boolean;
-	/** Why a removal can't be saved, when `canReplaceRecords` is false — the two cases need different
-	 * advice, and telling a permission-blocked user to upgrade their instance sends them nowhere. */
-	replaceBlockedReason?: 'version' | 'permission';
+	/** Why a removal can't be saved, when `canReplaceRecords` is false — the three cases need
+	 * different advice, and telling a permission-blocked user to upgrade their instance sends them
+	 * nowhere. `unknown` is "the version hasn't resolved", which must not be reported as too old. */
+	replaceBlockedReason?: 'version' | 'permission' | 'unknown';
 	setIsModalOpen: (open: boolean) => void;
 	isModalOpen: boolean;
 	primaryKey: string;
@@ -274,18 +275,19 @@ export function EditTableRowModal({
 										if (!canReplaceRecords) {
 											const attributes = removedAttributeNames(removals);
 											const subject = attributes.length === 1 ? 'an attribute' : 'attributes';
+											const removing = `Removing ${attributes.join(', ')}`;
 											toast.error(
 												replaceBlockedReason === 'permission'
 													? `You don't have permission to remove ${subject}`
+													: replaceBlockedReason === 'unknown'
+													? `Couldn't check whether this instance can remove ${subject}`
 													: `This Harper version can't remove ${subject}`,
 												{
 													description: replaceBlockedReason === 'permission'
-														? `Removing ${
-															attributes.join(', ')
-														} rewrites the record through the 'put' operation, which needs both insert and update on this table. Ask an administrator for those grants, or set the value to null instead of removing it.`
-														: `Removing ${
-															attributes.join(', ')
-														} needs the 'put' operation, added in Harper 5.3.0. On this instance the update operation can only merge, so the attribute would silently stay. Upgrade the instance, or set the value to null instead of removing it.`,
+														? `${removing} rewrites the record through the 'put' operation, which needs both insert and update on this table, and 'put' in the role's allowed operations. Ask an administrator for those grants, or set the value to null instead of removing it.`
+														: replaceBlockedReason === 'unknown'
+														? `${removing} needs the 'put' operation, and this instance's version hasn't been read yet. Reload the page and try again, or set the value to null instead of removing it.`
+														: `${removing} needs the 'put' operation, added in Harper 5.3.0. On this instance the update operation can only merge, so the attribute would silently stay. Upgrade the instance, or set the value to null instead of removing it.`,
 												},
 											);
 											return;

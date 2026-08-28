@@ -23,6 +23,30 @@ export function supportsPutOperation(version: string | undefined): boolean {
 	return !!version && wasAReleasedBeforeB(PUT_OPERATION_MIN_VERSION, version);
 }
 
+/** Why a record can't be replaced, or `undefined` when it can. */
+export type ReplaceBlockedReason = 'unknown' | 'version' | 'permission';
+
+/**
+ * Whether this instance and role can replace a record, and if not, which answer the user needs.
+ *
+ * `unknown` is deliberately distinct from `version`: an unresolved or failed `registration_info` is
+ * not an old server, and reporting it as one sends the user to upgrade something that may already be
+ * new enough. Version is checked before grants so an old instance never reads as a permission
+ * problem — nothing can be granted there.
+ */
+export function replaceRecordsBlockedReason(
+	version: string | undefined,
+	hasReplaceGrants: boolean,
+): ReplaceBlockedReason | undefined {
+	if (version === undefined) {
+		return 'unknown';
+	}
+	if (!supportsPutOperation(version)) {
+		return 'version';
+	}
+	return hasReplaceGrants ? undefined : 'permission';
+}
+
 interface PutTableRecordsData extends InstanceClientConfig {
 	databaseName: string;
 	tableName: string;
