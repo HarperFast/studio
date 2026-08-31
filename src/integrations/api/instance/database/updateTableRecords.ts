@@ -1,5 +1,6 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
+import { IncompleteWrite, isMalformedHashes, UNREADABLE_WRITE_MESSAGE } from './incompleteWrite';
 
 interface UpdateTableRecordsParams extends InstanceClientConfig {
 	databaseName: string;
@@ -11,11 +12,6 @@ export interface UpdateTableRecordsResponse {
 	message?: string;
 	update_hashes?: unknown[];
 	skipped_hashes?: unknown[];
-}
-
-/** Present, but not the array of hashes this operation is documented to return. */
-function isMalformedHashes(value: unknown): boolean {
-	return value !== undefined && !Array.isArray(value);
 }
 
 /**
@@ -34,23 +30,13 @@ function isMalformedHashes(value: unknown): boolean {
  * to 4.7 and an unrecognized legacy response isn't evidence of failure. A field that is present but
  * not an array is different: that responder does answer this operation, and its answer is unreadable.
  */
-export interface IncompleteUpdate {
-	message: string;
-	/**
-	 * True only when the response says plainly that nothing was written. A caller can then skip its
-	 * cache invalidation: there is nothing new to read, and refetching would reset an editor that
-	 * still holds the user's draft. Undecidable answers leave this false, so the caller refreshes.
-	 */
-	wroteNothing: boolean;
-}
-
 export function describeIncompleteUpdate(
 	data: UpdateTableRecordsResponse | undefined,
 	recordCount: number,
-): IncompleteUpdate | undefined {
+): IncompleteWrite | undefined {
 	if (isMalformedHashes(data?.update_hashes) || isMalformedHashes(data?.skipped_hashes)) {
 		return {
-			message: "Harper's response didn't report which records it wrote, so the change may not have been saved.",
+			message: UNREADABLE_WRITE_MESSAGE,
 			wroteNothing: false,
 		};
 	}
