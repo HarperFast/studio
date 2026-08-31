@@ -352,19 +352,31 @@ Four things worth knowing before changing the record editor:
   record's edit never touched. Use `Object.hasOwn`, never `in`, to test presence — an attribute named
   `constructor`/`toString`/`valueOf` reads as present through the prototype chain and its removal
   silently takes the merge path.
-- **Gated on version _and_ permission, and unknown reads as unsupported.**
+- **`put` has its own authorization shape — do not assemble it from the per-action checks.**
+  `checkTablePutPermission` (`hooks/checkSchemaTablePermission.ts`) is the only correct gate.
+  `checkSchemaTablePermission(…, 'update')` ANDs in the **`update` operation allowlist**, which Harper
+  does not require for `put`: it authorizes from the raw table insert+update flags plus a **`put`**
+  allowlist entry, so a role with `operations: ['put']` and both flags is valid server-side and must
+  not be blocked. And an **attribute-scoped role is denied outright**
+  (`utility/operation_authorization.ts`, `PUT_WITH_ATTRIBUTE_PERMS`) — a replace removes every
+  attribute the request omits, which the attribute check cannot police since it only sees what a
+  request supplies. Those table flags stay `true` for such a role, so a gate built from them offers a
+  save that 403s. Check both `attribute_permissions` (v5) and `attribute_restrictions` (translated
+  v4). Only `super_user` short-circuits; `structure_user` covers DDL, not DML.
+- **Version-gated too, and unknown reads as unsupported.**
   `integrations/api/instance/database/putTableRecords.ts` owns `supportsPutOperation()` off
-  `registration_info`; the table gate is insert **and** update, not just update, because `put`
-  creates as well as replaces. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this
-  at all. The editor refuses with an explanation rather than sending an `update` that would report
-  success and keep the attribute — and distinguishes "too old" from "not allowed", since telling a
-  permission-blocked user to upgrade sends them nowhere. Note `supportsPutOperation` refuses
-  `5.3.0` prereleases while the role catalog floors `put` at the earliest one; the divergence is
-  deliberate and explained at both sites.
-- **An attribute-scoped role cannot `put` at all.** Harper denies it outright
-  (`utility/operation_authorization.ts`, `PUT_WITH_ATTRIBUTE_PERMS`), because a replace removes every
-  attribute the request omits and the attribute check only sees what a request supplies. So a
-  column-restricted user gets a 403, not a silent erasure of the columns they can't read.
+  `registration_info`, and `replaceRecordsBlockedReason()` folds version and grants into one of
+  three answers. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this at all. The
+  editor refuses with an explanation rather than sending an `update` that would report success and
+  keep the attribute, and it distinguishes "too old" from "not allowed" from "couldn't read the
+  version" — reporting an unresolved version as too old sends the user to upgrade an instance that
+  may already be new enough. Note `supportsPutOperation` refuses `5.3.0` prereleases while the role
+  catalog floors `put` at the earliest one; the divergence is deliberate and explained at both sites.
+- **The primary key can't be edited, and silence there is the same bug again.**
+  `functions/unmatchedRecordIndexes.ts` refuses a save whose edited record no longer matches a loaded
+  record's key. Removing or changing it isn't a rename: `update` requires an existing record, so it
+  skips the write and the modal used to report success — #1643 all over again — and if something IS
+  stored under the new key, `update` patches a record the user never opened.
 - **On a legacy open table the read projection lies, and `put` writes the lie back.** The
   operations-API attribute projection reports every _registered_ attribute, filling in `null` for one
   the record doesn't have — verified by inserting a record that never had it. `SELECT *` reflects

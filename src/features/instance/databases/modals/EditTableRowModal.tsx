@@ -6,6 +6,7 @@ import {
 	removedAttributeNames,
 	removedRecordAttributes,
 } from '@/features/instance/databases/functions/removedRecordAttributes';
+import { unmatchedRecordIndexes } from '@/features/instance/databases/functions/unmatchedRecordIndexes';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
@@ -258,6 +259,24 @@ export function EditTableRowModal({
 									// `update`, because a replace is last-writer-wins over the whole record — routing
 									// every save through `put` would clobber a concurrent writer's change to an
 									// attribute this edit never touched.
+									// The primary key is the record's identity, so an edit that removes or changes it is
+									// not an edit to this record. `update` would either skip it silently — the #1643
+									// failure again, reported as success — or, if something is stored under the new key,
+									// patch a record the user never opened. Neither shows up as an attribute removal, so
+									// this is checked before the routing below.
+									const unmatched = unmatchedRecordIndexes(editableRecords, records, primaryKey);
+									if (unmatched.length) {
+										toast.error(
+											records.length === 1
+												? `This record's ${primaryKey} can't be changed or removed`
+												: `Every record's ${primaryKey} must match the record it is editing`,
+											{
+												description:
+													`${primaryKey} identifies the record, so changing it doesn't rename the record — the save would either do nothing or overwrite a different record. Restore the original value, then add a new record and delete this one if you meant to move it.`,
+											},
+										);
+										return;
+									}
 									const removals = removedRecordAttributes(editableRecords, records, primaryKey);
 									if (removals.length) {
 										// A replace is last-writer-wins over the whole record, so it is only safe for a

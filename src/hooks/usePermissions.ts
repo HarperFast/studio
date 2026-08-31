@@ -4,11 +4,14 @@ import {
 	checkImportMethodAllowed,
 	checkImportSourceAllowed,
 	checkTableActionAllowed,
-	checkTableOperationsAllowed,
 	IMPORT_METHODS,
 	type ImportMethod,
 } from '@/hooks/checkOperationPermission';
-import { checkImportDataPermission, checkSchemaTablePermission } from '@/hooks/checkSchemaTablePermission';
+import {
+	checkImportDataPermission,
+	checkSchemaTablePermission,
+	checkTablePutPermission,
+} from '@/hooks/checkSchemaTablePermission';
 import { hasStaffPermission, useCloudAuth, useInstanceAuth } from '@/hooks/useAuth';
 import {
 	LocalLegacyRolePermissionTable,
@@ -223,14 +226,19 @@ export function useInstanceSchemaTablePermission(
 }
 
 /**
- * The allowlist half of the `put` gate. `useInstanceSchemaTablePermission` answers the table grants
- * (`put` needs insert AND update, since it creates as well as replaces), but a role can hold those
- * and still be refused by `permission.operations` — the server checks both, so the editor has to.
+ * Whether this role can `put` records in this table — the whole question, not a half of it. `put` has
+ * its own authorization shape (raw table insert+update flags, a `put` allowlist entry, and no
+ * attribute scoping), so it cannot be assembled from the per-action table checks; see
+ * {@link checkTablePutPermission}.
  */
-export function useInstanceReplaceRecordsOperationPermission(entityId?: EntityIds): boolean {
+export function useInstanceTablePutPermission(
+	entityId: EntityIds | undefined,
+	databaseName: string,
+	tableName: string,
+): boolean {
 	const { clusterId, instanceId }: { instanceId?: string; clusterId?: string } = useParams({ strict: false });
 	const { user } = useInstanceAuth(entityId ?? instanceId ?? clusterId);
-	return checkTableOperationsAllowed(user?.role?.permission, ['put']);
+	return checkTablePutPermission(user?.role?.permission, databaseName, tableName);
 }
 
 export function useInstanceImportDataPermission(
