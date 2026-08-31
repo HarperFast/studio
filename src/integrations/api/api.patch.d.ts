@@ -57,6 +57,8 @@ export type StaffPermission =
 	| 'region:write'
 	| 'grant:read'
 	| 'grant:write'
+	| 'plan:read'
+	| 'plan:write'
 	| 'systemStatus:write'
 	| 'apiToken:create';
 
