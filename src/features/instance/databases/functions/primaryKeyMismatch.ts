@@ -27,7 +27,10 @@ export type PrimaryKeyMismatch =
  * Deliberately keyed on the LOADED records' keys, not on every edited record having one. A stored
  * record with no value for the declared key is #1199 (the table isn't really keyed by that
  * attribute); the parent renders such a row read-only, and treating its keyless edit as a mismatch
- * would refuse a whole batch over a row that was never addressable in the first place.
+ * would refuse a whole batch over a row that was never addressable in the first place. There is no early
+ * exit when _no_ loaded record has a key, though: the remaining rules still apply, and without them
+ * an edit that added someone else's key to a keyless record would route to `update` and patch a
+ * record the user never opened.
  *
  * Reported rather than repaired: moving a record to a new key means an insert plus a delete, which is
  * not what the row editor was asked to do.
@@ -46,9 +49,6 @@ export function primaryKeyMismatch(
 		if (id != null) {
 			loadedKeys.add(id);
 		}
-	}
-	if (!loadedKeys.size) {
-		return undefined;
 	}
 	const editedKeys = new Set<unknown>();
 	for (const edited of editedRecords) {
