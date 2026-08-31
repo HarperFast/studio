@@ -76,6 +76,12 @@ export interface ClusterUsageRegion {
 	status: 'active' | 'exhausted' | 'lapsed';
 	activeBlockCount: number;
 	metrics: UsageMetrics;
+	/**
+	 * Every block in this region group's cohort that carries one — historical, not just the live
+	 * blocks, because "what was this charged" is a question about the past. Joins to GET
+	 * /Invoice/{organizationId}. Empty wherever invoicing has never run.
+	 */
+	stripeInvoiceIds?: string[];
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
