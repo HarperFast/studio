@@ -1,6 +1,7 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useMutation } from '@tanstack/react-query';
+import { IncompleteWrite, UNREADABLE_WRITE_MESSAGE } from './incompleteWrite';
 
 /**
  * The Harper release that added the `put` operation (HarperFast/harper#2347). Before it, the
@@ -79,21 +80,38 @@ export async function putTableRecords({ databaseName, tableName, records, instan
 	// The `message` is no help here: `dataLayer/insert.ts` builds it as `put N of N` from
 	// `written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never
 	// report a partial write. Length is the only signal the response actually carries.
-	// Fails CLOSED on a missing or malformed list. `put` is only ever sent to a 5.3+ instance, and
-	// `dataLayer/insert.ts` always sets `put_hashes` for a `put`, so a 200 without one didn't come
-	// from a healthy Harper answering this operation — reporting success on it is the assumption this
-	// check exists to remove.
-	if (!Array.isArray(data?.put_hashes)) {
-		throw new Error(
-			"Harper's response didn't report which records it wrote, so the change may not have been saved.",
-		);
-	}
-	if (data.put_hashes.length < records.length) {
-		throw new Error(
-			`Harper reported writing ${data.put_hashes.length} of ${records.length} records, so the change may not have been saved.`,
-		);
-	}
 	return data;
+}
+
+/**
+ * How the replace fell short of what was asked, or `undefined` when it didn't.
+ *
+ * `put_hashes` names the records actually written. A short list means some record wasn't, and a
+ * missing or malformed one means this didn't come from a healthy 5.3 Harper answering this operation
+ * (`dataLayer/insert.ts` always sets the field) — either way the caller must not report success.
+ *
+ * The `message` is no help: `insert.ts` builds it as `put N of N` from `written_hashes.length` for
+ * both halves (`skipped` is always `[]` for put), so it can never report a partial write.
+ *
+ * Returned rather than thrown, and applied at the call site, for the same reason `update` does it:
+ * a throw skips the caller's cache invalidation, so a write that landed but answered unreadably would
+ * leave the grid and the open editor serving pre-write data.
+ */
+export function describeIncompletePut(
+	data: PutTableRecordsResponse | undefined,
+	recordCount: number,
+): IncompleteWrite | undefined {
+	if (!Array.isArray(data?.put_hashes)) {
+		return { message: UNREADABLE_WRITE_MESSAGE, wroteNothing: false };
+	}
+	if (data.put_hashes.length >= recordCount) {
+		return undefined;
+	}
+	return {
+		message:
+			`Harper reported writing ${data.put_hashes.length} of ${recordCount} records, so the change may not have been saved.`,
+		wroteNothing: data.put_hashes.length === 0,
+	};
 }
 
 export function usePutTableRecords() {

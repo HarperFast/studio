@@ -1,6 +1,7 @@
 import { AxiosInstance } from 'axios';
 import { describe, expect, it, vi } from 'vitest';
 import {
+	describeIncompletePut,
 	PUT_OPERATION_MIN_VERSION,
 	putTableRecords,
 	replaceRecordsBlockedReason,
@@ -85,46 +86,16 @@ describe('putTableRecords', () => {
 		expect(Object.keys(body.records[0])).toEqual(['id', 'name']);
 	});
 
-	// A 200 whose `put_hashes` is short means some record wasn't written; reporting that as success is
-	// the original bug by another route.
-	it('rejects a response that wrote fewer records than were sent', async () => {
+	// The transport doesn't assert, mirroring the update path: a throw would skip the caller's cache
+	// invalidation, so a write that landed but answered unreadably would leave stale data on screen.
+	it('returns an incomplete result rather than throwing', async () => {
 		const instanceClient = {
-			post: vi.fn().mockResolvedValue({ data: { message: 'put 1 of 1 records', put_hashes: [] } }),
+			post: vi.fn().mockResolvedValue({ data: { put_hashes: [] } }),
 		} as unknown as AxiosInstance;
 
 		await expect(
 			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
-		).rejects.toThrow(/writing 0 of 1 records/);
-	});
-
-	it('accepts a response that wrote every record', async () => {
-		const instanceClient = {
-			post: vi.fn().mockResolvedValue({ data: { message: 'put 2 of 2 records', put_hashes: ['a', 'b'] } }),
-		} as unknown as AxiosInstance;
-
-		await expect(
-			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }, { id: 'b' }], instanceClient }),
-		).resolves.toEqual({ message: 'put 2 of 2 records', put_hashes: ['a', 'b'] });
-	});
-
-	// Fails closed: `put` only goes to a 5.3+ instance, which always answers with `put_hashes`, so a
-	// 200 without one is not evidence the write landed.
-	it('rejects a response with no put_hashes', async () => {
-		const instanceClient = { post: vi.fn().mockResolvedValue({ data: {} }) } as unknown as AxiosInstance;
-
-		await expect(
-			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
-		).rejects.toThrow(/didn't report which records it wrote/);
-	});
-
-	it('rejects a response whose put_hashes is not an array', async () => {
-		const instanceClient = {
-			post: vi.fn().mockResolvedValue({ data: { put_hashes: 'abc-123' } }),
-		} as unknown as AxiosInstance;
-
-		await expect(
-			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
-		).rejects.toThrow(/may not have been saved/);
+		).resolves.toEqual({ put_hashes: [] });
 	});
 
 	it('propagates a failed write rather than reporting success', async () => {
@@ -158,5 +129,31 @@ describe('replaceRecordsBlockedReason', () => {
 
 	it('reports missing grants as a permission problem on a supported instance', () => {
 		expect(replaceRecordsBlockedReason('5.3.0', false)).toBe('permission');
+	});
+});
+
+describe('describeIncompletePut', () => {
+	it('says nothing when every record was written', () => {
+		expect(describeIncompletePut({ message: 'put 1 of 1 records', put_hashes: ['a'] }, 1)).toBeUndefined();
+	});
+
+	it('describes a short write, and reports that nothing landed', () => {
+		const incomplete = describeIncompletePut({ message: 'put 1 of 1 records', put_hashes: [] }, 1);
+		expect(incomplete?.message).toMatch(/writing 0 of 1 records/);
+		expect(incomplete?.wroteNothing).toBe(true);
+	});
+
+	it('does not claim nothing landed on a partial batch', () => {
+		expect(describeIncompletePut({ message: '', put_hashes: ['a'] }, 2)?.wroteNothing).toBe(false);
+	});
+
+	// `put` only ever goes to a 5.3+ instance, which always sets the field, so an absent one didn't
+	// come from a healthy Harper answering this operation. Undecidable, so the caller still refreshes.
+	it('describes a missing or malformed put_hashes without claiming nothing landed', () => {
+		const missing = describeIncompletePut({ message: '' } as never, 1);
+		expect(missing?.message).toMatch(/didn't report which records it wrote/);
+		expect(missing?.wroteNothing).toBe(false);
+		expect(describeIncompletePut({ put_hashes: 'a' as unknown as unknown[] } as never, 1)?.message)
+			.toMatch(/didn't report which records it wrote/);
 	});
 });

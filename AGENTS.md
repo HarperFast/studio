@@ -419,8 +419,16 @@ that did change. A rule about what a person is told does not belong in a shared 
 It reads an _absent_ field as complete, since `update` runs against every version Studio manages back
 to 4.7 and an unrecognized legacy response isn't evidence of failure — but a field that is _present
 and not an array_ is incomplete: that responder does answer this operation, so an unreadable answer
-can't be read as success. `put` keeps its throw, having one caller and a 5.3+ floor; its errors reach
-the user through the global `mutationErrorHandler` toast (`react-query/queryClient.ts`).
+can't be read as success. `put` follows the same shape — `describeIncompletePut`, interpreted at the same call site — for the
+same reason: a throw skips the caller's invalidation, so a replace that landed but answered
+unreadably would leave the grid and the open editor showing the attribute the user just removed.
+Neither writer asserts; `integrations/api/instance/database/incompleteWrite.ts` holds the shared
+shape.
+
+Refresh unless the answer says plainly that nothing was written. That exception exists because
+`refreshTable` invalidates the table's whole query prefix including the open record, and a refetched
+record resets the editor's draft by design (#1600) — so refreshing after a write that changed nothing
+would discard the correction the user needs to make. An undecidable answer still refreshes.
 
 A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array
 naming at least as many records as were sent. It fails **closed** on a missing or malformed list —

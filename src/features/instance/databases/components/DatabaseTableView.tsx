@@ -34,7 +34,11 @@ import {
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
-import { replaceRecordsBlockedReason, usePutTableRecords } from '@/integrations/api/instance/database/putTableRecords';
+import {
+	describeIncompletePut,
+	replaceRecordsBlockedReason,
+	usePutTableRecords,
+} from '@/integrations/api/instance/database/putTableRecords';
 import {
 	describeIncompleteUpdate,
 	useUpdateTableRecords,
@@ -428,7 +432,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				records,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: (response) => {
+					// Same policy as the update path above: a 200 is not proof the write landed, so don't
+					// claim success. Refresh unless the answer says plainly that nothing was written — an
+					// unreadable answer still refreshes, because the replace may have landed and replicated.
+					const incomplete = describeIncompletePut(response, records.length);
+					if (incomplete) {
+						if (!incomplete.wroteNothing) {
+							void refreshTable();
+						}
+						toast.error("The record wasn't updated", { description: incomplete.message });
+						return;
+					}
 					void refreshTable();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
