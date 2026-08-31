@@ -386,7 +386,9 @@ Four things worth knowing before changing the record editor:
   something IS stored under the new key, `update` patches a record the user never opened. Key the
   check on the **loaded** records' keys, not on every edited record having one: a stored row with no
   value for the declared key is #1199, and flagging it refuses a whole batch over a row that was
-  never addressable.
+  never addressable. Keyless records are still _counted_ — a surplus over what was loaded means the
+  payload adds records, which `update` skips and `put` cannot address, so success would be a lie.
+  Both failure modes are pinned by tests; the rule has been wrong in each direction once.
 - **On a legacy open table the read projection lies, and `put` writes the lie back.** The
   operations-API attribute projection reports every _registered_ attribute, filling in `null` for one
   the record doesn't have — verified by inserting a record that never had it. `SELECT *` reflects
@@ -402,8 +404,10 @@ Four things worth knowing before changing the record editor:
   than merging into it (`resources/tracked.ts` `updateAndFreeze`), so deleting a property _inside_ an
   object already works through a plain `update`.
 
-A write's answer is checked, not assumed: `putTableRecords` throws when `put_hashes` is shorter than
-the records sent. The `message` can't help — `dataLayer/insert.ts` builds it as `put N of N` from
+A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array
+naming at least as many records as were sent. It fails **closed** on a missing or malformed list —
+`put` only ever goes to a 5.3+ instance and `dataLayer/insert.ts` always sets the field, so a 200
+without one didn't come from a healthy Harper answering this operation. The `message` can't help — `dataLayer/insert.ts` builds it as `put N of N` from
 `written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never report a
 partial write.
 

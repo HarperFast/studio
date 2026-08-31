@@ -467,6 +467,17 @@ describe('EditTableRowModal', () => {
 			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/didn't load/i);
 		});
 
+		it('refuses a pasted record that has no primary key at all', () => {
+			const onSaveChanges = vi.fn();
+			renderAddressableModal({ onSaveChanges });
+
+			edit('[{"id":"abc-123","name":"Ada Lovelace","city":"London"},{"name":"brand new"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/adds a record with no id/i);
+		});
+
 		it('still saves an ordinary edit that leaves the primary key alone', () => {
 			const onSaveChanges = vi.fn();
 			renderAddressableModal({ onSaveChanges });

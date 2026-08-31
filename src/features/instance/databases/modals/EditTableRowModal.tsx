@@ -251,37 +251,34 @@ export function EditTableRowModal({
 									// The editor opens on an array of one, but an edit that drops the brackets still
 									// means that record — `update` only takes a list, so send one either way.
 									const records = Array.isArray(parsed.value) ? parsed.value : [parsed.value];
-									// `update` merges what it is sent onto the stored record, so it cannot drop an
-									// attribute: an omitted one keeps its stored value and `null` stores a null
-									// (#1643). Removing one needs `put`, which replaces the record outright.
-									//
-									// Only removals take that route. An edit that just changes values stays an
-									// `update`, because a replace is last-writer-wins over the whole record — routing
-									// every save through `put` would clobber a concurrent writer's change to an
-									// attribute this edit never touched.
-									// The primary key is the record's identity, so an edit that removes or changes it is
-									// not an edit to this record. `update` would either skip it silently — the #1643
-									// failure again, reported as success — or, if something is stored under the new key,
-									// patch a record the user never opened. Neither shows up as an attribute removal, so
-									// this is checked before the routing below.
+									// Checked before the routing below: a key edit is not an attribute removal, so nothing
+									// downstream would notice it. See `primaryKeyMismatch`.
 									const mismatch = primaryKeyMismatch(editableRecords, records, primaryKey);
 									if (mismatch) {
 										toast.error(
 											mismatch.kind === 'lost'
 												? `This record's ${primaryKey} can't be changed or removed`
-												: `This edit names a ${primaryKey} the editor didn't load`,
+												: mismatch.kind === 'unknown'
+												? `This edit names a ${primaryKey} the editor didn't load`
+												: `This edit adds ${
+													mismatch.count === 1 ? 'a record' : `${mismatch.count} records`
+												} with no ${primaryKey}`,
 											{
 												description: mismatch.kind === 'lost'
 													? `${primaryKey} identifies the record, so changing it doesn't rename it — the save would do nothing, or overwrite whatever is stored under the new value. Restore ${
 														mismatch.keys.join(', ')
 													}, then add a new record and delete this one if you meant to move it.`
-													: `Saving would edit the record stored under ${
+													: mismatch.kind === 'unknown'
+													? `Saving would edit the record stored under ${
 														mismatch.keys.join(', ')
-													}, which isn't the record open here. Remove it from the JSON and edit that record directly.`,
+													}, which isn't the record open here. Remove it from the JSON and edit that record directly.`
+													: `A record with no ${primaryKey} can't be written from here — the save would skip it and still report success. Remove it, and use Add Record to create a record.`,
 											},
 										);
 										return;
 									}
+									// Removals go to `put` (a replace); everything else keeps merging through `update`.
+									// See `removedRecordAttributes` for why the split matters.
 									const removals = removedRecordAttributes(editableRecords, records, primaryKey);
 									if (removals.length) {
 										// A replace is last-writer-wins over the whole record, so it is only safe for a

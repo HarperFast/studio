@@ -79,9 +79,14 @@ export async function putTableRecords({ databaseName, tableName, records, instan
 	// The `message` is no help here: `dataLayer/insert.ts` builds it as `put N of N` from
 	// `written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never
 	// report a partial write. Length is the only signal the response actually carries.
-	if (Array.isArray(data?.put_hashes) && data.put_hashes.length < records.length) {
+	// Fails CLOSED on a missing or malformed list. `put` is only ever sent to a 5.3+ instance, and
+	// `dataLayer/insert.ts` always sets `put_hashes` for a `put`, so a 200 without one didn't come
+	// from a healthy Harper answering this operation — reporting success on it is the assumption this
+	// check exists to remove.
+	if (!Array.isArray(data?.put_hashes) || data.put_hashes.length < records.length) {
+		const written = Array.isArray(data?.put_hashes) ? `${data.put_hashes.length}` : 'an unreported number';
 		throw new Error(
-			`Harper reported writing ${data.put_hashes.length} of ${records.length} records, so the change may not have been saved.`,
+			`Harper reported writing ${written} of ${records.length} records, so the change may not have been saved.`,
 		);
 	}
 	return data;

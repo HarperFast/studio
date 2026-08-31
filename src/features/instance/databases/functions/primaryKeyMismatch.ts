@@ -3,7 +3,9 @@ export type PrimaryKeyMismatch =
 	/** A loaded record's key is gone from the payload, so that record has no edit to apply. */
 	| { kind: 'lost'; keys: unknown[] }
 	/** The payload carries a key the editor never loaded, so it targets some other record. */
-	| { kind: 'unknown'; keys: unknown[] };
+	| { kind: 'unknown'; keys: unknown[] }
+	/** The payload adds records with no key at all, which `update` skips and `put` cannot address. */
+	| { kind: 'keyless'; count: number };
 
 /**
  * Whether an edited payload still identifies the records the editor loaded.
@@ -55,5 +57,10 @@ export function primaryKeyMismatch(
 		return { kind: 'lost', keys: lost };
 	}
 	const unknownKeys = [...editedKeys].filter(id => !loadedKeys.has(id));
-	return unknownKeys.length ? { kind: 'unknown', keys: unknownKeys } : undefined;
+	if (unknownKeys.length) {
+		return { kind: 'unknown', keys: unknownKeys };
+	}
+	const loadedKeyless = storedRecords.filter(record => record[primaryKey] == null).length;
+	const editedKeyless = editedRecords.filter(record => record[primaryKey] == null).length;
+	return editedKeyless > loadedKeyless ? { kind: 'keyless', count: editedKeyless - loadedKeyless } : undefined;
 }
