@@ -102,7 +102,8 @@ async function mount(
 	return result;
 }
 
-const cellOf = (id: string, index: number) => screen.getByText(id).closest('tr')!.children[index].textContent;
+/** Column 0 is the expander, so the data columns start at 1. */
+const cellOf = (id: string, index: number) => screen.getByText(id).closest('tr')!.children[index + 1].textContent;
 const coverOf = (id: string) => cellOf(id, 6);
 const usageOf = (id: string) => cellOf(id, 5);
 
