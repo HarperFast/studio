@@ -396,13 +396,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		);
 	}, [updateTableRecords, instanceParams, databaseName, tableName, refreshTable]);
 
-	// Removing an attribute needs `put`, which replaces the record: `update` merges what it is sent,
-	// so an omitted attribute keeps its stored value and `null` stores a null (#1643). The modal
-	// reaches this only for an edit that actually removes one — an edit that just changes values
-	// stays an `update`, since a replace is last-writer-wins over the whole record.
-	//
-	// One atomic write, unlike the delete-then-insert a client would otherwise need: the record is
-	// never absent, `__createdtime__` survives, and subscribers see a single write.
+	// The modal routes here only for an edit that removes an attribute; see
+	// `removedRecordAttributes`. Shares `isUpdateTableRecordsPending` with the update path, so the
+	// editor's Save and Delete stay disabled for either write.
 	const onRecordReplace = useCallback((records: Record<string, unknown>[]) => {
 		putTableRecords(
 			{

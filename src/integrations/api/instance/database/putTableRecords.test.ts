@@ -70,7 +70,9 @@ describe('putTableRecords', () => {
 	});
 
 	it('sends the records exactly as given, so an omitted attribute stays omitted', async () => {
-		const instanceClient = { post: vi.fn().mockResolvedValue({ data: {} }) } as unknown as AxiosInstance;
+		const instanceClient = {
+			post: vi.fn().mockResolvedValue({ data: { put_hashes: ['abc-123'] } }),
+		} as unknown as AxiosInstance;
 		// `city` is deliberately absent: that absence is what removes it.
 		await putTableRecords({
 			databaseName: 'data',
@@ -105,13 +107,24 @@ describe('putTableRecords', () => {
 		).resolves.toEqual({ message: 'put 2 of 2 records', put_hashes: ['a', 'b'] });
 	});
 
-	// An older or proxied instance that omits the field must not be treated as a failed write.
-	it('tolerates a response with no put_hashes', async () => {
+	// Fails closed: `put` only goes to a 5.3+ instance, which always answers with `put_hashes`, so a
+	// 200 without one is not evidence the write landed.
+	it('rejects a response with no put_hashes', async () => {
 		const instanceClient = { post: vi.fn().mockResolvedValue({ data: {} }) } as unknown as AxiosInstance;
 
 		await expect(
 			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
-		).resolves.toEqual({});
+		).rejects.toThrow(/an unreported number of 1 records/);
+	});
+
+	it('rejects a response whose put_hashes is not an array', async () => {
+		const instanceClient = {
+			post: vi.fn().mockResolvedValue({ data: { put_hashes: 'abc-123' } }),
+		} as unknown as AxiosInstance;
+
+		await expect(
+			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
+		).rejects.toThrow(/may not have been saved/);
 	});
 
 	it('propagates a failed write rather than reporting success', async () => {

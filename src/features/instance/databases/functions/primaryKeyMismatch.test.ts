@@ -56,6 +56,19 @@ describe('primaryKeyMismatch', () => {
 		expect(primaryKeyMismatch([stored, second], [stored], 'id')).toEqual({ kind: 'lost', keys: ['def-456'] });
 	});
 
+	// `update` skips a record it can't address and `put` can't create one without a key, so a pasted
+	// addition would be silently dropped while the modal reported success.
+	it('reports a pasted keyless record as an addition', () => {
+		const edited = [stored, { name: 'brand new' }];
+		expect(primaryKeyMismatch([stored], edited, 'id')).toEqual({ kind: 'keyless', count: 1 });
+	});
+
+	it('counts only the surplus, so a co-loaded keyless row is still allowed', () => {
+		const storedRecords = [stored, { name: 'keyless row' }];
+		const edited = [{ ...stored, city: 'Paris' }, { name: 'keyless row' }, { name: 'brand new' }];
+		expect(primaryKeyMismatch(storedRecords, edited, 'id')).toEqual({ kind: 'keyless', count: 1 });
+	});
+
 	it('says nothing when the table has no primary key', () => {
 		expect(primaryKeyMismatch([stored], [{ name: 'Ada' }], '')).toBeUndefined();
 	});
