@@ -26,11 +26,8 @@ describe('admin section routes', () => {
 	it.each([
 		['/admin/notifications', '/notifications'],
 		['/admin/regions', '/regions'],
-		['/admin/hosts', '/hosts'],
-		['/admin/monitoring', '/monitoring'],
-		['/admin/users', '/users'],
-		['/admin/users/usr-1', '/users/$userId'],
-		['/admin/configuration', '/configuration'],
+		['/admin/plans', '/plans'],
+		['/admin/grants', '/grants'],
 		['/admin/api-token', '/api-token'],
 		['/admin/workflows', '/workflows'],
 		['/admin/workflows/wf-1', '/workflows/$workflowId'],
