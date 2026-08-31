@@ -405,12 +405,21 @@ Four things worth knowing before changing the record editor:
   object already works through a plain `update`.
 
 **Both** write paths check their answer, not just `put` — `update` skips a record it can't address
-and names it in `skipped_hashes`, so the merge path had the same silent-success hole the replace path
-was fixed for. `updateTableRecords` throws on a skip or a short `update_hashes`. It fails **open** only on an
-_absent_ field, since `update` runs against every version Studio manages back to 4.7 and an
-unrecognized legacy response isn't evidence of failure — but a field that is _present and not an
-array_ fails closed: that responder does answer this operation, so an unreadable answer can't be read
-as success. Errors reach
+and names it in `skipped_hashes`, so the merge path had the same silent-success hole.
+
+**But the update check lives at the call site, not in the writer.** `describeIncompleteUpdate`
+returns a description; `updateTableRecords` stays a transport. That is deliberate: the writer is
+shared with the chat agent tool
+(`features/instance/applications/components/Chat/tools/updateTableRecords/execute.ts`), which needs
+the response — `skipped_hashes` included — and its own `invalidateQueries` to still run on a
+partially committed batch. Asserting inside the writer turned a 9-of-10 durable write into a reported
+total failure _and_ skipped the invalidation, leaving the grid serving stale data for the 9 records
+that did change. A rule about what a person is told does not belong in a shared writer.
+
+It reads an _absent_ field as complete, since `update` runs against every version Studio manages back
+to 4.7 and an unrecognized legacy response isn't evidence of failure — but a field that is _present
+and not an array_ is incomplete: that responder does answer this operation, so an unreadable answer
+can't be read as success. `put` keeps its throw, having one caller and a 5.3+ floor; its errors reach
 the user through the global `mutationErrorHandler` toast (`react-query/queryClient.ts`).
 
 A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array

@@ -35,7 +35,10 @@ import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSe
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
 import { replaceRecordsBlockedReason, usePutTableRecords } from '@/integrations/api/instance/database/putTableRecords';
-import { useUpdateTableRecords } from '@/integrations/api/instance/database/updateTableRecords';
+import {
+	describeIncompleteUpdate,
+	useUpdateTableRecords,
+} from '@/integrations/api/instance/database/updateTableRecords';
 import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/status/getRegistrationInfo';
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
@@ -387,8 +390,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				records: data,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: (response) => {
+					// A 200 is not proof the write landed: `update` skips a record it can't address and
+					// still answers 200. Refresh either way — a partial write is real — but don't claim
+					// success, and leave the editor open so the edit isn't lost.
+					const incomplete = describeIncompleteUpdate(response, data.length);
 					void refreshTable();
+					if (incomplete) {
+						toast.error("The record wasn't updated", { description: incomplete });
+						return;
+					}
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},
