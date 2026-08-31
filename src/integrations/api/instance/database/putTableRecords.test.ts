@@ -83,6 +83,37 @@ describe('putTableRecords', () => {
 		expect(Object.keys(body.records[0])).toEqual(['id', 'name']);
 	});
 
+	// A 200 whose `put_hashes` is short means some record wasn't written; reporting that as success is
+	// the original bug by another route.
+	it('rejects a response that wrote fewer records than were sent', async () => {
+		const instanceClient = {
+			post: vi.fn().mockResolvedValue({ data: { message: 'put 1 of 1 records', put_hashes: [] } }),
+		} as unknown as AxiosInstance;
+
+		await expect(
+			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
+		).rejects.toThrow(/writing 0 of 1 records/);
+	});
+
+	it('accepts a response that wrote every record', async () => {
+		const instanceClient = {
+			post: vi.fn().mockResolvedValue({ data: { message: 'put 2 of 2 records', put_hashes: ['a', 'b'] } }),
+		} as unknown as AxiosInstance;
+
+		await expect(
+			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }, { id: 'b' }], instanceClient }),
+		).resolves.toEqual({ message: 'put 2 of 2 records', put_hashes: ['a', 'b'] });
+	});
+
+	// An older or proxied instance that omits the field must not be treated as a failed write.
+	it('tolerates a response with no put_hashes', async () => {
+		const instanceClient = { post: vi.fn().mockResolvedValue({ data: {} }) } as unknown as AxiosInstance;
+
+		await expect(
+			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
+		).resolves.toEqual({});
+	});
+
 	it('propagates a failed write rather than reporting success', async () => {
 		const instanceClient = {
 			post: vi.fn().mockRejectedValue(new Error('Unauthorized')),

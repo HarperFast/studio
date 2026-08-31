@@ -344,6 +344,13 @@ insert. Studio previously emulated this with delete-then-insert; don't go back t
 
 Four things worth knowing before changing the record editor:
 
+- **The target record's own concurrent writes are clobbered, deliberately.** The `put` sends the
+  buffer captured when the modal opened, so it reverts any change another writer (an app resource, a
+  replicated peer write) committed to an attribute this edit never touched. `search_by_id` has no
+  `refetchInterval` and is invalidated only after a write, so the modal's stale-buffer guard never
+  fires during the editing window. This is the accepted cost of replace-based removal until
+  field-scoped `__unset__` (harper#2350) lands — note the asymmetry: a mixed batch is refused to
+  protect _other_ records from exactly this, while the target record takes it silently.
 - **Only removals take the `put` route, and only the records that made them.**
   `functions/removedRecordAttributes.ts` reports removals **per record**, not as one flat list. An
   edit that merely changes values stays an `update`; a pasted batch where only some records drop an
@@ -373,10 +380,13 @@ Four things worth knowing before changing the record editor:
   may already be new enough. Note `supportsPutOperation` refuses `5.3.0` prereleases while the role
   catalog floors `put` at the earliest one; the divergence is deliberate and explained at both sites.
 - **The primary key can't be edited, and silence there is the same bug again.**
-  `functions/unmatchedRecordIndexes.ts` refuses a save whose edited record no longer matches a loaded
-  record's key. Removing or changing it isn't a rename: `update` requires an existing record, so it
-  skips the write and the modal used to report success — #1643 all over again — and if something IS
-  stored under the new key, `update` patches a record the user never opened.
+  `functions/primaryKeyMismatch.ts` refuses a save that lost a loaded record's key, or that names one
+  the editor never loaded. Removing or changing it isn't a rename: `update` requires an existing
+  record, so it skips the write and the modal reported success — #1643 all over again — and if
+  something IS stored under the new key, `update` patches a record the user never opened. Key the
+  check on the **loaded** records' keys, not on every edited record having one: a stored row with no
+  value for the declared key is #1199, and flagging it refuses a whole batch over a row that was
+  never addressable.
 - **On a legacy open table the read projection lies, and `put` writes the lie back.** The
   operations-API attribute projection reports every _registered_ attribute, filling in `null` for one
   the record doesn't have — verified by inserting a record that never had it. `SELECT *` reflects
@@ -391,6 +401,11 @@ Four things worth knowing before changing the record editor:
 - **Only top-level attributes need any of this.** A patch replaces a nested object wholesale rather
   than merging into it (`resources/tracked.ts` `updateAndFreeze`), so deleting a property _inside_ an
   object already works through a plain `update`.
+
+A write's answer is checked, not assumed: `putTableRecords` throws when `put_hashes` is shorter than
+the records sent. The `message` can't help — `dataLayer/insert.ts` builds it as `put N of N` from
+`written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never report a
+partial write.
 
 `__unset__` — field-scoped removal that keeps merge semantics for everything else — is
 HarperFast/harper#2350, not yet built. When it lands it is the better tool for "drop one field,
