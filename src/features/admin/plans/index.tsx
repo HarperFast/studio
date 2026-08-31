@@ -62,7 +62,7 @@ export function PlansAdminIndex() {
 	}, [plans, search, deployment, status]);
 
 	return (
-		<div className="max-w-5xl">
+		<div>
 			<div className="flex items-start justify-between gap-4">
 				<div>
 					<h1 className="text-2xl font-light">Plans</h1>
@@ -141,7 +141,7 @@ export function PlansAdminIndex() {
 													<TableHead className="text-right">Price</TableHead>
 													<TableHead>Term</TableHead>
 													<TableHead>Scope</TableHead>
-													<TableHead className="w-0" />
+													<TableHead className="w-0 sticky right-0 bg-background" />
 												</TableRow>
 											</TableHeader>
 											<TableBody>
@@ -155,7 +155,7 @@ export function PlansAdminIndex() {
 																)}
 															</span>
 														</TableCell>
-														<TableCell className="max-w-56 truncate" title={plan.name}>{plan.name}</TableCell>
+														<TableCell className="whitespace-nowrap">{plan.name}</TableCell>
 														<TableCell className="whitespace-nowrap">{plan.deploymentDescription}</TableCell>
 														<TableCell className="whitespace-nowrap text-muted-foreground">
 															{plan.performanceDescription}
@@ -167,7 +167,7 @@ export function PlansAdminIndex() {
 														<TableCell>
 															<RegionScope organizationIds={plan.organizationIds} orgNameById={orgNameById} />
 														</TableCell>
-														<TableCell className="text-right">
+														<TableCell className="sticky right-0 bg-background text-right">
 															{canWritePlans && (
 																<Button
 																	variant="ghost"
