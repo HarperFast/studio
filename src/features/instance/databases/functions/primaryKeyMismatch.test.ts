@@ -96,6 +96,23 @@ describe('primaryKeyMismatch', () => {
 		expect(primaryKeyMismatch([{ name: 'Ada' }], [{ name: 'Ada Lovelace' }], 'id')).toBeUndefined();
 	});
 
+	// No early exit when nothing loaded has a key: adding someone else's key to a keyless record would
+	// otherwise route to `update` and patch a record the user never opened.
+	it('flags a foreign key added to a record that had none', () => {
+		expect(primaryKeyMismatch([{ name: 'Ada' }], [{ name: 'Ada', id: 'someone-else' }], 'id')).toEqual({
+			kind: 'unknown',
+			keys: ['someone-else'],
+		});
+	});
+
+	it('flags a keyless record added beside a keyless loaded one', () => {
+		expect(primaryKeyMismatch([{ name: 'Ada' }], [{ name: 'Ada' }, { name: 'new' }], 'id')).toEqual({
+			kind: 'keyless',
+			added: 1,
+			dropped: 0,
+		});
+	});
+
 	it('says nothing when the record has not loaded', () => {
 		expect(primaryKeyMismatch(undefined, [{ id: 'abc-123' }], 'id')).toBeUndefined();
 		expect(primaryKeyMismatch([], [{ id: 'abc-123' }], 'id')).toBeUndefined();
