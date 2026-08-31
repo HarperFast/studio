@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ClusterBillingDetail } from '@/features/admin/billing/components/ClusterBillingDetail';
 import { UsageCell } from '@/features/admin/billing/components/UsageCell';
 import { getBillingClustersQueryOptions } from '@/features/admin/billing/queries/getBillingClusters';
 import { getFleetUsageQueryOptions } from '@/features/admin/billing/queries/getFleetUsage';
@@ -11,7 +12,8 @@ import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { ChevronRightIcon } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
 
 const ANY = 'any';
 
@@ -83,6 +85,8 @@ export function BillingAdminIndex() {
 	const [search, setSearch] = useState('');
 	const [cover, setCover] = useState(ANY);
 	const [showTerminated, setShowTerminated] = useState('false');
+	// One row open at a time: the detail is tall, and a page of them stops being a table.
+	const [expanded, setExpanded] = useState<string | null>(null);
 
 	// At most one ACTIVE grant per cluster, enforced server-side, so last-write-wins is not a choice
 	// being made here.
@@ -235,6 +239,7 @@ export function BillingAdminIndex() {
 										<Table className="[&_th]:pr-4 [&_td]:pr-4">
 											<TableHeader>
 												<TableRow>
+													<TableHead className="w-0" />
 													<TableHead>Cluster</TableHead>
 													<TableHead>Organization</TableHead>
 													<TableHead>Status</TableHead>
@@ -252,61 +257,86 @@ export function BillingAdminIndex() {
 												{rows.map(({ cluster, grant }) => {
 													const badge = coverage(grant, cluster.status);
 													const regions = cluster.plans ?? [];
+													const usage = usageByCluster.get(cluster.id);
+													const isOpen = expanded === cluster.id;
 													return (
-														<TableRow key={cluster.id}>
-															<TableCell className="font-medium">
-																<div className="flex h-9 flex-col justify-center">
-																	<Link
-																		className="font-mono underline underline-offset-2 hover:no-underline"
-																		to={`/${cluster.organizationId}/${cluster.id}`}
+														<Fragment key={cluster.id}>
+															<TableRow>
+																<TableCell className="w-0 align-middle">
+																	<button
+																		type="button"
+																		aria-label={`${isOpen ? 'Hide' : 'Show'} usage for ${cluster.id}`}
+																		aria-expanded={isOpen}
+																		disabled={!usage}
+																		onClick={() => setExpanded(isOpen ? null : cluster.id)}
+																		className="flex cursor-pointer items-center text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
 																	>
-																		{cluster.id}
+																		<ChevronRightIcon
+																			className={`size-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+																		/>
+																	</button>
+																</TableCell>
+																<TableCell className="font-medium">
+																	<div className="flex h-9 flex-col justify-center">
+																		<Link
+																			className="font-mono underline underline-offset-2 hover:no-underline"
+																			to={`/${cluster.organizationId}/${cluster.id}`}
+																		>
+																			{cluster.id}
+																		</Link>
+																		<span className="text-xs font-normal text-muted-foreground">{cluster.name}</span>
+																	</div>
+																</TableCell>
+																<TableCell className="max-w-48 truncate">
+																	<Link
+																		className="underline underline-offset-2 hover:no-underline"
+																		to={`/${cluster.organizationId}`}
+																		title={cluster.organizationId}
+																	>
+																		{cluster.organizationName ?? cluster.organizationId}
 																	</Link>
-																	<span className="text-xs font-normal text-muted-foreground">{cluster.name}</span>
-																</div>
-															</TableCell>
-															<TableCell className="max-w-48 truncate">
-																<Link
-																	className="underline underline-offset-2 hover:no-underline"
-																	to={`/${cluster.organizationId}`}
-																	title={cluster.organizationId}
-																>
-																	{cluster.organizationName ?? cluster.organizationId}
-																</Link>
-															</TableCell>
-															<TableCell className="whitespace-nowrap text-muted-foreground">
-																{cluster.status ?? '—'}
-																{cluster.suspendedReason && (
+																</TableCell>
+																<TableCell className="whitespace-nowrap text-muted-foreground">
+																	{cluster.status ?? '—'}
+																	{cluster.suspendedReason && (
+																		<Tooltip>
+																			<TooltipTrigger asChild>
+																				<Badge variant="warning" className="ml-2 text-[10px]">suspended</Badge>
+																			</TooltipTrigger>
+																			<TooltipContent>{cluster.suspendedReason}</TooltipContent>
+																		</Tooltip>
+																	)}
+																</TableCell>
+																<TableCell className="whitespace-nowrap text-muted-foreground">
+																	{regions.length === 0
+																		? '—'
+																		: `${regions.length} × ${[...new Set(regions.map((r) => r.planId))].join(', ')}`}
+																</TableCell>
+																<TableCell className="text-right tabular-nums whitespace-nowrap">
+																	{monthly(regions)}
+																</TableCell>
+																<TableCell>
+																	<UsageCell usage={usage} />
+																</TableCell>
+																<TableCell>
 																	<Tooltip>
 																		<TooltipTrigger asChild>
-																			<Badge variant="warning" className="ml-2 text-[10px]">suspended</Badge>
+																			<Badge variant={badge.variant} className="w-24 text-[10px]">{badge.label}</Badge>
 																		</TooltipTrigger>
-																		<TooltipContent>{cluster.suspendedReason}</TooltipContent>
+																		<TooltipContent>{badge.title}</TooltipContent>
 																	</Tooltip>
-																)}
-															</TableCell>
-															<TableCell className="whitespace-nowrap text-muted-foreground">
-																{regions.length === 0
-																	? '—'
-																	: `${regions.length} × ${[...new Set(regions.map((r) => r.planId))].join(', ')}`}
-															</TableCell>
-															<TableCell className="text-right tabular-nums whitespace-nowrap">
-																{monthly(regions)}
-															</TableCell>
-															<TableCell>
-																<UsageCell usage={usageByCluster.get(cluster.id)} />
-															</TableCell>
-															<TableCell>
-																<Tooltip>
-																	<TooltipTrigger asChild>
-																		<Badge variant={badge.variant} className="w-24 text-[10px]">{badge.label}</Badge>
-																	</TooltipTrigger>
-																	<TooltipContent>{badge.title}</TooltipContent>
-																</Tooltip>
-															</TableCell>
-															<TableCell className="whitespace-nowrap">{fmtDate(grant?.nextCycleAt)}</TableCell>
-															<TableCell className="whitespace-nowrap">{fmtDate(grant?.endsAt)}</TableCell>
-														</TableRow>
+																</TableCell>
+																<TableCell className="whitespace-nowrap">{fmtDate(grant?.nextCycleAt)}</TableCell>
+																<TableCell className="whitespace-nowrap">{fmtDate(grant?.endsAt)}</TableCell>
+															</TableRow>
+															{isOpen && usage && (
+																<TableRow>
+																	<TableCell colSpan={9} className="bg-muted/30 p-0">
+																		<ClusterBillingDetail usage={usage} organizationId={cluster.organizationId} />
+																	</TableCell>
+																</TableRow>
+															)}
+														</Fragment>
 													);
 												})}
 											</TableBody>
