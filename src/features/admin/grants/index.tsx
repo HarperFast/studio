@@ -322,19 +322,24 @@ export function GrantsAdminIndex() {
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
 															<TableCell className="text-right">
 																{
-																	/* Only an ACTIVE grant is editable: central-manager answers 409 for a
-																    settled one, since its terms are history rather than knobs. */
+																	/* The button's own height sets the row's, so the space is reserved whether or
+																    not this row has one — otherwise a settled grant's row is 14px shorter than
+																    an editable one, and a mixed list comes out ragged.
+																    Only an ACTIVE grant is editable: central-manager answers 409 for a settled
+																    one, since its terms are history rather than knobs. */
 																}
-																{canWriteGrants && grant.status === 'ACTIVE' && (
-																	<Button
-																		variant="ghost"
-																		size="icon"
-																		aria-label={`Edit ${grant.id}`}
-																		onClick={() => setEditing(grant)}
-																	>
-																		<PencilIcon />
-																	</Button>
-																)}
+																<div className="flex h-9 items-center justify-end">
+																	{canWriteGrants && grant.status === 'ACTIVE' && (
+																		<Button
+																			variant="ghost"
+																			size="icon"
+																			aria-label={`Edit ${grant.id}`}
+																			onClick={() => setEditing(grant)}
+																		>
+																			<PencilIcon />
+																		</Button>
+																	)}
+																</div>
 															</TableCell>
 														</TableRow>
 													);
