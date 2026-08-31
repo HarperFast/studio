@@ -370,15 +370,17 @@ Four things worth knowing before changing the record editor:
   request supplies. Those table flags stay `true` for such a role, so a gate built from them offers a
   save that 403s. Check both `attribute_permissions` (v5) and `attribute_restrictions` (translated
   v4). Only `super_user` short-circuits; `structure_user` covers DDL, not DML.
-- **Version-gated too, and unknown reads as unsupported.**
-  `integrations/api/instance/database/putTableRecords.ts` owns `supportsPutOperation()` off
-  `registration_info`, and `replaceRecordsBlockedReason()` folds version and grants into one of
-  three answers. Studio still manages 4.7 and 5.0–5.2 instances, which cannot do this at all. The
-  editor refuses with an explanation rather than sending an `update` that would report success and
-  keep the attribute, and it distinguishes "too old" from "not allowed" from "couldn't read the
-  version" — reporting an unresolved version as too old sends the user to upgrade an instance that
-  may already be new enough. Note `supportsPutOperation` refuses `5.3.0` prereleases while the role
-  catalog floors `put` at the earliest one; the divergence is deliberate and explained at both sites.
+- **Version-gated, but an unreadable version does NOT block the save.** Harper denies
+  `registration_info` to any role carrying an `operations` allowlist — it is in the gate-inert list in
+  `config/roles/operations/operationsCatalog.ts` — which is exactly the shape of role
+  `checkTablePutPermission` exists to accept. Blocking on an unread version therefore made the
+  feature permanently unavailable for those roles, behind a "reload and try again" that never helps.
+  Allowing it is safe because the fallback isn't silent: `put` is a distinct operation name, so a
+  pre-5.3 instance rejects the request outright rather than merging and keeping the attribute. A
+  version that IS readable and predates the operation still blocks, for the clearer message, and
+  grants are checked first so a missing grant never reads as a version problem. Note
+  `supportsPutOperation` refuses `5.3.0` prereleases while the role catalog floors `put` at the
+  earliest one; the divergence is deliberate and explained at both sites.
 - **The primary key can't be edited, and silence there is the same bug again.**
   `functions/primaryKeyMismatch.ts` refuses a save that lost a loaded record's key, or that names one
   the editor never loaded. Removing or changing it isn't a rename: `update` requires an existing
@@ -428,13 +430,17 @@ shape.
 One policy, in `onWriteSettled`, for both paths — every asymmetry between them so far came from
 changing one and not the other, so they share the handler rather than mirroring it.
 
-Refresh unless the answer says plainly that nothing was written, and **close the editor whenever you
-refresh**. `refreshTable` invalidates the table's whole query prefix including the open record, and a
-refetched record resets the editor's draft by design (#1600): leaving the editor open across a
-refresh means the refetch discards whatever correction the user typed after the error toast. So the
-two cases are kept coherent — nothing written: no refresh, editor stays open with the draft intact;
-anything written or undecidable: refresh and close, because the draft was built on data that has
-since changed.
+**Two invalidations, not one.** `refreshTable` keys on `[entityId, databaseName, tableName]`, which
+does **not** reach the open record: `getSearchById` keys on
+`[entityId, 'search_by_id', databaseName, tableName, ids]`, so `'search_by_id'` sits where that
+prefix expects the database name and partial matching fails. Use `searchByIdInvalidationKey`, never a
+hand-built key; the relationship is pinned by a test asserting it against the live query key, because
+the original bug was exactly this mismatch — a landed removal left the row editor's cached record
+showing the attribute again on reopen, the very symptom #1643 is about.
+
+Refresh both unless the answer says plainly that nothing was written; in that one case refresh neither
+and leave the editor open, since nothing is stale and the draft is what the user needs in order to act
+on the message. Otherwise refresh and close.
 
 `describeIncompletePut` treats anything short of `put_hashes` naming every record sent as incomplete,
 including a missing or malformed list: `put` only ever goes to a 5.3+ instance and
