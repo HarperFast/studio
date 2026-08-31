@@ -31,7 +31,7 @@ import {
 	SearchCondition,
 	translateColumnFilterToSearchConditions,
 } from '@/integrations/api/instance/database/getSearchByConditions';
-import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
+import { getSearchByIdOptions, searchByIdInvalidationKey } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
 import { IncompleteWrite } from '@/integrations/api/instance/database/incompleteWrite';
@@ -352,6 +352,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		() => queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] }),
 		[queryClient, instanceParams.entityId, databaseName, tableName],
 	);
+	// `refreshTable`'s prefix does NOT reach the open record: `getSearchById` keys on
+	// `[entityId, 'search_by_id', databaseName, tableName, ids]`, so `'search_by_id'` sits where the
+	// prefix expects the database name and partial matching fails. Without this, a removal that landed
+	// left the row editor's cached record intact, and reopening that row within its gcTime rendered the
+	// attribute the user had just removed — the exact symptom #1643 is about.
+	const refreshOpenRecord = useCallback(
+		() =>
+			queryClient.invalidateQueries({
+				queryKey: searchByIdInvalidationKey(instanceParams.entityId, databaseName, tableName),
+			}),
+		[queryClient, instanceParams.entityId, databaseName, tableName],
+	);
 
 	const onCleanupOrphanBlobs = useCallback(async () => {
 		if (!confirm(`Are you sure you want to cleanup orphan blobs for database "${databaseName}"?`)) {
@@ -397,25 +409,24 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// plainly that nothing was written — there is nothing new to read then. An undecidable answer
 	// refreshes, because the write may have landed and replicated.
 	const onWriteSettled = useCallback((incomplete: IncompleteWrite | undefined) => {
+		if (incomplete?.wroteNothing) {
+			// Nothing landed, so nothing is stale and the draft is still what the user needs in order to
+			// act on the message. Refresh neither, and leave the editor open.
+			toast.error("The record wasn't updated", { description: incomplete.message });
+			return;
+		}
+		// Anything else — a full write, a partial one, or an answer we couldn't read — may have changed
+		// the record, so both the grid and the open record are refreshed and the editor closes rather
+		// than sitting on a draft written against data that has since moved.
+		void refreshTable();
+		void refreshOpenRecord();
+		setIsEditModalOpen(false);
 		if (incomplete) {
-			if (incomplete.wroteNothing) {
-				// Nothing landed, so there is nothing new to read and the draft is still what the user
-				// needs to act on the message. Keep the editor open and don't refresh.
-				toast.error("The record wasn't updated", { description: incomplete.message });
-				return;
-			}
-			// Something landed, or the answer was unreadable. The record on screen is now stale, so
-			// refresh — and close, because the draft was written against data that has since changed and
-			// the refetch would silently discard it anyway.
-			void refreshTable();
-			setIsEditModalOpen(false);
 			toast.error("The record wasn't fully updated", { description: incomplete.message });
 			return;
 		}
-		void refreshTable();
-		setIsEditModalOpen(false);
 		toast.success('Record updated successfully');
-	}, [refreshTable]);
+	}, [refreshTable, refreshOpenRecord]);
 
 	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
