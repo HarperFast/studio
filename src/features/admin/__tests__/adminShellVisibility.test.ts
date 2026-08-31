@@ -35,10 +35,17 @@ describe('admin section visibility', () => {
 		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
 		// Legacy API without staffPermissions: the fallback grants everything, so Grants shows too —
 		// but the SSO carve-out still hides API Token.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Plans', 'Grants']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Plans', 'Grants', 'Billing']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Plans', 'Grants', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual([
+			'Notifications',
+			'Regions',
+			'Plans',
+			'Grants',
+			'Billing',
+			'API Token',
+		]);
 	});
 });
