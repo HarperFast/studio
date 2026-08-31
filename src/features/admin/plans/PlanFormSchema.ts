@@ -36,10 +36,10 @@ export const LimitsSchema = z.object({
  * Create/edit form for a plan, matching PlanAdmin's `buildPlanSchema` exactly.
  *
  * Deliberately narrower than the Plan record: central-manager validates with `stripUnknown: true`,
- * so anything outside that schema — stripePriceId, platformPriceUsd, allowedRegionIds,
- * cloudInstanceTypes, cloudStorageGb, defaultCloudInstanceProvider, gpu, pointerCompression — is
- * silently dropped rather than refused. Offering those fields would promise an edit that never
- * lands; the modal shows them read-only instead.
+ * so anything outside that schema — platformPriceUsd, allowedRegionIds, cloudInstanceTypes,
+ * cloudStorageGb, defaultCloudInstanceProvider, gpu, pointerCompression — is silently dropped rather
+ * than refused. Offering those fields would promise an edit that never lands; the modal shows them
+ * read-only instead.
  */
 export const PlanFormSchema = z.object({
 	// The plan's primary key — admin-supplied and immutable after create (e.g. "fabric-block-level-1").
@@ -55,10 +55,22 @@ export const PlanFormSchema = z.object({
 	priceUsd: z.number({ error: 'Enter a price' }).min(0, 'Must be zero or more'),
 	// Empty string means no channel — sent as null, which is what the server stores.
 	channel: z.string().trim(),
+	// Required for a paid, active plan: without it createInvoiceLineItem adds no line, so blocks on
+	// the plan invoice for nothing and only a log line says so. Enforced in the refinement below and
+	// again by central-manager, which answers 400.
+	stripePriceId: z.string().trim(),
 	// Empty ⇒ available to every organization.
 	organizationIds: z.array(z.string()),
 	resourcesPerInstance: ResourcesSchema,
 	planLimits: LimitsSchema,
+}).superRefine((values, ctx) => {
+	if (values.priceUsd > 0 && values.status === 'ACTIVE' && !values.stripePriceId) {
+		ctx.addIssue({
+			code: 'custom',
+			path: ['stripePriceId'],
+			message: 'A paid, active plan needs a Stripe price — nothing on it can be invoiced without one',
+		});
+	}
 });
 
 export type PlanFormValues = z.infer<typeof PlanFormSchema>;
