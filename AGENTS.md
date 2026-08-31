@@ -404,6 +404,12 @@ Four things worth knowing before changing the record editor:
   than merging into it (`resources/tracked.ts` `updateAndFreeze`), so deleting a property _inside_ an
   object already works through a plain `update`.
 
+**Both** write paths check their answer, not just `put` — `update` skips a record it can't address
+and names it in `skipped_hashes`, so the merge path had the same silent-success hole the replace path
+was fixed for. `updateTableRecords` throws on a skip or a short `update_hashes`, but fails **open** on
+a missing field, since `update` runs against every version Studio manages back to 4.7. Errors reach
+the user through the global `mutationErrorHandler` toast (`react-query/queryClient.ts`).
+
 A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array
 naming at least as many records as were sent. It fails **closed** on a missing or malformed list —
 `put` only ever goes to a 5.3+ instance and `dataLayer/insert.ts` always sets the field, so a 200
