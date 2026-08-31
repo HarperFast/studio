@@ -47,6 +47,13 @@ function toFormValues(plan?: SchemaPlan | null): PlanFormValues {
 	};
 }
 
+/**
+ * Spinner arrows are dropped: the form is 24 number inputs, and a control whose steppers move a
+ * usage limit by 1 at a time is decoration on a field that holds hundreds of millions.
+ */
+const NO_SPINNERS =
+	'[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
 /** A number input bound to a nested numeric field, matching the region form's conversion. */
 function NumberField(
 	{ form, name, label }: { form: UseFormReturn<PlanFormValues>; name: FieldPath<PlanFormValues>; label: string },
@@ -62,6 +69,7 @@ function NumberField(
 						<Input
 							type="number"
 							min={0}
+							className={NO_SPINNERS}
 							name={field.name}
 							ref={field.ref}
 							onBlur={field.onBlur}
