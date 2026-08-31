@@ -2,11 +2,11 @@ import { Loading } from '@/components/Loading';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { primaryKeyMismatch } from '@/features/instance/databases/functions/primaryKeyMismatch';
 import {
 	removedAttributeNames,
 	removedRecordAttributes,
 } from '@/features/instance/databases/functions/removedRecordAttributes';
-import { unmatchedRecordIndexes } from '@/features/instance/databases/functions/unmatchedRecordIndexes';
 import { useMonacoTheme } from '@/hooks/useMonacoTheme';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
@@ -264,15 +264,20 @@ export function EditTableRowModal({
 									// failure again, reported as success — or, if something is stored under the new key,
 									// patch a record the user never opened. Neither shows up as an attribute removal, so
 									// this is checked before the routing below.
-									const unmatched = unmatchedRecordIndexes(editableRecords, records, primaryKey);
-									if (unmatched.length) {
+									const mismatch = primaryKeyMismatch(editableRecords, records, primaryKey);
+									if (mismatch) {
 										toast.error(
-											records.length === 1
+											mismatch.kind === 'lost'
 												? `This record's ${primaryKey} can't be changed or removed`
-												: `Every record's ${primaryKey} must match the record it is editing`,
+												: `This edit names a ${primaryKey} the editor didn't load`,
 											{
-												description:
-													`${primaryKey} identifies the record, so changing it doesn't rename the record — the save would either do nothing or overwrite a different record. Restore the original value, then add a new record and delete this one if you meant to move it.`,
+												description: mismatch.kind === 'lost'
+													? `${primaryKey} identifies the record, so changing it doesn't rename it — the save would do nothing, or overwrite whatever is stored under the new value. Restore ${
+														mismatch.keys.join(', ')
+													}, then add a new record and delete this one if you meant to move it.`
+													: `Saving would edit the record stored under ${
+														mismatch.keys.join(', ')
+													}, which isn't the record open here. Remove it from the JSON and edit that record directly.`,
 											},
 										);
 										return;

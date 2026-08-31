@@ -439,6 +439,34 @@ describe('EditTableRowModal', () => {
 			expect(toast.error).toHaveBeenCalledTimes(1);
 		});
 
+		// Regression: the check is keyed on the LOADED keys, so a stored row with no primary-key value
+		// (#1199) can't refuse the whole batch. An earlier rule flagged every keyless edited record and
+		// blocked this valid edit.
+		it('still saves when a co-loaded record has no primary-key value', () => {
+			const onSaveChanges = vi.fn();
+			renderAddressableModal({
+				onSaveChanges,
+				data: [row, { name: 'keyless row' }],
+			});
+
+			edit('[{"id":"abc-123","name":"Ada L","city":"Paris"},{"name":"keyless row"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).toHaveBeenCalledTimes(1);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+
+		it('refuses an added record naming a key the editor never loaded', () => {
+			const onSaveChanges = vi.fn();
+			renderAddressableModal({ onSaveChanges });
+
+			edit('[{"id":"abc-123","name":"Ada Lovelace","city":"London"},{"id":"def-456","name":"Grace"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/didn't load/i);
+		});
+
 		it('still saves an ordinary edit that leaves the primary key alone', () => {
 			const onSaveChanges = vi.fn();
 			renderAddressableModal({ onSaveChanges });

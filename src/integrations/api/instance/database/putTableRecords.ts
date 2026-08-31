@@ -71,6 +71,19 @@ export async function putTableRecords({ databaseName, tableName, records, instan
 		table: tableName,
 		records,
 	});
+	// The premise of this whole path is that a write which didn't land must never read as success, so
+	// the answer is checked rather than assumed. `put_hashes` names the records actually written; a
+	// short list means some record wasn't, and the caller would otherwise close the editor and report
+	// success while the attribute is still there — #1643 again, by a different cause.
+	//
+	// The `message` is no help here: `dataLayer/insert.ts` builds it as `put N of N` from
+	// `written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never
+	// report a partial write. Length is the only signal the response actually carries.
+	if (Array.isArray(data?.put_hashes) && data.put_hashes.length < records.length) {
+		throw new Error(
+			`Harper reported writing ${data.put_hashes.length} of ${records.length} records, so the change may not have been saved.`,
+		);
+	}
 	return data;
 }
 
