@@ -60,12 +60,15 @@ export function checkTablePutPermission(
 	// Both spellings: a v5 role scopes attributes under `attribute_permissions`, a translated v4 role
 	// under `attribute_restrictions`. Either one non-empty means Harper denies the `put`.
 	//
+	// Checked independently rather than as an either/or on which key is present: a translated payload
+	// carrying `attribute_permissions: null` alongside a populated `attribute_restrictions` would
+	// otherwise read the null one and allow a save the server refuses.
+	//
 	// `in` rather than `Object.hasOwn` — the opposite of the rule this change set applies to record
 	// attributes — because only `in` narrows the union for TypeScript, and neither key exists on
 	// `Object.prototype`, so there is no inherited-property hazard to guard against here.
-	const attributeScoped = 'attribute_permissions' in table
-		? table.attribute_permissions?.length
-		: table.attribute_restrictions?.length;
+	const attributeScoped = ('attribute_permissions' in table && table.attribute_permissions?.length)
+		|| ('attribute_restrictions' in table && table.attribute_restrictions?.length);
 	return !attributeScoped;
 }
 

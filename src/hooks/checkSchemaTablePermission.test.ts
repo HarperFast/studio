@@ -199,6 +199,26 @@ describe('checkTablePutPermission', () => {
 		expect(checkTablePutPermission(perm({ data: { tables: { dog: legacy } } }), 'data', 'dog')).toBe(false);
 	});
 
+	// A translated payload carrying both keys must not read the empty one and allow a save the server
+	// refuses: each is checked independently.
+	it('denies when a null attribute_permissions sits beside a populated attribute_restrictions', () => {
+		const both = {
+			...writable,
+			attribute_permissions: null,
+			attribute_restrictions: [{ attribute_name: 'salary', read: true, insert: false, update: false }],
+		};
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: both } } }), 'data', 'dog')).toBe(false);
+	});
+
+	it('denies when a populated attribute_permissions sits beside an empty attribute_restrictions', () => {
+		const both = {
+			...writable,
+			attribute_permissions: [{ attribute_name: 'salary', read: true, insert: false, update: false }],
+			attribute_restrictions: [],
+		};
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: both } } }), 'data', 'dog')).toBe(false);
+	});
+
 	it('allows a role whose attribute scoping list is present but empty', () => {
 		const empty = { ...writable, attribute_permissions: [] };
 		expect(checkTablePutPermission(perm({ data: { tables: { dog: empty } } }), 'data', 'dog')).toBe(true);

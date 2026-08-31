@@ -392,14 +392,23 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			{
 				onSuccess: (response) => {
 					// A 200 is not proof the write landed: `update` skips a record it can't address and
-					// still answers 200. Refresh either way — a partial write is real — but don't claim
-					// success, and leave the editor open so the edit isn't lost.
+					// still answers 200. Don't claim success, and leave the editor open so the user can act
+					// on the message with their edit intact.
+					//
+					// Refreshing is what would take that edit away: `refreshTable` invalidates this table's
+					// whole query prefix, including the open record, and a refetched record resets the
+					// editor's draft by design (#1600). So skip it when the answer says nothing was
+					// written — there is nothing new to read anyway. An undecidable answer still refreshes,
+					// since something may have landed.
 					const incomplete = describeIncompleteUpdate(response, data.length);
-					void refreshTable();
 					if (incomplete) {
-						toast.error("The record wasn't updated", { description: incomplete });
+						if (!incomplete.wroteNothing) {
+							void refreshTable();
+						}
+						toast.error("The record wasn't updated", { description: incomplete.message });
 						return;
 					}
+					void refreshTable();
 					setIsEditModalOpen(false);
 					toast.success('Record updated successfully');
 				},

@@ -83,10 +83,14 @@ export async function putTableRecords({ databaseName, tableName, records, instan
 	// `dataLayer/insert.ts` always sets `put_hashes` for a `put`, so a 200 without one didn't come
 	// from a healthy Harper answering this operation — reporting success on it is the assumption this
 	// check exists to remove.
-	if (!Array.isArray(data?.put_hashes) || data.put_hashes.length < records.length) {
-		const written = Array.isArray(data?.put_hashes) ? `${data.put_hashes.length}` : 'an unreported number';
+	if (!Array.isArray(data?.put_hashes)) {
 		throw new Error(
-			`Harper reported writing ${written} of ${records.length} records, so the change may not have been saved.`,
+			"Harper's response didn't report which records it wrote, so the change may not have been saved.",
+		);
+	}
+	if (data.put_hashes.length < records.length) {
+		throw new Error(
+			`Harper reported writing ${data.put_hashes.length} of ${records.length} records, so the change may not have been saved.`,
 		);
 	}
 	return data;

@@ -114,7 +114,7 @@ describe('putTableRecords', () => {
 
 		await expect(
 			putTableRecords({ databaseName: 'data', tableName: 'dog', records: [{ id: 'a' }], instanceClient }),
-		).rejects.toThrow(/an unreported number of 1 records/);
+		).rejects.toThrow(/didn't report which records it wrote/);
 	});
 
 	it('rejects a response whose put_hashes is not an array', async () => {

@@ -257,7 +257,7 @@ export function EditTableRowModal({
 									if (mismatch) {
 										toast.error(
 											mismatch.kind === 'lost'
-												? `This record's ${primaryKey} can't be changed or removed`
+												? `This record's ${primaryKey} is missing from the save`
 												: mismatch.kind === 'unknown'
 												? `This edit names a ${primaryKey} the editor didn't load`
 												: `This edit ${mismatch.added ? 'adds' : 'drops'} ${
@@ -267,9 +267,9 @@ export function EditTableRowModal({
 												} with no ${primaryKey}`,
 											{
 												description: mismatch.kind === 'lost'
-													? `${primaryKey} identifies the record, so changing it doesn't rename it — the save would do nothing, or overwrite whatever is stored under the new value. Restore ${
+													? `${primaryKey} identifies the record, so restore ${
 														mismatch.keys.join(', ')
-													}, then add a new record and delete this one if you meant to move it.`
+													} to save this edit. Changing it doesn't rename a record — the save would do nothing, or overwrite whatever is stored under the new value. To delete the record, use Delete Row.`
 													: mismatch.kind === 'unknown'
 													? `Saving would edit the record stored under ${
 														mismatch.keys.join(', ')
