@@ -425,15 +425,21 @@ unreadably would leave the grid and the open editor showing the attribute the us
 Neither writer asserts; `integrations/api/instance/database/incompleteWrite.ts` holds the shared
 shape.
 
-Refresh unless the answer says plainly that nothing was written. That exception exists because
-`refreshTable` invalidates the table's whole query prefix including the open record, and a refetched
-record resets the editor's draft by design (#1600) — so refreshing after a write that changed nothing
-would discard the correction the user needs to make. An undecidable answer still refreshes.
+One policy, in `onWriteSettled`, for both paths — every asymmetry between them so far came from
+changing one and not the other, so they share the handler rather than mirroring it.
 
-A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array
-naming at least as many records as were sent. It fails **closed** on a missing or malformed list —
-`put` only ever goes to a 5.3+ instance and `dataLayer/insert.ts` always sets the field, so a 200
-without one didn't come from a healthy Harper answering this operation. The `message` can't help — `dataLayer/insert.ts` builds it as `put N of N` from
+Refresh unless the answer says plainly that nothing was written, and **close the editor whenever you
+refresh**. `refreshTable` invalidates the table's whole query prefix including the open record, and a
+refetched record resets the editor's draft by design (#1600): leaving the editor open across a
+refresh means the refetch discards whatever correction the user typed after the error toast. So the
+two cases are kept coherent — nothing written: no refresh, editor stays open with the draft intact;
+anything written or undecidable: refresh and close, because the draft was built on data that has
+since changed.
+
+`describeIncompletePut` treats anything short of `put_hashes` naming every record sent as incomplete,
+including a missing or malformed list: `put` only ever goes to a 5.3+ instance and
+`dataLayer/insert.ts` always sets the field, so a 200 without one didn't come from a healthy Harper
+answering this operation. The `message` can't help — `insert.ts` builds it as `put N of N` from
 `written_hashes.length` for both halves (`skipped` is always `[]` for put), so it can never report a
 partial write.
 

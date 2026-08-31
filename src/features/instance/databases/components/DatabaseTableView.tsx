@@ -34,6 +34,7 @@ import {
 import { getSearchByIdOptions } from '@/integrations/api/instance/database/getSearchById';
 import { getSearchByValueOptions } from '@/integrations/api/instance/database/getSearchByValue';
 import { getTableRecordCountQueryOptions } from '@/integrations/api/instance/database/getTableRecordCount';
+import { IncompleteWrite } from '@/integrations/api/instance/database/incompleteWrite';
 import {
 	describeIncompletePut,
 	replaceRecordsBlockedReason,
@@ -385,6 +386,37 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		});
 	}, [exportCsv, databaseName, tableName, primaryKey, sort, useFilteredList, appliedSearchConditions]);
 
+	// One policy for both write paths, deliberately shared: every asymmetry between them so far has
+	// come from changing one and not the other.
+	//
+	// A 200 is not proof the write landed — `update` skips a record it can't address and still answers
+	// 200 — so an incomplete answer must not claim success. The editor stays open so the user can act
+	// on the message with their edit intact, which is also why the refresh is conditional:
+	// `refreshTable` invalidates this table's whole query prefix including the open record, and a
+	// refetched record resets the editor's draft by design (#1600). Skip it only when the answer says
+	// plainly that nothing was written — there is nothing new to read then. An undecidable answer
+	// refreshes, because the write may have landed and replicated.
+	const onWriteSettled = useCallback((incomplete: IncompleteWrite | undefined) => {
+		if (incomplete) {
+			if (incomplete.wroteNothing) {
+				// Nothing landed, so there is nothing new to read and the draft is still what the user
+				// needs to act on the message. Keep the editor open and don't refresh.
+				toast.error("The record wasn't updated", { description: incomplete.message });
+				return;
+			}
+			// Something landed, or the answer was unreadable. The record on screen is now stale, so
+			// refresh — and close, because the draft was written against data that has since changed and
+			// the refetch would silently discard it anyway.
+			void refreshTable();
+			setIsEditModalOpen(false);
+			toast.error("The record wasn't fully updated", { description: incomplete.message });
+			return;
+		}
+		void refreshTable();
+		setIsEditModalOpen(false);
+		toast.success('Record updated successfully');
+	}, [refreshTable]);
+
 	const onRecordUpdate = useCallback((data: Record<string, unknown>[]) => {
 		updateTableRecords(
 			{
@@ -394,31 +426,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				records: data,
 			},
 			{
-				onSuccess: (response) => {
-					// A 200 is not proof the write landed: `update` skips a record it can't address and
-					// still answers 200. Don't claim success, and leave the editor open so the user can act
-					// on the message with their edit intact.
-					//
-					// Refreshing is what would take that edit away: `refreshTable` invalidates this table's
-					// whole query prefix, including the open record, and a refetched record resets the
-					// editor's draft by design (#1600). So skip it when the answer says nothing was
-					// written — there is nothing new to read anyway. An undecidable answer still refreshes,
-					// since something may have landed.
-					const incomplete = describeIncompleteUpdate(response, data.length);
-					if (incomplete) {
-						if (!incomplete.wroteNothing) {
-							void refreshTable();
-						}
-						toast.error("The record wasn't updated", { description: incomplete.message });
-						return;
-					}
-					void refreshTable();
-					setIsEditModalOpen(false);
-					toast.success('Record updated successfully');
-				},
+				onSuccess: (response) => onWriteSettled(describeIncompleteUpdate(response, data.length)),
 			},
 		);
-	}, [updateTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+	}, [updateTableRecords, instanceParams, databaseName, tableName, onWriteSettled]);
 
 	// The modal routes here only for an edit that removes an attribute; see
 	// `removedRecordAttributes`. Shares `isUpdateTableRecordsPending` with the update path, so the
@@ -432,25 +443,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				records,
 			},
 			{
-				onSuccess: (response) => {
-					// Same policy as the update path above: a 200 is not proof the write landed, so don't
-					// claim success. Refresh unless the answer says plainly that nothing was written — an
-					// unreadable answer still refreshes, because the replace may have landed and replicated.
-					const incomplete = describeIncompletePut(response, records.length);
-					if (incomplete) {
-						if (!incomplete.wroteNothing) {
-							void refreshTable();
-						}
-						toast.error("The record wasn't updated", { description: incomplete.message });
-						return;
-					}
-					void refreshTable();
-					setIsEditModalOpen(false);
-					toast.success('Record updated successfully');
-				},
+				onSuccess: (response) => onWriteSettled(describeIncompletePut(response, records.length)),
 			},
 		);
-	}, [putTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+	}, [putTableRecords, instanceParams, databaseName, tableName, onWriteSettled]);
 
 	const onDeleteRecord = useCallback((hashes: unknown[]) => {
 		deleteTableRecords(

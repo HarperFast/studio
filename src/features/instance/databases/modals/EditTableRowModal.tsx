@@ -293,7 +293,7 @@ export function EditTableRowModal({
 										if (removals.length < records.length) {
 											toast.error("Removing an attribute can't be combined with other record edits", {
 												description:
-													'Removing an attribute replaces the whole record, which would overwrite any concurrent change to the other records in this payload. Save the removal on its own, or remove an attribute from every record in the payload.',
+													'Removing an attribute replaces the whole record, which would overwrite any concurrent change to the other records in this payload. Remove the same attribute from every record here, or put it back and save the value changes on their own — the records loaded together have to be saved together.',
 											});
 											return;
 										}
