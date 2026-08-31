@@ -28,6 +28,7 @@ describe('admin section routes', () => {
 		['/admin/regions', '/regions'],
 		['/admin/plans', '/plans'],
 		['/admin/grants', '/grants'],
+		['/admin/billing', '/billing'],
 		['/admin/api-token', '/api-token'],
 	])('%s resolves to its own route', (path, expectedId) => {
 		expect(matchLeaf(path).routeId).toContain(expectedId);

@@ -34,6 +34,13 @@ const regionsRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/regions/index'), 'RegionsIndex'),
 });
 
+const billingRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'billing',
+	head: () => ({ meta: [{ title: 'Billing — Harper Fabric' }] }),
+	component: lazyRouteComponent(async () => import('@/features/admin/billing/index'), 'BillingAdminIndex'),
+});
+
 const plansRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'plans',
@@ -62,5 +69,6 @@ export const adminRoutes = [
 	regionsRoute,
 	plansRoute,
 	grantsRoute,
+	billingRoute,
 	apiTokenRoute,
 ];
