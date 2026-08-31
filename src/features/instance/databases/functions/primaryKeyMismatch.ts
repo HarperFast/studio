@@ -4,8 +4,13 @@ export type PrimaryKeyMismatch =
 	| { kind: 'lost'; keys: unknown[] }
 	/** The payload carries a key the editor never loaded, so it targets some other record. */
 	| { kind: 'unknown'; keys: unknown[] }
-	/** The payload adds records with no key at all, which `update` skips and `put` cannot address. */
-	| { kind: 'keyless'; count: number };
+	/**
+	 * The payload's keyless records don't match the loaded ones. Adding is unwritable — `update`
+	 * skips a record it can't address and `put` cannot create one without a key. Dropping is
+	 * ambiguous in the same way a dropped keyed record is: omitting a record from the JSON doesn't
+	 * delete it, so a save would report success having changed nothing about it.
+	 */
+	| { kind: 'keyless'; added: number; dropped: number };
 
 /**
  * Whether an edited payload still identifies the records the editor loaded.
@@ -62,5 +67,12 @@ export function primaryKeyMismatch(
 	}
 	const loadedKeyless = storedRecords.filter(record => record[primaryKey] == null).length;
 	const editedKeyless = editedRecords.filter(record => record[primaryKey] == null).length;
-	return editedKeyless > loadedKeyless ? { kind: 'keyless', count: editedKeyless - loadedKeyless } : undefined;
+	if (editedKeyless === loadedKeyless) {
+		return undefined;
+	}
+	return {
+		kind: 'keyless',
+		added: Math.max(0, editedKeyless - loadedKeyless),
+		dropped: Math.max(0, loadedKeyless - editedKeyless),
+	};
 }

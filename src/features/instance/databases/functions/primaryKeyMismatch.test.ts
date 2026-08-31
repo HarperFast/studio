@@ -60,13 +60,31 @@ describe('primaryKeyMismatch', () => {
 	// addition would be silently dropped while the modal reported success.
 	it('reports a pasted keyless record as an addition', () => {
 		const edited = [stored, { name: 'brand new' }];
-		expect(primaryKeyMismatch([stored], edited, 'id')).toEqual({ kind: 'keyless', count: 1 });
+		expect(primaryKeyMismatch([stored], edited, 'id')).toEqual({ kind: 'keyless', added: 1, dropped: 0 });
 	});
 
 	it('counts only the surplus, so a co-loaded keyless row is still allowed', () => {
 		const storedRecords = [stored, { name: 'keyless row' }];
 		const edited = [{ ...stored, city: 'Paris' }, { name: 'keyless row' }, { name: 'brand new' }];
-		expect(primaryKeyMismatch(storedRecords, edited, 'id')).toEqual({ kind: 'keyless', count: 1 });
+		expect(primaryKeyMismatch(storedRecords, edited, 'id')).toEqual({ kind: 'keyless', added: 1, dropped: 0 });
+	});
+
+	// The mirror of the `lost` rule for keyed records: dropping a record from the JSON doesn't delete
+	// it, so a save would report success having left it alone. Enforced in both directions because
+	// this rule has been wrong in a new direction on each of the last three review rounds.
+	it('reports a dropped keyless record', () => {
+		const storedRecords = [stored, { name: 'keyless row' }];
+		expect(primaryKeyMismatch(storedRecords, [{ ...stored, city: 'Paris' }], 'id')).toEqual({
+			kind: 'keyless',
+			added: 0,
+			dropped: 1,
+		});
+	});
+
+	it('accepts a payload whose keyless records match the loaded ones exactly', () => {
+		const storedRecords = [stored, { name: 'keyless row' }];
+		const edited = [{ ...stored, city: 'Paris' }, { name: 'keyless row', extra: 1 }];
+		expect(primaryKeyMismatch(storedRecords, edited, 'id')).toBeUndefined();
 	});
 
 	it('says nothing when the table has no primary key', () => {

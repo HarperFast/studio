@@ -46,6 +46,22 @@ describe('updateTableRecords', () => {
 			.resolves.toEqual({ update_hashes: ['abc-123'], skipped_hashes: [] });
 	});
 
+	// A field that is present but unreadable is not the legacy case below: the responder does answer
+	// this operation, so its unreadable answer can't be taken as success.
+	it('rejects a response whose update_hashes is present but not an array', async () => {
+		const instanceClient = client({ update_hashes: 'abc-123' });
+
+		await expect(updateTableRecords({ databaseName: 'data', tableName: 'dog', records: one, instanceClient }))
+			.rejects.toThrow(/didn't report which records it wrote/);
+	});
+
+	it('rejects a response whose skipped_hashes is present but not an array', async () => {
+		const instanceClient = client({ update_hashes: ['abc-123'], skipped_hashes: 'nope' });
+
+		await expect(updateTableRecords({ databaseName: 'data', tableName: 'dog', records: one, instanceClient }))
+			.rejects.toThrow(/didn't report which records it wrote/);
+	});
+
 	// Fails open, unlike the `put` check: `update` runs against every version Studio manages, back to
 	// 4.7, so an absent key can't be read as a bad response.
 	it('accepts a response that reports no hashes at all', async () => {

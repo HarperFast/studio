@@ -406,8 +406,11 @@ Four things worth knowing before changing the record editor:
 
 **Both** write paths check their answer, not just `put` — `update` skips a record it can't address
 and names it in `skipped_hashes`, so the merge path had the same silent-success hole the replace path
-was fixed for. `updateTableRecords` throws on a skip or a short `update_hashes`, but fails **open** on
-a missing field, since `update` runs against every version Studio manages back to 4.7. Errors reach
+was fixed for. `updateTableRecords` throws on a skip or a short `update_hashes`. It fails **open** only on an
+_absent_ field, since `update` runs against every version Studio manages back to 4.7 and an
+unrecognized legacy response isn't evidence of failure — but a field that is _present and not an
+array_ fails closed: that responder does answer this operation, so an unreadable answer can't be read
+as success. Errors reach
 the user through the global `mutationErrorHandler` toast (`react-query/queryClient.ts`).
 
 A write's answer is checked, not assumed: `putTableRecords` throws unless `put_hashes` is an array
