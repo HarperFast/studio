@@ -371,20 +371,6 @@ describe('EditTableRowModal', () => {
 			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/permission/i);
 		});
 
-		// An unread version is not an old version. Reporting it as one sends the user to upgrade an
-		// instance that may already be new enough.
-		it('does not blame the server version when the version is unknown', () => {
-			renderAddressableModal({ canReplaceRecords: false, replaceBlockedReason: 'unknown' });
-
-			edit('[{"name":"Ada Lovelace","id":"abc-123"}]');
-			fireEvent.click(saveButton());
-
-			const [title, options] = vi.mocked(toast.error).mock.calls[0];
-			expect(title).toMatch(/couldn't check/i);
-			expect(title).not.toMatch(/version can't/i);
-			expect((options as { description: string }).description).toMatch(/hasn't been read yet/i);
-		});
-
 		it('names the release only when the version is genuinely too old', () => {
 			renderAddressableModal({ canReplaceRecords: false, replaceBlockedReason: 'version' });
 

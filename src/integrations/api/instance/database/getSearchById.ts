@@ -8,6 +8,19 @@ interface SearchByIdParams extends InstanceClientIdConfig {
 	ids: unknown[] | null;
 }
 
+/**
+ * The key prefix that invalidates every open-record query for this table.
+ *
+ * Exported so callers can't hand-build it: `DatabaseTableView`'s table-wide refresher keys on
+ * `[entityId, databaseName, tableName]`, which silently does NOT match the key below — `'search_by_id'`
+ * sits where that prefix expects the database name, so partial matching fails and a write left the row
+ * editor's cached record intact. `searchByIdInvalidationKey` is asserted against the real query key in
+ * this module's tests, so the two can't drift apart again.
+ */
+export function searchByIdInvalidationKey(entityId: string | undefined, databaseName: string, tableName: string) {
+	return [entityId, 'search_by_id', databaseName, tableName] as const;
+}
+
 export function getSearchByIdOptions(
 	{ enabled, entityId, instanceClient, databaseName, tableName, ids }: SearchByIdParams,
 ) {

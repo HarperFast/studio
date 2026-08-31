@@ -25,27 +25,37 @@ export function supportsPutOperation(version: string | undefined): boolean {
 }
 
 /** Why a record can't be replaced, or `undefined` when it can. */
-export type ReplaceBlockedReason = 'unknown' | 'version' | 'permission';
+export type ReplaceBlockedReason = 'version' | 'permission';
 
 /**
  * Whether this instance and role can replace a record, and if not, which answer the user needs.
  *
- * `unknown` is deliberately distinct from `version`: an unresolved or failed `registration_info` is
- * not an old server, and reporting it as one sends the user to upgrade something that may already be
- * new enough. Version is checked before grants so an old instance never reads as a permission
- * problem — nothing can be granted there.
+ * An unreadable version does NOT block the save. Harper denies `registration_info` to any role
+ * carrying an `operations` allowlist — see the gate-inert list in
+ * `features/instance/config/roles/operations/operationsCatalog.ts` — which is exactly the shape of
+ * role `checkTablePutPermission` exists to accept. Treating an unread version as unsupported made the
+ * feature permanently unavailable for those roles, behind a "reload and try again" that never helps.
+ *
+ * Allowing it is safe because the fallback isn't a silent one: `put` is a distinct operation name, so
+ * a pre-5.3 instance rejects the request outright rather than merging and keeping the attribute. The
+ * original reason for erring strict — that guessing wrong sends an `update` which reports success
+ * while the attribute stays — doesn't apply to an operation the old server doesn't recognize.
+ *
+ * A version we CAN read that predates the operation still blocks, since a clear message beats a
+ * wasted round trip. Grants are checked first, so a missing grant is never reported as a version
+ * problem.
  */
 export function replaceRecordsBlockedReason(
 	version: string | undefined,
 	hasReplaceGrants: boolean,
 ): ReplaceBlockedReason | undefined {
-	if (version === undefined) {
-		return 'unknown';
+	if (!hasReplaceGrants) {
+		return 'permission';
 	}
-	if (!supportsPutOperation(version)) {
+	if (version !== undefined && !supportsPutOperation(version)) {
 		return 'version';
 	}
-	return hasReplaceGrants ? undefined : 'permission';
+	return undefined;
 }
 
 interface PutTableRecordsData extends InstanceClientConfig {

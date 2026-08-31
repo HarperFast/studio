@@ -114,17 +114,22 @@ describe('replaceRecordsBlockedReason', () => {
 		expect(replaceRecordsBlockedReason('5.3.0', true)).toBeUndefined();
 	});
 
-	// An unread version is not an old one. Collapsing the two sends the user to upgrade an instance
-	// that may already support the operation.
-	it('reports an unresolved version as unknown, not as too old', () => {
-		expect(replaceRecordsBlockedReason(undefined, true)).toBe('unknown');
-		expect(replaceRecordsBlockedReason(undefined, false)).toBe('unknown');
+	// Harper denies `registration_info` to any role carrying an operations allowlist — exactly the
+	// roles the permission gate exists to accept — so blocking on an unread version made the feature
+	// permanently unavailable for them. Safe to allow: `put` is a distinct operation name, so a
+	// pre-5.3 instance rejects it outright rather than merging and keeping the attribute.
+	it('allows an unreadable version when the role has the grants', () => {
+		expect(replaceRecordsBlockedReason(undefined, true)).toBeUndefined();
 	});
 
-	it('reports an old instance as a version problem even when grants are missing too', () => {
-		// Nothing can be granted on an instance that lacks the operation, so version is the useful answer.
-		expect(replaceRecordsBlockedReason('5.2.6', false)).toBe('version');
+	it('still reports a version we can read that predates the operation', () => {
 		expect(replaceRecordsBlockedReason('5.2.6', true)).toBe('version');
+	});
+
+	// Grants first, so a missing grant is never reported as a version problem.
+	it('reports a missing grant even on an old or unreadable version', () => {
+		expect(replaceRecordsBlockedReason('5.2.6', false)).toBe('permission');
+		expect(replaceRecordsBlockedReason(undefined, false)).toBe('permission');
 	});
 
 	it('reports missing grants as a permission problem on a supported instance', () => {
