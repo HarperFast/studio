@@ -12,6 +12,7 @@ import { BillingCluster } from './queries/getBillingClusters';
 let clusterRows: BillingCluster[] = [];
 let grantRows: AdminClusterGrant[] = [];
 let clustersTruncated = false;
+let usageRows: Array<Record<string, unknown>> = [];
 
 vi.mock('./queries/getBillingClusters', () => ({
 	billingClustersQueryKey: ['test-billing-clusters'],
@@ -25,6 +26,21 @@ vi.mock('@/features/admin/grants/queries/getGrants', () => ({
 	getGrantsQueryOptions: () => ({
 		queryKey: ['test-grants', JSON.stringify(grantRows.map((g) => g.id))],
 		queryFn: async () => ({ grants: grantRows, returned: grantRows.length, truncated: false, limit: 500 }),
+		retry: false,
+	}),
+}));
+vi.mock('./queries/getFleetUsage', () => ({
+	fleetUsageQueryKey: ['test-fleet-usage'],
+	getFleetUsageQueryOptions: () => ({
+		queryKey: ['test-fleet-usage', JSON.stringify(usageRows)],
+		queryFn: async () => ({
+			clusters: usageRows,
+			returned: usageRows.length,
+			matched: usageRows.length,
+			truncated: false,
+			limit: 1000,
+			order: 'most-constrained',
+		}),
 		retry: false,
 	}),
 }));
@@ -43,6 +59,7 @@ vi.mock('@/features/admin/plans/queries/getPlans', () => ({
 afterEach(() => {
 	cleanup();
 	clustersTruncated = false;
+	usageRows = [];
 });
 
 const cluster = (overrides: Partial<BillingCluster> = {}): BillingCluster => ({
@@ -67,9 +84,14 @@ const grant = (overrides: Partial<AdminClusterGrant> = {}): AdminClusterGrant =>
 		...overrides,
 	}) as AdminClusterGrant;
 
-async function mount(clusters: BillingCluster[], grants: AdminClusterGrant[] = []) {
+async function mount(
+	clusters: BillingCluster[],
+	grants: AdminClusterGrant[] = [],
+	usage: Array<Record<string, unknown>> = [],
+) {
 	clusterRows = clusters;
 	grantRows = grants;
+	usageRows = usage;
 	const result = render(
 		<TestProvider>
 			<BillingAdminIndex />
@@ -80,7 +102,9 @@ async function mount(clusters: BillingCluster[], grants: AdminClusterGrant[] = [
 	return result;
 }
 
-const coverOf = (id: string) => screen.getByText(id).closest('tr')!.children[5].textContent;
+const cellOf = (id: string, index: number) => screen.getByText(id).closest('tr')!.children[index].textContent;
+const coverOf = (id: string) => cellOf(id, 6);
+const usageOf = (id: string) => cellOf(id, 5);
 
 describe('BillingAdminIndex', () => {
 	// The row is the cluster, not the grant: a cluster running on nothing is the thing worth seeing,
@@ -121,13 +145,40 @@ describe('BillingAdminIndex', () => {
 		await mount([cluster({
 			plans: [{ planId: 'fabric-block-hobbyist' }, { planId: 'fabric-block-level-1' }],
 		})]);
-		expect(screen.getByText('clu-a').closest('tr')!.children[4].textContent).toBe('$105');
+		expect(cellOf('clu-a', 4)).toBe('$105');
 	});
 
 	// A price built from a plan the catalogue doesn't have would be quietly short.
 	it('will not total a price it cannot know', async () => {
 		await mount([cluster({ plans: [{ planId: 'plan-that-is-gone' }] })]);
-		expect(screen.getByText('clu-a').closest('tr')!.children[4].textContent).toBe('—');
+		expect(cellOf('clu-a', 4)).toBe('—');
+	});
+
+	// mostConstrained is the server's single tightest region x metric. Quota is enforced per region,
+	// so there is no cluster-wide percentage and deriving one here would invent a number.
+	it('shows how close a cluster is to its tightest ceiling', async () => {
+		await mount([cluster()], [], [{
+			clusterId: 'clu-a',
+			selfManaged: false,
+			renewsAt: null,
+			totals: null,
+			regions: [],
+			mostConstrained: { metric: 'reads', region: 'US', regionIds: ['us-1'], used: 900, limit: 1000, utilization: 0.9 },
+		}]);
+		expect(usageOf('clu-a')).toContain('90%');
+	});
+
+	// A self-hosted cluster runs under its own license, so a meter would be a fabrication.
+	it('does not meter a self-hosted cluster', async () => {
+		await mount([cluster()], [], [{
+			clusterId: 'clu-a',
+			selfManaged: true,
+			renewsAt: null,
+			totals: null,
+			mostConstrained: null,
+			regions: [],
+		}]);
+		expect(usageOf('clu-a')).toBe('self-hosted');
 	});
 
 	it('says so when the fleet is larger than the sweep', async () => {

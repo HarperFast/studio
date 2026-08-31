@@ -3,7 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { UsageCell } from '@/features/admin/billing/components/UsageCell';
 import { getBillingClustersQueryOptions } from '@/features/admin/billing/queries/getBillingClusters';
+import { getFleetUsageQueryOptions } from '@/features/admin/billing/queries/getFleetUsage';
 import { getGrantsQueryOptions } from '@/features/admin/grants/queries/getGrants';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
@@ -63,8 +65,10 @@ function coverage(grant: AdminClusterGrant | undefined, status: string | null | 
  * Every cluster in the fleet and what pays for it. The row is the cluster, not the grant: a cluster
  * with no grant at all is the thing worth seeing, and a grant-shaped list cannot show an absence.
  *
- * Usage and charged amounts are deliberately not here — they live on PurchasedBlock, many per
- * cluster, and belong to their own view.
+ * Usage is the server's own rollup, one request per cluster — quota is enforced per region, and the
+ * cohort a region's meters fold is subtle enough (core burns blocks oldest-first) that deriving it
+ * here from raw blocks would be a second implementation free to drift. What is still missing is what
+ * was actually charged: that needs `stripeInvoiceId` on a block to join to Stripe.
  */
 export function BillingAdminIndex() {
 	const clustersQuery = useQuery(getBillingClustersQueryOptions());
@@ -72,6 +76,9 @@ export function BillingAdminIndex() {
 	// covering the cluster — or the absence of one.
 	const grantsQuery = useQuery(getGrantsQueryOptions({ status: 'ACTIVE' }));
 	const { data: plans } = useQuery(getPlansQueryOptions());
+	// One request for the whole fleet rather than one per row. A failure here is not fatal — the
+	// billing columns stand on their own, so the page degrades to no meters rather than an error.
+	const usageQuery = useQuery(getFleetUsageQueryOptions());
 
 	const [search, setSearch] = useState('');
 	const [cover, setCover] = useState(ANY);
@@ -88,6 +95,11 @@ export function BillingAdminIndex() {
 	}, [grantsQuery.data]);
 
 	const planById = useMemo(() => new Map((plans ?? []).map((p) => [p.id, p])), [plans]);
+
+	const usageByCluster = useMemo(
+		() => new Map((usageQuery.data?.clusters ?? []).map((row) => [row.clusterId, row])),
+		[usageQuery.data],
+	);
 
 	const rows = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -120,6 +132,22 @@ export function BillingAdminIndex() {
 		return known ? price.format(total) : '—';
 	};
 
+	// What the rows on screen add up to. Only clusters whose every plan resolves are counted, and how
+	// many that was is shown alongside — a total quietly missing a cluster is worse than no total.
+	const spend = useMemo(() => {
+		let total = 0;
+		let counted = 0;
+		for (const { cluster } of rows) {
+			const plansOnCluster = cluster.plans ?? [];
+			if (plansOnCluster.length === 0) { continue; }
+			const prices = plansOnCluster.map((rp) => planById.get(rp.planId)?.priceUsd);
+			if (prices.some((value) => value == null)) { continue; }
+			total += prices.reduce((sum: number, value) => sum + (value ?? 0), 0);
+			counted += 1;
+		}
+		return { total, counted };
+	}, [rows, planById]);
+
 	const isLoading = clustersQuery.isLoading || grantsQuery.isLoading;
 	const isError = clustersQuery.isError || grantsQuery.isError;
 
@@ -128,8 +156,8 @@ export function BillingAdminIndex() {
 			<div>
 				<h1 className="text-2xl font-light">Billing</h1>
 				<p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-					Every cluster in the fleet and what pays for it — its plans, the grant covering it, and when that renews or
-					ends. A cluster with no live grant is running on nothing.
+					What the fleet costs and what it is consuming — spend per period, how close each cluster is to its tightest
+					ceiling, and the grant covering it. A cluster with no live grant is running on nothing.
 				</p>
 			</div>
 
@@ -178,11 +206,22 @@ export function BillingAdminIndex() {
 								</Select>
 							</div>
 
-							<p className="mb-4 text-sm text-muted-foreground" aria-live="polite">
-								{rows.length} {rows.length === 1 ? 'cluster' : 'clusters'}
-							</p>
+							<div className="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm" aria-live="polite">
+								<span className="text-muted-foreground">
+									{rows.length} {rows.length === 1 ? 'cluster' : 'clusters'}
+								</span>
+								<span className="text-foreground">
+									<span className="tabular-nums">{price.format(spend.total)}</span>
+									<span className="text-muted-foreground">
+										{' '}per period{spend.counted === rows.length ? '' : ` across ${spend.counted} priced`}
+									</span>
+								</span>
+								{usageQuery.isError && (
+									<span className="text-xs text-destructive">Usage unavailable — this needs billing:read.</span>
+								)}
+							</div>
 
-							{(clustersQuery.data?.truncated || grantsQuery.data?.truncated) && (
+							{(clustersQuery.data?.truncated || grantsQuery.data?.truncated || usageQuery.data?.truncated) && (
 								<p className="mb-4 rounded-md border border-amber-500/50 bg-amber-50/50 px-3 py-2 text-sm text-amber-600 dark:bg-amber-950/20 dark:text-amber-400">
 									This is a partial view — the fleet is larger than one page, so some clusters or their grants are
 									missing. Narrow the filters rather than reading this as the whole picture.
@@ -200,7 +239,10 @@ export function BillingAdminIndex() {
 													<TableHead>Organization</TableHead>
 													<TableHead>Status</TableHead>
 													<TableHead>Plans</TableHead>
-													<TableHead className="text-right">Per period</TableHead>
+													<TableHead className="text-right">Spend</TableHead>
+													<TableHead title="How close the cluster is to its tightest per-region ceiling. Quota is enforced per region, so this is the single most constrained region and metric, not a cluster-wide average.">
+														Usage
+													</TableHead>
 													<TableHead>Covered by</TableHead>
 													<TableHead>Renews</TableHead>
 													<TableHead>Ends</TableHead>
@@ -250,6 +292,9 @@ export function BillingAdminIndex() {
 															</TableCell>
 															<TableCell className="text-right tabular-nums whitespace-nowrap">
 																{monthly(regions)}
+															</TableCell>
+															<TableCell>
+																<UsageCell usage={usageByCluster.get(cluster.id)} />
 															</TableCell>
 															<TableCell>
 																<Tooltip>

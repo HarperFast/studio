@@ -37,6 +37,7 @@ function toFormValues(plan?: SchemaPlan | null): PlanFormValues {
 		performanceDescription: plan?.performanceDescription ?? '',
 		priceUsd: plan?.priceUsd ?? 0,
 		channel: plan?.channel ?? '',
+		stripePriceId: plan?.stripePriceId ?? '',
 		organizationIds: plan?.organizationIds ?? [],
 		resourcesPerInstance: { ...ZERO_RESOURCES, ...plan?.resourcesPerInstance },
 		planLimits: Object.fromEntries(
@@ -87,7 +88,6 @@ function NumberField(
 /** Fields the create/patch schema has no key for — shown so a reader knows they exist, and why not here. */
 function ServerOnlyFacts({ plan }: { plan: SchemaPlan }) {
 	const facts: Array<[string, string]> = [
-		['Stripe price', plan.stripePriceId ?? '—'],
 		['Platform price', plan.platformPriceUsd != null ? `$${plan.platformPriceUsd}` : '—'],
 		['Allowed regions', plan.allowedRegionIds?.length ? plan.allowedRegionIds.join(', ') : 'any'],
 		['Cloud instance types', Object.values(plan.cloudInstanceTypes ?? {}).filter(Boolean).join(', ') || '—'],
@@ -163,6 +163,7 @@ export function PlanFormModal(
 			priceUsd: values.priceUsd,
 			// Empty means no channel; the server stores null for that.
 			channel: values.channel.trim() || null,
+			stripePriceId: values.stripePriceId.trim() || null,
 			// Empty means every organization, which the server also stores as null.
 			organizationIds: values.organizationIds.length ? values.organizationIds : null,
 			resourcesPerInstance: values.resourcesPerInstance,
@@ -293,8 +294,21 @@ export function PlanFormModal(
 							/>
 						</div>
 
-						<div className="grid grid-cols-2 gap-3">
+						<div className="grid grid-cols-3 gap-3">
 							<NumberField form={form} name="priceUsd" label="Price (USD per period)" />
+							<FormField
+								control={form.control}
+								name="stripePriceId"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Stripe price</FormLabel>
+										<FormControl>
+											<Input placeholder="price_…" {...field} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 							<FormField
 								control={form.control}
 								name="channel"
