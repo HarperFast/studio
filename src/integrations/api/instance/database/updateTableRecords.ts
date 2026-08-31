@@ -13,6 +13,11 @@ export interface UpdateTableRecordsResponse {
 	skipped_hashes?: unknown[];
 }
 
+/** Present, but not the array of hashes this operation is documented to return. */
+function isMalformedHashes(value: unknown): boolean {
+	return value !== undefined && !Array.isArray(value);
+}
+
 export async function updateTableRecords(recordsData: UpdateTableRecordsParams) {
 	const { databaseName, tableName, records, instanceClient } = recordsData;
 	const { data } = await instanceClient.post<UpdateTableRecordsResponse>('/', {
@@ -21,15 +26,21 @@ export async function updateTableRecords(recordsData: UpdateTableRecordsParams) 
 		table: tableName,
 		records: records,
 	});
-	// `update` skips a record it can't address — no stored record under that key — and answers 200
-	// with it named in `skipped_hashes` (`dataLayer/insert.ts`). Nothing read that, so a write which
-	// changed nothing closed the editor and reported success, which is the studio#1643 symptom by a
-	// different cause.
+	// `update` skips a record it can't address — nothing stored under that key — and answers 200 with
+	// it named in `skipped_hashes` (`dataLayer/insert.ts`), so a write that changed nothing must not
+	// read as success (studio#1643).
 	//
-	// Unlike the `put` check this fails OPEN on a missing field: `update` runs against every version
-	// Studio manages, back to 4.7, so an absent key can't be assumed to mean a bad response.
-	const skipped = Array.isArray(data?.skipped_hashes) ? data.skipped_hashes.length : 0;
-	const written = Array.isArray(data?.update_hashes) ? data.update_hashes.length : records.length;
+	// An ABSENT field is tolerated, because `update` runs against every version Studio manages back
+	// to 4.7 and an unrecognized legacy response is not evidence of failure. A field that is present
+	// but not an array is a different thing: the response came from something that answers this
+	// operation and its answer is unreadable, so nothing here can claim the write landed.
+	if (isMalformedHashes(data?.update_hashes) || isMalformedHashes(data?.skipped_hashes)) {
+		throw new Error(
+			"Harper's response didn't report which records it wrote, so the change may not have been saved.",
+		);
+	}
+	const skipped = data?.skipped_hashes?.length ?? 0;
+	const written = data?.update_hashes?.length ?? records.length;
 	if (skipped > 0 || written < records.length) {
 		throw new Error(
 			`Harper updated ${written} of ${records.length} records${

@@ -260,8 +260,10 @@ export function EditTableRowModal({
 												? `This record's ${primaryKey} can't be changed or removed`
 												: mismatch.kind === 'unknown'
 												? `This edit names a ${primaryKey} the editor didn't load`
-												: `This edit adds ${
-													mismatch.count === 1 ? 'a record' : `${mismatch.count} records`
+												: `This edit ${mismatch.added ? 'adds' : 'drops'} ${
+													(mismatch.added || mismatch.dropped) === 1
+														? 'a record'
+														: `${mismatch.added || mismatch.dropped} records`
 												} with no ${primaryKey}`,
 											{
 												description: mismatch.kind === 'lost'
@@ -272,7 +274,9 @@ export function EditTableRowModal({
 													? `Saving would edit the record stored under ${
 														mismatch.keys.join(', ')
 													}, which isn't the record open here. Remove it from the JSON and edit that record directly.`
-													: `A record with no ${primaryKey} can't be written from here — the save would skip it and still report success. Remove it, and use Add Record to create a record.`,
+													: mismatch.added
+													? `A record with no ${primaryKey} can't be written from here — the save would skip it and still report success. Remove it, and use Add Record to create a record.`
+													: `Removing a record from the JSON doesn't delete it, so the save would report success having left it alone. Put it back, and use Delete Row to delete a record.`,
 											},
 										);
 										return;
