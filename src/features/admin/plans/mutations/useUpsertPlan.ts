@@ -19,6 +19,8 @@ export interface PlanPayload {
 	priceUsd: number;
 	/** null clears the channel. */
 	channel: string | null;
+	/** Required by the server for a paid, active plan: without it nothing on the plan can be invoiced. */
+	stripePriceId: string | null;
 	/** null = available to every organization. */
 	organizationIds: string[] | null;
 	resourcesPerInstance: Record<string, number>;

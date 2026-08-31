@@ -84,6 +84,52 @@ describe('PlansAdminIndex', () => {
 		expect(termOf('plan-c')).toBe('3 mo');
 	});
 
+	// A paid ACTIVE plan with no Stripe price cannot be invoiced — createInvoiceLineItem adds no line
+	// and only logs — so central-manager refuses it. The form says so before earning the 400.
+	it('will not save a paid active plan with no Stripe price', async () => {
+		const { PlanFormSchema } = await import('./PlanFormSchema');
+		const base = {
+			id: 'plan-x',
+			name: 'Plan X',
+			status: 'ACTIVE' as const,
+			planLevel: 1,
+			deploymentType: 'colocated' as const,
+			deploymentDescription: 'Colocated',
+			performanceDescription: 'Medium',
+			channel: '',
+			organizationIds: [],
+			resourcesPerInstance: { storageGb: 1, memoryMb: 1, cpuCores: 1, threads: 1, readIopsLimit: 1, writeIopsLimit: 1 },
+			planLimits: Object.fromEntries(
+				[
+					'storageBytes',
+					'totalReadCount',
+					'totalReadsBytes',
+					'readsPerMinuteCount',
+					'readsPerMinuteBytes',
+					'totalWriteCount',
+					'totalWritesBytes',
+					'writesPerMinuteCount',
+					'writesPerMinuteBytes',
+					'totalRealTimeMessageDeliveries',
+					'totalRealTimeMessageDeliveryBytes',
+					'realTimeMessageDeliveriesPerMinute',
+					'realTimeMessageDeliveryBytesPerMinute',
+					'tlsHandshakes',
+					'applicationComputeHours',
+					'expirationMonths',
+				].map((k) => [k, 1]),
+			),
+		};
+
+		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, stripePriceId: '' }).success).toBe(false);
+		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, stripePriceId: 'price_1' }).success).toBe(true);
+		// A free plan needs none, and neither does a retired one — nothing bills on either.
+		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 0, stripePriceId: '' }).success).toBe(true);
+		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, status: 'INACTIVE', stripePriceId: '' }).success).toBe(
+			true,
+		);
+	});
+
 	it('filters by id, name and tier', async () => {
 		await mount([plan(), plan({ id: 'self-hosted-2', deploymentDescription: 'Self-Hosted', name: 'Self Hosted' })]);
 		fireEvent.change(screen.getByLabelText('Filter plans'), { target: { value: 'self' } });
