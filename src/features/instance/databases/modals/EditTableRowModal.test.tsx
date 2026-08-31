@@ -410,7 +410,7 @@ describe('EditTableRowModal', () => {
 
 			expect(onSaveChanges).not.toHaveBeenCalled();
 			expect(onReplaceRecord).not.toHaveBeenCalled();
-			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/can't be changed or removed/i);
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/is missing from the save/i);
 		});
 
 		it('refuses a save that changed the primary key to another value', () => {
@@ -423,7 +423,7 @@ describe('EditTableRowModal', () => {
 
 			expect(onSaveChanges).not.toHaveBeenCalled();
 			expect(onReplaceRecord).not.toHaveBeenCalled();
-			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/can't be changed or removed/i);
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/is missing from the save/i);
 		});
 
 		// Checked ahead of the removal routing, so a payload that does both is refused for the key
