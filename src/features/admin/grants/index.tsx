@@ -237,7 +237,7 @@ export function GrantsAdminIndex() {
 								)
 								: (
 									<div className="overflow-x-auto">
-										<Table className="[&_th]:pr-4 [&_td]:pr-4 [&_td]:py-2.5">
+										<Table className="[&_th]:pr-4 [&_td]:pr-4">
 											<TableHeader>
 												<TableRow>
 													<TableHead>Grant</TableHead>
