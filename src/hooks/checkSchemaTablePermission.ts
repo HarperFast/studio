@@ -1,4 +1,8 @@
-import { checkImportDataOperationsAllowed, checkTableActionAllowed } from '@/hooks/checkOperationPermission';
+import {
+	checkAnyOperationAllowed,
+	checkImportDataOperationsAllowed,
+	checkTableActionAllowed,
+} from '@/hooks/checkOperationPermission';
 import { LocalRolePermission, LocalRolePermissionAction } from '@/integrations/api/api.patch';
 import { getDatabasePermissionRecord } from '@/integrations/api/localRolePermission';
 
@@ -15,6 +19,50 @@ export function checkSchemaTablePermission(
 	action: LocalRolePermissionAction,
 ): boolean {
 	return checkTableActionAllowed(permission, action) && checkTableGrant(permission, databaseName, tableName, action);
+}
+
+/**
+ * Whether this role can `put` (create-or-replace) records in this table.
+ *
+ * Deliberately NOT `checkSchemaTablePermission('update') && checkSchemaTablePermission('insert')`:
+ * that ANDs in the `update` and `insert` *operation* allowlists, which Harper does not ask for. Harper
+ * authorizes `put` from the raw table insert/update flags plus a `put` allowlist entry
+ * (`utility/operation_authorization.ts`: `requiredPermissions` for `put` is `[INSERT_PERM,
+ * UPDATE_PERM]` under `OPERATIONS_ENUM.PUT`), so a role with `operations: ['put']` and both table
+ * flags is valid server-side and must not be blocked here.
+ *
+ * An attribute-scoped role is refused outright, matching Harper's `PUT_WITH_ATTRIBUTE_PERMS` denial: a
+ * replace drops every attribute the request omits, which the attribute check cannot police because it
+ * only sees the attributes a request supplies. The table flags can be true while
+ * `attribute_permissions` is non-empty, so without this the editor would offer a save that 403s.
+ *
+ * Only `super_user` short-circuits. `structure_user` short-circuits DDL, not DML, so it still needs
+ * the real grants here.
+ */
+export function checkTablePutPermission(
+	permission: LocalRolePermission | undefined,
+	databaseName: string,
+	tableName: string,
+): boolean {
+	if (!permission) {
+		return false;
+	}
+	if (permission.super_user === true) {
+		return true;
+	}
+	if (!checkAnyOperationAllowed(permission, ['put'])) {
+		return false;
+	}
+	const table = getDatabasePermissionRecord(permission, databaseName, false)?.tables?.[tableName];
+	if (table?.insert !== true || table.update !== true) {
+		return false;
+	}
+	// Both spellings: a v5 role scopes attributes under `attribute_permissions`, a translated v4 role
+	// under `attribute_restrictions`. Either one non-empty means Harper denies the `put`.
+	const attributeScoped = 'attribute_permissions' in table
+		? table.attribute_permissions?.length
+		: table.attribute_restrictions?.length;
+	return !attributeScoped;
 }
 
 /**

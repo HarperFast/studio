@@ -1,6 +1,10 @@
 import { LocalRolePermission } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { checkImportDataPermission, checkSchemaTablePermission } from './checkSchemaTablePermission';
+import {
+	checkImportDataPermission,
+	checkSchemaTablePermission,
+	checkTablePutPermission,
+} from './checkSchemaTablePermission';
 
 // The index-signature/boolean-flag shape of LocalRolePermission is awkward to build as a literal, so
 // cast minimal stand-ins.
@@ -130,5 +134,78 @@ describe('checkImportDataPermission', () => {
 	it('denies when the allowlist reaches no import operation', () => {
 		expect(checkImportDataPermission(perm({ operations: ['read_only'], ...tables }), 'data', 'dog')).toBe(false);
 		expect(checkImportDataPermission(perm({ super_user: true, operations: [] }), 'data', 'dog')).toBe(true);
+	});
+});
+
+describe('checkTablePutPermission', () => {
+	const writable = { read: true, insert: true, update: true, delete: false, attribute_permissions: null };
+
+	it('denies while the permission is still loading', () => {
+		expect(checkTablePutPermission(undefined, 'data', 'dog')).toBe(false);
+	});
+
+	it('allows super_user without any table record', () => {
+		expect(checkTablePutPermission(perm({ super_user: true }), 'data', 'dog')).toBe(true);
+	});
+
+	// `structure_user` short-circuits DDL, not DML, so it still needs the real grants for a write.
+	it('does not let structure_user alone stand in for the grants', () => {
+		expect(checkTablePutPermission(perm({ structure_user: true }), 'data', 'dog')).toBe(false);
+	});
+
+	it('allows a role holding both table flags when no allowlist is set', () => {
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: writable } } }), 'data', 'dog')).toBe(true);
+	});
+
+	// The case the previous gate got wrong in the restrictive direction. Harper authorizes `put` from
+	// the `put` allowlist entry, NOT from `update`/`insert` entries, so this role is valid server-side.
+	it("allows a role whose allowlist names only 'put'", () => {
+		const permission = perm({ operations: ['put'], data: { tables: { dog: writable } } });
+		expect(checkTablePutPermission(permission, 'data', 'dog')).toBe(true);
+	});
+
+	it("denies a role whose allowlist omits 'put', even with update and insert", () => {
+		const permission = perm({ operations: ['update', 'insert'], data: { tables: { dog: writable } } });
+		expect(checkTablePutPermission(permission, 'data', 'dog')).toBe(false);
+	});
+
+	it('denies when either table flag is missing', () => {
+		const insertOnly = { ...writable, update: false };
+		const updateOnly = { ...writable, insert: false };
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: insertOnly } } }), 'data', 'dog')).toBe(false);
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: updateOnly } } }), 'data', 'dog')).toBe(false);
+	});
+
+	// The case the previous gate got wrong in the permissive direction: the flags stay true, but Harper
+	// refuses every `put` for an attribute-scoped role (PUT_WITH_ATTRIBUTE_PERMS), because a replace
+	// drops attributes the request omits and the attribute check only sees what a request supplies.
+	it('denies an attribute-scoped role even though the table flags are set', () => {
+		const scoped = {
+			...writable,
+			attribute_permissions: [{ attribute_name: 'salary', read: true, insert: false, update: false }],
+		};
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: scoped } } }), 'data', 'dog')).toBe(false);
+	});
+
+	// A translated v4 role spells the same scoping `attribute_restrictions`.
+	it('denies a legacy role scoped with attribute_restrictions', () => {
+		const legacy = {
+			read: true,
+			insert: true,
+			update: true,
+			delete: false,
+			attribute_restrictions: [{ attribute_name: 'salary', read: true, insert: false, update: false }],
+		};
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: legacy } } }), 'data', 'dog')).toBe(false);
+	});
+
+	it('allows a role whose attribute scoping list is present but empty', () => {
+		const empty = { ...writable, attribute_permissions: [] };
+		expect(checkTablePutPermission(perm({ data: { tables: { dog: empty } } }), 'data', 'dog')).toBe(true);
+	});
+
+	it('denies when the database or table has no entry', () => {
+		expect(checkTablePutPermission(perm({ data: { tables: {} } }), 'data', 'dog')).toBe(false);
+		expect(checkTablePutPermission(perm({}), 'data', 'dog')).toBe(false);
 	});
 });

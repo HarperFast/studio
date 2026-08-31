@@ -16,8 +16,8 @@ import { useEffectedState } from '@/hooks/useEffectedState';
 import {
 	useInstanceBrowseManagePermission,
 	useInstanceImportDataPermission,
-	useInstanceReplaceRecordsOperationPermission,
 	useInstanceSchemaTablePermission,
+	useInstanceTablePutPermission,
 } from '@/hooks/usePermissions';
 import { useRefreshClick } from '@/hooks/useRefreshClick';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
@@ -111,11 +111,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// Removing an attribute needs the `put` operation, added in Harper 5.3.0. The row editor has to
 	// know before it offers the save, so the version is read here rather than discovered by a failure.
 	const { data: registrationInfo } = useQuery(getRegistrationInfoQueryOptions(instanceParams));
-	// `put` needs both insert and update on the table, not just update (it creates as well as
-	// replaces), and it has to survive the role's operations allowlist as well — the server checks
-	// both, so a gate on the table grants alone would still offer a save that 403s.
-	const canReplaceOperation = useInstanceReplaceRecordsOperationPermission(instanceId ?? clusterId);
-	const hasReplaceGrants = canEditRecords && canAddRecords && canReplaceOperation;
+	// Not `canEditRecords && canAddRecords`: those fold in the `update`/`insert` operation allowlists,
+	// which Harper doesn't require for `put`, and they stay true for an attribute-scoped role that
+	// Harper refuses outright. `put` has its own authorization shape, so it gets its own check.
+	const hasReplaceGrants = useInstanceTablePutPermission(instanceId ?? clusterId, databaseName, tableName);
 	const replaceBlockedReason = replaceRecordsBlockedReason(registrationInfo?.version, hasReplaceGrants);
 	const canReplaceRecords = replaceBlockedReason === undefined;
 	const schemaRelationships = schemaRelationshipMap?.[databaseName]?.[tableName];

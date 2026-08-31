@@ -396,6 +396,61 @@ describe('EditTableRowModal', () => {
 		});
 	});
 
+	// The primary key identifies the record, so editing it isn't an edit to that record: `update`
+	// either skips it silently (reported as success — the #1643 failure again) or, if the new key
+	// exists, patches a record the user never opened.
+	describe('an edit that changes the primary key', () => {
+		it('refuses a save that deleted the primary key', () => {
+			const onSaveChanges = vi.fn();
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onSaveChanges, onReplaceRecord });
+
+			edit('[{"name":"Ada Lovelace","city":"London"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(onReplaceRecord).not.toHaveBeenCalled();
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/can't be changed or removed/i);
+		});
+
+		it('refuses a save that changed the primary key to another value', () => {
+			const onSaveChanges = vi.fn();
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onSaveChanges, onReplaceRecord });
+
+			edit('[{"id":"def-456","name":"Ada Lovelace","city":"London"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).not.toHaveBeenCalled();
+			expect(onReplaceRecord).not.toHaveBeenCalled();
+			expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/can't be changed or removed/i);
+		});
+
+		// Checked ahead of the removal routing, so a payload that does both is refused for the key
+		// rather than replacing a record under a key the user never opened.
+		it('refuses a key change even when the edit also removes an attribute', () => {
+			const onReplaceRecord = vi.fn();
+			renderAddressableModal({ onReplaceRecord });
+
+			edit('[{"id":"def-456","name":"Ada Lovelace"}]');
+			fireEvent.click(saveButton());
+
+			expect(onReplaceRecord).not.toHaveBeenCalled();
+			expect(toast.error).toHaveBeenCalledTimes(1);
+		});
+
+		it('still saves an ordinary edit that leaves the primary key alone', () => {
+			const onSaveChanges = vi.fn();
+			renderAddressableModal({ onSaveChanges });
+
+			edit('[{"id":"abc-123","name":"Ada L","city":"Paris"}]');
+			fireEvent.click(saveButton());
+
+			expect(onSaveChanges).toHaveBeenCalledTimes(1);
+			expect(toast.error).not.toHaveBeenCalled();
+		});
+	});
+
 	// The differ indexes edited records by primary key, which would throw on a null element. It
 	// never sees one: the shared parser rejects a non-object entry first. Pinned because the crash
 	// would be an unhandled TypeError in a click handler, not a toast.
