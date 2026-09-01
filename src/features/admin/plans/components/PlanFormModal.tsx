@@ -5,8 +5,6 @@ import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
-import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import { useUpdatePlanMutation } from '@/features/admin/plans/mutations/useUpsertPlan';
@@ -36,7 +34,6 @@ function toFormValues(plan?: SchemaPlan | null): PlanFormValues {
 	return {
 		status: plan?.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
 		organizationIds: plan?.organizationIds ?? [],
-		stripePriceId: plan?.stripePriceId ?? '',
 	};
 }
 
@@ -93,14 +90,13 @@ export function PlanFormModal(
 	const changed = {
 		status: values.status !== initial.status,
 		organizationIds: !sameIds(values.organizationIds ?? [], initial.organizationIds),
-		stripePriceId: (values.stripePriceId ?? '').trim() !== initial.stripePriceId,
 	};
 
 	const unbillable = refusedAsUnbillable({
-		touchesStatusOrPrice: changed.status || changed.stripePriceId,
+		touchesStatus: changed.status,
 		priceUsd: plan?.priceUsd ?? 0,
 		status: values.status,
-		stripePriceId: (values.stripePriceId ?? '').trim(),
+		stripePriceId: plan?.stripePriceId,
 	});
 
 	const limits = (plan?.planLimits ?? {}) as Record<string, number | undefined>;
@@ -117,7 +113,6 @@ export function PlanFormModal(
 				...(changed.organizationIds
 					? { organizationIds: submitted.organizationIds.length ? submitted.organizationIds : null }
 					: {}),
-				...(changed.stripePriceId ? { stripePriceId: submitted.stripePriceId.trim() || null } : {}),
 			},
 		}, {
 			onSuccess: () => {
@@ -139,7 +134,7 @@ export function PlanFormModal(
 
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
-						<div className="grid grid-cols-2 gap-3">
+						<div className="grid grid-cols-1 gap-3">
 							<FormField
 								control={form.control}
 								name="status"
@@ -160,22 +155,7 @@ export function PlanFormModal(
 										<p className="text-xs text-muted-foreground">
 											Retiring hides the plan from new provisioning. Clusters already on it keep running.
 										</p>
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="stripePriceId"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Stripe price</FormLabel>
-										<FormControl>
-											<Input placeholder="price_…" {...field} />
-										</FormControl>
-										<p className="text-xs text-muted-foreground">
-											Without this, blocks on a paid plan invoice for nothing.
-										</p>
-										{unbillable ? <p className="text-xs text-destructive">{UNBILLABLE_MESSAGE}</p> : <FormMessage />}
+										{unbillable && <p className="text-xs text-destructive">{UNBILLABLE_MESSAGE}</p>}
 									</FormItem>
 								)}
 							/>
@@ -208,6 +188,7 @@ export function PlanFormModal(
 							</p>
 							<dl className="grid gap-x-8 gap-y-1 text-xs md:grid-cols-2">
 								<Fact label="Price (USD per period)" value={show(plan?.priceUsd)} />
+								<Fact label="Stripe price" value={plan?.stripePriceId ?? '—'} />
 								<Fact label="Plan level" value={show(plan?.planLevel)} />
 								<Fact
 									label="Deployment"
@@ -242,7 +223,7 @@ export function PlanFormModal(
 								type="submit"
 								variant="submit"
 								disabled={isPending || !form.formState.isValid || unbillable
-									|| !(changed.status || changed.organizationIds || changed.stripePriceId)}
+									|| !(changed.status || changed.organizationIds)}
 							>
 								Save changes
 							</Button>
