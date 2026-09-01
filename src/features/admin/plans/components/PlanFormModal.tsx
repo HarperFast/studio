@@ -10,7 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import { useUpdatePlanMutation } from '@/features/admin/plans/mutations/useUpsertPlan';
-import { LIMIT_GROUPS, PlanFormSchema, PlanFormValues, RESOURCE_FIELDS } from '@/features/admin/plans/PlanFormSchema';
+import {
+	LIMIT_GROUPS,
+	PlanFormSchema,
+	PlanFormValues,
+	refusedAsUnbillable,
+	RESOURCE_FIELDS,
+	UNBILLABLE_MESSAGE,
+} from '@/features/admin/plans/PlanFormSchema';
 import { plansQueryKey } from '@/features/admin/plans/queries/getPlans';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
 import { SchemaPlan } from '@/integrations/api/api.gen';
@@ -30,7 +37,6 @@ function toFormValues(plan?: SchemaPlan | null): PlanFormValues {
 		status: plan?.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
 		organizationIds: plan?.organizationIds ?? [],
 		stripePriceId: plan?.stripePriceId ?? '',
-		priceUsd: plan?.priceUsd ?? 0,
 	};
 }
 
@@ -77,19 +83,41 @@ export function PlanFormModal(
 		[orgResult],
 	);
 
+	// Only what actually changed is sent. Re-stating an untouched value is not free here: the server
+	// assesses billability whenever a patch carries `status` or `stripePriceId`, so a scoping-only
+	// edit that also restated those two would be refused on an already-unbillable plan — losing the
+	// one mitigation that edit exists to perform.
+	const initial = toFormValues(plan);
+	const values = form.watch();
+	const sameIds = (a: string[], b: string[]) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+	const changed = {
+		status: values.status !== initial.status,
+		organizationIds: !sameIds(values.organizationIds ?? [], initial.organizationIds),
+		stripePriceId: (values.stripePriceId ?? '').trim() !== initial.stripePriceId,
+	};
+
+	const unbillable = refusedAsUnbillable({
+		touchesStatusOrPrice: changed.status || changed.stripePriceId,
+		priceUsd: plan?.priceUsd ?? 0,
+		status: values.status,
+		stripePriceId: (values.stripePriceId ?? '').trim(),
+	});
+
 	const limits = (plan?.planLimits ?? {}) as Record<string, number | undefined>;
 	const resources = (plan?.resourcesPerInstance ?? {}) as Record<string, number | undefined>;
 	const show = (value: number | undefined) => (value == null ? '—' : number.format(value));
 
-	const onSubmit = (values: PlanFormValues) => {
+	const onSubmit = (submitted: PlanFormValues) => {
 		if (!plan) { return; }
 		update({
 			id: plan.id,
 			changes: {
-				status: values.status,
+				...(changed.status ? { status: submitted.status } : {}),
 				// Empty means every organization, which the server stores as null.
-				organizationIds: values.organizationIds.length ? values.organizationIds : null,
-				stripePriceId: values.stripePriceId.trim() || null,
+				...(changed.organizationIds
+					? { organizationIds: submitted.organizationIds.length ? submitted.organizationIds : null }
+					: {}),
+				...(changed.stripePriceId ? { stripePriceId: submitted.stripePriceId.trim() || null } : {}),
 			},
 		}, {
 			onSuccess: () => {
@@ -147,7 +175,7 @@ export function PlanFormModal(
 										<p className="text-xs text-muted-foreground">
 											Without this, blocks on a paid plan invoice for nothing.
 										</p>
-										<FormMessage />
+										{unbillable ? <p className="text-xs text-destructive">{UNBILLABLE_MESSAGE}</p> : <FormMessage />}
 									</FormItem>
 								)}
 							/>
@@ -210,7 +238,12 @@ export function PlanFormModal(
 
 						<DialogFooter className="gap-2">
 							<Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-							<Button type="submit" variant="submit" disabled={isPending || !form.formState.isValid}>
+							<Button
+								type="submit"
+								variant="submit"
+								disabled={isPending || !form.formState.isValid || unbillable
+									|| !(changed.status || changed.organizationIds || changed.stripePriceId)}
+							>
 								Save changes
 							</Button>
 						</DialogFooter>
