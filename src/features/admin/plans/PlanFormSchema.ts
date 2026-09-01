@@ -28,23 +28,35 @@ export const PlanFormSchema = z.object({
 	// Required for a paid, active plan: without it createInvoiceLineItem adds no line, so blocks on
 	// the plan invoice for nothing and only a log line says so.
 	stripePriceId: z.string().trim(),
-	/**
-	 * Carried but never edited. The billable rule below needs it, and reading it from form state
-	 * rather than closing over the record keeps the rule in one place — the same schema the resolver
-	 * and any test both use.
-	 */
-	priceUsd: z.number(),
-}).superRefine((values, ctx) => {
-	if (values.priceUsd > 0 && values.status === 'ACTIVE' && !values.stripePriceId) {
-		ctx.addIssue({
-			code: 'custom',
-			path: ['stripePriceId'],
-			message: 'A paid, active plan needs a Stripe price — nothing on it can be invoiced without one',
-		});
-	}
 });
 
 export type PlanFormValues = z.infer<typeof PlanFormSchema>;
+
+export const UNBILLABLE_MESSAGE =
+	'A paid, active plan needs a Stripe price — nothing on it can be invoiced without one';
+
+/**
+ * Whether central-manager will refuse this patch as unbillable, mirroring PlanAdmin.assertBillable —
+ * both its rule and, importantly, its trigger.
+ *
+ * The trigger is the subtle half: the server only assesses billability when the patch touches
+ * `status` or `stripePriceId`. Assessing every patch would refuse an `organizationIds` edit on a
+ * plan that was ALREADY unbillable, blocking the one mitigation worth having — stop offering it —
+ * over a breakage the edit does not touch. Checking the resulting state unconditionally here would
+ * reintroduce exactly that, one layer up.
+ */
+export function refusedAsUnbillable(
+	{ touchesStatusOrPrice, priceUsd, status, stripePriceId }: {
+		touchesStatusOrPrice: boolean;
+		priceUsd: number;
+		status: string;
+		stripePriceId: string;
+	},
+): boolean {
+	if (!touchesStatusOrPrice) { return false; }
+	if (priceUsd <= 0 || status !== 'ACTIVE') { return false; }
+	return !stripePriceId;
+}
 
 const count = (label: string) => z.number({ error: `Enter a number for ${label}` }).min(0, 'Must be zero or more');
 

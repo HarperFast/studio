@@ -89,18 +89,34 @@ describe('PlansAdminIndex', () => {
 		expect(termOf('plan-c')).toBe('3 mo');
 	});
 
-	// A paid ACTIVE plan with no Stripe price cannot be invoiced — createInvoiceLineItem adds no line
-	// and only logs — so central-manager refuses it. The form says so before earning the 400.
-	it('will not save a paid active plan with no Stripe price', async () => {
-		const { PlanFormSchema } = await import('./PlanFormSchema');
-		const ok = (values: Record<string, unknown>) =>
-			PlanFormSchema.safeParse({ organizationIds: [], ...values }).success;
+	/**
+	 * Mirrors PlanAdmin.assertBillable — rule and trigger both. The trigger is the half that matters:
+	 * central-manager only assesses billability when the patch carries status or stripePriceId, so
+	 * scoping an already-broken plan stays possible. That is the mitigation, not a loophole.
+	 */
+	describe('the unbillable guard', () => {
+		const paidActive = { priceUsd: 85, status: 'ACTIVE', stripePriceId: '' };
 
-		expect(ok({ status: 'ACTIVE', priceUsd: 85, stripePriceId: '' })).toBe(false);
-		expect(ok({ status: 'ACTIVE', priceUsd: 85, stripePriceId: 'price_1' })).toBe(true);
-		// A free plan needs none, and neither does a retired one — nothing bills on either.
-		expect(ok({ status: 'ACTIVE', priceUsd: 0, stripePriceId: '' })).toBe(true);
-		expect(ok({ status: 'INACTIVE', priceUsd: 85, stripePriceId: '' })).toBe(true);
+		it('refuses a change that leaves a paid active plan with no Stripe price', async () => {
+			const { refusedAsUnbillable } = await import('./PlanFormSchema');
+			expect(refusedAsUnbillable({ ...paidActive, touchesStatusOrPrice: true })).toBe(true);
+		});
+
+		it('allows scoping a plan that was already unbillable', async () => {
+			const { refusedAsUnbillable } = await import('./PlanFormSchema');
+			expect(refusedAsUnbillable({ ...paidActive, touchesStatusOrPrice: false })).toBe(false);
+		});
+
+		it('allows retiring one, which is the mitigation', async () => {
+			const { refusedAsUnbillable } = await import('./PlanFormSchema');
+			expect(refusedAsUnbillable({ ...paidActive, status: 'INACTIVE', touchesStatusOrPrice: true })).toBe(false);
+		});
+
+		it('lets a free plan and a priced one with an id through', async () => {
+			const { refusedAsUnbillable } = await import('./PlanFormSchema');
+			expect(refusedAsUnbillable({ ...paidActive, priceUsd: 0, touchesStatusOrPrice: true })).toBe(false);
+			expect(refusedAsUnbillable({ ...paidActive, stripePriceId: 'price_1', touchesStatusOrPrice: true })).toBe(false);
+		});
 	});
 
 	it('offers a way to create a plan', async () => {
