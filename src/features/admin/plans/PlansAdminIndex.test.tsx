@@ -119,6 +119,48 @@ describe('PlansAdminIndex', () => {
 		});
 	});
 
+	/**
+	 * The dead end central-manager creates by design: nothing on the patch allowlist can supply a
+	 * missing Stripe price, so activating a paid plan without one is refused permanently. The form
+	 * says so and holds the button rather than letting the reader earn a 400 with no way forward.
+	 */
+	it('will not activate a paid plan that has no Stripe price, and says where the price is set', async () => {
+		await mount([plan({ id: 'paid-retired', status: 'INACTIVE', priceUsd: 85 })]);
+		// The page defaults to ACTIVE, and a retired plan is exactly what this case is about.
+		fireEvent.keyDown(screen.getByLabelText('Status'), { key: 'ArrowDown' });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('option', { name: 'INACTIVE' }));
+		await act(() => null);
+		fireEvent.click(screen.getByRole('button', { name: /Edit paid-retired/ }));
+		await act(() => null);
+
+		const modal = within(screen.getByRole('dialog'));
+		fireEvent.keyDown(modal.getByLabelText('Status'), { key: 'ArrowDown' });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('option', { name: 'ACTIVE' }));
+		await act(() => null);
+
+		expect(modal.getByText(/nothing on it can be invoiced/)).toBeTruthy();
+		expect(modal.getByText(/the price is set in plan.json/)).toBeTruthy();
+		expect(modal.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(true);
+	});
+
+	// Retiring stays available, which is what keeps the dead end from being a trap.
+	it('still lets that plan be retired', async () => {
+		await mount([plan({ id: 'paid-live', status: 'ACTIVE', priceUsd: 85 })]);
+		fireEvent.click(screen.getByRole('button', { name: /Edit paid-live/ }));
+		await act(() => null);
+
+		const modal = within(screen.getByRole('dialog'));
+		fireEvent.keyDown(modal.getByLabelText('Status'), { key: 'ArrowDown' });
+		await act(() => null);
+		fireEvent.click(screen.getByRole('option', { name: /INACTIVE/ }));
+		await act(() => null);
+
+		expect(modal.queryByText(/nothing on it can be invoiced/)).toBeNull();
+		expect(modal.getByRole('button', { name: 'Save changes' }).hasAttribute('disabled')).toBe(false);
+	});
+
 	it('offers a way to create a plan', async () => {
 		await mount([plan()]);
 		expect(screen.getByRole('button', { name: /Create plan/ })).toBeTruthy();
