@@ -15,6 +15,37 @@ export interface PlanChanges {
 	stripePriceId: string | null;
 }
 
+/**
+ * The full plan a create must supply — PlanAdmin's buildPlanSchema demands every one with
+ * required=true. Wider than PlanChanges on purpose: a definition is set at birth, and afterwards
+ * only the three live-safe fields move.
+ */
+export interface NewPlan extends PlanChanges {
+	id: string;
+	name: string;
+	planLevel: number;
+	deploymentType: string;
+	deploymentDescription: string;
+	performanceDescription: string;
+	priceUsd: number;
+	/** null clears the channel. */
+	channel: string | null;
+	resourcesPerInstance: Record<string, number>;
+	planLimits: Record<string, number>;
+}
+
+const PLANS_COLLECTION = '/Admin/Plan/' as const;
+
+/** POST /Admin/Plan/ → mint a plan. Requires `plan:write`. */
+export async function createPlan(plan: NewPlan): Promise<SchemaPlan> {
+	const { data } = await apiClient.post(PLANS_COLLECTION, plan);
+	return data as unknown as SchemaPlan;
+}
+
+export function useCreatePlanMutation() {
+	return useMutation<SchemaPlan, Error, NewPlan>({ mutationFn: createPlan });
+}
+
 /** Served, but absent from the generated spec like the rest of the by-id Admin routes. */
 const planPath = (id: string) => `/Admin/Plan/${id}` as unknown as keyof paths;
 
