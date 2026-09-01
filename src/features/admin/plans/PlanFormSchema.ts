@@ -1,68 +1,39 @@
 import { z } from 'zod';
 
-const count = (label: string) => z.number({ error: `Enter a number for ${label}` }).min(0, 'Must be zero or more');
-
-/** What a single instance on this plan gets. Every key is required by PlanAdmin's create schema. */
-export const ResourcesSchema = z.object({
-	storageGb: count('storage'),
-	memoryMb: count('memory'),
-	cpuCores: count('CPU cores'),
-	threads: count('threads'),
-	readIopsLimit: count('read IOPS'),
-	writeIopsLimit: count('write IOPS'),
-});
-
-/** The usage block a purchase mints. `expirationMonths` is also the plan's billing period. */
-export const LimitsSchema = z.object({
-	storageBytes: count('storage'),
-	totalReadCount: count('total reads'),
-	totalReadsBytes: count('total read bytes'),
-	readsPerMinuteCount: count('reads per minute'),
-	readsPerMinuteBytes: count('read bytes per minute'),
-	totalWriteCount: count('total writes'),
-	totalWritesBytes: count('total write bytes'),
-	writesPerMinuteCount: count('writes per minute'),
-	writesPerMinuteBytes: count('write bytes per minute'),
-	totalRealTimeMessageDeliveries: count('real-time deliveries'),
-	totalRealTimeMessageDeliveryBytes: count('real-time delivery bytes'),
-	realTimeMessageDeliveriesPerMinute: count('real-time deliveries per minute'),
-	realTimeMessageDeliveryBytesPerMinute: count('real-time delivery bytes per minute'),
-	tlsHandshakes: count('TLS handshakes'),
-	applicationComputeHours: count('compute hours'),
-	expirationMonths: z.number({ error: 'Enter a whole number of months' }).int('Whole months only').min(1, 'At least 1'),
-});
-
 /**
- * Create/edit form for a plan, matching PlanAdmin's `buildPlanSchema` exactly.
+ * The three plan fields an admin may change from here.
  *
- * Deliberately narrower than the Plan record: central-manager validates with `stripUnknown: true`,
- * so anything outside that schema — platformPriceUsd, allowedRegionIds, cloudInstanceTypes,
- * cloudStorageGb, defaultCloudInstanceProvider, gpu, pointerCompression — is silently dropped rather
- * than refused. Offering those fields would promise an edit that never lands; the modal shows them
- * read-only instead.
+ * Everything else — limits, price, resources, the deployment and performance labels — is the plan's
+ * definition, and lives in central-manager's `src/models/plan.json` behind a reviewed diff. Three
+ * properties of the Plan table make that the right home rather than a preference:
+ *
+ * - Edits are retroactive. `clusterUsage` meters each block against its plan's CURRENT `planLimits`,
+ *   and Stripe reads `priceUsd`/`stripePriceId` at invoice time, so changing either re-meters and
+ *   re-prices every live block on the plan at once, with no versioning or grandfathering.
+ * - Nothing records the change. Unlike ClusterGrant, Plan is not an audited table: there is
+ *   `updatedByUserId` and last-write-wins, so no before-value and nothing to roll back to.
+ * - The drift is permanent. `loadDefaultData` is add-only — it backfills missing fields and never
+ *   overwrites an existing value — so a hand edit is never reconciled and plan.json silently stops
+ *   describing the deployment.
+ *
+ * The three below are exempt because none of them is retroactive: retiring hides a plan from new
+ * provisioning while existing clusters keep running, scoping decides who is offered it, and the
+ * Stripe price is the field you need to repair when a plan is invoicing nothing.
  */
 export const PlanFormSchema = z.object({
-	// The plan's primary key — admin-supplied and immutable after create (e.g. "fabric-block-level-1").
-	id: z.string().trim().min(1, 'ID is required').regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers, and hyphens'),
-	name: z.string().trim().min(1, 'Name is required'),
 	// INACTIVE retires a plan: GET /Plan hides it from customers, existing clusters keep running.
 	status: z.enum(['ACTIVE', 'INACTIVE']),
-	planLevel: z.number({ error: 'Enter a whole number' }).int('Must be a whole number').min(0, 'Must be zero or more'),
-	deploymentType: z.enum(['colocated', 'dedicated', 'self-hosted']),
-	// The two labels the cluster form groups by: deployment picks the tier list, performance the plan.
-	deploymentDescription: z.string().trim().min(1, 'Deployment description is required'),
-	performanceDescription: z.string().trim().min(1, 'Performance description is required'),
-	priceUsd: z.number({ error: 'Enter a price' }).min(0, 'Must be zero or more'),
-	// Empty string means no channel — sent as null, which is what the server stores.
-	channel: z.string().trim(),
-	// Required for a paid, active plan: without it createInvoiceLineItem adds no line, so blocks on
-	// the plan invoice for nothing and only a log line says so. Enforced in the refinement below and
-	// again by central-manager, which answers 400.
-	stripePriceId: z.string().trim(),
 	// Empty ⇒ available to every organization.
 	organizationIds: z.array(z.string()),
-	resourcesPerInstance: ResourcesSchema,
-	planLimits: LimitsSchema,
+	// Required for a paid, active plan: without it createInvoiceLineItem adds no line, so blocks on
+	// the plan invoice for nothing and only a log line says so.
+	stripePriceId: z.string().trim(),
+	/**
+	 * Carried but never edited. The billable rule below needs it, and reading it from form state
+	 * rather than closing over the record keeps the rule in one place — the same schema the resolver
+	 * and any test both use.
+	 */
+	priceUsd: z.number(),
 }).superRefine((values, ctx) => {
 	if (values.priceUsd > 0 && values.status === 'ACTIVE' && !values.stripePriceId) {
 		ctx.addIssue({
@@ -75,20 +46,8 @@ export const PlanFormSchema = z.object({
 
 export type PlanFormValues = z.infer<typeof PlanFormSchema>;
 
-type ResourceKey = keyof z.infer<typeof ResourcesSchema>;
-type LimitKey = keyof z.infer<typeof LimitsSchema>;
-
-/** Display metadata for the numeric grids, so 22 near-identical fields aren't written out by hand. */
-export const RESOURCE_FIELDS: Array<{ name: ResourceKey; label: string }> = [
-	{ name: 'cpuCores', label: 'CPU cores' },
-	{ name: 'memoryMb', label: 'Memory (MB)' },
-	{ name: 'storageGb', label: 'Storage (GB)' },
-	{ name: 'threads', label: 'Threads' },
-	{ name: 'readIopsLimit', label: 'Read IOPS' },
-	{ name: 'writeIopsLimit', label: 'Write IOPS' },
-];
-
-export const LIMIT_GROUPS: Array<{ heading: string; fields: Array<{ name: LimitKey; label: string }> }> = [
+/** The limits shown read-only, grouped the way the plan defines them. */
+export const LIMIT_GROUPS: Array<{ heading: string; fields: Array<{ name: string; label: string }> }> = [
 	{
 		heading: 'Term and storage',
 		fields: [
@@ -125,4 +84,13 @@ export const LIMIT_GROUPS: Array<{ heading: string; fields: Array<{ name: LimitK
 			{ name: 'realTimeMessageDeliveryBytesPerMinute', label: 'Delivery bytes / minute' },
 		],
 	},
+];
+
+export const RESOURCE_FIELDS: Array<{ name: string; label: string }> = [
+	{ name: 'cpuCores', label: 'CPU cores' },
+	{ name: 'memoryMb', label: 'Memory (MB)' },
+	{ name: 'storageGb', label: 'Storage (GB)' },
+	{ name: 'threads', label: 'Threads' },
+	{ name: 'readIopsLimit', label: 'Read IOPS' },
+	{ name: 'writeIopsLimit', label: 'Write IOPS' },
 ];
