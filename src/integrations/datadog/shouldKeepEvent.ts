@@ -50,6 +50,13 @@ const FRAME_URL = new RegExp(
 	String.raw`^\s*at\s.* @ ((?:blob:)?(?:https?|${EXTENSION_SCHEME})://\S*)\s*$`,
 );
 
+/**
+ * `ConsoleLogger.error`'s styling prefix (`vs/platform/log/common/log.js`), which the RUM SDK
+ * flattens into the message text. It is what separates something Monaco logged from the same
+ * value reaching `console.error` any other way — React Query's global handler logs it bare.
+ */
+const MONACO_CONSOLE_ERROR_PREFIX = /^%c {2}ERR\b/;
+
 /** A worker or object URL nests the real origin: `blob:https://host/<uuid>`. */
 const NESTED_ORIGIN_PREFIX = /^blob:/;
 
@@ -141,6 +148,33 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// worker OOM of issue #1407), and the stale-deploy trigger now self-recovers via
 	// `installStaleDeployReload` — this repeated per-call echo adds nothing but volume.
 	if (/Missing requestHandler or method: /.test(message)) {
+		return false;
+	}
+
+	// Monaco's Safari-only clipboard workaround (`installWebKitWriteTextWorkaround`) emits a
+	// `Canceled` + `NotAllowedError` pair for every `click` or `keydown` on the editor container,
+	// so an autofill agent driving it with synthetic events produces them far faster than a human
+	// could — two Safari sessions each burst ~90 in about a second, each the majority of that
+	// day's RUM errors. Neither is a Studio bug and the user sees nothing; the autofill just
+	// doesn't land in the editor. #1670 has the mechanism and the Monaco source it comes from.
+	// Both stacks carry first-party frames (Monaco is in our bundle), so the stack attribution
+	// below can't reach them.
+	const errorName = event.error?.type;
+
+	// Monaco's `isCancellationError` (`vs/base/common/errors.js`) is `name === message ===
+	// 'Canceled'`, which VS Code uses to mean "benign, do not report". Holding the message to
+	// that exact sentinel leaves a cancellation that says *what* was cancelled — and React
+	// Query's differently spelled `CancelledError` — reaching Error Tracking.
+	if (errorName === 'Canceled' && message.trim() === 'Canceled') {
+		return false;
+	}
+
+	// A `NotAllowedError` is the browser refusing a permission-gated API, and Monaco reports this
+	// one by logging it. Keying on its logger prefix rather than on the bare name, or on
+	// `source: 'console'`, is what keeps a Studio permission failure visible: React Query's global
+	// handler console-logs every handled rejection (`src/react-query/queryClient.ts`), so both
+	// looser gates would silently swallow the day someone adds passkeys or notifications.
+	if (errorName === 'NotAllowedError' && MONACO_CONSOLE_ERROR_PREFIX.test(message)) {
 		return false;
 	}
 
