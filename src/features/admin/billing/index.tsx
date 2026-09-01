@@ -331,7 +331,7 @@ export function BillingAdminIndex() {
 															</TableRow>
 															{isOpen && usage && (
 																<TableRow>
-																	<TableCell colSpan={9} className="bg-muted/30 p-0">
+																	<TableCell colSpan={9} className="p-0">
 																		<ClusterBillingDetail usage={usage} organizationId={cluster.organizationId} />
 																	</TableCell>
 																</TableRow>
