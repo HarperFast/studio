@@ -44,17 +44,17 @@ export function ClusterBillingDetail({ usage, organizationId }: { usage: FleetUs
 	}
 
 	return (
-		<div className="flex flex-col gap-4 p-4">
+		<div className="flex max-w-4xl flex-col gap-5 border-l-2 border-border py-3 pr-4 pl-6">
 			{usage.regions.map((region) => (
 				<div key={region.region ?? region.regionIds.join()}>
-					<div className="mb-2 flex flex-wrap items-center gap-2">
+					<div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
 						<span className="text-sm font-medium">{region.region ?? region.regionIds.join(', ')}</span>
 						<Badge variant={STATUS_VARIANT[region.status]} className="text-[10px]">{region.status}</Badge>
 						<span className="font-mono text-xs text-muted-foreground">{region.planId ?? '—'}</span>
 						<span className="text-xs text-muted-foreground">renews {fmtIso(region.expiresAt)}</span>
 					</div>
 
-					<div className="grid gap-x-8 gap-y-1 md:grid-cols-2">
+					<div className="grid gap-x-10 gap-y-2.5 md:grid-cols-2">
 						{METERED_ORDER.map((key) => <UsageMeter key={key} {...toMeter(key, region.metrics[key])} />)}
 					</div>
 
