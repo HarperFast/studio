@@ -53,6 +53,67 @@ describe('shouldKeepEvent', () => {
 		).toBe(false);
 	});
 
+	// Regression tests for issue #1670. Fixtures are the verbatim RUM shapes of the burst.
+	describe('Monaco WebKit clipboard workaround', () => {
+		const canceledStack = [
+			'Canceled: Canceled',
+			'  at cancel @ https://fabric.harper.fast/assets/register-Ba2f4Dew.js:11:237322',
+			'  at e @ https://fabric.harper.fast/assets/register-Ba2f4Dew.js:381:78517',
+			'  at dispatchEvent @ [native code]',
+			'  at _fillTextControl @ undefined',
+		].join('\n');
+		const monacoLoggedNotAllowed =
+			'%c  ERR color: #f33 NotAllowedError: The request is not allowed by the user agent or the platform '
+			+ 'in the current context, possibly because the user denied permission.';
+
+		it("discards Monaco's unhandled CancellationError", () => {
+			expect(shouldKeepEvent(errorEvent({ type: 'Canceled', message: 'Canceled', stack: canceledStack }))).toBe(
+				false,
+			);
+			expect(shouldKeepEvent(errorEvent({ type: 'Canceled', message: 'Canceled\r' }))).toBe(false);
+		});
+
+		it('keeps a cancellation that says what was cancelled', () => {
+			expect(shouldKeepEvent(errorEvent({ type: 'Canceled', message: 'Deploy step 3 Canceled' }))).toBe(true);
+			expect(
+				shouldKeepEvent(errorEvent({ type: 'Canceled', message: 'Canceled: the deploy was stopped by the user' })),
+			).toBe(true);
+			expect(shouldKeepEvent(errorEvent({ type: 'Error', message: 'Deployment Canceled' }))).toBe(true);
+			expect(shouldKeepEvent(errorEvent({ type: 'CancelledError', message: 'CancelledError' }))).toBe(true);
+		});
+
+		it("discards Monaco's logged clipboard permission refusal", () => {
+			expect(
+				shouldKeepEvent(errorEvent({ type: 'NotAllowedError', source: 'console', message: monacoLoggedNotAllowed })),
+			).toBe(false);
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						type: 'NotAllowedError',
+						source: 'console',
+						message: '%c  ERR color: #f33 NotAllowedError: Write permission denied.',
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps a permission refusal that Monaco did not log', () => {
+			const refusal =
+				'NotAllowedError: The request is not allowed by the user agent or the platform in the current context.';
+			expect(shouldKeepEvent(errorEvent({ type: 'NotAllowedError', source: 'console', message: refusal }))).toBe(true);
+			expect(shouldKeepEvent(errorEvent({ type: 'NotAllowedError', source: 'source', message: refusal }))).toBe(true);
+			expect(
+				shouldKeepEvent(errorEvent({ type: 'NotAllowedError', message: 'NotAllowedError: ERR_PERMISSION_DENIED' })),
+			).toBe(true);
+		});
+
+		it('keeps an error that only mentions NotAllowedError in its text', () => {
+			expect(
+				shouldKeepEvent(errorEvent({ type: 'TypeError', message: 'Failed to map a NotAllowedError to a toast' })),
+			).toBe(true);
+		});
+	});
+
 	// Regression test for issue #1371: handled AxiosError timeouts reach RUM via
 	// console.error with no resource URL, so they must be discarded on the message alone.
 	it('discards timeout errors even when no resource URL is present', () => {
