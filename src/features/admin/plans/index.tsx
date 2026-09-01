@@ -10,7 +10,7 @@ import { getOrganizationsQueryOptions } from '@/features/admin/regions/queries/g
 import { useStaffPermission } from '@/hooks/useAuth';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { useQuery } from '@tanstack/react-query';
-import { PencilIcon, PlusIcon } from 'lucide-react';
+import { PencilIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 const ANY = 'any';
@@ -39,7 +39,6 @@ export function PlansAdminIndex() {
 	// pointed at by running clusters — so they are one click away rather than hidden.
 	const [status, setStatus] = useState('ACTIVE');
 	const [editing, setEditing] = useState<SchemaPlan | null>(null);
-	const [creating, setCreating] = useState(false);
 	// The page needs plan:read, which every staff role holds; writing is narrower.
 	const canWritePlans = useStaffPermission('plan:write');
 
@@ -68,15 +67,11 @@ export function PlansAdminIndex() {
 					<h1 className="text-2xl font-light">Plans</h1>
 					<p className="mt-2 text-sm text-muted-foreground">
 						The catalogue a cluster's region plans point at — what each tier gets per instance, the usage block it
-						mints, and what it costs. A plan scoped to organizations is only offered to those customers.
+						mints, and what it costs. Plans are defined in central-manager's{' '}
+						<code>plan.json</code>; what can be changed here is whether a plan is offered, to whom, and its Stripe
+						price.
 					</p>
 				</div>
-				{canWritePlans && (
-					<Button variant="submit" onClick={() => setCreating(true)} className="shrink-0">
-						<PlusIcon />
-						Create plan
-					</Button>
-				)}
 			</div>
 
 			<div className="mt-6">
@@ -190,7 +185,6 @@ export function PlansAdminIndex() {
 			</div>
 
 			<PlanFormModal open={!!editing} onOpenChange={(next) => !next && setEditing(null)} plan={editing} />
-			<PlanFormModal open={creating} onOpenChange={setCreating} />
 		</div>
 	);
 }
