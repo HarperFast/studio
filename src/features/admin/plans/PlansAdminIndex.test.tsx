@@ -3,7 +3,7 @@
  */
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { TestProvider } from '@/lib/test/TestProvider';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlansAdminIndex } from './index';
@@ -24,6 +24,11 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 		queryFn: async () => ({ organizations: [{ id: 'org-1', name: 'Acme' }], truncated: false }),
 		retry: false,
 	}),
+}));
+
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	useStaffPermission: () => true,
 }));
 
 afterEach(cleanup);
@@ -98,11 +103,29 @@ describe('PlansAdminIndex', () => {
 		expect(ok({ status: 'INACTIVE', priceUsd: 85, stripePriceId: '' })).toBe(true);
 	});
 
-	// Plan definitions live in central-manager's plan.json behind a reviewed diff: edits here would
-	// be retroactive across live blocks, unaudited, and never reconciled back.
-	it('offers no way to create a plan', async () => {
+	it('offers a way to create a plan', async () => {
 		await mount([plan()]);
-		expect(screen.queryByRole('button', { name: /Create plan/ })).toBeNull();
+		expect(screen.getByRole('button', { name: /Create plan/ })).toBeTruthy();
+	});
+
+	/**
+	 * Creating is not retroactive — a new plan has no blocks — but editing a definition is: limits and
+	 * price are applied to every live block at once, with no audit trail and no reconciliation back to
+	 * plan.json. So the edit modal offers three fields and shows the rest.
+	 */
+	it('lets an existing plan change only what is safe to change live', async () => {
+		await mount([plan()]);
+		fireEvent.click(screen.getByRole('button', { name: /Edit fabric-block-level-1/ }));
+		await act(() => null);
+
+		// Scoped to the dialog: the page's own filters carry some of the same labels.
+		const modal = within(screen.getByRole('dialog'));
+		expect(modal.getByLabelText('Status')).toBeTruthy();
+		expect(modal.getByLabelText('Organizations')).toBeTruthy();
+		expect(modal.getByPlaceholderText('price_…')).toBeTruthy();
+		// The definition is rendered, but as text — no input for the price or the limits.
+		expect(modal.queryByLabelText('Price (USD per period)')).toBeNull();
+		expect(modal.queryByLabelText('Total reads')).toBeNull();
 	});
 
 	it('filters by id, name and tier', async () => {
