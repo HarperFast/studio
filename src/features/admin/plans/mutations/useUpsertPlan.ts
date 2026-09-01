@@ -10,17 +10,23 @@ import { useMutation } from '@tanstack/react-query';
 export interface PlanChanges {
 	status?: 'ACTIVE' | 'INACTIVE';
 	/** null = available to every organization. */
-	organizationIds: string[] | null;
+	organizationIds?: string[] | null;
 	/** null clears it; a paid ACTIVE plan without one is refused by the server. */
-	stripePriceId: string | null;
+	stripePriceId?: string | null;
 }
+
+/**
+ * A create sends the whole definition, so the three live-safe fields are required there even though
+ * a patch omits whatever did not change.
+ */
+type RequiredPlanChanges = { [K in keyof PlanChanges]-?: PlanChanges[K] };
 
 /**
  * The full plan a create must supply — PlanAdmin's buildPlanSchema demands every one with
  * required=true. Wider than PlanChanges on purpose: a definition is set at birth, and afterwards
  * only the three live-safe fields move.
  */
-export interface NewPlan extends PlanChanges {
+export interface NewPlan extends RequiredPlanChanges {
 	id: string;
 	name: string;
 	planLevel: number;
