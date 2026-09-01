@@ -99,23 +99,23 @@ describe('PlansAdminIndex', () => {
 
 		it('refuses a change that leaves a paid active plan with no Stripe price', async () => {
 			const { refusedAsUnbillable } = await import('./PlanFormSchema');
-			expect(refusedAsUnbillable({ ...paidActive, touchesStatusOrPrice: true })).toBe(true);
+			expect(refusedAsUnbillable({ ...paidActive, touchesStatus: true })).toBe(true);
 		});
 
-		it('allows scoping a plan that was already unbillable', async () => {
+		it('allows scoping a plan that was already unbillable — the form never sends the price id', async () => {
 			const { refusedAsUnbillable } = await import('./PlanFormSchema');
-			expect(refusedAsUnbillable({ ...paidActive, touchesStatusOrPrice: false })).toBe(false);
+			expect(refusedAsUnbillable({ ...paidActive, touchesStatus: false })).toBe(false);
 		});
 
 		it('allows retiring one, which is the mitigation', async () => {
 			const { refusedAsUnbillable } = await import('./PlanFormSchema');
-			expect(refusedAsUnbillable({ ...paidActive, status: 'INACTIVE', touchesStatusOrPrice: true })).toBe(false);
+			expect(refusedAsUnbillable({ ...paidActive, status: 'INACTIVE', touchesStatus: true })).toBe(false);
 		});
 
 		it('lets a free plan and a priced one with an id through', async () => {
 			const { refusedAsUnbillable } = await import('./PlanFormSchema');
-			expect(refusedAsUnbillable({ ...paidActive, priceUsd: 0, touchesStatusOrPrice: true })).toBe(false);
-			expect(refusedAsUnbillable({ ...paidActive, stripePriceId: 'price_1', touchesStatusOrPrice: true })).toBe(false);
+			expect(refusedAsUnbillable({ ...paidActive, priceUsd: 0, touchesStatus: true })).toBe(false);
+			expect(refusedAsUnbillable({ ...paidActive, stripePriceId: 'price_1', touchesStatus: true })).toBe(false);
 		});
 	});
 
@@ -129,7 +129,7 @@ describe('PlansAdminIndex', () => {
 	 * price are applied to every live block at once, with no audit trail and no reconciliation back to
 	 * plan.json. So the edit modal offers three fields and shows the rest.
 	 */
-	it('lets an existing plan change only what is safe to change live', async () => {
+	it('lets an existing plan change only its status and who it is offered to', async () => {
 		await mount([plan()]);
 		fireEvent.click(screen.getByRole('button', { name: /Edit fabric-block-level-1/ }));
 		await act(() => null);
@@ -138,8 +138,8 @@ describe('PlansAdminIndex', () => {
 		const modal = within(screen.getByRole('dialog'));
 		expect(modal.getByLabelText('Status')).toBeTruthy();
 		expect(modal.getByLabelText('Organizations')).toBeTruthy();
-		expect(modal.getByPlaceholderText('price_…')).toBeTruthy();
-		// The definition is rendered, but as text — no input for the price or the limits.
+		// The definition is rendered, but as text — no input for the Stripe price, price or limits.
+		expect(modal.queryByPlaceholderText('price_…')).toBeNull();
 		expect(modal.queryByLabelText('Price (USD per period)')).toBeNull();
 		expect(modal.queryByLabelText('Total reads')).toBeNull();
 	});

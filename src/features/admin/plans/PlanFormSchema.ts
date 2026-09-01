@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
 /**
- * The three plan fields an admin may change from here.
+ * The two plan fields an admin may change from here.
  *
- * Everything else — limits, price, resources, the deployment and performance labels — is the plan's
- * definition, and lives in central-manager's `src/models/plan.json` behind a reviewed diff. Three
- * properties of the Plan table make that the right home rather than a preference:
+ * Everything else — limits, price, resources, the Stripe price, the deployment and performance
+ * labels — is the plan's definition, and lives in central-manager's `src/models/plan.json` behind a
+ * reviewed diff. Three properties of the Plan table make that the right home rather than a
+ * preference:
  *
  * - Edits are retroactive. `clusterUsage` meters each block against its plan's CURRENT `planLimits`,
  *   and Stripe reads `priceUsd`/`stripePriceId` at invoice time, so changing either re-meters and
@@ -16,44 +17,47 @@ import { z } from 'zod';
  *   overwrites an existing value — so a hand edit is never reconciled and plan.json silently stops
  *   describing the deployment.
  *
- * The three below are exempt because none of them is retroactive: retiring hides a plan from new
- * provisioning while existing clusters keep running, scoping decides who is offered it, and the
- * Stripe price is the field you need to repair when a plan is invoicing nothing.
+ * The two below are exempt because neither is retroactive: retiring hides a plan from new
+ * provisioning while existing clusters keep running, and scoping decides who is offered it.
+ *
+ * `stripePriceId` is deliberately NOT among them, though central-manager would accept it. It is set
+ * at birth and changed in plan.json like the rest of the definition; a plan already invoicing
+ * nothing is taken out of service here and repaired there.
  */
 export const PlanFormSchema = z.object({
 	// INACTIVE retires a plan: GET /Plan hides it from customers, existing clusters keep running.
 	status: z.enum(['ACTIVE', 'INACTIVE']),
 	// Empty ⇒ available to every organization.
 	organizationIds: z.array(z.string()),
-	// Required for a paid, active plan: without it createInvoiceLineItem adds no line, so blocks on
-	// the plan invoice for nothing and only a log line says so.
-	stripePriceId: z.string().trim(),
 });
 
 export type PlanFormValues = z.infer<typeof PlanFormSchema>;
 
 export const UNBILLABLE_MESSAGE =
-	'A paid, active plan needs a Stripe price — nothing on it can be invoiced without one';
+	'This plan has no Stripe price, so nothing on it can be invoiced. It can be retired here; the price is set in plan.json.';
 
 /**
  * Whether central-manager will refuse this patch as unbillable, mirroring PlanAdmin.assertBillable —
  * both its rule and, importantly, its trigger.
  *
  * The trigger is the subtle half: the server only assesses billability when the patch touches
- * `status` or `stripePriceId`. Assessing every patch would refuse an `organizationIds` edit on a
- * plan that was ALREADY unbillable, blocking the one mitigation worth having — stop offering it —
- * over a breakage the edit does not touch. Checking the resulting state unconditionally here would
- * reintroduce exactly that, one layer up.
+ * `status` or `stripePriceId`. Since this form never sends the latter, the trigger reduces to a
+ * status change — so scoping an already-unbillable plan stays possible, which is the one mitigation
+ * worth having, and retiring one stays possible too because the rule early-returns on any status
+ * other than ACTIVE. Only activating a paid plan that has no price is refused.
+ *
+ * `stripePriceId` is the plan's stored value rather than a form field: it is no longer editable
+ * here, so the resulting state always carries whatever the record already had.
  */
 export function refusedAsUnbillable(
-	{ touchesStatusOrPrice, priceUsd, status, stripePriceId }: {
-		touchesStatusOrPrice: boolean;
+	{ touchesStatus, priceUsd, status, stripePriceId }: {
+		touchesStatus: boolean;
 		priceUsd: number;
 		status: string;
-		stripePriceId: string;
+		stripePriceId: string | null | undefined;
 	},
 ): boolean {
-	if (!touchesStatusOrPrice) { return false; }
+	if (!touchesStatus) { return false; }
 	if (priceUsd <= 0 || status !== 'ACTIVE') { return false; }
 	return !stripePriceId;
 }
