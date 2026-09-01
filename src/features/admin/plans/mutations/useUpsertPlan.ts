@@ -4,49 +4,27 @@ import { SchemaPlan } from '@/integrations/api/api.gen';
 import { useMutation } from '@tanstack/react-query';
 
 /**
- * What PlanAdmin's `buildPlanSchema` accepts. Narrower than the Plan record on purpose — see
- * PlanFormSchema: the server strips unknown keys instead of refusing them, so sending anything else
- * would look like it worked.
+ * The plan fields studio may change live. Deliberately three: the rest is the plan's definition and
+ * is changed in central-manager's plan.json through a reviewed diff — see PlanFormSchema for why.
  */
-export interface PlanPayload {
-	id: string;
-	name: string;
+export interface PlanChanges {
 	status?: 'ACTIVE' | 'INACTIVE';
-	planLevel: number;
-	deploymentType: string;
-	deploymentDescription: string;
-	performanceDescription: string;
-	priceUsd: number;
-	/** null clears the channel. */
-	channel: string | null;
-	/** Required by the server for a paid, active plan: without it nothing on the plan can be invoiced. */
-	stripePriceId: string | null;
 	/** null = available to every organization. */
 	organizationIds: string[] | null;
-	resourcesPerInstance: Record<string, number>;
-	planLimits: Record<string, number>;
-}
-
-/** POST /Admin/Plan/ → create a plan. Requires `plan:write`. */
-export async function createPlan(payload: PlanPayload): Promise<SchemaPlan> {
-	const { data } = await apiClient.post('/Admin/Plan/', payload);
-	return data as unknown as SchemaPlan;
-}
-
-export function useCreatePlanMutation() {
-	return useMutation<SchemaPlan, Error, PlanPayload>({ mutationFn: createPlan });
+	/** null clears it; a paid ACTIVE plan without one is refused by the server. */
+	stripePriceId: string | null;
 }
 
 /** Served, but absent from the generated spec like the rest of the by-id Admin routes. */
 const planPath = (id: string) => `/Admin/Plan/${id}` as unknown as keyof paths;
 
-export type UpdatePlanInput = { id: string; changes: Partial<Omit<PlanPayload, 'id'>> };
+export type UpdatePlanInput = { id: string; changes: PlanChanges };
 
 /**
  * PATCH /Admin/Plan/:id → change a plan. Requires `plan:write`.
  *
  * `id` is never sent: it is the primary key, and the server would take it from the body as a value
- * to write. A nested object may be partial — PlanAdmin merges it over the stored one key by key.
+ * to write.
  */
 export async function updatePlan({ id, changes }: UpdatePlanInput): Promise<SchemaPlan> {
 	const { data } = await apiClient.patch(planPath(id), changes);
