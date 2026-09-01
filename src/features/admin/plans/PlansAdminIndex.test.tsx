@@ -88,46 +88,21 @@ describe('PlansAdminIndex', () => {
 	// and only logs — so central-manager refuses it. The form says so before earning the 400.
 	it('will not save a paid active plan with no Stripe price', async () => {
 		const { PlanFormSchema } = await import('./PlanFormSchema');
-		const base = {
-			id: 'plan-x',
-			name: 'Plan X',
-			status: 'ACTIVE' as const,
-			planLevel: 1,
-			deploymentType: 'colocated' as const,
-			deploymentDescription: 'Colocated',
-			performanceDescription: 'Medium',
-			channel: '',
-			organizationIds: [],
-			resourcesPerInstance: { storageGb: 1, memoryMb: 1, cpuCores: 1, threads: 1, readIopsLimit: 1, writeIopsLimit: 1 },
-			planLimits: Object.fromEntries(
-				[
-					'storageBytes',
-					'totalReadCount',
-					'totalReadsBytes',
-					'readsPerMinuteCount',
-					'readsPerMinuteBytes',
-					'totalWriteCount',
-					'totalWritesBytes',
-					'writesPerMinuteCount',
-					'writesPerMinuteBytes',
-					'totalRealTimeMessageDeliveries',
-					'totalRealTimeMessageDeliveryBytes',
-					'realTimeMessageDeliveriesPerMinute',
-					'realTimeMessageDeliveryBytesPerMinute',
-					'tlsHandshakes',
-					'applicationComputeHours',
-					'expirationMonths',
-				].map((k) => [k, 1]),
-			),
-		};
+		const ok = (values: Record<string, unknown>) =>
+			PlanFormSchema.safeParse({ organizationIds: [], ...values }).success;
 
-		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, stripePriceId: '' }).success).toBe(false);
-		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, stripePriceId: 'price_1' }).success).toBe(true);
+		expect(ok({ status: 'ACTIVE', priceUsd: 85, stripePriceId: '' })).toBe(false);
+		expect(ok({ status: 'ACTIVE', priceUsd: 85, stripePriceId: 'price_1' })).toBe(true);
 		// A free plan needs none, and neither does a retired one — nothing bills on either.
-		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 0, stripePriceId: '' }).success).toBe(true);
-		expect(PlanFormSchema.safeParse({ ...base, priceUsd: 85, status: 'INACTIVE', stripePriceId: '' }).success).toBe(
-			true,
-		);
+		expect(ok({ status: 'ACTIVE', priceUsd: 0, stripePriceId: '' })).toBe(true);
+		expect(ok({ status: 'INACTIVE', priceUsd: 85, stripePriceId: '' })).toBe(true);
+	});
+
+	// Plan definitions live in central-manager's plan.json behind a reviewed diff: edits here would
+	// be retroactive across live blocks, unaudited, and never reconciled back.
+	it('offers no way to create a plan', async () => {
+		await mount([plan()]);
+		expect(screen.queryByRole('button', { name: /Create plan/ })).toBeNull();
 	});
 
 	it('filters by id, name and tier', async () => {

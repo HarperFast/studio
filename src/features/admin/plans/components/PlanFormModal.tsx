@@ -9,7 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
-import { useCreatePlanMutation, useUpdatePlanMutation } from '@/features/admin/plans/mutations/useUpsertPlan';
+import { useUpdatePlanMutation } from '@/features/admin/plans/mutations/useUpsertPlan';
 import { LIMIT_GROUPS, PlanFormSchema, PlanFormValues, RESOURCE_FIELDS } from '@/features/admin/plans/PlanFormSchema';
 import { plansQueryKey } from '@/features/admin/plans/queries/getPlans';
 import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
@@ -17,112 +17,45 @@ import { SchemaPlan } from '@/integrations/api/api.gen';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { FieldPath, useForm, UseFormReturn } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 /** Menu items rendered at once for the org picker; the filter reaches the rest. */
 const ORGANIZATION_OPTIONS_RENDERED = 100;
 
-const ZERO_RESOURCES = { storageGb: 0, memoryMb: 0, cpuCores: 0, threads: 0, readIopsLimit: 0, writeIopsLimit: 0 };
+const number = new Intl.NumberFormat();
 
 function toFormValues(plan?: SchemaPlan | null): PlanFormValues {
-	const limits = (plan?.planLimits ?? {}) as Record<string, number | undefined>;
 	return {
-		id: plan?.id ?? '',
-		name: plan?.name ?? '',
 		status: plan?.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
-		planLevel: plan?.planLevel ?? 1,
-		deploymentType: (plan?.deploymentType as PlanFormValues['deploymentType']) ?? 'colocated',
-		deploymentDescription: plan?.deploymentDescription ?? '',
-		performanceDescription: plan?.performanceDescription ?? '',
-		priceUsd: plan?.priceUsd ?? 0,
-		channel: plan?.channel ?? '',
-		stripePriceId: plan?.stripePriceId ?? '',
 		organizationIds: plan?.organizationIds ?? [],
-		resourcesPerInstance: { ...ZERO_RESOURCES, ...plan?.resourcesPerInstance },
-		planLimits: Object.fromEntries(
-			LIMIT_GROUPS.flatMap((g) => g.fields).map((
-				f,
-			) => [f.name, limits[f.name] ?? (f.name === 'expirationMonths' ? 1 : 0)]),
-		) as PlanFormValues['planLimits'],
+		stripePriceId: plan?.stripePriceId ?? '',
+		priceUsd: plan?.priceUsd ?? 0,
 	};
 }
 
-/**
- * Spinner arrows are dropped: the form is 24 number inputs, and a control whose steppers move a
- * usage limit by 1 at a time is decoration on a field that holds hundreds of millions.
- */
-const NO_SPINNERS =
-	'[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-
-/** A number input bound to a nested numeric field, matching the region form's conversion. */
-function NumberField(
-	{ form, name, label }: { form: UseFormReturn<PlanFormValues>; name: FieldPath<PlanFormValues>; label: string },
-) {
+/** A definition value, shown rather than edited. */
+function Fact({ label, value }: { label: string; value: string }) {
 	return (
-		<FormField
-			control={form.control}
-			name={name}
-			render={({ field }) => (
-				<FormItem>
-					<FormLabel className="pb-1 text-xs font-normal text-muted-foreground">{label}</FormLabel>
-					<FormControl>
-						<Input
-							type="number"
-							min={0}
-							className={NO_SPINNERS}
-							name={field.name}
-							ref={field.ref}
-							onBlur={field.onBlur}
-							value={Number.isFinite(field.value as number) ? (field.value as number) : ''}
-							onChange={(e) => field.onChange(e.target.valueAsNumber)}
-						/>
-					</FormControl>
-					<FormMessage />
-				</FormItem>
-			)}
-		/>
-	);
-}
-
-/** Fields the create/patch schema has no key for — shown so a reader knows they exist, and why not here. */
-function ServerOnlyFacts({ plan }: { plan: SchemaPlan }) {
-	const facts: Array<[string, string]> = [
-		['Platform price', plan.platformPriceUsd != null ? `$${plan.platformPriceUsd}` : '—'],
-		['Allowed regions', plan.allowedRegionIds?.length ? plan.allowedRegionIds.join(', ') : 'any'],
-		['Cloud instance types', Object.values(plan.cloudInstanceTypes ?? {}).filter(Boolean).join(', ') || '—'],
-	];
-	return (
-		<div className="rounded-md border p-3">
-			<p className="mb-2 text-xs text-muted-foreground">
-				Set outside this form — central-manager's plan endpoint has no field for these, and drops them silently rather
-				than refusing them.
-			</p>
-			<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-				{facts.map(([label, value]) => (
-					<div key={label} className="contents">
-						<dt className="text-muted-foreground">{label}</dt>
-						<dd className="truncate font-mono">{value}</dd>
-					</div>
-				))}
-			</dl>
+		<div className="flex items-baseline justify-between gap-3">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd className="truncate tabular-nums">{value}</dd>
 		</div>
 	);
 }
 
 /**
- * Create or edit a plan — the catalogue entry a cluster's region plans point at.
+ * Edit the three plan fields that are safe to change live.
  *
- * Only what PlanAdmin accepts; see PlanFormSchema for what is deliberately absent. `id` is the
- * primary key, so it is set once at create and read-only afterwards.
+ * The rest of the plan is shown but not editable — see PlanFormSchema for why: limits and price are
+ * applied retroactively to every live block, the table keeps no audit history, and the seed never
+ * reconciles a hand edit back to plan.json. Those changes belong in a reviewed diff.
  */
 export function PlanFormModal(
 	{ open, onOpenChange, plan }: { open: boolean; onOpenChange: (open: boolean) => void; plan?: SchemaPlan | null },
 ) {
-	const isEdit = !!plan;
 	const queryClient = useQueryClient();
-	const { mutate: create, isPending: isCreating } = useCreatePlanMutation();
-	const { mutate: update, isPending: isUpdating } = useUpdatePlanMutation();
+	const { mutate: update, isPending } = useUpdatePlanMutation();
 	const { data: orgResult } = useQuery({ ...getOrganizationsQueryOptions(), enabled: open });
 
 	const form = useForm<PlanFormValues>({
@@ -144,103 +77,41 @@ export function PlanFormModal(
 		[orgResult],
 	);
 
-	const onSuccess = () => {
-		toast.success(isEdit ? 'Plan updated' : 'Plan created');
-		void queryClient.invalidateQueries({ queryKey: plansQueryKey });
-		onOpenChange(false);
-	};
-	const onError = (error: Error) =>
-		toast.error(isEdit ? 'Could not update the plan' : 'Could not create the plan', { description: error.message });
+	const limits = (plan?.planLimits ?? {}) as Record<string, number | undefined>;
+	const resources = (plan?.resourcesPerInstance ?? {}) as Record<string, number | undefined>;
+	const show = (value: number | undefined) => (value == null ? '—' : number.format(value));
 
 	const onSubmit = (values: PlanFormValues) => {
-		const payload = {
-			name: values.name.trim(),
-			status: values.status,
-			planLevel: values.planLevel,
-			deploymentType: values.deploymentType,
-			deploymentDescription: values.deploymentDescription.trim(),
-			performanceDescription: values.performanceDescription.trim(),
-			priceUsd: values.priceUsd,
-			// Empty means no channel; the server stores null for that.
-			channel: values.channel.trim() || null,
-			stripePriceId: values.stripePriceId.trim() || null,
-			// Empty means every organization, which the server also stores as null.
-			organizationIds: values.organizationIds.length ? values.organizationIds : null,
-			resourcesPerInstance: values.resourcesPerInstance,
-			planLimits: values.planLimits,
-		};
-
-		if (isEdit) {
-			// id is left out on purpose: it is the primary key, not a value to write.
-			update({ id: plan.id, changes: payload }, { onSuccess, onError });
-		} else {
-			create({ id: values.id.trim(), ...payload }, { onSuccess, onError });
-		}
+		if (!plan) { return; }
+		update({
+			id: plan.id,
+			changes: {
+				status: values.status,
+				// Empty means every organization, which the server stores as null.
+				organizationIds: values.organizationIds.length ? values.organizationIds : null,
+				stripePriceId: values.stripePriceId.trim() || null,
+			},
+		}, {
+			onSuccess: () => {
+				toast.success('Plan updated');
+				void queryClient.invalidateQueries({ queryKey: plansQueryKey });
+				onOpenChange(false);
+			},
+			onError: (error) => toast.error('Could not update the plan', { description: error.message }),
+		});
 	};
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="max-w-2xl">
-				<DialogTitle>{isEdit ? 'Edit plan' : 'Create plan'}</DialogTitle>
+				<DialogTitle>Edit plan</DialogTitle>
 				<DialogDescription>
-					What a customer gets and what it costs. Retiring a plan means setting it inactive — plans are never deleted,
-					because running clusters still point at them.
+					<span className="font-mono">{plan?.id}</span> — {plan?.name}
 				</DialogDescription>
 
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
 						<div className="grid grid-cols-2 gap-3">
-							<FormField
-								control={form.control}
-								name="id"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">ID</FormLabel>
-										<FormControl>
-											<Input placeholder="fabric-block-level-1" disabled={isEdit} {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="name"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Name</FormLabel>
-										<FormControl>
-											<Input placeholder="Fabric Managed Service Block Level 1" {...field} />
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-
-						<div className="grid grid-cols-3 gap-3">
-							<FormField
-								control={form.control}
-								name="deploymentType"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Deployment type</FormLabel>
-										<FormControl>
-											<Select value={field.value} onValueChange={field.onChange}>
-												<SelectTrigger className="w-full" aria-label="Deployment type">
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent>
-													<SelectItem value="colocated">colocated</SelectItem>
-													<SelectItem value="dedicated">dedicated</SelectItem>
-													<SelectItem value="self-hosted">self-hosted</SelectItem>
-												</SelectContent>
-											</Select>
-										</FormControl>
-									</FormItem>
-								)}
-							/>
-							<NumberField form={form} name="planLevel" label="Plan level" />
 							<FormField
 								control={form.control}
 								name="status"
@@ -258,44 +129,12 @@ export function PlanFormModal(
 												</SelectContent>
 											</Select>
 										</FormControl>
+										<p className="text-xs text-muted-foreground">
+											Retiring hides the plan from new provisioning. Clusters already on it keep running.
+										</p>
 									</FormItem>
 								)}
 							/>
-						</div>
-
-						<div className="grid grid-cols-2 gap-3">
-							<FormField
-								control={form.control}
-								name="deploymentDescription"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Deployment description</FormLabel>
-										<FormControl>
-											<Input placeholder="Colocated" {...field} />
-										</FormControl>
-										<p className="text-xs text-muted-foreground">The tier heading the cluster form groups by.</p>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="performanceDescription"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Performance description</FormLabel>
-										<FormControl>
-											<Input placeholder="Medium (10K read/min)" {...field} />
-										</FormControl>
-										<p className="text-xs text-muted-foreground">What the customer picks within that tier.</p>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-
-						<div className="grid grid-cols-3 gap-3">
-							<NumberField form={form} name="priceUsd" label="Price (USD per period)" />
 							<FormField
 								control={form.control}
 								name="stripePriceId"
@@ -305,19 +144,9 @@ export function PlanFormModal(
 										<FormControl>
 											<Input placeholder="price_…" {...field} />
 										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="channel"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Channel</FormLabel>
-										<FormControl>
-											<Input placeholder="Leave empty for none" {...field} />
-										</FormControl>
+										<p className="text-xs text-muted-foreground">
+											Without this, blocks on a paid plan invoice for nothing.
+										</p>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -343,36 +172,46 @@ export function PlanFormModal(
 						/>
 
 						<fieldset className="rounded-md border p-3">
-							<legend className="px-1 text-sm font-medium">Per instance</legend>
-							<div className="grid grid-cols-3 gap-3">
-								{RESOURCE_FIELDS.map((f) => (
-									<NumberField key={f.name} form={form} name={`resourcesPerInstance.${f.name}`} label={f.label} />
-								))}
-							</div>
-						</fieldset>
+							<legend className="px-1 text-sm font-medium">Definition</legend>
+							<p className="mb-3 text-xs text-muted-foreground">
+								Read-only here. Limits and price are applied to every live block on this plan the moment they change,
+								and a hand edit is never reconciled back — so they are changed in central-manager's{' '}
+								<code>src/models/plan.json</code> through a reviewed pull request.
+							</p>
+							<dl className="grid gap-x-8 gap-y-1 text-xs md:grid-cols-2">
+								<Fact label="Price (USD per period)" value={show(plan?.priceUsd)} />
+								<Fact label="Plan level" value={show(plan?.planLevel)} />
+								<Fact
+									label="Deployment"
+									value={`${plan?.deploymentDescription ?? '—'} (${plan?.deploymentType ?? '—'})`}
+								/>
+								<Fact label="Performance" value={plan?.performanceDescription ?? '—'} />
+								<Fact label="Channel" value={plan?.channel ?? '—'} />
+								<Fact
+									label="Platform price"
+									value={plan?.platformPriceUsd != null ? show(plan.platformPriceUsd) : '—'}
+								/>
+							</dl>
 
-						<fieldset className="rounded-md border p-3">
-							<legend className="px-1 text-sm font-medium">Usage block</legend>
-							<div className="flex flex-col gap-3">
-								{LIMIT_GROUPS.map((group) => (
-									<div key={group.heading}>
-										<p className="mb-1 text-xs font-medium text-muted-foreground">{group.heading}</p>
-										<div className="grid grid-cols-4 gap-3">
-											{group.fields.map((f) => (
-												<NumberField key={f.name} form={form} name={`planLimits.${f.name}`} label={f.label} />
-											))}
-										</div>
-									</div>
-								))}
-							</div>
-						</fieldset>
+							<p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">Per instance</p>
+							<dl className="grid gap-x-8 gap-y-1 text-xs md:grid-cols-3">
+								{RESOURCE_FIELDS.map((f) => <Fact key={f.name} label={f.label} value={show(resources[f.name])} />)}
+							</dl>
 
-						{plan && <ServerOnlyFacts plan={plan} />}
+							{LIMIT_GROUPS.map((group) => (
+								<div key={group.heading}>
+									<p className="mt-3 mb-1 text-xs font-medium text-muted-foreground">{group.heading}</p>
+									<dl className="grid gap-x-8 gap-y-1 text-xs md:grid-cols-2">
+										{group.fields.map((f) => <Fact key={f.name} label={f.label} value={show(limits[f.name])} />)}
+									</dl>
+								</div>
+							))}
+						</fieldset>
 
 						<DialogFooter className="gap-2">
 							<Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-							<Button type="submit" variant="submit" disabled={isCreating || isUpdating || !form.formState.isValid}>
-								{isEdit ? 'Save changes' : 'Create plan'}
+							<Button type="submit" variant="submit" disabled={isPending || !form.formState.isValid}>
+								Save changes
 							</Button>
 						</DialogFooter>
 					</form>
