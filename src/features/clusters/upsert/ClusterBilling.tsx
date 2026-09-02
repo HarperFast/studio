@@ -4,7 +4,7 @@ import { SubmitErrorMessage } from '@/features/auth/components/SubmitErrorMessag
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
-import { ENTERPRISE } from '@/integrations/api/orgType';
+import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
 import { pluralize } from '@/lib/pluralize';
 import { isPositive } from '@/lib/types/isPositive';
@@ -36,7 +36,7 @@ export function ClusterBilling({
 	const { data: organization } = useQuery(getOrganizationQueryOptions(organizationId));
 	const billing = organization?.billing;
 	const allowBypass = import.meta.env.DEV && !import.meta.env.VITE_PUBLIC_STRIPE_KEY;
-	const isEnterprise = organization?.type === ENTERPRISE;
+	const isEnterprise = isUnrestrictedOrgType(organization?.type);
 	const hasValidPaymentMethod = allowBypass || isEnterprise
 		|| billing?.paymentMethod?.status === PaymentMethodStatus.PASS;
 	const [replacingPaymentMethod, setReplacingPaymentMethod] = useState(false);
