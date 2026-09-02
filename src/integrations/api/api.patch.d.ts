@@ -258,7 +258,12 @@ export interface Instance extends SchemaHdbInstance {
  */
 export interface ClusterGrant {
 	id: string;
-	source: 'trial' | 'purchased' | 'enterprise' | 'gift' | 'comp' | string;
+	/**
+	 * purchased = self-serve, Stripe-invoiced; contracted = signed contract, billed offline (what an
+	 * unrestricted org derives); trial = clock-bounded; comped = admin-minted for a cluster, scoped to
+	 * plans and regions, never deleted at end; free = a $0 self-hosted plan, never invoiced.
+	 */
+	source: 'trial' | 'purchased' | 'contracted' | 'comped' | 'free' | string;
 	status: 'ACTIVE' | 'EXPIRED' | 'REVOKED' | string;
 	/**
 	 * Server-computed. Use this rather than deriving from `status`: an ACTIVE row past its `endsAt`
@@ -270,7 +275,7 @@ export interface ClusterGrant {
 	endsAt: string | null;
 	cycleAnchor: string | null;
 	/** `conversion-pending` is a bounded conversion window, not the customer's terms. */
-	expiryPolicy: 'consumer-trial' | 'enterprise-grace' | 'conversion-pending' | null;
+	expiryPolicy: 'consumer-trial' | 'contracted-grace' | 'comped' | 'conversion-pending' | null;
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
@@ -285,7 +290,7 @@ export interface ClusterGrant {
 	 * read, never stored, so editing a policy moves these immediately — don't cache them.
 	 *
 	 * Null when the policy has no stage table (`none`) or the grant has no usable `endsAt`. Length
-	 * varies by policy: `enterprise-grace` has five stages, `consumer-trial` four — read the array,
+	 * varies by policy: `contracted-grace` has five stages, `consumer-trial` four, `comped` three — read the array,
 	 * never assume a shape, and never infer the policy from `source`.
 	 */
 	timeline: ExpiryStageDue[] | null;

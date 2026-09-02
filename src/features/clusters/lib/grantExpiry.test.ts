@@ -87,7 +87,7 @@ describe('describeGrantExpiry', () => {
 	});
 
 	it('names the grant source so a comped cluster does not read as a trial', () => {
-		const comp = grant({ source: 'comp', currentStage: 'WARNED', endsAt: daysFromNow(4) });
+		const comp = grant({ source: 'comped', currentStage: 'WARNED', endsAt: daysFromNow(4) });
 		expect(describeGrantExpiry({ grant: comp }, NOW)?.title).toBe('Complimentary plan ends in 4 days');
 	});
 
@@ -104,7 +104,7 @@ describe('describeGrantExpiry', () => {
 	// GRACE only exists on the enterprise policy, so the account has a negotiated agreement. A $20
 	// self-serve CTA is the wrong answer to it, and the copy says to contact us instead.
 	it('offers no self-serve upgrade during an enterprise grace period', () => {
-		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
+		const inGrace = grant({ isActive: false, expiryPolicy: 'contracted-grace', currentStage: 'GRACE' });
 		const result = describeGrantExpiry({ grant: inGrace, status: 'RUNNING' }, NOW);
 		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
 		expect(result?.detail).toContain('Contact us');
@@ -124,7 +124,7 @@ describe('describeGrantExpiry', () => {
 		const inGrace = grant({
 			isActive: false,
 			status: 'EXPIRED',
-			expiryPolicy: 'enterprise-grace',
+			expiryPolicy: 'contracted-grace',
 			currentStage: 'GRACE',
 			endsAt: daysFromNow(0),
 		});
@@ -172,11 +172,11 @@ describe('describeGrantExpiry', () => {
 		expect(detail).toContain('data');
 	});
 
-	// Five stages, not four — most trial grants are on enterprise-grace, so nothing may assume shape.
+	// Five stages, not four — most trial grants are on contracted-grace, so nothing may assume shape.
 	it('finds the deletion stage wherever it sits in the policy', () => {
 		const enterprise = grant({
 			isActive: false,
-			expiryPolicy: 'enterprise-grace',
+			expiryPolicy: 'contracted-grace',
 			currentStage: 'SHUTDOWN',
 			timeline: [
 				{ stage: 'WARNED', dueAt: daysFromNow(-21), applied: true },
@@ -231,7 +231,7 @@ describe('describeGrantExpiry', () => {
 	// It must READ the status without leaving the grace arm: falling through to the withdrawn copy
 	// told an enterprise account mid-renewal to buy a $20 self-serve plan.
 	it('reads the status during grace without handing an enterprise account a self-serve upsell', () => {
-		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
+		const inGrace = grant({ isActive: false, expiryPolicy: 'contracted-grace', currentStage: 'GRACE' });
 		const result = describeGrantExpiry({ grant: inGrace, status: 'STOPPED' }, NOW);
 		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
 		expect(result?.detail).toContain('stopped while we sort out renewal');
@@ -240,10 +240,10 @@ describe('describeGrantExpiry', () => {
 
 	// S5: reachable via a revoked forever-grant (endsAt null) and via a future startsAt.
 	it('does not claim a past ending when the date is absent or still ahead', () => {
-		const forever = grant({ source: 'comp', isActive: false, status: 'REVOKED', endsAt: null });
+		const forever = grant({ source: 'comped', isActive: false, status: 'REVOKED', endsAt: null });
 		expect(describeGrantExpiry({ grant: forever, status: 'STOPPED' }, NOW)?.title).toBe('Complimentary plan has ended');
 
-		const future = grant({ source: 'comp', isActive: false, endsAt: daysFromNow(30) });
+		const future = grant({ source: 'comped', isActive: false, endsAt: daysFromNow(30) });
 		expect(describeGrantExpiry({ grant: future, status: 'STOPPED' }, NOW)?.title).toBe('Complimentary plan has ended');
 	});
 
