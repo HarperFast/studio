@@ -52,7 +52,7 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 		queryKey: ['test-policies'],
 		queryFn: async () => ({
 			editableAtRuntime: false,
-			policies: { 'consumer-trial': [], 'enterprise-grace': [] },
+			policies: { 'consumer-trial': [], 'contracted-grace': [] },
 		}),
 		retry: false,
 	}),
@@ -70,7 +70,7 @@ function grant(overrides: Partial<AdminClusterGrant> = {}): AdminClusterGrant {
 		id: 'cgr-a',
 		organizationId: 'org-1',
 		clusterId: 'clu-a',
-		source: 'comp',
+		source: 'comped',
 		status: 'ACTIVE',
 		startsAt: new Date(Date.now() - 10 * DAY_MS).toISOString(),
 		endsAt: new Date(Date.now() + 20 * DAY_MS).toISOString(),

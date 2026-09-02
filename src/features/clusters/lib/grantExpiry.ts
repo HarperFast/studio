@@ -116,17 +116,19 @@ function whenPhrase(days: number | null): string {
 	return `${Math.abs(days)} days ago`;
 }
 
+// Customer-facing wording, keyed by the server's source strings. `contracted` keeps the "Enterprise
+// agreement" phrasing a contract customer recognises; the backend name changed, the relationship did not.
 const SOURCE_LABEL: Record<string, string> = {
 	trial: 'Trial',
-	comp: 'Complimentary plan',
-	gift: 'Complimentary plan',
-	enterprise: 'Enterprise agreement',
+	comped: 'Complimentary plan',
+	contracted: 'Enterprise agreement',
+	free: 'Free plan',
 	purchased: 'Plan',
 };
 
 /**
  * When this cluster is due to be deleted, or null if nothing will delete it. Read off the server's
- * schedule rather than guessed from the policy name: stage lists differ per policy (enterprise-grace
+ * schedule rather than guessed from the policy name: stage lists differ per policy (contracted-grace
  * has five, consumer-trial four) and the day offsets live server-side where they can be edited.
  */
 function deletionDueAt(grant: ClusterGrant, now: number): Date | null {
