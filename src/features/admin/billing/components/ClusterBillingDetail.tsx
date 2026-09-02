@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { getClusterInvoicesQueryOptions } from '@/features/admin/billing/queries/getClusterInvoices';
 import { FleetUsageCluster } from '@/features/admin/billing/queries/getFleetUsage';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
+import { ClusterUsageRegion } from '@/integrations/api/cluster/getClusterUsage';
 import { useQuery } from '@tanstack/react-query';
 
 const money = (amount: number, currency: string) =>
@@ -17,6 +18,42 @@ const fmtIso = (iso: string | null) => {
 };
 
 const STATUS_VARIANT = { active: 'success', exhausted: 'destructive', lapsed: 'secondary' } as const;
+
+const blocks = (n: number) => `${n} ${n === 1 ? 'block' : 'blocks'}`;
+
+/**
+ * Why this region's invoice list looks the way it does, from the per-block record rather than the
+ * cluster's current grant. A cluster's grant source says what covers it NOW; a block's stamp says
+ * what covered it THEN, and only the latter can tell "never billable" from "not yet billed". A
+ * cluster that converted mid-history legitimately has both, so both are shown rather than one picked.
+ */
+function InvoiceState({ region }: { region: ClusterUsageRegion }) {
+	const invoiced = region.stripeInvoiceIds?.length ?? 0;
+	const nonBillable = region.nonBillableBlockCount ?? 0;
+	const pending = region.uninvoicedBlockCount ?? 0;
+	// Invoiced blocks are listed below by id; nothing to say here unless something is NOT invoiced.
+	if (nonBillable === 0 && pending === 0) { return null; }
+	return (
+		<ul className="mt-3 flex flex-col gap-0.5 text-xs">
+			{nonBillable > 0 && (
+				<li className="text-muted-foreground">
+					{blocks(nonBillable)}{' '}
+					billed offline or complimentary — covered by a non-Stripe grant at the time, never invoiced.
+				</li>
+			)}
+			{pending > 0 && (
+				<li className="text-amber-600 dark:text-amber-400">
+					{blocks(pending)} awaiting invoice — billable, and invoicing has not run for {pending === 1 ? 'it' : 'them'}
+					{' '}
+					yet.
+				</li>
+			)}
+			{invoiced === 0 && nonBillable > 0 && pending > 0 && (
+				<li className="text-muted-foreground">Mixed history: this cluster converted to paid part-way through.</li>
+			)}
+		</ul>
+	);
+}
 
 /**
  * What one cluster consumed and what it was charged.
@@ -57,6 +94,8 @@ export function ClusterBillingDetail({ usage, organizationId }: { usage: FleetUs
 					<div className="grid gap-x-10 gap-y-2.5 md:grid-cols-2">
 						{METERED_ORDER.map((key) => <UsageMeter key={key} {...toMeter(key, region.metrics[key])} />)}
 					</div>
+
+					<InvoiceState region={region} />
 
 					{(region.stripeInvoiceIds?.length ?? 0) > 0 && (
 						<div className="mt-3 border-t pt-2">
