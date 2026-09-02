@@ -6,7 +6,7 @@ import {
 	SchemaRole,
 	SchemaUser,
 } from './api.gen';
-import { ENTERPRISE, SELF_SERVICE } from './orgType';
+import { ENTERPRISE, SELF_SERVICE, UNRESTRICTED } from './orgType';
 
 /*
  * Over time, it should be our goal to empty out this file. The types here should be described by our OpenAPI docs
@@ -157,7 +157,7 @@ export interface SystemStatusNotification {
 }
 
 export interface Organization extends SchemaOrganization {
-	type: ENTERPRISE | SELF_SERVICE | string | undefined;
+	type: UNRESTRICTED | ENTERPRISE | SELF_SERVICE | string | undefined;
 	settings?: {
 		oauthConfigs?: OAuthConfig[];
 	};

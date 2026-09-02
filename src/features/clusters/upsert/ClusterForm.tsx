@@ -11,7 +11,7 @@ import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingSte
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
 import { Organization } from '@/integrations/api/api.patch';
-import { ENTERPRISE } from '@/integrations/api/orgType';
+import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { pluralize } from '@/lib/pluralize';
@@ -77,7 +77,7 @@ export function ClusterForm({
 }: ClusterFormProps) {
 	const navigate = useNavigate();
 	const router = useRouter();
-	const isEnterprise = organization?.type === ENTERPRISE;
+	const isEnterprise = isUnrestrictedOrgType(organization?.type);
 	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
 
 	const queryClient = useQueryClient();
