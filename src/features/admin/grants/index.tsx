@@ -91,7 +91,7 @@ const ANY = 'any';
 
 // The API's own enum values, not derived from fetched rows: with server-side narrowing the fetched
 // rows only contain the value already picked, which would leave nothing to switch to.
-const SOURCES: ClusterGrant['source'][] = ['trial', 'purchased', 'enterprise', 'gift', 'comp'];
+const SOURCES: ClusterGrant['source'][] = ['trial', 'purchased', 'contracted', 'comped', 'free'];
 const STATUSES: ClusterGrant['status'][] = ['ACTIVE', 'EXPIRED', 'REVOKED'];
 
 export function GrantsAdminIndex() {
