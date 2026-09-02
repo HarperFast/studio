@@ -3,12 +3,13 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
+import { compedRegionsRequired } from '@/features/admin/grants/GrantFormSchema';
 import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
 import { getRegionsQueryOptions } from '@/features/admin/regions/queries/getRegions';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 /** The two scope arrays, which both the create and the edit form carry under these names. */
@@ -58,7 +59,7 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 	/** The grant being edited, when there is one — a create has no scope history to widen from. */
 	existing?: AdminClusterGrant | null;
 }) {
-	const { control, watch } = useFormContext<ScopeFieldValues>();
+	const { control, watch, setValue, trigger } = useFormContext<ScopeFieldValues>();
 	const plansQuery = useQuery({ ...getPlansQueryOptions(), enabled });
 	const regionsQuery = useQuery({ ...getRegionsQueryOptions(), enabled });
 
@@ -85,6 +86,21 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 					region.active === false,
 				),
 			})), [regionsQuery.data]);
+
+	// Regions bound a comp only where there is something to bound: a self-hosted plan has no region,
+	// so once every picked plan is self-hosted the region picker is waived — and cleared, because a
+	// region scope left on an all-self-hosted comp would refuse the self-hosted bind it exists for.
+	const pickedPlans = watch('allowedPlanIds') ?? [];
+	const pickedRegions = watch('allowedRegionIds') ?? [];
+	const regionsRequired = required && compedRegionsRequired(pickedPlans);
+	const regionsWaived = required && pickedPlans.length > 0 && !regionsRequired;
+	useEffect(() => {
+		if (regionsWaived && pickedRegions.length > 0) { setValue('allowedRegionIds', [], { shouldValidate: true }); }
+	}, [regionsWaived, pickedRegions.length, setValue]);
+	// The region rule depends on the plans, so a plan change has to re-run it.
+	useEffect(() => {
+		if (required) { void trigger('allowedRegionIds'); }
+	}, [required, pickedPlans, trigger]);
 
 	// Unbound vouchers stay freely narrowable: nothing is running on them yet.
 	const boundTo = existing?.clusterId ?? null;
@@ -118,15 +134,26 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 				name="allowedRegionIds"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Regions{required && ' (required)'}</FormLabel>
+						<FormLabel>Regions{regionsRequired && ' (required)'}</FormLabel>
 						<MultiSelect
 							ariaLabel="Regions"
 							options={regionOptions}
 							selected={field.value}
 							onChange={field.onChange}
-							placeholder={required ? 'Choose the regions this grant covers' : 'Any region'}
+							disabled={regionsWaived}
+							placeholder={regionsWaived
+								? 'Not needed — every allowed plan is self-hosted'
+								: regionsRequired
+								? 'Choose the regions this grant covers'
+								: 'Any region'}
 							emptyText={emptyText(regionsQuery, 'regions', 'region:read')}
 						/>
+						{regionsWaived && (
+							<p className="text-xs text-muted-foreground">
+								A self-hosted plan has no region, so there is nothing here to bound. Add a Harper-hosted plan and
+								regions become required again.
+							</p>
+						)}
 						{regionNarrows && <NarrowingNote field="regions" clusterId={boundTo!} />}
 						<FormMessage />
 					</FormItem>

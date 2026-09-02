@@ -28,6 +28,27 @@ export const GrantFormSchema = z
 
 export type GrantFormValues = z.infer<typeof GrantFormSchema>;
 
+/**
+ * The plans central-manager treats as self-hosted for grant scoping — mirrored from
+ * `SELF_HOSTED_PLAN_IDS` in its environment.js, deliberately as the same constant rather than
+ * derived from `deploymentType`: the constant is what the server checks, and a plan created through
+ * the admin form with a self-hosted deployment type but an id outside this list would be judged
+ * Harper-hosted there. Matching the server's rule beats matching the server's intent.
+ */
+export const SELF_HOSTED_PLAN_IDS = ['self-hosted-0', 'self-hosted-2', 'self-hosted-3', 'self-hosted-4'];
+
+/**
+ * Whether a comped grant scoped to these plans must also name regions. Regions multiply
+ * Harper-hosted cost, so they bound a comp — but a self-hosted plan has no region at all (its
+ * regionPlans carry no regionId, and a region-scoped grant can never cover one), so requiring them
+ * there made every self-hosted cluster un-compable. Required exactly when some allowed plan is
+ * Harper-hosted — and while no plan has been picked yet, since nothing has said otherwise and the
+ * form should not read as "regions optional" before a single plan is chosen.
+ */
+export function compedRegionsRequired(planIds: string[]): boolean {
+	return planIds.length === 0 || planIds.some((id) => !SELF_HOSTED_PLAN_IDS.includes(id));
+}
+
 /** `none` is a real policy value meaning "no expiry timeline", distinct from an unset field. */
 export const NO_EXPIRY_POLICY = 'none';
 
@@ -94,7 +115,7 @@ export const CreateGrantSchema = z
 					message: 'A comped grant must name the plans it covers',
 				});
 			}
-			if (values.allowedRegionIds.length === 0) {
+			if (values.allowedRegionIds.length === 0 && compedRegionsRequired(values.allowedPlanIds)) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['allowedRegionIds'],
