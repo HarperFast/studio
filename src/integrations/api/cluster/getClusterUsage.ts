@@ -82,6 +82,15 @@ export interface ClusterUsageRegion {
 	 * /Invoice/{organizationId}. Empty wherever invoicing has never run.
 	 */
 	stripeInvoiceIds?: string[];
+	/**
+	 * Blocks stamped `nonBillableReason` — covered by a non-Stripe grant at the time, and never to be
+	 * invoiced. Per block and historical, so a cluster that converted to paid still reports its
+	 * comped past here rather than as pending. Read THIS, never the cluster's current grant source,
+	 * to say whether an empty invoice list is "never billable" or "not yet".
+	 */
+	nonBillableBlockCount?: number;
+	/** Blocks with no invoice id and no stamp: billable, invoicing simply has not run yet. */
+	uninvoicedBlockCount?: number;
 	rateLimits: UsageRateLimits | null;
 	resourcesPerInstance: UsageResourcesPerInstance | null;
 }
