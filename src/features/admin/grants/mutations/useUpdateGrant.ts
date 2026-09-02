@@ -49,7 +49,7 @@ export function useUpdateGrantMutation() {
 export interface CreateGrantBody {
 	clusterId?: string;
 	organizationId?: string;
-	source: 'trial' | 'gift' | 'comp';
+	source: 'trial' | 'comped';
 	startsAt?: string;
 	/** Omitted or null = forever, which only gift and comp may be. */
 	endsAt?: string | null;

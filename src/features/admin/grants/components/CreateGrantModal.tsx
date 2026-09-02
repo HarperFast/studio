@@ -33,7 +33,7 @@ const DEFAULTS: CreateGrantValues = {
 	bindTo: 'organization',
 	clusterId: '',
 	organizationId: '',
-	source: 'comp',
+	source: 'comped',
 	startsAt: '',
 	endsAt: '',
 	expiryPolicy: NO_EXPIRY_POLICY,
@@ -43,8 +43,8 @@ const DEFAULTS: CreateGrantValues = {
 };
 
 /**
- * Mint a grant. Only the three sources an admin may create — central-manager reserves `purchased`
- * and `enterprise` for the flows that take the money, so offering them here would promise something
+ * Mint a grant. Only the two sources an admin may create — central-manager derives `purchased`,
+ * `contracted` and `free` from the flows that own them, so offering them here would promise something
  * the server refuses.
  *
  * A grant binds to a cluster now, or to an organization as an unbound voucher that a later cluster
@@ -85,6 +85,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	const bindTo = form.watch('bindTo');
 	const source = form.watch('source');
 	const isTrial = source === 'trial';
+	const isComped = source === 'comped';
+	const endsAt = form.watch('endsAt');
 
 	// react-hook-form computes isValid from the whole schema but only surfaces errors for fields the
 	// user has touched — and a Radix Select never marks one touched, since that happens on blur and
@@ -97,7 +99,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	useEffect(() => {
 		if (previousSource.current !== source) {
 			previousSource.current = source;
-			void form.trigger(['endsAt', 'expiryPolicy']);
+			void form.trigger(['endsAt', 'expiryPolicy', 'allowedPlanIds', 'allowedRegionIds']);
 		}
 	}, [source, form]);
 
@@ -109,7 +111,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 				: { organizationId: values.organizationId }),
 			source: values.source,
 			...(values.startsAt ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
-			// Omitted means forever, which only gift and comp may be.
+			// Omitted means forever, which only a comped grant may be.
 			endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
 			expiryPolicy: values.expiryPolicy,
 			// An empty list is refused by the server; null — omitted here — is "any".
@@ -135,7 +137,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			<DialogContent className="max-w-lg">
 				<DialogTitle>Create grant</DialogTitle>
 				<DialogDescription>
-					Authorize a cluster to run on terms other than a purchase — a trial, a gift, or a comp.
+					Authorize a cluster to run on terms other than a purchase — a trial, or a comp scoped to the plans and regions
+					it covers.
 				</DialogDescription>
 
 				<Form {...form}>
@@ -219,14 +222,13 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 												<SelectValue />
 											</SelectTrigger>
 											<SelectContent>
-												<SelectItem value="comp">comp</SelectItem>
-												<SelectItem value="gift">gift</SelectItem>
+												<SelectItem value="comped">comped</SelectItem>
 												<SelectItem value="trial">trial</SelectItem>
 											</SelectContent>
 										</Select>
 									</FormControl>
 									<p className="text-xs text-muted-foreground">
-										Purchased and enterprise grants are created by the flows that bill for them.
+										Purchased, contracted and free grants are derived by the flows that own them.
 									</p>
 								</FormItem>
 							)}
@@ -278,7 +280,12 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 											</SelectTrigger>
 											<SelectContent>
 												{policies.map((policy) => (
-													<SelectItem key={policy} value={policy} disabled={isTrial && policy === NO_EXPIRY_POLICY}>
+													<SelectItem
+														key={policy}
+														value={policy}
+														// A trial always stages; a comped grant stages once it has an end date.
+														disabled={(isTrial || (isComped && !!endsAt)) && policy === NO_EXPIRY_POLICY}
+													>
 														{policy}
 													</SelectItem>
 												))}
@@ -290,7 +297,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 							)}
 						/>
 
-						<GrantScopeFields enabled={open} />
+						<GrantScopeFields enabled={open} required={isComped} />
 
 						<FormField
 							control={form.control}

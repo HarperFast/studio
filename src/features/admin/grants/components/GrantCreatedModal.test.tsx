@@ -15,7 +15,7 @@ const GRANT = {
 	id: 'grt-abc123',
 	organizationId: 'org-1',
 	clusterId: null,
-	source: 'comp',
+	source: 'comped',
 	status: 'ACTIVE',
 	startsAt: '2026-01-01T00:00:00.000Z',
 	endsAt: null,
