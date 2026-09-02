@@ -45,8 +45,8 @@ export const INTERNAL_EXPIRY_POLICIES = ['conversion-pending'];
  * What `POST /Admin/ClusterGrant` accepts. Wider than the patch schema: a grant's source and what
  * it binds to are decided at birth and never again.
  *
- * `purchased` and `enterprise` are absent on purpose — central-manager only lets an admin mint
- * trial, gift or comp. Revenue grants are created by the flows that take the money.
+ * `purchased`, `contracted` and `free` are absent on purpose — central-manager only lets an admin
+ * mint trial or comped. The others are derived by the flows that own them.
  */
 export const CreateGrantSchema = z
 	.object({
@@ -54,7 +54,7 @@ export const CreateGrantSchema = z
 		bindTo: z.enum(['cluster', 'organization']),
 		clusterId: z.string(),
 		organizationId: z.string(),
-		source: z.enum(['trial', 'gift', 'comp']),
+		source: z.enum(['trial', 'comped']),
 		startsAt: z.string(),
 		endsAt: z.string(),
 		expiryPolicy: z.string(),
@@ -80,6 +80,33 @@ export const CreateGrantSchema = z
 			}
 			if (values.expiryPolicy === NO_EXPIRY_POLICY) {
 				ctx.addIssue({ code: 'custom', path: ['expiryPolicy'], message: 'A trial needs an expiry policy' });
+			}
+		}
+
+		// A comped grant has no external bound — no clock, no card — so its scope IS the bound: the
+		// server requires at least one plan and one region. And once it has an end date it must stage,
+		// or the runner would never act on it.
+		if (values.source === 'comped') {
+			if (values.allowedPlanIds.length === 0) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['allowedPlanIds'],
+					message: 'A comped grant must name the plans it covers',
+				});
+			}
+			if (values.allowedRegionIds.length === 0) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['allowedRegionIds'],
+					message: 'A comped grant must name the regions it covers',
+				});
+			}
+			if (values.endsAt && values.expiryPolicy === NO_EXPIRY_POLICY) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['expiryPolicy'],
+					message: 'A comped grant with an end date needs an expiry policy',
+				});
 			}
 		}
 
