@@ -57,6 +57,13 @@ const FRAME_URL = new RegExp(
  */
 const MONACO_CONSOLE_ERROR_PREFIX = /^%c {2}ERR\b/;
 
+/**
+ * Axios spells a timeout both ways (`lib/adapters/xhr.js`), and production sends both. Only the
+ * numeric one is a signature; `timeout exceeded` alone is a two-word English phrase.
+ */
+const NUMERIC_TIMEOUT_MESSAGE = /timeout of \d+ms exceeded/i;
+const BARE_TIMEOUT_MESSAGE = /\btimeout exceeded\b/i;
+
 /** A worker or object URL nests the real origin: `blob:https://host/<uuid>`. */
 const NESTED_ORIGIN_PREFIX = /^blob:/;
 
@@ -193,12 +200,17 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 		return false;
 	}
 
-	// A request timeout is a connectivity-class failure, never a Studio bug: the
-	// instance, cluster, or backend was too slow to answer in time. Unlike the
-	// network failures below we drop these unconditionally, because the handled
-	// AxiosErrors that flood Error Tracking carry no resource URL to attribute them
-	// to an endpoint. Backend latency is tracked server-side, not from the browser.
-	if (/timeout of \d+ms exceeded/i.test(message)) {
+	// A request timeout is a connectivity-class failure, never a Studio bug: the instance,
+	// cluster, or backend was too slow to answer, and backend latency is tracked server-side.
+	// The handled AxiosErrors that flood Error Tracking (#1371) carry no resource URL, so the
+	// endpoint gate below cannot reach them. The bare spelling needs the name because on its
+	// own it would also discard a Harper-relayed `Operation timeout exceeded`; the numeric one
+	// stays name-free, so a timeout Studio re-wraps into a plain `Error` (`secrets.ts`) is
+	// dropped exactly as before.
+	if (
+		NUMERIC_TIMEOUT_MESSAGE.test(message)
+		|| (errorName === 'AxiosError' && BARE_TIMEOUT_MESSAGE.test(message))
+	) {
 		return false;
 	}
 
@@ -234,12 +246,14 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	const url = typeof event.error?.resource?.url === 'string' ? event.error.resource.url : '';
 	const isInstanceEndpoint = /\/(HDBInstance|Cluster)\/[^/]+\/operation/.test(url);
 
-	// A 5xx from an instance/cluster operation endpoint is the instance itself failing
-	// to answer (broken, unsupported, or mid-restart) — a server-side condition tracked
-	// on the backend, not a Studio bug. Only drop when the URL attributes it to the
-	// operation endpoint; an unattributed 5xx could be a genuine failure worth keeping.
-	const isServerError = /Request failed with status code 5\d\d\b/i.test(message);
-	if (isInstanceEndpoint && isServerError) {
+	// A 5xx or a bare timeout from an instance/cluster operation endpoint is the instance itself
+	// failing to answer (broken, unsupported, or mid-restart) — a server-side condition tracked
+	// on the backend, not a Studio bug. The URL attributes it whatever the thrown value's name
+	// is, which is what reaches the tracked resource errors the name gate above cannot.
+	if (
+		isInstanceEndpoint
+		&& (/Request failed with status code 5\d\d\b/i.test(message) || BARE_TIMEOUT_MESSAGE.test(message))
+	) {
 		return false;
 	}
 

@@ -115,13 +115,54 @@ describe('shouldKeepEvent', () => {
 	});
 
 	// Regression test for issue #1371: handled AxiosError timeouts reach RUM via
-	// console.error with no resource URL, so they must be discarded on the message alone.
+	// console.error with no resource URL, so they cannot be attributed to an endpoint.
 	it('discards timeout errors even when no resource URL is present', () => {
-		expect(shouldKeepEvent(errorEvent({ message: 'AxiosError: timeout of 60000ms exceeded' }))).toBe(false);
-		expect(shouldKeepEvent(errorEvent({ message: 'timeout of 15000ms exceeded' }))).toBe(false);
+		expect(
+			shouldKeepEvent(errorEvent({ type: 'AxiosError', message: 'AxiosError: timeout of 60000ms exceeded' })),
+		).toBe(false);
+		expect(shouldKeepEvent(errorEvent({ type: 'AxiosError', message: 'timeout of 15000ms exceeded' }))).toBe(false);
 	});
 
-	it('discards timeout errors against instance/cluster resource URLs', () => {
+	it('discards the bare "timeout exceeded" spelling', () => {
+		expect(shouldKeepEvent(errorEvent({ type: 'AxiosError', message: 'AxiosError: timeout exceeded' }))).toBe(false);
+		expect(shouldKeepEvent(errorEvent({ type: 'AxiosError', message: 'timeout exceeded' }))).toBe(false);
+	});
+
+	// Only the thrown value's name separates a Harper-composed operation failure from Axios'
+	// bare spelling.
+	it('keeps a non-Axios failure whose message is a timeout phrase', () => {
+		expect(
+			shouldKeepEvent(
+				errorEvent({ type: 'SSEOperationError', message: 'SSEOperationError: Operation timeout exceeded' }),
+			),
+		).toBe(true);
+		expect(
+			shouldKeepEvent(
+				errorEvent({ type: 'Error', message: 'Error: component install timeout exceeded, rolling back' }),
+			),
+		).toBe(true);
+		expect(
+			shouldKeepEvent(
+				errorEvent({ type: 'Error', message: 'Error: Database connection pool timeout exceeded the threshold' }),
+			),
+		).toBe(true);
+	});
+
+	// `src/main.tsx`'s root handlers log `console.error('Caught error:', error, errorInfo)`. The SDK
+	// joins every param into `error.message` but takes `error.type` from the Error param alone, so
+	// the appended component stack cannot defeat the name gate the way it would a message anchor.
+	it('discards a timeout relayed through a React root error handler', () => {
+		expect(
+			shouldKeepEvent(errorEvent({
+				type: 'AxiosError',
+				message: 'Caught error: AxiosError: timeout exceeded {"componentStack":"\\n    at Suspense"}',
+			})),
+		).toBe(false);
+	});
+
+	// The name gate above deliberately does not fire for a nameless timeout, so this is the only
+	// thing dropping the tracked *resource* errors, which need not carry `type: 'AxiosError'`.
+	it('discards timeout errors against instance/cluster resource URLs, in either spelling', () => {
 		expect(
 			shouldKeepEvent(
 				errorEvent({
@@ -130,6 +171,24 @@ describe('shouldKeepEvent', () => {
 				}),
 			),
 		).toBe(false);
+		expect(
+			shouldKeepEvent(
+				errorEvent({
+					message: 'timeout exceeded',
+					resource: { url: 'https://api.harper.fast/Cluster/clu-123/operation' },
+				}),
+			),
+		).toBe(false);
+	});
+
+	// Pins that the name gate only ever adds drops: the numeric spelling is still dropped without
+	// a name, so a timeout Studio re-wraps into a plain `Error` (`secrets.ts`) behaves as before,
+	// while the bare spelling — indistinguishable from prose without a name — is reported.
+	it('gates only the bare spelling on the error name', () => {
+		expect(shouldKeepEvent(errorEvent({ message: 'timeout of 60000ms exceeded' }))).toBe(false);
+		expect(shouldKeepEvent(errorEvent({ type: 'Error', message: 'AxiosError: timeout of 60000ms exceeded' })))
+			.toBe(false);
+		expect(shouldKeepEvent(errorEvent({ message: 'timeout exceeded' }))).toBe(true);
 	});
 
 	it('discards network failures against an instance/cluster operation endpoint', () => {
