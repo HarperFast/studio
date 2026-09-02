@@ -1,6 +1,7 @@
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
+import { FormMessage } from '@/components/ui/form/FormMessage';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
 import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
@@ -50,8 +51,10 @@ const withInactive = (hint: string, inactive: boolean) => (inactive ? `${hint} Â
  * converts it to paid. The rule is stated here, at the moment the admin makes the change, rather
  * than left to a 409 after they hit save.
  */
-export function GrantScopeFields({ enabled, existing }: {
+export function GrantScopeFields({ enabled, existing, required = false }: {
 	enabled: boolean;
+	/** A comped grant has no other bound, so the server requires at least one plan and one region. */
+	required?: boolean;
 	/** The grant being edited, when there is one â€” a create has no scope history to widen from. */
 	existing?: AdminClusterGrant | null;
 }) {
@@ -95,16 +98,17 @@ export function GrantScopeFields({ enabled, existing }: {
 				name="allowedPlanIds"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Plans</FormLabel>
+						<FormLabel>Plans{required && ' (required)'}</FormLabel>
 						<MultiSelect
 							ariaLabel="Plans"
 							options={planOptions}
 							selected={field.value}
 							onChange={field.onChange}
-							placeholder="Any plan"
+							placeholder={required ? 'Choose the plans this grant covers' : 'Any plan'}
 							emptyText={emptyText(plansQuery, 'plans', 'plan:read')}
 						/>
 						{planNarrows && <NarrowingNote field="plans" clusterId={boundTo!} />}
+						<FormMessage />
 					</FormItem>
 				)}
 			/>
@@ -114,16 +118,17 @@ export function GrantScopeFields({ enabled, existing }: {
 				name="allowedRegionIds"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Regions</FormLabel>
+						<FormLabel>Regions{required && ' (required)'}</FormLabel>
 						<MultiSelect
 							ariaLabel="Regions"
 							options={regionOptions}
 							selected={field.value}
 							onChange={field.onChange}
-							placeholder="Any region"
+							placeholder={required ? 'Choose the regions this grant covers' : 'Any region'}
 							emptyText={emptyText(regionsQuery, 'regions', 'region:read')}
 						/>
 						{regionNarrows && <NarrowingNote field="regions" clusterId={boundTo!} />}
+						<FormMessage />
 					</FormItem>
 				)}
 			/>
