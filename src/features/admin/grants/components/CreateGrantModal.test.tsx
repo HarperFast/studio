@@ -46,6 +46,14 @@ vi.mock('@/features/admin/plans/queries/getPlans', () => ({
 				performanceDescription: 'Large',
 				priceUsd: 400,
 			},
+			// The id must be one central-manager lists as self-hosted; the deployment type alone is not the rule.
+			{
+				id: 'self-hosted-2',
+				name: 'Self-Hosted 2',
+				deploymentDescription: 'Self-Hosted',
+				performanceDescription: 'Standard',
+				priceUsd: 100,
+			},
 		],
 		retry: false,
 	}),
@@ -202,6 +210,41 @@ describe('CreateGrantModal', () => {
 		fireEvent.click(screen.getByRole('button', { name: 'Remove plan-hobby' }));
 		await act(() => null);
 		expect(screen.getByText('A comped grant must name the plans it covers')).toBeTruthy();
+		expect(submit().hasAttribute('disabled')).toBe(true);
+	});
+
+	// A self-hosted plan has no region, so a comp scoped only to self-hosted plans needs none — and
+	// must not carry any, since a region scope would refuse the self-hosted bind it exists for.
+	it('waives regions on a comp scoped only to self-hosted plans, and sends none', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await pickScope('Plans', /self-hosted-2/);
+		fireEvent.change(reasonBox(), { target: { value: 'on-prem comp' } });
+		await act(() => null);
+
+		expect(screen.queryByText('Regions (required)')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Regions' }).hasAttribute('disabled')).toBe(true);
+		expect(screen.getByText(/nothing here to bound/)).toBeTruthy();
+		expect(submit().hasAttribute('disabled')).toBe(false);
+
+		fireEvent.click(submit());
+		await act(() => null);
+		const [body] = createGrant.mock.calls[0];
+		expect(body.allowedPlanIds).toEqual(['self-hosted-2']);
+		expect(body).not.toHaveProperty('allowedRegionIds');
+	});
+
+	// One Harper-hosted plan in the mix is enough to bring the region requirement back.
+	it('requires regions again the moment a Harper-hosted plan joins the scope', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await pickScope('Plans', /self-hosted-2/);
+		await pickScope('Plans', /plan-hobby/);
+		fireEvent.change(reasonBox(), { target: { value: 'mixed comp' } });
+		await act(() => null);
+
+		expect(screen.getByText('Regions (required)')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Regions' }).hasAttribute('disabled')).toBe(false);
 		expect(submit().hasAttribute('disabled')).toBe(true);
 	});
 
