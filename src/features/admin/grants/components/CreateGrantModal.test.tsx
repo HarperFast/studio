@@ -108,12 +108,19 @@ async function pickScope(label: string, option: string | RegExp) {
 	await act(() => null);
 }
 
+/** A comped grant must name at least one plan and one region; every submit of one needs these. */
+async function fillCompedScope() {
+	await pickScope('Plans', /plan-hobby/);
+	await pickScope('Regions', /us-east-1/);
+}
+
 describe('CreateGrantModal', () => {
 	// The server accepts clusterId XOR organizationId, so the form asks which rather than offering
 	// both and letting the xor fail server-side.
 	it('sends an organization for an unbound voucher, and no cluster', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
+		await fillCompedScope();
 		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
 		await act(() => null);
 		fireEvent.click(submit());
@@ -129,6 +136,7 @@ describe('CreateGrantModal', () => {
 		await mount();
 		await pick('Applies to', /existing cluster/);
 		fireEvent.change(screen.getByPlaceholderText('clu-…'), { target: { value: 'clu-abc' } });
+		await fillCompedScope();
 		fireEvent.change(reasonBox(), { target: { value: 'pilot' } });
 		await act(() => null);
 		fireEvent.click(submit());
@@ -167,34 +175,75 @@ describe('CreateGrantModal', () => {
 		expect(options).toContain('consumer-trial');
 	});
 
-	// Only trial, gift and comp — purchased and enterprise belong to the flows that bill.
+	// Only trial and comped — purchased, contracted and free are derived by the flows that own them.
 	it('offers only the sources an admin may mint', async () => {
 		await mount();
 		fireEvent.keyDown(screen.getByLabelText('Source'), { key: 'ArrowDown' });
 		await act(() => null);
 		const options = screen.getAllByRole('option').map((o) => o.textContent);
-		expect(options).toEqual(['comp', 'gift', 'trial']);
+		expect(options).toEqual(['comped', 'trial']);
 	});
 
-	// The server refuses an empty array and stores null for "any", so an untouched picker must send
-	// nothing at all rather than [].
-	it('omits the scopes when nothing is picked, and sends what is', async () => {
+	// A comped grant has no clock and no card, so its scope is the only bound it has — the server
+	// requires at least one plan and one region, and the form says so before the 400 would.
+	it('will not mint a comped grant without a plan and a region', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
-		fireEvent.change(reasonBox(), { target: { value: 'unscoped' } });
+		fireEvent.change(reasonBox(), { target: { value: 'unscoped comp' } });
+		await act(() => null);
+		expect(submit().hasAttribute('disabled')).toBe(true);
+		// The labels carry the requirement from the start; the error itself waits for the field to be
+		// touched, so a fresh form is not covered in red for pickers nobody has reached yet.
+		expect(screen.getByText('Plans (required)')).toBeTruthy();
+		expect(screen.getByText('Regions (required)')).toBeTruthy();
+
+		// Picking and then removing is the touch: now the rule is said out loud.
+		await pickScope('Plans', /plan-hobby/);
+		fireEvent.click(screen.getByRole('button', { name: 'Remove plan-hobby' }));
+		await act(() => null);
+		expect(screen.getByText('A comped grant must name the plans it covers')).toBeTruthy();
+		expect(submit().hasAttribute('disabled')).toBe(true);
+	});
+
+	it('sends the scope a comped grant was given', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'scoped comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		const [body] = createGrant.mock.calls[0];
+		expect(body.allowedPlanIds).toEqual(['plan-hobby']);
+		expect(body.allowedRegionIds).toEqual(['us-east-1']);
+	});
+
+	// The server refuses an empty array and stores null for "any", so an untouched picker on a source
+	// that allows it must send nothing at all rather than [].
+	it('omits the scopes for a trial when nothing is picked', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await pick('Source', 'trial');
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await pick('Expiry policy', 'consumer-trial');
+		fireEvent.change(reasonBox(), { target: { value: 'unscoped trial' } });
 		await act(() => null);
 		fireEvent.click(submit());
 		await act(() => null);
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedPlanIds');
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedRegionIds');
+	});
 
-		await pickScope('Plans', /plan-hobby/);
-		await pickScope('Regions', /us-east-1/);
-		fireEvent.click(submit());
+	// A comped grant may run forever, but once it is given an end it must stage, or the runner would
+	// never act on it — so `none` stops being offered the moment a date is set.
+	it('withdraws the none policy from a comped grant once it has an end date', async () => {
+		await mount();
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
 		await act(() => null);
-		const [body] = createGrant.mock.calls[1];
-		expect(body.allowedPlanIds).toEqual(['plan-hobby']);
-		expect(body.allowedRegionIds).toEqual(['us-east-1']);
+		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+		await act(() => null);
+		const none = screen.getAllByRole('option').find((o) => o.textContent === 'none');
+		expect(none?.getAttribute('aria-disabled')).toBe('true');
 	});
 
 	// The id is generated server-side and is the only handle on an unbound grant, so the caller is
@@ -202,6 +251,7 @@ describe('CreateGrantModal', () => {
 	it('hands the created grant to its caller', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
+		await fillCompedScope();
 		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
 		await act(() => null);
 		fireEvent.click(submit());

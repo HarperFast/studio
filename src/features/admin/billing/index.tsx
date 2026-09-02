@@ -52,15 +52,25 @@ function coverage(grant: AdminClusterGrant | undefined, status: string | null | 
 			title: 'The grant is past its end date but the expiry runner has not acted on it yet',
 		};
 	}
-	// A comp or gift is deliberate revenue forgone, which is exactly what a billing reader is
-	// scanning for; purchased and enterprise are the ones that bill.
-	if (grant.source === 'comp' || grant.source === 'gift') {
-		return { label: grant.source, variant: 'secondary', title: 'Covered without being invoiced' };
+	// A comp is deliberate revenue forgone, which is exactly what a billing reader is scanning for;
+	// purchased and contracted are the ones that bill — through Stripe and offline respectively.
+	if (grant.source === 'comped') {
+		return { label: 'comped', variant: 'secondary', title: 'Covered without being invoiced' };
 	}
 	if (grant.source === 'trial') {
 		return { label: 'trial', variant: 'secondary', title: 'On a time-boxed trial' };
 	}
-	return { label: grant.source, variant: 'success', title: 'Billed' };
+	if (grant.source === 'free') {
+		return {
+			label: 'free',
+			variant: 'secondary',
+			title: "A $0 plan on the customer's own infrastructure — never invoiced",
+		};
+	}
+	if (grant.source === 'contracted') {
+		return { label: 'contracted', variant: 'success', title: 'Billed offline under contract' };
+	}
+	return { label: grant.source, variant: 'success', title: 'Billed through Stripe' };
 }
 
 /**
@@ -193,10 +203,10 @@ export function BillingAdminIndex() {
 										<SelectItem value="none">No grant</SelectItem>
 										<SelectItem value="lapsed">Lapsed</SelectItem>
 										<SelectItem value="trial">Trial</SelectItem>
-										<SelectItem value="comp">Comp</SelectItem>
-										<SelectItem value="gift">Gift</SelectItem>
+										<SelectItem value="comped">Comped</SelectItem>
+										<SelectItem value="free">Free</SelectItem>
 										<SelectItem value="purchased">Purchased</SelectItem>
-										<SelectItem value="enterprise">Enterprise</SelectItem>
+										<SelectItem value="contracted">Contracted</SelectItem>
 									</SelectContent>
 								</Select>
 								<Select value={showTerminated} onValueChange={setShowTerminated}>
