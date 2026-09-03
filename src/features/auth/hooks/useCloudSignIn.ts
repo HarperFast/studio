@@ -1,4 +1,5 @@
 import { apiClient } from '@/config/apiClient';
+import { describeAuthFailure } from '@/features/auth/describeAuthFailure';
 import { isEmailNotVerifiedError } from '@/features/auth/isEmailNotVerifiedError';
 import { currentUserQueryKey } from '@/features/auth/queries/getCurrentUser';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -9,10 +10,9 @@ import { reoClient } from '@/integrations/reo/reo';
 import { parseCompanyFromEmail } from '@/lib/string/parseCompanyFromEmail';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
-import { errorHandler } from '@/react-query/queryClient';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useResendEmailVerification } from './useResendEmailVerification';
@@ -22,11 +22,15 @@ export function useCloudSignIn() {
 	const queryClient = useQueryClient();
 	const router = useRouter();
 	const { redirect } = useSearch({ strict: false });
+	const [submitError, setSubmitError] = useState<string>();
 
 	const { mutate: submitLoginData, isPending } = useLoginMutation();
 	const { mutate: resendEmailVerification } = useResendEmailVerification();
 
+	const clearSubmitError = useCallback(() => setSubmitError(undefined), []);
+
 	const submitForm = useCallback((formData: z.infer<typeof EmailSignInSchema>) => {
+		setSubmitError(undefined);
 		submitLoginData(formData, {
 			onSuccess: async (data) => {
 				authStore.setUserForEntity(OverallAppSignIn, data);
@@ -63,14 +67,15 @@ export function useCloudSignIn() {
 					void navigate({ to: '/verifying?email=' + encodeURIComponent(formData.email) });
 					return;
 				}
-				// Any other failure keeps the standard error toast.
-				errorHandler(error);
+				setSubmitError(describeAuthFailure(error));
 			},
 		});
 	}, [navigate, queryClient, redirect, resendEmailVerification, router, submitLoginData]);
 
 	return {
+		clearSubmitError,
 		isPending,
+		submitError,
 		submitForm,
 	};
 }
@@ -81,6 +86,16 @@ function useLoginMutation() {
 		// submitForm renders the login-error UX itself (redirecting unverified users into the
 		// email-verification flow), so suppress the default global error toast for this mutation.
 		meta: { skipGlobalErrorToast: true },
+		// At mutation level, not in the caller's `mutate` callback: React Query skips those when
+		// the component unmounts mid-flight, and this is the only thing reporting the rejection
+		// now that `skipGlobalErrorToast` keeps `errorHandler` out of the path. The unverified-email
+		// rejection is excluded because it is control flow, not a failure — `submitForm` redirects
+		// into the verification flow on it, and reporting it would file every unverified sign-in.
+		onError: (error) => {
+			if (!isEmailNotVerifiedError(error)) {
+				console.error(error);
+			}
+		},
 	});
 }
 

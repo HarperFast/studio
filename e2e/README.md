@@ -120,7 +120,11 @@ Naming drives which project runs a spec: `*.anon.spec.ts` = no session,
   The only `data-testid`s in the app are in instance analytics.
 - **Auth is a cookie** (`POST /Login/`); the `Studio:PotentiallyAuthenticated`
   localStorage flag is only a hint. `storageState` captures the cookie.
-- **Errors are Sonner toasts** (`[data-sonner-toast]`), not inline form messages.
+- **Sign-in and sign-up render every submit failure inline**
+  (`p[role="alert"][data-slot="form-message"]`). **Forgot-password renders only CAPTCHA rejections
+  and retryable failures** (5xx/429/transport) inline and still toasts the rest, so assert on the
+  toast for a 4xx there. Don't write a case that expects the toast to reveal whether an account
+  exists — that page deliberately answers the same way either way. Errors elsewhere are Sonner toasts (`[data-sonner-toast]`).
 - **Verification is link/token-based** (`/#/verify-email?token=`) — no numeric code.
 
 ## Email round-trip (Mailosaur)

@@ -1,4 +1,3 @@
-import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -15,6 +14,8 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { SubmitErrorMessage } from './components/SubmitErrorMessage';
+import { describeRetryableAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
 
@@ -63,7 +64,13 @@ export function ForgotPassword() {
 					setError('root', { type: 'server', message: captchaMessage });
 					return;
 				}
-				// Everything else keeps the toast it has always had.
+				const retryableMessage = describeRetryableAuthFailure(error);
+				if (retryableMessage) {
+					// The RUM channel for a handled rejection; nothing else on this path reports it.
+					console.error(error);
+					setError('root', { type: 'server', message: retryableMessage });
+					return;
+				}
 				errorHandler(error);
 			},
 		});
@@ -98,17 +105,7 @@ export function ForgotPassword() {
 							</FormItem>
 						)}
 					/>
-					{submitError && (
-						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
-							{submitError}
-							{captcha.supportSuggested && (
-								<>
-									{' '}
-									<ContactUs overEmail /> if this keeps happening.
-								</>
-							)}
-						</p>
-					)}
+					<SubmitErrorMessage message={submitError} suggestSupport={captcha.supportSuggested} />
 					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-2">
 						Send Password Reset Email
 					</Button>

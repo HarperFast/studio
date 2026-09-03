@@ -39,6 +39,7 @@ vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
 	},
 }));
 
+import { SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
 import { ForgotPassword } from './ForgotPassword';
 
 function wrapper() {
@@ -176,10 +177,12 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		expect((await findByRole('alert')).textContent).toContain('Verification failed. Please try again.');
 	});
 
-	it('leaves a non-CAPTCHA failure to the normal error path (toast, no inline notice)', async () => {
+	it('leaves a non-retryable failure to the normal error path (toast, no inline notice)', async () => {
 		captchaState.token = 'human-token';
+		// Deliberately not a 404 "no such account": this page promises not to reveal whether an
+		// address exists, so a fixture asserting that body would codify an enumeration oracle.
 		post.mockRejectedValue(
-			{ isAxiosError: true, response: { status: 500, data: 'boom' } } as AxiosError,
+			{ isAxiosError: true, response: { status: 400, data: 'That address is not valid' } } as AxiosError,
 		);
 		const { container, queryByRole } = renderForm();
 
@@ -188,5 +191,33 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		await waitFor(() => expect(post).toHaveBeenCalled());
 		expect(queryByRole('alert')).toBeNull();
 		await waitFor(() => expect(toast.error).toHaveBeenCalled());
+	});
+
+	it('offers support for a 500, which retrying may not clear', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, response: { status: 500 } } as AxiosError);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		const alert = await findByRole('alert');
+		expect(alert.textContent).toContain(SERVER_ERROR_MESSAGE);
+		expect(alert.textContent).toContain('if this keeps happening');
+		consoleError.mockRestore();
+	});
+
+	it('reports a bodyless 503 inline, and still calls the RUM channel', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, code: 'ERR_BAD_RESPONSE', response: { status: 503 } } as AxiosError);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		expect((await findByRole('alert')).textContent).toBe(SERVER_UNAVAILABLE_MESSAGE);
+		expect(toast.error).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ isAxiosError: true }));
+		consoleError.mockRestore();
 	});
 });

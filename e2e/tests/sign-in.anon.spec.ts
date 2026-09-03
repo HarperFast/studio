@@ -7,7 +7,7 @@ import { expect, test } from '@playwright/test';
  * Selector notes (from the component map):
  *  - <form id="auth-signin-form">, inputs name="email"/"password" with labels.
  *  - Submit is a <button>Sign In</button>; OAuth options are <a> anchors.
- *  - Bad-credential errors are Sonner toasts ([data-sonner-toast]), NOT inline.
+ *  - Submit failures render inline as <p role="alert" data-slot="form-message">, not a toast.
  */
 test.describe('sign-in page', () => {
 	test.beforeEach(async ({ page }) => {

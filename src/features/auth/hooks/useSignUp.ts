@@ -30,5 +30,9 @@ export function useSignUpMutation() {
 		// that fades away from them, so suppress the default global error toast for this
 		// mutation (see `SignUp`'s `onError`).
 		meta: { skipGlobalErrorToast: true },
+		// At mutation level, not in the caller's `mutate` callback: React Query skips those when
+		// the component unmounts mid-flight, and this is the only thing reporting the rejection
+		// now that `skipGlobalErrorToast` keeps `errorHandler` out of the path.
+		onError: (error) => console.error(error),
 	});
 }

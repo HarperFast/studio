@@ -1,4 +1,3 @@
-import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -13,7 +12,6 @@ import { personNameRegex } from '@/lib/string/regex/personNameRegex';
 import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodRequirePassword } from '@/lib/zod/password';
-import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -21,6 +19,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
+import { SubmitErrorMessage } from './components/SubmitErrorMessage';
+import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useSignUpMutation } from './hooks/useSignUp';
 
@@ -89,8 +89,8 @@ export function SignUp() {
 	const submitForm = useCallback(async (formData: z.infer<typeof SignUpSchema>) => {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { confirmPassword, acceptTerms, ...userData } = formData;
-		// Drop the previous attempt's failure explicitly — `handleSubmit` reruns the resolver,
-		// which only rewrites field errors, so a stale `root` would outlive the retry.
+		// Only reached on a valid submit, so a failure the resolver rejects keeps the previous one on
+		// screen — #1677, reproduced by this form's own test. An `onInvalid` handler does not fix it.
 		clearErrors('root');
 		const captchaToken = await captcha.getToken();
 		submitSignUpData({ ...userData, captchaToken }, {
@@ -109,15 +109,13 @@ export function SignUp() {
 			// The sign-up mutation opts out of the global error toast (meta.skipGlobalErrorToast)
 			// and renders the failure in the form instead. RUM showed people resubmitting the
 			// same details two and three times before giving up (#1612): a toast that fades,
-			// away from the inputs, doesn't read as "this attempt failed". Deliberately status-
-			// agnostic — it reports whatever the server said rather than mapping specific codes.
+			// away from the inputs, doesn't read as "this attempt failed".
 			onError: (error) => {
-				console.error(error);
 				// `message`, not `description`: the latter is the toast's body, with the first clause
 				// of a "Conflict: …" style message moved out into the heading this has no room for.
 				setError('root', {
 					type: 'server',
-					message: captcha.describeCaptchaError(error) ?? describeError(error).message,
+					message: captcha.describeCaptchaError(error) ?? describeAuthFailure(error),
 				});
 			},
 		});
@@ -302,17 +300,7 @@ export function SignUp() {
 					/>
 					{termsCheckbox}
 
-					{submitError && (
-						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
-							{submitError}
-							{captcha.supportSuggested && (
-								<>
-									{' '}
-									<ContactUs overEmail /> if this keeps happening.
-								</>
-							)}
-						</p>
-					)}
+					<SubmitErrorMessage message={submitError} suggestSupport={captcha.supportSuggested} />
 
 					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-4">
 						Sign Up For Free
