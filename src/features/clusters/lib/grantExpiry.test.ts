@@ -1,6 +1,12 @@
 import { ClusterGrant } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { describeGrantExpiry, isConversionComplete, isConversionPending, isExpiryWarning } from './grantExpiry';
+import {
+	describeGrantExpiry,
+	describeTrial,
+	isConversionComplete,
+	isConversionPending,
+	isExpiryWarning,
+} from './grantExpiry';
 
 const NOW = new Date('2026-08-25T12:00:00.000Z').getTime();
 const daysFromNow = (days: number) => new Date(NOW + days * 24 * 60 * 60 * 1000).toISOString();
@@ -375,5 +381,42 @@ describe('isExpiryWarning', () => {
 		expect(isExpiryWarning(at({}))).toBe(false);
 		expect(isExpiryWarning(describeGrantExpiry({ grant: null }, NOW))).toBe(false);
 		expect(isExpiryWarning(at({ expiryPolicy: 'conversion-pending' }))).toBe(false);
+	});
+});
+
+describe('describeTrial', () => {
+	it('names the trial and its end date while nothing louder applies', () => {
+		expect(describeTrial({ grant: grant() }, NOW)).toEqual({
+			label: 'Trial',
+			endsOn: 'September 24',
+			detail: 'Trial ends September 24',
+		});
+	});
+
+	it('stays quiet for a cluster with no grant, or a grant that is not a trial', () => {
+		expect(describeTrial({ grant: null }, NOW)).toBeNull();
+		expect(describeTrial({}, NOW)).toBeNull();
+		for (const source of ['purchased', 'comped', 'contracted', 'free']) {
+			expect(describeTrial({ grant: grant({ source }) }, NOW)).toBeNull();
+		}
+	});
+
+	// One spot, one message: from WARNED on, the countdown is what shows there.
+	it('yields to the expiry countdown once the runner stages the grant', () => {
+		expect(describeTrial({ grant: grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) }) }, NOW)).toBeNull();
+	});
+
+	it('stays quiet for a trial that has already ended', () => {
+		expect(
+			describeTrial({ grant: grant({ isActive: false, status: 'EXPIRED', endsAt: daysFromNow(-1) }) }, NOW),
+		).toBeNull();
+	});
+
+	it('still says Trial when the grant carries no usable end date', () => {
+		expect(describeTrial({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
+			label: 'Trial',
+			endsOn: null,
+			detail: 'Trial cluster',
+		});
 	});
 });
