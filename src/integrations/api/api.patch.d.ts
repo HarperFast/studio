@@ -275,7 +275,7 @@ export interface ClusterGrant {
 	endsAt: string | null;
 	cycleAnchor: string | null;
 	/** `conversion-pending` is a bounded conversion window, not the customer's terms. */
-	expiryPolicy: 'consumer-trial' | 'contracted-grace' | 'comped' | 'conversion-pending' | null;
+	expiryPolicy: 'consumer-trial' | 'contracted-grace' | 'comped' | 'conversion-pending' | 'none' | null;
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
