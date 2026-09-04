@@ -32,7 +32,7 @@ vi.mock('@/integrations/reo/reo', () => ({ reoClient: { identify: vi.fn() } }));
 import { apiClient } from '@/config/apiClient';
 import { mutationErrorHandler } from '@/react-query/queryClient';
 import { toast } from 'sonner';
-import { SERVER_UNAVAILABLE_MESSAGE, SERVER_UNREACHABLE_MESSAGE } from '../describeAuthFailure';
+import { OUTCOME_UNKNOWN_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from '../describeAuthFailure';
 
 const EMAIL = 'unverified@example.com';
 
@@ -165,13 +165,15 @@ describe('useCloudSignIn — retryable failures', () => {
 		consoleError.mockRestore();
 	});
 
-	it('reports a transport failure as unreachable', async () => {
+	// Sign-in supplies its own recovery, because a login is the one of the three that is safe to
+	// simply repeat.
+	it('reports a transport failure as an unknown outcome, with sign-in’s own recovery', async () => {
 		post.mockImplementation(() => Promise.reject({ isAxiosError: true, code: 'ERR_NETWORK' } as AxiosError));
 
 		const { result } = renderHook(() => useCloudSignIn(), { wrapper: wrapper() });
 		act(() => result.current.submitForm({ email: EMAIL, password: 'correct-horse' }));
 
-		await waitFor(() => expect(result.current.submitError).toBe(SERVER_UNREACHABLE_MESSAGE));
+		await waitFor(() => expect(result.current.submitError).toBe(`${OUTCOME_UNKNOWN_MESSAGE} Try signing in again.`));
 	});
 
 	it('clears the previous failure when the form is resubmitted', async () => {

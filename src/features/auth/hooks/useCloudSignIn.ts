@@ -67,7 +67,7 @@ export function useCloudSignIn() {
 					void navigate({ to: '/verifying?email=' + encodeURIComponent(formData.email) });
 					return;
 				}
-				setSubmitError(describeAuthFailure(error));
+				setSubmitError(describeAuthFailure(error, 'Try signing in again.'));
 			},
 		});
 	}, [navigate, queryClient, redirect, resendEmailVerification, router, submitLoginData]);

@@ -24,6 +24,9 @@ import { describeAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useSignUpMutation } from './hooks/useSignUp';
 
+// The account may already exist: sending them to the inbox beats a resubmit that 409s (#1668).
+const SIGN_UP_OUTCOME_UNKNOWN_RECOVERY = 'Check your email for a verification link before signing up again.';
+
 const SignUpSchema = z.object({
 	email: zodRequireEmail
 		.max(80, { error: 'Email cannot be longer than 80 characters.' }),
@@ -115,7 +118,8 @@ export function SignUp() {
 				// of a "Conflict: …" style message moved out into the heading this has no room for.
 				setError('root', {
 					type: 'server',
-					message: captcha.describeCaptchaError(error) ?? describeAuthFailure(error),
+					message: captcha.describeCaptchaError(error)
+						?? describeAuthFailure(error, SIGN_UP_OUTCOME_UNKNOWN_RECOVERY),
 				});
 			},
 		});

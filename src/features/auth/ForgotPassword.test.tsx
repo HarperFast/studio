@@ -193,6 +193,27 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		await waitFor(() => expect(toast.error).toHaveBeenCalled());
 	});
 
+	// The state model moved out of react-hook-form for exactly this: a `root` error survives a
+	// resubmit the resolver rejects, and this form now routes every retryable failure inline, not
+	// just CAPTCHA rejections.
+	it('drops a stale server failure on a resubmit the resolver rejects', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, response: { status: 503 } } as AxiosError);
+		const { container, findByRole, queryByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+		await findByRole('alert');
+
+		post.mockClear();
+		await submitWith(container, 'not-an-email');
+
+		// One call proves the resolver rejected the second submit rather than it re-failing.
+		await waitFor(() => expect(queryByRole('alert')).toBeNull());
+		expect(post).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
 	it('offers support for a 500, which retrying may not clear', async () => {
 		captchaState.token = 'human-token';
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});

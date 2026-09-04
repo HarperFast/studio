@@ -727,14 +727,15 @@ is precisely when someone gave up on a slow sign-in and navigated away. Exclude 
 verification flow on it and reporting it would file every unverified sign-in.
 
 A related trap when reasoning about these forms: **a minimal `useForm` probe does not reproduce them.**
-react-hook-form clears a `root` error on a resolver-rejected resubmit in isolation, but `SignUp` and
-`ForgotPassword` demonstrably do not (#1677), and `handleSubmit(fn, () => clearErrors('root'))` does
-not change that. Reproduce against the real component, and assert the request count so a "stale"
-alert cannot actually be a second identical rejection. (`ForgotPassword` keeps
+react-hook-form clears a `root` error on a resolver-rejected resubmit in isolation, but `SignUp`
+demonstrably does not (#1677), and `handleSubmit(fn, () => clearErrors('root'))` does not change
+that. Reproduce against the real component, and assert the request count so a "stale" alert cannot
+actually be a second identical rejection. **Keeping the failure in component state, outside
+react-hook-form, is the model that clears correctly** — sign-in has always done this and
+forgot-password moved to it; sign-up is the remaining `root` user. (`ForgotPassword` keeps
 its report in the caller because it reports conditionally: its CAPTCHA branch is deliberately silent
-per #1658, and its non-retryable branch routes through `errorHandler`. The consequence, unchanged by
-#1676, is that a forgot-password failure is reported only if the form is still mounted when it
-settles.)
+per #1658, and its non-retryable branch routes through `errorHandler`. The consequence is that a
+forgot-password failure is reported only if the form is still mounted when it settles.)
 The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
 which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
 failure you still want in devtools.
@@ -755,11 +756,18 @@ processed, not on
 interceptor is installed on instance clients only
 ([`getInstanceClient.ts`](src/config/getInstanceClient.ts)), never on `apiClient`, so nothing
 auto-retries an auth call and the retry the copy invites is the user's own. **Only 503 promises a
-plain retry**, because a declining server very likely never processed the request. **502, 504 and
-any timeout get a third message** instead: all three auth submits are non-idempotent POSTs, and each
-of those means the request had already been handed upstream, so the write's outcome is unknown and
-"try again" turns a completed sign-up into a 409 with the verification mail already sent (#1668).
-That copy says to reload before retrying.
+plain retry**, because a declining server very likely never processed the request. **502, 504,
+any timeout, and `ERR_NETWORK` get a third message** instead: all three auth submits are
+non-idempotent POSTs, and each of those means the request may already have been applied — axios
+reports a CORS rejection and a connection dropped _after_ the POST both as `ERR_NETWORK`, so none of
+them can claim the server was never reached. RFC 9110 §9.2.2: a retry is only safe once you know the
+request was not applied.
+
+That message **states the uncertainty and stops** — the remediation is the caller's, because only
+the form knows what recovery means for its endpoint ("check your inbox before requesting another
+link", "check your email for a verification link", "try signing in again"). Do not fold a generic
+"reload and try again" back into the shared copy: reloading an anonymous form performs no status
+check, so following it just repeats the side effect this branch exists to avoid (#1668).
 Everything else 5xx gets copy that does not promise waiting helps, plus a way to escalate — and
 `SubmitErrorMessage` decides that from the message itself rather than from a prop each caller must
 remember, which is what kept two of three forms from shipping without it.
