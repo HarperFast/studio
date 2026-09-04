@@ -13,7 +13,12 @@ import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAct
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
-import { describeGrantExpiry, HOBBYIST_UPGRADE, isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
+import {
+	describeGrantExpiry,
+	describeTrial,
+	HOBBYIST_UPGRADE,
+	isStartBlockedByPlan,
+} from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
@@ -87,6 +92,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 		[cluster.status],
 	);
 	const expiry = useMemo(() => describeGrantExpiry(cluster), [cluster]);
+	const trial = useMemo(() => describeTrial(cluster), [cluster]);
 	// A plan-ended cluster can't be restarted — the start gate refuses it with a 402. Buying a plan
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
@@ -411,6 +417,11 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						>
 							{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
 							{expiry.badgeLabel}
+						</Badge>
+					)}
+					{trial && (
+						<Badge variant="outline" className="font-normal text-muted-foreground" title={trial.detail}>
+							{trial.label}
 						</Badge>
 					)}
 					{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
