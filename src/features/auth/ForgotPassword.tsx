@@ -1,4 +1,3 @@
-import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
@@ -11,12 +10,17 @@ import { zodRequireEmail } from '@/lib/zod/email';
 import { errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { SubmitErrorMessage } from './components/SubmitErrorMessage';
+import { describeRetryableAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
 import { useForgotPasswordMutation } from './hooks/useForgotPassword';
+
+// The link may already be on its way: sending them to the inbox beats a duplicate request.
+const OUTCOME_UNKNOWN_RECOVERY = 'Check your inbox before requesting another link.';
 
 const ForgotPasswordSchema = z.object({
 	email: zodRequireEmail,
@@ -32,8 +36,11 @@ export function ForgotPassword() {
 		},
 	});
 	const email = methods.watch('email');
-	const { setFocus, setError, clearErrors, control, handleSubmit, formState } = methods;
-	const submitError = formState.errors.root?.message;
+	const { setFocus, control, handleSubmit } = methods;
+	// Outside react-hook-form, like SignIn: a `root` error survives a resubmit the resolver rejects
+	// (#1677), and this form now routes far more than CAPTCHA rejections here.
+	const [submitError, setSubmitError] = useState<string>();
+	const clearSubmitError = useCallback(() => setSubmitError(undefined), []);
 
 	useEffect(() => {
 		setFocus('email');
@@ -43,8 +50,7 @@ export function ForgotPassword() {
 	const captcha = useCaptchaChallenge('forgot_password');
 
 	const submitForm = async (formData: z.infer<typeof ForgotPasswordSchema>) => {
-		// Like SignUp: the resolver only rewrites field errors, so clear stale root.
-		clearErrors('root');
+		setSubmitError(undefined);
 		const captchaToken = await captcha.getToken();
 		submitForgotPasswordData({ ...formData, captchaToken }, {
 			onSuccess: (message) => {
@@ -60,10 +66,16 @@ export function ForgotPassword() {
 			onError: (error) => {
 				const captchaMessage = captcha.describeCaptchaError(error);
 				if (captchaMessage) {
-					setError('root', { type: 'server', message: captchaMessage });
+					setSubmitError(captchaMessage);
 					return;
 				}
-				// Everything else keeps the toast it has always had.
+				const retryableMessage = describeRetryableAuthFailure(error, OUTCOME_UNKNOWN_RECOVERY);
+				if (retryableMessage) {
+					// The RUM channel for a handled rejection; nothing else on this path reports it.
+					console.error(error);
+					setSubmitError(retryableMessage);
+					return;
+				}
 				errorHandler(error);
 			},
 		});
@@ -77,7 +89,7 @@ export function ForgotPassword() {
 				<form
 					id="auth-forgot-password-form"
 					name="auth-forgot-password-form"
-					onSubmit={handleSubmit(submitForm)}
+					onSubmit={handleSubmit(submitForm, clearSubmitError)}
 					className="my-4"
 				>
 					<FormField
@@ -98,17 +110,7 @@ export function ForgotPassword() {
 							</FormItem>
 						)}
 					/>
-					{submitError && (
-						<p role="alert" data-slot="form-message" className="text-destructive text-sm">
-							{submitError}
-							{captcha.supportSuggested && (
-								<>
-									{' '}
-									<ContactUs overEmail /> if this keeps happening.
-								</>
-							)}
-						</p>
-					)}
+					<SubmitErrorMessage message={submitError} suggestSupport={captcha.supportSuggested} />
 					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-2">
 						Send Password Reset Email
 					</Button>

@@ -41,6 +41,12 @@ import { toast } from 'sonner';
 // reaches the global toast is part of what's under test, so restating that rule here would let
 // these tests pass even if `skipGlobalErrorToast` stopped being honored.
 import { mutationErrorHandler } from '@/react-query/queryClient';
+import {
+	OUTCOME_UNKNOWN_MESSAGE,
+	SERVER_ERROR_MESSAGE,
+	SERVER_UNAVAILABLE_MESSAGE,
+	TOO_MANY_ATTEMPTS_MESSAGE,
+} from './describeAuthFailure';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
@@ -48,6 +54,8 @@ function axiosError(status: number, data?: unknown): AxiosError {
 }
 
 // Fresh per test, so nothing leaks between them.
+const UNPAIRED_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
 let queryClient: QueryClient;
 
 function renderSignUp() {
@@ -87,15 +95,78 @@ afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
 	it("reports the server's reason in the form rather than a toast", async () => {
-		post.mockRejectedValue(axiosError(500, { code: 'InternalError', title: 'Signup is unavailable' }));
+		post.mockRejectedValue(axiosError(422, { code: 'InvalidEmail', title: 'That address is not accepted' }));
 
 		renderSignUp();
 		fillValidForm();
 		submit();
 
-		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Signup is unavailable'));
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('That address is not accepted'));
 		expect(toast.error).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	// A 4xx body renders verbatim, and an edge/WAF block page arrives as one long string. The cut is
+	// a UTF-16 slice, so it can land inside a surrogate pair — `truncate` strips the orphan.
+	it.each([
+		['ascii', 'x'.repeat(4000)],
+		// The leading odd-length run puts the 240th UTF-16 unit inside a surrogate pair; without it
+		// the cut lands cleanly between emoji and the test passes against a naive slice.
+		['astral characters', `${'x'.repeat(11)}${'😀'.repeat(4000)}`],
+	])('truncates a 4xx body of %s without corrupting it', async (_label, body) => {
+		post.mockRejectedValue(axiosError(403, body));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		const alert = await waitFor(() => screen.getByRole('alert'));
+		expect(Array.from(alert.textContent!).length).toBeLessThan(300);
+		expect(alert.textContent).toContain('…');
+		// A split pair stays a lone surrogate in `textContent` — it only becomes U+FFFD at encoding
+		// time — so match one directly. (`String#isWellFormed` would say this too, but it needs the
+		// es2024 lib this repo does not target.)
+		expect(alert.textContent).not.toMatch(UNPAIRED_SURROGATE);
+	});
+
+	// Sign-up's recovery has to be sign-up's: pointing a would-be account holder at a password-reset
+	// inbox is the mis-advice this whole classification exists to prevent (#1668).
+	it('gives sign-up’s own recovery when the outcome is unknown', async () => {
+		post.mockRejectedValue(axiosError(504));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		const alert = await waitFor(() => screen.getByRole('alert'));
+		expect(alert.textContent).toContain(OUTCOME_UNKNOWN_MESSAGE);
+		expect(alert.textContent).toContain('Check your email for a verification link before signing up again.');
+		expect(alert.textContent).not.toContain('requesting another link');
+	});
+
+	it('offers support for a 500, which retrying may not clear', async () => {
+		post.mockRejectedValue(axiosError(500));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		const alert = await waitFor(() => screen.getByRole('alert'));
+		expect(alert.textContent).toContain(SERVER_ERROR_MESSAGE);
+		expect(alert.textContent).toContain('if this keeps happening');
+	});
+
+	// The alert persists on an anonymous page, so a 5xx body never reaches it (#1676).
+	it('never renders a 5xx body, however sentence-shaped', async () => {
+		post.mockRejectedValue(axiosError(500, { error: 'connect ECONNREFUSED 10.0.3.14:9925' }));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		const alert = await waitFor(() => screen.getByRole('alert'));
+		expect(alert.textContent).toContain(SERVER_ERROR_MESSAGE);
+		expect(alert.textContent).not.toContain('10.0.3.14');
 	});
 
 	// Whatever central-manager rejects with has to reach the user — the form maps no status
@@ -106,7 +177,8 @@ describe('SignUp', () => {
 		// A legacy "Code: sentence" body: the toast splits the first clause into its heading, and
 		// the inline line has no heading — it must still read as a whole sentence.
 		[409, 'Conflict: user already exists', 'Conflict: user already exists'],
-		[503, undefined, 'We had some trouble!'],
+		[503, undefined, SERVER_UNAVAILABLE_MESSAGE],
+		[429, undefined, TOO_MANY_ATTEMPTS_MESSAGE],
 	])('surfaces a %i rejection inline', async (status, data, expected) => {
 		post.mockRejectedValue(axiosError(status, data));
 
@@ -115,6 +187,40 @@ describe('SignUp', () => {
 		submit();
 
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(expected));
+	});
+
+	it('still reports an inline failure to telemetry', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue(axiosError(503));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(consoleError).toHaveBeenCalledWith(expect.objectContaining({ isAxiosError: true }));
+		consoleError.mockRestore();
+	});
+
+	// Documents a real defect (#1677), not desired behavior: the server failure outlives a resubmit
+	// the resolver rejected, so it sits next to a contradicting field error. `post` is asserted at
+	// one call to prove the second submit really was rejected client-side rather than re-failing.
+	// Adding `onInvalid: () => clearErrors('root')` does not change this; sign-in is unaffected
+	// because its failure lives outside react-hook-form.
+	it('leaves a stale server failure up after an invalid resubmit (#1677)', async () => {
+		post.mockRejectedValue(axiosError(409, 'User already exists'));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('User already exists'));
+
+		fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'not-an-email' } });
+		submit();
+
+		await waitFor(() => expect(screen.getByText('Please enter a valid email address.')).toBeTruthy());
+		expect(post).toHaveBeenCalledTimes(1);
+		expect(screen.getByRole('alert').textContent).toContain('User already exists');
 	});
 
 	it('clears the previous failure when the form is resubmitted', async () => {

@@ -707,3 +707,77 @@ only the base `--spacing: 0.25rem`, so a `var(--spacing-32)` "fix" resolves to n
 the `calc()` (the container height drops to `auto`). Multiple code-review models flag the function form
 as invalid CSS and suggest the `var()` form; don't take the bait. Verify by measuring, not by reading:
 the container computes to exactly `innerHeight − 128px` when the function resolved.
+
+## Dropping `errorHandler` from an `onError` also drops the RUM report
+
+The Datadog RUM SDK instruments `console.error` and reports each call as an error with
+`error.source: "console"` — no `datadogLogs` init involved, and we have none. `errorHandler`
+([`src/react-query/queryClient.ts`](src/react-query/queryClient.ts)) opens with `console.error(rawErr)`,
+so a handled query/mutation rejection reaches RUM today purely as a side effect of showing its toast
+— subject to [`shouldKeepEvent`](src/integrations/datadog/shouldKeepEvent.ts), which then drops
+timeouts, 401s and third-party stacks in `beforeSend`. Reaching RUM is not the same as reaching
+Error Tracking.
+
+That matters when replacing a toast with inline form copy: drop the `errorHandler` call and the
+failure silently stops being reported. The auth forms that render their own failure keep an explicit `console.error(error)` for exactly this
+reason — **at mutation level, in the `useMutation({ onError })`, not in the caller's `mutate(…, {
+onError })` callback**. React Query skips the latter when the component unmounted mid-flight, which
+is precisely when someone gave up on a slow sign-in and navigated away. Exclude control flow from it —
+`SignIn` skips the unverified-email rejection there, because `submitForm` redirects into the
+verification flow on it and reporting it would file every unverified sign-in.
+
+A related trap when reasoning about these forms: **a minimal `useForm` probe does not reproduce them.**
+react-hook-form clears a `root` error on a resolver-rejected resubmit in isolation, but `SignUp`
+demonstrably does not (#1677), and `handleSubmit(fn, () => clearErrors('root'))` does not change
+that. Reproduce against the real component, and assert the request count so a "stale" alert cannot
+actually be a second identical rejection. **Keeping the failure in component state, outside
+react-hook-form, is the model that clears correctly** — sign-in has always done this and
+forgot-password moved to it; sign-up is the remaining `root` user. (`ForgotPassword` keeps
+its report in the caller because it reports conditionally: its CAPTCHA branch is deliberately silent
+per #1658, and its non-retryable branch routes through `errorHandler`. The consequence is that a
+forgot-password failure is reported only if the form is still mounted when it settles.)
+The inverse trap is real too — a `.catch()` written to _reduce_ RUM noise must not `console.error`,
+which is what #1658 was. `console.debug` is not collected, and is the channel for a swallowed
+failure you still want in devtools.
+
+## A 5xx body never reaches an auth form
+
+`describeError` renders whatever the server sent, and before #1676 that reached the sign-in and
+sign-up forms as a toast. Those pages are anonymous and the inline alert this PR added _persists_,
+so [`describeAuthFailure`](src/features/auth/describeAuthFailure.ts) substitutes our own copy for
+every 5xx (and 429) rather than deferring: a 5xx body is our infrastructure talking — Harper's
+"exceeded request queue limit for resolving cache record", or an upstream
+`connect ECONNREFUSED 10.0.3.x:9925` — none of it actionable by a signed-out visitor, and some of it
+our topology. 4xx still defers, because that is where an authored, actionable reason lives.
+
+Which 5xx copy is shown turns on whether the request could already have been
+processed, not on
+[`curryRetryGatewayErrors`](src/integrations/api/retryGatewayErrors.ts)'s retry list — that
+interceptor is installed on instance clients only
+([`getInstanceClient.ts`](src/config/getInstanceClient.ts)), never on `apiClient`, so nothing
+auto-retries an auth call and the retry the copy invites is the user's own. **Only 503 promises a
+plain retry**, because a declining server very likely never processed the request. **502, 504,
+any timeout, and `ERR_NETWORK` get a third message** instead: all three auth submits are
+non-idempotent POSTs, and each of those means the request may already have been applied — axios
+reports a CORS rejection and a connection dropped _after_ the POST both as `ERR_NETWORK`, so none of
+them can claim the server was never reached. RFC 9110 §9.2.2: a retry is only safe once you know the
+request was not applied.
+
+That message **states the uncertainty and stops** — the remediation is the caller's, because only
+the form knows what recovery means for its endpoint ("check your inbox before requesting another
+link", "check your email for a verification link", "try signing in again"). Do not fold a generic
+"reload and try again" back into the shared copy: reloading an anonymous form performs no status
+check, so following it just repeats the side effect this branch exists to avoid (#1668).
+Everything else 5xx gets copy that does not promise waiting helps, plus a way to escalate — and
+`SubmitErrorMessage` decides that from the message itself rather than from a prop each caller must
+remember, which is what kept two of three forms from shipping without it.
+
+Do not "improve" this by rendering the server's 5xx sentence when it looks presentable. Two earlier
+passes tried gating on whether the body held a usable sentence (truthiness, then a length and
+leading-character heuristic); both leaked, and both duplicated `describeError`'s extraction where it
+could drift. Gate on **status**, which cannot.
+
+Worth knowing for the telemetry half: with no body `describeError` falls back to `errorText(err.message)`,
+so the pre-#1676 user saw the bare `Request failed with status code 503`. `"We had some trouble!"` is
+the next fallback down and needs `message` absent too, which real AxiosErrors never are — it shows up
+only in tests whose fixture omits it, so don't read a test expectation as production behavior here.

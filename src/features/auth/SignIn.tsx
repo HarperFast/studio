@@ -12,6 +12,7 @@ import { Link, useSearch } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
+import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { useCloudSignIn } from './hooks/useCloudSignIn';
 import { useLastUsedSignInMethod } from './hooks/useLastUsedSignInMethod';
 
@@ -31,7 +32,7 @@ export function SignIn() {
 	const { handleSubmit, control } = methods;
 	const email = methods.watch('email');
 
-	const { submitForm, isPending } = useCloudSignIn();
+	const { submitForm, isPending, submitError, clearSubmitError } = useCloudSignIn();
 	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();
 
 	return (
@@ -41,7 +42,7 @@ export function SignIn() {
 				<form
 					id="auth-signin-form"
 					name="auth-signin-form"
-					onSubmit={handleSubmit(submitForm)}
+					onSubmit={handleSubmit(submitForm, clearSubmitError)}
 					className="my-4"
 				>
 					<FormField
@@ -81,6 +82,7 @@ export function SignIn() {
 							</FormItem>
 						)}
 					/>
+					<SubmitErrorMessage message={submitError} />
 					<Button type="submit" variant="submit" className="w-full my-2" disabled={isPending}>
 						Sign In
 					</Button>
