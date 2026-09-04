@@ -287,3 +287,29 @@ export function describeGrantExpiry(
 			return null;
 	}
 }
+
+/** The quiet reminder for a cluster on its trial. */
+export interface TrialReminder {
+	label: 'Trial';
+	/** "September 30", or null when the grant carries no usable end date. */
+	endsOn: string | null;
+	/** Sentence form, for a tooltip. */
+	detail: string;
+}
+
+/**
+ * A cluster on a live trial that nothing louder is being said about. Yields null whenever
+ * `describeGrantExpiry` has something to show, so the countdown replaces this in the same spot
+ * instead of sitting next to it.
+ */
+export function describeTrial(
+	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
+	now: number = Date.now(),
+): TrialReminder | null {
+	const grant = cluster.grant;
+	if (!grant || grant.source !== 'trial' || !grant.isActive) { return null; }
+	if (describeGrantExpiry(cluster, now)) { return null; }
+	const at = grant.endsAt ? new Date(grant.endsAt) : null;
+	const endsOn = at && !Number.isNaN(at.getTime()) ? onDate(at) : null;
+	return { label: 'Trial', endsOn, detail: endsOn ? `Trial ends ${endsOn}` : 'Trial cluster' };
+}
