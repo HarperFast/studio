@@ -10,6 +10,7 @@ import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard
 import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
+import { describeTrial, TrialReminder } from '@/features/clusters/lib/grantExpiry';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -140,6 +141,7 @@ export function ClusterHome() {
 		&& activeClusterStatuses.includes(cluster.status)
 		&& clusterInstances.length > 0
 		&& clusterInstances.every((instance) => instance.safeMode);
+	const trial = describeTrial(cluster);
 
 	return (
 		<ClusterHomeShell>
@@ -152,6 +154,7 @@ export function ClusterHome() {
 						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
 						<StatusPill status={cluster.status} />
 						{allInSafeMode && <SafeModePill />}
+						{trial && <TrialPill reminder={trial} />}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
 						<span>{instanceCount} {instanceCount === 1 ? 'instance' : 'instances'}</span>
@@ -437,6 +440,20 @@ function SafeModePill() {
 		>
 			<LifeBuoy className="size-3" />
 			Safe mode
+		</span>
+	);
+}
+
+// Muted like the Self-Hosted pill: a fact about the cluster, not a warning. The expiry banner
+// takes over once there is a countdown to show, and this disappears with it.
+function TrialPill({ reminder }: { reminder: TrialReminder }) {
+	return (
+		<span
+			title={reminder.detail}
+			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-muted-foreground bg-muted"
+		>
+			{reminder.label}
+			{reminder.endsOn && <span className="opacity-70">· ends {reminder.endsOn}</span>}
 		</span>
 	);
 }
