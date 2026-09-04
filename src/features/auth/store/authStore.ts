@@ -49,6 +49,9 @@ type OverallAppSignInType = typeof OverallAppSignIn;
 export type EntityIds = OverallAppSignInType | Instance['id'] | Cluster['id'];
 type EntityTypes = OverallAppSignInType | Instance | Cluster | null;
 
+// A best-effort logout must not hold the sign-out for getInstanceClient's default 60s per unreachable instance.
+const LOGOUT_TIMEOUT_MS = 10_000;
+
 class AuthStore {
 	private readonly broadListeners: Array<(connection: AuthenticatedConnection, id: EntityIds) => void> = [];
 	private readonly specificListeners: Record<
@@ -511,21 +514,36 @@ class AuthStore {
 	}
 
 	public async signOutFromPotentiallyAuthenticatedInstances() {
-		for (const entityId in this.potentiallyAuthenticated) {
-			this.updateConnectionIfChanged(entityId, false, null);
-			this.flagKeyAsSignedOut(entityId);
-			this.fabricConnectAuth.delete(entityId);
-			forgetEntitySettings(entityId);
-			this.bumpExplorerAuthEpoch(entityId);
-			if (entityId === OverallAppSignIn) {
-				continue;
+		const logouts: Array<Promise<void>> = [];
+		for (const entityId of Object.keys(this.potentiallyAuthenticated)) {
+			// The clears below drop the operations URL and token the client resolves from.
+			const instanceClient = this.buildLogoutClient(entityId);
+			this.signOutLocally(entityId);
+			if (instanceClient) {
+				logouts.push(
+					onInstanceLogoutSubmit({ entityId, instanceClient }).then(
+						() => undefined,
+						(err: unknown) => reportLogoutFailure(entityId, err),
+					),
+				);
 			}
-			try {
-				const instanceClient = getInstanceClient({ id: entityId });
-				await onInstanceLogoutSubmit({ entityId, instanceClient });
-			} catch (err: unknown) {
-				console.error(`Failed to log out from ${entityId}, carrying on`, err);
-			}
+		}
+		await Promise.all(logouts);
+	}
+
+	private buildLogoutClient(entityId: EntityIds): ReturnType<typeof getInstanceClient> | null {
+		if (entityId === OverallAppSignIn) {
+			return null;
+		}
+		try {
+			const instanceClient = getInstanceClient({ id: entityId });
+			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
+			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.
+			instanceClient.interceptors.response.clear();
+			return instanceClient;
+		} catch (err: unknown) {
+			reportLogoutFailure(entityId, err);
+			return null;
 		}
 	}
 
@@ -678,6 +696,13 @@ class AuthStore {
 		this.updateConnectionIfChanged(id, false, user);
 		return user;
 	}
+}
+
+// `console.debug`, never `console.error`: the RUM SDK reports `console.error` as an error, which would
+// put a failure the sign-out deliberately carries past into Error Tracking. Message only: the full
+// Axios error carries the request credentials.
+function reportLogoutFailure(entityId: EntityIds, err: unknown): void {
+	console.debug(`Failed to log out from ${entityId}, carrying on`, err instanceof Error ? err.message : err);
 }
 
 export const authStore = new AuthStore();
