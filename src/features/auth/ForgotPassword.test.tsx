@@ -39,7 +39,7 @@ vi.mock('@/lib/recaptcha/recaptchaScript', () => ({
 	},
 }));
 
-import { SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
+import { OUTCOME_UNKNOWN_MESSAGE, SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE } from './describeAuthFailure';
 import { ForgotPassword } from './ForgotPassword';
 
 function wrapper() {
@@ -211,6 +211,22 @@ describe('ForgotPassword — reCAPTCHA', () => {
 		// One call proves the resolver rejected the second submit rather than it re-failing.
 		await waitFor(() => expect(queryByRole('alert')).toBeNull());
 		expect(post).not.toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	// And forgot-password's has to be forgot-password's — see the sign-up counterpart.
+	it('gives forgot-password’s own recovery when the outcome is unknown', async () => {
+		captchaState.token = 'human-token';
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		post.mockRejectedValue({ isAxiosError: true, response: { status: 504 } } as AxiosError);
+		const { container, findByRole } = renderForm();
+
+		await submitWith(container, 'user@example.com');
+
+		const alert = await findByRole('alert');
+		expect(alert.textContent).toContain(OUTCOME_UNKNOWN_MESSAGE);
+		expect(alert.textContent).toContain('Check your inbox before requesting another link.');
+		expect(alert.textContent).not.toContain('verification link');
 		consoleError.mockRestore();
 	});
 

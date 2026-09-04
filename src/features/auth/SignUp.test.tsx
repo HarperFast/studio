@@ -41,7 +41,12 @@ import { toast } from 'sonner';
 // reaches the global toast is part of what's under test, so restating that rule here would let
 // these tests pass even if `skipGlobalErrorToast` stopped being honored.
 import { mutationErrorHandler } from '@/react-query/queryClient';
-import { SERVER_ERROR_MESSAGE, SERVER_UNAVAILABLE_MESSAGE, TOO_MANY_ATTEMPTS_MESSAGE } from './describeAuthFailure';
+import {
+	OUTCOME_UNKNOWN_MESSAGE,
+	SERVER_ERROR_MESSAGE,
+	SERVER_UNAVAILABLE_MESSAGE,
+	TOO_MANY_ATTEMPTS_MESSAGE,
+} from './describeAuthFailure';
 import { SignUp } from './SignUp';
 
 function axiosError(status: number, data?: unknown): AxiosError {
@@ -122,6 +127,21 @@ describe('SignUp', () => {
 		// time — so match one directly. (`String#isWellFormed` would say this too, but it needs the
 		// es2024 lib this repo does not target.)
 		expect(alert.textContent).not.toMatch(UNPAIRED_SURROGATE);
+	});
+
+	// Sign-up's recovery has to be sign-up's: pointing a would-be account holder at a password-reset
+	// inbox is the mis-advice this whole classification exists to prevent (#1668).
+	it('gives sign-up’s own recovery when the outcome is unknown', async () => {
+		post.mockRejectedValue(axiosError(504));
+
+		renderSignUp();
+		fillValidForm();
+		submit();
+
+		const alert = await waitFor(() => screen.getByRole('alert'));
+		expect(alert.textContent).toContain(OUTCOME_UNKNOWN_MESSAGE);
+		expect(alert.textContent).toContain('Check your email for a verification link before signing up again.');
+		expect(alert.textContent).not.toContain('requesting another link');
 	});
 
 	it('offers support for a 500, which retrying may not clear', async () => {
