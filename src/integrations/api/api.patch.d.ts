@@ -158,6 +158,12 @@ export interface SystemStatusNotification {
 
 export interface Organization extends SchemaOrganization {
 	type: UNRESTRICTED | ENTERPRISE | SELF_SERVICE | string | undefined;
+	/**
+	 * Grants minted against this organization that no cluster has claimed yet — what the add-cluster
+	 * page offers as vouchers. Customer projection, claimable only (active and unbound), soonest
+	 * ending first. Absent on a central-manager that predates the field.
+	 */
+	unboundGrants?: ClusterGrant[];
 	settings?: {
 		oauthConfigs?: OAuthConfig[];
 	};
