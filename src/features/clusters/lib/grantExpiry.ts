@@ -290,9 +290,8 @@ export function describeGrantExpiry(
 
 /** The quiet reminder for a cluster on its trial. */
 export interface TrialReminder {
-	label: 'Trial';
-	/** "September 30", or null when the grant carries no usable end date. */
-	endsOn: string | null;
+	/** Pill text: "Trial · ends September 30", or just "Trial" without a usable end date. */
+	label: string;
 	/** Sentence form, for a tooltip. */
 	detail: string;
 }
@@ -311,5 +310,7 @@ export function describeTrial(
 	if (describeGrantExpiry(cluster, now)) { return null; }
 	const at = grant.endsAt ? new Date(grant.endsAt) : null;
 	const endsOn = at && !Number.isNaN(at.getTime()) ? onDate(at) : null;
-	return { label: 'Trial', endsOn, detail: endsOn ? `Trial ends ${endsOn}` : 'Trial cluster' };
+	return endsOn
+		? { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}` }
+		: { label: 'Trial', detail: 'Trial cluster' };
 }
