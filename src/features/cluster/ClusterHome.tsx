@@ -449,16 +449,15 @@ function SafeModePill() {
 	);
 }
 
-// Muted like the Self-Hosted pill: a fact about the cluster, not a warning. The expiry banner
-// takes over once there is a countdown to show, and this disappears with it.
+// The Self-Hosted pill's grey, in full foreground so it reads at a glance. The expiry banner takes
+// over once there is a countdown to show, and this disappears with it.
 function TrialPill({ reminder }: { reminder: TrialReminder }) {
 	return (
 		<span
 			title={reminder.detail}
-			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-muted-foreground bg-muted"
+			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-foreground bg-muted"
 		>
 			{reminder.label}
-			{reminder.endsOn && <span className="opacity-70">· ends {reminder.endsOn}</span>}
 		</span>
 	);
 }
