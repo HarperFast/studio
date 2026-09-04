@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describeCluster } from '@/features/clusters/lib/clusterListModel';
-import type { Cluster } from '@/integrations/api/api.patch';
+import type { Cluster, ClusterGrant } from '@/integrations/api/api.patch';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -129,5 +129,75 @@ describe('ClusterCard', () => {
 		expect(screen.queryByText('Open cluster options to retry or manage this cluster.')).toBeNull();
 		view.rerender(<ClusterCard cluster={cluster({ status: 'PENDING_UPGRADE' })} />);
 		expect(screen.getByText('Upgrade pending')).toBeTruthy();
+	});
+});
+
+// The epic's grant-aware pills, rendered through stage's summary model like everything else above.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString();
+const trialCluster = (grant: Partial<ClusterGrant> | null, overrides: Partial<Cluster> = {}): Cluster =>
+	cluster({
+		id: 'clu-test',
+		name: 'Test Cluster',
+		organizationId: 'org-test',
+		fqdn: 'test.example.harperfabric.com',
+		plans: [{ planId: 'fabric-block-trial', regionId: 'us-1' }],
+		grant: grant && {
+			id: 'cgr-test',
+			source: 'trial',
+			status: 'ACTIVE',
+			isActive: true,
+			startsAt: daysFromNow(-1),
+			endsAt: daysFromNow(29),
+			cycleAnchor: null,
+			expiryPolicy: 'consumer-trial',
+			currentStage: null,
+			stageUpdatedAt: null,
+			allowedPlanIds: null,
+			allowedRegionIds: null,
+			timeline: null,
+			...grant,
+		},
+		...overrides,
+	} as Partial<Cluster>);
+
+describe('ClusterCard — trial reminder', () => {
+	it('shows a Trial pill and its end date for a healthy trial', () => {
+		render(<ClusterCard cluster={trialCluster({})} />);
+		expect(screen.getByText('Trial').getAttribute('title')).toMatch(/^Trial ends /);
+		expect(screen.getByText(/^Ends [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+	});
+
+	it('shows nothing extra for a purchased plan', () => {
+		render(<ClusterCard cluster={trialCluster({ source: 'purchased', expiryPolicy: null })} />);
+		expect(screen.queryByText(/^Trial/)).toBeNull();
+	});
+
+	// The reminder and the countdown share a slot; once the runner stages the grant, only the
+	// countdown is shown.
+	it('gives way to the expiry countdown once the trial is staged', () => {
+		render(<ClusterCard cluster={trialCluster({ currentStage: 'WARNED', endsAt: daysFromNow(5) })} />);
+		expect(screen.queryByText(/^Trial/)).toBeNull();
+		expect(screen.getByText('Ends in 5 days')).toBeTruthy();
+		expect(screen.getByText(/^[A-Z][a-z]{2} \d{1,2}$/), 'the end date beside the countdown').toBeTruthy();
+	});
+});
+
+// Both upgrade states share the AWAITING_PLAN stage; only the one still in flight may spin.
+describe('ClusterCard — upgrade badge', () => {
+	it('spins while the upgrade is applying', () => {
+		render(
+			<ClusterCard
+				cluster={trialCluster({ source: 'purchased', expiryPolicy: 'conversion-pending' }, {
+					conversionState: 'APPLYING',
+				})}
+			/>,
+		);
+		expect(screen.getByText('Upgrading').querySelector('.animate-spin')).not.toBeNull();
+	});
+
+	it('does not spin once the upgrade has failed', () => {
+		render(<ClusterCard cluster={trialCluster({}, { conversionState: 'FAILED' })} />);
+		expect(screen.getByText('Upgrade failed').querySelector('.animate-spin')).toBeNull();
 	});
 });
