@@ -68,22 +68,22 @@ async function renderCard(c: Cluster) {
 }
 
 describe('ClusterCard — trial reminder', () => {
-	it('shows a quiet Trial pill, with the end date on hover, for a healthy trial', async () => {
+	it('shows a Trial pill with the end date for a healthy trial', async () => {
 		await renderCard(cluster({}));
-		const pill = screen.getByText('Trial');
+		const pill = screen.getByText(/^Trial · ends /);
 		expect(pill.getAttribute('title')).toMatch(/^Trial ends /);
 	});
 
 	it('shows nothing extra for a purchased plan', async () => {
 		await renderCard(cluster({ source: 'purchased', expiryPolicy: null }));
-		expect(screen.queryByText('Trial')).toBeNull();
+		expect(screen.queryByText(/^Trial/)).toBeNull();
 	});
 
 	// The reminder and the countdown share a slot; once the runner stages the grant, only the
 	// countdown is shown.
 	it('gives way to the expiry countdown once the trial is staged', async () => {
 		await renderCard(cluster({ currentStage: 'WARNED', endsAt: daysFromNow(5) }));
-		expect(screen.queryByText('Trial')).toBeNull();
+		expect(screen.queryByText(/^Trial/)).toBeNull();
 		expect(screen.getByText('Ends in 5 days')).toBeTruthy();
 	});
 });

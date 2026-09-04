@@ -387,8 +387,7 @@ describe('isExpiryWarning', () => {
 describe('describeTrial', () => {
 	it('names the trial and its end date while nothing louder applies', () => {
 		expect(describeTrial({ grant: grant() }, NOW)).toEqual({
-			label: 'Trial',
-			endsOn: 'September 24',
+			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
 		});
 	});
@@ -415,7 +414,6 @@ describe('describeTrial', () => {
 	it('still says Trial when the grant carries no usable end date', () => {
 		expect(describeTrial({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
 			label: 'Trial',
-			endsOn: null,
 			detail: 'Trial cluster',
 		});
 	});

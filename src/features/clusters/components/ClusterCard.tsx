@@ -420,7 +420,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						</Badge>
 					)}
 					{trial && (
-						<Badge variant="outline" className="font-normal text-muted-foreground" title={trial.detail}>
+						<Badge variant="outline" className="font-normal" title={trial.detail}>
 							{trial.label}
 						</Badge>
 					)}
