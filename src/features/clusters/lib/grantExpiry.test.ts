@@ -6,6 +6,7 @@ import {
 	isConversionComplete,
 	isConversionPending,
 	isExpiryWarning,
+	voucherLabel,
 } from './grantExpiry';
 
 const NOW = new Date('2026-08-25T12:00:00.000Z').getTime();
@@ -416,5 +417,15 @@ describe('describeTrial', () => {
 			label: 'Trial',
 			detail: 'Trial cluster',
 		});
+	});
+});
+
+describe('voucherLabel', () => {
+	it('names what the grant is and when it lapses', () => {
+		expect(voucherLabel(grant({ source: 'comped' }))).toBe('Complimentary plan · ends September 24');
+	});
+
+	it('drops the date when there is none', () => {
+		expect(voucherLabel(grant({ endsAt: null }))).toBe('Trial');
 	});
 });

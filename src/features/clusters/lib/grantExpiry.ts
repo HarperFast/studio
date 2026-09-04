@@ -145,13 +145,14 @@ function deletionDueAt(grant: ClusterGrant, now: number): Date | null {
 
 /** Tense-correct: only claims a past ending when the date actually is in the past. */
 function endedTitle(grant: ClusterGrant, days: number | null): string {
-	const label = sourceLabel(grant);
+	const label = grantSourceLabel(grant);
 	return days == null || days > 0 ? `${label} has ended` : `${label} ended ${whenPhrase(days)}`;
 }
 
 const onDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(at);
 
-function sourceLabel(grant: ClusterGrant): string {
+/** The customer-facing name for what a grant is: Trial, Complimentary plan, Plan… */
+export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
 	return SOURCE_LABEL[grant.source] ?? 'Plan';
 }
 
@@ -268,7 +269,7 @@ export function describeGrantExpiry(
 				stage: 'WARNED',
 				severity: 'warning',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
-				title: `${sourceLabel(grant)} ends ${whenPhrase(days)}`,
+				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'Choose a paid plan to keep this cluster running.',
 				needsUpgrade: false,
 				offerUpgrade: true,
@@ -278,7 +279,7 @@ export function describeGrantExpiry(
 				stage: 'FINAL_WARNING',
 				severity: 'critical',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
-				title: `${sourceLabel(grant)} ends ${whenPhrase(days)}`,
+				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
 				needsUpgrade: false,
 				offerUpgrade: true,
@@ -313,4 +314,14 @@ export function describeTrial(
 	return endsOn
 		? { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}` }
 		: { label: 'Trial', detail: 'Trial cluster' };
+}
+
+/**
+ * How an unclaimed voucher reads in the add-cluster picker: what it is and when it lapses. Never
+ * the id alone — a customer was handed "a complimentary plan", not a cgr- string.
+ */
+export function voucherLabel(grant: Pick<ClusterGrant, 'source' | 'endsAt'>): string {
+	const at = grant.endsAt ? new Date(grant.endsAt) : null;
+	const ends = at && !Number.isNaN(at.getTime()) ? ` · ends ${onDate(at)}` : '';
+	return `${grantSourceLabel(grant)}${ends}`;
 }

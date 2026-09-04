@@ -8,6 +8,7 @@
  */
 import { Form } from '@/components/ui/form/Form';
 import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { ClusterGrant } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -17,13 +18,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterDetails } from './ClusterDetails';
 import { UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
-// The Grant ID field is staff-gated; everything else from this module stays real.
+// The bare Voucher ID field is staff-gated; everything else from this module stays real. Read
+// at call time so a test can drop to a plain member.
+let staff = true;
 vi.mock('@/hooks/useAuth', async (importOriginal) => ({
 	...(await importOriginal<object>()),
-	useStaffPermission: () => true,
+	useStaffPermission: () => staff,
 }));
 
-afterEach(() => cleanup());
+afterEach(() => {
+	cleanup();
+	staff = true;
+});
 
 const plan = (id: string, priceUsd: number, performance: string, deployment = 'Colocated'): SchemaPlan =>
 	({
@@ -246,5 +252,62 @@ describe('ClusterDetails — arriving from the upgrade CTA', () => {
 			await mountEditor({ clusterId: 'clu-1' });
 			expect(screen.queryByLabelText('Voucher ID')).toBeNull();
 		});
+	});
+});
+
+const voucher = (id: string, overrides: Partial<ClusterGrant> = {}): ClusterGrant => ({
+	id,
+	source: 'comped',
+	status: 'ACTIVE',
+	isActive: true,
+	startsAt: null,
+	endsAt: '2026-09-30T12:00:00.000Z',
+	cycleAnchor: null,
+	expiryPolicy: 'comped',
+	currentStage: null,
+	stageUpdatedAt: null,
+	allowedPlanIds: null,
+	allowedRegionIds: null,
+	timeline: null,
+	...overrides,
+});
+
+describe('ClusterDetails — choosing a voucher on create', () => {
+	const COMPED = voucher('cgr-comped', { allowedPlanIds: [LEVEL_1.id], allowedRegionIds: ['us-1'] });
+	const TRIAL_VOUCHER = voucher('cgr-trial', {
+		source: 'trial',
+		endsAt: '2026-10-04T12:00:00.000Z',
+		expiryPolicy: 'consumer-trial',
+	});
+
+	it('lists what the organization may redeem, for any member who can create', async () => {
+		staff = false;
+		await mountEditor({ unboundGrants: [COMPED, TRIAL_VOUCHER] });
+		const options = await openedOptions('Voucher');
+		expect(options[0]).toBe('None');
+		expect(options.some((o) => o.startsWith('Complimentary plan · ends September 30'))).toBe(true);
+		expect(options.some((o) => o.startsWith('Trial · ends October 4'))).toBe(true);
+	});
+
+	it('skips the billing step once a voucher is picked, and says what it covers', async () => {
+		staff = false;
+		await mountEditor({ unboundGrants: [COMPED] });
+		await openedOptions('Voucher');
+		fireEvent.keyDown(screen.getByRole('option', { name: /Complimentary plan/ }), { key: 'Enter' });
+		await act(() => null);
+		expect(screen.getByRole('button', { name: /Create New Cluster/ })).toBeTruthy();
+		expect(screen.getByText('Covers Medium (10K read/min) in US')).toBeTruthy();
+	});
+
+	it('shows a customer nothing when there is nothing to redeem', async () => {
+		staff = false;
+		await mountEditor({ unboundGrants: [] });
+		expect(screen.queryByText('Voucher')).toBeNull();
+		expect(screen.queryByLabelText('Voucher ID')).toBeNull();
+	});
+
+	it('keeps the bare id field for staff when the list is empty', async () => {
+		await mountEditor({ unboundGrants: [] });
+		expect(screen.getByLabelText('Voucher ID')).toBeTruthy();
 	});
 });
