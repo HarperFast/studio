@@ -588,6 +588,7 @@ export function ClusterForm({
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									regionSetFrozen={regionSetFrozen}
 									currentPlanId={currentPlanId}
+									unboundGrants={organization?.unboundGrants}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
