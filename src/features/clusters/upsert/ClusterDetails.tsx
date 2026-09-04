@@ -12,6 +12,7 @@ import { ClusterSkipGtmWait } from '@/features/clusters/upsert/fields/ClusterSki
 import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
+import { ClusterGrant } from '@/integrations/api/api.patch';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
@@ -38,6 +39,8 @@ interface ClusterDetailsProps {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	regionSetFrozen?: boolean;
 	currentPlanId?: string;
+	/** The organization's unclaimed vouchers, offered on create. */
+	unboundGrants?: ClusterGrant[];
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -59,6 +62,7 @@ export function ClusterDetails({
 	regionNameToLatencyToRegion,
 	regionSetFrozen,
 	currentPlanId,
+	unboundGrants,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -139,6 +143,22 @@ export function ClusterDetails({
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
+
+	// Names for a scoped voucher's plan and region ids, so its coverage note reads the way the
+	// pickers above it do. Falls back to the id for anything not in the catalogue.
+	const planNameById = useMemo(
+		() =>
+			Object.fromEntries(
+				Object.values(deploymentToPerformanceToPlan)
+					.flatMap((tier) => Object.values(tier))
+					.map((p) => [p.id, p.performanceDescription ?? p.id]),
+			),
+		[deploymentToPerformanceToPlan],
+	);
+	const regionNameById = useMemo(
+		() => Object.fromEntries((regionLocations ?? []).map((r) => [r.id, r.region ?? r.id])),
+		[regionLocations],
+	);
 
 	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
 	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried.
@@ -244,7 +264,15 @@ export function ClusterDetails({
 							cloudProvider={cloudProvider}
 						/>
 					)}
-				{!clusterId && <ClusterGrantId className="col-span-3" form={form} />}
+				{!clusterId && (
+					<ClusterGrantId
+						className="col-span-3"
+						form={form}
+						unboundGrants={unboundGrants}
+						planNameById={planNameById}
+						regionNameById={regionNameById}
+					/>
+				)}
 				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 			</div>
 			{footer}
