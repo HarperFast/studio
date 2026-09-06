@@ -116,10 +116,16 @@ async function pickScope(label: string, option: string | RegExp) {
 	await act(() => null);
 }
 
-/** A comped grant must name at least one plan and one region; every submit of one needs these. */
+const addRow = async () => {
+	fireEvent.click(screen.getByRole('button', { name: /Add region/ }));
+	await act(() => null);
+};
+
+/** A comp must say which cluster it is for; every submit of one needs at least this row. */
 async function fillCompedScope() {
-	await pickScope('Plans', /plan-hobby/);
-	await pickScope('Regions', /us-east-1/);
+	await addRow();
+	await pick('Plan 1', /plan-hobby/);
+	await pick('Region 1', /us-east-1/);
 }
 
 describe('CreateGrantModal', () => {
@@ -194,71 +200,80 @@ describe('CreateGrantModal', () => {
 
 	// A comped grant has no clock and no card, so its scope is the only bound it has — the server
 	// requires at least one plan and one region, and the form says so before the 400 would.
-	it('will not mint a comped grant without a plan and a region', async () => {
+	it('will not mint a comp without its shape', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
-		fireEvent.change(reasonBox(), { target: { value: 'unscoped comp' } });
+		fireEvent.change(reasonBox(), { target: { value: 'unshaped comp' } });
 		await act(() => null);
+		expect(screen.getByText('Cluster shape (required)')).toBeTruthy();
 		expect(submit().hasAttribute('disabled')).toBe(true);
-		// The labels carry the requirement from the start; the error itself waits for the field to be
-		// touched, so a fresh form is not covered in red for pickers nobody has reached yet.
-		expect(screen.getByText('Plans (required)')).toBeTruthy();
-		expect(screen.getByText('Regions (required)')).toBeTruthy();
-
-		// Picking and then removing is the touch: now the rule is said out loud.
-		await pickScope('Plans', /plan-hobby/);
-		fireEvent.click(screen.getByRole('button', { name: 'Remove plan-hobby' }));
-		await act(() => null);
-		expect(screen.getByText('A comped grant must name the plans it covers')).toBeTruthy();
+		// A row with nothing picked is not a shape either, and says what it is missing.
+		await addRow();
+		expect(screen.getByText('Choose a plan')).toBeTruthy();
 		expect(submit().hasAttribute('disabled')).toBe(true);
 	});
 
-	// A self-hosted plan has no region, so a comp scoped only to self-hosted plans needs none — and
-	// must not carry any, since a region scope would refuse the self-hosted bind it exists for.
-	it('waives regions on a comp scoped only to self-hosted plans, and sends none', async () => {
+	it('needs a region for a Harper-hosted plan, and says so on the row', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
-		await pickScope('Plans', /self-hosted-2/);
+		await addRow();
+		await pick('Plan 1', /plan-hobby/);
+		fireEvent.change(reasonBox(), { target: { value: 'hosted comp' } });
+		await act(() => null);
+		expect(screen.getByText('Choose the region this plan runs in')).toBeTruthy();
+		expect(submit().hasAttribute('disabled')).toBe(true);
+		await pick('Region 1', /us-east-1/);
+		expect(submit().hasAttribute('disabled')).toBe(false);
+	});
+
+	// A self-hosted plan has no region: the row is the plan alone, and the server gets null for it.
+	it('needs no region for a self-hosted plan, and sends null', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await addRow();
+		await pick('Plan 1', /self-hosted-2/);
 		fireEvent.change(reasonBox(), { target: { value: 'on-prem comp' } });
 		await act(() => null);
-
-		expect(screen.queryByText('Regions (required)')).toBeNull();
-		expect(screen.getByRole('button', { name: 'Regions' }).hasAttribute('disabled')).toBe(true);
-		expect(screen.getByText(/nothing here to bound/)).toBeTruthy();
+		expect(screen.getByLabelText('Region 1').hasAttribute('disabled')).toBe(true);
 		expect(submit().hasAttribute('disabled')).toBe(false);
-
 		fireEvent.click(submit());
 		await act(() => null);
 		const [body] = createGrant.mock.calls[0];
-		expect(body.allowedPlanIds).toEqual(['self-hosted-2']);
+		expect(body.shape).toEqual([{ planId: 'self-hosted-2', regionId: null }]);
+		expect(body).not.toHaveProperty('allowedPlanIds');
 		expect(body).not.toHaveProperty('allowedRegionIds');
 	});
 
-	// One Harper-hosted plan in the mix is enough to bring the region requirement back.
-	it('requires regions again the moment a Harper-hosted plan joins the scope', async () => {
-		await mount();
-		await pick('Organization', /org-1/);
-		await pickScope('Plans', /self-hosted-2/);
-		await pickScope('Plans', /plan-hobby/);
-		fireEvent.change(reasonBox(), { target: { value: 'mixed comp' } });
-		await act(() => null);
-
-		expect(screen.getByText('Regions (required)')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Regions' }).hasAttribute('disabled')).toBe(false);
-		expect(submit().hasAttribute('disabled')).toBe(true);
-	});
-
-	it('sends the scope a comped grant was given', async () => {
+	// One row per region, so a plan is listed once for each region it runs in.
+	it('lists a plan once per region and sends every pair', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
 		await fillCompedScope();
-		fireEvent.change(reasonBox(), { target: { value: 'scoped comp' } });
+		await addRow();
+		// The new row starts on the last plan; only its region is left to pick.
+		await pick('Region 2', /eu-west-1/);
+		fireEvent.change(reasonBox(), { target: { value: 'two regions' } });
 		await act(() => null);
 		fireEvent.click(submit());
 		await act(() => null);
 		const [body] = createGrant.mock.calls[0];
-		expect(body.allowedPlanIds).toEqual(['plan-hobby']);
-		expect(body.allowedRegionIds).toEqual(['us-east-1']);
+		expect(body.shape).toEqual([
+			{ planId: 'plan-hobby', regionId: 'us-east-1' },
+			{ planId: 'plan-hobby', regionId: 'eu-west-1' },
+		]);
+	});
+
+	it('sends the shape a comp was given, and no allow-lists', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'shaped comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		const [body] = createGrant.mock.calls[0];
+		expect(body.shape).toEqual([{ planId: 'plan-hobby', regionId: 'us-east-1' }]);
+		expect(body).not.toHaveProperty('allowedPlanIds');
 	});
 
 	// The server refuses an empty array and stores null for "any", so an untouched picker on a source
@@ -275,6 +290,26 @@ describe('CreateGrantModal', () => {
 		await act(() => null);
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedPlanIds');
 		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('allowedRegionIds');
+		expect(createGrant.mock.calls[0][0]).not.toHaveProperty('shape');
+	});
+
+	// A trial scopes through the allow-lists, which the server reads as exact lists — and never a shape.
+	it("sends a trial's allow-lists, and no shape", async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await pick('Source', 'trial');
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await pick('Expiry policy', 'consumer-trial');
+		await pickScope('Plans', /plan-hobby/);
+		await pickScope('Regions', /us-east-1/);
+		fireEvent.change(reasonBox(), { target: { value: 'scoped trial' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		const [body] = createGrant.mock.calls[0];
+		expect(body.allowedPlanIds).toEqual(['plan-hobby']);
+		expect(body.allowedRegionIds).toEqual(['us-east-1']);
+		expect(body).not.toHaveProperty('shape');
 	});
 
 	// A comped grant may run forever, but once it is given an end it must stage, or the runner would
