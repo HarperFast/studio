@@ -1,6 +1,6 @@
 import { apiClient } from '@/config/apiClient';
 import type { paths } from '@/integrations/api/api.gen';
-import { AdminClusterGrant } from '@/integrations/api/api.patch';
+import { AdminClusterGrant, GrantShapeEntry } from '@/integrations/api/api.patch';
 import { useMutation } from '@tanstack/react-query';
 
 /**
@@ -16,6 +16,8 @@ export interface UpdateGrantChanges {
 	/** null clears the restriction; an empty array is refused by the server. */
 	allowedPlanIds?: string[] | null;
 	allowedRegionIds?: string[] | null;
+	/** A comp's shape. Only an UNBOUND comp may change it; the server answers 409 for a bound one. */
+	shape?: GrantShapeEntry[];
 	/** Required on every patch — the server enforces it, and the table shows it afterwards. */
 	reason: string;
 }
@@ -56,6 +58,8 @@ export interface CreateGrantBody {
 	expiryPolicy?: string;
 	allowedPlanIds?: string[] | null;
 	allowedRegionIds?: string[] | null;
+	/** Required on comped and refused on anything else: the one cluster the comp is for. */
+	shape?: GrantShapeEntry[];
 	reason: string;
 }
 

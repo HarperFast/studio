@@ -254,6 +254,12 @@ export interface Instance extends SchemaHdbInstance {
 	safeMode?: boolean;
 }
 
+/** One row of a comp's shape. `regionId` is null for a self-hosted plan. */
+export interface GrantShapeEntry {
+	planId: string;
+	regionId: string | null;
+}
+
 /**
  * A cluster's commercial terms, as projected for customers by central-manager. Returned on
  * `GET /Cluster/:id` and on each cluster in `GET /Organization/:id`. Not in the generated OpenAPI
@@ -292,6 +298,12 @@ export interface ClusterGrant {
 	allowedPlanIds: string[] | null;
 	allowedRegionIds: string[] | null;
 	/**
+	 * A comp is for ONE exact cluster: these (plan, region) pairs, no more, no fewer. A claim must
+	 * match them exactly and any later plan change converts the cluster to paid. Null on every
+	 * other source, which scope through the allow-lists above.
+	 */
+	shape?: GrantShapeEntry[] | null;
+	/**
 	 * The whole expiry schedule with each stage's due date. Computed by central-manager on every
 	 * read, never stored, so editing a policy moves these immediately — don't cache them.
 	 *
@@ -324,6 +336,12 @@ export interface AdminClusterGrant {
 	stageUpdatedAt?: string | null;
 	allowedPlanIds?: string[] | null;
 	allowedRegionIds?: string[] | null;
+	/**
+	 * A comp is for ONE exact cluster: these (plan, region) pairs, no more, no fewer. A claim must
+	 * match them exactly and any later plan change converts the cluster to paid. Null on every
+	 * other source, which scope through the allow-lists above.
+	 */
+	shape?: GrantShapeEntry[] | null;
 	grantedByUserId?: string | null;
 	updatedByUserId?: string | null;
 	reason?: string | null;

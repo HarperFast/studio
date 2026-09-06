@@ -13,6 +13,8 @@ import { UpsertClusterSchemaType } from './upsertClusterSchema';
 interface ClusterRegionsProps {
 	/** Lock the region set: the plan prescribes it, so changing it can only be refused. */
 	disabled?: boolean;
+	/** Why the rows are locked; the plan-change wording is the default. */
+	disabledReason?: string;
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	regionLocations: SchemaRegion[] | undefined;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
@@ -26,6 +28,7 @@ interface ClusterRegionsProps {
 
 export function ClusterRegions({
 	disabled,
+	disabledReason,
 	form,
 	regionLocations,
 	regionNameToLatencyToRegion,
@@ -105,7 +108,8 @@ export function ClusterRegions({
 
 			{disabled && (
 				<p className="md:col-span-6 col-span-3 text-xs font-light text-muted-foreground">
-					Your region stays as it is while you change plans. Once the new plan is active you can add or move regions.
+					{disabledReason
+						?? 'Your region stays as it is while you change plans. Once the new plan is active you can add or move regions.'}
 				</p>
 			)}
 
