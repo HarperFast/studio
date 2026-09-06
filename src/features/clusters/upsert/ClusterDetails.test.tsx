@@ -241,16 +241,9 @@ describe('ClusterDetails — arriving from the upgrade CTA', () => {
 			expect(screen.getByRole('button', { name: /Confirm Payment Details/ })).toBeTruthy();
 		});
 
-		it('creates directly once a grant id is entered', async () => {
-			await mountEditor();
-			fireEvent.change(screen.getByLabelText('Voucher ID'), { target: { value: 'cgr-abc' } });
-			await act(() => null);
-			expect(screen.getByRole('button', { name: /Create New Cluster/ })).toBeTruthy();
-		});
-
 		it('has no grant field when editing an existing cluster', async () => {
-			await mountEditor({ clusterId: 'clu-1' });
-			expect(screen.queryByLabelText('Voucher ID')).toBeNull();
+			await mountEditor({ clusterId: 'clu-1', unboundGrants: [voucher('cgr-x')] });
+			expect(screen.queryByText('Available grants')).toBeNull();
 		});
 	});
 });
@@ -268,12 +261,13 @@ const voucher = (id: string, overrides: Partial<ClusterGrant> = {}): ClusterGran
 	stageUpdatedAt: null,
 	allowedPlanIds: null,
 	allowedRegionIds: null,
+	shape: null,
 	timeline: null,
 	...overrides,
 });
 
-describe('ClusterDetails — choosing a voucher on create', () => {
-	const COMPED = voucher('cgr-comped', { allowedPlanIds: [LEVEL_1.id], allowedRegionIds: ['us-1'] });
+describe('ClusterDetails — choosing a grant on create', () => {
+	const COMPED = voucher('cgr-comped', { shape: [{ planId: LEVEL_1.id, regionId: 'us-1' }] });
 	const TRIAL_VOUCHER = voucher('cgr-trial', {
 		source: 'trial',
 		endsAt: '2026-10-04T12:00:00.000Z',
@@ -283,7 +277,7 @@ describe('ClusterDetails — choosing a voucher on create', () => {
 	it('lists what the organization may redeem, for any member who can create', async () => {
 		staff = false;
 		await mountEditor({ unboundGrants: [COMPED, TRIAL_VOUCHER] });
-		const options = await openedOptions('Voucher');
+		const options = await openedOptions('Available grants');
 		expect(options[0]).toBe('None');
 		expect(options.some((o) => o.startsWith('Complimentary plan · ends September 30'))).toBe(true);
 		expect(options.some((o) => o.startsWith('Trial · ends October 4'))).toBe(true);
@@ -292,22 +286,46 @@ describe('ClusterDetails — choosing a voucher on create', () => {
 	it('skips the billing step once a voucher is picked, and says what it covers', async () => {
 		staff = false;
 		await mountEditor({ unboundGrants: [COMPED] });
-		await openedOptions('Voucher');
+		await openedOptions('Available grants');
 		fireEvent.keyDown(screen.getByRole('option', { name: /Complimentary plan/ }), { key: 'Enter' });
 		await act(() => null);
 		expect(screen.getByRole('button', { name: /Create New Cluster/ })).toBeTruthy();
-		expect(screen.getByText('Covers Medium (10K read/min) in US')).toBeTruthy();
+		expect(screen.getByText('Exactly Medium (10K read/min) in US')).toBeTruthy();
 	});
 
-	it('shows a customer nothing when there is nothing to redeem', async () => {
-		staff = false;
+	// Only organizations holding an unclaimed grant see the field — staff included; there is no bare id box.
+	it('shows nothing when there is nothing to claim, for staff and members alike', async () => {
 		await mountEditor({ unboundGrants: [] });
-		expect(screen.queryByText('Voucher')).toBeNull();
+		expect(screen.queryByText('Available grants')).toBeNull();
 		expect(screen.queryByLabelText('Voucher ID')).toBeNull();
+		staff = false;
+		cleanup();
+		await mountEditor({ unboundGrants: [] });
+		expect(screen.queryByText('Available grants')).toBeNull();
 	});
 
-	it('keeps the bare id field for staff when the list is empty', async () => {
-		await mountEditor({ unboundGrants: [] });
-		expect(screen.getByLabelText('Voucher ID')).toBeTruthy();
+	it('says a scoped grant sets the plan and regions', async () => {
+		await mountEditor({ unboundGrants: [COMPED] });
+		await openedOptions('Available grants');
+		fireEvent.keyDown(screen.getByRole('option', { name: /Complimentary plan/ }), { key: 'Enter' });
+		await act(() => null);
+		expect(screen.getByText(/This grant sets the plan and regions below/)).toBeTruthy();
+	});
+});
+
+describe('ClusterDetails — locked by a scoped grant', () => {
+	it('locks deployment, performance and region while a scoped grant is selected', async () => {
+		await mountEditor({ lockedByGrant: true });
+		expect(isLocked(selectFor(/Deployment/))).toBe(true);
+		expect(isLocked(selectFor(/Performance/))).toBe(true);
+		expect(isLocked(selectFor(/^Region/))).toBe(true);
+		expect(screen.getByText(/Set by the grant chosen above/)).toBeTruthy();
+	});
+
+	it('leaves them editable otherwise', async () => {
+		await mountEditor({ lockedByGrant: false });
+		expect(isLocked(selectFor(/Deployment/))).toBe(false);
+		expect(isLocked(selectFor(/Performance/))).toBe(false);
+		expect(isLocked(selectFor(/^Region/))).toBe(false);
 	});
 });

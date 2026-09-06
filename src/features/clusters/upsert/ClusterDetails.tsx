@@ -41,6 +41,8 @@ interface ClusterDetailsProps {
 	currentPlanId?: string;
 	/** The organization's unclaimed vouchers, offered on create. */
 	unboundGrants?: ClusterGrant[];
+	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
+	lockedByGrant?: boolean;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -63,6 +65,7 @@ export function ClusterDetails({
 	regionSetFrozen,
 	currentPlanId,
 	unboundGrants,
+	lockedByGrant,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -239,20 +242,24 @@ export function ClusterDetails({
 				<ClusterDeploymentDescription
 					form={form}
 					availableDeploymentTypes={availableDeploymentTypes}
-					disabled={isHobbyist}
+					disabled={isHobbyist || lockedByGrant}
 				/>
 
 				<ClusterPerformanceDescription
 					availablePerformanceDescriptions={availablePerformanceDescriptions}
 					form={form}
 					selectedDeployment={selectedDeployment}
+					disabled={lockedByGrant}
 				/>
 
 				{isSelfManaged
 					? <ClusterInstances form={form} />
 					: (
 						<ClusterRegions
-							disabled={regionSetFrozen}
+							disabled={regionSetFrozen || lockedByGrant}
+							disabledReason={lockedByGrant
+								? 'Set by the grant chosen above. Choose None there to pick your own regions.'
+								: undefined}
 							form={form}
 							regionLocations={regionLocations}
 							regionNameToLatencyToRegion={regionNameToLatencyToRegion}

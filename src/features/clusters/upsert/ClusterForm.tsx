@@ -7,6 +7,7 @@ import { useCreateNewClusterMutation } from '@/features/clusters/hooks/useCreate
 import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateCluster';
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
+import { plansFromShape, prefillFromGrant } from '@/features/clusters/upsert/lib/grantPrefill';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
@@ -272,12 +273,35 @@ export function ClusterForm({
 		selectedPerformance,
 	]);
 
+	// A scoped grant is the request: its plan and regions fill the form and the pickers lock, since
+	// central-manager refuses a claim that does not match the grant exactly. Create only — an
+	// existing cluster's grant is already bound.
+	const selectedGrantId = form.watch('grantId');
+	const selectedGrant = useMemo(
+		() => organization?.unboundGrants?.find((grant) => grant.id === selectedGrantId) ?? null,
+		[organization?.unboundGrants, selectedGrantId],
+	);
+	const grantPrefill = useMemo(
+		() => (clusterId
+			? null
+			: prefillFromGrant(selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated)),
+		[clusterId, selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated],
+	);
+	const lockedByGrant = grantPrefill != null;
+	useEffect(function fillFormFromGrant() {
+		if (!grantPrefill) { return; }
+		form.setValue('deploymentDescription', grantPrefill.deploymentDescription);
+		form.setValue('performanceDescription', grantPrefill.performanceDescription);
+		if (grantPrefill.regionPlans.length) { form.setValue('regionPlans', grantPrefill.regionPlans); }
+		void form.trigger();
+	}, [form, grantPrefill]);
+
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		// A frozen region set must reach the server exactly as the cluster already has it. Disabling
 		// the select only stopped the customer changing it — these effects still rewrote the value
 		// underneath, and the mutated set was what got submitted, which the server then refused.
-		if (regionSetFrozen) { return; }
+		if (regionSetFrozen || lockedByGrant) { return; }
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
 			const firstRegion = selectedRegionPlans[0];
 			const firstSelectedRegion = regionNameToLatencyToRegion?.[firstRegion.regionName]
@@ -292,14 +316,22 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [selectedPlan, selectedRegionPlans, form, regionNameToLatencyToRegion, regionLocations, regionSetFrozen]);
+	}, [
+		selectedPlan,
+		selectedRegionPlans,
+		form,
+		regionNameToLatencyToRegion,
+		regionLocations,
+		regionSetFrozen,
+		lockedByGrant,
+	]);
 
 	useEffect(function syncRegionSelectionsWithPossibleRegions() {
 		const isSelfManaged = selectedDeployment === 'Self-Hosted';
 		// Blanking a frozen region leaves the form unsatisfiable: the control is disabled, so nothing
 		// can put a value back, and the schema requires one. The cluster is running in that region
 		// whether or not it currently accepts new placements.
-		if (regionSetFrozen) { return; }
+		if (regionSetFrozen || lockedByGrant) { return; }
 		if (!isSelfManaged && Object.keys(regionNameToLatencyToRegion).length && selectedRegionPlans.length) {
 			for (let i = 0; i < selectedRegionPlans.length; i++) {
 				const regionPlan = selectedRegionPlans[i];
@@ -308,7 +340,7 @@ export function ClusterForm({
 				}
 			}
 		}
-	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans, regionSetFrozen]);
+	}, [form, regionNameToLatencyToRegion, selectedDeployment, selectedRegionPlans, regionSetFrozen, lockedByGrant]);
 
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
@@ -400,7 +432,12 @@ export function ClusterForm({
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
 
 		const isSelfManaged = formData.deploymentDescription === 'Self-Hosted';
-		if (isSelfManaged) {
+		// A comp is claimed with its shape, not with what the pickers show: the server admits the claim
+		// only when the pairs match exactly, and the pickers can carry one plan where a shape may carry two.
+		const shape = !clusterId ? selectedGrant?.shape ?? [] : [];
+		if (shape.length > 0) {
+			plans.push(...plansFromShape(shape, formData.instances, defaultOperationsApiPort));
+		} else if (isSelfManaged) {
 			for (const instance of formData.instances) {
 				plans.push({
 					autoRenew: true,
@@ -477,6 +514,7 @@ export function ClusterForm({
 	}, [
 		calculatedNames.suggestedAbbreviatedName,
 		clusterId,
+		selectedGrant,
 		deploymentToPerformanceToPlan,
 		form,
 		onClusterSavedCallback,
@@ -570,6 +608,7 @@ export function ClusterForm({
 									regionSetFrozen={regionSetFrozen}
 									currentPlanId={currentPlanId}
 									unboundGrants={organization?.unboundGrants}
+									lockedByGrant={lockedByGrant}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

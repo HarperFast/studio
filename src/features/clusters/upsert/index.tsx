@@ -237,6 +237,8 @@ export function UpsertCluster() {
 			fqdn: isSelfManaged ? clusterToLoad?.fqdn ?? '' : '',
 			instances,
 			regionPlans,
+			// Soonest-ending first is the server's order, so the default is the one about to lapse.
+			grantId: clusterId ? undefined : organization?.unboundGrants?.[0]?.id,
 		};
 	}, [
 		alreadyUsingFree,
@@ -248,6 +250,7 @@ export function UpsertCluster() {
 		regionLocationsColocated,
 		regionLocationsDedicated,
 		savedClusterState,
+		organization,
 	]);
 
 	const isLoading = !defaultValues || !organization || !planTypes || !regionLocationsColocated
