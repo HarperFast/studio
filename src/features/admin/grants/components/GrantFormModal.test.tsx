@@ -72,6 +72,7 @@ function grant(overrides: Partial<AdminClusterGrant> = {}): AdminClusterGrant {
 		clusterId: 'clu-a',
 		source: 'comped',
 		status: 'ACTIVE',
+		shape: [{ planId: 'plan-hobby', regionId: 'us-east-1' }],
 		startsAt: new Date(Date.now() - 10 * DAY_MS).toISOString(),
 		endsAt: new Date(Date.now() + 20 * DAY_MS).toISOString(),
 		expiryPolicy: null,
@@ -93,6 +94,16 @@ async function mount(g: AdminClusterGrant) {
 
 const reasonBox = () => screen.getByPlaceholderText(/Why these terms/);
 const saveButton = () => screen.getByRole('button', { name: 'Save changes' });
+
+/** A Radix Select opens on ArrowDown in jsdom; the option is then clicked. */
+async function pick(label: string, option: RegExp) {
+	fireEvent.keyDown(screen.getByLabelText(label), { key: 'ArrowDown' });
+	await act(() => null);
+	const match = screen.getAllByRole('option').find((o) => option.test(o.textContent ?? ''));
+	if (!match) { throw new Error(`no option ${String(option)} under ${label}`); }
+	fireEvent.click(match);
+	await act(() => null);
+}
 
 /** The scope pickers are dropdown menus, not selects: the trigger opens on pointerDown. */
 async function pickScope(label: string, option: RegExp) {
@@ -129,7 +140,7 @@ describe('GrantFormModal', () => {
 
 	// An empty scope list is refused by the server; null is how a restriction is cleared.
 	it('clears a scope as null rather than an empty list', async () => {
-		await mount(grant({ allowedPlanIds: ['plan-a'] }));
+		await mount(grant({ source: 'trial', expiryPolicy: 'consumer-trial', shape: null, allowedPlanIds: ['plan-a'] }));
 		fireEvent.change(reasonBox(), { target: { value: 'unscoped' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Remove plan-a' }));
 		await act(() => null);
@@ -152,7 +163,15 @@ describe('GrantFormModal', () => {
 	// every scope it receives through the widen-only guard, so an unedited field would fail a save
 	// that only meant to change something else.
 	it('sends only the fields that changed', async () => {
-		await mount(grant({ allowedPlanIds: ['plan-a'], allowedRegionIds: ['us-east-1'], expiryPolicy: 'consumer-trial' }));
+		await mount(
+			grant({
+				source: 'trial',
+				expiryPolicy: 'consumer-trial',
+				shape: null,
+				allowedPlanIds: ['plan-a'],
+				allowedRegionIds: ['us-east-1'],
+			}),
+		);
 		fireEvent.change(reasonBox(), { target: { value: 'note only' } });
 		await act(() => null);
 		fireEvent.click(saveButton());
@@ -164,7 +183,14 @@ describe('GrantFormModal', () => {
 
 	describe("a bound grant's scope may only widen", () => {
 		it('holds the save and says why when an entry is removed', async () => {
-			await mount(grant({ allowedRegionIds: ['us-east-1', 'eu-west-1'] }));
+			await mount(
+				grant({
+					source: 'trial',
+					expiryPolicy: 'consumer-trial',
+					shape: null,
+					allowedRegionIds: ['us-east-1', 'eu-west-1'],
+				}),
+			);
 			fireEvent.change(reasonBox(), { target: { value: 'narrowing' } });
 			fireEvent.click(screen.getByRole('button', { name: 'Remove eu-west-1' }));
 			await act(() => null);
@@ -175,14 +201,16 @@ describe('GrantFormModal', () => {
 		// Unrestricted is the widest value a grant can hold, so a first restriction narrows it even
 		// though nothing was removed — the case a form gets wrong by treating null as empty.
 		it('holds the save when restricting a grant that had no scope', async () => {
-			await mount(grant({ allowedRegionIds: null }));
+			await mount(grant({ source: 'trial', expiryPolicy: 'consumer-trial', shape: null, allowedRegionIds: null }));
 			fireEvent.change(reasonBox(), { target: { value: 'first restriction' } });
 			await pickScope('Regions', /us-east-1/);
 			expect(saveButton().hasAttribute('disabled')).toBe(true);
 		});
 
 		it('allows adding to an existing restriction', async () => {
-			await mount(grant({ allowedRegionIds: ['us-east-1'] }));
+			await mount(
+				grant({ source: 'trial', expiryPolicy: 'consumer-trial', shape: null, allowedRegionIds: ['us-east-1'] }),
+			);
 			fireEvent.change(reasonBox(), { target: { value: 'widening' } });
 			await pickScope('Regions', /eu-west-1/);
 			expect(saveButton().hasAttribute('disabled')).toBe(false);
@@ -193,11 +221,55 @@ describe('GrantFormModal', () => {
 
 		// Nothing is running on an unbound voucher, so the server lets it narrow freely.
 		it('lets an unbound voucher narrow', async () => {
-			await mount(grant({ clusterId: null, allowedRegionIds: ['us-east-1', 'eu-west-1'] }));
+			await mount(
+				grant({
+					clusterId: null,
+					source: 'trial',
+					expiryPolicy: 'consumer-trial',
+					shape: null,
+					allowedRegionIds: ['us-east-1', 'eu-west-1'],
+				}),
+			);
 			fireEvent.change(reasonBox(), { target: { value: 'narrowing a voucher' } });
 			fireEvent.click(screen.getByRole('button', { name: 'Remove eu-west-1' }));
 			await act(() => null);
 			expect(saveButton().hasAttribute('disabled')).toBe(false);
+		});
+	});
+
+	// A comp's shape is the cluster it was for. Bound, the server answers 409 to any change, so the
+	// editor does not invite one; unbound, the voucher may still be reshaped.
+	describe("a comp's shape", () => {
+		it('is locked once the comp is bound, and says what to do instead', async () => {
+			await mount(grant({}));
+			expect(screen.getByLabelText('Plan 1').hasAttribute('disabled')).toBe(true);
+			expect(screen.getByLabelText('Region 1').hasAttribute('disabled')).toBe(true);
+			expect(screen.queryByRole('button', { name: /Add region/ })).toBeNull();
+			expect(screen.getByText(/Revoke it and mint a replacement/)).toBeTruthy();
+			// An untouched shape is not a change: only the reason goes.
+			fireEvent.change(reasonBox(), { target: { value: 'note only' } });
+			await act(() => null);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			expect(updateGrant.mock.calls[0][0].changes).toEqual({ reason: 'note only' });
+		});
+
+		it('may still change on an unbound voucher, and is sent whole', async () => {
+			await mount(grant({ clusterId: null }));
+			fireEvent.click(screen.getByRole('button', { name: /Add region/ }));
+			await act(() => null);
+			await pick('Region 2', /eu-west-1/);
+			fireEvent.change(reasonBox(), { target: { value: 'second region' } });
+			await act(() => null);
+			expect(saveButton().hasAttribute('disabled')).toBe(false);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			const { changes } = updateGrant.mock.calls[0][0];
+			expect(changes.shape).toEqual([
+				{ planId: 'plan-hobby', regionId: 'us-east-1' },
+				{ planId: 'plan-hobby', regionId: 'eu-west-1' },
+			]);
+			expect(changes).not.toHaveProperty('allowedPlanIds');
 		});
 	});
 
