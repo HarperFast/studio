@@ -9,11 +9,13 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
+import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
 import {
 	GrantFormSchema,
 	GrantFormValues,
 	INTERNAL_EXPIRY_POLICIES,
 	NO_EXPIRY_POLICY,
+	ShapeRow,
 } from '@/features/admin/grants/GrantFormSchema';
 import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
 import { useUpdateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
@@ -48,10 +50,17 @@ function sameIds(next: string[], before: string[]): boolean {
 	return next.length === before.length && [...next].sort().join() === [...before].sort().join();
 }
 
+/** The server compares shapes as multisets of (plan, region), so order is not a change either. */
+function sameShape(next: ShapeRow[], before: ShapeRow[]): boolean {
+	const keys = (rows: ShapeRow[]) => rows.map((row) => `${row.planId}@${row.regionId || '-'}`).sort().join();
+	return next.length === before.length && keys(next) === keys(before);
+}
+
 function toFormValues(grant: AdminClusterGrant | null): GrantFormValues {
 	return {
 		endsAt: toLocalInput(grant?.endsAt),
 		expiryPolicy: grant?.expiryPolicy ?? NO_EXPIRY_POLICY,
+		shape: (grant?.shape ?? []).map((entry) => ({ planId: entry.planId, regionId: entry.regionId ?? '' })),
 		allowedPlanIds: grant?.allowedPlanIds ?? [],
 		allowedRegionIds: grant?.allowedRegionIds ?? [],
 		reason: '',
@@ -98,10 +107,14 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// A trial must stay time-boxed and stageable: the server refuses clearing its endsAt or setting
 	// its policy to none, so the form says so rather than letting the reader earn a 400.
 	const isTrial = grant?.source === 'trial';
+	// A comp's shape is the cluster it was for. Once bound, the server refuses any change to it
+	// (409) — the right move is a replacement — so the editor locks rather than invites a save.
+	const isComped = grant?.source === 'comped';
+	const boundComp = isComped && grant?.clusterId != null;
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and
 	// why; the button is held so the save can't be attempted from here either.
-	const narrowsBoundScope = grant?.clusterId != null
+	const narrowsBoundScope = !isComped && grant?.clusterId != null
 		&& (narrowsScope(grant.allowedPlanIds, form.watch('allowedPlanIds'))
 			|| narrowsScope(grant.allowedRegionIds, form.watch('allowedRegionIds')));
 
@@ -137,6 +150,9 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 				...(sameIds(values.allowedRegionIds, initial.allowedRegionIds)
 					? {}
 					: { allowedRegionIds: asScope(values.allowedRegionIds) }),
+				...(sameShape(values.shape, initial.shape)
+					? {}
+					: { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }),
 				reason: values.reason.trim(),
 			},
 		}, { onSuccess: onSuccess('Grant updated'), onError });
@@ -217,7 +233,17 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 							)}
 						/>
 
-						<GrantScopeFields enabled={open} existing={grant} />
+						{isComped
+							? (
+								<GrantShapeFields
+									enabled={open}
+									disabled={boundComp}
+									disabledNote={boundComp
+										? `This comp is bound to ${grant?.clusterId}, and its shape is that cluster. Revoke it and mint a replacement to change it.`
+										: undefined}
+								/>
+							)
+							: <GrantScopeFields enabled={open} existing={grant} />}
 
 						<FormField
 							control={form.control}

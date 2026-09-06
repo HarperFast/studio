@@ -13,9 +13,11 @@ import { z } from 'zod';
 
 export function ClusterPerformanceDescription({
 	availablePerformanceDescriptions,
+	disabled,
 	form,
 	selectedDeployment,
 }: {
+	disabled?: boolean;
 	availablePerformanceDescriptions: {
 		name: string;
 		performanceTier: string;
@@ -43,7 +45,7 @@ export function ClusterPerformanceDescription({
 									field.onChange(performanceDescription);
 									void form.trigger();
 								}}
-								disabled={!availablePerformanceDescriptions?.length}
+								disabled={disabled || !availablePerformanceDescriptions?.length}
 							>
 								<SelectTrigger className="w-full h-auto">
 									<SelectValue placeholder="Choose Tier" />

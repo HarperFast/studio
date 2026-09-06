@@ -3,13 +3,12 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/components/MultiSelect';
-import { compedRegionsRequired } from '@/features/admin/grants/GrantFormSchema';
 import { narrowsScope } from '@/features/admin/grants/lib/grantScopeRules';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
 import { getRegionsQueryOptions } from '@/features/admin/regions/queries/getRegions';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 
 /** The two scope arrays, which both the create and the edit form carry under these names. */
@@ -43,23 +42,22 @@ function NarrowingNote({ field, clusterId }: { field: string; clusterId: string 
 const withInactive = (hint: string, inactive: boolean) => (inactive ? `${hint} · inactive` : hint);
 
 /**
- * A grant's scope: which plans and regions the cluster it authorizes may run on. Empty means any —
- * central-manager stores null for that and refuses an empty array, so nothing is sent for an empty
- * picker, and the trigger says "Any plan" rather than leaving that to be read as "none".
+ * A non-comp grant's scope: which plans and regions the cluster it authorizes may run on. Empty
+ * means any — central-manager stores null for that and refuses an empty array, so nothing is sent
+ * for an empty picker, and the trigger says "Any plan" rather than leaving that to be read as
+ * "none". A comp has no allow-lists; it has a shape (GrantShapeFields).
  *
  * Once a grant is bound to a cluster its scope may only widen — central-manager answers 409
  * otherwise, because a narrowing does nothing until that cluster's next plan change and then
  * converts it to paid. The rule is stated here, at the moment the admin makes the change, rather
  * than left to a 409 after they hit save.
  */
-export function GrantScopeFields({ enabled, existing, required = false }: {
+export function GrantScopeFields({ enabled, existing }: {
 	enabled: boolean;
-	/** A comped grant has no other bound, so the server requires at least one plan and one region. */
-	required?: boolean;
 	/** The grant being edited, when there is one — a create has no scope history to widen from. */
 	existing?: AdminClusterGrant | null;
 }) {
-	const { control, watch, setValue, trigger } = useFormContext<ScopeFieldValues>();
+	const { control, watch } = useFormContext<ScopeFieldValues>();
 	const plansQuery = useQuery({ ...getPlansQueryOptions(), enabled });
 	const regionsQuery = useQuery({ ...getRegionsQueryOptions(), enabled });
 
@@ -87,21 +85,6 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 				),
 			})), [regionsQuery.data]);
 
-	// Regions bound a comp only where there is something to bound: a self-hosted plan has no region,
-	// so once every picked plan is self-hosted the region picker is waived — and cleared, because a
-	// region scope left on an all-self-hosted comp would refuse the self-hosted bind it exists for.
-	const pickedPlans = watch('allowedPlanIds') ?? [];
-	const pickedRegions = watch('allowedRegionIds') ?? [];
-	const regionsRequired = required && compedRegionsRequired(pickedPlans);
-	const regionsWaived = required && pickedPlans.length > 0 && !regionsRequired;
-	useEffect(() => {
-		if (regionsWaived && pickedRegions.length > 0) { setValue('allowedRegionIds', [], { shouldValidate: true }); }
-	}, [regionsWaived, pickedRegions.length, setValue]);
-	// The region rule depends on the plans, so a plan change has to re-run it.
-	useEffect(() => {
-		if (required) { void trigger('allowedRegionIds'); }
-	}, [required, pickedPlans, trigger]);
-
 	// Unbound vouchers stay freely narrowable: nothing is running on them yet.
 	const boundTo = existing?.clusterId ?? null;
 	const planNarrows = boundTo != null && narrowsScope(existing?.allowedPlanIds, watch('allowedPlanIds'));
@@ -114,13 +97,13 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 				name="allowedPlanIds"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Plans{required && ' (required)'}</FormLabel>
+						<FormLabel>Plans</FormLabel>
 						<MultiSelect
 							ariaLabel="Plans"
 							options={planOptions}
 							selected={field.value}
 							onChange={field.onChange}
-							placeholder={required ? 'Choose the plans this grant covers' : 'Any plan'}
+							placeholder="Any plan"
 							emptyText={emptyText(plansQuery, 'plans', 'plan:read')}
 						/>
 						{planNarrows && <NarrowingNote field="plans" clusterId={boundTo!} />}
@@ -134,26 +117,15 @@ export function GrantScopeFields({ enabled, existing, required = false }: {
 				name="allowedRegionIds"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Regions{regionsRequired && ' (required)'}</FormLabel>
+						<FormLabel>Regions</FormLabel>
 						<MultiSelect
 							ariaLabel="Regions"
 							options={regionOptions}
 							selected={field.value}
 							onChange={field.onChange}
-							disabled={regionsWaived}
-							placeholder={regionsWaived
-								? 'Not needed — every allowed plan is self-hosted'
-								: regionsRequired
-								? 'Choose the regions this grant covers'
-								: 'Any region'}
+							placeholder="Any region"
 							emptyText={emptyText(regionsQuery, 'regions', 'region:read')}
 						/>
-						{regionsWaived && (
-							<p className="text-xs text-muted-foreground">
-								A self-hosted plan has no region, so there is nothing here to bound. Add a Harper-hosted plan and
-								regions become required again.
-							</p>
-						)}
 						{regionNarrows && <NarrowingNote field="regions" clusterId={boundTo!} />}
 						<FormMessage />
 					</FormItem>
