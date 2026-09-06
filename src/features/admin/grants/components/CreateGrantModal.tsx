@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
+import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
 import {
 	CreateGrantSchema,
 	CreateGrantValues,
@@ -37,6 +38,7 @@ const DEFAULTS: CreateGrantValues = {
 	startsAt: '',
 	endsAt: '',
 	expiryPolicy: NO_EXPIRY_POLICY,
+	shape: [],
 	allowedPlanIds: [],
 	allowedRegionIds: [],
 	reason: '',
@@ -99,7 +101,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	useEffect(() => {
 		if (previousSource.current !== source) {
 			previousSource.current = source;
-			void form.trigger(['endsAt', 'expiryPolicy', 'allowedPlanIds', 'allowedRegionIds']);
+			void form.trigger(['endsAt', 'expiryPolicy', 'shape', 'allowedPlanIds', 'allowedRegionIds']);
 		}
 	}, [source, form]);
 
@@ -114,9 +116,14 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			// Omitted means forever, which only a comped grant may be.
 			endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
 			expiryPolicy: values.expiryPolicy,
-			// An empty list is refused by the server; null — omitted here — is "any".
-			...(values.allowedPlanIds.length ? { allowedPlanIds: values.allowedPlanIds } : {}),
-			...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
+			// A comp carries its shape and nothing else; the server refuses the allow-lists on it. For
+			// a trial an empty list is refused too; null — omitted here — is "any".
+			...(values.source === 'comped'
+				? { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }
+				: {
+					...(values.allowedPlanIds.length ? { allowedPlanIds: values.allowedPlanIds } : {}),
+					...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
+				}),
 			reason: values.reason.trim(),
 		}, {
 			onSuccess: (grant) => {
@@ -297,7 +304,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 							)}
 						/>
 
-						<GrantScopeFields enabled={open} required={isComped} />
+						{isComped ? <GrantShapeFields enabled={open} /> : <GrantScopeFields enabled={open} />}
 
 						<FormField
 							control={form.control}
