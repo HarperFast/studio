@@ -287,7 +287,7 @@ export interface ClusterGrant {
 	endsAt: string | null;
 	cycleAnchor: string | null;
 	/** `conversion-pending` is a bounded conversion window, not the customer's terms. */
-	expiryPolicy: 'consumer-trial' | 'contracted-grace' | 'comped' | 'conversion-pending' | 'none' | null;
+	expiryPolicy: 'consumer-trial' | 'enterprise-grace' | 'comped' | 'conversion-pending' | 'none' | null;
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
@@ -308,7 +308,7 @@ export interface ClusterGrant {
 	 * read, never stored, so editing a policy moves these immediately — don't cache them.
 	 *
 	 * Null when the policy has no stage table (`none`) or the grant has no usable `endsAt`. Length
-	 * varies by policy: `contracted-grace` has five stages, `consumer-trial` four, `comped` three — read the array,
+	 * varies by policy: `enterprise-grace` has five stages, `consumer-trial` four, `comped` three — read the array,
 	 * never assume a shape, and never infer the policy from `source`.
 	 */
 	timeline: ExpiryStageDue[] | null;
