@@ -111,7 +111,7 @@ describe('describeGrantExpiry', () => {
 	// GRACE only exists on the enterprise policy, so the account has a negotiated agreement. A $20
 	// self-serve CTA is the wrong answer to it, and the copy says to contact us instead.
 	it('offers no self-serve upgrade during an enterprise grace period', () => {
-		const inGrace = grant({ isActive: false, expiryPolicy: 'contracted-grace', currentStage: 'GRACE' });
+		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
 		const result = describeGrantExpiry({ grant: inGrace, status: 'RUNNING' }, NOW);
 		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
 		expect(result?.detail).toContain('Contact us');
@@ -131,7 +131,7 @@ describe('describeGrantExpiry', () => {
 		const inGrace = grant({
 			isActive: false,
 			status: 'EXPIRED',
-			expiryPolicy: 'contracted-grace',
+			expiryPolicy: 'enterprise-grace',
 			currentStage: 'GRACE',
 			endsAt: daysFromNow(0),
 		});
@@ -179,11 +179,11 @@ describe('describeGrantExpiry', () => {
 		expect(detail).toContain('data');
 	});
 
-	// Five stages, not four — most trial grants are on contracted-grace, so nothing may assume shape.
+	// Five stages, not four — most trial grants are on enterprise-grace, so nothing may assume shape.
 	it('finds the deletion stage wherever it sits in the policy', () => {
 		const enterprise = grant({
 			isActive: false,
-			expiryPolicy: 'contracted-grace',
+			expiryPolicy: 'enterprise-grace',
 			currentStage: 'SHUTDOWN',
 			timeline: [
 				{ stage: 'WARNED', dueAt: daysFromNow(-21), applied: true },
@@ -238,7 +238,7 @@ describe('describeGrantExpiry', () => {
 	// It must READ the status without leaving the grace arm: falling through to the withdrawn copy
 	// told an enterprise account mid-renewal to buy a $20 self-serve plan.
 	it('reads the status during grace without handing an enterprise account a self-serve upsell', () => {
-		const inGrace = grant({ isActive: false, expiryPolicy: 'contracted-grace', currentStage: 'GRACE' });
+		const inGrace = grant({ isActive: false, expiryPolicy: 'enterprise-grace', currentStage: 'GRACE' });
 		const result = describeGrantExpiry({ grant: inGrace, status: 'STOPPED' }, NOW);
 		expect(result).toMatchObject({ stage: 'GRACE', offerUpgrade: false, needsUpgrade: false });
 		expect(result?.detail).toContain('stopped while we sort out renewal');
