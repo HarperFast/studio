@@ -52,7 +52,7 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 		queryKey: ['test-policies'],
 		queryFn: async () => ({
 			editableAtRuntime: false,
-			policies: { 'consumer-trial': [], 'contracted-grace': [] },
+			policies: { 'consumer-trial': [], 'enterprise-grace': [] },
 		}),
 		retry: false,
 	}),
