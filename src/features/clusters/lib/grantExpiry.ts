@@ -128,7 +128,7 @@ const SOURCE_LABEL: Record<string, string> = {
 
 /**
  * When this cluster is due to be deleted, or null if nothing will delete it. Read off the server's
- * schedule rather than guessed from the policy name: stage lists differ per policy (contracted-grace
+ * schedule rather than guessed from the policy name: stage lists differ per policy (enterprise-grace
  * has five, consumer-trial four) and the day offsets live server-side where they can be edited.
  */
 function deletionDueAt(grant: ClusterGrant, now: number): Date | null {
