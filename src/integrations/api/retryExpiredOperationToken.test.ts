@@ -2,8 +2,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const recoverExpiredOperationToken = vi.fn();
+const getOperationToken = vi.fn();
 vi.mock('@/features/auth/store/authStore', () => ({
-	authStore: { recoverExpiredOperationToken: (...args: unknown[]) => recoverExpiredOperationToken(...args) },
+	authStore: {
+		recoverExpiredOperationToken: (...args: unknown[]) => recoverExpiredOperationToken(...args),
+		getOperationToken: (...args: unknown[]) => getOperationToken(...args),
+	},
 }));
 
 const { curryRecoverExpiredOperationToken } = await import('./retryExpiredOperationToken');
@@ -17,6 +21,7 @@ describe('curryRecoverExpiredOperationToken', () => {
 
 	it('mints a fresh token and replays the request once with the new Bearer header', async () => {
 		recoverExpiredOperationToken.mockResolvedValue('fresh-token');
+		getOperationToken.mockReturnValue('fresh-token');
 		const request = vi.fn().mockResolvedValue({ data: 'ok' });
 		const handler = curryRecoverExpiredOperationToken({ request }, 'ins-1');
 		const config = { headers: { Authorization: 'Bearer stale' } };
@@ -29,6 +34,41 @@ describe('curryRecoverExpiredOperationToken', () => {
 		const replayed = request.mock.calls[0][0];
 		expect(replayed.headers.Authorization).toBe('Bearer fresh-token');
 		expect(replayed.__triedOperationTokenRefresh).toBe(true);
+	});
+
+	it('writes the fresh Bearer to the client defaults so later requests skip the 401', async () => {
+		recoverExpiredOperationToken.mockResolvedValue('fresh-token');
+		getOperationToken.mockReturnValue('fresh-token');
+		const request = vi.fn().mockResolvedValue({ data: 'ok' });
+		const defaults = { headers: { Authorization: 'Bearer stale' } };
+		const handler = curryRecoverExpiredOperationToken({ request, defaults }, 'ins-1');
+
+		await handler(error401({ headers: { Authorization: 'Bearer stale' } }));
+
+		expect(defaults.headers.Authorization).toBe('Bearer fresh-token');
+	});
+
+	it('neither arms nor replays when the store no longer holds the recovered token', async () => {
+		recoverExpiredOperationToken.mockResolvedValue('fresh-token');
+		getOperationToken.mockReturnValue(undefined);
+		const request = vi.fn().mockResolvedValue({ data: 'ok' });
+		const defaults = { headers: { Authorization: 'Bearer stale' } };
+		const handler = curryRecoverExpiredOperationToken({ request, defaults }, 'ins-1');
+		const err = error401({ headers: { Authorization: 'Bearer stale' } });
+
+		await expect(handler(err)).rejects.toBe(err);
+
+		expect(defaults.headers.Authorization).toBe('Bearer stale');
+		expect(request).not.toHaveBeenCalled();
+	});
+
+	it('still replays for a client that exposes no defaults', async () => {
+		recoverExpiredOperationToken.mockResolvedValue('fresh-token');
+		getOperationToken.mockReturnValue('fresh-token');
+		const request = vi.fn().mockResolvedValue({ data: 'ok' });
+		const handler = curryRecoverExpiredOperationToken({ request }, 'ins-1');
+
+		await expect(handler(error401())).resolves.toEqual({ data: 'ok' });
 	});
 
 	it('rejects (no retry) when recovery yields no token', async () => {
