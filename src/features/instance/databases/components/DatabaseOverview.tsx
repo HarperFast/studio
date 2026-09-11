@@ -78,7 +78,7 @@ export function DatabaseOverview({ instanceDatabaseMap, databaseName }: {
 	}, [navigate, params, databaseName]);
 
 	return (
-		<div className="pt-15 pb-4 pr-4">
+		<div className="pt-15 pb-4 px-4">
 			<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 pb-6">
 				<div className="flex items-center gap-2 min-w-0">
 					<h1 className="text-3xl truncate">{databaseName}</h1>
