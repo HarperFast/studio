@@ -32,7 +32,10 @@ import { useSessionStorage } from '@/hooks/useSessionStorage';
 import { useToggler } from '@/hooks/useToggler';
 import { InstanceDatabaseMap } from '@/integrations/api/api.patch';
 import { useCleanupOrphanBlobsMutation } from '@/integrations/api/instance/database/cleanupOrphanBlobs';
-import { useDeleteTableRecords } from '@/integrations/api/instance/database/deleteTableRecords';
+import {
+	describeIncompleteDelete,
+	useDeleteTableRecords,
+} from '@/integrations/api/instance/database/deleteTableRecords';
 import { getDescribeTableQueryOptions } from '@/integrations/api/instance/database/getDescribeTable';
 import {
 	getSearchByConditionsOptions,
@@ -56,6 +59,7 @@ import { getRegistrationInfoQueryOptions } from '@/integrations/api/instance/sta
 import { setWatchedValue } from '@/lib/events/watcher';
 import { keyBy } from '@/lib/keyBy';
 import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
+import { pluralize } from '@/lib/pluralize';
 import { Row } from '@/lib/table';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -83,7 +87,10 @@ import { toast } from 'sonner';
 import { ColumnFiltersSchema } from './ColumnFilters';
 import { EmptyResultSet } from './EmptyResultSet';
 import { PickColumnsDropdown } from './PickColumnsDropdown';
-import { TableView } from './TableView';
+import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
+
+// Stable so `useEffectedState` can reset to it without rebuilding a set on every render.
+const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
 
 export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
 	instanceDatabaseMap?: InstanceDatabaseMap;
@@ -355,6 +362,38 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		useFilteredList ? appliedSearchConditions : null,
 	]);
 
+	// Primary-key values of the checked rows. Selection describes the rows on screen, so it is dropped
+	// whenever they change -- otherwise paging away would leave a "Delete Selected" armed with records
+	// the user can no longer see.
+	//
+	// `resultSetKey` describes which rows the grid ASKED for, which is not the whole of "the rows on
+	// screen", so selection gets its own epoch on top of it:
+	//   - `entityId` -- which server answers. The route swaps instances without remounting this
+	//     component, which is why every sibling piece of per-instance state resets on `allParams`;
+	//     a key carried across that boundary would aim the delete at whatever the NEXT instance
+	//     happens to store under it.
+	//   - `onlyIfCached` -- the cache mode changes which records come back at all, the same reason
+	//     `knownLastPage` above retires on it.
+	const selectionEpoch = JSON.stringify([instanceParams.entityId, resultSetKey, onlyIfCached]);
+	const [selectedKeys, setSelectedKeys] = useEffectedState<ReadonlySet<unknown>>(EMPTY_SELECTION, [selectionEpoch]);
+	const toggleRowSelected = useCallback((key: unknown) => {
+		setSelectedKeys((current) => {
+			const next = new Set(current);
+			if (!next.delete(key)) {
+				next.add(key);
+			}
+			return next;
+		});
+	}, [setSelectedKeys]);
+	const toggleAllSelected = useCallback((keys: unknown[], selectAll: boolean) => {
+		setSelectedKeys(selectAll ? new Set(keys) : EMPTY_SELECTION);
+	}, [setSelectedKeys]);
+	// No delete permission, no reason to offer a selection: the grid renders no checkbox column at all.
+	const rowSelection = useMemo((): TableRowSelection | undefined =>
+		canDeleteRecords
+			? { selectedKeys, toggleRow: toggleRowSelected, toggleAll: toggleAllSelected }
+			: undefined, [canDeleteRecords, selectedKeys, toggleRowSelected, toggleAllSelected]);
+
 	// Full list
 	const searchByValueParams = {
 		...instanceParams,
@@ -402,6 +441,22 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// arrived yet.
 	const pageRows = tableData?.data;
 
+	// What counts as selected is DERIVED from the rows on screen, not just read out of the stored
+	// set. The epoch reset and the refresh clear bound what can accumulate, but neither fires when
+	// the list query swaps its rows under unchanged parameters -- adding a record invalidates this
+	// query and can push a checked row onto another page, and React Query refetches on window focus
+	// (this app registers no `defaultOptions`, so that default is live). Either leaves a key in the
+	// set with no row to show for it, and "Delete Selected" armed for a record nobody can see.
+	// Deriving makes "the selection describes rows on screen" hold by construction rather than by
+	// remembering to clear at every moment that could break it.
+	const visibleSelectedKeys = useMemo(
+		() =>
+			(pageRows ?? [])
+				.map((row) => rowSelectionKey(row, primaryKey))
+				.filter((key) => key !== undefined && selectedKeys.has(key)),
+		[pageRows, primaryKey, selectedKeys],
+	);
+
 	// One by id
 	const { data: searchByIdData, isFetching: isSearchByIdFetching, isError: isSearchByIdError } = useQuery(
 		getSearchByIdOptions({
@@ -439,9 +494,14 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			// Records may have been added since a step proved a page terminal, so that proof retires
 			// with the data it was made against.
 			setKnownLastPage(null);
+			// So does the selection: it names records by primary key, and a refetch is precisely the
+			// moment the rows behind those keys can change without the query params moving. Anything
+			// that refreshes the grid -- the toolbar button, a write of ours, another writer's row
+			// landing -- leaves the checked set describing rows nobody has looked at.
+			setSelectedKeys(EMPTY_SELECTION);
 			return queryClient.invalidateQueries({ queryKey: [instanceParams.entityId, databaseName, tableName] });
 		},
-		[queryClient, instanceParams.entityId, databaseName, tableName, setKnownLastPage],
+		[queryClient, instanceParams.entityId, databaseName, tableName, setKnownLastPage, setSelectedKeys],
 	);
 	// `refreshTable`'s prefix does NOT reach the open record: `getSearchById` keys on
 	// `[entityId, 'search_by_id', databaseName, tableName, ids]`, so `'search_by_id'` sits where the
@@ -559,14 +619,61 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				hashValues: hashes,
 			},
 			{
-				onSuccess: () => {
+				onSuccess: (response) => {
+					// `refreshTable` also drops the selection: this record may well be one of the
+					// checked rows.
 					void refreshTable();
 					setIsEditModalOpen(false);
+					const incomplete = describeIncompleteDelete(response, hashes.length);
+					if (incomplete) {
+						toast.error("The record wasn't deleted", { description: incomplete.message });
+						return;
+					}
 					toast.success('Record deleted successfully');
 				},
 			},
 		);
 	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+
+	// Bulk delete from the toolbar. Unlike the editor's single-record delete there is no record in
+	// front of the user to check against, so it confirms first; both read the answer the same way.
+	const onDeleteSelected = useCallback(() => {
+		const hashValues = visibleSelectedKeys;
+		if (!hashValues.length) {
+			return;
+		}
+		if (!confirm(`Permanently delete ${pluralize(hashValues.length, 'record', 'records')} from "${tableName}"?`)) {
+			return;
+		}
+		deleteTableRecords(
+			{
+				...instanceParams,
+				databaseName,
+				tableName,
+				hashValues,
+			},
+			{
+				onSuccess: (response) => {
+					// `refreshTable` drops the selection -- these rows are exactly the ones that just
+					// changed underneath it.
+					void refreshTable();
+					const incomplete = describeIncompleteDelete(response, hashValues.length);
+					if (incomplete) {
+						toast.error("The records weren't all deleted", { description: incomplete.message });
+						return;
+					}
+					toast.success(`${pluralize(hashValues.length, 'record', 'records')} deleted successfully`);
+				},
+			},
+		);
+	}, [
+		deleteTableRecords,
+		instanceParams,
+		databaseName,
+		tableName,
+		refreshTable,
+		visibleSelectedKeys,
+	]);
 
 	// Point the editor at a record on the page the grid is showing. The row is kept as well as its
 	// id because the editor falls back to it when the record can't be fetched by that id.
@@ -704,7 +811,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	return (
 		<>
-			<div className="shrink-0 flex flex-col md:flex-row md:flex-wrap items-center justify-between gap-3 pt-15 pb-4 pr-4">
+			<div className="shrink-0 flex flex-col md:flex-row md:flex-wrap items-center justify-between gap-3 pt-15 pb-4 px-4">
 				<div className="flex space-x-2">
 					{canAddRecords && (
 						<Button
@@ -716,6 +823,16 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 							<span>
 								Add <u>N</u>ew Record(s)
 							</span>
+						</Button>
+					)}
+					{canDeleteRecords && visibleSelectedKeys.length > 0 && (
+						<Button
+							variant="destructiveOutline"
+							onClick={onDeleteSelected}
+							disabled={isDeleteTableRecordsPending}
+						>
+							<Trash2Icon className="text-destructive" />
+							<span>Delete Selected ({visibleSelectedKeys.length})</span>
 						</Button>
 					)}
 				</div>
@@ -758,7 +875,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						onClick={onRefreshClick}
 						disabled={isFetching}
 					>
-						<RefreshCwIcon />
+						<RefreshCwIcon aria-label="Refresh table" />
 					</Button>
 
 					<PickColumnsDropdown
@@ -862,6 +979,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				setColumnSizing={setColumnSizing}
 				onRowClick={onRowClick}
 				onColumnClick={onColumnClick}
+				rowSelection={rowSelection}
 				totalPages={totalPages}
 				totalRecords={totalRecords}
 				isEstimatedCount={isEstimatedCount}
