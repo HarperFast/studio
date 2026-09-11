@@ -15,6 +15,14 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+	/* Tells the browser which palette to paint NATIVE UI in — scrollbars above all, plus form
+	 * controls and the canvas behind the page. Themes here are a `.dark` class, which CSS variables
+	 * follow but the browser's own widgets do not: with `color-scheme` left at its `normal` default
+	 * the scrollbars stayed light against the dark app. Paired with the `.dark` rule below, and
+	 * deliberately not a `prefers-color-scheme` media query — the app's theme is a user setting that
+	 * can disagree with the OS. */
+	color-scheme: light;
+
 	--white: hsl(0, 0%, 99.61%); /* #fefefe */
 	--black: hsl(0, 0%, 12.94%); /* #212121 */
 	/* --black-light: hsl(0, 0%, 12%); #ffffff */
@@ -144,6 +152,10 @@
 }
 
 .dark {
+	/* Same specificity as `:root` and declared after it, which is how every token below already
+	 * wins — see the note on `color-scheme` up there. */
+	color-scheme: dark;
+
 	--background: hsl(250 20% 8%);     /* Deep purple-tinted dark background */
 		--foreground: hsl(0 0% 98%);
 		--card: var(--color-grey-700);
