@@ -46,18 +46,27 @@ export function Databases() {
 
 	return (
 		<>
-			<main className="flex flex-col gap-4 md:flex-row md:items-start">
+			{
+				/* gap only while stacked: from md up the table pane sits flush against the sidebar's
+			    divider and insets its own toolbar/footer instead, so the grid itself is full-width. */
+			}
+			<main className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-start">
 				<section
 					style={sidebarWidthVar}
 					// overflow-y-clip (not overflow-hidden) so the tree is still clipped vertically while the
-					// resize handle can extend horizontally into the gap between the panes.
-					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 md:border-r border-border flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
+					// resize handle's line can extend horizontally over the divider.
+					className="relative text-foreground w-full md:w-[var(--db-sidebar-width)] md:shrink-0 md:border-r-2 border-border flex flex-col min-h-0 md:sticky md:top-32 md:h-[calc(100vh-(--spacing(32)))] md:max-h-[calc(100vh-(--spacing(32)))] overflow-y-clip"
 				>
 					<DatabasesSidebar instanceDatabaseMap={instanceDatabaseMap} />
 					{
 						/* Drag (or focus + Arrow keys) to resize the sidebar (md+ only; mobile stacks full-width).
-					    The grab zone straddles the edge into the inter-pane gap so it doesn't fight the tree's
-					    scrollbar; only the thin centered line is visible (on hover / drag / focus). */
+					    The grab zone sits entirely PAST the divider, in the table pane's first few pixels,
+					    because both neighbouring strips are already spoken for: inside the sidebar is the
+					    tree's own 10px scrollbar (`.app-tree-scroll`), which a handle over it would make
+					    undraggable, and the pane is flush now, so reaching further in would shadow the
+					    selection gutter's checkbox. 8px clears the checkbox (centred in a 32px gutter)
+					    and leaves the scrollbar alone. Only the thin line over the divider is visible
+					    (on hover / drag / focus). */
 					}
 					<div
 						role="separator"
@@ -69,11 +78,11 @@ export function Databases() {
 						aria-valuemax={maxSidebarWidth(window.innerWidth)}
 						onMouseDown={startResizing}
 						onKeyDown={handleKeyDown}
-						className="group hidden md:block absolute top-0 bottom-0 right-0 w-4 translate-x-1/2 z-40 cursor-col-resize outline-none"
+						className="group hidden md:block absolute top-0 bottom-0 left-full w-2 z-40 cursor-col-resize outline-none"
 					>
 						<div
 							className={cn(
-								'absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 transition-colors',
+								'absolute inset-y-0 left-0 w-1 -translate-x-1/2 transition-colors',
 								'group-hover:bg-violet-400/60 dark:group-hover:bg-violet-500/60 group-focus-visible:bg-violet-500/80',
 								isResizing && 'bg-violet-400/60 dark:bg-violet-500/60',
 							)}
