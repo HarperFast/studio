@@ -21,10 +21,13 @@ export function ColumnFilters<TData extends RowData>({
 	applyFilters,
 	columnFiltersForm,
 	headerGroups,
+	selectColumnWidth,
 }: {
 	applyFilters: () => void;
 	columnFiltersForm: UseFormReturn<z.infer<typeof ColumnFiltersSchema>>;
 	headerGroups: HeaderGroup<TData>[];
+	/** Set when the grid renders its sticky selection gutter, so this row keeps the same columns. */
+	selectColumnWidth?: number;
 }) {
 	const handleSubmit = useCallback((e: KeyboardEvent) => {
 		if (e.key === 'Enter') {
@@ -38,6 +41,16 @@ export function ColumnFilters<TData extends RowData>({
 			<Form {...columnFiltersForm}>
 				{headerGroups.map((headerGroup) => (
 					<TableRow key={headerGroup.id} className="border-none">
+						{selectColumnWidth !== undefined && (
+							<TableCell
+								aria-hidden
+								style={{ width: `${selectColumnWidth}px` }}
+								// The right divider is an inset shadow, not `border-r` — see
+								// SELECT_COLUMN_DIVIDER in TableView: a collapsed border doesn't travel
+								// with a sticky cell.
+								className="sticky top-10 left-0 z-20 bg-card dark:bg-black-dark border-b border-border shadow-[inset_-1px_0_0_var(--color-border)]"
+							/>
+						)}
 						{headerGroup.headers.map((header) => {
 							const relationshipInfo = header.column.columnDef.meta?.relationshipInfo;
 							return (

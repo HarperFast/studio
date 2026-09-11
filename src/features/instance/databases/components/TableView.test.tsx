@@ -129,6 +129,175 @@ describe('TableView sorting', () => {
 	});
 });
 
+describe('TableView row selection', () => {
+	// The last row has no value for the declared primary key -- the #1199 shape -- so it can't be
+	// named in a delete and must not be selectable.
+	const selectableRows: Record<string, unknown>[] = [
+		{ id: 1, type: 'dog' },
+		{ id: 2, type: 'cat' },
+		{ type: 'orphan' },
+	];
+
+	function SelectionHarness(
+		{ onRowClick, rows = selectableRows }: {
+			onRowClick?: () => void;
+			rows?: Record<string, unknown>[];
+		} = {},
+	) {
+		const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
+		const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+		const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<unknown>>(new Set());
+		return (
+			<TableView<Record<string, unknown>>
+				applyFilters={() => undefined}
+				columnFiltersForm={columnFiltersForm}
+				columns={columns}
+				columnVisibility={{}}
+				columnSizing={columnSizing}
+				setColumnSizing={setColumnSizing}
+				data={rows}
+				onRowClick={onRowClick}
+				pageIndex={0}
+				pageSize={20}
+				primaryKey="id"
+				resultSetKey="page-0"
+				tableIdentity="dev.dog"
+				rowSelection={{
+					selectedKeys,
+					toggleRow: (key) =>
+						setSelectedKeys((current) => {
+							const next = new Set(current);
+							if (!next.delete(key)) {
+								next.add(key);
+							}
+							return next;
+						}),
+					toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
+				}}
+				setPageIndex={() => undefined}
+				setPageSize={() => undefined}
+				filtersToggled={false}
+			/>
+		);
+	}
+
+	function selectAllCheckbox() {
+		return document.querySelector<HTMLInputElement>('thead input[type="checkbox"]')!;
+	}
+	function rowCheckboxes() {
+		return Array.from(document.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]'));
+	}
+
+	it('renders no selection column when the caller supplies no rowSelection', () => {
+		render(<Harness columnVisibility={{}} />);
+		expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(0);
+	});
+
+	it('selects and deselects every addressable row from the header checkbox', () => {
+		render(<SelectionHarness />);
+		// The keyless row gets a checkbox so the column stays aligned, but it can never be ticked.
+		expect(rowCheckboxes().map((box) => box.disabled)).toEqual([false, false, true]);
+
+		fireEvent.click(selectAllCheckbox());
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([true, true, false]);
+		// Every *selectable* row is selected, so the header reads as fully checked rather than partial.
+		expect(selectAllCheckbox().checked).toBe(true);
+		expect(selectAllCheckbox().indeterminate).toBe(false);
+
+		fireEvent.click(selectAllCheckbox());
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([false, false, false]);
+	});
+
+	it('shows the header checkbox as partially selected when only some rows are ticked', () => {
+		render(<SelectionHarness />);
+
+		fireEvent.click(rowCheckboxes()[0]);
+
+		expect(selectAllCheckbox().checked).toBe(false);
+		// `indeterminate` is a DOM property with no attribute behind it, so this is the regression
+		// guard for it actually being assigned to the node.
+		expect(selectAllCheckbox().indeterminate).toBe(true);
+	});
+
+	it('disables the header checkbox when no row on the page can be addressed', () => {
+		render(<SelectionHarness rows={[{ type: 'orphan' }]} />);
+		expect(selectAllCheckbox().disabled).toBe(true);
+		expect(selectAllCheckbox().indeterminate).toBe(false);
+	});
+
+	it('draws the gutter divider as an inset shadow, never as a collapsed border', () => {
+		// The table is `border-collapse: collapse`, where a cell's borders belong to the table's border
+		// grid rather than the cell's own box — so a `border-r` here stays behind while the sticky cell
+		// slides over it, and the scrolled rows show through the 1px seam it leaves. Pinned because the
+		// obvious "cleanup" is to swap the shadow back for a border.
+		render(<SelectionHarness />);
+		const gutterCells = [
+			document.querySelector('thead th')!,
+			...Array.from(document.querySelectorAll('tbody tr > td:first-child')),
+		];
+		for (const cell of gutterCells) {
+			expect(cell.className).toContain('shadow-[inset_-1px_0_0_var(--color-border)]');
+			expect(cell.className).not.toMatch(/\bborder-[lr]\b/);
+		}
+	});
+
+	it('will not select a row that only inherits its primary key from Object.prototype', () => {
+		// `constructor` is a legal attribute name, and a row that doesn't carry it (the #1199 shape)
+		// resolves to the inherited function on a plain property read: non-null, so the row looks
+		// selectable, and the SAME reference for every such row — ticking one would tick them all.
+		const columnsByCtor: ColumnDef<Record<string, unknown>>[] = [{ header: 'constructor', accessorKey: 'constructor' }];
+		const rows: Record<string, unknown>[] = [{ constructor: 'real' }, { other: 'inherits-only' }];
+		function CtorHarness() {
+			const form = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
+			const [sizing, setSizing] = useState<ColumnSizingState>({});
+			const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<unknown>>(new Set());
+			return (
+				<TableView<Record<string, unknown>>
+					applyFilters={() => undefined}
+					columnFiltersForm={form}
+					columns={columnsByCtor}
+					columnVisibility={{}}
+					columnSizing={sizing}
+					setColumnSizing={setSizing}
+					data={rows}
+					pageIndex={0}
+					pageSize={20}
+					primaryKey="constructor"
+					resultSetKey="page-0"
+					tableIdentity="dev.dog"
+					rowSelection={{
+						selectedKeys,
+						toggleRow: (key) => setSelectedKeys(new Set([key])),
+						toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
+					}}
+					setPageIndex={() => undefined}
+					setPageSize={() => undefined}
+					filtersToggled={false}
+				/>
+			);
+		}
+		render(<CtorHarness />);
+
+		expect(rowCheckboxes().map((box) => box.disabled)).toEqual([false, true]);
+
+		// Select-all must reach only the row that actually owns the attribute.
+		fireEvent.click(selectAllCheckbox());
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([true, false]);
+	});
+
+	it('ticks a row without opening the record editor', () => {
+		// The row click opens the editor; the checkbox sits inside that click target, so without
+		// stopping propagation every selection would also open a modal over the grid.
+		let opened = 0;
+		render(<SelectionHarness onRowClick={() => opened++} />);
+
+		fireEvent.click(rowCheckboxes()[1]);
+
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([false, true, false]);
+		expect(opened).toBe(0);
+	});
+});
+
 describe('TableView column resizing', () => {
 	it('renders a resize handle for each column header', () => {
 		// Regression: the handle used to be gated on columnDef.enableResizing (never set), so it

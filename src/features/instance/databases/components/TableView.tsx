@@ -11,6 +11,7 @@ import {
 	TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/cn';
+import { onClickStopPropagation } from '@/lib/onClickStopPropagation';
 import { Cell, ColumnDef, Row, studioTableFeatures } from '@/lib/table';
 import {
 	ColumnSizingState,
@@ -20,11 +21,53 @@ import {
 	RowData,
 	useTable,
 } from '@tanstack/react-table';
-import { Dispatch, ReactNode, SetStateAction, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
 import { TablePagination } from './TablePagination';
+
+// Width of the sticky selection gutter. Not a TanStack column (it isn't sortable, resizable,
+// hideable or filterable), so the width lives here and the resize guide adds it back below.
+const SELECT_COLUMN_WIDTH = 32;
+// The gutter's right-hand divider, drawn as an inset shadow rather than `border-r`. The table is
+// `border-collapse: collapse` (Tailwind's preflight), where a cell's borders belong to the table's
+// border grid instead of the cell's own box -- so a collapsed border stays put while the sticky cell
+// slides over it, leaving a 1px seam that the scrolled rows show through. A shadow paints inside the
+// cell's background box and travels with it.
+const SELECT_COLUMN_DIVIDER = 'shadow-[inset_-1px_0_0_var(--color-border)]';
+
+/**
+ * Wiring for the sticky checkbox column. Rows are addressed by their primary-key value -- the same
+ * value the delete operation takes -- rather than by TanStack's row selection state, whose row ids
+ * are strings and would have to be mapped back to the original (often numeric) keys to delete with.
+ *
+ * The owner supplies only the selected set and the two toggles; which rows are on screen, and
+ * therefore what "all" means, is derived here from the rows actually being rendered.
+ */
+/**
+ * The value a row is addressed by for selection and deletion, or `undefined` when it has none.
+ *
+ * `Object.hasOwn` rather than a plain property read: a table may legally declare a primary key
+ * named `constructor`, `toString` or `valueOf`, and a row that doesn't carry that attribute (the
+ * #1199 shape) would otherwise resolve to the inherited `Object.prototype` member -- a function,
+ * which reads as non-null so the row looks selectable, serializes to `null` in the delete, and is
+ * the *same reference* for every such row, so ticking one would tick them all.
+ */
+export function rowSelectionKey(row: unknown, primaryKey: string | undefined): unknown {
+	if (!primaryKey || typeof row !== 'object' || row === null || !Object.hasOwn(row, primaryKey)) {
+		return undefined;
+	}
+	const value = (row as Record<string, unknown>)[primaryKey];
+	return value == null ? undefined : value;
+}
+
+export interface TableRowSelection {
+	selectedKeys: ReadonlySet<unknown>;
+	toggleRow: (key: unknown) => void;
+	/** `keys` is every selectable row on the page, so the owner never recomputes them. */
+	toggleAll: (keys: unknown[], selectAll: boolean) => void;
+}
 
 interface BrowseDataTableProps<TData extends RowData> {
 	applyFilters: () => void;
@@ -43,6 +86,8 @@ interface BrowseDataTableProps<TData extends RowData> {
 	pageIndex: number;
 	pageSize: number;
 	primaryKey: string;
+	// Omitted when the user can't delete records: no selection column is rendered at all.
+	rowSelection?: TableRowSelection;
 	// Identifies the rows on screen (table + page + sort + filters). See the reset effect below.
 	resultSetKey: string;
 	// Identifies which table is on screen, so a new set of columns starts scrolled to the left.
@@ -73,6 +118,7 @@ export function TableView<TData extends RowData>({
 	pageIndex,
 	pageSize,
 	primaryKey,
+	rowSelection,
 	resultSetKey,
 	tableIdentity,
 	setPageIndex,
@@ -106,6 +152,24 @@ export function TableView<TData extends RowData>({
 			columnSizing,
 		},
 	});
+
+	// A row is only selectable if it can be addressed by the primary key the delete operation takes;
+	// a table whose declared primary key doesn't match how its rows are stored has rows that can't be
+	// (see #1199), and they get a disabled checkbox rather than one that selects an undeletable row.
+	const isSelectable = !!rowSelection && !!primaryKey;
+	const selectableKeys = useMemo(() => {
+		if (!isSelectable) {
+			return [];
+		}
+		return (data ?? [])
+			.map((row) => rowSelectionKey(row, primaryKey))
+			.filter((key) => key !== undefined);
+	}, [isSelectable, data, primaryKey]);
+	const selectedOnPage = rowSelection
+		? selectableKeys.filter((key) => rowSelection.selectedKeys.has(key)).length
+		: 0;
+	const allSelected = selectableKeys.length > 0 && selectedOnPage === selectableKeys.length;
+	const someSelected = selectedOnPage > 0 && !allSelected;
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
@@ -143,7 +207,8 @@ export function TableView<TData extends RowData>({
 	if (resizingColumnId) {
 		const minSize = table.options.defaultColumn?.minSize ?? 20;
 		const startSize = table.getColumn(resizingColumnId)?.getSize() ?? 0;
-		let edge = 0;
+		// The selection gutter sits left of every real column, so every edge shifts by its width.
+		let edge = isSelectable ? SELECT_COLUMN_WIDTH : 0;
 		for (const leafColumn of table.getVisibleLeafColumns()) {
 			edge += leafColumn.getSize();
 			if (leafColumn.id === resizingColumnId) {
@@ -192,6 +257,24 @@ export function TableView<TData extends RowData>({
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
 							<TableRow key={headerGroup.id} className="border-none">
+								{isSelectable && (
+									// z-20: above the other sticky headers, which it crosses over when the
+									// grid is scrolled sideways.
+									<TableHead
+										style={{ width: `${SELECT_COLUMN_WIDTH}px` }}
+										className={cn(
+											'sticky top-0 left-0 z-20 p-0 bg-card dark:bg-black-dark border-b border-border',
+											SELECT_COLUMN_DIVIDER,
+										)}
+									>
+										<SelectAllCheckbox
+											checked={allSelected}
+											indeterminate={someSelected}
+											disabled={selectableKeys.length === 0}
+											onToggle={() => rowSelection.toggleAll(selectableKeys, !allSelected)}
+										/>
+									</TableHead>
+								)}
 								{headerGroup.headers.map((header) => (
 									<TableHeadSortable
 										key={header.id}
@@ -215,10 +298,15 @@ export function TableView<TData extends RowData>({
 							applyFilters={applyFilters}
 							columnFiltersForm={columnFiltersForm}
 							headerGroups={table.getHeaderGroups()}
+							selectColumnWidth={isSelectable ? SELECT_COLUMN_WIDTH : undefined}
 						/>
 					)}
 					{!showEmptyPanel && (
-						<TableBody className="bg-background dark:bg-black border border-border dark:border-grey-700">
+						/* border-y, not border: the grid spans the pane edge to edge, so it has no side
+						   edges to draw -- and a collapsed side border would scroll with the content while
+						   the sticky selection gutter stayed put, leaving a 1px seam at the scrollport
+						   edge. */
+						<TableBody className="bg-background dark:bg-black border-y border-border dark:border-grey-700">
 							{hasRows
 								? (table.getRowModel().rows.map((row) => (
 									<TableBodyRow
@@ -226,11 +314,15 @@ export function TableView<TData extends RowData>({
 										row={row}
 										onRowClick={onRowClick}
 										primaryKey={primaryKey}
+										rowSelection={isSelectable ? rowSelection : undefined}
 									/>
 								)))
 								: (
 									<TableRow>
-										<TableCell colSpan={columns.length + 1} className="h-24 text-center">
+										<TableCell
+											colSpan={columns.length + 1 + (isSelectable ? 1 : 0)}
+											className="h-24 text-center"
+										>
 											{isFetching || isAwaitingRows
 												? <LoadingSubtle className="opacity-50 inline-block" />
 												: <span>No results.</span>}
@@ -270,8 +362,54 @@ export function TableView<TData extends RowData>({
 	);
 }
 
+/**
+ * `indeterminate` is a DOM property with no HTML attribute behind it, so React can't render it --
+ * it has to be assigned to the node.
+ */
+function SelectAllCheckbox(
+	{ checked, indeterminate, disabled, onToggle }: {
+		checked: boolean;
+		indeterminate: boolean;
+		disabled: boolean;
+		onToggle: () => void;
+	},
+) {
+	const ref = useRef<HTMLInputElement>(null);
+	useEffect(() => {
+		if (ref.current) {
+			ref.current.indeterminate = indeterminate;
+		}
+	}, [indeterminate]);
+	return (
+		<SelectCellLabel>
+			<input
+				ref={ref}
+				type="checkbox"
+				aria-label={checked ? 'Deselect all records on this page' : 'Select all records on this page'}
+				checked={checked}
+				disabled={disabled}
+				onChange={onToggle}
+			/>
+		</SelectCellLabel>
+	);
+}
+
+/**
+ * Fills the selection cell so the whole gutter is the hit target. A bare centred checkbox leaves the
+ * surrounding padding dead — a click that lands there does nothing at all, since the cell also has to
+ * swallow the click to keep the row from opening the record editor.
+ */
+function SelectCellLabel({ children }: { children: ReactNode }) {
+	return <label className="flex h-full w-full items-center justify-center py-2">{children}</label>;
+}
+
 function TableBodyRow<TData extends RowData>(
-	{ row, primaryKey, onRowClick }: { row: Row<TData>; primaryKey?: string; onRowClick?: (row: Row<TData>) => void },
+	{ row, primaryKey, onRowClick, rowSelection }: {
+		row: Row<TData>;
+		primaryKey?: string;
+		onRowClick?: (row: Row<TData>) => void;
+		rowSelection?: TableRowSelection;
+	},
 ) {
 	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
 	// visible columns change, so depending on it keeps the body in step with the
@@ -295,12 +433,40 @@ function TableBodyRow<TData extends RowData>(
 		return visibleCells.map((cell) => <TableBodyRowCell key={cell.id} cell={cell} />);
 	}, [row, primaryKey, visibleCells]);
 
+	const selectionKey = rowSelection ? rowSelectionKey(row.original, primaryKey) : undefined;
+	const isSelected = selectionKey !== undefined && !!rowSelection?.selectedKeys.has(selectionKey);
+
 	return (
 		<TableRow
-			data-state={row.getIsSelected() && 'selected'}
+			data-state={isSelected ? 'selected' : undefined}
 			onClick={() => onRowClick?.(row)}
 			className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}
 		>
+			{rowSelection && (
+				<TableCell
+					// The rows scroll *under* this cell, so its background has to be opaque -- which is
+					// why it repeats the row's selected colour instead of letting the row show through.
+					// It deliberately doesn't pick up the row's translucent hover tint for the same reason.
+					className={cn(
+						'sticky left-0 z-10 p-0',
+						SELECT_COLUMN_DIVIDER,
+						isSelected ? 'bg-muted' : 'bg-background dark:bg-black',
+					)}
+					// The row click opens the record editor; ticking the checkbox must not.
+					onClick={onClickStopPropagation}
+				>
+					<SelectCellLabel>
+						<input
+							type="checkbox"
+							aria-label={isSelected ? 'Deselect record' : 'Select record'}
+							checked={isSelected}
+							// A row with no primary-key value can't be named in a delete, so it can't be selected.
+							disabled={selectionKey === undefined}
+							onChange={() => selectionKey !== undefined && rowSelection.toggleRow(selectionKey)}
+						/>
+					</SelectCellLabel>
+				</TableCell>
+			)}
 			{cells}
 			{/* Filler cell matching the header's filler column. */}
 			<TableCell aria-hidden className="p-0" />
