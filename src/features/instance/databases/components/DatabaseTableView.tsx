@@ -875,7 +875,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						onClick={onRefreshClick}
 						disabled={isFetching}
 					>
-						<RefreshCwIcon aria-label="Refresh table" />
+						<RefreshCwIcon aria-label="Refresh table" role="img" />
 					</Button>
 
 					<PickColumnsDropdown

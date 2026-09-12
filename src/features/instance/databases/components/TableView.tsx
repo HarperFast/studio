@@ -21,7 +21,7 @@ import {
 	RowData,
 	useTable,
 } from '@tanstack/react-table';
-import { Dispatch, ReactNode, SetStateAction, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
@@ -375,7 +375,7 @@ function SelectAllCheckbox(
 	},
 ) {
 	const ref = useRef<HTMLInputElement>(null);
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (ref.current) {
 			ref.current.indeterminate = indeterminate;
 		}
