@@ -43,7 +43,6 @@ export function ColumnFilters<TData extends RowData>({
 					<TableRow key={headerGroup.id} className="border-none">
 						{selectColumnWidth !== undefined && (
 							<TableCell
-								aria-hidden
 								style={{ width: `${selectColumnWidth}px` }}
 								// The right divider is an inset shadow, not `border-r` — see
 								// SELECT_COLUMN_DIVIDER in TableView: a collapsed border doesn't travel
