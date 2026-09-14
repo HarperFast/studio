@@ -138,9 +138,10 @@ const selectableRows: Record<string, unknown>[] = [
 ];
 
 function SelectionHarness(
-	{ onRowClick, rows = selectableRows }: {
+	{ onRowClick, rows = selectableRows, resultSetKey = 'page-0' }: {
 		onRowClick?: () => void;
 		rows?: Record<string, unknown>[];
+		resultSetKey?: string;
 	} = {},
 ) {
 	const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
@@ -159,7 +160,7 @@ function SelectionHarness(
 			pageIndex={0}
 			pageSize={20}
 			primaryKey="id"
-			resultSetKey="page-0"
+			resultSetKey={resultSetKey}
 			tableIdentity="dev.dog"
 			rowSelection={{
 				selectedKeys,
@@ -393,6 +394,21 @@ describe('TableView shift-click range selection', () => {
 		expect(checkedKeys()).toEqual([false, false, false, true, true]);
 	});
 
+	it('drops the anchor when the result set changes underneath it', () => {
+		// TableView is not keyed, so it survives paging, sorting and a table switch while the parent
+		// clears the selection. An anchor left behind whose key exists in the next result set too
+		// (integer keys collide across tables constantly) would turn a plain shift-click into a range.
+		const { rerender } = render(<SelectionHarness rows={rangeRows} resultSetKey="page-0" />);
+		fireEvent.click(checkboxes()[0]);
+		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+
+		rerender(<SelectionHarness rows={rangeRows} resultSetKey="page-1" />);
+		fireEvent.click(checkboxes()[3], { shiftKey: true });
+
+		// A plain pick of row 3 only -- not a range measured from the stale anchor at row 0.
+		expect(checkedKeys()).toEqual([true, false, false, true, false]);
+	});
+
 	it('falls back to a plain pick when there is no anchor yet', () => {
 		renderRange();
 
@@ -532,7 +548,7 @@ describe('TableView drag selection', () => {
 	function drag(from: number, over: number[]) {
 		fireEvent.mouseDown(gutterOf(from), { button: 0 });
 		for (const index of over) {
-			fireEvent.mouseOver(rows()[index]);
+			fireEvent.mouseOver(rows()[index], { buttons: 1 });
 		}
 		fireEvent.mouseUp(window);
 	}
@@ -561,9 +577,9 @@ describe('TableView drag selection', () => {
 		render(<SelectionHarness rows={rangeRows} />);
 
 		fireEvent.mouseDown(gutterOf(0), { button: 0 });
-		fireEvent.mouseOver(rows()[4]);
+		fireEvent.mouseOver(rows()[4], { buttons: 1 });
 		expect(checkedKeys()).toEqual([true, true, false, true, true]);
-		fireEvent.mouseOver(rows()[1]);
+		fireEvent.mouseOver(rows()[1], { buttons: 1 });
 		fireEvent.mouseUp(window);
 
 		// Rows 3 and 4 were picked on the way out and must not stay picked on the way back.
@@ -576,8 +592,8 @@ describe('TableView drag selection', () => {
 		fireEvent.click(rowCheckboxes()[4]);
 
 		fireEvent.mouseDown(gutterOf(0), { button: 0 });
-		fireEvent.mouseOver(rows()[4]);
-		fireEvent.mouseOver(rows()[1]);
+		fireEvent.mouseOver(rows()[4], { buttons: 1 });
+		fireEvent.mouseOver(rows()[1], { buttons: 1 });
 		fireEvent.mouseUp(window);
 
 		expect(checkedKeys()).toEqual([true, true, false, false, true]);
@@ -590,7 +606,7 @@ describe('TableView drag selection', () => {
 		drag(0, [1, 3]);
 		// Releasing back over the row it started on would otherwise re-toggle it and open the editor.
 		fireEvent.mouseDown(gutterOf(0), { button: 0 });
-		fireEvent.mouseOver(rows()[3]);
+		fireEvent.mouseOver(rows()[3], { buttons: 1 });
 		fireEvent.click(rows()[0]);
 
 		expect(opened).toBe(0);
@@ -600,7 +616,7 @@ describe('TableView drag selection', () => {
 		render(<SelectionHarness rows={rangeRows} />);
 
 		fireEvent.mouseDown(gutterOf(0), { button: 2 });
-		fireEvent.mouseOver(rows()[3]);
+		fireEvent.mouseOver(rows()[3], { buttons: 1 });
 		fireEvent.mouseUp(window);
 
 		expect(checkedKeys()).toEqual([false, false, false, false, false]);
@@ -613,17 +629,92 @@ describe('TableView drag selection', () => {
 		fireEvent.click(rowCheckboxes()[0]);
 
 		fireEvent.mouseDown(gutterOf(3), { button: 0, shiftKey: true });
-		fireEvent.mouseOver(rows()[4]);
+		fireEvent.mouseOver(rows()[4], { buttons: 1 });
 		fireEvent.mouseUp(window);
 
 		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+	});
+
+	it('leaves the next click alone once the drag is over', () => {
+		// A drag that ends on another row produces no click at all, so the suppression it armed has
+		// to be cleared by the next press -- otherwise it stands there and eats an unrelated click,
+		// and the record editor stops opening.
+		let opened = 0;
+		render(<SelectionHarness rows={rangeRows} onRowClick={() => opened++} />);
+
+		drag(0, [3]);
+		fireEvent.mouseDown(rows()[1]);
+		fireEvent.click(rows()[1]);
+
+		expect(opened).toBe(1);
+	});
+
+	it('does not open the record editor when a press slips out of the gutter mid-click', () => {
+		// Press the 32px gutter, drift into the row's data cell, release. mousedown and mouseup share
+		// no cell, so the click resolves on the `tr` itself and the gutter's stopPropagation never
+		// sees it -- the editor would open on what was meant to be a tick.
+		let opened = 0;
+		render(<SelectionHarness rows={rangeRows} onRowClick={() => opened++} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseUp(window);
+		fireEvent.click(rows()[0]);
+
+		expect(opened).toBe(0);
+	});
+
+	it('keeps the origin row picked when a drag wanders back to its checkbox', () => {
+		// The drag already applied the state to the origin; the trailing click on the very checkbox it
+		// started from would toggle that one row straight back off.
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[3], { buttons: 1 });
+		fireEvent.mouseOver(rows()[0], { buttons: 1 });
+		fireEvent.mouseUp(window);
+		fireEvent.click(rowCheckboxes()[0], { detail: 1 });
+
+		expect(checkedKeys()[0]).toBe(true);
+	});
+
+	it('lets the focused checkbox be toggled from the keyboard after a drag', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[3], { buttons: 1 });
+		fireEvent.mouseUp(window);
+		expect(document.activeElement).toBe(rowCheckboxes()[0]);
+
+		// Keyboard activation produces a click with no click count (`detail === 0`).
+		fireEvent.click(rowCheckboxes()[0], { detail: 0 });
+		expect(checkedKeys()[0]).toBe(false);
+
+		fireEvent.click(rowCheckboxes()[0], { detail: 0 });
+		expect(checkedKeys()[0]).toBe(true);
 	});
 
 	it('stops extending once the button is released', () => {
 		render(<SelectionHarness rows={rangeRows} />);
 
 		drag(0, [1]);
-		fireEvent.mouseOver(rows()[4]);
+		fireEvent.mouseOver(rows()[4], { buttons: 1 });
+
+		expect(checkedKeys()).toEqual([true, true, false, false, false]);
+	});
+
+	it('stops extending when the button was released outside the window', () => {
+		// No mouseup reaches us in that case, so the only account of the button no longer being held
+		// is what each mouseover reports. Without it the drag stays live and carries on selecting as
+		// soon as the pointer comes back over the grid.
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[1], { buttons: 1 });
+		expect(checkedKeys()).toEqual([true, true, false, false, false]);
+
+		// Pointer comes back over the grid with nothing held down.
+		fireEvent.mouseOver(rows()[3], { buttons: 0 });
+		fireEvent.mouseOver(rows()[4], { buttons: 1 });
 
 		expect(checkedKeys()).toEqual([true, true, false, false, false]);
 	});

@@ -1,6 +1,6 @@
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
 import { useMutation } from '@tanstack/react-query';
-import { IncompleteWrite, UNREADABLE_WRITE_MESSAGE } from './incompleteWrite';
+import { IncompleteWrite, isMalformedHashes, UNREADABLE_WRITE_MESSAGE } from './incompleteWrite';
 
 interface DeleteTableRecordsData extends InstanceClientConfig {
 	databaseName: string;
@@ -23,20 +23,24 @@ export interface DeleteTableRecordsResponse {
  * update and put have read their answers since #1643; delete was still reporting every 200 as a
  * clean success.
  *
- * Both hash lists are required to prove the result. A missing or non-array field leaves the write
- * unproven and must not be reported as a success.
+ * `deleted_hashes` is required, the same way `describeIncompletePut` requires `put_hashes`: `delete`
+ * has answered with it since 4.7.33, so an absent one is not a legacy responder but an empty body or
+ * an HTML 2xx from something in front of Harper, and reporting that as a clean delete would claim
+ * rows are gone on no evidence at all. `skipped_hashes` only adds detail, so an absent one reads as
+ * "nothing skipped" rather than turning a provable delete into an error; present-but-not-an-array
+ * is unreadable either way.
  */
 export function describeIncompleteDelete(
 	data: DeleteTableRecordsResponse | undefined,
 	recordCount: number,
 ): IncompleteWrite | undefined {
-	if (!Array.isArray(data?.deleted_hashes) || !Array.isArray(data?.skipped_hashes)) {
+	if (!Array.isArray(data?.deleted_hashes) || isMalformedHashes(data?.skipped_hashes)) {
 		return {
 			message: UNREADABLE_WRITE_MESSAGE,
 			wroteNothing: false,
 		};
 	}
-	const skipped = data.skipped_hashes.length;
+	const skipped = data.skipped_hashes?.length ?? 0;
 	const deleted = data.deleted_hashes.length;
 	if (skipped === 0 && deleted >= recordCount) {
 		return undefined;
