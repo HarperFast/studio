@@ -21,7 +21,18 @@ import {
 	RowData,
 	useTable,
 } from '@tanstack/react-table';
-import { Dispatch, ReactNode, SetStateAction, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+	Dispatch,
+	ReactNode,
+	SetStateAction,
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
+import type { MouseEvent, RefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
@@ -211,6 +222,91 @@ export function TableView<TData extends RowData>({
 		// instead of ratcheting along behind the pointer.
 	}, [rowSelection, selectableKeys, anchorKey]);
 
+	// Press on a row's gutter and drag: every row the pointer crosses joins the range. Same direction
+	// rule as a shift-click -- it is fixed at mousedown from the row pressed, so dragging out of a
+	// ticked row clears a run and out of an unticked one picks one.
+	//
+	// `useRef`, not state: this changes on every row crossed and nothing renders from it directly, so
+	// putting it in state would re-render the whole grid mid-drag for no visible gain.
+	const dragRef = useRef<
+		| {
+			originKey: unknown;
+			selected: boolean;
+			/** The selection as it stood when the drag began, so rows it backs off revert exactly. */
+			snapshot: ReadonlySet<unknown>;
+			applied: unknown[];
+			lastKey: unknown;
+		}
+		| null
+	>(null);
+	// A drag that moved ends on a different row, so no click reaches the row it started on -- except
+	// when the pointer wanders back and releases there, which would re-toggle it. Reset per press.
+	const suppressClickRef = useRef(false);
+
+	const beginRowDrag = useCallback(
+		(key: unknown, event: { button: number; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
+			suppressClickRef.current = false;
+			// Left button only, and never under a modifier: shift already means "extend from the anchor",
+			// and starting a drag would overwrite the anchor before the click could read it.
+			if (
+				!rowSelection || key === undefined || event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey
+			) {
+				return;
+			}
+			dragRef.current = {
+				originKey: key,
+				selected: !rowSelection.selectedKeys.has(key),
+				snapshot: new Set(rowSelection.selectedKeys),
+				applied: [],
+				lastKey: key,
+			};
+		},
+		[rowSelection],
+	);
+
+	const dragOverRow = useCallback((key: unknown) => {
+		const drag = dragRef.current;
+		if (!drag || !rowSelection || key === undefined || key === drag.lastKey) {
+			return;
+		}
+		const originIndex = selectableKeys.indexOf(drag.originKey);
+		const targetIndex = selectableKeys.indexOf(key);
+		if (originIndex === -1 || targetIndex === -1) {
+			return;
+		}
+		drag.lastKey = key;
+		const [from, to] = originIndex <= targetIndex
+			? [originIndex, targetIndex]
+			: [targetIndex, originIndex];
+		const range = selectableKeys.slice(from, to + 1);
+		const inRange = new Set(range);
+		// Rows the drag has backed off go back to what they were when it started, so pulling the
+		// pointer in again shrinks the range instead of leaving a trail behind it.
+		const leaving = drag.applied.filter((applied) => !inRange.has(applied));
+		const restoreOn = leaving.filter((left) => drag.snapshot.has(left));
+		const restoreOff = leaving.filter((left) => !drag.snapshot.has(left));
+		if (restoreOn.length) {
+			rowSelection.setRangeSelected(restoreOn, true);
+		}
+		if (restoreOff.length) {
+			rowSelection.setRangeSelected(restoreOff, false);
+		}
+		rowSelection.setRangeSelected(range, drag.selected);
+		drag.applied = range;
+		setAnchorKey(drag.originKey);
+		suppressClickRef.current = true;
+	}, [rowSelection, selectableKeys]);
+
+	// The release that ends a drag lands wherever the pointer is -- often outside the grid, and
+	// sometimes outside the window -- so the listener has to be on the window rather than a row.
+	useEffect(() => {
+		const endDrag = () => {
+			dragRef.current = null;
+		};
+		window.addEventListener('mouseup', endDrag);
+		return () => window.removeEventListener('mouseup', endDrag);
+	}, []);
+
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
 
@@ -359,6 +455,9 @@ export function TableView<TData extends RowData>({
 										primaryKey={primaryKey}
 										rowSelection={isSelectable ? rowSelection : undefined}
 										onSelectRow={selectRow}
+										onBeginDrag={beginRowDrag}
+										onDragOver={dragOverRow}
+										suppressClickRef={suppressClickRef}
 									/>
 								)))
 								: (
@@ -448,12 +547,15 @@ function SelectCellLabel({ children }: { children: ReactNode }) {
 }
 
 function TableBodyRow<TData extends RowData>(
-	{ row, primaryKey, onRowClick, rowSelection, onSelectRow }: {
+	{ row, primaryKey, onRowClick, rowSelection, onSelectRow, onBeginDrag, onDragOver, suppressClickRef }: {
 		row: Row<TData>;
 		primaryKey?: string;
 		onRowClick?: (row: Row<TData>) => void;
 		rowSelection?: TableRowSelection;
 		onSelectRow?: (key: unknown, extendRange: boolean) => void;
+		onBeginDrag?: (key: unknown, event: MouseEvent<HTMLElement>) => void;
+		onDragOver?: (key: unknown) => void;
+		suppressClickRef?: RefObject<boolean>;
 	},
 ) {
 	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
@@ -484,14 +586,22 @@ function TableBodyRow<TData extends RowData>(
 	return (
 		<TableRow
 			data-state={isSelected ? 'selected' : undefined}
-			// Shift-click would otherwise drag a text selection across the rows it spans. The guard
-			// belongs on mousedown, where the selection starts -- preventing the click is too late.
+			// `mouseOver`, not `mouseEnter`: React synthesises enter from over/out, and only the
+			// bubbling form is reliable when the pointer crosses into a child cell mid-drag.
+			onMouseOver={() => onDragOver?.(selectionKey)}
+			// Shift-click, and a drag, would otherwise pull a text selection across the rows they
+			// span. The guard belongs on mousedown, where the selection starts -- preventing the
+			// click is already too late.
 			onMouseDown={(event) => {
 				if (rowSelection && event.shiftKey) {
 					event.preventDefault();
 				}
 			}}
 			onClick={(event) => {
+				if (suppressClickRef?.current) {
+					// A drag ended back on the row it started from; it has already had its answer.
+					return;
+				}
 				// A modified click selects where the pointer already is; shift extends from the anchor.
 				// A row with no key to select by falls through to the editor rather than doing nothing.
 				if (rowSelection && selectionKey !== undefined && (event.ctrlKey || event.metaKey || event.shiftKey)) {
@@ -515,6 +625,14 @@ function TableBodyRow<TData extends RowData>(
 					)}
 					// The row click opens the record editor; ticking the checkbox must not.
 					onClick={onClickStopPropagation}
+					onMouseDown={(event) => {
+						// Stops the press pulling a text selection across the rows a drag crosses.
+						// It also stops the checkbox taking focus, so that is restored by hand rather
+						// than silently lost for anyone alternating mouse and keyboard.
+						event.preventDefault();
+						event.currentTarget.querySelector('input')?.focus();
+						onBeginDrag?.(selectionKey, event);
+					}}
 				>
 					<SelectCellLabel>
 						<input
