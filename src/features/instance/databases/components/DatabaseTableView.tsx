@@ -388,11 +388,27 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const toggleAllSelected = useCallback((keys: unknown[], selectAll: boolean) => {
 		setSelectedKeys(selectAll ? new Set(keys) : EMPTY_SELECTION);
 	}, [setSelectedKeys]);
+	// Adds only. A shift-click extends a selection; it does not clear whatever it happens to cross,
+	// so dragging the range back and forth can't silently drop a row picked along the way.
+	const selectRangeOfRows = useCallback((keys: unknown[]) => {
+		setSelectedKeys((current) => {
+			const next = new Set(current);
+			for (const key of keys) {
+				next.add(key);
+			}
+			return next;
+		});
+	}, [setSelectedKeys]);
 	// No delete permission, no reason to offer a selection: the grid renders no checkbox column at all.
 	const rowSelection = useMemo((): TableRowSelection | undefined =>
 		canDeleteRecords
-			? { selectedKeys, toggleRow: toggleRowSelected, toggleAll: toggleAllSelected }
-			: undefined, [canDeleteRecords, selectedKeys, toggleRowSelected, toggleAllSelected]);
+			? {
+				selectedKeys,
+				toggleRow: toggleRowSelected,
+				toggleAll: toggleAllSelected,
+				selectRange: selectRangeOfRows,
+			}
+			: undefined, [canDeleteRecords, selectedKeys, toggleRowSelected, toggleAllSelected, selectRangeOfRows]);
 
 	// Full list
 	const searchByValueParams = {
