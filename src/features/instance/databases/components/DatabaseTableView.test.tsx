@@ -401,6 +401,26 @@ describe('DatabaseTableView selection scope', () => {
 		expect(deleteSelectedButton()).toBeNull();
 	});
 
+	it('drops the selection between dot-containing database and table names', () => {
+		describeTableData.current = dogTable;
+		pageRows.current = [{ id: 42 }];
+		const { rerender } = render(
+			<QueryClientProvider client={new QueryClient()}>
+				<DatabaseTableView databaseName="a.b" tableName="c" />
+			</QueryClientProvider>,
+		);
+		act(() => tableViewSelection.current!.toggleRow(42));
+		expect(deleteSelectedButton()).not.toBeNull();
+
+		rerender(
+			<QueryClientProvider client={new QueryClient()}>
+				<DatabaseTableView databaseName="a" tableName="b.c" />
+			</QueryClientProvider>,
+		);
+
+		expect(deleteSelectedButton()).toBeNull();
+	});
+
 	it('reports a delete the server only partly applied instead of claiming success', () => {
 		// `delete` answers 200 while naming the records it couldn't address. Reporting that as a clean
 		// success is what #1643 was about on the update path.
