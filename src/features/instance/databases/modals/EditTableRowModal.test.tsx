@@ -595,24 +595,67 @@ describe('EditTableRowModal', () => {
 			expect(onNext).toHaveBeenCalledTimes(1);
 		});
 
+		it.each(
+			[
+				['ArrowLeft', 'previous'],
+				['ArrowUp', 'previous'],
+				['ArrowRight', 'next'],
+				['ArrowDown', 'next'],
+			] as const,
+		)('%s steps to the %s record outside the editor', (key, direction) => {
+			const onPrevious = vi.fn();
+			const onNext = vi.fn();
+			renderModal({ recordNavigation: navigation({ onPrevious, onNext }) });
+
+			fireEvent.keyDown(screen.getByRole('dialog'), { key });
+
+			expect(onPrevious).toHaveBeenCalledTimes(direction === 'previous' ? 1 : 0);
+			expect(onNext).toHaveBeenCalledTimes(direction === 'next' ? 1 : 0);
+		});
+
+		it('leaves arrow keys to the editor while it is focused', () => {
+			const onPrevious = vi.fn();
+			const onNext = vi.fn();
+			renderModal({ recordNavigation: navigation({ onPrevious, onNext }) });
+
+			fireEvent.keyDown(screen.getByTestId('editor'), { key: 'ArrowRight' });
+
+			expect(onPrevious).not.toHaveBeenCalled();
+			expect(onNext).not.toHaveBeenCalled();
+		});
+
 		it('offers no step past either end of the result set', () => {
-			renderModal({ recordNavigation: navigation({ hasPrevious: false, hasNext: false }) });
+			const onPrevious = vi.fn();
+			const onNext = vi.fn();
+			renderModal({
+				recordNavigation: navigation({ hasPrevious: false, hasNext: false, onPrevious, onNext }),
+			});
 
 			expect(previousButton().hasAttribute('disabled')).toBe(true);
 			expect(nextButton().hasAttribute('disabled')).toBe(true);
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowLeft' });
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' });
+			expect(onPrevious).not.toHaveBeenCalled();
+			expect(onNext).not.toHaveBeenCalled();
 		});
 
 		// Leaving mid-write would leave the user watching a record that isn't the one being written.
 		it('waits out a save before stepping away', () => {
-			renderModal({ recordNavigation: navigation(), isUpdateTableRecordsPending: true });
+			const onNext = vi.fn();
+			renderModal({ recordNavigation: navigation({ onNext }), isUpdateTableRecordsPending: true });
 
 			expect(nextButton().hasAttribute('disabled')).toBe(true);
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' });
+			expect(onNext).not.toHaveBeenCalled();
 		});
 
 		it('waits out a delete before stepping away', () => {
-			renderModal({ recordNavigation: navigation(), isDeleteTableRecordsPending: true });
+			const onNext = vi.fn();
+			renderModal({ recordNavigation: navigation({ onNext }), isDeleteTableRecordsPending: true });
 
 			expect(nextButton().hasAttribute('disabled')).toBe(true);
+			fireEvent.keyDown(screen.getByRole('dialog'), { key: 'ArrowRight' });
+			expect(onNext).not.toHaveBeenCalled();
 		});
 
 		// The next record replaces the editor's contents, so an unsaved draft would go with it —

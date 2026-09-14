@@ -296,6 +296,23 @@ describe('TableView row selection', () => {
 		expect(rowCheckboxes().map((box) => box.checked)).toEqual([false, true, false]);
 		expect(opened).toBe(0);
 	});
+
+	it.each([
+		['Control', { ctrlKey: true }],
+		['Command', { metaKey: true }],
+		['Shift', { shiftKey: true }],
+	])('%s-click toggles a row without opening the record editor', (_modifier, eventInit) => {
+		let opened = 0;
+		render(<SelectionHarness onRowClick={() => opened++} />);
+		const firstRow = document.querySelector('tbody tr')!;
+
+		fireEvent.click(firstRow, eventInit);
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([true, false, false]);
+		fireEvent.click(firstRow, eventInit);
+
+		expect(rowCheckboxes().map((box) => box.checked)).toEqual([false, false, false]);
+		expect(opened).toBe(0);
+	});
 });
 
 describe('TableView column resizing', () => {

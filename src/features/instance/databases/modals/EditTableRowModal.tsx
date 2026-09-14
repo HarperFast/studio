@@ -12,7 +12,7 @@ import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
 import { Editor } from '@/lib/monaco/MonacoEditor';
 import { WORKER_FREE_JSON_LANGUAGE_ID } from '@/lib/monaco/workerFreeJsonLanguage';
 import { ChevronLeftIcon, ChevronRightIcon, Save, Trash, TriangleAlert } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { describeRecordJsonError, tryParseRecordJson } from './recordEditorJson';
 import { useRecordJsonErrorMarker } from './recordJsonErrorMarker';
@@ -89,6 +89,7 @@ export function EditTableRowModal({
 	isDeleteTableRecordsPending: boolean;
 }) {
 	const monacoTheme = useMonacoTheme();
+	const editorContainerRef = useRef<HTMLDivElement>(null);
 	// A row that can't be addressed by its declared primary key can't be saved or deleted
 	// individually, so force the editor read-only and hide the write actions regardless of the
 	// user's permissions.
@@ -187,6 +188,25 @@ export function EditTableRowModal({
 		setDiscardedUnsavedEdits(false);
 		step();
 	};
+	const onNavigationKeyDown = (event: KeyboardEvent) => {
+		if (
+			!recordNavigation
+			|| isWritePending
+			|| editorContainerRef.current?.contains(event.target as Node)
+		) {
+			return;
+		}
+		const step = event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+			? (recordNavigation.hasPrevious ? recordNavigation.onPrevious : undefined)
+			: event.key === 'ArrowRight' || event.key === 'ArrowDown'
+			? (recordNavigation.hasNext ? recordNavigation.onNext : undefined)
+			: undefined;
+		if (!step) {
+			return;
+		}
+		event.preventDefault();
+		stepToRecord(step);
+	};
 
 	return (
 		<Dialog onOpenChange={setIsModalOpen} open={isModalOpen}>
@@ -195,6 +215,7 @@ export function EditTableRowModal({
 				aria-describedby={undefined}
 				resizable
 				autoFocus={!isReadOnly}
+				onKeyDown={onNavigationKeyDown}
 				onEscapeKeyDown={!isReadOnly
 					? (event) => {
 						if (madeChanges) {
@@ -255,7 +276,7 @@ export function EditTableRowModal({
 						// Wrapper owns the flex sizing: @monaco-editor/react applies `className` to its inner
 						// element, not the layout wrapper, so `flex-1 min-h-0` has to live on a div we control
 						// for the editor to shrink with the modal.
-						<div className="flex-1 min-h-0 w-full">
+						<div ref={editorContainerRef} className="flex-1 min-h-0 w-full">
 							<Editor
 								className="w-full h-full"
 								// Worker-free JSON: highlighting without a language worker that an oversized
