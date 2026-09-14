@@ -516,6 +516,119 @@ describe('TableView shift-click range selection', () => {
 	});
 });
 
+describe('TableView drag selection', () => {
+	const rangeRows: Record<string, unknown>[] = [
+		{ id: 1 },
+		{ id: 2 },
+		{ orphan: true },
+		{ id: 4 },
+		{ id: 5 },
+	];
+	const checkedKeys = () => rowCheckboxes().map((box) => box.checked);
+	const rows = () => Array.from(document.querySelectorAll('tbody tr'));
+	const gutterOf = (index: number) => rows()[index].querySelector('td')!;
+
+	/** Press on one row's gutter, cross the rows named, release. */
+	function drag(from: number, over: number[]) {
+		fireEvent.mouseDown(gutterOf(from), { button: 0 });
+		for (const index of over) {
+			fireEvent.mouseOver(rows()[index]);
+		}
+		fireEvent.mouseUp(window);
+	}
+
+	it('selects every row the pointer crosses', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		drag(0, [1, 3]);
+
+		// Row 2 has no primary key, so the drag steps over it rather than stopping there.
+		expect(checkedKeys()).toEqual([true, true, false, true, false]);
+	});
+
+	it('clears a run when the drag starts on a row that was already ticked', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+		fireEvent.click(selectAllCheckbox());
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+
+		// The direction is fixed at mousedown by the row pressed, exactly as for a shift-click.
+		drag(0, [1, 3]);
+
+		expect(checkedKeys()).toEqual([false, false, false, false, true]);
+	});
+
+	it('shrinks the range when the pointer backs off, leaving no trail', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[4]);
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+		fireEvent.mouseOver(rows()[1]);
+		fireEvent.mouseUp(window);
+
+		// Rows 3 and 4 were picked on the way out and must not stay picked on the way back.
+		expect(checkedKeys()).toEqual([true, true, false, false, false]);
+	});
+
+	it('puts rows back exactly as it found them, not merely unticked', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+		// Row 4 is picked before the drag starts, so backing off must restore it, not clear it.
+		fireEvent.click(rowCheckboxes()[4]);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[4]);
+		fireEvent.mouseOver(rows()[1]);
+		fireEvent.mouseUp(window);
+
+		expect(checkedKeys()).toEqual([true, true, false, false, true]);
+	});
+
+	it('does not open the record editor for the rows it crosses', () => {
+		let opened = 0;
+		render(<SelectionHarness rows={rangeRows} onRowClick={() => opened++} />);
+
+		drag(0, [1, 3]);
+		// Releasing back over the row it started on would otherwise re-toggle it and open the editor.
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[3]);
+		fireEvent.click(rows()[0]);
+
+		expect(opened).toBe(0);
+	});
+
+	it('ignores a press that is not the left button', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 2 });
+		fireEvent.mouseOver(rows()[3]);
+		fireEvent.mouseUp(window);
+
+		expect(checkedKeys()).toEqual([false, false, false, false, false]);
+	});
+
+	it('leaves a modified press to the click handlers rather than starting a drag', () => {
+		// Shift already means "extend from the anchor"; a drag would overwrite that anchor before
+		// the click could read it.
+		render(<SelectionHarness rows={rangeRows} />);
+		fireEvent.click(rowCheckboxes()[0]);
+
+		fireEvent.mouseDown(gutterOf(3), { button: 0, shiftKey: true });
+		fireEvent.mouseOver(rows()[4]);
+		fireEvent.mouseUp(window);
+
+		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+	});
+
+	it('stops extending once the button is released', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		drag(0, [1]);
+		fireEvent.mouseOver(rows()[4]);
+
+		expect(checkedKeys()).toEqual([true, true, false, false, false]);
+	});
+});
+
 describe('TableView column resizing', () => {
 	it('renders a resize handle for each column header', () => {
 		// Regression: the handle used to be gated on columnDef.enableResizing (never set), so it
