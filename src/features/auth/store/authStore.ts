@@ -78,6 +78,9 @@ class AuthStore {
 	>();
 	private readonly fabricConnectInFlight = new Map<EntityIds, Promise<LocalUser>>();
 	private readonly operationTokenRefreshInFlight = new Map<EntityIds, Promise<string | null>>();
+	// An entity can be disconnected and reconnected as a different user while a mint is in flight, so
+	// `mode === 'direct'` alone cannot tell one connection's credential from the next one's.
+	private readonly directConnectionGeneration = new Map<EntityIds, number>();
 
 	// Sign-out generations for the API explorer, per entity plus a global `'*'` slot. The explorer keeps
 	// its credential per browser tab (sessionStorage), which SURVIVES a reload — so an event-only signal
@@ -329,6 +332,7 @@ class AuthStore {
 		} else {
 			localStorage.removeItem(this.fabricConnectKeyPrefix + id);
 			this.fabricConnectAuth.delete(id);
+			this.bumpConnectionGeneration(id);
 		}
 	}
 
@@ -344,6 +348,15 @@ class AuthStore {
 	public getLastConnectMode(id: EntityIds): 'fabric' | 'direct' | undefined {
 		const value = localStorage.getItem(this.lastConnectModeKeyPrefix + id);
 		return value === 'fabric' || value === 'direct' ? value : undefined;
+	}
+
+	public getConnectionGeneration(id: EntityIds): number {
+		return this.directConnectionGeneration.get(id) ?? 0;
+	}
+
+	private bumpConnectionGeneration(id: EntityIds): void {
+		this.directConnectionGeneration.set(id, this.getConnectionGeneration(id) + 1);
+		this.operationTokenRefreshInFlight.delete(id);
 	}
 
 	/** The in-memory Fabric Connect JWT for direct connect, or undefined if not connected directly. */
@@ -389,23 +402,33 @@ class AuthStore {
 		if (inFlight) {
 			return inFlight;
 		}
-		const promise = this.mintFreshOperationToken(id, fabric.refreshToken);
+		const generation = this.getConnectionGeneration(id);
+		const promise = this.mintFreshOperationToken(id, fabric.refreshToken, generation);
 		this.operationTokenRefreshInFlight.set(id, promise);
-		return promise.finally(() => this.operationTokenRefreshInFlight.delete(id));
+		return promise.finally(() => {
+			// Only evict our own entry: a reconnect clears the map, and the replacement connection may
+			// already have registered its refresh by the time this one settles.
+			if (this.operationTokenRefreshInFlight.get(id) === promise) {
+				this.operationTokenRefreshInFlight.delete(id);
+			}
+		});
 	}
 
-	private async mintFreshOperationToken(id: EntityIds, refreshToken: string | undefined): Promise<string | null> {
+	private async mintFreshOperationToken(
+		id: EntityIds,
+		refreshToken: string | undefined,
+		generation: number,
+	): Promise<string | null> {
 		// Cheap path: exchange the refresh token for a new operation token, directly at the instance.
 		// forceOperationToken keeps getInstanceClient on the direct URL (not the proxy) even if a stale
 		// basic-auth entry exists; refreshInstanceOperationToken overrides the Bearer with the refresh token.
 		if (refreshToken) {
 			try {
 				const token = await refreshInstanceOperationToken({
-					instanceClient: getInstanceClient({ id, forceOperationToken: true }),
+					instanceClient: getInstanceClient({ id, forceOperationToken: true, disableTokenRecovery: true }),
 					refreshToken,
 				});
-				this.updateDirectOperationToken(id, token, refreshToken);
-				return token;
+				return this.updateDirectOperationToken(id, token, refreshToken, generation) ? token : null;
 			} catch (err) {
 				console.debug(
 					'Operation token refresh failed; re-minting via proxy',
@@ -415,23 +438,37 @@ class AuthStore {
 		}
 
 		// Fall back to minting a fresh pair through the proxy.
+		if (this.getConnectionGeneration(id) !== generation) {
+			return null;
+		}
 		try {
 			const { operationToken, refreshToken: newRefreshToken } = await createInstanceAuthenticationTokens({
 				instanceClient: getInstanceClient({ id, forceFabricConnect: true }),
 			});
-			this.updateDirectOperationToken(id, operationToken, newRefreshToken ?? refreshToken);
-			return operationToken;
+			return this.updateDirectOperationToken(id, operationToken, newRefreshToken ?? refreshToken, generation)
+				? operationToken
+				: null;
 		} catch (err) {
 			console.debug('Operation token re-mint failed', err instanceof Error ? err.message : err);
 			return null;
 		}
 	}
 
-	/** Update the in-memory direct token, but only if a concurrent logout/flag-off hasn't cleared it. */
-	private updateDirectOperationToken(id: EntityIds, token: string, refreshToken: string | undefined): void {
-		if (this.fabricConnectAuth.get(id)?.mode === 'direct') {
-			this.fabricConnectAuth.set(id, { mode: 'direct', token, refreshToken });
+	/**
+	 * Commit a freshly minted direct token, but only onto the connection that asked for it: a
+	 * drop-and-reconnect leaves `mode` unchanged while the identity behind it changes.
+	 */
+	private updateDirectOperationToken(
+		id: EntityIds,
+		token: string,
+		refreshToken: string | undefined,
+		generation: number,
+	): boolean {
+		if (this.fabricConnectAuth.get(id)?.mode !== 'direct' || this.getConnectionGeneration(id) !== generation) {
+			return false;
 		}
+		this.fabricConnectAuth.set(id, { mode: 'direct', token, refreshToken });
+		return true;
 	}
 
 	/**
@@ -469,6 +506,7 @@ class AuthStore {
 			// (or the passed URL) is a proxy URL we'd send the instance JWT to the central-manager origin.
 			// In that case skip straight to the proxy fallback.
 			if (isDirectOperationsUrl(operationsUrl)) {
+				this.bumpConnectionGeneration(id);
 				this.fabricConnectAuth.set(id, { mode: 'direct', token: operationToken, refreshToken });
 				try {
 					// forceOperationToken so a stale basic-auth entry for this id can't shadow the token we
@@ -490,6 +528,7 @@ class AuthStore {
 			}
 
 			// Proxy fallback: route every operation through the central-manager proxy.
+			this.bumpConnectionGeneration(id);
 			this.fabricConnectAuth.set(id, { mode: 'proxy' });
 			const proxyClient = getInstanceClient({ id, forceFabricConnect: true });
 			const user = await getInstanceUserInfo({ instanceClient: proxyClient });
@@ -500,6 +539,7 @@ class AuthStore {
 		} catch (err) {
 			// Couldn't establish either mode — clear the half-resolved state so we retry next time.
 			this.fabricConnectAuth.delete(id);
+			this.bumpConnectionGeneration(id);
 			throw err;
 		}
 	}
@@ -540,6 +580,10 @@ class AuthStore {
 			instanceClient.defaults.timeout = LOGOUT_TIMEOUT_MS;
 			// No gateway-error retries (5s + 10s + 20s) and no token recovery for a best-effort logout.
 			instanceClient.interceptors.response.clear();
+			// The request interceptor re-reads the store at send time, and the caller clears the store
+			// before posting — leaving it on would strip the very credential the logout must present.
+			// The constructor-baked header carries it instead.
+			instanceClient.interceptors.request.clear();
 			return instanceClient;
 		} catch (err: unknown) {
 			reportLogoutFailure(entityId, err);
@@ -576,6 +620,9 @@ class AuthStore {
 		// Snapshot keys first — signOutLocally mutates the flags as it goes.
 		for (const id of Object.keys(this.potentiallyAuthenticated)) {
 			this.signOutLocally(id);
+		}
+		for (const id of this.fabricConnectAuth.keys()) {
+			this.bumpConnectionGeneration(id);
 		}
 		this.fabricConnectAuth.clear();
 		this.fabricConnectInFlight.clear();
