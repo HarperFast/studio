@@ -388,13 +388,18 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	const toggleAllSelected = useCallback((keys: unknown[], selectAll: boolean) => {
 		setSelectedKeys(selectAll ? new Set(keys) : EMPTY_SELECTION);
 	}, [setSelectedKeys]);
-	// Adds only. A shift-click extends a selection; it does not clear whatever it happens to cross,
-	// so dragging the range back and forth can't silently drop a row picked along the way.
-	const selectRangeOfRows = useCallback((keys: unknown[]) => {
+	// One state applied across a shift-click range, rather than a toggle per row: a range that
+	// toggled would inverse whatever it crossed, so dragging it back over rows already picked would
+	// silently drop them. The grid decides which state from the anchoring click -- see `selectRow`.
+	const setRangeSelected = useCallback((keys: unknown[], selected: boolean) => {
 		setSelectedKeys((current) => {
 			const next = new Set(current);
 			for (const key of keys) {
-				next.add(key);
+				if (selected) {
+					next.add(key);
+				} else {
+					next.delete(key);
+				}
 			}
 			return next;
 		});
@@ -406,9 +411,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 				selectedKeys,
 				toggleRow: toggleRowSelected,
 				toggleAll: toggleAllSelected,
-				selectRange: selectRangeOfRows,
+				setRangeSelected,
 			}
-			: undefined, [canDeleteRecords, selectedKeys, toggleRowSelected, toggleAllSelected, selectRangeOfRows]);
+			: undefined, [canDeleteRecords, selectedKeys, toggleRowSelected, toggleAllSelected, setRangeSelected]);
 
 	// Full list
 	const searchByValueParams = {
