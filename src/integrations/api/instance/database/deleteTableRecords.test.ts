@@ -6,8 +6,13 @@ describe('describeIncompleteDelete', () => {
 		expect(describeIncompleteDelete({ deleted_hashes: ['a', 'b'], skipped_hashes: [] }, 2)).toBeUndefined();
 	});
 
-	it('treats absent hash lists as unproven', () => {
-		for (const response of [{ message: 'deleted' }, undefined, { deleted_hashes: [] }, { skipped_hashes: [] }]) {
+	// `skipped_hashes` only adds detail; an absent one must not turn a provable delete into an error.
+	it('reads an absent skipped list as nothing skipped', () => {
+		expect(describeIncompleteDelete({ deleted_hashes: ['a', 'b'] }, 2)).toBeUndefined();
+	});
+
+	it('treats an absent deleted list as unproven', () => {
+		for (const response of [{ message: 'deleted' }, undefined, { skipped_hashes: [] }]) {
 			const incomplete = describeIncompleteDelete(response, 2);
 			expect(incomplete?.message).toContain("didn't report which records");
 			expect(incomplete?.wroteNothing).toBe(false);

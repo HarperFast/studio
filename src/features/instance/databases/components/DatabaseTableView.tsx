@@ -349,33 +349,24 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
-	// The scroll container in TableView is reused across all of these, so it needs to be told when the
-	// rows under it change. These are exactly the inputs the row queries below are keyed on, i.e. "which
-	// records are on screen"; the table identity is called out separately because a different table also
-	// means a different set of columns.
+	// One identity owns everything scoped to the visible rows: selection, the shift anchor, and scroll.
+	// It is flat so names containing dots stay distinct without repeatedly escaping nested JSON keys.
 	const tableIdentity = JSON.stringify([databaseName, tableName]);
 	const resultSetKey = JSON.stringify([
-		tableIdentity,
+		instanceParams.entityId,
+		databaseName,
+		tableName,
 		pageIndex,
 		pageSize,
 		sort,
 		useFilteredList ? appliedSearchConditions : null,
+		onlyIfCached,
 	]);
 
 	// Primary-key values of the checked rows. Selection describes the rows on screen, so it is dropped
 	// whenever they change -- otherwise paging away would leave a "Delete Selected" armed with records
 	// the user can no longer see.
-	//
-	// `resultSetKey` describes which rows the grid ASKED for, which is not the whole of "the rows on
-	// screen", so selection gets its own epoch on top of it:
-	//   - `entityId` -- which server answers. The route swaps instances without remounting this
-	//     component, which is why every sibling piece of per-instance state resets on `allParams`;
-	//     a key carried across that boundary would aim the delete at whatever the NEXT instance
-	//     happens to store under it.
-	//   - `onlyIfCached` -- the cache mode changes which records come back at all, the same reason
-	//     `knownLastPage` above retires on it.
-	const selectionEpoch = JSON.stringify([instanceParams.entityId, resultSetKey, onlyIfCached]);
-	const [selectedKeys, setSelectedKeys] = useEffectedState<ReadonlySet<unknown>>(EMPTY_SELECTION, [selectionEpoch]);
+	const [selectedKeys, setSelectedKeys] = useEffectedState<ReadonlySet<unknown>>(EMPTY_SELECTION, [resultSetKey]);
 	const toggleRowSelected = useCallback((key: unknown) => {
 		setSelectedKeys((current) => {
 			const next = new Set(current);
@@ -641,20 +632,30 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			},
 			{
 				onSuccess: (response) => {
-					// `refreshTable` also drops the selection: this record may well be one of the
-					// checked rows.
-					void refreshTable();
-					setIsEditModalOpen(false);
 					const incomplete = describeIncompleteDelete(response, hashes.length);
-					if (incomplete) {
+					if (incomplete?.wroteNothing) {
+						// The record is still there, so nothing is stale and the user needs it in front
+						// of them to act on the message -- the same call `onWriteSettled` makes for a
+						// write that landed nothing. Refresh neither, and leave the editor open.
 						toast.error("The record wasn't deleted", { description: incomplete.message });
+						return;
+					}
+					// `refreshTable` also drops the selection: this record may well be one of the
+					// checked rows. `refreshOpenRecord` is the second invalidation -- `refreshTable`'s
+					// prefix doesn't reach `search_by_id`, so without it reopening the row inside
+					// `gcTime` serves the record that was just deleted.
+					void refreshTable();
+					void refreshOpenRecord();
+					setIsEditModalOpen(false);
+					if (incomplete) {
+						toast.error("The record wasn't fully deleted", { description: incomplete.message });
 						return;
 					}
 					toast.success('Record deleted successfully');
 				},
 			},
 		);
-	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable]);
+	}, [deleteTableRecords, instanceParams, databaseName, tableName, refreshTable, refreshOpenRecord]);
 
 	// Bulk delete from the toolbar. Unlike the editor's single-record delete there is no record in
 	// front of the user to check against, so it confirms first; both read the answer the same way.
@@ -676,8 +677,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 			{
 				onSuccess: (response) => {
 					// `refreshTable` drops the selection -- these rows are exactly the ones that just
-					// changed underneath it.
+					// changed underneath it -- and `refreshOpenRecord` reaches the `search_by_id` entry
+					// it cannot, in case one of them is a record the editor still has cached.
 					void refreshTable();
+					void refreshOpenRecord();
 					const incomplete = describeIncompleteDelete(response, hashValues.length);
 					if (incomplete) {
 						toast.error("The records weren't all deleted", { description: incomplete.message });
@@ -693,6 +696,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		databaseName,
 		tableName,
 		refreshTable,
+		refreshOpenRecord,
 		visibleSelectedKeys,
 	]);
 
