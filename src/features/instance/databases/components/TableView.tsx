@@ -184,18 +184,10 @@ export function TableView<TData extends RowData>({
 	const allSelected = selectableKeys.length > 0 && selectedOnPage === selectableKeys.length;
 	const someSelected = selectedOnPage > 0 && !allSelected;
 
-	// Where a shift-click measures FROM. Only a position -- the direction comes from the row clicked,
-	// not from this, so that a shift-click always does the thing the row under the pointer is visibly
-	// about to do: click a ticked row and the range unticks, click an unticked one and it ticks.
-	//
-	// Taking the direction from the anchor instead (what Gmail does) reads as broken here, because
-	// this grid has no "plain click selects only this row" baseline to make the anchor's state
-	// visible: after building a range, shift-clicking inside it re-applied "selected" to rows that
-	// already were, and nothing happened at all.
-	//
-	// Held as a key rather than an index so a row set that moves underneath it -- a refetch, a new
-	// record pushing rows onto another page -- simply fails to find it and the click degrades to a
-	// plain pick, instead of silently measuring from whatever row now sits there.
+	// Where a shift-click measures FROM -- a position only. The direction comes from the row clicked,
+	// so a shift-click always does what the row under the pointer is visibly about to do. Held as a
+	// key, not an index, so a row set that moves underneath it fails to find the anchor and degrades
+	// to a plain pick rather than measuring from whatever row now sits there.
 	const [anchorKey, setAnchorKey] = useState<unknown>(undefined);
 	const selectRow = useCallback((key: unknown, extendRange: boolean) => {
 		if (!rowSelection) {
@@ -215,19 +207,12 @@ export function TableView<TData extends RowData>({
 		// The range runs over SELECTABLE rows, so it steps over any row in between that has no
 		// primary key to be addressed by rather than stopping at it.
 		//
-		// One state across the whole range rather than a toggle per row: a range that toggled would
-		// invert whatever it crossed, so it could never be used to clear a partly-picked run.
 		rowSelection.setRangeSelected(selectableKeys.slice(from, to + 1), !rowSelection.selectedKeys.has(key));
-		// The anchor stays put, so shift-clicking further out re-measures from the same origin
-		// instead of ratcheting along behind the pointer.
+		// The anchor stays put, so shift-clicking further out re-measures from the same origin.
 	}, [rowSelection, selectableKeys, anchorKey]);
 
-	// Press on a row's gutter and drag: every row the pointer crosses joins the range. Same direction
-	// rule as a shift-click -- it is fixed at mousedown from the row pressed, so dragging out of a
-	// ticked row clears a run and out of an unticked one picks one.
-	//
-	// `useRef`, not state: this changes on every row crossed and nothing renders from it directly, so
-	// putting it in state would re-render the whole grid mid-drag for no visible gain.
+	// Drag state. Direction is fixed at mousedown by the row pressed, as for a shift-click. `useRef`
+	// because it changes on every row crossed and nothing renders from it directly.
 	const dragRef = useRef<
 		| {
 			originKey: unknown;
@@ -239,13 +224,17 @@ export function TableView<TData extends RowData>({
 		}
 		| null
 	>(null);
-	// A drag that moved ends on a different row, so no click reaches the row it started on -- except
-	// when the pointer wanders back and releases there, which would re-toggle it. Reset per press.
-	const suppressClickRef = useRef(false);
+	// A press that began in the gutter must never reach the row's own click, whatever it does next.
+	// Releasing on a different cell of the SAME row resolves the click on the `tr`, which the gutter
+	// cell's stopPropagation can't catch, and the record editor opens on what was meant to be a tick.
+	const pressedInGutterRef = useRef(false);
+	// Whether a drag actually crossed a row. The checkbox consults this separately: a drag that
+	// wanders back and releases on the checkbox it started from would otherwise toggle the origin
+	// straight back off, leaving the one row the pointer never left unselected.
+	const dragMovedRef = useRef(false);
 
 	const beginRowDrag = useCallback(
 		(key: unknown, event: { button: number; shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) => {
-			suppressClickRef.current = false;
 			// Left button only, and never under a modifier: shift already means "extend from the anchor",
 			// and starting a drag would overwrite the anchor before the click could read it.
 			if (
@@ -253,6 +242,7 @@ export function TableView<TData extends RowData>({
 			) {
 				return;
 			}
+			pressedInGutterRef.current = true;
 			dragRef.current = {
 				originKey: key,
 				selected: !rowSelection.selectedKeys.has(key),
@@ -264,9 +254,19 @@ export function TableView<TData extends RowData>({
 		[rowSelection],
 	);
 
-	const dragOverRow = useCallback((key: unknown) => {
+	const dragOverRow = useCallback((key: unknown, buttonsHeld: number) => {
 		const drag = dragRef.current;
-		if (!drag || !rowSelection || key === undefined || key === drag.lastKey) {
+		if (!drag) {
+			return;
+		}
+		// Releasing outside the window delivers no mouseup, so the drag would still be live when the
+		// pointer came back and would carry on selecting with nothing held down. Every mouseover
+		// reports which buttons are actually down, which is the only account of that we get.
+		if ((buttonsHeld & 1) === 0) {
+			dragRef.current = null;
+			return;
+		}
+		if (!rowSelection || key === undefined || key === drag.lastKey) {
 			return;
 		}
 		const originIndex = selectableKeys.indexOf(drag.originKey);
@@ -294,18 +294,43 @@ export function TableView<TData extends RowData>({
 		rowSelection.setRangeSelected(range, drag.selected);
 		drag.applied = range;
 		setAnchorKey(drag.originKey);
-		suppressClickRef.current = true;
+		dragMovedRef.current = true;
 	}, [rowSelection, selectableKeys]);
 
 	// The release that ends a drag lands wherever the pointer is -- often outside the grid, and
 	// sometimes outside the window -- so the listener has to be on the window rather than a row.
+	//
+	// The press is watched here too, and that is load-bearing rather than tidy: a drag that ends on a
+	// different row produces no click at all, so the flags it armed would still be standing when the
+	// user next clicked a row, and swallow that click instead. Clearing them on every press means
+	// only the press's own trailing click can be suppressed. It has to be the CAPTURE phase, which
+	// runs before the gutter's own mousedown -- on the bubble phase this would undo the flag the
+	// gutter had just set.
 	useEffect(() => {
 		const endDrag = () => {
 			dragRef.current = null;
 		};
+		const beginPress = () => {
+			pressedInGutterRef.current = false;
+			dragMovedRef.current = false;
+		};
 		window.addEventListener('mouseup', endDrag);
-		return () => window.removeEventListener('mouseup', endDrag);
+		window.addEventListener('mousedown', beginPress, true);
+		return () => {
+			window.removeEventListener('mouseup', endDrag);
+			window.removeEventListener('mousedown', beginPress, true);
+		};
 	}, []);
+
+	// The shift anchor belongs to the rows on screen, exactly as the selection does. `TableView` is
+	// rendered without a key, so it survives paging, sorting, a page-size change and a table switch;
+	// an anchor left over from the last result set whose primary-key value happens to exist in this
+	// one (integer keys collide across tables constantly) would turn the next plain shift-click into
+	// a range over rows the user never anchored.
+	useLayoutEffect(() => {
+		setAnchorKey(undefined);
+		dragRef.current = null;
+	}, [resultSetKey, tableIdentity]);
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
@@ -457,7 +482,8 @@ export function TableView<TData extends RowData>({
 										onSelectRow={selectRow}
 										onBeginDrag={beginRowDrag}
 										onDragOver={dragOverRow}
-										suppressClickRef={suppressClickRef}
+										pressedInGutterRef={pressedInGutterRef}
+										dragMovedRef={dragMovedRef}
 									/>
 								)))
 								: (
@@ -547,16 +573,18 @@ function SelectCellLabel({ children }: { children: ReactNode }) {
 }
 
 function TableBodyRow<TData extends RowData>(
-	{ row, primaryKey, onRowClick, rowSelection, onSelectRow, onBeginDrag, onDragOver, suppressClickRef }: {
-		row: Row<TData>;
-		primaryKey?: string;
-		onRowClick?: (row: Row<TData>) => void;
-		rowSelection?: TableRowSelection;
-		onSelectRow?: (key: unknown, extendRange: boolean) => void;
-		onBeginDrag?: (key: unknown, event: MouseEvent<HTMLElement>) => void;
-		onDragOver?: (key: unknown) => void;
-		suppressClickRef?: RefObject<boolean>;
-	},
+	{ row, primaryKey, onRowClick, rowSelection, onSelectRow, onBeginDrag, onDragOver, pressedInGutterRef, dragMovedRef }:
+		{
+			row: Row<TData>;
+			primaryKey?: string;
+			onRowClick?: (row: Row<TData>) => void;
+			rowSelection?: TableRowSelection;
+			onSelectRow?: (key: unknown, extendRange: boolean) => void;
+			onBeginDrag?: (key: unknown, event: MouseEvent<HTMLElement>) => void;
+			onDragOver?: (key: unknown, buttonsHeld: number) => void;
+			pressedInGutterRef?: RefObject<boolean>;
+			dragMovedRef?: RefObject<boolean>;
+		},
 ) {
 	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
 	// visible columns change, so depending on it keeps the body in step with the
@@ -588,7 +616,7 @@ function TableBodyRow<TData extends RowData>(
 			data-state={isSelected ? 'selected' : undefined}
 			// `mouseOver`, not `mouseEnter`: React synthesises enter from over/out, and only the
 			// bubbling form is reliable when the pointer crosses into a child cell mid-drag.
-			onMouseOver={() => onDragOver?.(selectionKey)}
+			onMouseOver={(event) => onDragOver?.(selectionKey, event.buttons)}
 			// Shift-click, and a drag, would otherwise pull a text selection across the rows they
 			// span. The guard belongs on mousedown, where the selection starts -- preventing the
 			// click is already too late.
@@ -598,8 +626,8 @@ function TableBodyRow<TData extends RowData>(
 				}
 			}}
 			onClick={(event) => {
-				if (suppressClickRef?.current) {
-					// A drag ended back on the row it started from; it has already had its answer.
+				if (pressedInGutterRef?.current) {
+					// This press began on a checkbox; the gutter owns it however it ended.
 					return;
 				}
 				// A modified click selects where the pointer already is; shift extends from the anchor.
@@ -650,9 +678,12 @@ function TableBodyRow<TData extends RowData>(
 							// box rendering the opposite of the state it just set -- including the range case
 							// where an already-checked row is re-selected and the prop never changes.
 							onClick={(event) => {
-								if (selectionKey !== undefined) {
-									onSelectRow?.(selectionKey, event.shiftKey);
+								// A drag that crossed rows has already set this one; a trailing click here
+								// would toggle the row it started from straight back off.
+								if (dragMovedRef?.current || selectionKey === undefined) {
+									return;
 								}
+								onSelectRow?.(selectionKey, event.shiftKey);
 							}}
 							onChange={noopChange}
 						/>
