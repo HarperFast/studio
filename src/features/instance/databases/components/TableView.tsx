@@ -21,7 +21,7 @@ import {
 	RowData,
 	useTable,
 } from '@tanstack/react-table';
-import { Dispatch, ReactNode, SetStateAction, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Dispatch, ReactNode, SetStateAction, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import { ColumnFilters, ColumnFiltersSchema } from './ColumnFilters';
@@ -67,6 +67,8 @@ export interface TableRowSelection {
 	toggleRow: (key: unknown) => void;
 	/** `keys` is every selectable row on the page, so the owner never recomputes them. */
 	toggleAll: (keys: unknown[], selectAll: boolean) => void;
+	/** Adds a shift-click range. Only ever adds -- extending a range never clears what it crosses. */
+	selectRange: (keys: unknown[]) => void;
 }
 
 interface BrowseDataTableProps<TData extends RowData> {
@@ -157,7 +159,7 @@ export function TableView<TData extends RowData>({
 	// a table whose declared primary key doesn't match how its rows are stored has rows that can't be
 	// (see #1199), and they get a disabled checkbox rather than one that selects an undeletable row.
 	const isSelectable = !!rowSelection && !!primaryKey;
-	const selectableKeys = useMemo(() => {
+	const selectableKeys = useMemo<unknown[]>(() => {
 		if (!isSelectable) {
 			return [];
 		}
@@ -170,6 +172,33 @@ export function TableView<TData extends RowData>({
 		: 0;
 	const allSelected = selectableKeys.length > 0 && selectedOnPage === selectableKeys.length;
 	const someSelected = selectedOnPage > 0 && !allSelected;
+
+	// Where a shift-click measures from: the row last picked WITHOUT shift. Held as a key rather
+	// than an index so that a row set which moves underneath it -- a refetch, a new record pushing
+	// rows onto another page -- simply fails to find it and falls back to a plain toggle, instead of
+	// silently extending from whatever row now sits at that position.
+	const [anchorKey, setAnchorKey] = useState<unknown>(undefined);
+	const selectRow = useCallback((key: unknown, extendRange: boolean) => {
+		if (!rowSelection) {
+			return;
+		}
+		const anchorIndex = extendRange ? selectableKeys.indexOf(anchorKey) : -1;
+		const targetIndex = selectableKeys.indexOf(key);
+		if (anchorIndex === -1 || targetIndex === -1) {
+			// No range to measure: a plain pick, which also becomes the anchor for the next shift.
+			rowSelection.toggleRow(key);
+			setAnchorKey(key);
+			return;
+		}
+		const [from, to] = anchorIndex <= targetIndex
+			? [anchorIndex, targetIndex]
+			: [targetIndex, anchorIndex];
+		// The range runs over SELECTABLE rows, so it steps over any row in between that has no
+		// primary key to be addressed by rather than stopping at it.
+		rowSelection.selectRange(selectableKeys.slice(from, to + 1));
+		// The anchor deliberately stays put, so shift-clicking further up or down re-measures from
+		// the same origin instead of ratcheting along behind the pointer.
+	}, [rowSelection, selectableKeys, anchorKey]);
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
@@ -315,6 +344,7 @@ export function TableView<TData extends RowData>({
 										onRowClick={onRowClick}
 										primaryKey={primaryKey}
 										rowSelection={isSelectable ? rowSelection : undefined}
+										onSelectRow={selectRow}
 									/>
 								)))
 								: (
@@ -404,11 +434,12 @@ function SelectCellLabel({ children }: { children: ReactNode }) {
 }
 
 function TableBodyRow<TData extends RowData>(
-	{ row, primaryKey, onRowClick, rowSelection }: {
+	{ row, primaryKey, onRowClick, rowSelection, onSelectRow }: {
 		row: Row<TData>;
 		primaryKey?: string;
 		onRowClick?: (row: Row<TData>) => void;
 		rowSelection?: TableRowSelection;
+		onSelectRow?: (key: unknown, extendRange: boolean) => void;
 	},
 ) {
 	// TanStack memoizes getVisibleCells() and returns a fresh array whenever the
@@ -439,12 +470,19 @@ function TableBodyRow<TData extends RowData>(
 	return (
 		<TableRow
 			data-state={isSelected ? 'selected' : undefined}
-			onClick={(event) => {
-				if (rowSelection && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+			// Shift-click would otherwise drag a text selection across the rows it spans. The guard
+			// belongs on mousedown, where the selection starts -- preventing the click is too late.
+			onMouseDown={(event) => {
+				if (rowSelection && event.shiftKey) {
 					event.preventDefault();
-					if (selectionKey !== undefined) {
-						rowSelection.toggleRow(selectionKey);
-					}
+				}
+			}}
+			onClick={(event) => {
+				// A modified click selects where the pointer already is; shift extends from the anchor.
+				// A row with no key to select by falls through to the editor rather than doing nothing.
+				if (rowSelection && selectionKey !== undefined && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+					event.preventDefault();
+					onSelectRow?.(selectionKey, event.shiftKey);
 					return;
 				}
 				onRowClick?.(row);
@@ -471,7 +509,20 @@ function TableBodyRow<TData extends RowData>(
 							checked={isSelected}
 							// A row with no primary-key value can't be named in a delete, so it can't be selected.
 							disabled={selectionKey === undefined}
-							onChange={() => selectionKey !== undefined && rowSelection.toggleRow(selectionKey)}
+							// Driven from `onClick`, not `onChange`: only the mouse event carries `shiftKey`,
+							// which is what separates a range extend from a plain pick. Keyboard activation
+							// arrives here as a click too (with `shiftKey` false unless it is being held).
+							//
+							// Deliberately NOT preventDefault: swallowing the activation also swallows the
+							// `change` event React uses to reconcile a controlled checkbox, which leaves the
+							// box rendering the opposite of the state it just set -- including the range case
+							// where an already-checked row is re-selected and the prop never changes.
+							onClick={(event) => {
+								if (selectionKey !== undefined) {
+									onSelectRow?.(selectionKey, event.shiftKey);
+								}
+							}}
+							onChange={noopChange}
 						/>
 					</SelectCellLabel>
 				</TableCell>
@@ -482,6 +533,9 @@ function TableBodyRow<TData extends RowData>(
 		</TableRow>
 	);
 }
+
+/** The click handler above owns the state; React only needs this to accept `checked` as controlled. */
+function noopChange() {}
 
 function TableBodyRowCell<TData extends RowData>({ cell }: { cell: Cell<TData> }) {
 	const size = cell.column.getSize();

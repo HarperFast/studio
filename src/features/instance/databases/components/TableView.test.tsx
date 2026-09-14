@@ -3,7 +3,7 @@
  */
 import { ColumnDef } from '@/lib/table';
 import { ColumnSizingState, ColumnVisibilityState } from '@tanstack/react-table';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -129,65 +129,73 @@ describe('TableView sorting', () => {
 	});
 });
 
+// The last row has no value for the declared primary key -- the #1199 shape -- so it can't be
+// named in a delete and must not be selectable.
+const selectableRows: Record<string, unknown>[] = [
+	{ id: 1, type: 'dog' },
+	{ id: 2, type: 'cat' },
+	{ type: 'orphan' },
+];
+
+function SelectionHarness(
+	{ onRowClick, rows = selectableRows }: {
+		onRowClick?: () => void;
+		rows?: Record<string, unknown>[];
+	} = {},
+) {
+	const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
+	const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
+	const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<unknown>>(new Set());
+	return (
+		<TableView<Record<string, unknown>>
+			applyFilters={() => undefined}
+			columnFiltersForm={columnFiltersForm}
+			columns={columns}
+			columnVisibility={{}}
+			columnSizing={columnSizing}
+			setColumnSizing={setColumnSizing}
+			data={rows}
+			onRowClick={onRowClick}
+			pageIndex={0}
+			pageSize={20}
+			primaryKey="id"
+			resultSetKey="page-0"
+			tableIdentity="dev.dog"
+			rowSelection={{
+				selectedKeys,
+				toggleRow: (key) =>
+					setSelectedKeys((current) => {
+						const next = new Set(current);
+						if (!next.delete(key)) {
+							next.add(key);
+						}
+						return next;
+					}),
+				toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
+				selectRange: (keys) =>
+					setSelectedKeys((current) => {
+						const next = new Set(current);
+						for (const key of keys) {
+							next.add(key);
+						}
+						return next;
+					}),
+			}}
+			setPageIndex={() => undefined}
+			setPageSize={() => undefined}
+			filtersToggled={false}
+		/>
+	);
+}
+
+function selectAllCheckbox() {
+	return document.querySelector<HTMLInputElement>('thead input[type="checkbox"]')!;
+}
+function rowCheckboxes() {
+	return Array.from(document.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]'));
+}
+
 describe('TableView row selection', () => {
-	// The last row has no value for the declared primary key -- the #1199 shape -- so it can't be
-	// named in a delete and must not be selectable.
-	const selectableRows: Record<string, unknown>[] = [
-		{ id: 1, type: 'dog' },
-		{ id: 2, type: 'cat' },
-		{ type: 'orphan' },
-	];
-
-	function SelectionHarness(
-		{ onRowClick, rows = selectableRows }: {
-			onRowClick?: () => void;
-			rows?: Record<string, unknown>[];
-		} = {},
-	) {
-		const columnFiltersForm = useForm<z.infer<typeof ColumnFiltersSchema>>({ defaultValues: {} });
-		const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({});
-		const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<unknown>>(new Set());
-		return (
-			<TableView<Record<string, unknown>>
-				applyFilters={() => undefined}
-				columnFiltersForm={columnFiltersForm}
-				columns={columns}
-				columnVisibility={{}}
-				columnSizing={columnSizing}
-				setColumnSizing={setColumnSizing}
-				data={rows}
-				onRowClick={onRowClick}
-				pageIndex={0}
-				pageSize={20}
-				primaryKey="id"
-				resultSetKey="page-0"
-				tableIdentity="dev.dog"
-				rowSelection={{
-					selectedKeys,
-					toggleRow: (key) =>
-						setSelectedKeys((current) => {
-							const next = new Set(current);
-							if (!next.delete(key)) {
-								next.add(key);
-							}
-							return next;
-						}),
-					toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
-				}}
-				setPageIndex={() => undefined}
-				setPageSize={() => undefined}
-				filtersToggled={false}
-			/>
-		);
-	}
-
-	function selectAllCheckbox() {
-		return document.querySelector<HTMLInputElement>('thead input[type="checkbox"]')!;
-	}
-	function rowCheckboxes() {
-		return Array.from(document.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]'));
-	}
-
 	it('renders no selection column when the caller supplies no rowSelection', () => {
 		render(<Harness columnVisibility={{}} />);
 		expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(0);
@@ -269,6 +277,14 @@ describe('TableView row selection', () => {
 						selectedKeys,
 						toggleRow: (key) => setSelectedKeys(new Set([key])),
 						toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
+						selectRange: (keys) =>
+							setSelectedKeys((current) => {
+								const next = new Set(current);
+								for (const key of keys) {
+									next.add(key);
+								}
+								return next;
+							}),
 					}}
 					setPageIndex={() => undefined}
 					setPageSize={() => undefined}
@@ -300,7 +316,6 @@ describe('TableView row selection', () => {
 	it.each([
 		['Control', { ctrlKey: true }],
 		['Command', { metaKey: true }],
-		['Shift', { shiftKey: true }],
 	])('%s-click toggles a row without opening the record editor', (_modifier, eventInit) => {
 		let opened = 0;
 		render(<SelectionHarness onRowClick={() => opened++} />);
@@ -312,6 +327,116 @@ describe('TableView row selection', () => {
 
 		expect(rowCheckboxes().map((box) => box.checked)).toEqual([false, false, false]);
 		expect(opened).toBe(0);
+	});
+});
+
+describe('TableView shift-click range selection', () => {
+	// Five rows, one of them unaddressable so a range has something to step over.
+	const rangeRows: Record<string, unknown>[] = [
+		{ id: 1 },
+		{ id: 2 },
+		{ orphan: true },
+		{ id: 4 },
+		{ id: 5 },
+	];
+
+	// Reported by row index: the keyless row has a checkbox but can never be checked.
+	const checkboxes = rowCheckboxes;
+	function checkedKeys() {
+		return checkboxes().map((box) => box.checked);
+	}
+
+	function renderRange(onRowClick?: () => void) {
+		return render(<SelectionHarness rows={rangeRows} onRowClick={onRowClick} />);
+	}
+
+	it('selects the inclusive range between the anchor and a shift-clicked row', () => {
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+
+		fireEvent.click(checkboxes()[3], { shiftKey: true });
+
+		// Rows 0..3 inclusive, and the keyless row in between stays unselected because it has no
+		// key to be selected by -- the range steps over it rather than stopping at it.
+		expect(checkedKeys()).toEqual([true, true, false, true, false]);
+	});
+
+	it('extends upward as readily as downward', () => {
+		renderRange();
+		fireEvent.click(checkboxes()[4]);
+
+		fireEvent.click(checkboxes()[1], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([false, true, false, true, true]);
+	});
+
+	it('re-measures from the same anchor instead of ratcheting along', () => {
+		// Shift-clicking a nearer row after a farther one must not leave the first range behind as
+		// the anchor, or each shift-click would extend from wherever the last one landed.
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+
+		fireEvent.click(checkboxes()[1], { shiftKey: true });
+
+		// Still measured from row 0. The range only adds, so rows 3 and 4 stay picked.
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+	});
+
+	it('falls back to a plain pick when there is no anchor yet', () => {
+		renderRange();
+
+		fireEvent.click(checkboxes()[2 + 1], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([false, false, false, true, false]);
+	});
+
+	it('takes the anchor from the last pick made without shift', () => {
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		// A plain pick re-anchors, so the next shift measures from row 3, not row 0.
+		fireEvent.click(checkboxes()[3]);
+		expect(checkedKeys()).toEqual([true, true, false, false, true]);
+
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+	});
+
+	it('extends from a shift-click on the row itself, not just the checkbox', () => {
+		let opened = 0;
+		renderRange(() => opened++);
+		fireEvent.click(checkboxes()[0]);
+
+		fireEvent.click(document.querySelectorAll('tbody tr')[3], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([true, true, false, true, false]);
+		expect(opened).toBe(0);
+	});
+
+	it('keeps a row selected when a range re-covers it', () => {
+		// The clicked box is already checked and the range only adds, so its `checked` prop never
+		// changes -- the case where a natively-toggled checkbox would desync from React's state.
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[3], { shiftKey: true });
+
+		fireEvent.click(checkboxes()[3], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([true, true, false, true, false]);
+	});
+
+	it('does not drag a text selection across the rows a shift-click spans', () => {
+		renderRange();
+		const row = document.querySelectorAll('tbody tr')[2];
+
+		const mouseDown = createEvent.mouseDown(row, { shiftKey: true, bubbles: true, cancelable: true });
+		fireEvent(row, mouseDown);
+
+		expect(mouseDown.defaultPrevented).toBe(true);
 	});
 });
 
