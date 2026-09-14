@@ -101,7 +101,7 @@ interface BrowseDataTableProps<TData extends RowData> {
 	primaryKey: string;
 	// Omitted when the user can't delete records: no selection column is rendered at all.
 	rowSelection?: TableRowSelection;
-	// Identifies the rows on screen (table + page + sort + filters). See the reset effect below.
+	// Canonical identity for the rows on screen (instance + table + page + sort + filters + cache mode).
 	resultSetKey: string;
 	// Identifies which table is on screen, so a new set of columns starts scrolled to the left.
 	tableIdentity: string;
@@ -330,7 +330,7 @@ export function TableView<TData extends RowData>({
 	useLayoutEffect(() => {
 		setAnchorKey(undefined);
 		dragRef.current = null;
-	}, [resultSetKey, tableIdentity]);
+	}, [resultSetKey]);
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
@@ -680,7 +680,7 @@ function TableBodyRow<TData extends RowData>(
 							onClick={(event) => {
 								// A drag that crossed rows has already set this one; a trailing click here
 								// would toggle the row it started from straight back off.
-								if (dragMovedRef?.current || selectionKey === undefined) {
+								if ((dragMovedRef?.current && event.detail !== 0) || selectionKey === undefined) {
 									return;
 								}
 								onSelectRow?.(selectionKey, event.shiftKey);

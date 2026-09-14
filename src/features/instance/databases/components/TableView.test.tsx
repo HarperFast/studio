@@ -672,8 +672,24 @@ describe('TableView drag selection', () => {
 		fireEvent.mouseOver(rows()[3], { buttons: 1 });
 		fireEvent.mouseOver(rows()[0], { buttons: 1 });
 		fireEvent.mouseUp(window);
-		fireEvent.click(rowCheckboxes()[0]);
+		fireEvent.click(rowCheckboxes()[0], { detail: 1 });
 
+		expect(checkedKeys()[0]).toBe(true);
+	});
+
+	it('lets the focused checkbox be toggled from the keyboard after a drag', () => {
+		render(<SelectionHarness rows={rangeRows} />);
+
+		fireEvent.mouseDown(gutterOf(0), { button: 0 });
+		fireEvent.mouseOver(rows()[3], { buttons: 1 });
+		fireEvent.mouseUp(window);
+		expect(document.activeElement).toBe(rowCheckboxes()[0]);
+
+		// Keyboard activation produces a click with no click count (`detail === 0`).
+		fireEvent.click(rowCheckboxes()[0], { detail: 0 });
+		expect(checkedKeys()[0]).toBe(false);
+
+		fireEvent.click(rowCheckboxes()[0], { detail: 0 });
 		expect(checkedKeys()[0]).toBe(true);
 	});
 

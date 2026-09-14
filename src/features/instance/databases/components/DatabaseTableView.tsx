@@ -349,33 +349,24 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const useFilteredList = filtersToggled && !!appliedSearchConditions;
 
-	// The scroll container in TableView is reused across all of these, so it needs to be told when the
-	// rows under it change. These are exactly the inputs the row queries below are keyed on, i.e. "which
-	// records are on screen"; the table identity is called out separately because a different table also
-	// means a different set of columns.
-	// Each key is built flat from the same values rather than nesting the one before it: nesting
-	// re-escaped its own output, so `selectionEpoch` carried `tableIdentity` stringified three times.
-	// A flat tuple keeps the dot-in-a-name collision fix (both names are separate elements) without it.
+	// One identity owns everything scoped to the visible rows: selection, the shift anchor, and scroll.
+	// It is flat so names containing dots stay distinct without repeatedly escaping nested JSON keys.
 	const tableIdentity = JSON.stringify([databaseName, tableName]);
-	const resultSetParts = [
+	const resultSetKey = JSON.stringify([
+		instanceParams.entityId,
 		databaseName,
 		tableName,
 		pageIndex,
 		pageSize,
 		sort,
 		useFilteredList ? appliedSearchConditions : null,
-	];
-	const resultSetKey = JSON.stringify(resultSetParts);
+		onlyIfCached,
+	]);
 
 	// Primary-key values of the checked rows. Selection describes the rows on screen, so it is dropped
 	// whenever they change -- otherwise paging away would leave a "Delete Selected" armed with records
 	// the user can no longer see.
-	//
-	// Wider than `resultSetKey`: `entityId` because the route swaps instances without remounting this
-	// component (a key carried across would aim the delete at whatever the next instance stores under
-	// it), and `onlyIfCached` because the cache mode changes which records come back at all.
-	const selectionEpoch = JSON.stringify([instanceParams.entityId, ...resultSetParts, onlyIfCached]);
-	const [selectedKeys, setSelectedKeys] = useEffectedState<ReadonlySet<unknown>>(EMPTY_SELECTION, [selectionEpoch]);
+	const [selectedKeys, setSelectedKeys] = useEffectedState<ReadonlySet<unknown>>(EMPTY_SELECTION, [resultSetKey]);
 	const toggleRowSelected = useCallback((key: unknown) => {
 		setSelectedKeys((current) => {
 			const next = new Set(current);

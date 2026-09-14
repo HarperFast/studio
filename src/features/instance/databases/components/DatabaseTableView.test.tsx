@@ -30,8 +30,14 @@ vi.mock('@tanstack/react-router', () => {
 	};
 });
 
+const instanceClientState = vi.hoisted(() => ({ entityId: 'instance-1' }));
+
 vi.mock('@/config/useInstanceClient', () => ({
-	useInstanceClientIdParams: () => ({ entityId: 'instance-1', instanceClient: {}, entityType: 'instance' }),
+	useInstanceClientIdParams: () => ({
+		entityId: instanceClientState.entityId,
+		instanceClient: {},
+		entityType: 'instance',
+	}),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -74,18 +80,21 @@ const tableViewColumns = vi.hoisted(() => ({ current: [] as { accessorKey?: stri
 const tableViewSelection = vi.hoisted(() => ({
 	current: undefined as TableRowSelection | undefined,
 }));
+const tableViewResultSet = vi.hoisted(() => ({ current: '' }));
 
 // Only the component is stubbed: `rowSelectionKey` is the real helper deciding which rows this
 // component can address, and the derived-selection tests below turn on it behaving as shipped.
 vi.mock('./TableView', async (importOriginal) => ({
 	...await importOriginal<typeof import('./TableView')>(),
-	TableView: ({ columns, emptyState, rowSelection }: {
+	TableView: ({ columns, emptyState, rowSelection, resultSetKey }: {
 		columns: { accessorKey?: string }[];
 		emptyState?: React.ReactNode;
 		rowSelection?: TableRowSelection;
+		resultSetKey: string;
 	}) => {
 		tableViewColumns.current = columns;
 		tableViewSelection.current = rowSelection;
+		tableViewResultSet.current = resultSetKey;
 		// Rendering the slot is what lets a test follow a card click through to the launch it fires.
 		return <>{emptyState}</>;
 	},
@@ -142,6 +151,8 @@ afterEach(() => {
 	permissionState.canDeleteRecords = true;
 	tableViewColumns.current = [];
 	tableViewSelection.current = undefined;
+	tableViewResultSet.current = '';
+	instanceClientState.entityId = 'instance-1';
 	pageRows.current = [];
 	watchedValues.calls = [];
 	deleteRecords.mutate.mockReset();
@@ -418,6 +429,31 @@ describe('DatabaseTableView selection scope', () => {
 			</QueryClientProvider>,
 		);
 
+		expect(deleteSelectedButton()).toBeNull();
+	});
+
+	it('uses one visible-result identity across instance and cache-mode changes', () => {
+		const { rerender } = renderView();
+		const initialResultSet = tableViewResultSet.current;
+		act(() => tableViewSelection.current!.toggleRow('abc'));
+		expect(deleteSelectedButton()).not.toBeNull();
+
+		instanceClientState.entityId = 'instance-2';
+		rerender(
+			<QueryClientProvider client={new QueryClient()}>
+				<DatabaseTableView databaseName="data" tableName="dog" />
+			</QueryClientProvider>,
+		);
+		const nextInstanceResultSet = tableViewResultSet.current;
+		expect(nextInstanceResultSet).not.toBe(initialResultSet);
+		expect(deleteSelectedButton()).toBeNull();
+
+		act(() => tableViewSelection.current!.toggleRow('abc'));
+		expect(deleteSelectedButton()).not.toBeNull();
+
+		openTableOptions();
+		fireEvent.click(screen.getByRole('menuitem', { name: /Only If Cached/i }));
+		expect(tableViewResultSet.current).not.toBe(nextInstanceResultSet);
 		expect(deleteSelectedButton()).toBeNull();
 	});
 
