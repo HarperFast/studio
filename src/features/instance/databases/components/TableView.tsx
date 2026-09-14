@@ -439,7 +439,16 @@ function TableBodyRow<TData extends RowData>(
 	return (
 		<TableRow
 			data-state={isSelected ? 'selected' : undefined}
-			onClick={() => onRowClick?.(row)}
+			onClick={(event) => {
+				if (rowSelection && (event.ctrlKey || event.metaKey || event.shiftKey)) {
+					event.preventDefault();
+					if (selectionKey !== undefined) {
+						rowSelection.toggleRow(selectionKey);
+					}
+					return;
+				}
+				onRowClick?.(row);
+			}}
 			className={cn('hover:bg-muted/10 data-[state=selected]:bg-muted', onRowClick && 'cursor-pointer')}
 		>
 			{rowSelection && (
