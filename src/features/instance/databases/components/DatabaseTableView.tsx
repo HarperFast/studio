@@ -353,7 +353,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	// rows under it change. These are exactly the inputs the row queries below are keyed on, i.e. "which
 	// records are on screen"; the table identity is called out separately because a different table also
 	// means a different set of columns.
-	const tableIdentity = `${databaseName}.${tableName}`;
+	const tableIdentity = JSON.stringify([databaseName, tableName]);
 	const resultSetKey = JSON.stringify([
 		tableIdentity,
 		pageIndex,
