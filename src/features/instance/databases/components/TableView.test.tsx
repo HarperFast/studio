@@ -172,11 +172,15 @@ function SelectionHarness(
 						return next;
 					}),
 				toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
-				selectRange: (keys) =>
+				setRangeSelected: (keys, selected) =>
 					setSelectedKeys((current) => {
 						const next = new Set(current);
 						for (const key of keys) {
-							next.add(key);
+							if (selected) {
+								next.add(key);
+							} else {
+								next.delete(key);
+							}
 						}
 						return next;
 					}),
@@ -277,11 +281,15 @@ describe('TableView row selection', () => {
 						selectedKeys,
 						toggleRow: (key) => setSelectedKeys(new Set([key])),
 						toggleAll: (keys, selectAll) => setSelectedKeys(selectAll ? new Set(keys) : new Set()),
-						selectRange: (keys) =>
+						setRangeSelected: (keys, selected) =>
 							setSelectedKeys((current) => {
 								const next = new Set(current);
 								for (const key of keys) {
-									next.add(key);
+									if (selected) {
+										next.add(key);
+									} else {
+										next.delete(key);
+									}
 								}
 								return next;
 							}),
@@ -396,14 +404,57 @@ describe('TableView shift-click range selection', () => {
 	it('takes the anchor from the last pick made without shift', () => {
 		renderRange();
 		fireEvent.click(checkboxes()[0]);
-		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		fireEvent.click(checkboxes()[1], { shiftKey: true });
 		// A plain pick re-anchors, so the next shift measures from row 3, not row 0.
 		fireEvent.click(checkboxes()[3]);
-		expect(checkedKeys()).toEqual([true, true, false, false, true]);
+		expect(checkedKeys()).toEqual([true, true, false, true, false]);
 
 		fireEvent.click(checkboxes()[4], { shiftKey: true });
 
 		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+	});
+
+	it('deselects the range when the anchoring click deselected its row', () => {
+		// The range applies the anchor's state, so shift unticks exactly as readily as it ticks --
+		// no second modifier, just whichever direction the plain click before it went.
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		expect(checkedKeys()).toEqual([true, true, false, true, true]);
+
+		fireEvent.click(checkboxes()[1]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+
+		// Rows 1..4 cleared; row 0 is outside the range and keeps what it had.
+		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+	});
+
+	it('keeps a row unselected when a deselect range re-covers it', () => {
+		// Mirror of the select-side case: the clicked box is already unchecked and the range only
+		// clears, so its `checked` prop never changes -- where a natively-toggled checkbox would
+		// desync from React's state.
+		renderRange();
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		fireEvent.click(checkboxes()[1]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([true, false, false, false, false]);
+	});
+
+	it('deselects a range from the row as well as the checkbox', () => {
+		let opened = 0;
+		renderRange(() => opened++);
+		fireEvent.click(checkboxes()[0]);
+		fireEvent.click(checkboxes()[4], { shiftKey: true });
+		fireEvent.click(checkboxes()[3]);
+
+		fireEvent.click(document.querySelectorAll('tbody tr')[1], { shiftKey: true });
+
+		expect(checkedKeys()).toEqual([true, false, false, false, true]);
+		expect(opened).toBe(0);
 	});
 
 	it('extends from a shift-click on the row itself, not just the checkbox', () => {

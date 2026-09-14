@@ -67,8 +67,8 @@ export interface TableRowSelection {
 	toggleRow: (key: unknown) => void;
 	/** `keys` is every selectable row on the page, so the owner never recomputes them. */
 	toggleAll: (keys: unknown[], selectAll: boolean) => void;
-	/** Adds a shift-click range. Only ever adds -- extending a range never clears what it crosses. */
-	selectRange: (keys: unknown[]) => void;
+	/** Applies one state to a whole shift-click range. */
+	setRangeSelected: (keys: unknown[], selected: boolean) => void;
 }
 
 interface BrowseDataTableProps<TData extends RowData> {
@@ -173,21 +173,27 @@ export function TableView<TData extends RowData>({
 	const allSelected = selectableKeys.length > 0 && selectedOnPage === selectableKeys.length;
 	const someSelected = selectedOnPage > 0 && !allSelected;
 
-	// Where a shift-click measures from: the row last picked WITHOUT shift. Held as a key rather
-	// than an index so that a row set which moves underneath it -- a refetch, a new record pushing
-	// rows onto another page -- simply fails to find it and falls back to a plain toggle, instead of
-	// silently extending from whatever row now sits at that position.
-	const [anchorKey, setAnchorKey] = useState<unknown>(undefined);
+	// Where a shift-click measures from, and what it does when it gets there: the row last picked
+	// WITHOUT shift, plus the state that pick left it in. A range applies the ANCHOR'S state to
+	// everything it spans, which is what makes shift deselect as readily as it selects -- start by
+	// unticking a row and the range unticks; start by ticking one and it ticks. One rule covers both
+	// directions, so neither needs a modifier of its own.
+	//
+	// The anchor is held as a key rather than an index so that a row set which moves underneath it --
+	// a refetch, a new record pushing rows onto another page -- simply fails to find it and falls
+	// back to a plain toggle, instead of silently measuring from whatever row now sits there.
+	const [anchor, setAnchor] = useState<{ key: unknown; selected: boolean } | null>(null);
 	const selectRow = useCallback((key: unknown, extendRange: boolean) => {
 		if (!rowSelection) {
 			return;
 		}
-		const anchorIndex = extendRange ? selectableKeys.indexOf(anchorKey) : -1;
+		const anchorIndex = extendRange && anchor ? selectableKeys.indexOf(anchor.key) : -1;
 		const targetIndex = selectableKeys.indexOf(key);
-		if (anchorIndex === -1 || targetIndex === -1) {
-			// No range to measure: a plain pick, which also becomes the anchor for the next shift.
+		if (!anchor || anchorIndex === -1 || targetIndex === -1) {
+			// No range to measure: a plain pick, which also becomes the anchor for the next shift --
+			// carrying the state it just produced, since that is what a range from it will apply.
 			rowSelection.toggleRow(key);
-			setAnchorKey(key);
+			setAnchor({ key, selected: !rowSelection.selectedKeys.has(key) });
 			return;
 		}
 		const [from, to] = anchorIndex <= targetIndex
@@ -195,10 +201,10 @@ export function TableView<TData extends RowData>({
 			: [targetIndex, anchorIndex];
 		// The range runs over SELECTABLE rows, so it steps over any row in between that has no
 		// primary key to be addressed by rather than stopping at it.
-		rowSelection.selectRange(selectableKeys.slice(from, to + 1));
+		rowSelection.setRangeSelected(selectableKeys.slice(from, to + 1), anchor.selected);
 		// The anchor deliberately stays put, so shift-clicking further up or down re-measures from
 		// the same origin instead of ratcheting along behind the pointer.
-	}, [rowSelection, selectableKeys, anchorKey]);
+	}, [rowSelection, selectableKeys, anchor]);
 
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const [scrollLeftAtResizeStart, setScrollLeftAtResizeStart] = useState(0);
