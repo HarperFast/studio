@@ -55,7 +55,7 @@
 		"@tailwindcss/vite": "^4.0.9",
 		"@tanstack/react-query": "^5.90.2",
 		"@tanstack/react-query-devtools": "^5.90.2",
-		"@tanstack/react-router": "1.170.32",
+		"@tanstack/react-router": "1.170.35",
 		"@tanstack/react-router-devtools": "1.167.1",
 		"@tanstack/react-table": "^9.0.0",
 		"@types/node": "^24.0.0",
@@ -85,7 +85,7 @@
 		"tailwind-merge": "^3.0.2",
 		"tailwindcss": "^4.0.9",
 		"tailwindcss-animate": "^1.0.7",
-		"zod": "4.5.4"
+		"zod": "4.6.2"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "^21.0.0",
@@ -103,7 +103,7 @@
 		"dotenv-cli": "^11.0.0",
 		"dprint": "^0.57.0",
 		"happy-dom": "^20.9.0",
-		"harper": "5.2.9",
+		"harper": "5.2.10",
 		"husky": "^9.1.7",
 		"jsdom": "^30.0.0",
 		"oxlint": "^1.32.0",
@@ -113,6 +113,6 @@
 		"vitest": "^5.0.0",
 		"yaml": "^2.9.0"
 	},
-	"packageManager": "pnpm@12.3.4",
+	"packageManager": "pnpm@12.4.1",
 	"license": "Apache-2.0"
 }
