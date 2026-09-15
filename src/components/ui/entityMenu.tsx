@@ -23,7 +23,7 @@ export type EntityMenuItem =
 		key: string;
 		label: ReactNode;
 		icon?: ReactNode;
-		/** Relative router path; renders the item inside a Link. */
+		/** Router path; renders the item inside a Link. Absolute when the target is a different entity. */
 		to?: string;
 		onClick?: MouseEventHandler<HTMLDivElement>;
 		disabled?: boolean;

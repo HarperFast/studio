@@ -1,6 +1,5 @@
 import type { EntityMenuItem } from '@/components/ui/entityMenu';
 import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
-import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
@@ -14,8 +13,10 @@ import { Instance } from '@/integrations/api/api.patch';
 import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
 import { useQuery } from '@tanstack/react-query';
+import { useParams } from '@tanstack/react-router';
 import {
 	ClipboardIcon,
 	LifeBuoyIcon,
@@ -47,6 +48,9 @@ export function useInstanceMenuItems(
 	enabled: boolean,
 ): { items: EntityMenuItem[]; dialog: ReactNode } {
 	const { user: instanceUser } = useInstanceAuth(instance.id);
+	const { organizationId, clusterId }: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
+	const instanceHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id });
+	const signInHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id }, 'sign-in');
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update: canManage } = useOrganizationClusterInstancePermissions();
@@ -94,7 +98,7 @@ export function useInstanceMenuItems(
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
 			key: 'direct-connect',
-			to: `../instance/${instance.id}${defaultInstanceRoute}`,
+			to: instanceHref,
 			icon: <ServerIcon className="text-green" />,
 			label: 'Direct Connect',
 		},
@@ -107,13 +111,13 @@ export function useInstanceMenuItems(
 		},
 		hasAuth && !isDirectlyLoggedIn && canManage && !isSelfManaged && {
 			key: 'fabric-connect',
-			to: `../instance/${instance.id}${defaultInstanceRoute}`,
+			to: instanceHref,
 			icon: <ServerIcon className="text-green" />,
 			label: 'Fabric Connect',
 		},
 		hasAuth && !isDirectlyLoggedIn && {
 			key: 'direct-sign-in',
-			to: `../instance/${instance.id}/sign-in`,
+			to: signInHref,
 			icon: <LogInIcon />,
 			label: 'Direct Sign In',
 		},
