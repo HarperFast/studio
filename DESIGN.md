@@ -20,5 +20,8 @@ The `/apis` route is a **custom, in-house API explorer** ([`src/features/instanc
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.
 - **Styling stack**: Tailwind 4 + Radix UI + design tokens in `src/index.css`. `cn()` from `src/lib/cn` is the canonical class-merge helper.
-- **Routing**: TanStack Router, file-based, lazy-loaded.
+- **Routing**: TanStack Router, file-based, lazy-loaded. Build a link to another org/cluster/instance
+  with `buildAbsoluteLinkToPage`. A relative `../…` is only safe from a component that unmounts with
+  its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
+  navigation re-resolves its href one level too deep (HarperFast/studio#1710).
 - **Data fetching**: TanStack React Query 5. Query keys must be instance-scoped when the request targets a specific instance.

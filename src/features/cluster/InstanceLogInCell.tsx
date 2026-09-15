@@ -1,14 +1,14 @@
 import { Button } from '@/components/ui/button';
 import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
-import { defaultInstanceRoute } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
+import { buildAbsoluteLinkToPage } from '@/lib/urls/buildAbsoluteLinkToPage';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
-import { Link } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import { LoaderCircleIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
@@ -16,6 +16,9 @@ export function InstanceLogInCell(
 	{ isSelfManaged, instance }: { readonly isSelfManaged: boolean; readonly instance: Instance },
 ) {
 	const { user: instanceUser, isLoading: instanceAuthIsLoading } = useInstanceAuth(instance.id);
+	const { organizationId, clusterId }: { organizationId?: string; clusterId?: string } = useParams({ strict: false });
+	const instanceHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id });
+	const signInHref = buildAbsoluteLinkToPage({ organizationId, clusterId, instanceId: instance.id }, 'sign-in');
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update } = useOrganizationClusterInstancePermissions();
@@ -43,7 +46,7 @@ export function InstanceLogInCell(
 			<span className="flex gap-4">
 				{update && !isSelfManaged && (
 					<Link
-						to={`../instance/${instance.id}${defaultInstanceRoute}`}
+						to={instanceHref}
 						className="text-sm"
 						aria-label={`Connect to ${instance.name} instance`}
 						title={`Connect to ${instance.name} instance`}
@@ -52,7 +55,7 @@ export function InstanceLogInCell(
 					</Link>
 				)}
 				<Link
-					to={`../instance/${instance.id}/sign-in`}
+					to={signInHref}
 					className="text-sm"
 					aria-label={`Sign in to ${instance.name} instance`}
 					title={`Sign in to ${instance.name} instance`}
@@ -66,7 +69,7 @@ export function InstanceLogInCell(
 	return (
 		<span className="flex gap-4">
 			<Link
-				to={`../instance/${instance.id}${defaultInstanceRoute}`}
+				to={instanceHref}
 				className="text-sm"
 				aria-label={`Go to ${instance.name} instance`}
 				title={`Go to ${instance.name} instance`}
