@@ -45,7 +45,6 @@ describe('buildAllOrganizationsUrl', () => {
 	});
 
 	it('sends a filter as a relevance search, not a case-sensitive substring match', () => {
-		// `name=ct=acme` never matched "Acme Corporation" — the bug this replaces.
 		expect(buildAllOrganizationsUrl(0, 'acme')).toBe(
 			'/Admin/Organization/?search=acme&status=ne=DELETED&limit(0,13)',
 		);
@@ -60,8 +59,6 @@ describe('buildAllOrganizationsUrl', () => {
 	});
 
 	it('treats a whitespace-only filter as unfiltered browsing', () => {
-		// Untrimmed this sent `search=%20%20%20` and dropped sort(name), so clearing a
-		// filter back to spaces left the whole list in relevance order for a blank term.
 		expect(buildAllOrganizationsUrl(0, '   ')).toBe(
 			'/Admin/Organization/?status=ne=DELETED&sort(name)&limit(0,13)',
 		);
@@ -176,7 +173,17 @@ describe('getAllOrganizationsQueryOptions', () => {
 
 		await getAllOrganizationsQueryOptions(0, 'acme').queryFn!({} as never);
 
-		// The server folds case; the client just has to stop sending `name=ct=`.
 		expect(mockedGet).toHaveBeenCalledWith('/Admin/Organization/?search=acme&status=ne=DELETED&limit(0,13)');
+	});
+
+	it('shares one cache entry across equivalent filters, and requests the normalized term', () => {
+		const key = (v: string) => getAllOrganizationsQueryOptions(0, v).queryKey;
+		expect(key('  acme  ')).toEqual(key('acme'));
+		expect(key('   ')).toEqual(key(''));
+	});
+
+	it('survives a caller that has no filter value at all', () => {
+		expect(() => getAllOrganizationsQueryOptions(0, undefined as unknown as string)).not.toThrow();
+		expect(buildAllOrganizationsUrl(0, undefined as unknown as string)).toContain('sort(name)');
 	});
 });
