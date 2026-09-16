@@ -39,9 +39,6 @@ export function ClusterDeploymentDescription({
 								{...field}
 								disabled={disabled}
 								onValueChange={(deploymentDescription) => {
-									// Radix echoes a programmatic setValue back as "" through its hidden native select
-									// until the menu has opened once (see ClusterPerformanceDescription). Not a choice.
-									if (!deploymentDescription) { return; }
 									field.onChange(deploymentDescription);
 									void form.trigger();
 								}}
