@@ -44,15 +44,24 @@ describe('buildAllOrganizationsUrl', () => {
 		expect(buildAllOrganizationsUrl(2, '')).toBe('/Admin/Organization/?status=ne=DELETED&sort(name)&limit(24,37)');
 	});
 
-	it('puts the name filter before the status condition (the API ignores name when status comes first)', () => {
+	it('sends a filter as a relevance search, not a case-sensitive substring match', () => {
+		// `name=ct=acme` never matched "Acme Corporation" — the bug this replaces.
 		expect(buildAllOrganizationsUrl(0, 'acme')).toBe(
-			'/Admin/Organization/?name=ct=acme&status=ne=DELETED&sort(name)&limit(0,13)',
+			'/Admin/Organization/?search=acme&status=ne=DELETED&limit(0,13)',
 		);
+	});
+
+	it('omits sort(name) while searching, because the order is the relevance ranking', () => {
+		expect(buildAllOrganizationsUrl(0, 'acme')).not.toContain('sort(');
+	});
+
+	it('still sorts by name when browsing unfiltered', () => {
+		expect(buildAllOrganizationsUrl(0, '')).toContain('sort(name)');
 	});
 
 	it('URI-encodes the filter value', () => {
 		expect(buildAllOrganizationsUrl(0, 'a&b=c')).toBe(
-			'/Admin/Organization/?name=ct=a%26b%3Dc&status=ne=DELETED&sort(name)&limit(0,13)',
+			'/Admin/Organization/?search=a%26b%3Dc&status=ne=DELETED&limit(0,13)',
 		);
 	});
 
@@ -140,13 +149,20 @@ describe('getAllOrganizationsQueryOptions', () => {
 		expect(mockedGet).toHaveBeenNthCalledWith(2, '/Admin/Organization/org-7');
 	});
 
-	it('runs a name search when the value is not an id', async () => {
+	it('runs a relevance search when the value is not an id', async () => {
 		mockedGet.mockResolvedValue({ data: [] });
 
 		await getAllOrganizationsQueryOptions(0, 'Acme').queryFn!({} as never);
 
-		expect(mockedGet).toHaveBeenCalledWith(
-			'/Admin/Organization/?name=ct=Acme&status=ne=DELETED&sort(name)&limit(0,13)',
-		);
+		expect(mockedGet).toHaveBeenCalledWith('/Admin/Organization/?search=Acme&status=ne=DELETED&limit(0,13)');
+	});
+
+	it('finds an organization whatever case the operator types', async () => {
+		mockedGet.mockResolvedValue({ data: [] });
+
+		await getAllOrganizationsQueryOptions(0, 'acme').queryFn!({} as never);
+
+		// The server folds case; the client just has to stop sending `name=ct=`.
+		expect(mockedGet).toHaveBeenCalledWith('/Admin/Organization/?search=acme&status=ne=DELETED&limit(0,13)');
 	});
 });

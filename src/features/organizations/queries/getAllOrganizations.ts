@@ -18,16 +18,26 @@ export interface AllOrganizationsPage {
  * Builds the Harper REST query for one page of the admin organization list.
  * Harper collections return a bare array (no total count), so we request one
  * record past the page boundary to learn whether a next page exists.
+ *
+ * A filter is sent as `search`, which ranks by relevance server-side rather
+ * than filtering on a raw substring. The previous `name=ct=` was a
+ * case-sensitive match, so `acme` never found "Acme Corporation"; `search`
+ * folds case, accents and punctuation and falls back to a semantic match, so
+ * `mcdonalds` finds "McDonald & Sons" and `bank` finds the banks.
+ *
+ * `sort(name)` is therefore only sent when browsing unfiltered — with a search
+ * term the order IS the relevance ranking, and the server ignores any sort.
  */
 export function buildAllOrganizationsUrl(pageIndex: number, nameFilter: string): string {
 	const start = pageIndex * ALL_ORGANIZATIONS_PAGE_SIZE;
 	const conditions = [
-		// The name filter must precede the status condition: with status first,
-		// the API ignores the name condition entirely.
-		...(nameFilter ? [`name=ct=${encodeURIComponent(nameFilter)}`] : []),
+		// Kept ahead of the status condition, as the name filter had to be: the
+		// server reads `search` independently of position, but the ordering
+		// costs nothing and keeps one less thing depending on that detail.
+		...(nameFilter ? [`search=${encodeURIComponent(nameFilter)}`] : []),
 		// Terminated organizations stick around with status DELETED; hide them.
 		'status=ne=DELETED',
-		'sort(name)',
+		...(nameFilter ? [] : ['sort(name)']),
 		`limit(${start},${start + ALL_ORGANIZATIONS_PAGE_SIZE + 1})`,
 	];
 	return `/Admin/Organization/?${conditions.join('&')}`;
