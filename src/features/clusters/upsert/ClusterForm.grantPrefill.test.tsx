@@ -174,6 +174,62 @@ describe('ClusterForm — two vouchers on the same plan, different regions (the 
 	});
 });
 
+describe('ClusterForm — from a two-region dedicated voucher to a one-region hosted one (seen on the rig)', () => {
+	it('drops to the one region the new shape names', async () => {
+		const DEDICATED_HIGH = plan('fabric-block-dedicated-2', 1500, 'High (100K read/min)', 'Dedicated');
+		const DEDICATED_REGIONS = [region('europe-d', 'Europe', 'narrow'), region('canada-d', 'Canada', 'narrow')];
+		const TWO = {
+			...comped('cgr-two', 'europe-d', DEDICATED_HIGH.id),
+			shape: [{ planId: DEDICATED_HIGH.id, regionId: 'europe-d' }, { planId: DEDICATED_HIGH.id, regionId: 'canada-d' }],
+		} as ClusterGrant;
+		const ONE = comped('cgr-one', 'us-1');
+		render(
+			<TestProvider>
+				<ClusterForm
+					alreadyUsingFree={false}
+					defaultValues={{
+						...defaults,
+						deploymentDescription: 'Dedicated',
+						performanceDescription: DEDICATED_HIGH.performanceDescription!,
+						regionPlans: [
+							{ regionName: 'Europe', latencyDescription: 'narrow' },
+							{ regionName: 'Canada', latencyDescription: 'narrow' },
+						],
+						grantId: TWO.id,
+					}}
+					deploymentToPerformanceToPlan={{
+						...CATALOGUE,
+						Dedicated: { [DEDICATED_HIGH.performanceDescription!]: DEDICATED_HIGH },
+					}}
+					harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
+					mode={undefined}
+					organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [TWO, ONE] } as unknown as Organization}
+					organizationId="org-1"
+					partialUpgrade={null}
+					planTypes={[...PLANS, DEDICATED_HIGH]}
+					regionLocationsColocated={REGIONS}
+					regionLocationsDedicated={DEDICATED_REGIONS}
+					setSavedClusterState={() => {}}
+					startOffOnBilling={false}
+				/>
+			</TestProvider>,
+		);
+		await act(() => null);
+		await act(() => null);
+		expect(nativeValue('deploymentDescription')).toBe('Dedicated');
+		expect(document.querySelectorAll('select[name^="regionPlans."][name$=".regionName"]').length).toBe(2);
+
+		await pick('Available grants', /cgr-one/);
+		expect(nativeValue('deploymentDescription')).toBe('Colocated');
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		const rows = [...document.querySelectorAll('select[name^="regionPlans."][name$=".regionName"]')].map(
+			(el) => (el as HTMLSelectElement).value,
+		);
+		expect(rows).toEqual(['US']);
+		expect(nativeValue('regionPlans.0.latencyDescription')).toBe('narrow');
+	});
+});
+
 async function pick(labelText: string, option: RegExp) {
 	fireEvent.keyDown(selectFor(new RegExp(labelText)), { key: 'ArrowDown' });
 	await act(() => null);
