@@ -59,6 +59,20 @@ describe('buildAllOrganizationsUrl', () => {
 		expect(buildAllOrganizationsUrl(0, '')).toContain('sort(name)');
 	});
 
+	it('treats a whitespace-only filter as unfiltered browsing', () => {
+		// Untrimmed this sent `search=%20%20%20` and dropped sort(name), so clearing a
+		// filter back to spaces left the whole list in relevance order for a blank term.
+		expect(buildAllOrganizationsUrl(0, '   ')).toBe(
+			'/Admin/Organization/?status=ne=DELETED&sort(name)&limit(0,13)',
+		);
+	});
+
+	it('trims surrounding whitespace off a real filter', () => {
+		expect(buildAllOrganizationsUrl(0, '  acme  ')).toBe(
+			'/Admin/Organization/?search=acme&status=ne=DELETED&limit(0,13)',
+		);
+	});
+
 	it('URI-encodes the filter value', () => {
 		expect(buildAllOrganizationsUrl(0, 'a&b=c')).toBe(
 			'/Admin/Organization/?search=a%26b%3Dc&status=ne=DELETED&limit(0,13)',

@@ -30,14 +30,19 @@ export interface AllOrganizationsPage {
  */
 export function buildAllOrganizationsUrl(pageIndex: number, nameFilter: string): string {
 	const start = pageIndex * ALL_ORGANIZATIONS_PAGE_SIZE;
+	// Trimmed, so a filter of only spaces is unfiltered browsing rather than a
+	// search for whitespace: untrimmed it would send `search=%20%20%20` AND drop
+	// `sort(name)`, leaving the full list in relevance order for a term that
+	// matches nothing in particular.
+	const search = nameFilter.trim();
 	const conditions = [
 		// Kept ahead of the status condition, as the name filter had to be: the
 		// server reads `search` independently of position, but the ordering
 		// costs nothing and keeps one less thing depending on that detail.
-		...(nameFilter ? [`search=${encodeURIComponent(nameFilter)}`] : []),
+		...(search ? [`search=${encodeURIComponent(search)}`] : []),
 		// Terminated organizations stick around with status DELETED; hide them.
 		'status=ne=DELETED',
-		...(nameFilter ? [] : ['sort(name)']),
+		...(search ? [] : ['sort(name)']),
 		`limit(${start},${start + ALL_ORGANIZATIONS_PAGE_SIZE + 1})`,
 	];
 	return `/Admin/Organization/?${conditions.join('&')}`;
