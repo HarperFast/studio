@@ -138,6 +138,42 @@ describe('ClusterForm — a shaped voucher fills the pickers', () => {
 	});
 });
 
+describe('ClusterForm — two vouchers on the same plan, different regions (the rig case)', () => {
+	it('switching only moves the region', async () => {
+		const SA = comped('cgr-sa', 'south-america-1');
+		const US = comped('cgr-us', 'us-1');
+		render(
+			<TestProvider>
+				<ClusterForm
+					alreadyUsingFree={false}
+					defaultValues={{ ...defaults, grantId: SA.id }}
+					deploymentToPerformanceToPlan={CATALOGUE}
+					harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
+					mode={undefined}
+					organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [SA, US] } as unknown as Organization}
+					organizationId="org-1"
+					partialUpgrade={null}
+					planTypes={PLANS}
+					regionLocationsColocated={REGIONS}
+					regionLocationsDedicated={[]}
+					setSavedClusterState={() => {}}
+					startOffOnBilling={false}
+				/>
+			</TestProvider>,
+		);
+		await act(() => null);
+		await act(() => null);
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		expect(selectFor(/^Region/).textContent).toContain('South America');
+		await pick('Available grants', /cgr-us/);
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		expect(selectFor(/^Region/).textContent).toContain('US');
+		expect(selectFor(/^Region/).textContent).not.toContain('South America');
+		await pick('Available grants', /cgr-sa/);
+		expect(selectFor(/^Region/).textContent).toContain('South America');
+	});
+});
+
 async function pick(labelText: string, option: RegExp) {
 	fireEvent.keyDown(selectFor(new RegExp(labelText)), { key: 'ArrowDown' });
 	await act(() => null);
