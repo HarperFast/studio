@@ -7,7 +7,7 @@
 import { SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
 import { TestProvider } from '@/lib/test/TestProvider';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClusterForm } from './ClusterForm';
@@ -46,14 +46,17 @@ const region = (id: string, name: string, latency: string): SchemaRegion =>
 	({ id, region: name, latencyDescription: latency, instanceCount: 2 }) as SchemaRegion;
 const REGIONS = [region('south-america-1', 'South America', 'narrow'), region('us-1', 'US', 'narrow')];
 
-const COMPED: ClusterGrant = {
-	id: 'cgr-1',
-	organizationId: 'org-1',
-	source: 'comped',
-	status: 'ACTIVE',
-	isActive: true,
-	shape: [{ planId: HOBBYIST.id, regionId: 'us-1' }],
-} as ClusterGrant;
+const comped = (id: string, regionId: string, planId = HOBBYIST.id): ClusterGrant =>
+	({
+		id,
+		organizationId: 'org-1',
+		source: 'comped',
+		status: 'ACTIVE',
+		isActive: true,
+		shape: [{ planId, regionId }],
+	}) as unknown as ClusterGrant;
+const COMPED = comped('cgr-1', 'us-1');
+const COMPED_SA = comped('cgr-2', 'south-america-1', LEVEL_1.id);
 
 // What the create page hands the form for an org holding one voucher: the catalogue defaults for
 // the pickers (the trial, first region) and the voucher pre-selected — index.tsx:241.
@@ -78,7 +81,11 @@ async function mountCreate() {
 				deploymentToPerformanceToPlan={CATALOGUE}
 				harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
 				mode={undefined}
-				organization={{ id: 'org-1', type: 'SELF_SERVICE', unboundGrants: [COMPED] } as unknown as Organization}
+				organization={{
+					id: 'org-1',
+					type: 'SELF_SERVICE',
+					unboundGrants: [COMPED, COMPED_SA],
+				} as unknown as Organization}
 				organizationId="org-1"
 				partialUpgrade={null}
 				planTypes={PLANS}
@@ -114,4 +121,27 @@ describe('ClusterForm — a shaped voucher fills the pickers', () => {
 		expect(selectFor(/^Region/).textContent).toContain('US');
 		expect(selectFor(/^Region/).textContent).not.toContain('South America');
 	});
+
+	it('follows a switch to another grant, and unlocks on None keeping the last shape', async () => {
+		await mountCreate();
+		await pick('Available grants', /cgr-2/);
+		expect(nativeValue('performanceDescription')).toBe(LEVEL_1.performanceDescription);
+		expect(selectFor(/^Region/).textContent).toContain('South America');
+
+		await pick('Available grants', /cgr-1/);
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		expect(selectFor(/^Region/).textContent).toContain('US');
+
+		await pick('Available grants', /^None$/);
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		expect(selectFor(/Performance/).getAttribute('data-disabled')).toBeNull();
+	});
 });
+
+async function pick(labelText: string, option: RegExp) {
+	fireEvent.keyDown(selectFor(new RegExp(labelText)), { key: 'ArrowDown' });
+	await act(() => null);
+	fireEvent.keyDown(screen.getByRole('option', { name: option }), { key: 'Enter' });
+	await act(() => null);
+	await act(() => null);
+}
