@@ -42,10 +42,6 @@ export function ClusterPerformanceDescription({
 							<Select
 								{...field}
 								onValueChange={(performanceDescription) => {
-									// Radix mirrors the value into a hidden native select whose options only exist
-									// once the menu has opened; a programmatic setValue (the grant prefill) lands on
-									// no option there and echoes back as a "" change. Not a choice: ignore it.
-									if (!performanceDescription) { return; }
 									field.onChange(performanceDescription);
 									void form.trigger();
 								}}
