@@ -159,7 +159,7 @@ export function ClusterHome() {
 						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
 						<StatusPill status={cluster.status} />
 						{allInSafeMode && <SafeModePill />}
-						{trial && <TrialPill reminder={trial} />}
+						{trial && <TrialPill reminder={trial} upgradeHref={update ? `${base}/edit` : undefined} />}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
 						<span>{instanceCount} {instanceCount === 1 ? 'instance' : 'instances'}</span>
@@ -450,13 +450,25 @@ function SafeModePill() {
 }
 
 // The Self-Hosted pill's grey, in full foreground so it reads at a glance. The expiry banner takes
-// over once there is a countdown to show, and this disappears with it.
-function TrialPill({ reminder }: { reminder: TrialReminder }) {
+// over once there is a countdown to show, and this disappears with it. For someone who can manage
+// the cluster it is also the shortest path to an upgrade: the scaling editor.
+function TrialPill({ reminder, upgradeHref }: { reminder: TrialReminder; upgradeHref?: string }) {
+	const className = 'inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-foreground bg-muted';
+	if (upgradeHref) {
+		return (
+			<Link
+				to={upgradeHref}
+				title={`${reminder.detail} · Upgrade`}
+				aria-label={`${reminder.label} — upgrade`}
+				className={`${className} hover:bg-accent hover:underline`}
+			>
+				{reminder.label}
+				<ArrowRight className="size-3" />
+			</Link>
+		);
+	}
 	return (
-		<span
-			title={reminder.detail}
-			className="inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-foreground bg-muted"
-		>
+		<span title={reminder.detail} className={className}>
 			{reminder.label}
 		</span>
 	);
