@@ -55,6 +55,19 @@ describe('prefillFromGrant', () => {
 		});
 	});
 
+	it('still names a region the plan cannot be placed in today, from the other list', () => {
+		// The colocated list is only the regions with a colocated host right now; a comp may name one
+		// without. The rows must show the grant's region (the picker reports it as unavailable)
+		// rather than keep the previous grant's rows.
+		const result = prefillFromGrant(
+			{ shape: shape([LEVEL_1.id, 'us-ded']) },
+			PLANS,
+			COLOCATED,
+			DEDICATED_REGIONS,
+		);
+		expect(result?.regionPlans).toEqual([{ regionName: 'US', latencyDescription: 'wide' }]);
+	});
+
 	it('gives a self-hosted plan no regions', () => {
 		expect(prefill(shape([SELF_HOSTED.id, null]))).toEqual({
 			deploymentDescription: 'Self-Hosted',
