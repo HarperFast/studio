@@ -4,8 +4,20 @@ import * as React from 'react';
 
 import { cn } from '@/lib/cn';
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-	return <SelectPrimitive.Root data-slot="select" {...props} />;
+// Radix mirrors the value into a hidden native select whose options only exist once the menu has
+// opened, so a programmatic value change (a form prefill) lands on no option there and is echoed
+// back as "". Radix refuses empty item values, so "" is never a choice: drop it before the form
+// sees it, or the field blanks and any auto-select falls back to its first option.
+function Select({ onValueChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+	return (
+		<SelectPrimitive.Root
+			data-slot="select"
+			onValueChange={(value) => {
+				if (value !== '') { onValueChange?.(value); }
+			}}
+			{...props}
+		/>
+	);
 }
 
 function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
