@@ -29,11 +29,17 @@ export function prefillFromGrant(
 	const plan = planTypes?.find((candidate) => candidate.id === shape[0].planId);
 	if (!plan?.deploymentDescription || !plan.performanceDescription) { return null; }
 	const otherPlanIds = [...new Set(shape.map((entry) => entry.planId).filter((id) => id !== plan.id))];
-	const regions = plan.deploymentDescription === 'Dedicated' ? regionsDedicated : regionsColocated;
+	// The plan's own list first, then the other: each list is what that deployment can place in right
+	// now, and a comp may name a region the plan cannot be placed in today (nothing colocated there
+	// yet). The row still has to show what the grant says, and the region picker already reports a
+	// region it cannot offer, rather than keep whatever the previous grant left in the rows.
+	const own = plan.deploymentDescription === 'Dedicated' ? regionsDedicated : regionsColocated;
+	const other = plan.deploymentDescription === 'Dedicated' ? regionsColocated : regionsDedicated;
+	const regions = [...(own ?? []), ...(other ?? [])];
 	const regionPlans: GrantPrefill['regionPlans'] = [];
 	for (const entry of shape) {
 		if (entry.planId !== plan.id || entry.regionId == null) { continue; }
-		const region = regions?.find((candidate) => candidate.id === entry.regionId);
+		const region = regions.find((candidate) => candidate.id === entry.regionId);
 		if (region?.region && region.latencyDescription) {
 			regionPlans.push({ regionName: region.region, latencyDescription: region.latencyDescription });
 		}
