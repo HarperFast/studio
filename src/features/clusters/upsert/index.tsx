@@ -3,7 +3,6 @@ import { ErrorComponent } from '@/components/ErrorComponent';
 import { Loading } from '@/components/Loading';
 import { SubNavMenu } from '@/components/SubNavMenu';
 import { SubNavSimpleLayout } from '@/components/SubNavSimpleLayout';
-import { isFailed, isTerminated } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { getPlanTypesOptions } from '@/features/cluster/queries/getPlanTypesQuery';
@@ -25,6 +24,7 @@ import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
+import { calculateAlreadyUsingFree } from './lib/calculateAlreadyUsingFree';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
@@ -113,25 +113,10 @@ export function UpsertCluster() {
 		[cluster],
 	);
 
-	const alreadyUsingFree = useMemo(() => {
-		for (const orgCluster of organization?.clusters ?? []) {
-			if (
-				orgCluster.id !== cluster?.id
-				&& planTypes
-				&& !isTerminated(orgCluster.status)
-				&& !isFailed(orgCluster.status)
-				&& orgCluster.plans
-			) {
-				for (const clusterPlan of orgCluster.plans) {
-					const foundPlan = planTypes.find(p => p.id === clusterPlan.planId);
-					if (foundPlan?.priceUsd === 0 && !foundPlan.id.startsWith('self-hosted')) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}, [cluster?.id, organization?.clusters, planTypes]);
+	const alreadyUsingFree = useMemo(
+		() => calculateAlreadyUsingFree(organization, cluster?.id, planTypes),
+		[cluster?.id, organization, planTypes],
+	);
 
 	const deploymentToPerformanceToPlan = useMemo<Record<string, Record<string, SchemaPlan>>>(
 		() =>
