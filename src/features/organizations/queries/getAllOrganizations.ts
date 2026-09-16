@@ -19,26 +19,16 @@ export interface AllOrganizationsPage {
  * Harper collections return a bare array (no total count), so we request one
  * record past the page boundary to learn whether a next page exists.
  *
- * A filter is sent as `search`, which ranks by relevance server-side rather
- * than filtering on a raw substring. The previous `name=ct=` was a
- * case-sensitive match, so `acme` never found "Acme Corporation"; `search`
- * folds case, accents and punctuation and falls back to a semantic match, so
- * `mcdonalds` finds "McDonald & Sons" and `bank` finds the banks.
- *
- * `sort(name)` is therefore only sent when browsing unfiltered — with a search
- * term the order IS the relevance ranking, and the server ignores any sort.
+ * `search` is ranked by relevance server-side, so `sort(name)` is sent only
+ * when browsing unfiltered: with a term the order is the ranking, and the
+ * server ignores any sort. Expects an already-normalized term — see
+ * {@link normalizeSearchValue}.
  */
 export function buildAllOrganizationsUrl(pageIndex: number, nameFilter: string): string {
 	const start = pageIndex * ALL_ORGANIZATIONS_PAGE_SIZE;
-	// Trimmed, so a filter of only spaces is unfiltered browsing rather than a
-	// search for whitespace: untrimmed it would send `search=%20%20%20` AND drop
-	// `sort(name)`, leaving the full list in relevance order for a term that
-	// matches nothing in particular.
-	const search = nameFilter.trim();
+	const search = normalizeSearchValue(nameFilter);
 	const conditions = [
-		// Kept ahead of the status condition, as the name filter had to be: the
-		// server reads `search` independently of position, but the ordering
-		// costs nothing and keeps one less thing depending on that detail.
+		// Kept ahead of the status condition, as the name filter had to be.
 		...(search ? [`search=${encodeURIComponent(search)}`] : []),
 		// Terminated organizations stick around with status DELETED; hide them.
 		'status=ne=DELETED',
@@ -46,6 +36,14 @@ export function buildAllOrganizationsUrl(pageIndex: number, nameFilter: string):
 		`limit(${start},${start + ALL_ORGANIZATIONS_PAGE_SIZE + 1})`,
 	];
 	return `/Admin/Organization/?${conditions.join('&')}`;
+}
+
+/**
+ * Normalizes a raw filter value. Whitespace-only is unfiltered browsing, not a
+ * search for spaces.
+ */
+export function normalizeSearchValue(value: string | undefined | null): string {
+	return typeof value === 'string' ? value.trim() : '';
 }
 
 export async function getAllOrganizations(pageIndex: number, nameFilter: string): Promise<AllOrganizationsPage> {
@@ -101,15 +99,19 @@ export async function getOrganizationForClusterPage(clusterId: string): Promise<
 }
 
 /**
- * Query for the admin organization search. When the search value looks like an
- * organization or cluster id (a lowercase `org-`/`clu-` prefix — see
- * {@link detectEntityId}), it resolves that id server-side instead of running a
- * title/name search, so pasting an id jumps straight to the matching org.
+ * Query for the admin organization search. A value that looks like an
+ * organization or cluster id (see {@link detectEntityId}) is resolved by id
+ * instead, so pasting an id jumps straight to the matching org.
  */
 export function getAllOrganizationsQueryOptions(pageIndex: number, searchValue: string) {
-	const entity = detectEntityId(searchValue);
+	// Normalized once, for both the cache key and the request. Keying on the raw
+	// value made `acme`, `acme ` and `  acme` three entries resolving to one
+	// identical request, so a pasted trailing space refetched a search the cache
+	// already held.
+	const search = normalizeSearchValue(searchValue);
+	const entity = detectEntityId(search);
 	return queryOptions({
-		queryKey: ['admin-all-organizations', searchValue, pageIndex],
+		queryKey: ['admin-all-organizations', search, pageIndex],
 		queryFn: () => {
 			if (entity?.kind === 'organization') {
 				return getOrganizationByIdPage(entity.id);
@@ -117,7 +119,7 @@ export function getAllOrganizationsQueryOptions(pageIndex: number, searchValue: 
 			if (entity?.kind === 'cluster') {
 				return getOrganizationForClusterPage(entity.id);
 			}
-			return getAllOrganizations(pageIndex, searchValue);
+			return getAllOrganizations(pageIndex, search);
 		},
 		// Keep the previous page on screen while the next one loads.
 		placeholderData: keepPreviousData,
