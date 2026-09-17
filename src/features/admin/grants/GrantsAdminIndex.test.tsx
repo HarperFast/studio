@@ -93,6 +93,11 @@ describe('GrantsAdminIndex', () => {
 		expect(orgCell.getAttribute('title')).toBe('org-1 (Acme)');
 	});
 
+	it('marks a calendar cadence beside the source', async () => {
+		await mount([grant({ source: 'contracted', cadence: 'calendar' })]);
+		expect(screen.getByText(/· calendar/)).toBeTruthy();
+	});
+
 	it('falls back to the org id when no name is known', async () => {
 		await mount([grant({ organizationId: 'org-unknown' })]);
 		expect(screen.getByText('org-unknown')).toBeTruthy();

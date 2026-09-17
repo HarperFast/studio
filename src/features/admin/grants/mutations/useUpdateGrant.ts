@@ -11,6 +11,8 @@ import { useMutation } from '@tanstack/react-query';
 export interface UpdateGrantChanges {
 	/** null = no expiry. A trial cannot be made perpetual; the server refuses it. */
 	endsAt?: string | null;
+	/** Contracted grants only; the server refuses it on any other source. Takes effect at the next renewal. */
+	cadence?: 'anniversary' | 'calendar';
 	expiryPolicy?: string;
 	status?: 'REVOKED';
 	/** null clears the restriction; an empty array is refused by the server. */
