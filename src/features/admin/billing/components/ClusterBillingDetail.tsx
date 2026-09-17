@@ -81,7 +81,7 @@ export function ClusterBillingDetail({ usage, organizationId }: { usage: FleetUs
 	}
 
 	return (
-		<div className="flex max-w-4xl flex-col gap-5 border-l-2 border-border py-3 pr-4 pl-6">
+		<div className="flex max-w-4xl flex-col gap-5 py-3 pr-4 pl-6">
 			{usage.regions.map((region) => (
 				<div key={region.region ?? region.regionIds.join()}>
 					<div className="mb-2.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
