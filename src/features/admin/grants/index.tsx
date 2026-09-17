@@ -321,7 +321,7 @@ export function GrantsAdminIndex() {
 																{grant.cadence === 'calendar' && (
 																	<span
 																		className="text-xs text-muted-foreground"
-																		title="Renews on the 1st of the month"
+																		title="Bills on the 1st of the month from its next renewal; until then Renews shows the anniversary"
 																	>
 																		{' '}· calendar
 																	</span>
