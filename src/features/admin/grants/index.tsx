@@ -316,7 +316,17 @@ export function GrantsAdminIndex() {
 																	)
 																	: <Badge variant="secondary" className="text-[10px]">Unbound</Badge>}
 															</TableCell>
-															<TableCell>{grant.source}</TableCell>
+															<TableCell>
+																{grant.source}
+																{grant.cadence === 'calendar' && (
+																	<span
+																		className="text-xs text-muted-foreground"
+																		title="Renews on the 1st of the month"
+																	>
+																		{' '}· calendar
+																	</span>
+																)}
+															</TableCell>
 															<TableCell className="whitespace-nowrap">{nextDue(grant)}</TableCell>
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.nextCycleAt)}</TableCell>
 															<TableCell className="whitespace-nowrap">{fmtDate(grant.endsAt)}</TableCell>
