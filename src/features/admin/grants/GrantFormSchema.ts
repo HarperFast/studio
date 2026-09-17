@@ -66,6 +66,8 @@ export const GrantFormSchema = z
 		/** Empty string means "no end" — the form's stand-in for null, which a date input can't hold. */
 		endsAt: z.string(),
 		expiryPolicy: z.string(),
+		/** Anniversary or calendar; the modal locks it on every source but contracted. */
+		cadence: z.enum(['anniversary', 'calendar']),
 		/** A comp's shape. Empty on every other source, which scope through the allow-lists below. */
 		shape: z.array(ShapeRowSchema),
 		allowedPlanIds: z.array(z.string()),
