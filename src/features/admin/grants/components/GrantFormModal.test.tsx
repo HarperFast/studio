@@ -275,6 +275,35 @@ describe('GrantFormModal', () => {
 
 	// A conversion in flight legitimately carries conversion-pending. The server refuses it from an
 	// admin, but the trigger must still show what the grant has rather than going blank.
+	describe('billing cadence', () => {
+		it('lets a contracted grant move to the calendar, and sends the change', async () => {
+			await mount(grant({ source: 'contracted', shape: null, cadence: 'anniversary' }));
+			await pick('Billing cadence', /Calendar/);
+			fireEvent.change(reasonBox(), { target: { value: 'the contract bills on the 1st' } });
+			await act(() => null);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			const [{ changes }] = updateGrant.mock.calls[0];
+			expect(changes.cadence).toBe('calendar');
+		});
+
+		it('is not sent when untouched', async () => {
+			await mount(grant({ source: 'contracted', shape: null, cadence: 'calendar' }));
+			fireEvent.change(reasonBox(), { target: { value: 'unrelated' } });
+			await act(() => null);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			expect(updateGrant.mock.calls[0][0].changes).not.toHaveProperty('cadence');
+		});
+
+		it('is locked on every other source, and says why', async () => {
+			await mount(grant({ source: 'purchased', shape: null }));
+			const trigger = screen.getByLabelText('Billing cadence');
+			expect(trigger.hasAttribute('disabled') || trigger.getAttribute('data-disabled') != null).toBe(true);
+			expect(screen.getByText(/a purchased grant renews on its anniversary/)).toBeTruthy();
+		});
+	});
+
 	it('shows an internal policy the grant already carries without offering it', async () => {
 		await mount(grant({ expiryPolicy: 'conversion-pending' }));
 		expect(screen.getByLabelText('Expiry policy').textContent).toContain('conversion-pending');
