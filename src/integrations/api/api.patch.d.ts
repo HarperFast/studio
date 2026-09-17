@@ -286,6 +286,11 @@ export interface ClusterGrant {
 	startsAt: string | null;
 	endsAt: string | null;
 	cycleAnchor: string | null;
+	/**
+	 * The rule that chose `cycleAnchor`: the day the grant started (anniversary), or the 1st of the
+	 * month (calendar). Null reads as anniversary. Only a contracted grant may be on the calendar.
+	 */
+	cadence?: 'anniversary' | 'calendar' | null;
 	/** `conversion-pending` is a bounded conversion window, not the customer's terms. */
 	expiryPolicy: 'consumer-trial' | 'enterprise-grace' | 'comped' | 'conversion-pending' | 'none' | null;
 	/** Last expiry-policy stage the runner applied; null before the first one. */
@@ -328,6 +333,7 @@ export interface AdminClusterGrant {
 	source: ClusterGrant['source'];
 	status: ClusterGrant['status'];
 	origin?: 'derived' | 'admin' | null;
+	cadence?: ClusterGrant['cadence'];
 	startsAt: string | null;
 	cycleAnchor?: string | null;
 	endsAt: string | null;

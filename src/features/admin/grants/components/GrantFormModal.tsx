@@ -60,6 +60,7 @@ function toFormValues(grant: AdminClusterGrant | null): GrantFormValues {
 	return {
 		endsAt: toLocalInput(grant?.endsAt),
 		expiryPolicy: grant?.expiryPolicy ?? NO_EXPIRY_POLICY,
+		cadence: grant?.cadence ?? 'anniversary',
 		shape: (grant?.shape ?? []).map((entry) => ({ planId: entry.planId, regionId: entry.regionId ?? '' })),
 		allowedPlanIds: grant?.allowedPlanIds ?? [],
 		allowedRegionIds: grant?.allowedRegionIds ?? [],
@@ -111,6 +112,8 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// (409) — the right move is a replacement — so the editor locks rather than invites a save.
 	const isComped = grant?.source === 'comped';
 	const boundComp = isComped && grant?.clusterId != null;
+	// Only a contract moves a renewal to the 1st; the server refuses a cadence on any other source.
+	const isContracted = grant?.source === 'contracted';
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and
 	// why; the button is held so the save can't be attempted from here either.
@@ -144,6 +147,7 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 					? { endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null }
 					: {}),
 				...(values.expiryPolicy !== initial.expiryPolicy ? { expiryPolicy: values.expiryPolicy } : {}),
+				...(values.cadence !== initial.cadence ? { cadence: values.cadence } : {}),
 				...(sameIds(values.allowedPlanIds, initial.allowedPlanIds)
 					? {}
 					: { allowedPlanIds: asScope(values.allowedPlanIds) }),
@@ -228,6 +232,37 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 											</SelectContent>
 										</Select>
 									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="cadence"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Billing cadence</FormLabel>
+									<FormControl>
+										<Select value={field.value} onValueChange={field.onChange} disabled={!isContracted}>
+											<SelectTrigger className="w-full" aria-label="Billing cadence">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												<SelectItem value="anniversary">
+													Anniversary — the day the grant started, every period
+												</SelectItem>
+												<SelectItem value="calendar">Calendar — the 1st of the month</SelectItem>
+											</SelectContent>
+										</Select>
+									</FormControl>
+									<p className="text-xs font-light text-muted-foreground">
+										{isContracted
+											? 'A change takes effect at the next renewal; the current period runs to its boundary.'
+											: `Only a contracted grant can bill on the calendar; a ${
+												grant?.source ?? ''
+											} grant renews on its anniversary.`}
+									</p>
 									<FormMessage />
 								</FormItem>
 							)}
