@@ -7,8 +7,12 @@ export function useFormField() {
 	const fieldContext = useContext(FormFieldContext);
 	const itemContext = useContext(FormItemContext);
 	const { getFieldState } = useFormContext();
-	const formState = useFormState({ name: fieldContext.name });
-	const fieldState = getFieldState(fieldContext.name, formState);
+	// Subscribe to errors only. Handing the whole form-state proxy to getFieldState also subscribes
+	// this component to isValidating, which react-hook-form (7.88+) flips synchronously while a
+	// Controller registers during its own render — a render-phase update of every label and message.
+	const { errors } = useFormState({ name: fieldContext.name });
+	void errors;
+	const fieldState = getFieldState(fieldContext.name);
 
 	if (!fieldContext) {
 		throw new Error('useFormField should be used within <FormField>');
