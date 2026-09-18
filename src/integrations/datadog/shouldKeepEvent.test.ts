@@ -560,6 +560,159 @@ describe('shouldKeepEvent', () => {
 		});
 	});
 
+	// Regression tests for #1659, on the real stacks RUM recorded.
+	describe('evaluated-code frames', () => {
+		const webglFingerprintStack = (terminator: string) =>
+			[
+				'RangeError: Maximum call stack size exceeded',
+				'  at WebGLRenderingContext.value [as getParameter] @ <anonymous>:4:28',
+				'  at WebGLRenderingContext.value [as getParameter] @ <anonymous>:7:56',
+				'  at WebGLRenderingContext.value [as getParameter] @ <anonymous>:7:56',
+			].join(terminator) + terminator;
+
+		it('discards a stack whose only frames sit inside evaluated code', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({ message: 'Maximum call stack size exceeded', stack: webglFingerprintStack('\n') }),
+				),
+			).toBe(false);
+		});
+
+		it('discards the same stack with CRLF line endings', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({ message: 'Maximum call stack size exceeded', stack: webglFingerprintStack('\r\n') }),
+				),
+			).toBe(false);
+		});
+
+		// The short-circuit on a located Studio frame outranks the evaluated ones beside it: an
+		// extension can call into our code, and that error is still ours to answer for.
+		it('keeps a stack that also holds a Studio frame', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Maximum call stack size exceeded',
+						stack: [
+							'RangeError: Maximum call stack size exceeded',
+							'  at value [as getParameter] @ <anonymous>:4:28',
+							'  at go @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('keeps a stack whose Studio frame comes first', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Maximum call stack size exceeded',
+						stack: [
+							'RangeError: Maximum call stack size exceeded',
+							'  at go @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+							'  at value [as getParameter] @ <anonymous>:4:28',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('discards evaluated frames topped by the Datadog fetch wrapper', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Maximum call stack size exceeded',
+						stack: [
+							'RangeError: Maximum call stack size exceeded',
+							'  at <anonymous> @ https://fabric.harper.fast/assets/vendor-datadog-DBn-aOxh.js:3:3213',
+							'  at value [as getParameter] @ <anonymous>:4:28',
+						].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('does not read an evaluated location embedded in the message as a frame', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: [
+							'Error: Boom at <anonymous>:4:28',
+							'  at go @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234',
+						].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		it('discards a frame positioned inside an eval', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: ['TypeError: Boom', '  at eval @ <anonymous>:1:7'].join('\n'),
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps a frame whose anonymous location carries no position', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Boom',
+						stack: ['TypeError: Boom', '  at Array.forEach @ <anonymous>'].join('\n'),
+					}),
+				),
+			).toBe(true);
+		});
+
+		// Harper interpolates customer input into a relayed message, so the text above the frames
+		// can be shaped exactly like one. It must not decide provenance.
+		it('does not read a frame-shaped message line as a frame', () => {
+			const injected = (location: string) => {
+				const message = `Boom\n  at fake @ ${location}`;
+				return errorEvent({
+					type: 'TypeError',
+					message,
+					stack: `TypeError: ${message}\n  at dispatchEvent @ [native code]`,
+				});
+			};
+
+			expect(shouldKeepEvent(injected('<anonymous>:1:1'))).toBe(true);
+			expect(shouldKeepEvent(injected('chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/js/inject.js:1:1')))
+				.toBe(true);
+		});
+
+		it('still reads real frames below a multi-line message', () => {
+			const message = 'Boom\n  at fake @ https://example.test/x.js:1:1';
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						type: 'TypeError',
+						message,
+						stack: `TypeError: ${message}\n  at value [as getParameter] @ <anonymous>:4:28`,
+					}),
+				),
+			).toBe(false);
+		});
+
+		it('keeps an opaque cross-origin error whose frames carry no position', () => {
+			expect(
+				shouldKeepEvent(
+					errorEvent({
+						message: 'Uncaught "Script error."',
+						stack: ['Error: Script error.', '  at undefined @ ', '  at dispatchEvent @ [native code]'].join(
+							'\n',
+						),
+					}),
+				),
+			).toBe(true);
+		});
+	});
+
 	it('keeps non-timeout network failures that are not attributable to an instance endpoint', () => {
 		// Without an instance/cluster URL we cannot tell a real backend failure from an
 		// expected one, so a bare "Network Error" stays visible (unlike timeouts).

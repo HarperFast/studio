@@ -76,6 +76,23 @@ describe('beforeSend', () => {
 		).toBe(false);
 	});
 
+	// #1659, composed through the real callback: the filter must reject the extension's
+	// fingerprinting stack before any redaction layer rewrites it.
+	it('drops an extension fingerprinting stack whose frames are all evaluated code', () => {
+		expect(
+			beforeSend(
+				errorEvent({
+					message: 'Maximum call stack size exceeded',
+					stack: [
+						'RangeError: Maximum call stack size exceeded',
+						'  at WebGLRenderingContext.value [as getParameter] @ <anonymous>:4:28',
+						'  at WebGLRenderingContext.value [as getParameter] @ <anonymous>:7:56',
+					].join('\n'),
+				}),
+			),
+		).toBe(false);
+	});
+
 	it('passes non-error events through untouched', () => {
 		expect(beforeSend({ type: 'view' })).toBe(true);
 	});
