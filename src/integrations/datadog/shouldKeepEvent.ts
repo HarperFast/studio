@@ -1,3 +1,4 @@
+import { messageHeaderLength } from './redactRelayedMessage';
 /**
  * A structural subset of Datadog's RUM event, narrow so it stays assignable to `beforeSend`'s
  * signature. `view` is on every event type, not just errors.
@@ -51,6 +52,14 @@ const FRAME_URL = new RegExp(
 );
 
 /**
+ * A frame positioned inside evaluated code — which V8 spells `<anonymous>` for an `eval` frame too,
+ * so that needs no alternative of its own. Studio never evaluates code at runtime, so such a frame
+ * is never ours. The line:column is required: a bare `at <anonymous>` is the browser knowing
+ * nothing at all, which #1646 settled is skipped rather than attributed.
+ */
+const EVALUATED_FRAME = /^\s*at\s.*[\s(@]<anonymous>:\d+:\d+\s*$/;
+
+/**
  * `ConsoleLogger.error`'s styling prefix (`vs/platform/log/common/log.js`), which the RUM SDK
  * flattens into the message text. It is what separates something Monaco logged from the same
  * value reaching `console.error` any other way — React Query's global handler logs it bare.
@@ -75,26 +84,30 @@ const NESTED_ORIGIN_PREFIX = /^blob:/;
 const INSTRUMENTATION_FRAME = /\/assets\/vendor-datadog-[^/\s]*\.js/;
 
 /**
- * True when every located frame in the stack belongs to a third-party script or a browser
- * extension (or to the Datadog SDK's own instrumentation), i.e. no Studio code is on the
- * stack at all.
+ * True when the stack carries at least one frame that is provably not ours — a third-party
+ * script, a browser extension, or a position inside evaluated code — and none that is, i.e. no
+ * Studio code is on the stack at all. Frames the browser left unattributable in any other way
+ * count for neither side.
  */
-function originatesInThirdPartyScript(stack: string) {
-	let sawThirdPartyFrame = false;
-	for (const line of stack.split('\n')) {
-		// Skips the message line and any frame the browser couldn't resolve to a script.
+function originatesInThirdPartyScript(stack: string, type: string | undefined, message: string) {
+	// A multi-line message puts interpolated customer text on its own line, where it can be shaped
+	// exactly like a frame (`redactRelayedMessage`); this runs before any redaction, so skip it.
+	const header = messageHeaderLength(type, message, stack);
+	let sawForeignFrame = false;
+	for (const line of stack.slice(header ?? 0).split('\n')) {
 		const url = FRAME_URL.exec(line)?.[1]?.replace(NESTED_ORIGIN_PREFIX, '');
 		if (!url) {
+			sawForeignFrame ||= EVALUATED_FRAME.test(line);
 			continue;
 		}
 		if (THIRD_PARTY_SCRIPT_FRAME.test(url) || BROWSER_EXTENSION_FRAME.test(url)) {
-			sawThirdPartyFrame = true;
+			sawForeignFrame = true;
 		} else if (!INSTRUMENTATION_FRAME.test(url)) {
 			// Studio code is on the stack, so the error is ours to answer for.
 			return false;
 		}
 	}
-	return sawThirdPartyFrame;
+	return sawForeignFrame;
 }
 
 /**
@@ -196,7 +209,7 @@ export function shouldKeepEvent(event: DatadogErrorEvent) {
 	// Attribute on the stack rather than the message, so a genuine Studio error that happens to
 	// share a message is still kept.
 	const stack = typeof event.error?.stack === 'string' ? event.error.stack : '';
-	if (stack && originatesInThirdPartyScript(stack)) {
+	if (stack && originatesInThirdPartyScript(stack, errorName, message)) {
 		return false;
 	}
 

@@ -608,6 +608,13 @@ is a frame the SDK emitted. Attribution therefore has to match the SDK's frame s
 hunt for a URL anywhere on the line — otherwise those message lines read as first-party frames.
 Roughly a third of Studio's RUM error volume is this family, so it is not an edge case.
 
+Matching the frame shape is necessary but **not sufficient**: a multi-line message can put a line
+in the SDK's own frame shape above the real frames. Harper composes relayed text by interpolating
+customer input (`redactRelayedMessage.ts`), so `at x @ <anonymous>:1:1` in an import field
+reaches the stack verbatim, and `shouldKeepEvent` runs on the _raw_ stack, before any redaction.
+Skip the header span instead of trusting the shape — `messageHeaderLength(type, message, stack)`
+in `redactRelayedMessage.ts` computes it, and both the redaction and the attribution use it (#1659).
+
 Two traps when re-checking this after an SDK bump. The pnpm store can hold several `browser-core`
 versions at once, so resolve the one `browser-rum` actually uses (`require.resolve` from the
 `browser-rum` entry) instead of globbing `.pnpm` — a stale sibling copy reads as authoritative. And
