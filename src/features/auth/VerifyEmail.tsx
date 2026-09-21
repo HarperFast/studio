@@ -117,7 +117,11 @@ export function VerifyEmail() {
 
 	return (
 		<div className="auth-form">
-			<AuthHeading icon={MailCheck} title="Verify Email" subtitle="Enter your email to receive a verification link." />
+			<AuthHeading
+				icon={MailCheck}
+				title="Verify Email"
+				subtitle={isPending ? undefined : 'Enter your email to receive a verification link.'}
+			/>
 			{!isPending ? <SendEmailVerification /> : (
 				<p role="status" className="auth-pending-message">
 					<LoaderCircle aria-hidden="true" className="auth-loading-icon" />Verifying email...

@@ -356,6 +356,11 @@
 	color: var(--signin-ink);
 }
 
+.auth-form .github-signin-btn:hover {
+	background: var(--signin-field);
+	border-color: var(--signin-link);
+}
+
 .auth-form .github-icon {
 	filter: invert(1);
 }
@@ -510,7 +515,7 @@
 	padding-inline: 0;
 }
 
-.auth-form:not(.fabric-sign-in) p:not([role="alert"]) {
+.auth-form:not(.fabric-sign-in) p:not([role="alert"]):not([data-slot="form-message"]) {
 	color: var(--signin-muted);
 	line-height: 1.6;
 }
