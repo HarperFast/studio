@@ -404,39 +404,45 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						<h2>{cluster.name}</h2>
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="flex items-center justify-between gap-2">
+				{
+					/* The bar is full width and every pill and the CTA are shrink-0 nowrap, so one shared row
+				    pushed the CTA past the card edge: the bar gets its own line and the rest wraps. */
+				}
+				<CardContent className="flex flex-col gap-2">
 					<ClusterProgress cluster={cluster} />
-					{expiry && (
-						<Badge
-							variant={expiry.severity === 'critical'
-								? 'destructive'
-								: expiry.severity === 'warning'
-								? 'warning'
-								: 'secondary'}
-							title={expiry.detail ?? expiry.title}
-						>
-							{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
-							{expiry.badgeLabel}
-						</Badge>
-					)}
-					{trial && (
-						<Badge variant="outline" className="font-normal" title={trial.detail}>
-							{trial.label}
-						</Badge>
-					)}
-					{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
-					{showContainerOpBadge && cluster.status && (
-						<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
-							{isClusterTransitioning && <Loader2 className="animate-spin" />}
-							{capitalizeWords(cluster.status)}
-						</Badge>
-					)}
-					{clusterHasFailed && cluster.status && (
-						<>
-							<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
-							<span className="text-xs">Click "..." to choose how to proceed.</span>
-						</>
-					)}
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						{expiry && (
+							<Badge
+								variant={expiry.severity === 'critical'
+									? 'destructive'
+									: expiry.severity === 'warning'
+									? 'warning'
+									: 'secondary'}
+								title={expiry.detail ?? expiry.title}
+							>
+								{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
+								{expiry.badgeLabel}
+							</Badge>
+						)}
+						{trial && (
+							<Badge variant="outline" className="font-normal" title={trial.detail}>
+								{trial.label}
+							</Badge>
+						)}
+						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
+						{showContainerOpBadge && cluster.status && (
+							<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
+								{isClusterTransitioning && <Loader2 className="animate-spin" />}
+								{capitalizeWords(cluster.status)}
+							</Badge>
+						)}
+						{clusterHasFailed && cluster.status && (
+							<>
+								<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+								<span className="text-xs">Click "..." to choose how to proceed.</span>
+							</>
+						)}
+					</div>
 				</CardContent>
 
 				<ConfirmDeletionModal
