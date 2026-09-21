@@ -230,11 +230,44 @@ entry never worked either: Vite appends the request path to the target's own pat
 `target: 'http://localhost:9926/oauth'` forwarded `/oauth/google/login` as
 `/oauth/oauth/google/login`. It's gone; nothing requests `/oauth` from the dev origin any more.
 
-Telling the two 404s apart when this breaks again: the component answers JSON
-(`{"error":"OAuth provider not found"}`, or a 503 when no provider is configured), so a
-plain-text `Not found` with no content-type means the request reached a server where the `oauth`
-resource was never registered — the wrong origin, or a CM where the plugin failed to load (its
-initial `updateConfiguration()` throws into the plugin loader).
+Telling the two 404s apart when this breaks again: the OAuth component answers JSON
+(`{"error":"OAuth provider not found"}`, or a 503 when no provider is configured), so anything
+else means the request reached a server where the `oauth` resource was never registered — the
+wrong origin, or a CM where the plugin failed to load (its initial `updateConfiguration()` throws
+into the plugin loader). What "anything else" looks like depends on where you are: a bare
+`Not found` in plain text is Harper core, while on a deployed CM a browser now gets Studio's own
+404 page and a non-HTML client `{"error":"Not found"}` — see the next section. Ask for it with
+`curl -H 'accept: application/json'` and the two stay easy to tell apart.
+
+## Studio's deployed 404 is a `GET /*` route, never `setNotFoundHandler`
+
+`.github/deploy-template/fastify/static.js` is what central-manager runs to serve Studio, and its
+catch-all route is the only thing standing between a mistyped URL and Harper core's plain-text
+`Not found`.
+
+It cannot be a `setNotFoundHandler`. Harper registers one on that fastify instance already
+(`server/fastifyRoutes.ts` — its handler re-emits `unhandled` so the request cascades back to
+core), and fastify allows exactly one per prefix: a component that registers a second throws
+`Not found handler already set for Fastify instance with prefix: '/'` **at load time**, which
+takes the whole component down — Studio stops being served at all, not just its 404 page. The
+catch-all route sidesteps the not-found path entirely, and a normal route response is returned to
+the client verbatim by Harper's inject bridge.
+
+Two options on the static plugin make room for it: `wildcard: false` (register a route per file
+rather than one `GET /*`, which would collide) and `index: false` (keep the plugin off `GET /`,
+which this file serves itself with its own frame guards and short max-age). Both behave the same
+on the @fastify/static 7 / 8 pairings that Harper v4 and v5 deploys use.
+
+Scope of the catch-all: Harper mounts these routes as a global fallback _after_ its own resource
+routing, so it only ever sees paths the native chain declined — it cannot shadow `/oauth/*` or the
+REST API. It is GET-only on purpose; an unmatched POST still cascades to core. And because Studio
+is hash-routed, an unmatched _path_ is never an app route, so it serves a standalone `404.html`
+(from `public/`, so every build carries it) rather than `index.html`, which would drop the visitor
+on the dashboard under a 404 status. Non-HTML clients get `{"error":"Not found"}` instead of a page.
+
+None of this is exercised by CI — nothing in the repo evaluates `.github/`. Verify changes by
+registering the real file against a fastify instance with Harper's not-found handler in front of
+it, pointed at a real `web/` build.
 
 ## Google sign-in button has no `display`
 
