@@ -27,7 +27,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { CreditCard, Server } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -102,6 +102,9 @@ export function ClusterForm({
 	const { mutate: submitNewClusterData, isPending: isCreatePending } = useCreateNewClusterMutation();
 	const { mutate: submitEditClusterData, isPending: isEditPending, error: editError } = useEditClusterMutation();
 	const editFailure = editError ? describeError(editError).message : undefined;
+	// The button disables on isPending, but that flips a tick after the click; a second submit in
+	// that tick would send the same create or plan change twice, and the server admits both.
+	const submitInFlight = useRef(false);
 
 	const [confirmingPaymentDetails, setConfirmingPaymentDetails] = useState(startOffOnBilling);
 
@@ -513,13 +516,7 @@ export function ClusterForm({
 	}, [queryClient, router, navigate, organizationId, form]);
 
 	const executeChangesToCluster = useCallback(async () => {
-		// Payment review submits without the details form, and a draft restored after a billing redirect
-		// can be stale: a region, a custom region's shape or the staff rules may have changed meanwhile.
-		if (!(await form.trigger())) {
-			toast.error('Some cluster details are no longer valid. Please review them.');
-			setConfirmingPaymentDetails(false);
-			return;
-		}
+		if (submitInFlight.current) { return; }
 		const formData = form.getValues();
 		const plans: ClusterUpsertRegionPlan[] = [];
 		const plan = deploymentToPerformanceToPlan[formData.deploymentDescription][formData.performanceDescription];
@@ -562,6 +559,10 @@ export function ClusterForm({
 		setSavedClusterState(null);
 		const toastId = onStartSaving({ creating: !clusterId, deploymentDescription: formData.deploymentDescription });
 		const clearToast = () => toast.dismiss(toastId);
+		submitInFlight.current = true;
+		const release = () => {
+			submitInFlight.current = false;
+		};
 		if (clusterId) {
 			submitEditClusterData(
 				mode === 'version'
@@ -578,6 +579,7 @@ export function ClusterForm({
 							skipGtmWait: formData.skipGtmWait,
 						}),
 					onError: clearToast,
+					onSettled: release,
 				},
 			);
 		} else {
@@ -603,6 +605,7 @@ export function ClusterForm({
 						toastId,
 					}),
 				onError: clearToast,
+				onSettled: release,
 			});
 		}
 	}, [
@@ -646,7 +649,13 @@ export function ClusterForm({
 				<dl>
 					<dt className="text-sm text-muted-foreground">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="mt-2 font-bold">
-						{totalPrice > 0
+						{selectedGrant
+							? (
+								<span className="text-4xl text-green">
+									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
+								</span>
+							)
+							: totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
 									<PriceDisplay price={monthlyPrice} />
