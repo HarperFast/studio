@@ -1,17 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
-import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { AuthInput } from './components/AuthInput';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
@@ -22,7 +20,6 @@ const rememberControlClassName =
 	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
-	const [showPassword, setShowPassword] = useState(false);
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
 
 	const methods = useForm({
@@ -53,20 +50,15 @@ export function SignIn() {
 						control={control}
 						name="email"
 						render={({ field }) => (
-							<FormItem className="sign-in-field">
+							<FormItem className="auth-field">
 								<FormLabel>Email</FormLabel>
-								<div className="sign-in-input">
-									<FormControl>
-										<Input
-											type="email"
-											placeholder="you@company.com"
-											autoFocus={true}
-											autoComplete="email"
-											{...field}
-										/>
-									</FormControl>
-									<Mail aria-hidden="true" className="sign-in-input-icon" />
-								</div>
+								<AuthInput
+									type="email"
+									placeholder="you@company.com"
+									autoFocus={true}
+									autoComplete="email"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -75,28 +67,14 @@ export function SignIn() {
 						control={control}
 						name="password"
 						render={({ field }) => (
-							<FormItem className="sign-in-field">
+							<FormItem className="auth-field">
 								<FormLabel>Password</FormLabel>
-								<div className="sign-in-input">
-									<FormControl>
-										<Input
-											type={showPassword ? 'text' : 'password'}
-											placeholder="Your password"
-											autoComplete="current-password"
-											{...field}
-										/>
-									</FormControl>
-									<LockKeyhole aria-hidden="true" className="sign-in-input-icon" />
-									<button
-										type="button"
-										className="sign-in-password-toggle"
-										aria-label={showPassword ? 'Hide password' : 'Show password'}
-										aria-pressed={showPassword}
-										onClick={() => setShowPassword(value => !value)}
-									>
-										{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-									</button>
-								</div>
+								<AuthInput
+									type="password"
+									placeholder="Your password"
+									autoComplete="current-password"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}

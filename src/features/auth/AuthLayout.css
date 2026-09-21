@@ -216,20 +216,20 @@
 	margin-top: 32px;
 }
 
-.sign-in-field {
+.auth-field {
 	margin-bottom: 22px;
 }
 
-.sign-in-field label {
+.auth-field label {
 	color: var(--signin-ink);
 	font-size: 14px;
 }
 
-.sign-in-input {
+.auth-input {
 	position: relative;
 }
 
-.sign-in-input input {
+.auth-input input {
 	background: var(--signin-field);
 	border: 1px solid var(--signin-border);
 	color: var(--signin-ink);
@@ -240,16 +240,16 @@
 	font-size: 16px;
 }
 
-.sign-in-input input[aria-invalid="true"] {
+.auth-input input[aria-invalid="true"] {
 	border-color: var(--destructive);
 }
 
-.sign-in-input input::placeholder {
+.auth-input input::placeholder {
 	color: var(--signin-muted);
 	opacity: 1;
 }
 
-.sign-in-input-icon {
+.auth-input-icon {
 	pointer-events: none;
 	position: absolute;
 	top: 16px;
@@ -259,7 +259,7 @@
 	color: var(--signin-muted);
 }
 
-.sign-in-password-toggle {
+.auth-password-toggle {
 	position: absolute;
 	right: 4px;
 	top: 4px;
@@ -272,14 +272,17 @@
 	cursor: pointer;
 }
 
-.sign-in-password-toggle svg {
+.auth-password-toggle svg {
 	width: 20px;
 	height: 20px;
 }
 
-.fabric-sign-in .sign-in-submit {
+.auth-form .sign-in-submit {
 	width: 100%;
-	height: 52px;
+	min-height: 52px;
+	height: auto;
+	padding: 12px;
+	white-space: normal;
 	margin-top: 4px;
 	border-radius: 10px;
 	background: linear-gradient(105deg, #087dae, #6743ef);
@@ -289,7 +292,7 @@
 	gap: 12px;
 }
 
-.fabric-sign-in .sign-in-submit:hover {
+.auth-form .sign-in-submit:hover {
 	filter: brightness(1.1);
 }
 
@@ -298,12 +301,6 @@
 	justify-content: flex-end;
 	margin-top: 17px;
 	font-size: 13px;
-}
-
-.fabric-sign-in a:not(.gsi-material-button):not(.github-signin-btn) {
-	color: var(--signin-link);
-	text-underline-offset: 4px;
-	text-decoration: underline;
 }
 
 .sign-in-divider {
@@ -328,7 +325,7 @@
 	gap: 12px;
 }
 
-.sign-in-providers .gsi-material-button, .sign-in-providers .github-signin-btn {
+.auth-form .gsi-material-button, .auth-form .github-signin-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -339,16 +336,16 @@
 	border-color: var(--signin-border);
 }
 
-.sign-in-providers .github-signin-btn {
+.auth-form .github-signin-btn {
 	background: var(--signin-field);
 	color: var(--signin-ink);
 }
 
-.sign-in-providers .github-icon {
+.auth-form .github-icon {
 	filter: invert(1);
 }
 
-.dark .sign-in-providers .github-icon {
+.dark .auth-form .github-icon {
 	filter: none;
 }
 
@@ -374,7 +371,7 @@
 	min-width: 0;
 }
 
-.dark .sign-in-providers .gsi-material-button {
+.dark .auth-form .gsi-material-button {
 	background: #131314;
 	color: #e3e3e3;
 }
@@ -474,47 +471,19 @@
 	font-weight: 700;
 	line-height: 1.2;
 	text-align: left;
-	letter-spacing: -0.8px;
+	letter-spacing: -0.3px;
 	margin-bottom: 24px;
 }
 
-.auth-form:not(.fabric-sign-in) input:not([type="checkbox"]) {
-	width: 100%;
-	height: 48px;
-	border: 1px solid var(--signin-border);
-	background: var(--signin-field);
-	color: var(--signin-ink);
-	border-radius: 10px;
-	font-size: 16px;
-}
-
-.auth-form:not(.fabric-sign-in) input[aria-invalid="true"] {
-	border-color: var(--destructive);
-}
-
-.auth-form:not(.fabric-sign-in) button[type="submit"] {
-	min-height: 48px;
-	height: auto;
-	padding: 12px;
-	white-space: normal;
-	border-radius: 10px;
-	background: linear-gradient(105deg, #087dae, #6743ef);
-	color: white;
-}
-
 .auth-form a:not(.gsi-material-button):not(.github-signin-btn) {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
 	color: var(--signin-link);
 	text-underline-offset: 4px;
 }
 
 .auth-form hr {
 	border-color: var(--signin-border);
-}
-
-.auth-form .gsi-material-button, .auth-form .github-signin-btn {
-	max-width: none;
-	min-width: 0;
-	border-radius: 10px;
 }
 
 .auth-form:not(.fabric-sign-in) > .flex {
@@ -526,4 +495,102 @@
 .auth-form:not(.fabric-sign-in) p:not([role="alert"]) {
 	color: var(--signin-muted);
 	line-height: 1.6;
+}
+
+.auth-form a:not(.gsi-material-button):not(.github-signin-btn):hover {
+	color: var(--signin-ink);
+}
+
+.auth-links {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 24px;
+	font-size: 13px;
+}
+
+.auth-password-toggle:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.auth-status-icon {
+	display: grid;
+	place-items: center;
+	width: 48px;
+	height: 48px;
+	margin-bottom: 16px;
+	border-radius: 14px;
+	background: var(--signin-field);
+	border: 1px solid var(--signin-border);
+	color: var(--signin-link);
+}
+
+.auth-status-icon svg, .auth-pending-message svg {
+	width: 24px;
+	height: 24px;
+	flex-shrink: 0;
+}
+
+.auth-pending-message {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.auth-loading-icon {
+	animation: auth-spin 1.2s linear infinite;
+}
+
+@keyframes auth-spin {
+	to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.auth-loading-icon { animation: none; }
+}
+
+.auth-form a[aria-disabled="true"] {
+	opacity: 0.5;
+}
+
+.auth-heading {
+	display: grid;
+	grid-template-columns: 48px minmax(0, 1fr);
+	align-items: start;
+	gap: 16px;
+	margin-bottom: 24px;
+}
+
+.auth-heading .auth-status-icon {
+	margin: 0;
+}
+
+.auth-form .auth-heading h1 {
+	margin: 0;
+	line-height: 1.3;
+	letter-spacing: -0.3px;
+}
+
+.auth-form .auth-heading-subtitle {
+	margin-top: 8px;
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--signin-muted);
+}
+
+@media (max-width: 767px) {
+	.auth-heading {
+		grid-template-columns: 40px minmax(0, 1fr);
+		gap: 12px;
+	}
+	.auth-heading .auth-status-icon {
+		width: 40px;
+		height: 40px;
+		border-radius: 12px;
+	}
+	.auth-form .auth-heading h1 {
+		font-size: 26px;
+	}
 }
