@@ -87,6 +87,14 @@ async function mountCreate() {
 	await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
+describe('ClusterForm — a selected voucher waives the price', () => {
+	it('shows Complimentary, not the plan price, when a comp voucher is selected', async () => {
+		await mountCreate();
+		expect(screen.getByText('Complimentary')).toBeTruthy();
+		expect(screen.queryByText(/\$20/)).toBeNull();
+	});
+});
+
 describe('ClusterForm — one submit at a time', () => {
 	it('a second click while the create is in flight sends nothing', async () => {
 		await mountCreate();

@@ -142,10 +142,12 @@ export function useClusterUsage(clusterId?: string) {
  * every region names the same one, and with more than one region the date is labelled "next renewal"
  * rather than asserting the whole cluster renews then. The per-region truth is on the Usage tab.
  */
-export function usageSubtitle(data: ClusterUsage): string {
+export function usageSubtitle(data: ClusterUsage, { trial = false }: { trial?: boolean } = {}): string {
 	const { regions } = data;
 	const uniformPlanName = regions.every((r) => r.planName === regions[0]?.planName) ? regions[0]?.planName : null;
-	const renewal = regions.length > 1 ? 'next renewal' : 'renews';
+	// A trial's block expiry is the trial's end, and nothing is bought after it: "renews" would imply
+	// a charge the server deliberately does not project for trials.
+	const renewal = trial ? 'ends' : regions.length > 1 ? 'next renewal' : 'renews';
 	return [
 		uniformPlanName ? `${uniformPlanName} plan` : null,
 		data.renewsAt ? `${renewal} ${formatCycleDate(data.renewsAt)}` : null,

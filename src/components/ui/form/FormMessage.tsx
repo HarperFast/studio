@@ -4,7 +4,8 @@ import { ComponentProps } from 'react';
 
 export function FormMessage({ className, ...props }: ComponentProps<'p'>) {
 	const { error, formMessageId } = useFormField();
-	const body = error ? String(error?.message) : props.children;
+	// An array field's error is the list of its rows' errors and carries no message of its own.
+	const body = error?.message ? String(error.message) : props.children;
 
 	if (!body) {
 		return null;

@@ -44,6 +44,13 @@ vi.mock('./queries/getFleetUsage', () => ({
 		retry: false,
 	}),
 }));
+vi.mock('@/features/admin/regions/queries/getRegions', () => ({
+	getRegionsQueryOptions: () => ({
+		queryKey: ['test-regions'],
+		queryFn: async () => [{ id: 'us-1', region: 'US', purchasedBlockMultiplier: 2 }],
+		retry: false,
+	}),
+}));
 vi.mock('@/features/admin/plans/queries/getPlans', () => ({
 	plansQueryKey: ['test-plans'],
 	getPlansQueryOptions: () => ({
@@ -142,17 +149,34 @@ describe('BillingAdminIndex', () => {
 	});
 
 	// Price comes from the plan catalogue, summed across the cluster's region plans.
-	it('totals what the cluster costs per period', async () => {
-		await mount([cluster({
-			plans: [{ planId: 'fabric-block-hobbyist' }, { planId: 'fabric-block-level-1' }],
-		})]);
-		expect(cellOf('clu-a', 4)).toBe('$105');
+	// Spend is what will be invoiced: plan price × the region's block multiplier, for a live grant
+	// Stripe or a contract bills. Bare list price per region plan read a 2-unit region at half.
+	it('totals what the cluster costs per period, weighted by the region multiplier', async () => {
+		await mount(
+			[cluster({ plans: [{ planId: 'fabric-block-hobbyist', regionId: 'us-1' }, { planId: 'fabric-block-level-1' }] })],
+			[grant()],
+		);
+		expect(cellOf('clu-a', 4)).toBe('$125');
+		// The row and the fleet total agree.
+		expect(screen.getAllByText('$125')).toHaveLength(2);
 	});
 
 	// A price built from a plan the catalogue doesn't have would be quietly short.
 	it('will not total a price it cannot know', async () => {
-		await mount([cluster({ plans: [{ planId: 'plan-that-is-gone' }] })]);
+		await mount([cluster({ plans: [{ planId: 'plan-that-is-gone' }] })], [grant()]);
 		expect(cellOf('clu-a', 4)).toBe('—');
+	});
+
+	// A comped cluster costs the customer nothing, and a cluster running on no grant is invoiced by
+	// nothing; summing their list price read both as revenue.
+	it('counts no spend for a comped cluster or one with no grant', async () => {
+		await mount(
+			[cluster({ id: 'clu-comp', name: 'Comp' }), cluster({ id: 'clu-none', name: 'None' })],
+			[grant({ id: 'cgr-comp', clusterId: 'clu-comp', source: 'comped' })],
+		);
+		expect(cellOf('clu-comp', 4)).toBe('$0');
+		expect(cellOf('clu-none', 4)).toBe('$0');
+		expect(screen.getByText('$0', { selector: 'span.tabular-nums' })).toBeTruthy();
 	});
 
 	// mostConstrained is the server's single tightest region x metric. Quota is enforced per region,

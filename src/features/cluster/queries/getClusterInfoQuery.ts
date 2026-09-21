@@ -2,7 +2,7 @@ import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/integrations/api/api.patch';
 import { nextObservationStamp, syncRestartsFromCluster } from '@/lib/restart/restartTracker';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
-import { QueryClient, queryOptions } from '@tanstack/react-query';
+import { QueryClient, queryOptions, useQuery } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
 	const requestedAt = nextObservationStamp();
@@ -41,4 +41,9 @@ export function getClusterInfoQueryOptions(clusterId?: string | false, refetch?:
 				: undefined,
 		),
 	});
+}
+
+/** The cluster record for a page that already knows its id; mockable per test file. */
+export function useClusterInfo(clusterId?: string | false) {
+	return useQuery(getClusterInfoQueryOptions(clusterId));
 }

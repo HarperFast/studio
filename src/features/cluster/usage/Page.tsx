@@ -1,5 +1,6 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
+import { useClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
 	ClusterUsageRegion,
 	UsageRateLimit,
@@ -16,6 +17,8 @@ import { ReactNode, useState } from 'react';
 export function UsagePage() {
 	const { clusterId } = useParams({ strict: false }) as { clusterId?: string };
 	const { data, isLoading } = useClusterUsage(clusterId);
+	const { data: cluster } = useClusterInfo(clusterId);
+	const trial = cluster?.grant?.source === 'trial';
 
 	if (isLoading) {
 		return (
@@ -46,6 +49,7 @@ export function UsagePage() {
 					<div className="mt-5 space-y-3">
 						{data.regions.map((region) => (
 							<RegionSection
+								trial={trial}
 								key={region.region ?? region.regionIds.join()}
 								region={region}
 								showPlanInfo={shared == null}
@@ -65,7 +69,9 @@ export function UsagePage() {
 	);
 }
 
-function RegionSection({ region, showPlanInfo }: { region: ClusterUsageRegion; showPlanInfo: boolean }) {
+function RegionSection(
+	{ region, showPlanInfo, trial }: { region: ClusterUsageRegion; showPlanInfo: boolean; trial: boolean },
+) {
 	const meters = METERED_ORDER.map((key) => toMeter(key, region.metrics[key]));
 	const meta = [
 		region.planName ? `${region.planName} plan` : null,
@@ -74,7 +80,7 @@ function RegionSection({ region, showPlanInfo }: { region: ClusterUsageRegion; s
 			: region.status === 'lapsed'
 			? 'not renewed'
 			: region.expiresAt
-			? `renews ${fmtDate(region.expiresAt)}`
+			? `${trial ? 'ends' : 'renews'} ${fmtDate(region.expiresAt)}`
 			: null,
 	].filter(Boolean).join(' · ');
 
