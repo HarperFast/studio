@@ -28,4 +28,15 @@ test.describe('email-verification screen', () => {
 		await expect(page.getByLabel('Email')).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Send Verification Email' })).toBeVisible();
 	});
+	for (const theme of ['Light', 'Dark'] as const) {
+		test(`preserves validation error colors in ${theme.toLowerCase()} mode`, async ({ page }) => {
+			await page.goto('/#/verify-email');
+			await page.getByRole('button', { name: theme, exact: true }).click();
+			await page.getByRole('button', { name: 'Send Verification Email' }).click();
+			const email = page.getByLabel('Email', { exact: true });
+			await expect(email).toHaveAttribute('aria-invalid', 'true');
+			const errorColor = await email.evaluate(element => getComputedStyle(element).borderTopColor);
+			await expect(page.locator('[data-slot="form-message"]')).toHaveCSS('color', errorColor);
+		});
+	}
 });

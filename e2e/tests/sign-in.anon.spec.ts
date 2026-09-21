@@ -67,6 +67,16 @@ test.describe('sign-in page', () => {
 	});
 
 	for (const theme of ['Light', 'Dark'] as const) {
+		test(`keeps the GitHub button readable on hover in ${theme.toLowerCase()} mode`, async ({ page }) => {
+			await page.getByRole('button', { name: theme, exact: true }).click();
+			const github = page.getByRole('link', { name: 'Sign in with GitHub' });
+			await github.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+			const background = await github.evaluate(element => getComputedStyle(element).backgroundColor);
+			await github.hover();
+			await github.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+			await expect(github).toHaveCSS('background-color', background);
+		});
+
 		test(`visual baseline of the ${theme.toLowerCase()} sign-in page @visual`, async ({ page }) => {
 			await page.emulateMedia({ reducedMotion: 'reduce' });
 			await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
