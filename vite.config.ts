@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
@@ -70,6 +71,39 @@ function fixMonacoYamlWorkerInit(): Plugin {
 	};
 }
 
+/**
+ * Answer an unknown path in dev the way a deployed Studio does — with `public/404.html` and a 404
+ * — instead of Vite's SPA fallback, which returns 200 and index.html for every path. The hash
+ * router then lands the visitor on the dashboard, so a wrong URL reads as a working one, and the
+ * deployed 404 page (.github/deploy-template/fastify/static.js) can't be seen locally at all.
+ *
+ * `appType: 'mpa'` below is what turns the fallback off; this supplies the page. Studio is
+ * hash-routed, so `/` — with any query — is the only path that should ever return HTML, which is
+ * why the middleware skips it explicitly rather than running last: Vite registers its own
+ * index.html middleware AFTER plugin post hooks, so an unconditional catch-all here shadows it
+ * and 404s the app itself. Non-HTML requests fall through, so a missing module or asset still
+ * gets Vite's own 404 rather than a page.
+ */
+function serveNotFoundPage(): Plugin {
+	return {
+		name: 'serve-404-page',
+		apply: 'serve',
+		configureServer(server) {
+			// Returning the registration defers it until after Vite's own middlewares are in place.
+			return () => {
+				server.middlewares.use((req, res, next) => {
+					const pathname = (req.url ?? '/').split('?')[0];
+					if (pathname === '/' || pathname === '/index.html') { return next(); }
+					if (!String(req.headers.accept ?? '').includes('text/html')) { return next(); }
+					res.statusCode = 404;
+					res.setHeader('Content-Type', 'text/html');
+					res.end(readFileSync(path.resolve(__dirname, 'public/404.html')));
+				});
+			};
+		},
+	};
+}
+
 // The build-mode env files (dev/stage/prod for deploys, localstudio for the
 // bundled-with-harper UI) are versioned in .github/deploy-public-env to keep the
 // repo root uncluttered; the developer's own .env.local stays at the root where
@@ -112,7 +146,9 @@ export default defineConfig(({ mode }) => ({
 	envDir: PUBLIC_ENV_MODES.has(mode) ? path.resolve(__dirname, '.github/deploy-public-env') : undefined,
 	// `fixMonacoYamlWorkerInit` is also in `worker.plugins` below; see its doc comment for
 	// why it has to be registered in both places.
-	plugins: [react(), tailwindcss(), fixMonacoYamlWorkerInit()],
+	plugins: [react(), tailwindcss(), fixMonacoYamlWorkerInit(), serveNotFoundPage()],
+	// No SPA history fallback: see `serveNotFoundPage`.
+	appType: 'mpa',
 	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
 	// modules; the default 'iife' worker format breaks them. `plugins` here applies to the
 	// worker bundles specifically — Vite does not run the top-level `plugins` against them
