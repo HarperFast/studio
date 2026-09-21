@@ -362,6 +362,14 @@ describe('isConversionComplete', () => {
 		expect(isConversionFailed({ grant: null, conversionState: 'FAILED' })).toBe(true);
 	});
 
+	// A conversion can fail before the provisional grant replaces the trial; the trial still being
+	// live is the state the customer is trying to leave, not a remediation.
+	it('stays failed while the trial it started from is still the live grant', () => {
+		const trial = grant({ source: 'trial', expiryPolicy: 'consumer-trial', isActive: true });
+		expect(isConversionFailed({ grant: trial, conversionState: 'FAILED' })).toBe(true);
+		expect(isConversionComplete({ status: 'RUNNING', grant: trial, conversionState: 'FAILED' })).toBe(false);
+	});
+
 	it('is false while the marker says APPLYING even after the grant was replaced', () => {
 		const replaced = grant({ source: 'purchased', expiryPolicy: null });
 		expect(isConversionComplete({ status: 'RUNNING', grant: replaced, conversionState: 'APPLYING' })).toBe(false);

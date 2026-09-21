@@ -89,7 +89,8 @@ export function BillingAdminIndex() {
 	// covering the cluster — or the absence of one.
 	const grantsQuery = useQuery(getGrantsQueryOptions({ status: 'ACTIVE' }));
 	const { data: plans } = useQuery(getPlansQueryOptions());
-	const { data: regions } = useQuery(getRegionsQueryOptions());
+	const regionsQuery = useQuery(getRegionsQueryOptions());
+	const regions = regionsQuery.data;
 	// A region plan is billed at plan price × the region's block multiplier — what checkout charges
 	// and what the cycle mints — not the bare list price.
 	const multiplierByRegion = useMemo(
@@ -139,11 +140,18 @@ export function BillingAdminIndex() {
 			.map((cluster) => ({ cluster, grant: grantByCluster.get(cluster.id) }));
 	}, [clustersQuery.data, grantByCluster, search, cover, showTerminated]);
 
-	/** Only a live Stripe- or contract-billed grant turns a cluster's plans into spend. */
+	/**
+	 * Only a live Stripe- or contract-billed grant turns a cluster's plans into spend. `isActive` is
+	 * server-computed and optional: absent means "not said", never "lapsed" — the same reading the
+	 * coverage badge uses — so an older server does not print every purchased cluster as $0.
+	 */
 	const billable = (grant: AdminClusterGrant | undefined) =>
-		!!grant?.isActive && (grant.source === 'purchased' || grant.source === 'contracted');
+		!!grant && grant.isActive !== false && (grant.source === 'purchased' || grant.source === 'contracted');
 
-	/** What the cluster's region plans cost per period, or null when a plan is not in the catalogue. */
+	/**
+	 * What the cluster's region plans cost per period, or null when a plan or a region's multiplier is
+	 * not known — a region the catalogue has not loaded is "—", never priced as one block.
+	 */
 	const periodCost = (
 		plansOnCluster: { planId: string; regionId?: string | null }[] | null | undefined,
 	): number | null => {
@@ -151,7 +159,13 @@ export function BillingAdminIndex() {
 		for (const rp of plansOnCluster ?? []) {
 			const plan = planById.get(rp.planId);
 			if (!plan) { return null; }
-			total += plan.priceUsd * (rp.regionId ? multiplierByRegion.get(rp.regionId) ?? 1 : 1);
+			if (!rp.regionId) {
+				total += plan.priceUsd;
+				continue;
+			}
+			const multiplier = multiplierByRegion.get(rp.regionId);
+			if (multiplier == null) { return null; }
+			total += plan.priceUsd * multiplier;
 		}
 		return total;
 	};
@@ -182,7 +196,7 @@ export function BillingAdminIndex() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [rows, planById, multiplierByRegion]);
 
-	const isLoading = clustersQuery.isLoading || grantsQuery.isLoading;
+	const isLoading = clustersQuery.isLoading || grantsQuery.isLoading || regionsQuery.isLoading;
 	const isError = clustersQuery.isError || grantsQuery.isError;
 
 	return (

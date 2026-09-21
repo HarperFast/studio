@@ -167,6 +167,20 @@ describe('BillingAdminIndex', () => {
 		expect(cellOf('clu-a', 4)).toBe('—');
 	});
 
+	// isActive is server-computed and optional; a server that omits it must not zero the fleet.
+	it('bills a purchased grant whose liveness the server did not state', async () => {
+		const purchased = grant();
+		delete (purchased as Partial<AdminClusterGrant>).isActive;
+		await mount([cluster()], [purchased]);
+		expect(cellOf('clu-a', 4)).toBe('$40');
+	});
+
+	// A region the catalogue has not loaded has no multiplier; pricing it as one block would understate.
+	it('will not price a region plan whose multiplier it cannot know', async () => {
+		await mount([cluster({ plans: [{ planId: 'fabric-block-hobbyist', regionId: 'eu-9' }] })], [grant()]);
+		expect(cellOf('clu-a', 4)).toBe('—');
+	});
+
 	// A comped cluster costs the customer nothing, and a cluster running on no grant is invoiced by
 	// nothing; summing their list price read both as revenue.
 	it('counts no spend for a comped cluster or one with no grant', async () => {
