@@ -98,6 +98,18 @@ await expect('non-HTML client gets JSON', { method: 'GET', url: '/foo', headers:
 	status: 404,
 	type: 'application/json',
 });
+await expect('q=0 is a refusal, not a request', {
+	method: 'GET',
+	url: '/foo',
+	headers: { accept: 'application/json, text/html;q=0' },
+}, {
+	status: 404,
+	type: 'application/json',
+});
+await expect('media type casing is not significant', { method: 'GET', url: '/foo', headers: { accept: 'TEXT/HTML' } }, {
+	status: 404,
+	type: 'text/html',
+});
 await expect('the page itself is never cached hard', { method: 'GET', url: '/404.html', headers: html }, {
 	status: 200,
 	frameGuard: 'DENY',
