@@ -27,7 +27,7 @@ export function Verifying() {
 	}, [email, resendEmailVerification]);
 
 	return (
-		<div className="text-foreground dark:text-white w-lg flex flex-col gap-4">
+		<div className="auth-form flex flex-col gap-4">
 			<h1 className="text-3xl font-light">
 				<span
 					aria-hidden="true"

@@ -1,0 +1,529 @@
+.fabric-sign-in-page {
+	--signin-bg: #f8faff;
+	--signin-ink: #17213d;
+	--signin-muted: #596580;
+	--signin-border: #d9deec;
+	--signin-card: rgb(255 255 255 / 90%);
+	--signin-field: #f5f7fc;
+	--signin-link: #4356bb;
+	min-height: 100svh;
+	color: var(--signin-ink);
+	background: radial-gradient(ellipse at 12% 20%, #eceaff 0, transparent 48%), var(--signin-bg);
+}
+
+.dark .fabric-sign-in-page {
+	--signin-bg: #090c1a;
+	--signin-ink: #f5f6fc;
+	--signin-muted: #aab3ca;
+	--signin-border: #30384e;
+	--signin-card: rgb(16 20 32 / 94%);
+	--signin-field: #1b202c;
+	--signin-link: #a9c5ff;
+	background: radial-gradient(ellipse at 12% 20%, #19103d 0, transparent 52%), var(--signin-bg);
+}
+
+.sign-in-header {
+	max-width: 1600px;
+	margin: auto;
+	padding: 28px 4%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+
+.sign-in-brand, .sign-in-header nav {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+}
+
+.sign-in-brand {
+	gap: 8px;
+}
+
+.sign-in-brand img {
+	width: 230px;
+}
+
+.sign-in-header nav {
+	color: var(--signin-muted);
+}
+
+.sign-in-docs {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+}
+
+.sign-in-docs svg {
+	width: 19px;
+}
+
+.sign-in-content {
+	max-width: 1500px;
+	margin: 0 auto;
+	padding: 24px 4% 48px;
+	display: grid;
+	grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+	align-items: start;
+	gap: 5%;
+}
+
+.sign-in-story {
+	min-width: 0;
+	position: relative;
+	padding-top: 22px;
+}
+
+.sign-in-story-copy {
+	position: relative;
+	z-index: 1;
+}
+
+.sign-in-story h2 {
+	font-size: clamp(32px, 3.7vw, 56px);
+	font-weight: 700;
+	line-height: 1.12;
+	letter-spacing: -1.8px;
+}
+
+.sign-in-story h2 span {
+	background: linear-gradient(100deg, #007fbc, #7050d3);
+	background-clip: text;
+	color: transparent;
+}
+
+.dark .sign-in-story h2 span {
+	background-image: linear-gradient(100deg, #29d8ea, #ad68ff);
+}
+
+.sign-in-story-copy > p {
+	color: var(--signin-muted);
+	font-size: clamp(16px, 1.5vw, 21px);
+	line-height: 1.5;
+	margin-top: 24px;
+}
+
+.sign-in-features {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 12px;
+	margin-top: 36px;
+}
+
+.sign-in-features li {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	font-size: 13px;
+	color: var(--signin-muted);
+}
+
+.sign-in-features strong {
+	font-size: 15px;
+	color: var(--signin-ink);
+}
+
+.sign-in-feature-icon {
+	display: grid;
+	place-items: center;
+	width: 46px;
+	height: 46px;
+	border: 1px solid #bfc4eb;
+	border-radius: 16px;
+	color: #6851db;
+	margin-bottom: 4px;
+	background: rgb(119 91 231 / 5%);
+}
+
+.dark .sign-in-feature-icon {
+	border-color: #343264;
+	color: #947cff;
+}
+
+.sign-in-feature-icon svg {
+	width: 25px;
+	height: 25px;
+	stroke-width: 1.7;
+}
+
+.sign-in-artwork {
+	margin: -124px -10% 0;
+	pointer-events: none;
+}
+
+.sign-in-artwork img {
+	display: block;
+	width: 100%;
+	height: auto;
+	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
+}
+
+.sign-in-story-footer {
+	display: flex;
+	align-items: center;
+	gap: 18px;
+	color: var(--signin-link);
+	font-size: 12px;
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 1px;
+	margin-top: -20px;
+	position: relative;
+}
+
+.sign-in-story-footer > span:nth-child(2) {
+	flex: 1;
+	height: 2px;
+	background: linear-gradient(90deg, #26c7e9, #9664e9, transparent);
+}
+
+.sign-in-card {
+	position: relative;
+	z-index: 1;
+	background: var(--signin-card);
+	border: 1px solid var(--signin-border);
+	border-radius: 22px;
+	padding: clamp(28px, 4vw, 64px);
+	box-shadow: 0 20px 70px rgb(33 29 83 / 8%);
+}
+
+.dark .sign-in-card {
+	box-shadow: 0 20px 70px rgb(0 0 0 / 20%);
+}
+
+.fabric-sign-in {
+	width: 100%;
+	min-width: 0;
+}
+
+.fabric-sign-in h1 {
+	font-size: clamp(30px, 3vw, 42px);
+	font-weight: 700;
+	line-height: 1.2;
+	letter-spacing: -1px;
+}
+
+.sign-in-subtitle {
+	color: var(--signin-muted);
+	font-size: 19px;
+	margin-top: 6px;
+}
+
+.sign-in-form {
+	margin-top: 32px;
+}
+
+.sign-in-field {
+	margin-bottom: 22px;
+}
+
+.sign-in-field label {
+	color: var(--signin-ink);
+	font-size: 14px;
+}
+
+.sign-in-input {
+	position: relative;
+}
+
+.sign-in-input input {
+	background: var(--signin-field);
+	border: 1px solid var(--signin-border);
+	color: var(--signin-ink);
+	border-radius: 10px;
+	height: 52px;
+	padding-left: 44px;
+	padding-right: 44px;
+	font-size: 16px;
+}
+
+.sign-in-input input[aria-invalid="true"] {
+	border-color: var(--destructive);
+}
+
+.sign-in-input input::placeholder {
+	color: var(--signin-muted);
+	opacity: 1;
+}
+
+.sign-in-input-icon {
+	pointer-events: none;
+	position: absolute;
+	top: 16px;
+	left: 15px;
+	width: 20px;
+	height: 20px;
+	color: var(--signin-muted);
+}
+
+.sign-in-password-toggle {
+	position: absolute;
+	right: 4px;
+	top: 4px;
+	width: 44px;
+	height: 44px;
+	display: grid;
+	place-items: center;
+	border-radius: 8px;
+	color: var(--signin-muted);
+	cursor: pointer;
+}
+
+.sign-in-password-toggle svg {
+	width: 20px;
+	height: 20px;
+}
+
+.fabric-sign-in .sign-in-submit {
+	width: 100%;
+	height: 52px;
+	margin-top: 4px;
+	border-radius: 10px;
+	background: linear-gradient(105deg, #087dae, #6743ef);
+	color: white;
+	font-size: 16px;
+	font-weight: 500;
+	gap: 12px;
+}
+
+.fabric-sign-in .sign-in-submit:hover {
+	filter: brightness(1.1);
+}
+
+.sign-in-recovery {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: 17px;
+	font-size: 13px;
+}
+
+.fabric-sign-in a:not(.gsi-material-button):not(.github-signin-btn) {
+	color: var(--signin-link);
+	text-underline-offset: 4px;
+	text-decoration: underline;
+}
+
+.sign-in-divider {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	color: var(--signin-muted);
+	font-size: 12px;
+	margin: 32px 0 22px;
+}
+
+.sign-in-divider::before, .sign-in-divider::after {
+	content: '';
+	flex: 1;
+	height: 1px;
+	background: var(--signin-border);
+}
+
+.sign-in-providers {
+	display: flex;
+	flex-direction: row;
+	gap: 12px;
+}
+
+.sign-in-providers .gsi-material-button, .sign-in-providers .github-signin-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	max-width: none;
+	min-width: 0;
+	height: 48px;
+	border-radius: 10px;
+	border-color: var(--signin-border);
+}
+
+.sign-in-providers .github-signin-btn {
+	background: var(--signin-field);
+	color: var(--signin-ink);
+}
+
+.sign-in-providers .github-icon {
+	filter: invert(1);
+}
+
+.dark .sign-in-providers .github-icon {
+	filter: none;
+}
+
+.sign-in-signup {
+	text-align: center;
+	color: var(--signin-muted);
+	font-size: 13px;
+	margin-top: 32px;
+}
+
+.fabric-sign-in > button {
+	color: var(--signin-muted);
+	line-height: 1.5;
+}
+
+.fabric-sign-in-page :is(a, button):focus-visible {
+	outline: 2px solid #8b70ee;
+	outline-offset: 4px;
+}
+
+.sign-in-providers > * {
+	flex: 1;
+	min-width: 0;
+}
+
+.dark .sign-in-providers .gsi-material-button {
+	background: #131314;
+	color: #e3e3e3;
+}
+
+@media (max-width: 1000px) {
+	.sign-in-content {
+		gap: 4%;
+		padding-inline: 4%;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	}
+	.sign-in-card {
+		padding: 28px;
+	}
+	.sign-in-features {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 18px;
+	}
+	.sign-in-artwork {
+		margin-top: -30px;
+	}
+	.sign-in-desktop-break {
+		display: none;
+	}
+}
+
+@media (max-width: 767px) {
+	.sign-in-header {
+		padding: 20px 6%;
+	}
+	.sign-in-brand img {
+		width: 42px;
+	}
+	.sign-in-brand > a + a {
+		display: none;
+	}
+	.sign-in-header nav {
+		gap: 16px;
+	}
+	.sign-in-content {
+		display: flex;
+		flex-direction: column;
+		padding: 12px 6% 36px;
+		gap: 40px;
+	}
+	.sign-in-card {
+		width: 100%;
+		max-width: 480px;
+		margin: auto;
+		order: -1;
+		padding: 28px 24px;
+	}
+	.sign-in-story {
+		width: 100%;
+		max-width: 480px;
+		margin: auto;
+		padding-top: 0;
+	}
+	.sign-in-story h2 {
+		font-size: 34px;
+		letter-spacing: -1px;
+	}
+	.sign-in-story-copy > p {
+		font-size: 16px;
+		margin-top: 16px;
+	}
+	.sign-in-features {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 8px;
+		margin-top: 24px;
+	}
+	.sign-in-features li {
+		font-size: 11px;
+	}
+	.sign-in-features strong {
+		font-size: 12px;
+	}
+	.sign-in-artwork {
+		margin: -34px -6% 0;
+	}
+	.sign-in-story-footer {
+		margin-top: 0;
+		font-size: 10px;
+		gap: 12px;
+	}
+}
+
+/* All cloud authentication routes share the same card and form treatment. */
+.auth-form {
+	width: 100%;
+	min-width: 0;
+	color: var(--signin-ink);
+	overflow-wrap: anywhere;
+}
+
+.auth-form:not(.fabric-sign-in) h1 {
+	font-size: clamp(26px, 2.6vw, 36px);
+	font-weight: 700;
+	line-height: 1.2;
+	text-align: left;
+	letter-spacing: -0.8px;
+	margin-bottom: 24px;
+}
+
+.auth-form:not(.fabric-sign-in) input:not([type="checkbox"]) {
+	width: 100%;
+	height: 48px;
+	border: 1px solid var(--signin-border);
+	background: var(--signin-field);
+	color: var(--signin-ink);
+	border-radius: 10px;
+	font-size: 16px;
+}
+
+.auth-form:not(.fabric-sign-in) input[aria-invalid="true"] {
+	border-color: var(--destructive);
+}
+
+.auth-form:not(.fabric-sign-in) button[type="submit"] {
+	min-height: 48px;
+	height: auto;
+	padding: 12px;
+	white-space: normal;
+	border-radius: 10px;
+	background: linear-gradient(105deg, #087dae, #6743ef);
+	color: white;
+}
+
+.auth-form a:not(.gsi-material-button):not(.github-signin-btn) {
+	color: var(--signin-link);
+	text-underline-offset: 4px;
+}
+
+.auth-form hr {
+	border-color: var(--signin-border);
+}
+
+.auth-form .gsi-material-button, .auth-form .github-signin-btn {
+	max-width: none;
+	min-width: 0;
+	border-radius: 10px;
+}
+
+.auth-form:not(.fabric-sign-in) > .flex {
+	flex-wrap: wrap;
+	gap: 12px;
+	padding-inline: 0;
+}
+
+.auth-form:not(.fabric-sign-in) p:not([role="alert"]) {
+	color: var(--signin-muted);
+	line-height: 1.6;
+}

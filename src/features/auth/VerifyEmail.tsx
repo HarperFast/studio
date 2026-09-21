@@ -117,7 +117,7 @@ export function VerifyEmail() {
 	}, [submitEmailToken, token]);
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-3xl font-light">Verify Email</h1>
 			{!isPending ? <SendEmailVerification /> : <p className="text-sm pt-1">Verifying email...</p>}
 		</div>

@@ -9,14 +9,17 @@ export function GoogleAuthenticationButton({
 	disabled,
 	onClick,
 	lastUsed = false,
+	compact = false,
 }: {
 	text: 'Sign in with Google' | 'Sign up with Google';
 	disabled?: boolean;
 	onClick?: MouseEventHandler<HTMLAnchorElement>;
 	lastUsed?: boolean;
+	compact?: boolean;
 }) {
 	const button = (
 		<a
+			aria-label={text}
 			// Dropping the href is what actually disables the link: the sign-up page gates these on
 			// accepting the terms, and its handler's preventDefault only covers a plain click —
 			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
@@ -61,7 +64,7 @@ export function GoogleAuthenticationButton({
 						<path fill="none" d="M0 0h48v48H0z"></path>
 					</svg>
 				</div>
-				<span className="gsi-material-button-contents">{text}</span>
+				<span className="gsi-material-button-contents">{compact ? 'Google' : text}</span>
 				<span className="hidden">{text}</span>
 			</div>
 		</a>

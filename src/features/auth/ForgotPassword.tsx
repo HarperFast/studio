@@ -82,7 +82,7 @@ export function ForgotPassword() {
 	};
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-2xl font-light">Enter your account email</h1>
 			<p className="text-sm pt-1">If a matching account exists, we'll send you a password reset link.</p>
 			<Form {...methods}>

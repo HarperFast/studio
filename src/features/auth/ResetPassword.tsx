@@ -71,7 +71,7 @@ export function ResetPassword() {
 	}, [navigate, submitResetPasswordData, token]);
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-2xl font-light">Reset Password</h1>
 			<Form {...methods}>
 				<form

@@ -9,14 +9,17 @@ export function GitHubAuthenticationButton({
 	disabled,
 	onClick,
 	lastUsed = false,
+	compact = false,
 }: {
 	text: 'Sign in with GitHub' | 'Sign up with GitHub';
 	disabled?: boolean;
 	onClick?: MouseEventHandler<HTMLAnchorElement>;
 	lastUsed?: boolean;
+	compact?: boolean;
 }) {
 	const button = (
 		<a
+			aria-label={text}
 			// Dropping the href is what actually disables the link: the sign-up page gates these on
 			// accepting the terms, and its handler's preventDefault only covers a plain click —
 			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
@@ -29,7 +32,7 @@ export function GitHubAuthenticationButton({
 			className={cx('github-signin-btn', disabled && 'opacity-50 cursor-default')}
 		>
 			<img src="/github/GitHub_Invertocat_White.svg" alt="" className="github-icon" />
-			{text}
+			{compact ? 'GitHub' : text}
 		</a>
 	);
 
