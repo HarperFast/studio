@@ -1,11 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { errorHandler } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { AuthInput } from './components/AuthInput';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
 import { describeRetryableAuthFailure } from './describeAuthFailure';
 import { useCaptchaChallenge } from './hooks/useCaptchaChallenge';
@@ -82,7 +81,7 @@ export function ForgotPassword() {
 	};
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-2xl font-light">Enter your account email</h1>
 			<p className="text-sm pt-1">If a matching account exists, we'll send you a password reset link.</p>
 			<Form {...methods}>
@@ -90,33 +89,32 @@ export function ForgotPassword() {
 					id="auth-forgot-password-form"
 					name="auth-forgot-password-form"
 					onSubmit={handleSubmit(submitForm, clearSubmitError)}
-					className="my-4"
+					className="sign-in-form"
 				>
 					<FormField
 						control={control}
 						name="email"
 						render={({ field }) => (
-							<FormItem className="my-2">
+							<FormItem className="auth-field">
 								<FormLabel>Email</FormLabel>
-								<FormControl>
-									<Input
-										disabled={isPending}
-										type="email"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<AuthInput
+									disabled={isPending}
+									type="email"
+									autoComplete="email"
+									placeholder="you@company.com"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
 					/>
 					<SubmitErrorMessage message={submitError} suggestSupport={captcha.supportSuggested} />
-					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-2">
+					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="sign-in-submit">
 						Send Password Reset Email
 					</Button>
 				</form>
 			</Form>
-			<div className="flex px-4 mt-4 underline place-content-between">
+			<div className="auth-links">
 				<Link className="text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
 					Sign in to your account
 				</Link>

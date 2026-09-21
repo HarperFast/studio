@@ -1,6 +1,8 @@
 import { Link, useSearch } from '@tanstack/react-router';
+import { MailCheck } from 'lucide-react';
 import { MouseEvent, useCallback } from 'react';
 import { toast } from 'sonner';
+import { AuthHeading } from './components/AuthHeading';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 
 export function Verifying() {
@@ -27,29 +29,20 @@ export function Verifying() {
 	}, [email, resendEmailVerification]);
 
 	return (
-		<div className="text-foreground dark:text-white w-lg flex flex-col gap-4">
-			<h1 className="text-3xl font-light">
-				<span
-					aria-hidden="true"
-					className="text-2xl animate-flower-dance mr-4"
-					title="Loading"
-				>
-					🌼
-				</span>
-				Check your email!
-			</h1>
+		<div className="auth-form flex flex-col gap-4">
+			<AuthHeading icon={MailCheck} title="Check your email!" subtitle="Open the verification link in your inbox." />
 			<p>
-				Your account has been created! You should receive an email with a link to <strong>[Verify My Email]</strong>!
-			</p>
-			<p>
-				From: <strong>harper@notifications.harperfabric.com</strong>
+				From:{' '}
+				<strong>
+					harper@<wbr />notifications.<wbr />harperfabric.com
+				</strong>
 			</p>
 			<p>
 				To: <strong>{email || 'your email'}</strong>
 			</p>
 			<p>Can you click it? Then we can carry on to more fun things!</p>
 
-			<div className="underline flex gap-4">
+			<div className="auth-links">
 				<Link
 					className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
 					to="/sign-in"
@@ -58,7 +51,7 @@ export function Verifying() {
 					I did it, let me sign in!
 				</Link>
 				<Link
-					className="text-sm opacity-50 text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
+					className="text-sm"
 					to={undefined}
 					onClick={resendCode}
 					disabled={isPending}

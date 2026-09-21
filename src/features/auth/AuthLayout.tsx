@@ -1,29 +1,82 @@
-import { Navbar } from '@/components/Navbar';
-import { Outlet } from '@tanstack/react-router';
+import { MainLogo } from '@/components/MainLogo';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Version } from '@/components/Version';
+import { useResolvedTheme } from '@/hooks/useResolvedTheme';
+import { Link, Outlet } from '@tanstack/react-router';
+import { BookOpenText, Box, Database, Mail, Zap } from 'lucide-react';
+import { HeroParticles } from './components/HeroParticles';
+import './AuthLayout.css';
+
+const features = [
+	{ title: 'App', description: 'Build faster', Icon: Box },
+	{ title: 'Database', description: 'Store smarter', Icon: Database },
+	{ title: 'Cache', description: 'Move quicker', Icon: Zap },
+	{ title: 'Messaging', description: 'Stay connected', Icon: Mail },
+];
 
 export function AuthLayout() {
+	const theme = useResolvedTheme();
 	return (
-		<>
-			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-gradient-to-r from-violet-100 to-white border-b border-violet-200 dark:from-purple-950 dark:to-zinc-900 dark:border-purple-950 md:px-12">
-				<Navbar />
+		<div className="fabric-sign-in-page">
+			<header className="sign-in-header">
+				<div className="sign-in-brand">
+					<Link to="/" aria-label="Harper Fabric home">
+						<MainLogo />
+					</Link>
+					<Version />
+				</div>
+				<nav aria-label="Authentication navigation">
+					<a className="sign-in-docs" href="https://docs.harperdb.io/docs" target="_blank" rel="noreferrer noopener">
+						<BookOpenText aria-hidden="true" /> <span>Docs</span>
+					</a>
+					<ThemeToggle />
+				</nav>
 			</header>
-			<div className="pt-20 h-screen grid grid-cols-1 md:grid-cols-2">
-				<section
-					aria-label="Harper Fabric overview"
-					className="items-center justify-center hidden text-white md:flex px-6 fabricSignupTextContainer"
-				>
-					<img
-						className="object-scale-down max-h-[calc(100vh-80px-40px)] min-h-115"
-						src="/fabric-signup-text.png"
-						alt="One Runtime: App, database, Cache and Messaging. Distributed by design, free to deploy, and live in minutes. Deploy!"
-					/>
-				</section>
-				<main className="overflow-y-auto px-6 bg-white dark:bg-linear-(--black-dark-gradient) border-l border-border dark:border-none">
-					<div className="min-h-full flex items-start justify-center py-12">
-						<Outlet />
+			<main className="sign-in-content">
+				<section className="sign-in-story" aria-labelledby="sign-in-story-title">
+					<div className="sign-in-story-copy">
+						<h2 id="sign-in-story-title">
+							One runtime.<br />
+							<span>Endless possibilities.</span>
+						</h2>
+						<p>
+							Build, deploy, and scale distributed applications<br className="sign-in-desktop-break" />{' '}
+							with built-in data, cache, and messaging.
+						</p>
+						<ul className="sign-in-features">
+							{features.map(({ title, description, Icon }) => (
+								<li key={title}>
+									<span className="sign-in-feature-icon">
+										<Icon aria-hidden="true" />
+									</span>
+									<strong>{title}</strong>
+									<span>{description}</span>
+								</li>
+							))}
+						</ul>
 					</div>
-				</main>
-			</div>
-		</>
+					<div className="sign-in-artwork">
+						<div className="auth-hero-panorama">
+							<img
+								src={`/auth/fabric-hero-${theme}-wide.png`}
+								width="2054"
+								height="766"
+								alt="App, database, cache, and messaging together on a globally distributed platform."
+								fetchPriority="high"
+							/>
+							<HeroParticles theme={theme} />
+						</div>
+					</div>
+					<div className="sign-in-story-footer">
+						<span>Free to deploy</span>
+						<span aria-hidden="true" />
+						<span>Live in minutes</span>
+					</div>
+				</section>
+				<section className="sign-in-card" aria-label="Account access">
+					<Outlet />
+				</section>
+			</main>
+		</div>
 	);
 }

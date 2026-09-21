@@ -67,6 +67,25 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignIn', () => {
+	it('reveals and hides the password without submitting or changing its value', () => {
+		renderSignIn();
+		fillValidForm();
+		const password = screen.getByLabelText('Password') as HTMLInputElement;
+		expect(password.type).toBe('password');
+		fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+		expect(password.type).toBe('text');
+		expect(password.value).toBe('correct horse battery');
+		fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+		expect(password.type).toBe('password');
+		expect(post).not.toHaveBeenCalled();
+	});
+
+	it('keeps descriptive OAuth link names with compact visible labels', () => {
+		renderSignIn();
+		expect(screen.getByRole('link', { name: 'Sign in with Google' }).textContent).toContain('Google');
+		expect(screen.getByRole('link', { name: 'Sign in with GitHub' }).textContent).toBe('GitHub');
+	});
+
 	it("reports the server's reason in the form rather than a toast", async () => {
 		post.mockRejectedValue(axiosError(401, { error: 'Invalid email or password' }));
 

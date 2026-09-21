@@ -1,11 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { zodRequirePassword } from '@/lib/zod/password';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -13,6 +11,7 @@ import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { AuthInput } from './components/AuthInput';
 import { useResetPasswordMutation } from './hooks/useResetPassword';
 
 const ResetPasswordSchema = z
@@ -71,30 +70,29 @@ export function ResetPassword() {
 	}, [navigate, submitResetPasswordData, token]);
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-2xl font-light">Reset Password</h1>
 			<Form {...methods}>
 				<form
 					id="auth-reset-password-form"
 					name="auth-reset-password-form"
-					className="my-4"
+					className="sign-in-form"
 					onSubmit={handleSubmit(submitForm)}
 				>
 					<FormField
 						control={control}
 						name="password"
 						render={({ field }) => (
-							<FormItem className="my-2">
+							<FormItem className="auth-field">
 								<FormLabel>New Password</FormLabel>
-								<FormControl>
-									<Input
-										disabled={isPending}
-										type="password"
-										autoComplete="new-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<AuthInput
+									disabled={isPending}
+									type="password"
+									autoComplete="new-password"
+									{...field}
+									placeholder="Your new password"
+									passwordLabel="new password"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -103,22 +101,21 @@ export function ResetPassword() {
 						control={control}
 						name="confirmPassword"
 						render={({ field }) => (
-							<FormItem className="my-2">
+							<FormItem className="auth-field">
 								<FormLabel>Confirm Password</FormLabel>
-								<FormControl>
-									<Input
-										disabled={isPending}
-										type="password"
-										autoComplete="new-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<AuthInput
+									disabled={isPending}
+									type="password"
+									autoComplete="new-password"
+									{...field}
+									placeholder="Confirm your password"
+									passwordLabel="password confirmation"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
 					/>
-					<Button variant="submit" type="submit" disabled={isPending} className="w-full my-2">
+					<Button variant="submit" type="submit" disabled={isPending} className="sign-in-submit">
 						Submit New Password
 					</Button>
 				</form>

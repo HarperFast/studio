@@ -1,18 +1,19 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { zodRequireEmail } from '@/lib/zod/email';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useSearch } from '@tanstack/react-router';
+import { LoaderCircle, MailCheck } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { AuthHeading } from './components/AuthHeading';
+import { AuthInput } from './components/AuthInput';
 import { useResendEmailVerification } from './hooks/useResendEmailVerification';
 import { useVerifyEmailMutation, VerifyEmailToken } from './hooks/useVerifyEmail';
 
@@ -53,32 +54,30 @@ function SendEmailVerification() {
 
 	return (
 		<Form {...methods}>
-			<p className="text-sm py-2">Please Enter an Email</p>
 			<form
 				id="auth-verify-email-form"
 				name="auth-verify-email-form"
 				onSubmit={handleSubmit(submitForm)}
-				className="my-4"
+				className="sign-in-form"
 			>
 				<FormField
 					control={control}
 					name="email"
 					render={({ field }) => (
-						<FormItem className="my-2">
+						<FormItem className="auth-field">
 							<FormLabel>Email</FormLabel>
-							<FormControl>
-								<Input
-									disabled={isPending}
-									type="email"
-									className="dark:bg-black dark:border-black"
-									{...field}
-								/>
-							</FormControl>
+							<AuthInput
+								disabled={isPending}
+								type="email"
+								autoComplete="email"
+								placeholder="you@company.com"
+								{...field}
+							/>
 							<FormMessage />
 						</FormItem>
 					)}
 				/>
-				<Button type="submit" variant="submit" disabled={isPending} className="w-full my-2">
+				<Button type="submit" variant="submit" disabled={isPending} className="sign-in-submit">
 					Send Verification Email
 				</Button>
 			</form>
@@ -117,9 +116,13 @@ export function VerifyEmail() {
 	}, [submitEmailToken, token]);
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
-			<h1 className="text-3xl font-light">Verify Email</h1>
-			{!isPending ? <SendEmailVerification /> : <p className="text-sm pt-1">Verifying email...</p>}
+		<div className="auth-form">
+			<AuthHeading icon={MailCheck} title="Verify Email" subtitle="Enter your email to receive a verification link." />
+			{!isPending ? <SendEmailVerification /> : (
+				<p role="status" className="auth-pending-message">
+					<LoaderCircle aria-hidden="true" className="auth-loading-icon" />Verifying email...
+				</p>
+			)}
 		</div>
 	);
 }

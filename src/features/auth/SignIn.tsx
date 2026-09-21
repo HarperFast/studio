@@ -1,15 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form/Form';
-import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
-import { Input } from '@/components/ui/input';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
+import { ArrowRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { AuthInput } from './components/AuthInput';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
@@ -36,30 +36,29 @@ export function SignIn() {
 	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
-			<h1 className="text-2xl font-light text-center">Sign in to Harper Fabric</h1>
+		<div className="auth-form fabric-sign-in">
+			<h1>Welcome back</h1>
+			<p className="sign-in-subtitle">Sign in to Harper Fabric</p>
 			<Form {...methods}>
 				<form
 					id="auth-signin-form"
 					name="auth-signin-form"
 					onSubmit={handleSubmit(submitForm, clearSubmitError)}
-					className="my-4"
+					className="sign-in-form"
 				>
 					<FormField
 						control={control}
 						name="email"
 						render={({ field }) => (
-							<FormItem className="my-4">
+							<FormItem className="auth-field">
 								<FormLabel>Email</FormLabel>
-								<FormControl>
-									<Input
-										type="email"
-										autoFocus={true}
-										autoComplete="email"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<AuthInput
+									type="email"
+									placeholder="you@company.com"
+									autoFocus={true}
+									autoComplete="email"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -68,57 +67,50 @@ export function SignIn() {
 						control={control}
 						name="password"
 						render={({ field }) => (
-							<FormItem className="my-4">
+							<FormItem className="auth-field">
 								<FormLabel>Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										autoComplete="current-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<AuthInput
+									type="password"
+									placeholder="Your password"
+									autoComplete="current-password"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
 					/>
 					<SubmitErrorMessage message={submitError} />
-					<Button type="submit" variant="submit" className="w-full my-2" disabled={isPending}>
-						Sign In
+					<Button type="submit" variant="submit" className="sign-in-submit" disabled={isPending}>
+						Sign In <ArrowRight aria-hidden="true" />
 					</Button>
-					<div className="flex px-4 mt-4 underline place-content-between">
-						<Link
-							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
-							to="/sign-up"
-							search={{ me: email }}
-						>
-							Sign up for free
-						</Link>
-						<Link
-							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
-							to="/forgot-password"
-							search={{ me: email }}
-						>
-							Forgot password?
-						</Link>
+					<div className="sign-in-recovery">
+						<Link to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
 					</div>
 				</form>
 			</Form>
 
-			<hr aria-hidden="true" className="border-border dark:border-gray-600 my-6" />
+			<div className="sign-in-divider">
+				<span>or continue with</span>
+			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="sign-in-providers">
 				<GoogleAuthenticationButton
 					text="Sign in with Google"
+					compact
 					lastUsed={lastUsed === 'google'}
 					onClick={() => recordMethod('google')}
 				/>
 				<GitHubAuthenticationButton
 					text="Sign in with GitHub"
+					compact
 					lastUsed={lastUsed === 'github'}
 					onClick={() => recordMethod('github')}
 				/>
 			</div>
+
+			<p className="sign-in-signup">
+				Don’t have an account? <Link to="/sign-up" search={{ me: email }}>Sign up for free</Link>
+			</p>
 
 			{remember
 				? (

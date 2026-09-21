@@ -15,7 +15,7 @@ test.describe('sign-in page', () => {
 	});
 
 	test('renders the sign-in form and all three auth methods', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Sign in to Harper Fabric' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 
 		await expect(page.getByLabel('Email')).toBeVisible();
 		await expect(page.getByLabel('Password')).toBeVisible();
@@ -46,7 +46,7 @@ test.describe('sign-in page', () => {
 	});
 
 	test('visual baseline of the sign-in page @visual', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Sign in to Harper Fabric' })).toBeVisible();
+		await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 		// Baseline must be generated in the Linux container (see README) — commit
 		// only the *-linux snapshot. Fonts/AA differ on macOS.
 		await expect(page).toHaveScreenshot('sign-in.png', { fullPage: true });

@@ -1,35 +1,30 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GoogleAuthenticationButton } from './GoogleAuthenticationButton';
+import { GitHubAuthenticationButton } from './GitHubAuthenticationButton';
 
 afterEach(() => {
 	cleanup();
 	vi.unstubAllEnvs();
 });
 
-describe('GoogleAuthenticationButton', () => {
+describe('GitHubAuthenticationButton', () => {
 	it('shows the "Last used" badge when lastUsed is set', () => {
-		render(<GoogleAuthenticationButton text="Sign in with Google" lastUsed />);
+		render(<GitHubAuthenticationButton text="Sign in with GitHub" lastUsed />);
 		expect(screen.getByText('Last used')).toBeTruthy();
 		expect(screen.getByRole('link')).toBeTruthy();
 	});
 
-	it('omits the badge by default', () => {
-		render(<GoogleAuthenticationButton text="Sign in with Google" />);
-		expect(screen.queryByText('Last used')).toBeNull();
-	});
-
 	it('links to the central-manager login endpoint', () => {
 		vi.stubEnv('VITE_CENTRAL_MANAGER_API_URL', 'https://cm.test.invalid');
-		render(<GoogleAuthenticationButton text="Sign in with Google" />);
+		render(<GitHubAuthenticationButton text="Sign in with GitHub" />);
 		expect(screen.getByRole('link').getAttribute('href')).toBe(
-			'https://cm.test.invalid/oauth/google/login?redirect=%2F%23%2Fcheck-oauth',
+			'https://cm.test.invalid/oauth/github/login?redirect=%2F%23%2Fcheck-oauth',
 		);
 	});
 
 	it('drops the href when disabled, but stays focusable and announced', () => {
-		render(<GoogleAuthenticationButton text="Sign up with Google" disabled />);
+		render(<GitHubAuthenticationButton text="Sign up with GitHub" disabled />);
 		const link = screen.getByRole('link');
 		expect(link.hasAttribute('href')).toBe(false);
 		expect(link.getAttribute('aria-disabled')).toBe('true');

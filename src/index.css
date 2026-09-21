@@ -396,12 +396,3 @@
 .tsqd-open-btn-container {
 	margin-bottom: 22px;
 }
-
-.fabricSignupTextContainer {
-	background: url('/fabric-signup-background.webp') center center;
-	background-size: cover;
-}
-
-html:not(.dark) .fabricSignupTextContainer {
-	filter: brightness(1.3) saturate(0.75);
-}

@@ -265,6 +265,29 @@ The `parent>child` scoped override wins over the broad `pkg@range` selector. Ren
 may reopen this on the next undici bump — keep the `jsdom>undici` line. Revisit when a
 jsdom release supports undici 8 (none as of 2026-06).
 
+## OAuth sign-in links belong to the central-manager origin, not Studio's
+
+Every `/oauth/*` endpoint is served by central-manager's `@harperfast/oauth` component, and the
+whole flow is pinned to that origin: it issues the `__Host-oauth_browser` CSRF cookie, the
+provider only accepts the redirect URI registered for that origin, and the callback lands the
+session cookie there. So build these links with `getOAuthSignInUrl()`, which is absolute against
+`VITE_CENTRAL_MANAGER_API_URL` — the same source of truth `apiClient` uses.
+
+An origin-relative `href="/oauth/google/login"` looks equivalent and is not. It satisfies the
+invariant only where the CM happens to serve Studio (the deployed builds); under `pnpm dev`, or
+from a Harper instance serving the bundle, the request hits a server with no `oauth` resource and
+the user gets Harper core's plain-text `Not found` 404. That is how the sign-in buttons were
+written, with a `server.proxy` entry for `/oauth` in `vite.config.ts` papering over dev — and that
+entry never worked either: Vite appends the request path to the target's own path, so
+`target: 'http://localhost:9926/oauth'` forwarded `/oauth/google/login` as
+`/oauth/oauth/google/login`. It's gone; nothing requests `/oauth` from the dev origin any more.
+
+Telling the two 404s apart when this breaks again: the component answers JSON
+(`{"error":"OAuth provider not found"}`, or a 503 when no provider is configured), so a
+plain-text `Not found` with no content-type means the request reached a server where the `oauth`
+resource was never registered — the wrong origin, or a CM where the plugin failed to load (its
+initial `updateConfiguration()` throws into the plugin loader).
+
 ## Google sign-in button has no `display`
 
 `src/features/auth/components/GoogleAuthenticationButton.css` (`.gsi-material-button`)
@@ -659,6 +682,13 @@ The four-space parenthesised lines are the message; only the last, two-space `@`
 is a frame the SDK emitted. Attribution therefore has to match the SDK's frame shape rather than
 hunt for a URL anywhere on the line — otherwise those message lines read as first-party frames.
 Roughly a third of Studio's RUM error volume is this family, so it is not an edge case.
+
+Matching the frame shape is necessary but **not sufficient**: a multi-line message can put a line
+in the SDK's own frame shape above the real frames. Harper composes relayed text by interpolating
+customer input (`redactRelayedMessage.ts`), so `at x @ <anonymous>:1:1` in an import field
+reaches the stack verbatim, and `shouldKeepEvent` runs on the _raw_ stack, before any redaction.
+Skip the header span instead of trusting the shape — `messageHeaderLength(type, message, stack)`
+in `redactRelayedMessage.ts` computes it, and both the redaction and the attribution use it (#1659).
 
 Two traps when re-checking this after an SDK bump. The pnpm store can hold several `browser-core`
 versions at once, so resolve the one `browser-rum` actually uses (`require.resolve` from the

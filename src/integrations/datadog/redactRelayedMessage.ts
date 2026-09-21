@@ -49,12 +49,26 @@ export function redactRelayedStack(type: string | undefined, message: string, st
 	if (!message) {
 		return WITHHELD;
 	}
-	// Longest first: a message that is itself a prefix of the name (`'SSE'`) matches the bare form
-	// early and leaves the rest of the name, and the message, in the text.
+	const header = messageHeaderLength(type, message, stack);
+	return header === undefined ? WITHHELD : `${WITHHELD}${stack.slice(header)}`;
+}
+
+/**
+ * How much of a serialized stack the message header occupies, or `undefined` when neither spelling
+ * of the header opens it. Everything past that point is frames; everything before it is text the
+ * server or the customer composed, which can be shaped exactly like a frame.
+ *
+ * Longest first: a message that is itself a prefix of the name (`'SSE'`) matches the bare form
+ * early and leaves the rest of the name, and the message, in the text.
+ */
+export function messageHeaderLength(type: string | undefined, message: string, stack: string) {
+	if (!message) {
+		return undefined;
+	}
 	for (const header of [`${type}: ${message}`, message]) {
 		if (stack.startsWith(header)) {
-			return `${WITHHELD}${stack.slice(header.length)}`;
+			return header.length;
 		}
 	}
-	return WITHHELD;
+	return undefined;
 }
