@@ -27,7 +27,6 @@ const particles = [
 	{ path: 4, duration: 22, phase: 16 },
 ];
 
-/** Decorative native SVG motion scales with the artwork, without a JS animation loop. */
 export function HeroParticles({ theme }: { theme: 'light' | 'dark' }) {
 	return (
 		<svg className="auth-energy-particles" viewBox="0 0 2054 766" aria-hidden="true" focusable="false">

@@ -42,7 +42,7 @@ setup('authenticate', async ({ page }) => {
 	// Stable form wiring: <form id="auth-signin-form">, inputs name="email"/"password",
 	// labels "Email"/"Password", submit button "Sign In".
 	await page.getByLabel('Email').fill(email);
-	await page.getByLabel('Password').fill(password);
+	await page.getByLabel('Password', { exact: true }).fill(password);
 	await page.getByRole('button', { name: 'Sign In' }).click();
 
 	// Success = navigated off the sign-in route. Landing varies (single org ->
