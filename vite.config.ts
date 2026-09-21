@@ -71,18 +71,22 @@ function fixMonacoYamlWorkerInit(): Plugin {
 	};
 }
 
+function wantsHtml(accept: string): boolean {
+	return accept.toLowerCase().split(',').some((range) => {
+		const [type, ...params] = range.trim().split(';');
+		if (type !== 'text/html' && type !== 'application/xhtml+xml') { return false; }
+		const quality = params.map((param) => param.trim()).find((param) => param.startsWith('q='));
+		return !quality || Number(quality.slice(2)) > 0;
+	});
+}
+
 /**
- * Answer an unknown path in dev the way a deployed Studio does — with `public/404.html` and a 404
- * — instead of Vite's SPA fallback, which returns 200 and index.html for every path. The hash
- * router then lands the visitor on the dashboard, so a wrong URL reads as a working one, and the
- * deployed 404 page (.github/deploy-template/fastify/static.js) can't be seen locally at all.
+ * Answers an unknown path with `public/404.html`, matching a deployed Studio
+ * (.github/deploy-template/fastify/static.js); `appType: 'mpa'` below turns off the SPA fallback
+ * that otherwise returns the app shell for every path.
  *
- * `appType: 'mpa'` below is what turns the fallback off; this supplies the page. Studio is
- * hash-routed, so `/` — with any query — is the only path that should ever return HTML, which is
- * why the middleware skips it explicitly rather than running last: Vite registers its own
- * index.html middleware AFTER plugin post hooks, so an unconditional catch-all here shadows it
- * and 404s the app itself. Non-HTML requests fall through, so a missing module or asset still
- * gets Vite's own 404 rather than a page.
+ * Skipping `/` explicitly is load-bearing: Vite registers its own index.html middleware AFTER
+ * plugin post hooks, so an unconditional catch-all here 404s the app itself.
  */
 function serveNotFoundPage(): Plugin {
 	return {
@@ -92,13 +96,11 @@ function serveNotFoundPage(): Plugin {
 			// Returning the registration defers it until after Vite's own middlewares are in place.
 			return () => {
 				server.middlewares.use((req, res, next) => {
-					// GET/HEAD only, and the same Accept test as the deployed handler — otherwise dev
-					// answers requests that production cascades past, which is the opposite of the point.
+					// GET/HEAD only, like the deployed catch-all: dev must not answer what production cascades.
 					if (req.method !== 'GET' && req.method !== 'HEAD') { return next(); }
 					const pathname = (req.url ?? '/').split('?')[0];
 					if (pathname === '/' || pathname === '/index.html') { return next(); }
-					const accept = String(req.headers.accept ?? '');
-					if (!accept.includes('text/html') && !accept.includes('application/xhtml+xml')) { return next(); }
+					if (!wantsHtml(String(req.headers.accept ?? ''))) { return next(); }
 					readFile(path.resolve(__dirname, 'public/404.html')).then((page) => {
 						res.statusCode = 404;
 						res.setHeader('Content-Type', 'text/html');

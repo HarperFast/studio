@@ -253,10 +253,21 @@ takes the whole component down — Studio stops being served at all, not just it
 catch-all route sidesteps the not-found path entirely, and a normal route response is returned to
 the client verbatim by Harper's inject bridge.
 
-Two options on the static plugin make room for it: `wildcard: false` (register a route per file
-rather than one `GET /*`, which would collide) and `index: false` (keep the plugin off `GET /`,
-which this file serves itself with its own frame guards and short max-age). Both behave the same
-on the @fastify/static 7 / 8 pairings that Harper v4 and v5 deploys use.
+The static plugin is registered with `serve: false`, which decorates `reply.sendFile` and
+registers no routes of its own — so `/*` is free, and, load-bearing, **routing is never a snapshot
+of the files present at boot**. Deploys land a new `web/` and every deploy workflow passes
+`restart: false`, so the per-file route table that `wildcard: false` produces 404s each newly
+hashed bundle until something restarts the component. That was caught in review, not in testing,
+because a fresh-boot check cannot show it.
+
+So the catch-all resolves each path against disk per request: containment-check, `stat`, then send.
+Any `.html` under `web/` is a document — frame guards, short max-age — and everything else is a
+hashed asset served `immutable`. The extra `stat` (on top of `send`'s own) is the deliberate price
+of owning the fallback.
+
+`verify-static.mjs` next to the template pins all of it — 12 checks against a real build behind
+Harper's own not-found handler, including the post-boot asset. Run it on both pairings
+(@fastify/static 7 + fastify 4 for Harper v4, 8 + fastify 5 for v5) after touching this file.
 
 Scope of the catch-all: Harper mounts these routes as a global fallback _after_ its own resource
 routing, so it only ever sees paths the native chain declined — it cannot shadow `/oauth/*` or the
@@ -273,10 +284,10 @@ supply the page. That middleware must skip `/` by hand rather than simply runnin
 registers its own index.html middleware **after** plugin post hooks, so an unconditional
 catch-all there 404s the app itself.
 
-None of this is exercised by CI — nothing in the repo evaluates `.github/`. Verify the deployed
-side by registering the real template file against a fastify instance with Harper's not-found
-handler in front of it, pointed at a real `web/` build; verify the dev side by hitting a bogus
-path on `pnpm dev`.
+None of this is exercised by CI — nothing in the repo evaluates `.github/` — so the verifier above
+is the whole safety net on the deployed side; hit a bogus path on `pnpm dev` for the dev side.
+Both 404 paths answer HTML only to a client that actually accepts it: `text/html;q=0` is a
+refusal, and everything else gets `{"error":"Not found"}`.
 
 ## Google sign-in button has no `display`
 

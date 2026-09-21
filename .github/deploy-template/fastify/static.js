@@ -4,7 +4,14 @@ import { join, resolve, sep } from 'node:path';
 
 const root = join(import.meta.dirname, '../web');
 
-const wantsHtml = (accept) => accept.includes('text/html') || accept.includes('application/xhtml+xml');
+// `text/html;q=0` is an explicit refusal, not a request for HTML, so substring matching won't do.
+const wantsHtml = (accept) =>
+	accept.toLowerCase().split(',').some((range) => {
+		const [type, ...params] = range.trim().split(';');
+		if (type !== 'text/html' && type !== 'application/xhtml+xml') { return false; }
+		const quality = params.map((param) => param.trim()).find((param) => param.startsWith('q='));
+		return !quality || Number(quality.slice(2)) > 0;
+	});
 
 async function isFile(path) {
 	try {
@@ -31,9 +38,7 @@ export default async (fastify) => {
 		return sendDocument(reply, 'index.html', '1m');
 	});
 
-	// Anything that matched no file and no central-manager route. It has to be a route rather than
-	// `setNotFoundHandler`: Harper owns that handler on this instance and fastify throws at load on
-	// a second one for the same prefix, which would take Studio down with it. See AGENTS.md.
+	// A route, not `setNotFoundHandler`: Harper owns that handler here — see AGENTS.md.
 	fastify.get('/*', async function(req, reply) {
 		const relative = req.params['*'] ?? '';
 		const absolute = resolve(root, relative);
