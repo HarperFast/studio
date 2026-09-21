@@ -94,6 +94,24 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe('SignUp', () => {
+	it('reveals each password independently without submitting or losing field values', () => {
+		renderSignUp();
+		const password = screen.getByLabelText('Password') as HTMLInputElement;
+		const confirmation = screen.getByLabelText('Confirm Password') as HTMLInputElement;
+		fireEvent.change(password, { target: { value: 'test-password' } });
+		fireEvent.change(confirmation, { target: { value: 'test-password' } });
+		fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+		expect(password.type).toBe('text');
+		expect(confirmation.type).toBe('password');
+		fireEvent.click(screen.getByRole('button', { name: 'Show password confirmation' }));
+		expect(confirmation.type).toBe('text');
+		fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+		expect(password.type).toBe('password');
+		expect(password.value).toBe('test-password');
+		expect(confirmation.value).toBe('test-password');
+		expect(post).not.toHaveBeenCalled();
+	});
+
 	it("reports the server's reason in the form rather than a toast", async () => {
 		post.mockRejectedValue(axiosError(422, { code: 'InvalidEmail', title: 'That address is not accepted' }));
 

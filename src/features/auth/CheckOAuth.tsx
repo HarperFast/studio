@@ -7,8 +7,10 @@ import { clearUtmParamsFromUrl } from '@/lib/urls/clearUtmParams';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { LoaderCircle } from 'lucide-react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { AuthHeading } from './components/AuthHeading';
 
 let checking: Promise<void> | null = null;
 
@@ -55,20 +57,11 @@ export function CheckOAuth() {
 
 	return (
 		<div role="status" aria-live="polite" className="auth-form flex flex-col gap-4">
-			<h1 className="text-3xl font-light">
-				<span
-					aria-hidden="true"
-					className="text-2xl animate-flower-dance mr-4"
-					title="Loading"
-				>
-					🌼
-				</span>
-				Checking...
-			</h1>
+			<AuthHeading icon={LoaderCircle} title="Checking..." subtitle="We’re confirming your sign-in." loading />
 
-			<div className="underline flex gap-4">
+			<div className="auth-links">
 				<Link
-					className="text-sm opacity-50 text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
+					className="text-sm"
 					to="/sign-in"
 				>
 					Try signing in again

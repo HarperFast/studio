@@ -17,6 +17,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { MouseEvent, useCallback, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { AuthInput } from './components/AuthInput';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
 import { SubmitErrorMessage } from './components/SubmitErrorMessage';
@@ -207,22 +208,21 @@ export function SignUp() {
 					id="auth-signup-form"
 					name="auth-signup-form"
 					onSubmit={handleSubmit(submitForm)}
-					className="grid gap-4 my-4"
+					className="sign-in-form"
 				>
 					<FormField
 						control={control}
 						name="firstname"
 						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">First Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										className="dark:bg-black dark:border-black"
-										autoCapitalize="words"
-										{...field}
-									/>
-								</FormControl>
+							<FormItem className="auth-field">
+								<FormLabel>First Name</FormLabel>
+								<AuthInput
+									type="text"
+									autoCapitalize="words"
+									{...field}
+									placeholder="Your first name"
+									autoComplete="given-name"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -231,16 +231,15 @@ export function SignUp() {
 						control={control}
 						name="lastname"
 						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Last Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										className="dark:bg-black dark:border-black"
-										autoCapitalize="words"
-										{...field}
-									/>
-								</FormControl>
+							<FormItem className="auth-field">
+								<FormLabel>Last Name</FormLabel>
+								<AuthInput
+									type="text"
+									autoCapitalize="words"
+									{...field}
+									placeholder="Your last name"
+									autoComplete="family-name"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -249,19 +248,17 @@ export function SignUp() {
 						control={control}
 						name="email"
 						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Email</FormLabel>
-								<FormControl>
-									<Input
-										type="email"
-										readOnly={!!searchEmail}
-										disabled={!!searchEmail}
-										className="dark:bg-black dark:border-black"
-										autoComplete="email"
-										autoCapitalize="none"
-										{...field}
-									/>
-								</FormControl>
+							<FormItem className="auth-field">
+								<FormLabel>Email</FormLabel>
+								<AuthInput
+									type="email"
+									placeholder="you@company.com"
+									readOnly={!!searchEmail}
+									disabled={!!searchEmail}
+									autoComplete="email"
+									autoCapitalize="none"
+									{...field}
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -270,16 +267,15 @@ export function SignUp() {
 						control={control}
 						name="password"
 						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										autoComplete="new-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+							<FormItem className="auth-field">
+								<FormLabel>Password</FormLabel>
+								<AuthInput
+									type="password"
+									autoComplete="new-password"
+									{...field}
+									placeholder="Your password"
+									passwordLabel="password"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -288,16 +284,15 @@ export function SignUp() {
 						control={control}
 						name="confirmPassword"
 						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Confirm Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										autoComplete="new-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+							<FormItem className="auth-field">
+								<FormLabel>Confirm Password</FormLabel>
+								<AuthInput
+									type="password"
+									autoComplete="new-password"
+									{...field}
+									placeholder="Confirm your password"
+									passwordLabel="password confirmation"
+								/>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -306,12 +301,12 @@ export function SignUp() {
 
 					<SubmitErrorMessage message={submitError} suggestSupport={captcha.supportSuggested} />
 
-					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="w-full my-4">
+					<Button type="submit" variant="submit" disabled={isPending || captcha.minting} className="sign-in-submit">
 						Sign Up For Free
 					</Button>
 				</form>
 			</Form>
-			<div className="flex px-4 mt-4 underline place-content-between">
+			<div className="auth-links">
 				<Link className="m-auto text-sm hover:text-blue-300" to="/sign-in" search={{ me: email }}>
 					Already have an account? Sign in instead.
 				</Link>
