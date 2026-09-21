@@ -1,55 +1,51 @@
 import fastifyStatic from '@fastify/static';
-import { join } from 'path';
+import { stat } from 'node:fs/promises';
+import { join, resolve, sep } from 'node:path';
 
-const frameGuards = (reply) => {
+const root = join(import.meta.dirname, '../web');
+
+const wantsHtml = (accept) => accept.includes('text/html') || accept.includes('application/xhtml+xml');
+
+async function isFile(path) {
+	try {
+		return (await stat(path)).isFile();
+	} catch {
+		return false;
+	}
+}
+
+// index.html and 404.html are the only documents a browser renders here; assets are hashed.
+function sendDocument(reply, file, maxAge) {
 	reply.header('Content-Security-Policy', "frame-ancestors 'none'");
 	reply.header('X-Frame-Options', 'DENY');
-};
+	return reply.sendFile(file, { maxAge, immutable: false });
+}
 
 export default async (fastify) => {
-	fastify.register(fastifyStatic, {
-		root: join(import.meta.dirname, '../web'),
-		maxAge: '30d',
-		immutable: true,
-		// `wildcard: false` registers a route per file instead of one `GET /*`, which is what frees
-		// `/*` for the not-found route below; `index: false` keeps the plugin off `GET /`, served
-		// here. Both behave identically on the @fastify/static 7 (Harper v4) and 8 (v5) pairings
-		// this template is deployed with.
-		wildcard: false,
-		index: false,
-	});
+	// `serve: false` decorates `reply.sendFile` without registering routes. Routing must not be a
+	// snapshot of the files present at boot: deploys land a new `web/` with `restart=false`, so a
+	// per-file route table 404s every newly hashed bundle until something restarts the component.
+	fastify.register(fastifyStatic, { root, serve: false });
 
 	fastify.get('/', function(req, reply) {
-		frameGuards(reply);
-		reply.sendFile('index.html', {
-			maxAge: '1m',
-			immutable: false,
-		});
+		return sendDocument(reply, 'index.html', '1m');
 	});
 
-	/**
-	 * Anything that matched no file and no central-manager route.
-	 *
-	 * Harper registers these fastify routes as a global fallback *after* its own resource routing
-	 * (server/fastifyRoutes.ts), so this can't shadow `/oauth/*` or the REST API — it only sees
-	 * what the native chain already declined. Without it those requests fall through to Harper's
-	 * plain-text `Not found`, which is what a user gets today for any mistyped URL.
-	 *
-	 * It has to be a route rather than `setNotFoundHandler`: Harper already owns the instance's
-	 * not-found handler (it re-emits `unhandled` so the request cascades to core), and fastify
-	 * throws `Not found handler already set for Fastify instance with prefix: '/'` at load time if
-	 * a component registers a second one — taking the whole component down with it.
-	 *
-	 * Studio is hash-routed, so an unmatched *path* is never an app route and serving index.html
-	 * here would just drop the visitor on the dashboard with a 404 status. Non-HTML clients get
-	 * JSON instead of a page.
-	 */
-	fastify.get('/*', function(req, reply) {
-		reply.code(404);
-		if (!String(req.headers.accept ?? '').includes('text/html')) {
-			return reply.send({ error: 'Not found' });
+	// Anything that matched no file and no central-manager route. It has to be a route rather than
+	// `setNotFoundHandler`: Harper owns that handler on this instance and fastify throws at load on
+	// a second one for the same prefix, which would take Studio down with it. See AGENTS.md.
+	fastify.get('/*', async function(req, reply) {
+		const relative = req.params['*'] ?? '';
+		const absolute = resolve(root, relative);
+		if ((absolute === root || absolute.startsWith(root + sep)) && await isFile(absolute)) {
+			return relative === 'index.html'
+				? sendDocument(reply, relative, '1m')
+				: reply.sendFile(relative, { maxAge: '30d', immutable: true });
 		}
-		frameGuards(reply);
-		return reply.sendFile('404.html', { maxAge: 0, immutable: false });
+
+		reply.code(404);
+		return wantsHtml(String(req.headers.accept ?? ''))
+			? sendDocument(reply, '404.html', 0)
+			: reply.send({ error: 'Not found' });
 	});
 };
