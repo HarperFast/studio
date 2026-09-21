@@ -183,7 +183,7 @@ export function SignUp() {
 	);
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
+		<div className="auth-form">
 			<h1 className="text-2xl font-light text-center">Sign up for Harper Fabric</h1>
 
 			<Form {...methods}>

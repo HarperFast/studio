@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { EmailSignInSchema } from '@/integrations/api/instance/auth/signInSchema';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useSearch } from '@tanstack/react-router';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { GitHubAuthenticationButton } from './components/GitHubAuthenticationButton';
 import { GoogleAuthenticationButton } from './components/GoogleAuthenticationButton';
@@ -20,6 +22,7 @@ const rememberControlClassName =
 	'mx-auto mt-3 block text-xs text-muted-foreground underline hover:text-foreground dark:text-inherit dark:hover:text-blue-300';
 
 export function SignIn() {
+	const [showPassword, setShowPassword] = useState(false);
 	const { me: formPersistenceEmail } = useSearch({ strict: false });
 
 	const methods = useForm({
@@ -36,30 +39,34 @@ export function SignIn() {
 	const { lastUsed, remember, recordMethod, disable, enable } = useLastUsedSignInMethod();
 
 	return (
-		<div className="text-foreground dark:text-white w-xs">
-			<h1 className="text-2xl font-light text-center">Sign in to Harper Fabric</h1>
+		<div className="auth-form fabric-sign-in">
+			<h1>Welcome back</h1>
+			<p className="sign-in-subtitle">Sign in to Harper Fabric</p>
 			<Form {...methods}>
 				<form
 					id="auth-signin-form"
 					name="auth-signin-form"
 					onSubmit={handleSubmit(submitForm, clearSubmitError)}
-					className="my-4"
+					className="sign-in-form"
 				>
 					<FormField
 						control={control}
 						name="email"
 						render={({ field }) => (
-							<FormItem className="my-4">
+							<FormItem className="sign-in-field">
 								<FormLabel>Email</FormLabel>
-								<FormControl>
-									<Input
-										type="email"
-										autoFocus={true}
-										autoComplete="email"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<div className="sign-in-input">
+									<FormControl>
+										<Input
+											type="email"
+											placeholder="you@company.com"
+											autoFocus={true}
+											autoComplete="email"
+											{...field}
+										/>
+									</FormControl>
+									<Mail aria-hidden="true" className="sign-in-input-icon" />
+								</div>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -68,57 +75,64 @@ export function SignIn() {
 						control={control}
 						name="password"
 						render={({ field }) => (
-							<FormItem className="my-4">
+							<FormItem className="sign-in-field">
 								<FormLabel>Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										autoComplete="current-password"
-										className="dark:bg-black dark:border-black"
-										{...field}
-									/>
-								</FormControl>
+								<div className="sign-in-input">
+									<FormControl>
+										<Input
+											type={showPassword ? 'text' : 'password'}
+											placeholder="Your password"
+											autoComplete="current-password"
+											{...field}
+										/>
+									</FormControl>
+									<LockKeyhole aria-hidden="true" className="sign-in-input-icon" />
+									<button
+										type="button"
+										className="sign-in-password-toggle"
+										aria-label={showPassword ? 'Hide password' : 'Show password'}
+										aria-pressed={showPassword}
+										onClick={() => setShowPassword(value => !value)}
+									>
+										{showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+									</button>
+								</div>
 								<FormMessage />
 							</FormItem>
 						)}
 					/>
 					<SubmitErrorMessage message={submitError} />
-					<Button type="submit" variant="submit" className="w-full my-2" disabled={isPending}>
-						Sign In
+					<Button type="submit" variant="submit" className="sign-in-submit" disabled={isPending}>
+						Sign In <ArrowRight aria-hidden="true" />
 					</Button>
-					<div className="flex px-4 mt-4 underline place-content-between">
-						<Link
-							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
-							to="/sign-up"
-							search={{ me: email }}
-						>
-							Sign up for free
-						</Link>
-						<Link
-							className="text-sm text-muted-foreground hover:text-foreground dark:text-inherit dark:hover:text-blue-300"
-							to="/forgot-password"
-							search={{ me: email }}
-						>
-							Forgot password?
-						</Link>
+					<div className="sign-in-recovery">
+						<Link to="/forgot-password" search={{ me: email }}>Forgot password?</Link>
 					</div>
 				</form>
 			</Form>
 
-			<hr aria-hidden="true" className="border-border dark:border-gray-600 my-6" />
+			<div className="sign-in-divider">
+				<span>or continue with</span>
+			</div>
 
-			<div className="flex flex-col gap-2">
+			<div className="sign-in-providers">
 				<GoogleAuthenticationButton
 					text="Sign in with Google"
+					compact
 					lastUsed={lastUsed === 'google'}
 					onClick={() => recordMethod('google')}
 				/>
 				<GitHubAuthenticationButton
 					text="Sign in with GitHub"
+					compact
 					lastUsed={lastUsed === 'github'}
 					onClick={() => recordMethod('github')}
 				/>
 			</div>
+
+			<p className="sign-in-signup">
+				Don’t have an account? <Link to="/sign-up" search={{ me: email }}>Sign up for free</Link>
+			</p>
 
 			{remember
 				? (
