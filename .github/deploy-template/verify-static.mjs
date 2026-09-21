@@ -17,7 +17,7 @@ import { existsSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node
 import { join, resolve } from 'node:path';
 
 const build = resolve(process.argv[2] ?? join(import.meta.dirname, '../../web'));
-// `static.js` serves `<template>/web`, which is the shape the deploy produces (`mv web deploy/`).
+// `static.js` serves `<template>/web` — the shape `mv web deploy/` produces.
 const served = join(import.meta.dirname, 'web');
 const staged = !existsSync(served);
 if (staged) { symlinkSync(build, served); }
@@ -65,9 +65,12 @@ if (!asset) {
 }
 
 // A deploy lands a new web/ without restarting the component, so routing must read disk per
-// request rather than snapshot it at registration.
-const afterBoot = 'assets/deployed-after-boot.js';
+// request rather than snapshot it at registration. The name is unique per run: a fixture left
+// behind by an interrupted run would already exist at boot and pass this check for the wrong
+// reason.
+const afterBoot = `assets/deployed-after-boot-${process.pid}-${Date.now()}.js`;
 writeFileSync(join(build, afterBoot), 'console.log(1)');
+process.on('exit', () => rmSync(join(build, afterBoot), { force: true }));
 
 const results = [];
 async function expect(label, options, wanted) {
@@ -151,7 +154,6 @@ await expect('POST cascades to Harper', { method: 'POST', url: '/nope', headers:
 	type: 'text/plain',
 });
 
-rmSync(join(build, afterBoot), { force: true });
 await app.close();
 
 for (const { label, actual, failed } of results) {
