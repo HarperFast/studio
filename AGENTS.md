@@ -265,9 +265,18 @@ is hash-routed, an unmatched _path_ is never an app route, so it serves a standa
 (from `public/`, so every build carries it) rather than `index.html`, which would drop the visitor
 on the dashboard under a 404 status. Non-HTML clients get `{"error":"Not found"}` instead of a page.
 
-None of this is exercised by CI — nothing in the repo evaluates `.github/`. Verify changes by
-registering the real file against a fastify instance with Harper's not-found handler in front of
-it, pointed at a real `web/` build.
+The dev server has to be told the same thing, or `pnpm dev` disagrees with production: Vite's
+default `appType: 'spa'` answers _every_ path with 200 and index.html, the hash router lands on
+the dashboard, and a wrong URL reads as a working one — which is also why the deployed 404 page
+can't be seen locally. `vite.config.ts` sets `appType: 'mpa'` and adds `serveNotFoundPage()` to
+supply the page. That middleware must skip `/` by hand rather than simply running last: Vite
+registers its own index.html middleware **after** plugin post hooks, so an unconditional
+catch-all there 404s the app itself.
+
+None of this is exercised by CI — nothing in the repo evaluates `.github/`. Verify the deployed
+side by registering the real template file against a fastify instance with Harper's not-found
+handler in front of it, pointed at a real `web/` build; verify the dev side by hitting a bogus
+path on `pnpm dev`.
 
 ## Google sign-in button has no `display`
 
