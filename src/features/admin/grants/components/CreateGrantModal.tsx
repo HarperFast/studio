@@ -61,6 +61,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 }) {
 	const queryClient = useQueryClient();
 	const { mutate: create, isPending } = useCreateGrantMutation();
+	// isPending disables the button a tick after the click; a second submit in that tick mints twice.
+	const inFlight = useRef(false);
 	const { data: policyData } = useQuery({ ...getExpiryPoliciesQueryOptions(), enabled: open });
 	const { data: orgResult } = useQuery({ ...getOrganizationsQueryOptions(), enabled: open });
 
@@ -106,6 +108,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	}, [source, form]);
 
 	const onSubmit = (values: CreateGrantValues) => {
+		if (inFlight.current) { return; }
+		inFlight.current = true;
 		create({
 			// Exactly one — sending both is refused by the server's xor.
 			...(values.bindTo === 'cluster'
@@ -136,6 +140,9 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
 			onError: (error) => toast.error('Could not create the grant', { description: error.message }),
+			onSettled: () => {
+				inFlight.current = false;
+			},
 		});
 	};
 
