@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
@@ -99,9 +99,11 @@ function serveNotFoundPage(): Plugin {
 					if (pathname === '/' || pathname === '/index.html') { return next(); }
 					const accept = String(req.headers.accept ?? '');
 					if (!accept.includes('text/html') && !accept.includes('application/xhtml+xml')) { return next(); }
-					res.statusCode = 404;
-					res.setHeader('Content-Type', 'text/html');
-					res.end(readFileSync(path.resolve(__dirname, 'public/404.html')));
+					readFile(path.resolve(__dirname, 'public/404.html')).then((page) => {
+						res.statusCode = 404;
+						res.setHeader('Content-Type', 'text/html');
+						res.end(page);
+					}, next);
 				});
 			};
 		},
