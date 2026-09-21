@@ -1,4 +1,5 @@
 import './GitHubAuthenticationButton.css';
+import { checkOAuthRedirect, getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
 import { cx } from 'class-variance-authority';
 import { MouseEventHandler } from 'react';
 import { LastUsedBadge } from './LastUsedBadge';
@@ -16,7 +17,7 @@ export function GitHubAuthenticationButton({
 }) {
 	const button = (
 		<a
-			href="/oauth/github/login?redirect=%2F%23%2Fcheck-oauth"
+			href={getOAuthSignInUrl('github', checkOAuthRedirect)}
 			onClick={onClick}
 			aria-disabled={disabled || undefined}
 			className={cx('github-signin-btn', disabled && 'opacity-50 cursor-default')}

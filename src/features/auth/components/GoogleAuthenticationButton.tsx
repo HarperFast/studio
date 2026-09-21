@@ -1,4 +1,5 @@
 import './GoogleAuthenticationButton.css';
+import { checkOAuthRedirect, getOAuthSignInUrl } from '@/lib/urls/getOAuthSignInUrl';
 import { cx } from 'class-variance-authority';
 import { MouseEventHandler } from 'react';
 import { LastUsedBadge } from './LastUsedBadge';
@@ -16,7 +17,7 @@ export function GoogleAuthenticationButton({
 }) {
 	const button = (
 		<a
-			href="/oauth/google/login?redirect=%2F%23%2Fcheck-oauth"
+			href={getOAuthSignInUrl('google', checkOAuthRedirect)}
 			onClick={onClick}
 			aria-disabled={disabled || undefined}
 			className={cx('gsi-material-button', disabled && 'opacity-50 cursor-default')}
