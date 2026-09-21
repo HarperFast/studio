@@ -17,7 +17,13 @@ export function GoogleAuthenticationButton({
 }) {
 	const button = (
 		<a
-			href={getOAuthSignInUrl('google', checkOAuthRedirect)}
+			// Dropping the href is what actually disables the link: the sign-up page gates these on
+			// accepting the terms, and its handler's preventDefault only covers a plain click —
+			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
+			// keep the hrefless anchor in the tab order and announced, per the pattern in NodeLegend.
+			href={disabled ? undefined : getOAuthSignInUrl('google', checkOAuthRedirect)}
+			role={disabled ? 'link' : undefined}
+			tabIndex={disabled ? 0 : undefined}
 			onClick={onClick}
 			aria-disabled={disabled || undefined}
 			className={cx('gsi-material-button', disabled && 'opacity-50 cursor-default')}

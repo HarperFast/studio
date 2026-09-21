@@ -17,7 +17,13 @@ export function GitHubAuthenticationButton({
 }) {
 	const button = (
 		<a
-			href={getOAuthSignInUrl('github', checkOAuthRedirect)}
+			// Dropping the href is what actually disables the link: the sign-up page gates these on
+			// accepting the terms, and its handler's preventDefault only covers a plain click —
+			// middle-click and "open in new tab" would still reach the OAuth endpoint. `role`/`tabIndex`
+			// keep the hrefless anchor in the tab order and announced, per the pattern in NodeLegend.
+			href={disabled ? undefined : getOAuthSignInUrl('github', checkOAuthRedirect)}
+			role={disabled ? 'link' : undefined}
+			tabIndex={disabled ? 0 : undefined}
 			onClick={onClick}
 			aria-disabled={disabled || undefined}
 			className={cx('github-signin-btn', disabled && 'opacity-50 cursor-default')}
