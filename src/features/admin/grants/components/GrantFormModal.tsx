@@ -24,7 +24,7 @@ import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
@@ -79,6 +79,12 @@ function toFormValues(grant: AdminClusterGrant | null): GrantFormValues {
 export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProps) {
 	const queryClient = useQueryClient();
 	const { mutate: update, isPending } = useUpdateGrantMutation();
+	// isPending disables the buttons a tick after the click; revoke is irreversible, so the guard
+	// has to hold from the click itself.
+	const inFlight = useRef(false);
+	const release = () => {
+		inFlight.current = false;
+	};
 	const { data: policyData } = useQuery({ ...getExpiryPoliciesQueryOptions(), enabled: open });
 
 	const form = useForm<GrantFormValues>({
@@ -132,6 +138,8 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// refuses an internal expiryPolicy outright, and reads any scope it receives through the
 	// widen-only guard, so an unedited field would fail a save that changed something else.
 	const onSubmit = (values: GrantFormValues) => {
+		if (inFlight.current) { return; }
+		inFlight.current = true;
 		if (!grant) { return; }
 		// Compared against the form's own view of the grant, not the stored record: a datetime-local
 		// input holds no seconds, so an untouched end date read back as an instant differs from the
@@ -159,7 +167,7 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 					: { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }),
 				reason: values.reason.trim(),
 			},
-		}, { onSuccess: onSuccess('Grant updated'), onError });
+		}, { onSuccess: onSuccess('Grant updated'), onError, onSettled: release });
 	};
 
 	const onRevoke = () => {
@@ -169,9 +177,11 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 			return;
 		}
 		if (!grant) { return; }
+		if (inFlight.current) { return; }
+		inFlight.current = true;
 		update(
 			{ id: grant.id, changes: { status: 'REVOKED', reason } },
-			{ onSuccess: onSuccess('Grant revoked'), onError },
+			{ onSuccess: onSuccess('Grant revoked'), onError, onSettled: release },
 		);
 	};
 
