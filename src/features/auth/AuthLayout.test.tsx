@@ -25,9 +25,9 @@ describe('shared cloud authentication layout', () => {
 			'App, database, cache, and messaging together on a globally distributed platform.',
 		);
 		fireEvent.click(screen.getByTitle('Light'));
-		await waitFor(() => expect(artwork.getAttribute('src')).toBe('/auth/fabric-hero-light.png'));
+		await waitFor(() => expect(artwork.getAttribute('src')).toBe('/auth/fabric-hero-light-wide.png'));
 		fireEvent.click(screen.getByTitle('Dark'));
-		await waitFor(() => expect(artwork.getAttribute('src')).toBe('/auth/fabric-hero-dark.png'));
+		await waitFor(() => expect(artwork.getAttribute('src')).toBe('/auth/fabric-hero-dark-wide.png'));
 	});
 
 	it('renders the active authentication form in the shared account card', () => {

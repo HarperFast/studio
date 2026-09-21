@@ -7,6 +7,7 @@
 	--signin-field: #f5f7fc;
 	--signin-link: #4356bb;
 	min-height: 100svh;
+	overflow: clip;
 	color: var(--signin-ink);
 	background: radial-gradient(ellipse at 12% 20%, #eceaff 0, transparent 48%), var(--signin-bg);
 }
@@ -150,15 +151,27 @@
 }
 
 .sign-in-artwork {
+	position: relative;
+	aspect-ratio: 1452 / 1083;
 	margin: -124px -10% 0;
 	pointer-events: none;
+}
+
+/* Reserve only the original left illustration's height. The extended globe occupies
+ * both columns, behind the card, without enlarging the cube platform. */
+.auth-hero-panorama {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 200%;
+	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent),
+		linear-gradient(to right, transparent, black 4%, black 92%, transparent);
+	mask-composite: intersect;
 }
 
 .sign-in-artwork img {
 	display: block;
 	width: 100%;
 	height: auto;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 }
 
 .sign-in-story-footer {
@@ -390,6 +403,8 @@
 		gap: 18px;
 	}
 	.sign-in-artwork {
+	position: relative;
+	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin-top: -30px;
 	}
 	.sign-in-desktop-break {
@@ -449,6 +464,8 @@
 		font-size: 12px;
 	}
 	.sign-in-artwork {
+	position: relative;
+	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin: -34px -6% 0;
 	}
 	.sign-in-story-footer {
@@ -593,4 +610,87 @@
 	.auth-form .auth-heading h1 {
 		font-size: 26px;
 	}
+}
+
+/* Quiet, decorative movement shared by all authentication pages. */
+.auth-energy-particles {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	color: #7757dc;
+}
+
+.dark .auth-energy-particles {
+	color: #d1ebff;
+}
+
+.auth-energy-particle:nth-child(even) {
+	color: #597fe4;
+}
+
+.dark .auth-energy-particle:nth-child(even) {
+	color: #d5b6ff;
+}
+
+.sign-in-feature-icon {
+	position: relative;
+	isolation: isolate;
+}
+
+.sign-in-feature-icon::before {
+	content: '';
+	position: absolute;
+	inset: -18px;
+	z-index: -1;
+	border-radius: 50%;
+	pointer-events: none;
+	background: radial-gradient(circle, rgb(124 94 234 / 24%), transparent 70%);
+	opacity: 0.35;
+	animation: auth-feature-glow 7s ease-in-out infinite alternate;
+}
+
+.dark .sign-in-feature-icon::before {
+	background: radial-gradient(circle, rgb(123 94 255 / 42%), transparent 70%);
+}
+
+.sign-in-features li:nth-child(2) .sign-in-feature-icon::before { animation-delay: -2s; }
+.sign-in-features li:nth-child(3) .sign-in-feature-icon::before { animation-delay: -4s; }
+.sign-in-features li:nth-child(4) .sign-in-feature-icon::before { animation-delay: -6s; }
+
+@keyframes auth-feature-glow {
+	from { opacity: 0.35; transform: scale(0.92); }
+	to { opacity: 0.75; transform: scale(1.08); }
+}
+
+.sign-in-story-footer > span:nth-child(2) {
+	position: relative;
+	overflow: hidden;
+}
+
+.sign-in-story-footer > span:nth-child(2)::after {
+	content: '';
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 28%;
+	background: linear-gradient(90deg, transparent, #5277df, transparent);
+	animation: auth-deploy-progress 9s linear -3s infinite;
+}
+
+.dark .sign-in-story-footer > span:nth-child(2)::after {
+	background: linear-gradient(90deg, transparent, #c0f5ff, transparent);
+}
+
+@keyframes auth-deploy-progress {
+	0% { transform: translateX(-100%); opacity: 0; }
+	12% { opacity: 0.9; }
+	82% { opacity: 0.9; }
+	100% { transform: translateX(460%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.auth-energy-particles { display: none; }
+	.sign-in-feature-icon::before { animation: none; }
+	.sign-in-story-footer > span:nth-child(2)::after { display: none; animation: none; }
 }
