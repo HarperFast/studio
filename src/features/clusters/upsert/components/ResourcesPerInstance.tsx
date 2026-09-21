@@ -95,7 +95,7 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			},
 			isPositive(planLimits.tlsHandshakes) && {
 				label: 'TLS Handshakes',
-				value: `${humanNumber(planLimits.tlsHandshakes * 60 * multiplier)}`,
+				value: `${humanNumber(planLimits.tlsHandshakes * multiplier)}`,
 			},
 			isPositive(planLimits.applicationComputeHours) && {
 				label: 'Application Compute Hours',
