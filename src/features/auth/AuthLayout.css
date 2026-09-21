@@ -2,6 +2,7 @@
 	--signin-bg: #f8faff;
 	--signin-ink: #17213d;
 	--signin-muted: #596580;
+	--signin-placeholder: #747e94;
 	--signin-border: #d9deec;
 	--signin-card: rgb(255 255 255 / 90%);
 	--signin-field: #f5f7fc;
@@ -16,6 +17,7 @@
 	--signin-bg: #090c1a;
 	--signin-ink: #f5f6fc;
 	--signin-muted: #aab3ca;
+	--signin-placeholder: #818ba3;
 	--signin-border: #30384e;
 	--signin-card: rgb(16 20 32 / 94%);
 	--signin-field: #1b202c;
@@ -258,7 +260,7 @@
 }
 
 .auth-input input::placeholder {
-	color: var(--signin-muted);
+	color: var(--signin-placeholder);
 	opacity: 1;
 }
 
