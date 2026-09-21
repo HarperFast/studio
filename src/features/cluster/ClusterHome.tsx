@@ -270,7 +270,7 @@ function ManagedClusterHome({ cluster, update }: { cluster: Cluster; update: boo
 					</div>
 				)}
 
-			<ClusterUsageCard clusterId={cluster.id} base={base} />
+			<ClusterUsageCard clusterId={cluster.id} base={base} trial={cluster.grant?.source === 'trial'} />
 		</ClusterHomeShell>
 	);
 }
