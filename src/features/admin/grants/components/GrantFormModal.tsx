@@ -138,8 +138,6 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// refuses an internal expiryPolicy outright, and reads any scope it receives through the
 	// widen-only guard, so an unedited field would fail a save that changed something else.
 	const onSubmit = (values: GrantFormValues) => {
-		if (inFlight.current) { return; }
-		inFlight.current = true;
 		if (!grant) { return; }
 		// Compared against the form's own view of the grant, not the stored record: a datetime-local
 		// input holds no seconds, so an untouched end date read back as an instant differs from the
@@ -148,6 +146,10 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 		// An empty list is refused by the server; null is how a scope is cleared.
 		const asScope = (ids: string[]) => (ids.length ? ids : null);
 
+		// Taken last, right before the call: every bail above must leave the latch open, or one
+		// refused save would dead-lock both buttons until the modal remounts.
+		if (inFlight.current) { return; }
+		inFlight.current = true;
 		update({
 			id: grant.id,
 			changes: {

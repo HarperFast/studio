@@ -26,6 +26,7 @@ export function useFormField() {
 		formItemId: `${id}-form-item`,
 		formDescriptionId: `${id}-form-item-description`,
 		formMessageId: `${id}-form-item-message`,
-		...fieldState,
+		// Only the error: the rest of the field state is read unsubscribed above and would be stale.
+		error: fieldState.error,
 	};
 }
