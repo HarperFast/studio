@@ -108,9 +108,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	}, [source, form]);
 
 	const onSubmit = (values: CreateGrantValues) => {
-		if (inFlight.current) { return; }
-		inFlight.current = true;
-		create({
+		const body = {
 			// Exactly one — sending both is refused by the server's xor.
 			...(values.bindTo === 'cluster'
 				? { clusterId: values.clusterId.trim() }
@@ -129,7 +127,11 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 					...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
 				}),
 			reason: values.reason.trim(),
-		}, {
+		};
+		// Taken after the body is built: a throw above must not leave the latch closed.
+		if (inFlight.current) { return; }
+		inFlight.current = true;
+		create(body, {
 			onSuccess: (grant) => {
 				void queryClient.invalidateQueries({ queryKey: grantsQueryKey });
 				onOpenChange(false);
