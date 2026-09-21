@@ -23,7 +23,6 @@ export function AuthInput({ type = 'text', passwordLabel = 'password', ...props 
 					type="button"
 					className="auth-password-toggle"
 					aria-label={`${visible ? 'Hide' : 'Show'} ${passwordLabel}`}
-					aria-pressed={visible}
 					disabled={props.disabled}
 					onClick={() => setVisible(value => !value)}
 				>
