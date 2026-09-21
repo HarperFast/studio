@@ -34,7 +34,14 @@ type BadgeVariant = 'success' | 'warning' | 'destructive' | 'secondary';
 function stateBadge(grant: AdminClusterGrant): { label: string; variant: BadgeVariant } {
 	// Lapsed is the one that wants attention: the server says the grant is no longer live, but the
 	// runner has not stamped it, so nothing has acted on the cluster yet.
-	if (grant.isActive === false && grant.status === 'ACTIVE') { return { label: 'Lapsed', variant: 'warning' }; }
+	if (grant.isActive === false && grant.status === 'ACTIVE') {
+		// Not live yet is not the same as no longer live: a future startsAt is the only other way an
+		// ACTIVE row reads as inactive, and it wants no attention at all.
+		if (grant.startsAt && new Date(grant.startsAt).getTime() > Date.now()) {
+			return { label: 'Scheduled', variant: 'secondary' };
+		}
+		return { label: 'Lapsed', variant: 'warning' };
+	}
 	// Revoked and Expired both end a grant, but not the same way — one ran its course, the other was
 	// taken away by an admin. Sharing a colour lost the only distinction worth scanning for.
 	if (grant.status === 'REVOKED') { return { label: 'Revoked', variant: 'destructive' }; }
@@ -48,6 +55,9 @@ function stateBadge(grant: AdminClusterGrant): { label: string; variant: BadgeVa
  * shows a dash rather than a guess.
  */
 function nextDue(grant: AdminClusterGrant): string {
+	// The runner skips revoked grants and never visits an unbound voucher, so a timeline the server
+	// still computes for them names actions that will not happen.
+	if (grant.status === 'REVOKED' || !grant.clusterId) { return '—'; }
 	const next = grant.timeline?.find((entry) => !entry.applied);
 	if (!next) { return '—'; }
 	return `${next.stage} · ${fmtDate(next.dueAt)}`;

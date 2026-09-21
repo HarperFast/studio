@@ -134,6 +134,28 @@ describe('GrantsAdminIndex', () => {
 		expect(screen.getByText('Lapsed')).toBeTruthy();
 	});
 
+	// Not live yet is not lapsed: a scheduled voucher wants no attention, and "Lapsed" invites an
+	// admin to revoke or re-mint a perfectly good grant.
+	it('shows a future-start grant as scheduled, not lapsed', async () => {
+		await mount([grant({ isActive: false, startsAt: daysFromNow(2) })]);
+		expect(screen.getByText('Scheduled')).toBeTruthy();
+		expect(screen.queryByText('Lapsed')).toBeNull();
+	});
+
+	// The runner skips revoked grants and never walks an unbound voucher, so a timeline the server
+	// still computes for them would name actions that will not happen.
+	it('shows no next-due for a revoked grant or an unbound voucher', async () => {
+		const timeline = [{ stage: 'WARNED' as const, dueAt: daysFromNow(3), applied: false }];
+		await mount([
+			grant({ id: 'cgr-revoked', status: 'REVOKED', timeline }),
+			grant({ id: 'cgr-voucher', clusterId: null, timeline }),
+		]);
+		expect(screen.queryByText(/WARNED/)).toBeNull();
+		for (const id of ['cgr-revoked', 'cgr-voucher']) {
+			expect(screen.getByText(id).closest('tr')?.textContent).toContain('—');
+		}
+	});
+
 	// Studio holds no expiry offsets, so without a server timeline the column must not guess.
 	it('shows next-due only when the server sent a timeline', async () => {
 		await mount([

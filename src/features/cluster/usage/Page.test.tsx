@@ -14,6 +14,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ clusterId: 'clu-1' }) }));
+vi.mock('@/features/cluster/queries/getClusterInfoQuery', async (importOriginal) => ({
+	...(await importOriginal<object>()),
+	useClusterInfo: () => ({ data: undefined }),
+}));
 
 // The page's chrome (breadcrumbs + cluster sub-nav rail) pulls in the router/query stack; the tab body
 // is what's under test, so render it plainly.
