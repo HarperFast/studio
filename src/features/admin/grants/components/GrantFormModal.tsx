@@ -146,30 +146,28 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 		// An empty list is refused by the server; null is how a scope is cleared.
 		const asScope = (ids: string[]) => (ids.length ? ids : null);
 
-		// Taken last, right before the call: every bail above must leave the latch open, or one
-		// refused save would dead-lock both buttons until the modal remounts.
+		const changes = {
+			...(values.endsAt !== initial.endsAt
+				? { endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null }
+				: {}),
+			...(values.expiryPolicy !== initial.expiryPolicy ? { expiryPolicy: values.expiryPolicy } : {}),
+			...(values.cadence !== initial.cadence ? { cadence: values.cadence } : {}),
+			...(sameIds(values.allowedPlanIds, initial.allowedPlanIds)
+				? {}
+				: { allowedPlanIds: asScope(values.allowedPlanIds) }),
+			...(sameIds(values.allowedRegionIds, initial.allowedRegionIds)
+				? {}
+				: { allowedRegionIds: asScope(values.allowedRegionIds) }),
+			...(sameShape(values.shape, initial.shape)
+				? {}
+				: { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }),
+			reason: values.reason.trim(),
+		};
+		// Taken last, after the body is built and every bail: a refusal or a throw above must leave the
+		// latch open, or one failed save would dead-lock both buttons until the modal remounts.
 		if (inFlight.current) { return; }
 		inFlight.current = true;
-		update({
-			id: grant.id,
-			changes: {
-				...(values.endsAt !== initial.endsAt
-					? { endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null }
-					: {}),
-				...(values.expiryPolicy !== initial.expiryPolicy ? { expiryPolicy: values.expiryPolicy } : {}),
-				...(values.cadence !== initial.cadence ? { cadence: values.cadence } : {}),
-				...(sameIds(values.allowedPlanIds, initial.allowedPlanIds)
-					? {}
-					: { allowedPlanIds: asScope(values.allowedPlanIds) }),
-				...(sameIds(values.allowedRegionIds, initial.allowedRegionIds)
-					? {}
-					: { allowedRegionIds: asScope(values.allowedRegionIds) }),
-				...(sameShape(values.shape, initial.shape)
-					? {}
-					: { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }),
-				reason: values.reason.trim(),
-			},
-		}, { onSuccess: onSuccess('Grant updated'), onError, onSettled: release });
+		update({ id: grant.id, changes }, { onSuccess: onSuccess('Grant updated'), onError, onSettled: release });
 	};
 
 	const onRevoke = () => {
