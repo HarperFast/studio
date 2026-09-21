@@ -92,9 +92,13 @@ function serveNotFoundPage(): Plugin {
 			// Returning the registration defers it until after Vite's own middlewares are in place.
 			return () => {
 				server.middlewares.use((req, res, next) => {
+					// GET/HEAD only, and the same Accept test as the deployed handler — otherwise dev
+					// answers requests that production cascades past, which is the opposite of the point.
+					if (req.method !== 'GET' && req.method !== 'HEAD') { return next(); }
 					const pathname = (req.url ?? '/').split('?')[0];
 					if (pathname === '/' || pathname === '/index.html') { return next(); }
-					if (!String(req.headers.accept ?? '').includes('text/html')) { return next(); }
+					const accept = String(req.headers.accept ?? '');
+					if (!accept.includes('text/html') && !accept.includes('application/xhtml+xml')) { return next(); }
 					res.statusCode = 404;
 					res.setHeader('Content-Type', 'text/html');
 					res.end(readFileSync(path.resolve(__dirname, 'public/404.html')));
@@ -147,7 +151,6 @@ export default defineConfig(({ mode }) => ({
 	// `fixMonacoYamlWorkerInit` is also in `worker.plugins` below; see its doc comment for
 	// why it has to be registered in both places.
 	plugins: [react(), tailwindcss(), fixMonacoYamlWorkerInit(), serveNotFoundPage()],
-	// No SPA history fallback: see `serveNotFoundPage`.
 	appType: 'mpa',
 	// Monaco's language workers (bundled locally — see src/lib/monaco/setup.ts) are ES
 	// modules; the default 'iife' worker format breaks them. `plugins` here applies to the
