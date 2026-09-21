@@ -477,7 +477,6 @@
 	}
 }
 
-/* All cloud authentication routes share the same card and form treatment. */
 .auth-form {
 	width: 100%;
 	min-width: 0;
@@ -559,6 +558,7 @@
 }
 
 .auth-loading-icon {
+	transform-origin: center;
 	animation: auth-spin 1.2s linear infinite;
 }
 
@@ -614,7 +614,6 @@
 	}
 }
 
-/* Quiet, decorative movement shared by all authentication pages. */
 .auth-energy-particles {
 	position: absolute;
 	inset: 0;

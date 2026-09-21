@@ -8,7 +8,6 @@ type AuthInputProps = Omit<ComponentProps<typeof Input>, 'type'> & {
 	passwordLabel?: string;
 };
 
-/** Keeps the form's label, error description, and ref attached to the input itself. */
 export function AuthInput({ type = 'text', passwordLabel = 'password', ...props }: AuthInputProps) {
 	const [visible, setVisible] = useState(false);
 	const Icon = type === 'email' ? Mail : type === 'password' ? LockKeyhole : UserRound;

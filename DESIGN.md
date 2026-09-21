@@ -16,6 +16,12 @@ The `/apis` route is a **custom, in-house API explorer** ([`src/features/instanc
 - **Try-it-out is credentialed cross-origin `fetch`** (`credentials: 'include'`), the same model Swagger used — which is why the **CORS warning + one-click enable** flow in [`APIDocs.tsx`](src/features/instance/apis/APIDocs.tsx) matters and must be preserved. Auth offers Cookie (session, default) / Basic / Bearer; Basic/Bearer add an `Authorization` header.
 - **Persistence**: the server + auth selections persist to `localStorage` under `LocalStorageKeys.ApiExplorerSettings`, **keyed by entity id**, so a credential set for one instance never applies to another.
 
+## Cloud authentication presentation
+
+All cloud authentication routes use `AuthLayout`; keep form submission, validation, OAuth targets, and error handling in the existing route components/hooks. `AuthInput` keeps `FormControl` directly around the input so label/error associations and React Hook Form refs reach the DOM. React 19 passes `ref` through props; browser tests verify first-invalid-field focus. Password selectors must use an exact label match because the reveal button also has “password” in its accessible name.
+
+The wide hero artwork spans both columns beneath the form card. Keep the headline and feature copy as HTML. `HeroParticles` uses the artwork's 2054 × 766 coordinate system, with separate paths for each theme; replacing either image requires retracing that theme's purple arcs. Reduced-motion mode hides particles and disables decorative animation. Linux visual baselines use reduced motion so animated decoration does not introduce pixel-diff noise.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.
