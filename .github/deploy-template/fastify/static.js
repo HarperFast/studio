@@ -14,7 +14,7 @@ async function isFile(path) {
 	}
 }
 
-// index.html and 404.html are the only documents a browser renders here; assets are hashed.
+// An HTML document can be framed and must not be pinned in a cache; a hashed asset is neither.
 function sendDocument(reply, file, maxAge) {
 	reply.header('Content-Security-Policy', "frame-ancestors 'none'");
 	reply.header('X-Frame-Options', 'DENY');
@@ -38,8 +38,8 @@ export default async (fastify) => {
 		const relative = req.params['*'] ?? '';
 		const absolute = resolve(root, relative);
 		if ((absolute === root || absolute.startsWith(root + sep)) && await isFile(absolute)) {
-			return relative === 'index.html'
-				? sendDocument(reply, relative, '1m')
+			return relative.endsWith('.html')
+				? sendDocument(reply, relative, relative === 'index.html' ? '1m' : 0)
 				: reply.sendFile(relative, { maxAge: '30d', immutable: true });
 		}
 
