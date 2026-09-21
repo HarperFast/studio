@@ -76,9 +76,16 @@ export function isConversionApplying(cluster: Pick<Cluster, 'status' | 'grant' |
 		|| (isConversionPending(cluster.grant) && cluster.grant?.isActive === true);
 }
 
-/** The server's single catch marks this; unlike a missing marker, FAILED is reliable. */
-export function isConversionFailed(cluster: Pick<Cluster, 'conversionState'>): boolean {
-	return cluster.conversionState === 'FAILED';
+/**
+ * The server's single catch marks this; unlike a missing marker, FAILED is reliable — but nothing
+ * clears it except a later successful plan change, so once an admin has remediated (revoked the
+ * provisional grant and comped or otherwise covered the cluster) the marker outlives its cause.
+ * A live grant that is not the conversion's own provisional one is what covers the cluster now.
+ */
+export function isConversionFailed(cluster: Pick<Cluster, 'grant' | 'conversionState'>): boolean {
+	if (cluster.conversionState !== 'FAILED') { return false; }
+	const grant = cluster.grant;
+	return !(grant?.isActive && !isConversionPending(grant));
 }
 
 /**

@@ -4,6 +4,7 @@ import {
 	describeGrantExpiry,
 	describeTrial,
 	isConversionComplete,
+	isConversionFailed,
 	isConversionPending,
 	isExpiryWarning,
 	voucherLabel,
@@ -345,6 +346,20 @@ describe('isConversionComplete', () => {
 	// replaced grant is.
 	it('is false while the marker says FAILED, whatever the grant says', () => {
 		expect(isConversionComplete({ status: 'RUNNING', grant: null, conversionState: 'FAILED' })).toBe(false);
+	});
+
+	// Nothing clears the marker but a later successful plan change, so once an admin has revoked the
+	// provisional grant and comped the cluster the marker has outlived its cause.
+	it("is true again once a live grant other than the conversion's own covers the cluster", () => {
+		const comped = grant({ source: 'comped', expiryPolicy: 'comped', isActive: true });
+		expect(isConversionComplete({ status: 'RUNNING', grant: comped, conversionState: 'FAILED' })).toBe(true);
+		expect(isConversionFailed({ grant: comped, conversionState: 'FAILED' })).toBe(false);
+	});
+
+	it("stays failed while the conversion's own provisional grant is all that covers the cluster", () => {
+		const provisional = grant({ source: 'purchased', expiryPolicy: 'conversion-pending', isActive: true });
+		expect(isConversionFailed({ grant: provisional, conversionState: 'FAILED' })).toBe(true);
+		expect(isConversionFailed({ grant: null, conversionState: 'FAILED' })).toBe(true);
 	});
 
 	it('is false while the marker says APPLYING even after the grant was replaced', () => {
