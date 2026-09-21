@@ -77,6 +77,17 @@ async function pick(label: string, option: RegExp) {
 	await act(() => null);
 }
 
+describe('CreateGrantModal — shape rows', () => {
+	// The shape field's error is the list of its rows' errors and has no message of its own;
+	// FormMessage used to print that absence as the word "undefined".
+	it('adding a row shows no stray "undefined"', async () => {
+		await mount();
+		fireEvent.click(screen.getByRole('button', { name: /Add region/ }));
+		await act(() => null);
+		expect(screen.queryByText('undefined')).toBeNull();
+	});
+});
+
 describe('CreateGrantModal — one submit at a time', () => {
 	it('a second click while the create is in flight sends nothing', async () => {
 		await mount();
