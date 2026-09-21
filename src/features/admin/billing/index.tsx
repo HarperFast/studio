@@ -9,6 +9,7 @@ import { getBillingClustersQueryOptions } from '@/features/admin/billing/queries
 import { getFleetUsageQueryOptions } from '@/features/admin/billing/queries/getFleetUsage';
 import { getGrantsQueryOptions } from '@/features/admin/grants/queries/getGrants';
 import { getPlansQueryOptions } from '@/features/admin/plans/queries/getPlans';
+import { getRegionsQueryOptions } from '@/features/admin/regions/queries/getRegions';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -88,6 +89,13 @@ export function BillingAdminIndex() {
 	// covering the cluster — or the absence of one.
 	const grantsQuery = useQuery(getGrantsQueryOptions({ status: 'ACTIVE' }));
 	const { data: plans } = useQuery(getPlansQueryOptions());
+	const { data: regions } = useQuery(getRegionsQueryOptions());
+	// A region plan is billed at plan price × the region's block multiplier — what checkout charges
+	// and what the cycle mints — not the bare list price.
+	const multiplierByRegion = useMemo(
+		() => new Map((regions ?? []).map((region) => [region.id, region.purchasedBlockMultiplier ?? 1])),
+		[regions],
+	);
 	// One request for the whole fleet rather than one per row. A failure here is not fatal — the
 	// billing columns stand on their own, so the page degrades to no meters rather than an error.
 	const usageQuery = useQuery(getFleetUsageQueryOptions());
@@ -131,36 +139,48 @@ export function BillingAdminIndex() {
 			.map((cluster) => ({ cluster, grant: grantByCluster.get(cluster.id) }));
 	}, [clustersQuery.data, grantByCluster, search, cover, showTerminated]);
 
-	/** What the cluster's region plans cost per period, summed across regions. */
-	const monthly = (plansOnCluster: { planId: string }[] | null | undefined) => {
+	/** Only a live Stripe- or contract-billed grant turns a cluster's plans into spend. */
+	const billable = (grant: AdminClusterGrant | undefined) =>
+		!!grant?.isActive && (grant.source === 'purchased' || grant.source === 'contracted');
+
+	/** What the cluster's region plans cost per period, or null when a plan is not in the catalogue. */
+	const periodCost = (
+		plansOnCluster: { planId: string; regionId?: string | null }[] | null | undefined,
+	): number | null => {
 		let total = 0;
-		let known = true;
 		for (const rp of plansOnCluster ?? []) {
 			const plan = planById.get(rp.planId);
-			if (!plan) {
-				known = false;
-				continue;
-			}
-			total += plan.priceUsd;
+			if (!plan) { return null; }
+			total += plan.priceUsd * (rp.regionId ? multiplierByRegion.get(rp.regionId) ?? 1 : 1);
 		}
-		return known ? price.format(total) : '—';
+		return total;
 	};
 
-	// What the rows on screen add up to. Only clusters whose every plan resolves are counted, and how
-	// many that was is shown alongside — a total quietly missing a cluster is worse than no total.
+	const monthly = (
+		plansOnCluster: { planId: string; regionId?: string | null }[] | null | undefined,
+		grant: AdminClusterGrant | undefined,
+	) => {
+		if (!billable(grant)) { return price.format(0); }
+		const cost = periodCost(plansOnCluster);
+		return cost == null ? '—' : price.format(cost);
+	};
+
+	// What the rows on screen add up to: billable clusters only, and only those whose every plan
+	// resolves, with how many that was shown alongside — a total quietly missing a cluster is worse
+	// than no total.
 	const spend = useMemo(() => {
 		let total = 0;
 		let counted = 0;
-		for (const { cluster } of rows) {
-			const plansOnCluster = cluster.plans ?? [];
-			if (plansOnCluster.length === 0) { continue; }
-			const prices = plansOnCluster.map((rp) => planById.get(rp.planId)?.priceUsd);
-			if (prices.some((value) => value == null)) { continue; }
-			total += prices.reduce((sum: number, value) => sum + (value ?? 0), 0);
+		for (const { cluster, grant } of rows) {
+			if (!billable(grant) || !(cluster.plans ?? []).length) { continue; }
+			const cost = periodCost(cluster.plans);
+			if (cost == null) { continue; }
+			total += cost;
 			counted += 1;
 		}
 		return { total, counted };
-	}, [rows, planById]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [rows, planById, multiplierByRegion]);
 
 	const isLoading = clustersQuery.isLoading || grantsQuery.isLoading;
 	const isError = clustersQuery.isError || grantsQuery.isError;
@@ -323,7 +343,7 @@ export function BillingAdminIndex() {
 																		: `${regions.length} × ${[...new Set(regions.map((r) => r.planId))].join(', ')}`}
 																</TableCell>
 																<TableCell className="text-right tabular-nums whitespace-nowrap">
-																	{monthly(regions)}
+																	{monthly(regions, grant)}
 																</TableCell>
 																<TableCell>
 																	<UsageCell usage={usage} />
