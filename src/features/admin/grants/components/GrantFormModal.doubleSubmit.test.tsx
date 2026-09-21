@@ -87,4 +87,17 @@ describe('GrantFormModal — one write at a time', () => {
 		expect(updateGrant).toHaveBeenCalledTimes(1);
 		expect(updateGrant.mock.calls[0][0]).toMatchObject({ id: 'cgr-a', changes: { status: 'REVOKED' } });
 	});
+
+	it('a refused revoke (no reason) leaves the latch open, so the corrected one still sends', async () => {
+		await mount();
+		const revoke = screen.getByRole('button', { name: 'Revoke grant' });
+		fireEvent.click(revoke);
+		await act(() => null);
+		expect(updateGrant).not.toHaveBeenCalled();
+		fireEvent.change(screen.getByPlaceholderText(/Why these terms/), { target: { value: 'ending the pilot' } });
+		await act(() => null);
+		fireEvent.click(revoke);
+		await act(() => null);
+		expect(updateGrant).toHaveBeenCalledTimes(1);
+	});
 });
