@@ -7,9 +7,9 @@ const root = join(import.meta.dirname, '../web');
 // `text/html;q=0` is an explicit refusal, not a request for HTML, so substring matching won't do.
 const wantsHtml = (accept) =>
 	accept.toLowerCase().split(',').some((range) => {
-		const [type, ...params] = range.trim().split(';');
+		const [type, ...params] = range.split(';').map((part) => part.trim());
 		if (type !== 'text/html' && type !== 'application/xhtml+xml') { return false; }
-		const quality = params.map((param) => param.trim()).find((param) => param.startsWith('q='));
+		const quality = params.find((param) => param.startsWith('q='));
 		return !quality || Number(quality.slice(2)) > 0;
 	});
 

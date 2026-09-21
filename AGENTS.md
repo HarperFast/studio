@@ -265,9 +265,11 @@ Any `.html` under `web/` is a document — frame guards, short max-age — and e
 hashed asset served `immutable`. The extra `stat` (on top of `send`'s own) is the deliberate price
 of owning the fallback.
 
-`verify-static.mjs` next to the template pins all of it — 12 checks against a real build behind
-Harper's own not-found handler, including the post-boot asset. Run it on both pairings
-(@fastify/static 7 + fastify 4 for Harper v4, 8 + fastify 5 for v5) after touching this file.
+`verify-static.mjs` next to the template pins all of it — 14 checks against a real build behind
+Harper's own not-found handler, including the post-boot asset. Run it on both pairings after
+touching this file; its header carries the two install lines, and a bare
+`npm i fastify @fastify/static` pairs the package.json's v7 pin with fastify 5 and fails the
+plugin's version check.
 
 Scope of the catch-all: Harper mounts these routes as a global fallback _after_ its own resource
 routing, so it only ever sees paths the native chain declined — it cannot shadow `/oauth/*` or the
@@ -286,8 +288,13 @@ catch-all there 404s the app itself.
 
 None of this is exercised by CI — nothing in the repo evaluates `.github/` — so the verifier above
 is the whole safety net on the deployed side; hit a bogus path on `pnpm dev` for the dev side.
-Both 404 paths answer HTML only to a client that actually accepts it: `text/html;q=0` is a
-refusal, and everything else gets `{"error":"Not found"}`.
+
+Both sides answer HTML only to a client that actually accepts it, and `text/html;q=0` is a refusal,
+not a request — but they diverge past that: the deployed handler answers everything else with
+`{"error":"Not found"}`, while dev falls through to Vite's own 404. The `wantsHtml` helper is
+deliberately duplicated (the template ships standalone into `deploy/` and cannot import from
+`src/`), so a fix to one is a fix owed to the other — the OWS-tolerant media-type parse came from
+exactly that.
 
 ## Google sign-in button has no `display`
 

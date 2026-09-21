@@ -73,9 +73,9 @@ function fixMonacoYamlWorkerInit(): Plugin {
 
 function wantsHtml(accept: string): boolean {
 	return accept.toLowerCase().split(',').some((range) => {
-		const [type, ...params] = range.trim().split(';');
+		const [type, ...params] = range.split(';').map((part) => part.trim());
 		if (type !== 'text/html' && type !== 'application/xhtml+xml') { return false; }
-		const quality = params.map((param) => param.trim()).find((param) => param.startsWith('q='));
+		const quality = params.find((param) => param.startsWith('q='));
 		return !quality || Number(quality.slice(2)) > 0;
 	});
 }
@@ -105,7 +105,7 @@ function serveNotFoundPage(): Plugin {
 						res.statusCode = 404;
 						res.setHeader('Content-Type', 'text/html');
 						res.end(page);
-					}, next);
+					}).catch(next);
 				});
 			};
 		},
