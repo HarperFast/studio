@@ -1,19 +1,33 @@
 #!/usr/bin/env node
 /**
  * Exercises `fastify/static.js` the way central-manager does: behind Harper's own not-found
- * handler, against a real `web/` build. Nothing in CI evaluates `.github/`, and the two defects
- * this file now pins — a route table frozen at boot, and HTML served without frame guards — both
- * reached review because a fresh-boot spot check cannot show them.
+ * handler, against a real `web/` build. Nothing in CI evaluates `.github/`, so this is the only
+ * check that a deployed Studio still serves what it should.
  *
- *   cd .github/deploy-template && npm i --no-save fastify @fastify/static && node verify-static.mjs
+ * Both deployed pairings should pass — studio-deploy's `FASTIFY_STATIC_V5` override is what
+ * selects between them — so run it twice, from `.github/deploy-template`:
  *
- * Point it at the pairing you care about: @fastify/static 7 with fastify 4 (Harper v4) and 8 with
- * fastify 5 (v5) are both deployed, per the `FASTIFY_STATIC_V5` override in studio-deploy.
+ *   npm i --no-save fastify@4 @fastify/static@7 && node verify-static.mjs   # Harper v4
+ *   npm i --no-save fastify@5 @fastify/static@8 && node verify-static.mjs   # Harper v5
+ *
+ * A bare `npm i fastify @fastify/static` pairs the package.json's v7 pin with fastify 5 and fails
+ * the plugin's own version check. Pass a build directory as argv[1] to test one other than `web/`.
  */
-import { rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
-const web = process.argv[2] ?? new URL('../../web', import.meta.url).pathname;
+const build = resolve(process.argv[2] ?? join(import.meta.dirname, '../../web'));
+// `static.js` serves `<template>/web`, which is the shape the deploy produces (`mv web deploy/`).
+const served = join(import.meta.dirname, 'web');
+const staged = !existsSync(served);
+if (staged) { symlinkSync(build, served); }
+process.on('exit', () => {
+	if (staged) {
+		try {
+			unlinkSync(served);
+		} catch {}
+	}
+});
 
 let Fastify, staticRoutes;
 try {
@@ -31,21 +45,29 @@ app.register(function(instance, options, done) {
 	instance.setNotFoundHandler((req, reply) => reply.code(404).type('text/plain').send('Not found\n'));
 	done();
 });
-await app.register(staticRoutes);
-await app.ready();
+try {
+	await app.register(staticRoutes);
+	await app.ready();
+} catch (error) {
+	console.error(`could not start the template: ${error.message}`);
+	if (String(error.code) === 'FST_ERR_PLUGIN_VERSION_MISMATCH') {
+		console.error('install a matching pairing: fastify@4 with @fastify/static@7, or fastify@5 with @fastify/static@8');
+	}
+	process.exit(2);
+}
 
 const html = { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
 const shell = await app.inject({ method: 'GET', url: '/' });
 const asset = shell.body.match(/assets\/[\w.-]+\.js/)?.[0];
 if (!asset) {
-	console.error(`no hashed asset found in the app shell — is ${web} a real build?`);
+	console.error(`no hashed asset found in the app shell — is ${build} a real build?`);
 	process.exit(2);
 }
 
-// A deploy lands a new web/ and does NOT restart the component, so routing must read disk per
+// A deploy lands a new web/ without restarting the component, so routing must read disk per
 // request rather than snapshot it at registration.
 const afterBoot = 'assets/deployed-after-boot.js';
-writeFileSync(join(web, afterBoot), 'console.log(1)');
+writeFileSync(join(build, afterBoot), 'console.log(1)');
 
 const results = [];
 async function expect(label, options, wanted) {
@@ -129,7 +151,7 @@ await expect('POST cascades to Harper', { method: 'POST', url: '/nope', headers:
 	type: 'text/plain',
 });
 
-rmSync(join(web, afterBoot), { force: true });
+rmSync(join(build, afterBoot), { force: true });
 await app.close();
 
 for (const { label, actual, failed } of results) {
