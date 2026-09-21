@@ -559,7 +559,13 @@ export function ClusterForm({
 				<div className="absolute top-3 right-4 md:right-12 flex flex-col items-end text-right">
 					<dt className="font-light">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="font-bold">
-						{totalPrice > 0
+						{selectedGrant
+							? (
+								<span className="text-4xl text-green">
+									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
+								</span>
+							)
+							: totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
 									<PriceDisplay price={monthlyPrice} />

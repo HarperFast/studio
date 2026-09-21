@@ -267,7 +267,7 @@ export function ClusterHome() {
 					</div>
 				)}
 
-			<ClusterUsageCard clusterId={cluster.id} base={base} />
+			<ClusterUsageCard clusterId={cluster.id} base={base} trial={cluster.grant?.source === 'trial'} />
 		</ClusterHomeShell>
 	);
 }

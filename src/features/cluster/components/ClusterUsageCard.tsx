@@ -8,7 +8,9 @@ import { ArrowRight } from 'lucide-react';
 //   • many regions → the single most-constrained region×metric (an average would hide a hot region),
 //     with the full per-region breakdown a click away on the Usage tab.
 
-export function ClusterUsageCard({ clusterId, base }: { clusterId: string; base: string }) {
+export function ClusterUsageCard(
+	{ clusterId, base, trial = false }: { clusterId: string; base: string; trial?: boolean },
+) {
 	const { data } = useClusterUsage(clusterId);
 
 	// Nothing to show until there's a managed plan with reportable regions (also covers loading, errors,
@@ -26,7 +28,7 @@ export function ClusterUsageCard({ clusterId, base }: { clusterId: string; base:
 					View all usage <ArrowRight className="size-3" />
 				</Link>
 			</div>
-			<p className="mt-0.5 text-xs text-muted-foreground">{usageSubtitle(data)}</p>
+			<p className="mt-0.5 text-xs text-muted-foreground">{usageSubtitle(data, { trial })}</p>
 
 			<div className="mt-4">
 				{data.regions.length === 1 ? <SingleRegion data={data} /> : <MultiRegion data={data} />}
