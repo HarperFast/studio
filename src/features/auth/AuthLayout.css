@@ -119,6 +119,8 @@
 .sign-in-features li {
 	display: flex;
 	flex-direction: column;
+	align-items: center;
+	text-align: center;
 	gap: 5px;
 	font-size: 13px;
 	color: var(--signin-muted);
@@ -665,7 +667,7 @@
 }
 
 .auth-energy-particle:nth-child(even) {
-	color: #597fe4;
+	color: #7757dc;
 }
 
 .dark .auth-energy-particle:nth-child(even) {
@@ -731,4 +733,27 @@
 	.auth-energy-particle { display: none; }
 	.sign-in-feature-icon::before { animation: none; }
 	.sign-in-story-footer > span:nth-child(2)::after { display: none; animation: none; }
+}
+
+.dark .auth-energy-particle {
+	color: #d8ffff;
+	mix-blend-mode: color-dodge;
+	filter: drop-shadow(0 0 5px #53dfff);
+}
+
+.dark .auth-energy-particle:nth-child(even) {
+	color: #fff0ce;
+	filter: drop-shadow(0 0 5px #ffad45);
+}
+
+.dark .auth-energy-particle circle:first-child {
+	opacity: 0.24;
+}
+
+.dark .auth-energy-particle circle:nth-child(2) {
+	opacity: 0.6;
+}
+
+.dark .auth-energy-particle circle:last-of-type {
+	r: 3.2px;
 }
