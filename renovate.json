@@ -27,6 +27,13 @@
 			"enabled": false
 		},
 		{
+			"description": "e2e/ enforces its own 7-day supply-chain floor (minimumReleaseAge: 10080 in e2e/pnpm-workspace.yaml, deliberate - the harness runs on the automation laptop with real secrets). The global 3 days is shorter, so Renovate would open an e2e PR and then fail its own artifact step with ERR_PNPM_NO_MATURE_MATCHING_VERSION, since pnpm refuses to resolve a version it considers too young. Match the floor so an e2e PR is only ever opened once its lockfile can actually be generated.",
+			"matchFileNames": [
+				"e2e/package.json"
+			],
+			"minimumReleaseAge": "7 days"
+		},
+		{
 			"groupName": "all non-major dependencies",
 			"groupSlug": "all-minor-patch",
 			"matchUpdateTypes": [
