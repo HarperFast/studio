@@ -57,9 +57,9 @@ import {
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-// The card's status pills share one shape, tinted by how urgent they are. Each tone clears AA in
-// both themes. The date beside a pill uses 70% foreground in dark, where the theme's muted grey
-// falls under AA on the card.
+// Every status pill on the card shares one size; the expiry and Trial pills are also tinted by
+// urgency, and each tone clears AA in both themes. The date beside a pill uses 70% foreground in
+// dark, where the theme's muted grey falls under AA on the card.
 const STATUS_PILL = 'rounded-md px-2.5 py-1';
 const PILL_TONE: Record<ExpirySeverity, string> = {
 	info:
@@ -450,14 +450,16 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						)}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 						{showContainerOpBadge && cluster.status && (
-							<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
+							<Badge variant={isClusterStopped ? 'destructive' : 'warning'} className={STATUS_PILL}>
 								{isClusterTransitioning && <Loader2 className="animate-spin" />}
 								{capitalizeWords(cluster.status)}
 							</Badge>
 						)}
 						{clusterHasFailed && cluster.status && (
 							<>
-								<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+								<Badge variant={renderBadgeStatusVariant(cluster.status)} className={STATUS_PILL}>
+									{capitalizeWords(cluster.status)}
+								</Badge>
 								<span className="text-xs">Click "..." to choose how to proceed.</span>
 							</>
 						)}
