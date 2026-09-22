@@ -28,10 +28,10 @@ afterEach(() => {
 	copy.mockClear();
 });
 
-async function mount(grant: AdminClusterGrant | null) {
+async function mount(grants: AdminClusterGrant[] | null) {
 	const result = render(
 		<TestProvider>
-			<GrantCreatedModal grant={grant} onOpenChange={() => {}} />
+			<GrantCreatedModal grants={grants} onOpenChange={() => {}} />
 		</TestProvider>,
 	);
 	// Radix portals the dialog on mount, so nothing is in the document until effects have run.
@@ -47,7 +47,7 @@ describe('GrantCreatedModal', () => {
 
 	// The id is the only handle on an unbound grant until a cluster claims it.
 	it('shows the id and copies it', async () => {
-		await mount(GRANT);
+		await mount([GRANT]);
 		expect(screen.getByTestId('created-grant-id').textContent).toBe('grt-abc123');
 		fireEvent.click(screen.getByLabelText('Copy grant id'));
 		expect(copy).toHaveBeenCalledWith('grt-abc123');
@@ -55,10 +55,23 @@ describe('GrantCreatedModal', () => {
 
 	// Unbound and bound grants behave differently enough that the confirmation says which it is.
 	it('says an unbound grant is waiting to be claimed', async () => {
-		await mount(GRANT);
+		await mount([GRANT]);
 		expect(screen.getByText(/Held unbound until this organization creates a cluster/)).toBeTruthy();
 		cleanup();
-		await mount({ ...GRANT, clusterId: 'clu-9' });
+		await mount([{ ...GRANT, clusterId: 'clu-9' }]);
 		expect(screen.getByText('Applies now to clu-9.')).toBeTruthy();
+	});
+
+	// A batch shares every term but the id, so the terms show once and every id is copyable.
+	it('lists every id of a batch and copies them all at once', async () => {
+		const batch = ['grt-1', 'grt-2', 'grt-3'].map((id) => ({ ...GRANT, id }) as AdminClusterGrant);
+		await mount(batch);
+		expect(screen.getByText('3 grants created')).toBeTruthy();
+		expect(screen.getAllByTestId('created-grant-id').map((el) => el.textContent)).toEqual(['grt-1', 'grt-2', 'grt-3']);
+		fireEvent.click(screen.getByLabelText('Copy grant id grt-2'));
+		expect(copy).toHaveBeenCalledWith('grt-2');
+		fireEvent.click(screen.getByRole('button', { name: 'Copy all ids' }));
+		expect(copy).toHaveBeenCalledWith('grt-1\ngrt-2\ngrt-3');
+		expect(screen.getByText(/each of which claims one/)).toBeTruthy();
 	});
 });
