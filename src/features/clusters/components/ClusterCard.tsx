@@ -425,9 +425,20 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 							</Badge>
 						)}
 						{trial && (
-							<Badge variant="outline" className="font-normal" title={trial.detail}>
-								{trial.label}
-							</Badge>
+							// One flex item, so the row's justify-between keeps the date beside its pill. The date
+							// uses 70% foreground in dark: the theme's muted grey falls under AA on the dark card.
+							<span className="inline-flex items-center gap-2">
+								<Badge
+									variant="outline"
+									className="rounded-md border-violet-400/70 bg-violet-50 px-2.5 py-1 text-violet-700 dark:border-violet-400/60 dark:bg-violet-400/10 dark:text-violet-200"
+									title={trial.detail}
+								>
+									Trial
+								</Badge>
+								{trial.endsOn && (
+									<span className="text-sm text-muted-foreground dark:text-foreground/70">Ends {trial.endsOn}</span>
+								)}
+							</span>
 						)}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 						{showContainerOpBadge && cluster.status && (
