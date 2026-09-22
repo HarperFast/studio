@@ -16,6 +16,8 @@ export interface GrantExpiryDescription {
 	severity: ExpirySeverity;
 	/** Short form for the cluster card. */
 	badgeLabel: string;
+	/** Compact end date shown beside the badge while a countdown runs, "Sep 30". */
+	endsOn?: string | null;
 	/** Sentence form for the cluster page banner. */
 	title: string;
 	detail?: string;
@@ -159,6 +161,10 @@ function endedTitle(grant: ClusterGrant, days: number | null): string {
 
 const onDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(at);
 const onShortDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(at);
+const shortEndsOn = (endsAt: string | null | undefined) => {
+	const at = endsAt ? new Date(endsAt) : null;
+	return at && !Number.isNaN(at.getTime()) ? onShortDate(at) : null;
+};
 
 /** The customer-facing name for what a grant is: Trial, Complimentary plan, Plan… */
 export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
@@ -278,6 +284,7 @@ export function describeGrantExpiry(
 				stage: 'WARNED',
 				severity: 'warning',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
+				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'Choose a paid plan to keep this cluster running.',
 				needsUpgrade: false,
@@ -288,6 +295,7 @@ export function describeGrantExpiry(
 				stage: 'FINAL_WARNING',
 				severity: 'critical',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
+				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
 				needsUpgrade: false,
