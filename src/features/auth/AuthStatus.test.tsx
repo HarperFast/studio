@@ -53,6 +53,7 @@ describe('verification screens', () => {
 		render(<VerifyEmail />);
 		expect(screen.getByRole('status').textContent).toBe('Verifying email...');
 		expect(screen.queryByLabelText('Email')).toBeNull();
+		expect(screen.queryByText('Enter your email to receive a verification link.')).toBeNull();
 	});
 
 	it('keeps the check-your-email instructions and return path available without resending on mount', () => {

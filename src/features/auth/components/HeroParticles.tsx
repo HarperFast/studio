@@ -1,5 +1,6 @@
-// Coordinates follow the visible energy lines in each 2054 × 766 panoramic hero image.
-// Keep separate traces: the light artwork has a different globe and platform position.
+import { useId } from 'react';
+
+// Lines and particles share coordinates so resizing the independent globe cannot detach them.
 const energyPaths = {
 	dark: [
 		'M 246 426 C 211 389 184 377 154 386 C 72 399 44 492 0 576',
@@ -17,6 +18,11 @@ const energyPaths = {
 	],
 };
 
+const endpoints = {
+	dark: [[246, 426, 0, 576], [658, 383, 952, 583], [750, 438, 1183, 766], [0, 576, 372, 766], [1196, 766, 2054, 651]],
+	light: [[258, 355, 0, 542], [633, 350, 951, 548], [756, 405, 1169, 766], [0, 542, 356, 766], [1285, 766, 2054, 668]],
+};
+
 const particles = [
 	{ path: 0, duration: 12, phase: 3 },
 	{ path: 1, duration: 16, phase: 6 },
@@ -27,10 +33,26 @@ const particles = [
 	{ path: 4, duration: 22, phase: 16 },
 ];
 
-/** Decorative native SVG motion scales with the artwork, without a JS animation loop. */
 export function HeroParticles({ theme }: { theme: 'light' | 'dark' }) {
+	const id = useId();
 	return (
 		<svg className="auth-energy-particles" viewBox="0 0 2054 766" aria-hidden="true" focusable="false">
+			<defs>
+				<radialGradient id={`${id}-fade`}>
+					<stop offset="0" stopColor="black" />
+					<stop offset="1" stopColor="white" />
+				</radialGradient>
+				{endpoints[theme].map(([startX, startY, endX, endY], index) => (
+					<mask key={index} id={`${id}-${index}`} maskUnits="userSpaceOnUse" x="0" y="0" width="2054" height="766">
+						<rect width="2054" height="766" fill="white" />
+						<circle cx={startX} cy={startY} r="60" fill={`url(#${id}-fade)`} />
+						<circle cx={endX} cy={endY} r="60" fill={`url(#${id}-fade)`} />
+					</mask>
+				))}
+			</defs>
+			{energyPaths[theme].map((path, index) => (
+				<path key={path} className="auth-energy-line" d={path} mask={`url(#${id}-${index})`} />
+			))}
 			{particles.map(({ path, duration, phase }, index) => (
 				<g key={`${theme}-${index}`} className="auth-energy-particle" opacity="0">
 					<circle r="12" fill="currentColor" opacity="0.06" />

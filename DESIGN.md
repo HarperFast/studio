@@ -16,6 +16,12 @@ The `/apis` route is a **custom, in-house API explorer** ([`src/features/instanc
 - **Try-it-out is credentialed cross-origin `fetch`** (`credentials: 'include'`), the same model Swagger used — which is why the **CORS warning + one-click enable** flow in [`APIDocs.tsx`](src/features/instance/apis/APIDocs.tsx) matters and must be preserved. Auth offers Cookie (session, default) / Basic / Bearer; Basic/Bearer add an `Authorization` header.
 - **Persistence**: the server + auth selections persist to `localStorage` under `LocalStorageKeys.ApiExplorerSettings`, **keyed by entity id**, so a credential set for one instance never applies to another.
 
+## Cloud authentication presentation
+
+All cloud authentication routes use `AuthLayout`; keep form submission, validation, OAuth targets, and error handling in the existing route components/hooks. `AuthInput` keeps `FormControl` directly around the input so label/error associations and React Hook Form refs reach the DOM. React 19 passes `ref` through props; browser tests verify first-invalid-field focus. Password selectors must use an exact label match because the reveal button also has “password” in its accessible name.
+
+The wide hero artwork spans both columns beneath the form card in three independent layers: a globe-only background, SVG energy lines/particles, and a transparent platform cutout. There is only one globe surface per theme, so resizing it cannot create a seam against the platform. Keep its max-width unrestricted; the footer’s bottom margin reserves its overflow without moving the form or platform. Each platform cutout has its own scale/offset to align with the original 2054 × 766 coordinates. Keep the headline and feature copy as HTML. `HeroParticles` draws static lines and animates particles from the same theme-specific paths; resizing or replacing the globe does not require retracing them. Reduced-motion mode hides only particles, retaining the static lines, and disables decorative animation. Linux visual baselines use reduced motion so animated decoration does not introduce pixel-diff noise.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.

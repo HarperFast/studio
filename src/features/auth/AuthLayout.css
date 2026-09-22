@@ -119,6 +119,8 @@
 .sign-in-features li {
 	display: flex;
 	flex-direction: column;
+	align-items: center;
+	text-align: center;
 	gap: 5px;
 	font-size: 13px;
 	color: var(--signin-muted);
@@ -159,21 +161,47 @@
 	pointer-events: none;
 }
 
-/* Reserve only the original left illustration's height. The extended globe occupies
- * both columns, behind the card, without enlarging the cube platform. */
+/* Keep the platform and particle coordinates fixed while the globe extends beneath them. */
 .auth-hero-panorama {
 	position: absolute;
 	inset: 0 auto 0 0;
 	width: 200%;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent),
-		linear-gradient(to right, transparent, black 4%, black 92%, transparent);
-	mask-composite: intersect;
 }
 
 .sign-in-artwork img {
 	display: block;
 	width: 100%;
 	height: auto;
+}
+
+.sign-in-artwork .auth-hero-globe {
+	position: absolute;
+	max-width: none;
+	width: 181.83%;
+	left: -41.77%;
+	top: -43.42%;
+	mask-image: linear-gradient(to bottom, transparent, black 18%, black 92%, transparent),
+		linear-gradient(to right, transparent, black 2%, black 98%, transparent);
+	mask-composite: intersect;
+}
+
+.dark .sign-in-artwork .auth-hero-globe {
+	width: 182.95%;
+	left: -45.75%;
+	top: 0.67%;
+}
+
+.sign-in-artwork .auth-hero-platform {
+	position: absolute;
+	width: 82.3%;
+	left: 2.73%;
+	top: 11.29%;
+}
+
+.dark .sign-in-artwork .auth-hero-platform {
+	width: 66.19%;
+	left: 4.99%;
+	top: 26.4%;
 }
 
 .sign-in-story-footer {
@@ -186,6 +214,8 @@
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	margin-top: -20px;
+	margin-bottom: 90%;
+	text-shadow: 0 1px 4px var(--signin-bg);
 	position: relative;
 }
 
@@ -356,6 +386,11 @@
 	color: var(--signin-ink);
 }
 
+.auth-form .github-signin-btn:hover {
+	background: var(--signin-field);
+	border-color: var(--signin-link);
+}
+
 .auth-form .github-icon {
 	filter: invert(1);
 }
@@ -405,8 +440,6 @@
 		gap: 18px;
 	}
 	.sign-in-artwork {
-	position: relative;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin-top: -30px;
 	}
 	.sign-in-desktop-break {
@@ -466,18 +499,16 @@
 		font-size: 12px;
 	}
 	.sign-in-artwork {
-	position: relative;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin: -34px -6% 0;
 	}
 	.sign-in-story-footer {
 		margin-top: 0;
+		margin-bottom: 84%;
 		font-size: 10px;
 		gap: 12px;
 	}
 }
 
-/* All cloud authentication routes share the same card and form treatment. */
 .auth-form {
 	width: 100%;
 	min-width: 0;
@@ -511,7 +542,7 @@
 	padding-inline: 0;
 }
 
-.auth-form:not(.fabric-sign-in) p:not([role="alert"]) {
+.auth-form:not(.fabric-sign-in) p:not([role="alert"]):not([data-slot="form-message"]) {
 	color: var(--signin-muted);
 	line-height: 1.6;
 }
@@ -559,6 +590,7 @@
 }
 
 .auth-loading-icon {
+	transform-origin: center;
 	animation: auth-spin 1.2s linear infinite;
 }
 
@@ -614,7 +646,6 @@
 	}
 }
 
-/* Quiet, decorative movement shared by all authentication pages. */
 .auth-energy-particles {
 	position: absolute;
 	inset: 0;
@@ -624,12 +655,19 @@
 	color: #7757dc;
 }
 
+.auth-energy-line {
+	fill: none;
+	stroke: #995bfa;
+	stroke-width: 1.5;
+	opacity: 0.65;
+}
+
 .dark .auth-energy-particles {
 	color: #d1ebff;
 }
 
 .auth-energy-particle:nth-child(even) {
-	color: #597fe4;
+	color: #7757dc;
 }
 
 .dark .auth-energy-particle:nth-child(even) {
@@ -692,7 +730,30 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.auth-energy-particles { display: none; }
+	.auth-energy-particle { display: none; }
 	.sign-in-feature-icon::before { animation: none; }
 	.sign-in-story-footer > span:nth-child(2)::after { display: none; animation: none; }
+}
+
+.dark .auth-energy-particle {
+	color: #d8ffff;
+	mix-blend-mode: color-dodge;
+	filter: drop-shadow(0 0 5px #53dfff);
+}
+
+.dark .auth-energy-particle:nth-child(even) {
+	color: #fff0ce;
+	filter: drop-shadow(0 0 5px #ffad45);
+}
+
+.dark .auth-energy-particle circle:first-child {
+	opacity: 0.24;
+}
+
+.dark .auth-energy-particle circle:nth-child(2) {
+	opacity: 0.6;
+}
+
+.dark .auth-energy-particle circle:last-of-type {
+	r: 3.2px;
 }

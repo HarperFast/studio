@@ -18,7 +18,7 @@ test.describe('sign-in page', () => {
 		await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 
 		await expect(page.getByLabel('Email')).toBeVisible();
-		await expect(page.getByLabel('Password')).toBeVisible();
+		await expect(page.getByLabel('Password', { exact: true })).toBeVisible();
 		await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
 
 		// OAuth options render as links to server-side endpoints — assert the anchors
@@ -37,7 +37,7 @@ test.describe('sign-in page', () => {
 
 	test('rejects an invalid email client-side (no network)', async ({ page }) => {
 		await page.getByLabel('Email').fill('not-an-email');
-		await page.getByLabel('Password').fill('something');
+		await page.getByLabel('Password', { exact: true }).fill('something');
 		await page.getByRole('button', { name: 'Sign In' }).click();
 
 		// Zod validation blocks submit and the form stays put.
@@ -45,10 +45,56 @@ test.describe('sign-in page', () => {
 		await expect(page.getByLabel('Email')).toBeVisible();
 	});
 
-	test('visual baseline of the sign-in page @visual', async ({ page }) => {
-		await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
-		// Baseline must be generated in the Linux container (see README) — commit
-		// only the *-linux snapshot. Fonts/AA differ on macOS.
-		await expect(page).toHaveScreenshot('sign-in.png', { fullPage: true });
+	test('focuses the first invalid field after submitting an empty form', async ({ page }) => {
+		await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+		const email = page.getByLabel('Email', { exact: true });
+		await expect(email).toHaveAttribute('aria-invalid', 'true');
+		await expect(email).toBeFocused();
+		await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('aria-invalid', 'true');
+		await expect(page).toHaveURL(/#\/sign-in/);
 	});
+
+	test('reveals and hides the password without submitting', async ({ page }) => {
+		const password = page.getByLabel('Password', { exact: true });
+		await password.fill('visibility-test-only');
+		await page.getByRole('button', { name: 'Show password', exact: true }).click();
+		await expect(password).toHaveAttribute('type', 'text');
+		await expect(password).toHaveValue('visibility-test-only');
+		await page.getByRole('button', { name: 'Hide password', exact: true }).click();
+		await expect(password).toHaveAttribute('type', 'password');
+		await expect(password).toHaveValue('visibility-test-only');
+		await expect(page).toHaveURL(/#\/sign-in/);
+	});
+
+	for (const theme of ['Light', 'Dark'] as const) {
+		test(`keeps the GitHub button readable on hover in ${theme.toLowerCase()} mode`, async ({ page }) => {
+			await page.getByRole('button', { name: theme, exact: true }).click();
+			const github = page.getByRole('link', { name: 'Sign in with GitHub' });
+			await github.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+			const background = await github.evaluate(element => getComputedStyle(element).backgroundColor);
+			await github.hover();
+			await github.evaluate(element => Promise.all(element.getAnimations().map(animation => animation.finished)));
+			await expect(github).toHaveCSS('background-color', background);
+		});
+
+		test(`visual baseline of the ${theme.toLowerCase()} sign-in page @visual`, async ({ page }) => {
+			await page.emulateMedia({ reducedMotion: 'reduce' });
+			await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+			await page.getByRole('button', { name: theme, exact: true }).click();
+			await expect(page.getByRole('img', { name: /App, database, cache, and messaging together/ }))
+				.toHaveAttribute('src', `/auth/fabric-platform-${theme.toLowerCase()}.png`);
+			await expect(page.locator('.auth-hero-globe'))
+				.toHaveAttribute('src', `/auth/fabric-globe-${theme.toLowerCase()}.png`);
+			await expect.poll(() =>
+				page.locator('.sign-in-artwork img').evaluateAll(images =>
+					images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)
+				)
+			).toBe(true);
+			await expect(page).toHaveScreenshot(`sign-in-${theme.toLowerCase()}.png`, {
+				fullPage: true,
+				// The external CAPTCHA badge varies by host and network availability.
+				mask: [page.locator('.grecaptcha-badge')],
+			});
+		});
+	}
 });

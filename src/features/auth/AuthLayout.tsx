@@ -58,13 +58,20 @@ export function AuthLayout() {
 					<div className="sign-in-artwork">
 						<div className="auth-hero-panorama">
 							<img
-								src={`/auth/fabric-hero-${theme}-wide.png`}
+								className="auth-hero-globe"
+								src={`/auth/fabric-globe-${theme}.png`}
+								alt=""
+								aria-hidden="true"
+							/>
+							<HeroParticles theme={theme} />
+							<img
+								className="auth-hero-platform"
+								src={`/auth/fabric-platform-${theme}.png`}
 								width="2054"
 								height="766"
 								alt="App, database, cache, and messaging together on a globally distributed platform."
 								fetchPriority="high"
 							/>
-							<HeroParticles theme={theme} />
 						</div>
 					</div>
 					<div className="sign-in-story-footer">
