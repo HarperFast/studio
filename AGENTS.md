@@ -282,11 +282,71 @@ entry never worked either: Vite appends the request path to the target's own pat
 `target: 'http://localhost:9926/oauth'` forwarded `/oauth/google/login` as
 `/oauth/oauth/google/login`. It's gone; nothing requests `/oauth` from the dev origin any more.
 
-Telling the two 404s apart when this breaks again: the component answers JSON
-(`{"error":"OAuth provider not found"}`, or a 503 when no provider is configured), so a
-plain-text `Not found` with no content-type means the request reached a server where the `oauth`
-resource was never registered — the wrong origin, or a CM where the plugin failed to load (its
-initial `updateConfiguration()` throws into the plugin loader).
+Telling the two 404s apart when this breaks again: the OAuth component answers JSON
+(`{"error":"OAuth provider not found"}`, or a 503 when no provider is configured), so anything
+else means the request reached a server where the `oauth` resource was never registered — the
+wrong origin, or a CM where the plugin failed to load (its initial `updateConfiguration()` throws
+into the plugin loader). What "anything else" looks like depends on where you are: a bare
+`Not found` in plain text is Harper core, while on a deployed CM a browser now gets Studio's own
+404 page and a non-HTML client `{"error":"Not found"}` — see the next section. Ask for it with
+`curl -H 'accept: application/json'` and the two stay easy to tell apart.
+
+## Studio's deployed 404 is a `GET /*` route, never `setNotFoundHandler`
+
+`.github/deploy-template/fastify/static.js` is what central-manager runs to serve Studio, and its
+catch-all route is the only thing standing between a mistyped URL and Harper core's plain-text
+`Not found`.
+
+It cannot be a `setNotFoundHandler`. Harper registers one on that fastify instance already
+(`server/fastifyRoutes.ts` — its handler re-emits `unhandled` so the request cascades back to
+core), and fastify allows exactly one per prefix: a component that registers a second throws
+`Not found handler already set for Fastify instance with prefix: '/'` **at load time**, which
+takes the whole component down — Studio stops being served at all, not just its 404 page. The
+catch-all route sidesteps the not-found path entirely, and a normal route response is returned to
+the client verbatim by Harper's inject bridge.
+
+The static plugin is registered with `serve: false`, which decorates `reply.sendFile` and
+registers no routes of its own — so `/*` is free, and, load-bearing, **routing is never a snapshot
+of the files present at boot**. Deploys land a new `web/` and every deploy workflow passes
+`restart: false`, so the per-file route table that `wildcard: false` produces 404s each newly
+hashed bundle until something restarts the component. That was caught in review, not in testing,
+because a fresh-boot check cannot show it.
+
+So the catch-all resolves each path against disk per request: containment-check, `stat`, then send.
+Any `.html` under `web/` is a document — frame guards, short max-age — and everything else is a
+hashed asset served `immutable`. The extra `stat` (on top of `send`'s own) is the deliberate price
+of owning the fallback.
+
+`verify-static.mjs` next to the template pins all of it — 14 checks against a real build behind
+Harper's own not-found handler, including the post-boot asset. Run it on both pairings after
+touching this file; its header carries the two install lines, and a bare
+`npm i fastify @fastify/static` pairs the package.json's v7 pin with fastify 5 and fails the
+plugin's version check.
+
+Scope of the catch-all: Harper mounts these routes as a global fallback _after_ its own resource
+routing, so it only ever sees paths the native chain declined — it cannot shadow `/oauth/*` or the
+REST API. It is GET-only on purpose; an unmatched POST still cascades to core. And because Studio
+is hash-routed, an unmatched _path_ is never an app route, so it serves a standalone `404.html`
+(from `public/`, so every build carries it) rather than `index.html`, which would drop the visitor
+on the dashboard under a 404 status. Non-HTML clients get `{"error":"Not found"}` instead of a page.
+
+The dev server has to be told the same thing, or `pnpm dev` disagrees with production: Vite's
+default `appType: 'spa'` answers _every_ path with 200 and index.html, the hash router lands on
+the dashboard, and a wrong URL reads as a working one — which is also why the deployed 404 page
+can't be seen locally. `vite.config.ts` sets `appType: 'mpa'` and adds `serveNotFoundPage()` to
+supply the page. That middleware must skip `/` by hand rather than simply running last: Vite
+registers its own index.html middleware **after** plugin post hooks, so an unconditional
+catch-all there 404s the app itself.
+
+None of this is exercised by CI — nothing in the repo evaluates `.github/` — so the verifier above
+is the whole safety net on the deployed side; hit a bogus path on `pnpm dev` for the dev side.
+
+Both sides answer HTML only to a client that actually accepts it, and `text/html;q=0` is a refusal,
+not a request — but they diverge past that: the deployed handler answers everything else with
+`{"error":"Not found"}`, while dev falls through to Vite's own 404. The `wantsHtml` helper is
+deliberately duplicated (the template ships standalone into `deploy/` and cannot import from
+`src/`), so a fix to one is a fix owed to the other — the OWS-tolerant media-type parse came from
+exactly that.
 
 ## Google sign-in button has no `display`
 
