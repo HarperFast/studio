@@ -413,6 +413,7 @@ describe('describeTrial', () => {
 		expect(describeTrial({ grant: grant() }, NOW)).toEqual({
 			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
+			endsOn: 'Sep 24',
 		});
 	});
 
@@ -439,6 +440,7 @@ describe('describeTrial', () => {
 		expect(describeTrial({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
 			label: 'Trial',
 			detail: 'Trial cluster',
+			endsOn: null,
 		});
 	});
 });
