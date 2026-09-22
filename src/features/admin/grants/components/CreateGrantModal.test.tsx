@@ -65,11 +65,15 @@ vi.mock('@/features/admin/regions/queries/getRegions', () => ({
 		retry: false,
 	}),
 }));
-vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOriginal) => ({
-	...(await importOriginal<object>()),
-	getOrganizationsQueryOptions: () => ({
-		queryKey: ['test-orgs'],
-		queryFn: async () => ({ organizations: [{ id: 'org-1', name: 'Acme' }], truncated: false }),
+// The org picker searches the server; each search term it sends is recorded.
+const orgSearches: string[] = [];
+vi.mock('@/features/organizations/queries/getAllOrganizations', () => ({
+	getAllOrganizationsQueryOptions: (_page: number, term: string) => ({
+		queryKey: ['test-org-search', term],
+		queryFn: async () => {
+			orgSearches.push(term);
+			return { organizations: [{ id: 'org-1', name: 'Acme' }], hasNextPage: false };
+		},
 		retry: false,
 	}),
 }));
