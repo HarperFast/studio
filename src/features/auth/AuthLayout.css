@@ -172,7 +172,7 @@
 	height: auto;
 }
 
-.sign-in-artwork .auth-hero-extension {
+.sign-in-artwork .auth-hero-globe {
 	position: absolute;
 	max-width: none;
 	width: 181.83%;
@@ -183,17 +183,23 @@
 	mask-composite: intersect;
 }
 
-.dark .sign-in-artwork .auth-hero-extension {
+.dark .sign-in-artwork .auth-hero-globe {
 	width: 182.95%;
 	left: -45.75%;
 	top: 0.67%;
 }
 
-.auth-hero-detail {
-	position: relative;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 92%, transparent),
-		linear-gradient(to right, transparent, black 2%, black 98%, transparent);
-	mask-composite: intersect;
+.sign-in-artwork .auth-hero-platform {
+	position: absolute;
+	width: 82.3%;
+	left: 2.73%;
+	top: 11.29%;
+}
+
+.dark .sign-in-artwork .auth-hero-platform {
+	width: 66.19%;
+	left: 4.99%;
+	top: 26.4%;
 }
 
 .sign-in-story-footer {
@@ -647,6 +653,13 @@
 	color: #7757dc;
 }
 
+.auth-energy-line {
+	fill: none;
+	stroke: #995bfa;
+	stroke-width: 1.5;
+	opacity: 0.65;
+}
+
 .dark .auth-energy-particles {
 	color: #d1ebff;
 }
@@ -715,7 +728,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.auth-energy-particles { display: none; }
+	.auth-energy-particle { display: none; }
 	.sign-in-feature-icon::before { animation: none; }
 	.sign-in-story-footer > span:nth-child(2)::after { display: none; animation: none; }
 }
