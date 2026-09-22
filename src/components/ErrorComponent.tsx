@@ -6,7 +6,7 @@ import { cn } from '@/lib/cn';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
-import { ReactNode } from 'react';
+import { isValidElement, ReactNode } from 'react';
 
 interface ErrorProps {
 	className?: string | undefined;
@@ -21,14 +21,42 @@ interface ErrorProps {
 	children?: ReactNode;
 }
 
-/** Pull something renderable out of an arbitrary thrown value. */
+const FALLBACK_ERROR_MESSAGE = 'An unexpected error occurred.';
+
+/**
+ * Whether React can render this value as visible text.
+ *
+ * Deliberately narrower than ReactNode: null, undefined and booleans are all
+ * legal ReactNodes but render as *nothing*, which would leave the description
+ * blank. They fall through to the fallback instead.
+ */
+function isRenderable(value: unknown): value is ReactNode {
+	if (typeof value === 'string') { return value.length > 0; }
+	if (typeof value === 'number') { return true; }
+	if (isValidElement(value)) { return true; }
+	if (Array.isArray(value)) { return value.length > 0 && value.every(isRenderable); }
+	return false;
+}
+
+/**
+ * Pull something renderable out of an arbitrary thrown value.
+ *
+ * `error` reaches us from an error boundary, so it can be literally anything —
+ * including an object whose own `message` is another object. Handing that
+ * straight to React throws "Objects are not valid as a React child" *inside the
+ * boundary*, turning a handled error into a white screen. Everything that is
+ * not verifiably renderable becomes the fallback string.
+ */
 function getErrorMessage(error: unknown): ReactNode {
-	if (error instanceof Error) { return error.message; }
-	if (typeof error === 'object' && error !== null && 'message' in error) {
-		return (error as { message: string | ReactNode }).message;
+	if (error instanceof Error) {
+		return error.message.length > 0 ? error.message : FALLBACK_ERROR_MESSAGE;
 	}
-	if (typeof error === 'string') { return error; }
-	return 'An unexpected error occurred.';
+	if (typeof error === 'object' && error !== null && 'message' in error) {
+		const message = (error as { message: unknown }).message;
+		return isRenderable(message) ? message : FALLBACK_ERROR_MESSAGE;
+	}
+	if (isRenderable(error)) { return error; }
+	return FALLBACK_ERROR_MESSAGE;
 }
 
 export function ErrorComponent({ className, error, title, showReturnToHome, children }: ErrorProps) {
