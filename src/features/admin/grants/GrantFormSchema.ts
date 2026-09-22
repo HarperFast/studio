@@ -93,12 +93,17 @@ export type GrantFormValues = z.infer<typeof GrantFormSchema>;
  * `purchased`, `contracted` and `free` are absent on purpose — central-manager only lets an admin
  * mint trial or comped. The others are derived by the flows that own them.
  */
+/** Mirrors central-manager's cap on one unbound batch. */
+export const MAX_GRANT_QUANTITY = 100;
+
 export const CreateGrantSchema = z
 	.object({
 		/** 'cluster' binds now; 'organization' mints an unbound voucher a later cluster-create claims. */
 		bindTo: z.enum(['cluster', 'organization']),
 		clusterId: z.string(),
 		organizationId: z.string(),
+		/** How many identical unbound vouchers to mint; a bound grant is always one. Kept as text: it is a form field. */
+		quantity: z.string(),
 		source: z.enum(['trial', 'comped']),
 		startsAt: z.string(),
 		endsAt: z.string(),
@@ -118,6 +123,17 @@ export const CreateGrantSchema = z
 		}
 		if (values.bindTo === 'organization' && !values.organizationId) {
 			ctx.addIssue({ code: 'custom', path: ['organizationId'], message: 'An organization is required' });
+		}
+		// The server caps a batch at MAX_GRANT_QUANTITY unbound vouchers; a bound grant never sends one.
+		if (values.bindTo === 'organization') {
+			const quantity = Number(values.quantity);
+			if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_GRANT_QUANTITY) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['quantity'],
+					message: `Between 1 and ${MAX_GRANT_QUANTITY} grants`,
+				});
+			}
 		}
 
 		// A trial must be time-boxed from birth and stay stageable — the server refuses otherwise.

@@ -116,7 +116,7 @@ export function GrantsAdminIndex() {
 	const [order, setOrder] = useState<GrantOrder>('ends-at');
 	const [editing, setEditing] = useState<AdminClusterGrant | null>(null);
 	const [creating, setCreating] = useState(false);
-	const [created, setCreated] = useState<AdminClusterGrant | null>(null);
+	const [created, setCreated] = useState<AdminClusterGrant[] | null>(null);
 	// The page needs grant:read; changing terms posts to the grant:write-gated endpoint.
 	const canWriteGrants = useStaffPermission('grant:write');
 	// Source and status narrow on the server, so the page stops fetching the world at fleet scale.
@@ -378,7 +378,7 @@ export function GrantsAdminIndex() {
 
 			<GrantFormModal open={!!editing} onOpenChange={(next) => !next && setEditing(null)} grant={editing} />
 			<CreateGrantModal open={creating} onOpenChange={setCreating} onCreated={setCreated} />
-			<GrantCreatedModal grant={created} onOpenChange={(next) => !next && setCreated(null)} />
+			<GrantCreatedModal grants={created} onOpenChange={(next) => !next && setCreated(null)} />
 		</div>
 	);
 }
