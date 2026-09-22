@@ -82,7 +82,14 @@ test.describe('sign-in page', () => {
 			await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 			await page.getByRole('button', { name: theme, exact: true }).click();
 			await expect(page.getByRole('img', { name: /App, database, cache, and messaging together/ }))
-				.toHaveAttribute('src', `/auth/fabric-hero-${theme.toLowerCase()}-wide.png`);
+				.toHaveAttribute('src', `/auth/fabric-platform-${theme.toLowerCase()}.png`);
+			await expect(page.locator('.auth-hero-globe'))
+				.toHaveAttribute('src', `/auth/fabric-globe-${theme.toLowerCase()}.png`);
+			await expect.poll(() =>
+				page.locator('.sign-in-artwork img').evaluateAll(images =>
+					images.every(image => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0)
+				)
+			).toBe(true);
 			await expect(page).toHaveScreenshot(`sign-in-${theme.toLowerCase()}.png`, {
 				fullPage: true,
 				// The external CAPTCHA badge varies by host and network availability.
