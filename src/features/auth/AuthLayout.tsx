@@ -58,6 +58,13 @@ export function AuthLayout() {
 					<div className="sign-in-artwork">
 						<div className="auth-hero-panorama">
 							<img
+								className="auth-hero-extension"
+								src={`/auth/fabric-globe-${theme}-expanded.png`}
+								alt=""
+								aria-hidden="true"
+							/>
+							<img
+								className="auth-hero-detail"
 								src={`/auth/fabric-hero-${theme}-wide.png`}
 								width="2054"
 								height="766"
