@@ -16,6 +16,8 @@ export interface GrantExpiryDescription {
 	severity: ExpirySeverity;
 	/** Short form for the cluster card. */
 	badgeLabel: string;
+	/** Compact end date shown beside the badge while a countdown runs, "Sep 30". */
+	endsOn?: string | null;
 	/** Sentence form for the cluster page banner. */
 	title: string;
 	detail?: string;
@@ -158,6 +160,11 @@ function endedTitle(grant: ClusterGrant, days: number | null): string {
 }
 
 const onDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'long', day: 'numeric' }).format(at);
+const onShortDate = (at: Date) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(at);
+const shortEndsOn = (endsAt: string | null | undefined) => {
+	const at = endsAt ? new Date(endsAt) : null;
+	return at && !Number.isNaN(at.getTime()) ? onShortDate(at) : null;
+};
 
 /** The customer-facing name for what a grant is: Trial, Complimentary plan, Plan… */
 export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
@@ -277,6 +284,7 @@ export function describeGrantExpiry(
 				stage: 'WARNED',
 				severity: 'warning',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
+				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'Choose a paid plan to keep this cluster running.',
 				needsUpgrade: false,
@@ -287,6 +295,7 @@ export function describeGrantExpiry(
 				stage: 'FINAL_WARNING',
 				severity: 'critical',
 				badgeLabel: `Ends ${whenPhrase(days)}`,
+				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
 				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
 				needsUpgrade: false,
@@ -303,6 +312,8 @@ export interface TrialReminder {
 	label: string;
 	/** Sentence form, for a tooltip. */
 	detail: string;
+	/** Compact end date for the cluster card, "Sep 30"; null without a usable end date. */
+	endsOn: string | null;
 }
 
 /**
@@ -318,10 +329,10 @@ export function describeTrial(
 	if (!grant || grant.source !== 'trial' || !grant.isActive) { return null; }
 	if (describeGrantExpiry(cluster, now)) { return null; }
 	const at = grant.endsAt ? new Date(grant.endsAt) : null;
-	const endsOn = at && !Number.isNaN(at.getTime()) ? onDate(at) : null;
-	return endsOn
-		? { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}` }
-		: { label: 'Trial', detail: 'Trial cluster' };
+	const usable = at && !Number.isNaN(at.getTime()) ? at : null;
+	if (!usable) { return { label: 'Trial', detail: 'Trial cluster', endsOn: null }; }
+	const endsOn = onDate(usable);
+	return { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}`, endsOn: onShortDate(usable) };
 }
 
 /**

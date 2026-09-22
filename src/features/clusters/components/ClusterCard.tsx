@@ -16,6 +16,7 @@ import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeCo
 import {
 	describeGrantExpiry,
 	describeTrial,
+	type ExpirySeverity,
 	HOBBYIST_UPGRADE,
 	isStartBlockedByPlan,
 } from '@/features/clusters/lib/grantExpiry';
@@ -30,6 +31,7 @@ import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import { cn } from '@/lib/cn';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
@@ -54,6 +56,19 @@ import {
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+// Every status pill on the card shares one size; the expiry and Trial pills are also tinted by
+// urgency, and each tone clears AA in both themes. The date beside a pill uses 70% foreground in
+// dark, where the theme's muted grey falls under AA on the card.
+const STATUS_PILL = 'rounded-md px-2.5 py-1';
+const PILL_TONE: Record<ExpirySeverity, string> = {
+	info:
+		'border-violet-400/70 bg-violet-50 text-violet-700 dark:border-violet-400/60 dark:bg-violet-400/10 dark:text-violet-200',
+	warning:
+		'border-amber-500/60 bg-amber-50 text-amber-800 dark:border-amber-400/60 dark:bg-amber-400/10 dark:text-amber-200',
+	critical: 'border-red-500/60 bg-red-50 text-red-700 dark:border-red-400/60 dark:bg-red-400/10 dark:text-red-200',
+};
+const PILL_DATE = 'text-sm text-muted-foreground dark:text-foreground/70';
 
 export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const router = useRouter();
@@ -412,33 +427,39 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 					<ClusterProgress cluster={cluster} />
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						{expiry && (
-							<Badge
-								variant={expiry.severity === 'critical'
-									? 'destructive'
-									: expiry.severity === 'warning'
-									? 'warning'
-									: 'secondary'}
-								title={expiry.detail ?? expiry.title}
-							>
-								{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
-								{expiry.badgeLabel}
-							</Badge>
+							<span className="inline-flex items-center gap-2">
+								<Badge
+									variant="outline"
+									className={cn(STATUS_PILL, PILL_TONE[expiry.severity])}
+									title={expiry.detail ?? expiry.title}
+								>
+									{expiry.stage === 'AWAITING_PLAN' && <Loader2 className="animate-spin" />}
+									{expiry.badgeLabel}
+								</Badge>
+								{expiry.endsOn && <span className={PILL_DATE}>{expiry.endsOn}</span>}
+							</span>
 						)}
 						{trial && (
-							<Badge variant="outline" className="font-normal" title={trial.detail}>
-								{trial.label}
-							</Badge>
+							// One flex item, so the row's justify-between keeps the date beside its pill.
+							<span className="inline-flex items-center gap-2">
+								<Badge variant="outline" className={cn(STATUS_PILL, PILL_TONE.info)} title={trial.detail}>
+									Trial
+								</Badge>
+								{trial.endsOn && <span className={PILL_DATE}>Ends {trial.endsOn}</span>}
+							</span>
 						)}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 						{showContainerOpBadge && cluster.status && (
-							<Badge variant={isClusterStopped ? 'destructive' : 'warning'}>
+							<Badge variant={isClusterStopped ? 'destructive' : 'warning'} className={STATUS_PILL}>
 								{isClusterTransitioning && <Loader2 className="animate-spin" />}
 								{capitalizeWords(cluster.status)}
 							</Badge>
 						)}
 						{clusterHasFailed && cluster.status && (
 							<>
-								<Badge variant={renderBadgeStatusVariant(cluster.status)}>{capitalizeWords(cluster.status)}</Badge>
+								<Badge variant={renderBadgeStatusVariant(cluster.status)} className={STATUS_PILL}>
+									{capitalizeWords(cluster.status)}
+								</Badge>
 								<span className="text-xs">Click "..." to choose how to proceed.</span>
 							</>
 						)}

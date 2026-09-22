@@ -46,6 +46,7 @@ describe('describeGrantExpiry', () => {
 		const result = describeGrantExpiry({ grant: grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) }) }, NOW);
 		expect(result).toMatchObject({ stage: 'WARNED', severity: 'warning', needsUpgrade: false });
 		expect(result?.title).toBe('Trial ends in 5 days');
+		expect(result?.endsOn).toBe('Aug 30');
 	});
 
 	it('escalates to critical at FINAL_WARNING without claiming service has ended', () => {
@@ -55,6 +56,7 @@ describe('describeGrantExpiry', () => {
 		);
 		expect(result).toMatchObject({ stage: 'FINAL_WARNING', severity: 'critical', needsUpgrade: false });
 		expect(result?.title).toBe('Trial ends in 2 days');
+		expect(result?.endsOn).toBe('Aug 27');
 	});
 
 	it('treats an expired grant as needing an upgrade, and dates it in the past', () => {
@@ -413,6 +415,7 @@ describe('describeTrial', () => {
 		expect(describeTrial({ grant: grant() }, NOW)).toEqual({
 			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
+			endsOn: 'Sep 24',
 		});
 	});
 
@@ -439,6 +442,7 @@ describe('describeTrial', () => {
 		expect(describeTrial({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
 			label: 'Trial',
 			detail: 'Trial cluster',
+			endsOn: null,
 		});
 	});
 });
