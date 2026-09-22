@@ -85,5 +85,6 @@ describe('ClusterCard — trial reminder', () => {
 		await renderCard(cluster({ currentStage: 'WARNED', endsAt: daysFromNow(5) }));
 		expect(screen.queryByText(/^Trial/)).toBeNull();
 		expect(screen.getByText('Ends in 5 days')).toBeTruthy();
+		expect(screen.getByText(/^[A-Z][a-z]{2} \d{1,2}$/), 'the end date beside the countdown').toBeTruthy();
 	});
 });
