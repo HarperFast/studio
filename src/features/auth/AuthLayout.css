@@ -159,21 +159,41 @@
 	pointer-events: none;
 }
 
-/* Reserve only the original left illustration's height. The extended globe occupies
- * both columns, behind the card, without enlarging the cube platform. */
+/* Keep the platform and particle coordinates fixed while the globe extends beneath them. */
 .auth-hero-panorama {
 	position: absolute;
 	inset: 0 auto 0 0;
 	width: 200%;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent),
-		linear-gradient(to right, transparent, black 4%, black 92%, transparent);
-	mask-composite: intersect;
 }
 
 .sign-in-artwork img {
 	display: block;
 	width: 100%;
 	height: auto;
+}
+
+.sign-in-artwork .auth-hero-extension {
+	position: absolute;
+	max-width: none;
+	width: 181.83%;
+	left: -41.77%;
+	top: -43.42%;
+	mask-image: linear-gradient(to bottom, transparent, black 18%, black 92%, transparent),
+		linear-gradient(to right, transparent, black 2%, black 98%, transparent);
+	mask-composite: intersect;
+}
+
+.dark .sign-in-artwork .auth-hero-extension {
+	width: 182.95%;
+	left: -45.75%;
+	top: 0.67%;
+}
+
+.auth-hero-detail {
+	position: relative;
+	mask-image: linear-gradient(to bottom, transparent, black 25%, black 92%, transparent),
+		linear-gradient(to right, transparent, black 2%, black 98%, transparent);
+	mask-composite: intersect;
 }
 
 .sign-in-story-footer {
@@ -186,6 +206,8 @@
 	text-transform: uppercase;
 	letter-spacing: 1px;
 	margin-top: -20px;
+	margin-bottom: 90%;
+	text-shadow: 0 1px 4px var(--signin-bg);
 	position: relative;
 }
 
@@ -410,8 +432,6 @@
 		gap: 18px;
 	}
 	.sign-in-artwork {
-	position: relative;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin-top: -30px;
 	}
 	.sign-in-desktop-break {
@@ -471,12 +491,11 @@
 		font-size: 12px;
 	}
 	.sign-in-artwork {
-	position: relative;
-	mask-image: linear-gradient(to bottom, transparent, black 25%, black 87%, transparent);
 		margin: -34px -6% 0;
 	}
 	.sign-in-story-footer {
 		margin-top: 0;
+		margin-bottom: 84%;
 		font-size: 10px;
 		gap: 12px;
 	}
