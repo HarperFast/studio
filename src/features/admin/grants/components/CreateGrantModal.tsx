@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
 import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
+import { OrganizationPicker } from '@/features/admin/grants/components/OrganizationPicker';
 import {
 	CreateGrantSchema,
 	CreateGrantValues,
@@ -19,16 +20,12 @@ import {
 import { useCreateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
-import { formatOrgLabel, getOrganizationsQueryOptions } from '@/features/admin/regions/queries/getOrganizations';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-
-/** Menu items rendered at once for the org picker, matching the regions form. */
-const ORGANIZATION_OPTIONS_RENDERED = 100;
 
 const DEFAULTS: CreateGrantValues = {
 	bindTo: 'organization',
@@ -64,7 +61,6 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	// isPending disables the button a tick after the click; a second submit in that tick mints twice.
 	const inFlight = useRef(false);
 	const { data: policyData } = useQuery({ ...getExpiryPoliciesQueryOptions(), enabled: open });
-	const { data: orgResult } = useQuery({ ...getOrganizationsQueryOptions(), enabled: open });
 
 	const form = useForm<CreateGrantValues>({
 		resolver: zodResolver(CreateGrantSchema),
@@ -84,7 +80,6 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 		],
 		[policyData],
 	);
-	const organizations = (orgResult?.organizations ?? []).slice(0, ORGANIZATION_OPTIONS_RENDERED);
 
 	const bindTo = form.watch('bindTo');
 	const source = form.watch('source');
@@ -194,16 +189,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 										<FormItem>
 											<FormLabel>Organization</FormLabel>
 											<FormControl>
-												<Select value={field.value} onValueChange={field.onChange}>
-													<SelectTrigger className="w-full" aria-label="Organization">
-														<SelectValue placeholder="Choose an organization" />
-													</SelectTrigger>
-													<SelectContent>
-														{organizations.map((org) => (
-															<SelectItem key={org.id} value={org.id}>{formatOrgLabel(org.id, org.name)}</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
+												<OrganizationPicker value={field.value} onChange={field.onChange} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
