@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
@@ -15,6 +16,7 @@ import {
 	CreateGrantSchema,
 	CreateGrantValues,
 	INTERNAL_EXPIRY_POLICIES,
+	MAX_GRANT_QUANTITY,
 	NO_EXPIRY_POLICY,
 } from '@/features/admin/grants/GrantFormSchema';
 import { useCreateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
@@ -31,6 +33,7 @@ const DEFAULTS: CreateGrantValues = {
 	bindTo: 'organization',
 	clusterId: '',
 	organizationId: '',
+	quantity: '1',
 	source: 'comped',
 	startsAt: '',
 	endsAt: '',
@@ -53,8 +56,8 @@ const DEFAULTS: CreateGrantValues = {
 export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** Handed the created grant so the caller can show its server-generated id. */
-	onCreated: (grant: AdminClusterGrant) => void;
+	/** Handed the created grants — one, or an unbound batch — so the caller can show their server-generated ids. */
+	onCreated: (grants: AdminClusterGrant[]) => void;
 }) {
 	const queryClient = useQueryClient();
 	const { mutate: create, isPending } = useCreateGrantMutation();
@@ -107,7 +110,11 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			// Exactly one — sending both is refused by the server's xor.
 			...(values.bindTo === 'cluster'
 				? { clusterId: values.clusterId.trim() }
-				: { organizationId: values.organizationId }),
+				: {
+					organizationId: values.organizationId,
+					// Sent only for a real batch: one grant keeps the single-grant request and response.
+					...(Number(values.quantity) > 1 ? { quantity: Number(values.quantity) } : {}),
+				}),
 			source: values.source,
 			...(values.startsAt ? { startsAt: new Date(values.startsAt).toISOString() } : {}),
 			// Omitted means forever, which only a comped grant may be.
@@ -127,12 +134,12 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 		if (inFlight.current) { return; }
 		inFlight.current = true;
 		create(body, {
-			onSuccess: (grant) => {
+			onSuccess: (grants) => {
 				void queryClient.invalidateQueries({ queryKey: grantsQueryKey });
 				onOpenChange(false);
-				// No toast: the id is generated server-side and is the only handle on an unbound
-				// grant, so it is handed over in a dialog the reader can copy from.
-				onCreated(grant);
+				// No toast: the ids are generated server-side and are the only handle on an unbound
+				// grant, so they are handed over in a dialog the reader can copy from.
+				onCreated(grants);
 			},
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
@@ -182,19 +189,37 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 
 						{bindTo === 'organization'
 							? (
-								<FormField
-									control={form.control}
-									name="organizationId"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Organization</FormLabel>
-											<FormControl>
-												<OrganizationPicker value={field.value} onChange={field.onChange} />
-											</FormControl>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
+								<>
+									<FormField
+										control={form.control}
+										name="organizationId"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Organization</FormLabel>
+												<FormControl>
+													<OrganizationPicker value={field.value} onChange={field.onChange} />
+												</FormControl>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+									<FormField
+										control={form.control}
+										name="quantity"
+										render={({ field }) => (
+											<FormItem>
+												<FormLabel>Quantity</FormLabel>
+												<FormControl>
+													<Input type="number" inputMode="numeric" min={1} max={MAX_GRANT_QUANTITY} {...field} />
+												</FormControl>
+												<FormDescription>
+													Identical vouchers, claimed one each as this organization creates clusters.
+												</FormDescription>
+												<FormMessage />
+											</FormItem>
+										)}
+									/>
+								</>
 							)
 							: (
 								<FormField
