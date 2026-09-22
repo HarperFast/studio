@@ -88,3 +88,19 @@ describe('ClusterCard — trial reminder', () => {
 		expect(screen.getByText(/^[A-Z][a-z]{2} \d{1,2}$/), 'the end date beside the countdown').toBeTruthy();
 	});
 });
+
+// Both upgrade states share the AWAITING_PLAN stage; only the one still in flight may spin.
+describe('ClusterCard — upgrade badge', () => {
+	it('spins while the upgrade is applying', async () => {
+		await renderCard({
+			...cluster({ source: 'purchased', expiryPolicy: 'conversion-pending' }),
+			conversionState: 'APPLYING',
+		});
+		expect(screen.getByText('Upgrading').querySelector('.animate-spin')).not.toBeNull();
+	});
+
+	it('does not spin once the upgrade has failed', async () => {
+		await renderCard({ ...cluster({}), conversionState: 'FAILED' });
+		expect(screen.getByText('Upgrade failed').querySelector('.animate-spin')).toBeNull();
+	});
+});
