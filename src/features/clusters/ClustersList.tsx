@@ -63,7 +63,7 @@ export function ClustersList() {
 			<SubNavMenu />
 			<OrgPageLayout>
 				<div className="pb-16">
-					<header className="relative mb-6 flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border border-primary/10 bg-linear-to-br from-primary/10 via-background to-background p-5 sm:p-6">
+					<header className="cluster-overview-hero relative mb-6 flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border border-primary/10 bg-linear-to-br from-primary/10 via-background to-background p-5 sm:p-6">
 						<div>
 							<p className="mb-1 text-sm font-medium text-muted-foreground">Clusters</p>
 							<h1 className="text-2xl font-bold tracking-normal sm:text-3xl">Your infrastructure, at a glance</h1>

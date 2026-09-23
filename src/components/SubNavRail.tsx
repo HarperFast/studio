@@ -36,7 +36,7 @@ export function SubNavRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLabe
 
 	return (
 		<>
-			<nav className="hidden md:flex flex-col gap-1" aria-label={ariaLabel}>
+			<nav className="studio-section-rail hidden md:flex flex-col gap-1" aria-label={ariaLabel}>
 				{items.map((item) => {
 					const Icon = item.icon;
 					return (
