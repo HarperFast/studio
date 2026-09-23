@@ -1,4 +1,4 @@
-import { isBeingUpdated, isPendingUpdate } from '@/components/ui/utils/badgeStatus';
+import { isBeingUpdated, isPendingUpdate, isRunning } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { detectPartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
 import type { Cluster } from '@/integrations/api/api.patch';
@@ -58,7 +58,7 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 		? 'failed'
 		: notices.length
 		? 'attention'
-		: status === 'RUNNING'
+		: isRunning(status)
 		? 'running'
 		: 'other';
 	const date = Date.parse(cluster.createdAt ?? '');

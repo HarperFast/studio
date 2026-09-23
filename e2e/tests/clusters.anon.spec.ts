@@ -1,16 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 const clusters = [
-	{ id: 'clu-production', name: 'Production', status: 'RUNNING', region: 'US East' },
-	{ id: 'clu-staging', name: 'Staging', status: 'FAILED', region: 'US West' },
-].map(({ region, ...cluster }) => ({
+	{ id: 'clu-production', name: 'Production', status: 'RUNNING', regionId: 'reg-east' },
+	{ id: 'clu-staging', name: 'Staging', status: 'FAILED', regionId: 'reg-west' },
+].map(({ regionId, ...cluster }) => ({
 	...cluster,
 	organizationId: 'org-fixture',
 	fqdn: `${cluster.id}.example.test`,
-	plans: [{ planId: 'shared', regionId: region === 'US East' ? 'reg-east' : 'reg-west' }],
+	plans: [{ planId: 'shared', regionId }],
 }));
 
-// Deliberately omit nested instances: the organization list need not expand that relationship.
 const organization = { id: 'org-fixture', name: 'Fixture Organization', clusters };
 const user = {
 	id: 'usr-fixture',
