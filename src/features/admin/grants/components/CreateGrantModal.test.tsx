@@ -9,6 +9,10 @@ import { CreateGrantModal } from './CreateGrantModal';
 
 const createGrant = vi.fn();
 const onCreated = vi.fn();
+const toastSuccess = vi.fn();
+vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: vi.fn() } }));
+// When set, the mutation succeeds with this list instead of one grant per requested quantity.
+let createdOverride: unknown[] | null = null;
 vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 	useCreateGrantMutation: () => ({
 		mutate: (body: unknown, opts?: { onSuccess?: (grants: unknown[]) => void; onSettled?: () => void }) => {
@@ -16,7 +20,7 @@ vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 			// The real mutation normalizes the server's single-or-batch reply to an array.
 			const quantity = (body as { quantity?: number }).quantity ?? 1;
 			opts?.onSuccess?.(
-				Array.from(
+				createdOverride ?? Array.from(
 					{ length: quantity },
 					(_, i) => ({ id: i === 0 ? 'grt-created' : `grt-created-${i}`, ...(body as object) }),
 				),
@@ -91,6 +95,7 @@ afterEach(() => {
 	cleanup();
 	createGrant.mockClear();
 	onCreated.mockClear();
+	toastSuccess.mockClear();
 });
 
 async function mount() {
@@ -352,6 +357,23 @@ describe('CreateGrantModal', () => {
 	});
 
 	// One grant keeps the single-grant request; only a real batch carries a quantity.
+	it('reports a success that returned no grants, instead of opening nothing', async () => {
+		createdOverride = [];
+		try {
+			await mount();
+			await pick('Organization', /org-1/);
+			await fillCompedScope();
+			fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+			await act(() => null);
+			fireEvent.click(submit());
+			await act(() => null);
+			expect(onCreated).not.toHaveBeenCalled();
+			expect(toastSuccess).toHaveBeenCalledTimes(1);
+		} finally {
+			createdOverride = null;
+		}
+	});
+
 	it('sends a quantity only when more than one unbound voucher is asked for', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
