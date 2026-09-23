@@ -71,3 +71,30 @@ test('cluster overview fits a narrow screen and supports keyboard filtering', as
 	await expect(page.getByRole('status')).toHaveText('Showing 1 of 2 clusters');
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('clickable cards keep a pointer across their border and Open affordance', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.goto('/#/org-fixture');
+	const link = page.getByRole('link', { name: 'Open Production' });
+	const card = link.locator('..');
+	const bounds = await card.boundingBox();
+	expect(bounds).not.toBeNull();
+	await page.mouse.move(bounds!.x + 0.25, bounds!.y + bounds!.height / 2);
+	await expect(card).toHaveCSS('cursor', 'pointer');
+	const open = card.getByText('Open', { exact: true });
+	const action = await open.boundingBox();
+	expect(action).not.toBeNull();
+	for (const fraction of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+		const x = action!.x + action!.width * fraction;
+		const y = action!.y + action!.height / 2;
+		await page.mouse.move(x, y);
+		const hit = await page.evaluate(({ x, y }) => {
+			const target = document.elementFromPoint(x, y);
+			return { cursor: target && getComputedStyle(target).cursor, label: target?.closest('a')?.ariaLabel };
+		}, { x, y });
+		expect(hit).toEqual({ cursor: 'pointer', label: 'Open Production' });
+	}
+	await expect(page).toHaveURL(/#\/org-fixture$/);
+	await page.mouse.click(action!.x + action!.width / 2, action!.y + action!.height / 2);
+	await expect(page).toHaveURL(/#\/org-fixture\/clu-production$/);
+});
