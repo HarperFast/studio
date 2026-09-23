@@ -17,9 +17,10 @@ vi.mock('sonner', () => ({ toast: { error: (...a: unknown[]) => toastError(...a)
 
 const { useCreateGrantMutation, useUpdateGrantMutation } = await import('./useUpdateGrant');
 
-// Routes mutation errors the way the app does, so the opt-out is exercised rather than restated.
+// Routes mutation errors the way the app does, so the opt-out is exercised rather than restated. One
+// client per test, built outside the wrapper so a re-render never swaps the cache mid-mutation.
+let client: QueryClient;
 function wrapper({ children }: { children: ReactNode }) {
-	const client = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
 	return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -32,6 +33,7 @@ describe('grant mutations leave the failure toast to their dialog', () => {
 		post.mockReset().mockRejectedValue(refusal);
 		patch.mockReset().mockRejectedValue(refusal);
 		toastError.mockClear();
+		client = new QueryClient({ mutationCache: new MutationCache({ onError: mutationErrorHandler }) });
 	});
 
 	it('a failed create raises no global toast', async () => {
