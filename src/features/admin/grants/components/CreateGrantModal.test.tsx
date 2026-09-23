@@ -10,13 +10,26 @@ import { CreateGrantModal } from './CreateGrantModal';
 const createGrant = vi.fn();
 const onCreated = vi.fn();
 const toastSuccess = vi.fn();
-vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: vi.fn() } }));
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+	toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) },
+}));
+// When set, the mutation fails with this error instead of succeeding.
+let createFailure: unknown = null;
 // When set, the mutation succeeds with this list instead of one grant per requested quantity.
 let createdOverride: unknown[] | null = null;
 vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 	useCreateGrantMutation: () => ({
-		mutate: (body: unknown, opts?: { onSuccess?: (grants: unknown[]) => void; onSettled?: () => void }) => {
+		mutate: (
+			body: unknown,
+			opts?: { onSuccess?: (grants: unknown[]) => void; onError?: (error: unknown) => void; onSettled?: () => void },
+		) => {
 			createGrant(body);
+			if (createFailure) {
+				opts?.onError?.(createFailure);
+				opts?.onSettled?.();
+				return;
+			}
 			// The real mutation normalizes the server's single-or-batch reply to an array.
 			const quantity = (body as { quantity?: number }).quantity ?? 1;
 			opts?.onSuccess?.(
@@ -36,7 +49,7 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 		queryKey: ['test-policies'],
 		queryFn: async () => ({
 			editableAtRuntime: false,
-			policies: { 'consumer-trial': [], 'conversion-pending': [] },
+			policies: { 'consumer-trial': [], comped: [], 'conversion-pending': [] },
 		}),
 		retry: false,
 	}),
@@ -96,6 +109,8 @@ afterEach(() => {
 	createGrant.mockClear();
 	onCreated.mockClear();
 	toastSuccess.mockClear();
+	toastError.mockClear();
+	createFailure = null;
 });
 
 async function mount() {
@@ -357,6 +372,50 @@ describe('CreateGrantModal', () => {
 	});
 
 	// One grant keeps the single-grant request; only a real batch carries a quantity.
+	it('offers a comped grant only the policy its end date allows, as central-manager does', async () => {
+		await mount();
+		const disabled = async () => {
+			fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+			await act(() => null);
+			const off = screen.getAllByRole('option')
+				.filter((o) => o.getAttribute('aria-disabled') === 'true')
+				.map((o) => o.textContent);
+			fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'Escape' });
+			await act(() => null);
+			return off;
+		};
+		expect(await disabled()).toEqual(['consumer-trial', 'comped']);
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => null);
+		expect(await disabled()).toEqual(['none', 'consumer-trial']);
+	});
+
+	it("says under the policy why a comped grant's policy no longer fits once its end date is cleared", async () => {
+		await mount();
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => null);
+		await pick('Expiry policy', 'comped');
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
+		await act(() => null);
+		expect(screen.getByText(/A comped grant with no end date uses 'none'/)).toBeTruthy();
+	});
+
+	it("shows central-manager's reason when it refuses the create, not the transport's status line", async () => {
+		createFailure = Object.assign(new Error('Request failed with status code 400'), {
+			response: { status: 400, data: { title: "expiryPolicy: a comped grant with no endsAt must use 'none'" } },
+		});
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(toastError).toHaveBeenCalledWith('Could not create the grant', {
+			description: "expiryPolicy: a comped grant with no endsAt must use 'none'",
+		});
+	});
+
 	it('reports a success that returned no grants, instead of opening nothing', async () => {
 		createdOverride = [];
 		try {
