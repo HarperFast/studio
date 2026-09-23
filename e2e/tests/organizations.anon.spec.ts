@@ -55,7 +55,7 @@ test('filters both access states, sorts names and preserves provider actions', a
 	await expect(page.getByRole('combobox', { name: 'Organization role' })).toHaveCount(0);
 });
 
-test('keeps an empty access filter out of onboarding and fits a narrow screen', async ({ page }) => {
+test('keeps an empty access filter out of onboarding on a narrow screen', async ({ page }) => {
 	await page.route(
 		'**/User/current',
 		route => route.fulfill({ json: { ...user, roles: { 'org-a': member('Acme') } } }),
@@ -68,6 +68,39 @@ test('keeps an empty access filter out of onboarding and fits a narrow screen', 
 	await expect(page.getByRole('heading', { name: 'Your teams, connected.' })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+for (const staff of [false, true]) {
+	test(`fits all organization controls on mobile for a ${staff ? 'staff member' : 'multi-role member'}`, async ({ page }) => {
+		if (staff) {
+			await page.route(
+				'**/User/current',
+				route => route.fulfill({ json: { ...user, fabricRole: 'user', staffPermissions: ['org:read'] } }),
+			);
+		}
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto('/#/');
+		await expect(page.getByRole('group', { name: 'Organization summary' })).toBeHidden();
+		const controls = [
+			page.getByRole('textbox', { name: 'Search organizations' }),
+			page.getByRole('combobox', { name: 'Organization access' }),
+			page.getByRole('combobox', { name: 'Organization role' }),
+			page.getByRole('combobox', { name: 'Sort organizations' }),
+		];
+		const staffSwitch = page.getByRole('switch', { name: 'Show all organizations' });
+		if (staff) { controls.push(staffSwitch); }
+		else { await expect(staffSwitch).toHaveCount(0); }
+		for (const control of controls) {
+			await expect(control).toBeVisible();
+			const bounds = await control.boundingBox();
+			expect(bounds).not.toBeNull();
+			expect(bounds!.x).toBeGreaterThanOrEqual(0);
+			expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+		}
+		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+		await page.getByRole('combobox', { name: 'Organization role' }).selectOption('developer');
+		await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Beta']);
+	});
+}
 
 test('copy and options do not navigate and card hover keeps its geometry', async ({ page }) => {
 	await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
