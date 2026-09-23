@@ -7,6 +7,7 @@ export interface SearchTarget {
 	name: string;
 	kind: 'Organization' | 'Cluster';
 	organizationName: string;
+	organizationId: string;
 	to: string;
 }
 
@@ -19,6 +20,7 @@ export function buildSearchTargets(user: User, organizations: ReadonlyMap<string
 				name: target.name,
 				kind: 'Organization' as const,
 				organizationName: target.name,
+				organizationId: target.id,
 				to: `/${target.id}`,
 			},
 			...(organization?.clusters ?? []).filter(cluster =>
@@ -29,21 +31,41 @@ export function buildSearchTargets(user: User, organizations: ReadonlyMap<string
 				name: cluster.name || cluster.id,
 				kind: 'Cluster' as const,
 				organizationName: target.name,
+				organizationId: target.id,
 				to: `/${target.id}/${cluster.id}`,
 			})),
 		];
 	});
 }
 
-export function filterSearchTargets(targets: readonly SearchTarget[], search: string) {
-	const terms = search.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
-	return targets.filter(target =>
-		terms.every(term => `${target.name} ${target.organizationName}`.toLocaleLowerCase().includes(term))
-	)
-		.sort((a, b) =>
-			a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name)
-			|| a.organizationName.localeCompare(b.organizationName) || a.key.localeCompare(b.key)
-		);
+export function filterSearchTargets(targets: readonly SearchTarget[], search: string, currentOrganizationId?: string) {
+	const query = search.toLocaleLowerCase().trim().replace(/\s+/g, ' ');
+	const terms = query.split(' ').filter(Boolean);
+	return targets.flatMap(target => {
+		const name = target.name.toLocaleLowerCase();
+		const context = target.organizationName.toLocaleLowerCase();
+		if (!terms.every(term => `${name} ${context}`.includes(term))) { return []; }
+		const rank = !query
+			? (target.kind === 'Organization' ? 0 : 1)
+			: name === query
+			? 0
+			: name.startsWith(query)
+			? 1
+			: terms.every(term => name.split(/\s+/).some(word => word.startsWith(term)))
+			? 2
+			: terms.every(term => name.includes(term))
+			? 3
+			: 4;
+		return [{ target, rank }];
+	}).sort((a, b) =>
+		a.rank - b.rank
+		|| Number(b.target.organizationId === currentOrganizationId)
+			- Number(a.target.organizationId === currentOrganizationId)
+		|| Number(b.target.kind === 'Organization') - Number(a.target.kind === 'Organization')
+		|| a.target.name.localeCompare(b.target.name)
+		|| a.target.organizationName.localeCompare(b.target.organizationName)
+		|| a.target.key.localeCompare(b.target.key)
+	).map(item => item.target);
 }
 
 export async function loadSearchOrganizations(

@@ -3,7 +3,7 @@ import { getOrganizationQueryOptions } from '@/features/organization/queries/get
 import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
 import type { Organization, User } from '@/integrations/api/api.patch';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { Building2, Search, Server } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildSearchTargets, filterSearchTargets, loadSearchOrganizations, type SearchTarget } from './searchModel';
@@ -13,6 +13,7 @@ export default function SearchDialog(
 ) {
 	const client = useQueryClient();
 	const navigate = useNavigate();
+	const { organizationId } = useParams({ strict: false });
 	const [search, setSearch] = useState('');
 	const [selected, setSelected] = useState(0);
 	const [organizations, setOrganizations] = useState(new Map<string, Organization>());
@@ -49,7 +50,11 @@ export default function SearchDialog(
 		};
 	}, [client, memberships, attempt]);
 	const targets = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
-	const matches = useMemo(() => filterSearchTargets(targets, search), [targets, search]);
+	const matches = useMemo(() => filterSearchTargets(targets, search, organizationId), [
+		targets,
+		search,
+		organizationId,
+	]);
 	const results = matches.slice(0, 40);
 	const activeIndex = Math.min(selected, Math.max(results.length - 1, 0));
 	useEffect(() => {

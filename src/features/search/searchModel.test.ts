@@ -43,6 +43,25 @@ describe('search targets', () => {
 		} as unknown as User;
 		expect(buildSearchTargets(revoked, snapshots).map(target => target.to)).toEqual(['/a']);
 	});
+	it('ranks direct name matches ahead of context and uses current organization only for ties', () => {
+		const targets = buildSearchTargets(user, new Map(['a', 'b'].map(id => [id, organization(id)])));
+		expect(filterSearchTargets(targets, '', 'b').map(target => target.key)).toEqual([
+			'org:b',
+			'org:a',
+			'cluster:b:cluster-b',
+			'cluster:a:cluster-a',
+		]);
+		expect(filterSearchTargets(targets, 'Beta', 'a').map(target => target.key)).toEqual([
+			'org:b',
+			'cluster:b:cluster-b',
+		]);
+		expect(filterSearchTargets(targets, 'Production', 'b').map(target => target.organizationName)).toEqual([
+			'Beta',
+			'Alpha',
+		]);
+		const exact = { ...targets[1], key: 'exact', name: 'Prod', organizationId: 'b' };
+		expect(filterSearchTargets([...targets, exact], 'Prod', 'a')[0].key).toBe('exact');
+	});
 	it('supports missing clusters and missing organization names', () => {
 		const anonymousName = { ...user, roles: { a: role('') } };
 		expect(buildSearchTargets(anonymousName, new Map([['a', { id: 'a' } as Organization]]))[0].name).toBe('a');
