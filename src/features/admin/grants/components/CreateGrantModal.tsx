@@ -12,6 +12,7 @@ import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeF
 import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
 import { OrganizationPicker } from '@/features/admin/grants/components/OrganizationPicker';
 import {
+	COMPED_EXPIRY_POLICY,
 	compedExpiryPolicy,
 	CreateGrantSchema,
 	CreateGrantValues,
@@ -109,10 +110,14 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 	// A comped grant's policy is decided by its end date alone, so it follows Ends rather than being
 	// picked: `comped` with one, `none` without (central-manager's expiryPolicyRefusal).
 	useEffect(() => {
-		if (!isComped) { return; }
-		const policy = compedExpiryPolicy(endsAt ?? '');
-		if (form.getValues('expiryPolicy') !== policy) {
-			form.setValue('expiryPolicy', policy, { shouldValidate: true });
+		const current = form.getValues('expiryPolicy');
+		if (isComped) {
+			const policy = compedExpiryPolicy(endsAt ?? '');
+			if (current !== policy) { form.setValue('expiryPolicy', policy, { shouldValidate: true }); }
+		} else if (current === COMPED_EXPIRY_POLICY) {
+			// Only a comp carries it: left behind on a trial it would put the cluster on the comp's
+			// timeline. Cleared rather than guessed, so the trial's own policy is a deliberate pick.
+			form.setValue('expiryPolicy', NO_EXPIRY_POLICY, { shouldValidate: true });
 		}
 	}, [isComped, endsAt, form]);
 
@@ -330,8 +335,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 													<SelectItem
 														key={policy}
 														value={policy}
-														// A trial always stages.
-														disabled={isTrial && policy === NO_EXPIRY_POLICY}
+														// A trial always stages, and never on the comp's timeline.
+														disabled={isTrial && (policy === NO_EXPIRY_POLICY || policy === COMPED_EXPIRY_POLICY)}
 													>
 														{policy}
 													</SelectItem>
