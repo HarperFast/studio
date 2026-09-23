@@ -17,7 +17,7 @@ export function SectionRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLab
 					className="section-rail-help rounded-xl border border-primary/25 bg-linear-to-br from-primary/15 via-card/50 to-card/30 p-4 shadow-sm"
 				>
 					<Rocket className="mb-3 size-5 text-primary dark:text-violet-300" aria-hidden="true" />
-					<h2 className="text-sm font-semibold">Need help?</h2>
+					<p className="text-sm font-semibold">Need help?</p>
 					<p className="mt-1 text-xs leading-relaxed text-muted-foreground">
 						Explore the docs or join our community on Discord.
 					</p>

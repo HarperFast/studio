@@ -62,6 +62,9 @@ for (const path of ['/#/org-help', '/#/org-help/clu-help']) {
 		await page.setViewportSize({ width: 1440, height: 500 });
 		await expect(help).toBeHidden();
 		await expect(nav).toBeVisible();
+		await page.setViewportSize({ width: 1440, height: 350 });
+		await expect(help).toBeHidden();
+		expect(await nav.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
 		await page.setViewportSize({ width: 390, height: 844 });
 		await expect(help).toBeHidden();
 		await expect(nav).toBeVisible();
