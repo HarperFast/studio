@@ -325,7 +325,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 						className="absolute inset-0 z-1 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 					/>
 				)}
-				<CardHeader className="gap-3 bg-linear-to-br from-primary/15 via-primary/5 to-transparent px-5 py-5">
+				<CardHeader className="gap-3 bg-linear-to-br from-transparent via-primary/5 to-primary/15 dark:from-primary/15 dark:to-transparent px-5 py-5">
 					<div className="flex items-start justify-between gap-3">
 						<div className="flex min-w-0 flex-wrap items-center gap-2 pt-1">
 							<Badge
