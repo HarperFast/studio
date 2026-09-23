@@ -215,6 +215,8 @@ describe('CreateGrantModal', () => {
 	// would time-box a grant against a conversion that is not happening.
 	it('does not offer the policy central-manager applies to itself', async () => {
 		await mount();
+		// A comped grant's policy is set for it, so the list is only offered to a trial.
+		await pick('Source', 'trial');
 		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
 		await act(() => null);
 		const options = screen.getAllByRole('option').map((o) => o.textContent);
@@ -347,15 +349,6 @@ describe('CreateGrantModal', () => {
 
 	// A comped grant may run forever, but once it is given an end it must stage, or the runner would
 	// never act on it — so `none` stops being offered the moment a date is set.
-	it('withdraws the none policy from a comped grant once it has an end date', async () => {
-		await mount();
-		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
-		await act(() => null);
-		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
-		await act(() => null);
-		const none = screen.getAllByRole('option').find((o) => o.textContent === 'none');
-		expect(none?.getAttribute('aria-disabled')).toBe('true');
-	});
 
 	// The id is generated server-side and is the only handle on an unbound grant, so the caller is
 	// handed the created record rather than a toast that disappears.
@@ -372,32 +365,18 @@ describe('CreateGrantModal', () => {
 	});
 
 	// One grant keeps the single-grant request; only a real batch carries a quantity.
-	it('offers a comped grant only the policy its end date allows, as central-manager does', async () => {
-		await mount();
-		const disabled = async () => {
-			fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
-			await act(() => null);
-			const off = screen.getAllByRole('option')
-				.filter((o) => o.getAttribute('aria-disabled') === 'true')
-				.map((o) => o.textContent);
-			fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'Escape' });
-			await act(() => null);
-			return off;
-		};
-		expect(await disabled()).toEqual(['consumer-trial', 'comped']);
-		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
-		await act(() => null);
-		expect(await disabled()).toEqual(['none', 'consumer-trial']);
-	});
 
-	it("says under the policy why a comped grant's policy no longer fits once its end date is cleared", async () => {
+	it("sets a comped grant's policy from its end date, and does not let it be picked", async () => {
 		await mount();
+		const policy = () => screen.getByLabelText('Expiry policy');
+		expect(policy().hasAttribute('disabled')).toBe(true);
+		expect(policy().textContent).toContain('none');
 		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
 		await act(() => null);
-		await pick('Expiry policy', 'comped');
+		expect(policy().textContent).toContain('comped');
 		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
 		await act(() => null);
-		expect(screen.getByText(/A comped grant with no end date uses 'none'/)).toBeTruthy();
+		expect(policy().textContent).toContain('none');
 	});
 
 	it("shows central-manager's reason when it refuses the create, not the transport's status line", async () => {
