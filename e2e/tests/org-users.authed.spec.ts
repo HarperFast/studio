@@ -40,6 +40,10 @@ test.describe('authenticated app', () => {
 		await page.goto('/#/');
 		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		await expect(page).not.toHaveURL(/#\/sign-in/);
+		await page.getByRole('button', { name: 'Account menu' }).click();
+		await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Sign Out', exact: true })).toBeVisible();
+		await page.keyboard.press('Escape');
 	});
 
 	test('org users list renders with the expected columns', async ({ page }) => {

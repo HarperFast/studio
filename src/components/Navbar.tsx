@@ -154,7 +154,7 @@ function DesktopNav(
 		user: User | LocalUser;
 	},
 ) {
-	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+	const defaultCloudRoute = useMemo(() => getDefaultSignedInCloudRouteForUser(user), [user]);
 
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
@@ -230,7 +230,7 @@ function MobileNav(
 		user: User | LocalUser;
 	},
 ) {
-	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+	const defaultCloudRoute = useMemo(() => getDefaultSignedInCloudRouteForUser(user), [user]);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const toggleMenu = useCallback(() => setIsMenuOpen(open => !open), []);
 	const closeMenu = useCallback(() => setIsMenuOpen(false), []);

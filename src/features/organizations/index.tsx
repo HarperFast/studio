@@ -91,8 +91,7 @@ export function OrganizationsIndex() {
 		}));
 
 		const filteredNormal = normal
-			.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue))
-			.sort((a, b) => ((a.organizationName || '') > (b.organizationName || '') ? 1 : -1));
+			.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue));
 
 		return { organizationRoles: filteredNormal, oauthLockedOrgs: locked };
 	}, [filterByNameValue, user]);
