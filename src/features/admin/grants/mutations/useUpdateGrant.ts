@@ -62,17 +62,28 @@ export interface CreateGrantBody {
 	allowedRegionIds?: string[] | null;
 	/** Required on comped and refused on anything else: the one cluster the comp is for. */
 	shape?: GrantShapeEntry[];
+	/** Unbound only: mint this many identical vouchers in one request (1–100). Refused with a clusterId. */
+	quantity?: number;
 	reason: string;
 }
 
 const GRANTS_COLLECTION = '/Admin/ClusterGrant' as unknown as keyof paths;
 
-/** POST /Admin/ClusterGrant → mint a grant. Requires `grant:write`. */
-export async function createGrant(body: CreateGrantBody): Promise<AdminClusterGrant> {
+/**
+ * POST /Admin/ClusterGrant → mint one grant, or a batch. Requires `grant:write`. The server answers
+ * `{ grants }` when the request carried a quantity and the bare grant when it did not; callers get an
+ * array either way.
+ */
+export async function createGrant(body: CreateGrantBody): Promise<AdminClusterGrant[]> {
 	const { data } = await apiClient.post(GRANTS_COLLECTION, body);
-	return data as unknown as AdminClusterGrant;
+	// Never throws on a success: a throw here reads as a failed create, and a re-submit mints the
+	// batch again. A body with no recognisable grant yields an empty list, which the caller reports.
+	const result: unknown = data;
+	if (!result || typeof result !== 'object') { return []; }
+	if ('grants' in result) { return Array.isArray(result.grants) ? (result.grants as AdminClusterGrant[]) : []; }
+	return 'id' in result ? [result as AdminClusterGrant] : [];
 }
 
 export function useCreateGrantMutation() {
-	return useMutation<AdminClusterGrant, Error, CreateGrantBody>({ mutationFn: createGrant });
+	return useMutation<AdminClusterGrant[], Error, CreateGrantBody>({ mutationFn: createGrant });
 }

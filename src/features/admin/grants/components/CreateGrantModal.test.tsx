@@ -9,11 +9,24 @@ import { CreateGrantModal } from './CreateGrantModal';
 
 const createGrant = vi.fn();
 const onCreated = vi.fn();
+const toastSuccess = vi.fn();
+vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: vi.fn() } }));
+// When set, the mutation succeeds with this list instead of one grant per requested quantity.
+let createdOverride: unknown[] | null = null;
 vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 	useCreateGrantMutation: () => ({
-		mutate: (body: unknown, opts?: { onSuccess?: (grant: unknown) => void }) => {
+		mutate: (body: unknown, opts?: { onSuccess?: (grants: unknown[]) => void; onSettled?: () => void }) => {
 			createGrant(body);
-			opts?.onSuccess?.({ id: 'grt-created', ...(body as object) });
+			// The real mutation normalizes the server's single-or-batch reply to an array.
+			const quantity = (body as { quantity?: number }).quantity ?? 1;
+			opts?.onSuccess?.(
+				createdOverride ?? Array.from(
+					{ length: quantity },
+					(_, i) => ({ id: i === 0 ? 'grt-created' : `grt-created-${i}`, ...(body as object) }),
+				),
+			);
+			// Settling releases the modal's double-submit latch, as the real mutation does.
+			opts?.onSettled?.();
 		},
 		isPending: false,
 	}),
@@ -82,6 +95,7 @@ afterEach(() => {
 	cleanup();
 	createGrant.mockClear();
 	onCreated.mockClear();
+	toastSuccess.mockClear();
 });
 
 async function mount() {
@@ -338,7 +352,60 @@ describe('CreateGrantModal', () => {
 		await act(() => null);
 		fireEvent.click(submit());
 		await act(() => null);
-		expect(onCreated.mock.calls[0][0].id).toBe('grt-created');
+		expect(onCreated.mock.calls[0][0]).toHaveLength(1);
+		expect(onCreated.mock.calls[0][0][0].id).toBe('grt-created');
+	});
+
+	// One grant keeps the single-grant request; only a real batch carries a quantity.
+	it('reports a success that returned no grants, instead of opening nothing', async () => {
+		createdOverride = [];
+		try {
+			await mount();
+			await pick('Organization', /org-1/);
+			await fillCompedScope();
+			fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+			await act(() => null);
+			fireEvent.click(submit());
+			await act(() => null);
+			expect(onCreated).not.toHaveBeenCalled();
+			expect(toastSuccess).toHaveBeenCalledTimes(1);
+		} finally {
+			createdOverride = null;
+		}
+	});
+
+	it('sends a quantity only when more than one unbound voucher is asked for', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'conference comps' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(createGrant.mock.calls[0][0].quantity).toBeUndefined();
+
+		fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '5' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(createGrant.mock.calls[1][0].quantity).toBe(5);
+		expect(onCreated.mock.calls[1][0]).toHaveLength(5);
+	});
+
+	it('refuses a quantity outside the server cap, and hides it for a bound grant', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'too many' } });
+		fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '101' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(createGrant).not.toHaveBeenCalled();
+		expect(screen.getByText('Between 1 and 100 grants')).toBeTruthy();
+
+		await pick('Applies to', /existing cluster/);
+		expect(screen.queryByLabelText('Quantity')).toBeNull();
 	});
 
 	// A window that never opens would occupy the cluster's live slot while authorizing nothing.
