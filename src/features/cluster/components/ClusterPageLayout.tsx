@@ -1,5 +1,5 @@
-import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
-import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
+import { SectionRail } from '@/components/SectionRail';
+import type { SubNavItem } from '@/components/SubNavRail';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -44,9 +44,8 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		// to the content area, matching SubNavSimpleLayout — not the viewport, where the fixed header hides it.
 		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 			<div className="md:grid gap-6 md:grid-cols-12">
-				<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
-					<OrganizationSwitcher />
-					<SubNavRail items={items} ariaLabel="Cluster sections" />
+				<aside className="section-rail-aside md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
+					<SectionRail items={items} ariaLabel="Cluster sections" />
 				</aside>
 				<section className="md:col-span-9 lg:col-span-10 min-w-0">{children}</section>
 			</div>
