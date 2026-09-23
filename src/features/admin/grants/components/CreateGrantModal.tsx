@@ -139,7 +139,12 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 				onOpenChange(false);
 				// No toast: the ids are generated server-side and are the only handle on an unbound
 				// grant, so they are handed over in a dialog the reader can copy from.
-				onCreated(grants);
+				if (grants.length > 0) {
+					onCreated(grants);
+				} else {
+					// It did succeed: saying nothing, or an error, would invite a second batch.
+					toast.success('Grant created', { description: 'No ids came back; find them in the grants list.' });
+				}
 			},
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
