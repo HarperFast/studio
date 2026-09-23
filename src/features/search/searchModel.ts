@@ -9,6 +9,9 @@ export interface SearchTarget {
 	organizationName: string;
 	organizationId: string;
 	to: string;
+	searchName: string;
+	searchText: string;
+	searchWords: string[];
 }
 
 export function buildSearchTargets(user: User, organizations: ReadonlyMap<string, Organization>): SearchTarget[] {
@@ -35,23 +38,27 @@ export function buildSearchTargets(user: User, organizations: ReadonlyMap<string
 				to: `/${target.id}/${cluster.id}`,
 			})),
 		];
-	});
+	}).map(target => ({
+		...target,
+		searchName: target.name.toLocaleLowerCase(),
+		searchText: `${target.name} ${target.organizationName}`.toLocaleLowerCase(),
+		searchWords: target.name.toLocaleLowerCase().split(/\s+/),
+	}));
 }
 
 export function filterSearchTargets(targets: readonly SearchTarget[], search: string, currentOrganizationId?: string) {
 	const query = search.toLocaleLowerCase().trim().replace(/\s+/g, ' ');
 	const terms = query.split(' ').filter(Boolean);
 	return targets.flatMap(target => {
-		const name = target.name.toLocaleLowerCase();
-		const context = target.organizationName.toLocaleLowerCase();
-		if (!terms.every(term => `${name} ${context}`.includes(term))) { return []; }
+		const name = target.searchName;
+		if (!terms.every(term => target.searchText.includes(term))) { return []; }
 		const rank = !query
 			? (target.kind === 'Organization' ? 0 : 1)
 			: name === query
 			? 0
 			: name.startsWith(query)
 			? 1
-			: terms.every(term => name.split(/\s+/).some(word => word.startsWith(term)))
+			: terms.every(term => target.searchWords.some(word => word.startsWith(term)))
 			? 2
 			: terms.every(term => name.includes(term))
 			? 3

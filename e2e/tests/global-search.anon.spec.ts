@@ -70,6 +70,8 @@ test('finds unvisited clusters, reuses snapshots, and navigates with the keyboar
 	await input.fill('production beta');
 	await expect(page.getByRole('option')).toHaveCount(1);
 	expect(requests.filter(url => url.endsWith('/b'))).toHaveLength(1);
+	await input.dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+	await expect(page.getByRole('dialog')).toBeVisible();
 	await input.press('Enter');
 	await expect(page).toHaveURL(/#\/b\/cluster-b(?:\/instances)?$/);
 	await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -105,4 +107,39 @@ test('preserves editable shortcuts and restores trigger focus on a narrow screen
 	await page.keyboard.press('Escape');
 	await expect(trigger).toBeFocused();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('retains a chosen result when a higher-ranked match arrives later', async ({ page }) => {
+	let release!: () => void;
+	const pending = new Promise<void>(resolve => {
+		release = resolve;
+	});
+	await page.route('**/Organization/b', async route => {
+		await pending;
+		return route.fulfill({
+			json: { id: 'b', name: 'Beta', clusters: [{ id: 'cluster-b', name: 'Prod', status: 'RUNNING' }] },
+		});
+	});
+	await page.goto('/#/a');
+	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	const input = page.getByRole('combobox', { name: 'Search organizations and clusters' });
+	await input.fill('prod');
+	await expect(page.getByRole('option')).toHaveCount(1);
+	await input.press('ArrowDown');
+	release();
+	await expect(page.getByRole('option')).toHaveCount(2);
+	await expect(page.getByRole('option').first()).toContainText('Beta');
+	await expect(page.getByRole('option', { selected: true })).toContainText('Alpha');
+});
+
+test('keeps the dashboard usable when the search bundle cannot load', async ({ page }) => {
+	await page.addInitScript(() => sessionStorage.setItem('Studio:StaleDeployReloadedAt', String(Date.now())));
+	await page.route('**/SearchDialog-*.js', route => route.abort());
+	await page.goto('/#/a');
+	const trigger = page.getByRole('button', { name: 'Search organizations and clusters' });
+	await trigger.click();
+	await expect(page.getByRole('alert')).toContainText('Search couldn’t load');
+	await expect(page.getByRole('heading', { name: 'Your infrastructure, at a glance' })).toBeVisible();
+	await page.getByRole('button', { name: 'Close', exact: true }).click();
+	await expect(trigger).toBeFocused();
 });

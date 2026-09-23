@@ -171,6 +171,11 @@ function DesktopNav(
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-muted-foreground dark:text-grey-400">
+						{!isLocalStudio && (
+							<NavigationMenuItem>
+								<GlobalSearchTrigger />
+							</NavigationMenuItem>
+						)}
 						{menuItems.map(menuItem =>
 							isMenuGroup(menuItem)
 								? !!menuItem.items.length && (
@@ -187,9 +192,6 @@ function DesktopNav(
 								<NotificationBell />
 							</NavigationMenuItem>
 						)}
-						<NavigationMenuItem>
-							<GlobalSearchTrigger />
-						</NavigationMenuItem>
 						<NavigationMenuItem>{accountMenu}</NavigationMenuItem>
 					</NavigationMenuList>
 				</NavigationMenu>
@@ -248,8 +250,8 @@ function MobileNav(
 				</Link>
 				<Version />
 				<div className="flex items-center">
-					{!isLocalStudio && <NotificationBell />}
 					<GlobalSearchTrigger />
+					{!isLocalStudio && <NotificationBell />}
 					{accountMenu}
 					<button
 						type="button"

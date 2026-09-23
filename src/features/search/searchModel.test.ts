@@ -59,7 +59,15 @@ describe('search targets', () => {
 			'Beta',
 			'Alpha',
 		]);
-		const exact = { ...targets[1], key: 'exact', name: 'Prod', organizationId: 'b' };
+		const exact = {
+			...targets[1],
+			key: 'exact',
+			name: 'Prod',
+			organizationId: 'b',
+			searchName: 'prod',
+			searchText: 'prod beta',
+			searchWords: ['prod'],
+		};
 		expect(filterSearchTargets([...targets, exact], 'Prod', 'a')[0].key).toBe('exact');
 	});
 	it('supports missing clusters and missing organization names', () => {

@@ -8,14 +8,14 @@ import { Building2, Search, Server } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildSearchTargets, filterSearchTargets, loadSearchOrganizations, type SearchTarget } from './searchModel';
 
-export default function SearchDialog(
+export function SearchDialog(
 	{ user, onClose, restoreFocus }: { user: User; onClose: () => void; restoreFocus: () => void },
 ) {
 	const client = useQueryClient();
 	const navigate = useNavigate();
 	const { organizationId } = useParams({ strict: false });
 	const [search, setSearch] = useState('');
-	const [selected, setSelected] = useState(0);
+	const [selectedKey, setSelectedKey] = useState<string | null>(null);
 	const [organizations, setOrganizations] = useState(new Map<string, Organization>());
 	const [failed, setFailed] = useState(0);
 	const [loading, setLoading] = useState(true);
@@ -23,11 +23,12 @@ export default function SearchDialog(
 	const listId = useId();
 	const list = useRef<HTMLDivElement>(null);
 	const memberships = useMemo(() => getOrganizationTargets(user).filter(target => !target.locked), [user]);
+	const membershipIds = JSON.stringify(memberships.map(target => target.id));
 	useEffect(() => {
 		let cancelled = false;
 		setFailed(0);
 		setLoading(true);
-		void loadSearchOrganizations(memberships.map(target => target.id), id =>
+		void loadSearchOrganizations(JSON.parse(membershipIds) as string[], id =>
 			client.fetchQuery({
 				...getOrganizationQueryOptions(id),
 				staleTime: 60_000,
@@ -48,7 +49,7 @@ export default function SearchDialog(
 		return () => {
 			cancelled = true;
 		};
-	}, [client, memberships, attempt]);
+	}, [client, membershipIds, attempt]);
 	const targets = useMemo(() => buildSearchTargets(user, organizations), [user, organizations]);
 	const matches = useMemo(() => filterSearchTargets(targets, search, organizationId), [
 		targets,
@@ -56,7 +57,7 @@ export default function SearchDialog(
 		organizationId,
 	]);
 	const results = matches.slice(0, 40);
-	const activeIndex = Math.min(selected, Math.max(results.length - 1, 0));
+	const activeIndex = Math.max(0, results.findIndex(target => target.key === selectedKey));
 	useEffect(() => {
 		list.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
 	}, [activeIndex]);
@@ -95,16 +96,18 @@ export default function SearchDialog(
 							value={search}
 							onChange={event => {
 								setSearch(event.target.value);
-								setSelected(0);
+								setSelectedKey(null);
 							}}
 							className="w-full bg-transparent py-1 text-base outline-none"
 							onKeyDown={event => {
+								if (event.nativeEvent.isComposing) { return; }
 								if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 									event.preventDefault();
-									setSelected(
+									setSelectedKey(
 										results.length
-											? (activeIndex + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length
-											: 0,
+											? results[(activeIndex + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length]
+												.key
+											: null,
 									);
 								} else if (event.key === 'Enter' && results[activeIndex]) {
 									event.preventDefault();
@@ -129,7 +132,7 @@ export default function SearchDialog(
 								id={`${listId}-${index}`}
 								role="option"
 								aria-selected={activeIndex === index}
-								onMouseEnter={() => setSelected(index)}
+								onMouseEnter={() => setSelectedKey(target.key)}
 								onMouseDown={event => event.preventDefault()}
 								onClick={() => openTarget(target)}
 								className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3 ${
