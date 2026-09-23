@@ -104,7 +104,7 @@ export function OrgCard({
 				<Link
 					to={organizationId}
 					aria-label={`Open ${name}`}
-					className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
+					className="absolute inset-0 z-10 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 				/>
 				<CardHeader className="gap-4 py-5 border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 dark:from-primary/20 dark:to-primary/5">
 					<CardDescription className="flex min-w-0 items-center justify-between gap-3">
