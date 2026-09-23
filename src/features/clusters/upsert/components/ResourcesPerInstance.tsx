@@ -15,7 +15,6 @@ import {
 	ArrowDownToLineIcon,
 	ArrowRightIcon,
 	ArrowUpFromLineIcon,
-	CalendarClockIcon,
 	GaugeIcon,
 	type LucideIcon,
 } from 'lucide-react';
@@ -175,11 +174,6 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			label: 'Total Writes',
 			value: humanNumber(totalWrites),
 			fill: logarithmicFill(totalWrites, usageScale.totalWrites),
-		},
-		!!expirationMonths && {
-			icon: CalendarClockIcon,
-			label: 'License Term',
-			value: pluralize(expirationMonths, 'month', 'months'),
 		},
 	] satisfies Array<boolean | { icon: LucideIcon; label: string; value: string; fill?: number }>).filter(excludeFalsy);
 
