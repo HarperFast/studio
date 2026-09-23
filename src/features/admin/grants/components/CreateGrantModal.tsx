@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from '@/components/ui/dialog';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
-import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
@@ -194,37 +193,19 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 
 						{bindTo === 'organization'
 							? (
-								<>
-									<FormField
-										control={form.control}
-										name="organizationId"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Organization</FormLabel>
-												<FormControl>
-													<OrganizationPicker value={field.value} onChange={field.onChange} />
-												</FormControl>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-									<FormField
-										control={form.control}
-										name="quantity"
-										render={({ field }) => (
-											<FormItem>
-												<FormLabel>Quantity</FormLabel>
-												<FormControl>
-													<Input type="number" inputMode="numeric" min={1} max={MAX_GRANT_QUANTITY} {...field} />
-												</FormControl>
-												<FormDescription>
-													Identical vouchers, claimed one each as this organization creates clusters.
-												</FormDescription>
-												<FormMessage />
-											</FormItem>
-										)}
-									/>
-								</>
+								<FormField
+									control={form.control}
+									name="organizationId"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Organization</FormLabel>
+											<FormControl>
+												<OrganizationPicker value={field.value} onChange={field.onChange} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 							)
 							: (
 								<FormField
@@ -242,29 +223,51 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 								/>
 							)}
 
-						<FormField
-							control={form.control}
-							name="source"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Source</FormLabel>
-									<FormControl>
-										<Select value={field.value} onValueChange={field.onChange}>
-											<SelectTrigger className="w-full" aria-label="Source">
-												<SelectValue />
-											</SelectTrigger>
-											<SelectContent>
-												<SelectItem value="comped">comped</SelectItem>
-												<SelectItem value="trial">trial</SelectItem>
-											</SelectContent>
-										</Select>
-									</FormControl>
-									<p className="text-xs text-muted-foreground">
-										Purchased, contracted and free grants are derived by the flows that own them.
-									</p>
-								</FormItem>
+						<div className="flex items-start gap-3">
+							{bindTo === 'organization' && (
+								<FormField
+									control={form.control}
+									name="quantity"
+									render={({ field }) => (
+										<FormItem className="w-24 shrink-0">
+											<FormLabel>Quantity</FormLabel>
+											<FormControl>
+												<Input type="number" inputMode="numeric" min={1} max={MAX_GRANT_QUANTITY} {...field} />
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 							)}
-						/>
+							<FormField
+								control={form.control}
+								name="source"
+								render={({ field }) => (
+									<FormItem className="min-w-0 flex-1">
+										<FormLabel>Source</FormLabel>
+										<FormControl>
+											<Select value={field.value} onValueChange={field.onChange}>
+												<SelectTrigger className="w-full" aria-label="Source">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="comped">comped</SelectItem>
+													<SelectItem value="trial">trial</SelectItem>
+												</SelectContent>
+											</Select>
+										</FormControl>
+										<p className="text-xs text-muted-foreground">
+											Purchased, contracted and free grants are derived by the flows that own them.
+										</p>
+									</FormItem>
+								)}
+							/>
+						</div>
+						{bindTo === 'organization' && (
+							<p className="-mt-2 text-xs text-muted-foreground">
+								Quantity mints identical vouchers, claimed one each as this organization creates clusters.
+							</p>
+						)}
 
 						<div className="grid grid-cols-2 gap-3">
 							<FormField
