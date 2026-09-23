@@ -111,6 +111,7 @@ afterEach(() => {
 	toastSuccess.mockClear();
 	toastError.mockClear();
 	createFailure = null;
+	createdOverride = null;
 });
 
 async function mount() {
@@ -364,8 +365,6 @@ describe('CreateGrantModal', () => {
 		expect(onCreated.mock.calls[0][0][0].id).toBe('grt-created');
 	});
 
-	// One grant keeps the single-grant request; only a real batch carries a quantity.
-
 	it("sets a comped grant's policy from its end date, and does not let it be picked", async () => {
 		await mount();
 		const policy = () => screen.getByLabelText('Expiry policy');
@@ -397,21 +396,18 @@ describe('CreateGrantModal', () => {
 
 	it('reports a success that returned no grants, instead of opening nothing', async () => {
 		createdOverride = [];
-		try {
-			await mount();
-			await pick('Organization', /org-1/);
-			await fillCompedScope();
-			fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
-			await act(() => null);
-			fireEvent.click(submit());
-			await act(() => null);
-			expect(onCreated).not.toHaveBeenCalled();
-			expect(toastSuccess).toHaveBeenCalledTimes(1);
-		} finally {
-			createdOverride = null;
-		}
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(onCreated).not.toHaveBeenCalled();
+		expect(toastSuccess).toHaveBeenCalledTimes(1);
 	});
 
+	// One grant keeps the single-grant request; only a real batch carries a quantity.
 	it('sends a quantity only when more than one unbound voucher is asked for', async () => {
 		await mount();
 		await pick('Organization', /org-1/);
