@@ -53,7 +53,9 @@ test('cluster overview filters the real route and retains card navigation', asyn
 	await expect(page.getByRole('heading', { name: 'Staging', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Clear filters' }).click();
 	await page.getByLabel('Sort clusters', { exact: true }).selectOption('name');
-	await expect(page.getByRole('heading', { level: 2 }).first()).toHaveText('Production');
+	await expect(page.locator('[data-slot=card-title]').getByRole('heading', { level: 2 }).first()).toHaveText(
+		'Production',
+	);
 	await page.getByLabel('Search clusters', { exact: true }).fill('Production');
 	await page.getByRole('button', { name: 'Cluster options' }).click();
 	await expect(page.getByRole('menuitem', { name: 'Edit Version' })).toBeVisible();
