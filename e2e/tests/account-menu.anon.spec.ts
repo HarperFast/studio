@@ -14,6 +14,10 @@ const user = {
 };
 
 test.beforeEach(async ({ page }) => {
+	await page.route('**/*', route =>
+		['fetch', 'xhr'].includes(route.request().resourceType())
+			? route.fulfill({ status: 404, json: { error: 'Unmocked test request' } })
+			: route.continue());
 	await page.addInitScript(() =>
 		localStorage.setItem('Studio:PotentiallyAuthenticated', JSON.stringify({ OverallAppSignIn: 'fixture' }))
 	);
@@ -110,7 +114,8 @@ test('staff sees the cached name when visiting a non-membership organization', a
 		}));
 	await page.goto('/#/org-a');
 	await expect(page.getByRole('button', { name: 'Switch organization, current: Alpha' })).toBeVisible();
-	await page.getByRole('button', { name: 'Switch organization, current: Alpha' }).click();
+	await page.getByRole('button', { name: 'Account menu' }).click();
+	await page.getByRole('menuitem', { name: 'Switch organization', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Beta', exact: true }).click();
 	await expect(page).toHaveURL(/#\/org-b$/);
 });
