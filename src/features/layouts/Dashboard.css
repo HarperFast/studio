@@ -77,6 +77,6 @@
 	border-color: transparent;
 }
 
-.dark .studio-shell input[data-slot="input"] {
+.dark .studio-shell .cluster-list-controls input[data-slot="input"] {
 	background-color: var(--card);
 }
