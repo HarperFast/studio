@@ -35,3 +35,5 @@ The wide hero artwork spans both columns beneath the form card in three independ
   its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
   navigation re-resolves its href one level too deep (HarperFast/studio#1710).
 - **Data fetching**: TanStack React Query 5. Query keys must be instance-scoped when the request targets a specific instance.
+
+- [`src/features/search/DESIGN.md`](src/features/search/DESIGN.md) — global search loading, shared-query ownership, session isolation, and shortcut behavior.

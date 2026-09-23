@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
+import { GlobalSearchTrigger } from '@/features/search/GlobalSearch';
 import { useOverallAuth } from '@/hooks/useAuth';
 import type { LocalUser, User } from '@/integrations/api/api.patch';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
@@ -186,6 +187,9 @@ function DesktopNav(
 								<NotificationBell />
 							</NavigationMenuItem>
 						)}
+						<NavigationMenuItem>
+							<GlobalSearchTrigger />
+						</NavigationMenuItem>
 						<NavigationMenuItem>{accountMenu}</NavigationMenuItem>
 					</NavigationMenuList>
 				</NavigationMenu>
@@ -245,6 +249,7 @@ function MobileNav(
 				<Version />
 				<div className="flex items-center">
 					{!isLocalStudio && <NotificationBell />}
+					<GlobalSearchTrigger />
 					{accountMenu}
 					<button
 						type="button"
