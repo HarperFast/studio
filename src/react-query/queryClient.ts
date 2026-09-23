@@ -104,9 +104,17 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
 	errorHandler(error);
 };
 
+export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
+	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {
+		console.error(error);
+		return;
+	}
+	errorHandler(error);
+};
+
 export const queryClient = new QueryClient({
 	queryCache: new QueryCache({
-		onError: errorHandler,
+		onError: queryErrorHandler,
 	}),
 	mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 });
