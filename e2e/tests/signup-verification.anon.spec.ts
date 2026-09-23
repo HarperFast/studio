@@ -112,7 +112,7 @@ test.describe('signup → email verification → login', () => {
 
 			await page.waitForURL((url) => !url.hash.includes('/sign-in'), { timeout: 30_000 });
 			await expect(page).not.toHaveURL(/#\/verifying/);
-			await expect(page.getByLabel('Sign Out')).toBeVisible();
+			await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		} finally {
 			// Best-effort cleanup on ANY exit. Self-delete needs a logged-in session, so a failure
 			// BEFORE login has no session and nothing to delete (no-op); a failure at/after login is
