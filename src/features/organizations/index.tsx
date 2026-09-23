@@ -173,7 +173,7 @@ export function OrganizationsIndex() {
 					</Button>
 				</header>
 				{!isServerSearch && (
-					<div role="group" aria-label="Organization summary" className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+					<div role="group" aria-label="Organization summary" className="mb-5 hidden grid-cols-3 gap-3 sm:grid">
 						{([{ value: 'all', label: 'Total organizations', count: summary.total }, {
 							value: 'accessible',
 							label: 'Accessible',
