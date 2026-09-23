@@ -1,4 +1,5 @@
 import type { User } from '@/integrations/api/api.patch';
+import { CatchBoundary } from '@tanstack/react-router';
 import { Search } from 'lucide-react';
 import {
 	createContext,
@@ -13,7 +14,7 @@ import {
 	useState,
 } from 'react';
 
-const SearchDialog = lazy(() => import('./SearchDialog'));
+const SearchDialog = lazy(() => import('./SearchDialog').then(module => ({ default: module.SearchDialog })));
 const SearchContext = createContext<(() => void) | null>(null);
 
 export function isSearchShortcut(event: KeyboardEvent) {
@@ -47,23 +48,45 @@ export function GlobalSearch({ user, children }: { user: User; children: ReactNo
 		<SearchContext.Provider value={show}>
 			{children}
 			{open && (
-				<Suspense
-					fallback={
+				<CatchBoundary
+					getResetKey={() => scope}
+					errorComponent={() => (
 						<div
-							role="status"
+							role="alert"
 							className="fixed top-24 left-1/2 z-50 -translate-x-1/2 rounded-xl border bg-popover p-4 shadow-xl"
 						>
-							Opening search…
+							<p>Search couldn’t load. Refresh the page to try again.</p>
+							<button
+								type="button"
+								className="mt-2 cursor-pointer underline"
+								onClick={() => {
+									setOpen(false);
+									restoreFocus.current?.focus();
+								}}
+							>
+								Close
+							</button>
 						</div>
-					}
+					)}
 				>
-					<SearchDialog
-						key={scope}
-						user={user}
-						onClose={() => setOpen(false)}
-						restoreFocus={() => restoreFocus.current?.focus()}
-					/>
-				</Suspense>
+					<Suspense
+						fallback={
+							<div
+								role="status"
+								className="fixed top-24 left-1/2 z-50 -translate-x-1/2 rounded-xl border bg-popover p-4 shadow-xl"
+							>
+								Opening search…
+							</div>
+						}
+					>
+						<SearchDialog
+							key={scope}
+							user={user}
+							onClose={() => setOpen(false)}
+							restoreFocus={() => restoreFocus.current?.focus()}
+						/>
+					</Suspense>
+				</CatchBoundary>
 			)}
 		</SearchContext.Provider>
 	);
