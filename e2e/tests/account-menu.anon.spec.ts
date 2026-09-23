@@ -83,7 +83,7 @@ test('account menu groups profile, organization switching, appearance and sign o
 	await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();
 	await expect(page).toHaveURL(/#\/sign-in/);
 	expect(signedOut).toBe(true);
-	expect(await page.evaluate(() => localStorage.getItem('Studio:PotentiallyAuthenticated'))).not.toContain('fixture');
+	expect(await page.evaluate(() => localStorage.getItem('Studio:PotentiallyAuthenticated'))).toBeNull();
 });
 
 test('account controls remain reachable on a narrow screen with keyboard focus return', async ({ page }) => {
