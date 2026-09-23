@@ -139,6 +139,7 @@ test('normalizes missing membership names before filtering and preserves creatio
 	await expect(page.getByRole('link', { name: 'Open org-a', exact: true })).toBeVisible();
 	await page.getByRole('textbox', { name: 'Search organizations' }).fill('org-a');
 	await expect(page.getByRole('heading', { level: 2 })).toHaveText(['org-a']);
+	await page.getByRole('textbox', { name: 'Search organizations' }).fill('');
 	await page.goto('/#/?createCluster=true');
 	await expect(page).toHaveURL(/#\/org-a\/new-cluster/);
 });
