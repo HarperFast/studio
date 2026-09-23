@@ -39,10 +39,10 @@ function cluster(grant: Partial<ClusterGrant> | null): Cluster {
 
 // TestProvider mounts children through the router's defaultComponent, so nothing is in the DOM
 // until the router settles — hence the act() after every render (same as OrgCard.test.tsx).
-async function renderBanner(c: Cluster | undefined, canUpdate = true) {
+async function renderBanner(c: Cluster | undefined, canUpdate = true, onPlanPage = false) {
 	const result = render(
 		<TestProvider>
-			<ClusterExpiryBanner cluster={c} canUpdate={canUpdate} />
+			<ClusterExpiryBanner cluster={c} canUpdate={canUpdate} onPlanPage={onPlanPage} />
 		</TestProvider>,
 	);
 	await act(() => null);
@@ -72,6 +72,12 @@ describe('ClusterExpiryBanner', () => {
 		expect(screen.getByRole('alert').textContent).toContain('Trial ends in 5 days');
 		// The upgrade is offered while the cluster is still healthy — that is the point of warning.
 		expect(upgradeLink()?.getAttribute('href')).toBe('/#/org-test/clu-test/edit?upgrade=hobbyist');
+	});
+
+	it('keeps the warning but drops the button on the plan page it would open', async () => {
+		await renderBanner(cluster({ currentStage: 'WARNED', endsAt: daysFromNow(5) }), true, true);
+		expect(screen.getByRole('alert').textContent).toContain('Trial ends in 5 days');
+		expect(upgradeLink()).toBeNull();
 	});
 
 	it('offers the upgrade route once service has been withdrawn', async () => {
