@@ -29,6 +29,7 @@ export function SectionRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLab
 							className="inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring"
 						>
 							<BookOpenText className="size-3.5" />View docs
+							<span className="sr-only">(opens in a new tab)</span>
 						</a>
 						<a
 							href="https://discord.gg/VzZuaw3Xay"
@@ -39,6 +40,7 @@ export function SectionRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLab
 							<span className="[&_svg]:size-3.5">
 								<DiscordLogo />
 							</span>Join Discord
+							<span className="sr-only">(opens in a new tab)</span>
 						</a>
 					</div>
 				</section>
