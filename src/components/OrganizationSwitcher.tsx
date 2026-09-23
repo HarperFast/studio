@@ -7,9 +7,10 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
 import { isLocalStudio } from '@/config/constants';
+import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
 import { useCloudAuth } from '@/hooks/useAuth';
-import type { LocalUser, Organization, User } from '@/integrations/api/api.patch';
+import type { LocalUser, User } from '@/integrations/api/api.patch';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { Building2, Check, ChevronDown } from 'lucide-react';
@@ -52,7 +53,7 @@ export function OrganizationSwitcher() {
 	const { user } = useCloudAuth();
 	const { organizationId } = useParams({ strict: false });
 	const targets = useMemo(() => getOrganizationTargets(user), [user]);
-	const { data: organization } = useQuery<Organization>({ queryKey: [organizationId], enabled: false });
+	const { data: organization } = useQuery({ ...getOrganizationQueryOptions(organizationId), enabled: false });
 	if (isLocalStudio || !organizationId) { return null; }
 	const current = targets.find(target => target.id === organizationId);
 	const label = organization?.name || current?.name || organizationId;
