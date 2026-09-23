@@ -348,9 +348,6 @@ describe('CreateGrantModal', () => {
 		expect(body).not.toHaveProperty('shape');
 	});
 
-	// A comped grant may run forever, but once it is given an end it must stage, or the runner would
-	// never act on it — so `none` stops being offered the moment a date is set.
-
 	// The id is generated server-side and is the only handle on an unbound grant, so the caller is
 	// handed the created record rather than a toast that disappears.
 	it('hands the created grant to its caller', async () => {
@@ -376,6 +373,20 @@ describe('CreateGrantModal', () => {
 		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
 		await act(() => null);
 		expect(policy().textContent).toContain('none');
+	});
+
+	it('drops the comp policy when a dated comped grant is switched to a trial', async () => {
+		await mount();
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => null);
+		expect(screen.getByLabelText('Expiry policy').textContent).toContain('comped');
+		await pick('Source', 'trial');
+		expect(screen.getByLabelText('Expiry policy').textContent).toContain('none');
+		expect(screen.getByText('A trial needs an expiry policy')).toBeTruthy();
+		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+		await act(() => null);
+		const comped = screen.getAllByRole('option').find((o) => o.textContent === 'comped');
+		expect(comped?.getAttribute('aria-disabled')).toBe('true');
 	});
 
 	it("shows central-manager's reason when it refuses the create, not the transport's status line", async () => {
