@@ -132,6 +132,47 @@ test('retains a chosen result when a higher-ranked match arrives later', async (
 	await expect(page.getByRole('option', { selected: true })).toContainText('Alpha');
 });
 
+test('clears a chosen result displaced beyond the visible limit before Enter can navigate', async ({ page }) => {
+	let release!: () => void;
+	const pending = new Promise<void>(resolve => {
+		release = resolve;
+	});
+	await page.route('**/Organization/b', async route => {
+		await pending;
+		return route.fulfill({
+			json: {
+				id: 'b',
+				name: 'Beta',
+				clusters: Array.from({ length: 40 }, (_, index) => ({
+					id: `prod-${index}`,
+					name: 'Prod',
+					status: 'RUNNING',
+				})),
+			},
+		});
+	});
+	await page.goto('/#/a');
+	await page.getByRole('button', { name: 'Search organizations and clusters' }).click();
+	const input = page.getByRole('combobox', { name: 'Search organizations and clusters' });
+	await input.fill('prod');
+	await expect(page.getByRole('option')).toHaveCount(1);
+	await input.press('ArrowDown');
+	await expect(page.getByRole('option', { selected: true })).toContainText('Alpha');
+	release();
+	await expect(page.getByRole('option')).toHaveCount(40);
+	await expect(page.getByRole('option', { selected: true })).toHaveCount(0);
+	await expect(input).not.toHaveAttribute('aria-activedescendant');
+	await input.press('Enter');
+	await expect(page.getByRole('dialog')).toBeVisible();
+	await expect(page).toHaveURL(/#\/a$/);
+	await input.press('ArrowUp');
+	await expect(page.getByRole('option').last()).toHaveAttribute('aria-selected', 'true');
+	await input.press('ArrowDown');
+	await expect(page.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+	await input.press('Enter');
+	await expect(page).toHaveURL(/#\/b\/prod-0(?:\/instances)?$/);
+});
+
 test('keeps the dashboard usable when the search bundle cannot load', async ({ page }) => {
 	await page.addInitScript(() => sessionStorage.setItem('Studio:StaleDeployReloadedAt', String(Date.now())));
 	await page.route(
