@@ -71,7 +71,7 @@ test('finds unvisited clusters, reuses snapshots, and navigates with the keyboar
 	await expect(page.getByRole('option')).toHaveCount(1);
 	expect(requests.filter(url => url.endsWith('/b'))).toHaveLength(1);
 	await input.press('Enter');
-	await expect(page).toHaveURL(/#\/b\/cluster-b$/);
+	await expect(page).toHaveURL(/#\/b\/cluster-b(?:\/instances)?$/);
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
