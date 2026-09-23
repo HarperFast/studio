@@ -76,8 +76,12 @@ const GRANTS_COLLECTION = '/Admin/ClusterGrant' as unknown as keyof paths;
  */
 export async function createGrant(body: CreateGrantBody): Promise<AdminClusterGrant[]> {
 	const { data } = await apiClient.post(GRANTS_COLLECTION, body);
-	const result = data as unknown as AdminClusterGrant | { grants: AdminClusterGrant[] };
-	return 'grants' in result ? result.grants : [result];
+	// Never throws on a success: a throw here reads as a failed create, and a re-submit mints the
+	// batch again. A body with no recognisable grant yields an empty list, which the caller reports.
+	const result: unknown = data;
+	if (!result || typeof result !== 'object') { return []; }
+	if ('grants' in result) { return Array.isArray(result.grants) ? (result.grants as AdminClusterGrant[]) : []; }
+	return 'id' in result ? [result as AdminClusterGrant] : [];
 }
 
 export function useCreateGrantMutation() {
