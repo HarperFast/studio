@@ -21,13 +21,15 @@ export const defaultClusterListControls: ClusterListControls = {
 	sort: 'attention',
 };
 
-export function describeCluster(cluster: Cluster) {
+export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<string, string>) {
 	const selfHosted = clusterIsSelfManaged(cluster);
 	const instances = cluster.instances?.filter(instance => !deletedClusterStatuses.includes(instance.status ?? ''));
-	const planRegions = (cluster.plans ?? []).map(plan => plan.region || plan.regionId).filter(Boolean);
+	const planRegions = (cluster.plans ?? []).map(plan => plan.region || regionNames?.get(plan.regionId ?? '')).filter(
+		Boolean,
+	);
 	const regionValues = planRegions.length
 		? planRegions
-		: (instances ?? []).map(instance => instance.region || instance.regionId);
+		: (instances ?? []).map(instance => instance.region || regionNames?.get(instance.regionId ?? ''));
 	const regions = [...new Set(regionValues.filter((region): region is string => !!region))].sort();
 	const versions = [...new Set((instances ?? []).map(instance => instance.version).filter(Boolean))].sort();
 	const status = cluster.status;
@@ -51,12 +53,12 @@ export function describeCluster(cluster: Cluster) {
 	if (status === 'PARTIAL') { notices.push('Some instances are not running'); }
 	if (status === 'STOPPED') { notices.push('Cluster stopped'); }
 	if (cluster.resetPassword) { notices.push('Setup required'); }
-	if (updating && !pendingUpgrade) { notices.push(`${capitalizeWords(status!)} in progress`); }
+	if (updating && !pendingUpgrade) { notices.push(capitalizeWords(status!)); }
 	const category: ClusterCategory = failed
 		? 'failed'
 		: notices.length
 		? 'attention'
-		: !selfHosted && status === 'RUNNING'
+		: status === 'RUNNING'
 		? 'running'
 		: 'other';
 	const date = Date.parse(cluster.createdAt ?? '');
@@ -65,8 +67,6 @@ export function describeCluster(cluster: Cluster) {
 		category,
 		label: failed && status !== 'FAILED' && status !== 'ERROR'
 			? 'Instance failure'
-			: selfHosted && status === 'RUNNING'
-			? 'Self-hosted'
 			: status
 			? capitalizeWords(status)
 			: 'Status unknown',
@@ -89,9 +89,9 @@ export function describeCluster(cluster: Cluster) {
 
 export type ClusterListItem = ReturnType<typeof describeCluster>;
 
-export function buildClusterList(clusters: readonly Cluster[]) {
+export function buildClusterList(clusters: readonly Cluster[], regionNames?: ReadonlyMap<string, string>) {
 	const items = clusters.filter(cluster => cluster.status !== 'TERMINATED' && cluster.status !== 'REMOVED')
-		.map(describeCluster);
+		.map(cluster => describeCluster(cluster, regionNames));
 	const counts: Record<ClusterCategory, number> = { running: 0, attention: 0, failed: 0, other: 0 };
 	for (const item of items) { counts[item.category]++; }
 	return { items, counts, regions: [...new Set(items.flatMap(item => item.regions))].sort() };

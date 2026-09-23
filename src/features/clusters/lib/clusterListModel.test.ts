@@ -30,11 +30,19 @@ describe('cluster list model', () => {
 		expect(item.hosting).toBe('Harper Cloud');
 	});
 
-	it('does not interpret self-hosted registration as monitored health', () => {
+	it('reports self-hosted lifecycle consistently without claiming monitored health', () => {
 		const item = describeCluster(cluster({ plans: [{ planId: 'self-hosted' }] }));
-		expect(item.category).toBe('other');
-		expect(item.label).toBe('Self-hosted');
+		expect(item.category).toBe('running');
+		expect(item.label).toBe('Running');
 		expect(item.notices).toEqual([]);
+	});
+
+	it('resolves opaque region ids without requiring nested instances and tolerates an unavailable catalog', () => {
+		const data = cluster({ plans: [{ planId: 'shared', regionId: 'reg-123' }] });
+		expect(describeCluster(data).regions).toEqual([]);
+		const model = buildClusterList([data], new Map([['reg-123', 'US East']]));
+		expect(model.regions).toEqual(['US East']);
+		expect(selectClusters(model.items, { ...defaultClusterListControls, search: 'East' })).toHaveLength(1);
 	});
 
 	it('retains unknown states without claiming that they are running', () => {
@@ -125,7 +133,7 @@ describe('cluster list model', () => {
 			cluster({ status: 'FAILED', fqdn: 'api.example.test', plans: [{ planId: 'shared', regionId: 'us-east' }] }),
 			cluster({ id: 'clu-b' }),
 		];
-		const model = buildClusterList(source);
+		const model = buildClusterList(source, new Map([['us-east', 'us-east']]));
 		expect(
 			selectClusters(model.items, {
 				...defaultClusterListControls,
