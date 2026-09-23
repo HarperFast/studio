@@ -107,6 +107,10 @@ describe('ClusterCard', () => {
 	it('makes failures and pending upgrades visible on the card', () => {
 		const view = render(<ClusterCard cluster={cluster({ status: 'FAILED' })} />);
 		expect(screen.getByText('Failure reported')).toBeTruthy();
+		expect(screen.getByText('Open cluster options to retry or manage this cluster.')).toBeTruthy();
+		state.permissions.create = false;
+		view.rerender(<ClusterCard cluster={cluster({ status: 'FAILED' })} />);
+		expect(screen.queryByText('Open cluster options to retry or manage this cluster.')).toBeNull();
 		view.rerender(<ClusterCard cluster={cluster({ status: 'PENDING_UPGRADE' })} />);
 		expect(screen.getByText('Upgrade pending')).toBeTruthy();
 	});

@@ -45,6 +45,10 @@ describe('cluster list model', () => {
 		expect(selectClusters(model.items, { ...defaultClusterListControls, search: 'East' })).toHaveLength(1);
 	});
 
+	it('includes completed updates in the running summary', () => {
+		expect(describeCluster(cluster({ status: 'UPDATED' })).category).toBe('running');
+	});
+
 	it('retains unknown states without claiming that they are running', () => {
 		expect(describeCluster(cluster({ status: undefined })).label).toBe('Status unknown');
 		expect(describeCluster(cluster({ status: 'NEW_SERVER_STATE' })).category).toBe('other');
