@@ -106,15 +106,15 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 		}
 	}, [source, form]);
 
-	// Ends decides which policy a comped grant may carry, so changing it re-checks the policy too:
-	// otherwise submit disables with the reason hidden under a select that never counts as touched.
-	const previousEndsAt = useRef(endsAt);
+	// A comped grant's policy is decided by its end date alone, so it follows Ends rather than being
+	// picked: `comped` with one, `none` without (central-manager's expiryPolicyRefusal).
 	useEffect(() => {
-		if (previousEndsAt.current !== endsAt) {
-			previousEndsAt.current = endsAt;
-			void form.trigger('expiryPolicy');
+		if (!isComped) { return; }
+		const policy = compedExpiryPolicy(endsAt ?? '');
+		if (form.getValues('expiryPolicy') !== policy) {
+			form.setValue('expiryPolicy', policy, { shouldValidate: true });
 		}
-	}, [endsAt, form]);
+	}, [isComped, endsAt, form]);
 
 	const onSubmit = (values: CreateGrantValues) => {
 		const body = {
@@ -321,7 +321,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 								<FormItem>
 									<FormLabel>Expiry policy</FormLabel>
 									<FormControl>
-										<Select value={field.value} onValueChange={field.onChange}>
+										<Select value={field.value} onValueChange={field.onChange} disabled={isComped}>
 											<SelectTrigger className="w-full" aria-label="Expiry policy">
 												<SelectValue />
 											</SelectTrigger>
@@ -330,10 +330,8 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 													<SelectItem
 														key={policy}
 														value={policy}
-														// A trial always stages; a comped grant has exactly one valid policy.
-														disabled={isTrial
-															? policy === NO_EXPIRY_POLICY
-															: isComped && policy !== compedExpiryPolicy(endsAt ?? '')}
+														// A trial always stages.
+														disabled={isTrial && policy === NO_EXPIRY_POLICY}
 													>
 														{policy}
 													</SelectItem>
@@ -341,6 +339,11 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 											</SelectContent>
 										</Select>
 									</FormControl>
+									{isComped && (
+										<p className="text-xs text-muted-foreground">
+											Set by the end date: comped with one, none without.
+										</p>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}
