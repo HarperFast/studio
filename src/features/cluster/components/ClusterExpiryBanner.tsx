@@ -16,12 +16,16 @@ import { useMemo } from 'react';
 export function ClusterExpiryBanner({
 	cluster,
 	canUpdate,
+	onPlanPage = false,
 }: {
 	cluster?: Cluster;
 	canUpdate: boolean;
+	/** On the page the button opens, it would only link to where the reader already is. */
+	onPlanPage?: boolean;
 }) {
 	const expiry = useMemo(() => (cluster ? describeGrantExpiry(cluster) : null), [cluster]);
 	if (!expiry || !cluster) { return null; }
+	const offerUpgrade = expiry.offerUpgrade && canUpdate && !onPlanPage;
 
 	const Icon = expiry.stage === 'AWAITING_PLAN'
 		? Loader2
@@ -36,10 +40,10 @@ export function ClusterExpiryBanner({
 		>
 			<Icon className={expiry.stage === 'AWAITING_PLAN' ? 'animate-spin' : undefined} />
 			<AlertTitle>{expiry.title}</AlertTitle>
-			{(expiry.detail || (expiry.offerUpgrade && canUpdate)) && (
+			{(expiry.detail || offerUpgrade) && (
 				<AlertDescription>
 					{expiry.detail && <p>{expiry.detail}</p>}
-					{expiry.offerUpgrade && canUpdate && (
+					{offerUpgrade && (
 						<Link
 							to={`/${cluster.organizationId}/${cluster.id}/edit`}
 							search={{ upgrade: HOBBYIST_UPGRADE }}
