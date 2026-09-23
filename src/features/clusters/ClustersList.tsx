@@ -79,7 +79,11 @@ export function ClustersList() {
 							</Button>
 						)}
 					</header>
-					<div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4" role="group" aria-label="Cluster summary">
+					<div
+						className="mb-3 hidden grid-cols-2 gap-3 sm:grid lg:grid-cols-4"
+						role="group"
+						aria-label="Cluster summary"
+					>
 						{summaryTiles.map(({ category, label, Icon, color }) => (
 							<button
 								key={category}

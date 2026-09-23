@@ -67,7 +67,8 @@ test('cluster overview filters the real route and retains card navigation', asyn
 test('cluster overview fits a narrow screen and supports keyboard filtering', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/#/org-fixture');
-	await expect(page.getByRole('button', { name: 'Total clusters 2' })).toBeVisible();
+	await expect(page.getByRole('group', { name: 'Cluster summary' })).toBeHidden();
+	await expect(page.getByLabel('Cluster status', { exact: true })).toBeVisible();
 	await page.getByLabel('Search clusters', { exact: true }).focus();
 	await page.keyboard.type('Production');
 	await expect(page.getByRole('status')).toHaveText('Showing 1 of 2 clusters');
