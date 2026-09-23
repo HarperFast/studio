@@ -11,21 +11,21 @@ export function isValidOrganizationId(orgId: string | undefined | null): orgId i
 	return !!orgId && orgId !== 'undefined' && orgId !== 'null';
 }
 
-export async function getOrganization(orgId: string, signal?: AbortSignal): Promise<Organization> {
+export async function getOrganization(orgId: string): Promise<Organization> {
 	if (!isValidOrganizationId(orgId)) {
 		// Fail fast instead of issuing a doomed `/Organization/undefined` request.
 		// Guards the call paths that ignore react-query's `enabled` flag:
 		// `ensureQueryData` (route beforeLoad), `useSuspenseQuery`, and direct callers.
 		throw new Error(`getOrganization called without a valid organization id (got: ${orgId})`);
 	}
-	const { data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}', { signal });
+	const { data } = await apiClient.get(`/Organization/${orgId}` as '/Organization/{id}');
 	return data as Organization;
 }
 
 export function getOrganizationQueryOptions(orgId: string | undefined) {
 	return queryOptions({
 		queryKey: [orgId],
-		queryFn: ({ signal }) => getOrganization(orgId as string, signal),
+		queryFn: () => getOrganization(orgId as string),
 		// `retry: false` already surfaces the error on the first failure, so the poll
 		// wrapper below sees a 403 immediately — no `retryUnlessRejected` needed.
 		retry: false,

@@ -134,7 +134,10 @@ test('retains a chosen result when a higher-ranked match arrives later', async (
 
 test('keeps the dashboard usable when the search bundle cannot load', async ({ page }) => {
 	await page.addInitScript(() => sessionStorage.setItem('Studio:StaleDeployReloadedAt', String(Date.now())));
-	await page.route('**/SearchDialog-*.js', route => route.abort());
+	await page.route(
+		/\/(?:assets\/SearchDialog-[^/]+\.js|src\/features\/search\/SearchDialog\.tsx)(?:\?.*)?$/,
+		route => route.abort(),
+	);
 	await page.goto('/#/a');
 	const trigger = page.getByRole('button', { name: 'Search organizations and clusters' });
 	await trigger.click();
