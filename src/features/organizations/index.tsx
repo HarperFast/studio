@@ -7,6 +7,11 @@ import { Switch } from '@/components/ui/switch';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OAuthLockedOrgCard } from '@/features/organizations/components/OAuthLockedOrgCard';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
+import {
+	type OrganizationAccess,
+	selectOrganizations,
+	summarizeOrganizations,
+} from '@/features/organizations/lib/organizationListModel';
 import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
 import { NewOrg } from '@/features/organizations/NewOrg';
@@ -17,13 +22,13 @@ import {
 import { useStaffPermission } from '@/hooks/useAuth';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSessionStorage } from '@/hooks/useSessionStorage';
+import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { detectEntityId } from '@/lib/string/entityId';
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, Navigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeftIcon, ArrowRightIcon, PlusIcon } from 'lucide-react';
 import { FormEvent, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { type OrganizationAccess, selectOrganizations, summarizeOrganizations } from './lib/organizationListModel';
 
 export function OrganizationsIndex() {
 	const queryClient = useQueryClient();
@@ -81,7 +86,13 @@ export function OrganizationsIndex() {
 	// Both the "All Orgs" listing and an id lookup render from the server query.
 	const isServerSearch = showAll || !!searchEntityId;
 
-	const { data: allOrgsPage, isPending: isAllOrgsPending, isError: isAllOrgsError, refetch: retryAllOrgs } = useQuery({
+	const {
+		data: allOrgsPage,
+		isPending: isAllOrgsPending,
+		isError: isAllOrgsError,
+		isFetching: isAllOrgsFetching,
+		refetch: retryAllOrgs,
+	} = useQuery({
 		...getAllOrganizationsQueryOptions(pageIndex, debouncedFilterValue),
 		enabled: isServerSearch,
 	});
@@ -166,7 +177,7 @@ export function OrganizationsIndex() {
 						<h1 className="mt-2 text-3xl font-semibold tracking-tight">Your teams, connected.</h1>
 						<p className="mt-2 text-sm text-muted-foreground">Find your organization and get back to building.</p>
 					</div>
-					<Button asChild variant="positive">
+					<Button asChild variant="positive" accessKey="n">
 						<Link to="/new-org">
 							<PlusIcon />New Organization
 						</Link>
@@ -214,14 +225,17 @@ export function OrganizationsIndex() {
 							<select
 								aria-label="Organization access"
 								value={access}
-								onChange={event => setAccess(event.target.value as OrganizationAccess)}
+								onChange={event => {
+									setAccess(event.target.value as OrganizationAccess);
+									setRole('');
+								}}
 								className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
 							>
 								<option value="all">All access</option>
 								<option value="accessible">Accessible</option>
 								<option value="locked">Sign-in required</option>
 							</select>
-							{roles.length > 1 && (
+							{access !== 'locked' && roles.length > 1 && (
 								<select
 									aria-label="Organization role"
 									value={role}
@@ -229,7 +243,7 @@ export function OrganizationsIndex() {
 									className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
 								>
 									<option value="">All roles</option>
-									{roles.map(value => <option key={value} value={value}>{value}</option>)}
+									{roles.map(value => <option key={value} value={value}>{capitalizeWords(value)}</option>)}
 								</select>
 							)}
 							<select
@@ -258,19 +272,24 @@ export function OrganizationsIndex() {
 						? 'Staff directory · Server search and pagination'
 						: `Showing ${visibleTargets.length} of ${summary.total} organizations`}
 				</p>
+				{isServerSearch && isAllOrgsError && (
+					<div role="alert" className="mb-4 rounded-xl border p-6">
+						<p>
+							{allOrgsPage
+								? 'Organizations couldn’t be refreshed. Showing the last available results.'
+								: 'Organizations couldn’t be loaded.'}
+						</p>
+						<Button variant="outline" disabled={isAllOrgsFetching} onClick={() => void retryAllOrgs()}>
+							{isAllOrgsFetching ? 'Retrying…' : 'Retry'}
+						</Button>
+					</div>
+				)}
 				<div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
 					{isServerSearch
 						? isAllOrgsPending
 							? Array.from(
 								{ length: ALL_ORGANIZATIONS_PAGE_SIZE },
 								(_, index) => <Skeleton key={index} className="h-48" />,
-							)
-							: isAllOrgsError
-							? (
-								<div role="alert" className="col-span-full rounded-xl border p-6">
-									<p>Organizations couldn’t be loaded.</p>
-									<Button variant="outline" onClick={() => void retryAllOrgs()}>Retry</Button>
-								</div>
 							)
 							: allOrganizationRoles.map(organizationRole => (
 								<OrgCard

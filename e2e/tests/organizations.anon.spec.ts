@@ -50,6 +50,9 @@ test('filters both access states, sorts names and preserves provider actions', a
 	await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Locked Team', 'Beta', 'Acme']);
 	await page.getByRole('combobox', { name: 'Organization role' }).selectOption('developer');
 	await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Beta']);
+	await page.getByRole('combobox', { name: 'Organization access' }).selectOption('locked');
+	await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Locked Team']);
+	await expect(page.getByRole('combobox', { name: 'Organization role' })).toHaveCount(0);
 });
 
 test('keeps an empty access filter out of onboarding and fits a narrow screen', async ({ page }) => {
@@ -107,6 +110,14 @@ test('staff directory preserves server pagination, pasted IDs and error retry', 
 	await expect(page.getByRole('combobox', { name: 'Sort organizations' })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
 	fail = true;
+	await page.getByRole('switch', { name: 'Show all organizations' }).click();
+	await page.getByRole('switch', { name: 'Show all organizations' }).click();
+	await expect(page.getByRole('alert')).toContainText('Showing the last available results');
+	await expect(page.getByRole('heading', { level: 2 })).toHaveCount(12);
+	fail = false;
+	await page.getByRole('button', { name: 'Retry', exact: true }).click();
+	await expect(page.getByRole('alert')).toHaveCount(0);
+	fail = true;
 	await page.getByRole('button', { name: 'Next', exact: true }).click();
 	await expect(page.getByRole('alert')).toContainText('Organizations couldn’t be loaded');
 	fail = false;
@@ -114,4 +125,20 @@ test('staff directory preserves server pagination, pasted IDs and error retry', 
 	await expect(page.getByRole('alert')).toHaveCount(0);
 	await page.getByRole('textbox', { name: 'Search organizations' }).fill('clu-lookup');
 	await expect(page.getByRole('link', { name: 'Open Found organization' })).toBeVisible();
+});
+
+test('normalizes missing membership names before filtering and preserves creation redirect', async ({ page }) => {
+	await page.route('**/User/current', route =>
+		route.fulfill({
+			json: {
+				...user,
+				roles: { 'org-a': { role: 'owner', permission: { super_user: true } }, 'org-locked': user.roles['org-locked'] },
+			},
+		}));
+	await page.goto('/#/');
+	await expect(page.getByRole('link', { name: 'Open org-a', exact: true })).toBeVisible();
+	await page.getByRole('textbox', { name: 'Search organizations' }).fill('org-a');
+	await expect(page.getByRole('heading', { level: 2 })).toHaveText(['org-a']);
+	await page.goto('/#/?createCluster=true');
+	await expect(page).toHaveURL(/#\/org-a\/new-cluster/);
 });
