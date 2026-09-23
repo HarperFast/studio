@@ -12,6 +12,12 @@ let grantRows: AdminClusterGrant[] = [];
 let truncated = false;
 let matchedTotal: number | null | undefined;
 const requestedFilters = vi.fn();
+// Off by default, as the rest of the file expects; a test that needs the edit button turns it on.
+let canWriteGrants = false;
+vi.mock('@/hooks/useAuth', async (importOriginal) => ({
+	...(await importOriginal<typeof import('@/hooks/useAuth')>()),
+	useStaffPermission: () => canWriteGrants,
+}));
 vi.mock('./queries/getGrants', () => ({
 	getGrantsQueryOptions: (filters: { source?: string; status?: string; order?: string } = {}) => ({
 		queryKey: [
@@ -47,6 +53,7 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 
 afterEach(() => {
 	cleanup();
+	canWriteGrants = false;
 	truncated = false;
 	matchedTotal = undefined;
 	requestedFilters.mockClear();
@@ -117,9 +124,20 @@ describe('GrantsAdminIndex', () => {
 			grant({ id: 'cgr-paid', source: 'purchased', nextCycleAt: '2026-09-28T18:57:06.812Z' }),
 			grant({ id: 'cgr-trial', source: 'trial', nextCycleAt: null }),
 		]);
-		const renewsCell = (id: string) => screen.getByText(id).closest('tr')!.children[7].textContent;
+		// Found by its header, not a fixed index, so the column order can change without breaking this.
+		const renews = [...screen.getByText('Renews').closest('tr')!.children].findIndex((th) =>
+			th.textContent === 'Renews'
+		);
+		const renewsCell = (id: string) => screen.getByText(id).closest('tr')!.children[renews].textContent;
 		expect(renewsCell('cgr-paid')).toBe('Sep 28, 2026');
 		expect(renewsCell('cgr-trial')).toBe('—');
+	});
+
+	it('puts the edit button in the first column, where it cannot scroll out of sight', async () => {
+		canWriteGrants = true;
+		await mount([grant({ id: 'cgr-live' })]);
+		const row = screen.getByText('cgr-live').closest('tr')!;
+		expect(row.children[0].contains(screen.getByLabelText('Edit cgr-live'))).toBe(true);
 	});
 
 	it('marks an unbound voucher instead of linking a cluster', async () => {
