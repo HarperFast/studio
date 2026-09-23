@@ -72,11 +72,21 @@ test('account menu groups profile, organization switching, appearance and sign o
 	await page.getByRole('menuitem', { name: 'Appearance', exact: true }).click();
 	await page.getByRole('menuitemradio', { name: 'Light', exact: true }).click();
 	await expect(page.locator('html')).not.toHaveClass(/dark/);
-	await page.route('**/Logout', route => route.fulfill({ json: {} }));
-	await page.route('**/User/current', route => route.fulfill({ status: 401, json: { error: 'Signed out' } }));
+	let signedOut = false;
+	await page.route(/\/Logout\/?$/, route => {
+		expect(route.request().method()).toBe('POST');
+		signedOut = true;
+		return route.fulfill({ json: {} });
+	});
+	await page.route('**/User/current', route =>
+		signedOut
+			? route.fulfill({ status: 401, json: { error: 'Signed out' } })
+			: route.fulfill({ json: user }));
 	await page.getByRole('button', { name: 'Account menu' }).click();
 	await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();
 	await expect(page).toHaveURL(/#\/sign-in/);
+	expect(signedOut).toBe(true);
+	await expect(page.getByText('You have been signed out successfully.')).toBeVisible();
 });
 
 test('account controls remain reachable on a narrow screen with keyboard focus return', async ({ page }) => {
@@ -89,4 +99,21 @@ test('account controls remain reachable on a narrow screen with keyboard focus r
 	await page.keyboard.press('Escape');
 	await expect(trigger).toBeFocused();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('staff sees the cached name when visiting a non-membership organization', async ({ page }) => {
+	await page.route('**/User/current', route =>
+		route.fulfill({
+			json: {
+				...user,
+				fabricRole: 'fabric_admin',
+				staffPermissions: ['org:read', 'cluster:read'],
+				roles: { 'org-b': role('Beta') },
+			},
+		}));
+	await page.goto('/#/org-a');
+	await expect(page.getByRole('button', { name: 'Switch organization, current: Alpha' })).toBeVisible();
+	await page.getByRole('button', { name: 'Switch organization, current: Alpha' }).click();
+	await page.getByRole('menuitem', { name: 'Beta', exact: true }).click();
+	await expect(page).toHaveURL(/#\/org-b$/);
 });

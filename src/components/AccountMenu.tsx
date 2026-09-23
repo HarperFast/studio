@@ -20,6 +20,7 @@ import type { LocalUser, User } from '@/integrations/api/api.patch';
 import { isLocalUser } from '@/lib/types/isLocalUser';
 import { Link } from '@tanstack/react-router';
 import { Building2, ChevronDown, LogOut, Palette, Shield, UserRound } from 'lucide-react';
+import { useMemo } from 'react';
 
 export function AccountMenu(
 	{ user, onSignOut, signingOut }: { user: User | LocalUser; onSignOut: () => void; signingOut: boolean },
@@ -30,7 +31,7 @@ export function AccountMenu(
 		? user.username
 		: [user.firstname, user.lastname].filter(Boolean).join(' ') || user.email;
 	const initials = name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
-	const canSwitch = getOrganizationTargets(user).filter(target => !target.locked).length > 1;
+	const canSwitch = useMemo(() => getOrganizationTargets(user).filter(target => !target.locked).length > 1, [user]);
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
@@ -61,7 +62,7 @@ export function AccountMenu(
 									<Building2 className="size-4" />Switch organization
 								</DropdownMenuSubTrigger>
 								<DropdownMenuSubContent className="w-64">
-									<OrganizationMenuItems user={user} />
+									<OrganizationMenuItems user={user} showAll={false} />
 								</DropdownMenuSubContent>
 							</DropdownMenuSub>
 						)}

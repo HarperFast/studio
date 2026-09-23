@@ -9,13 +9,15 @@ import {
 import { isLocalStudio } from '@/config/constants';
 import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
 import { useCloudAuth } from '@/hooks/useAuth';
-import type { LocalUser, User } from '@/integrations/api/api.patch';
+import type { LocalUser, Organization, User } from '@/integrations/api/api.patch';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { Building2, Check, ChevronDown } from 'lucide-react';
+import { useMemo } from 'react';
 
-export function OrganizationMenuItems({ user }: { user: User | LocalUser | null }) {
+export function OrganizationMenuItems({ user, showAll = true }: { user: User | LocalUser | null; showAll?: boolean }) {
 	const { organizationId } = useParams({ strict: false });
-	const targets = getOrganizationTargets(user).filter(target => !target.locked);
+	const targets = useMemo(() => getOrganizationTargets(user).filter(target => !target.locked), [user]);
 	return (
 		<>
 			<DropdownMenuLabel>Your organizations</DropdownMenuLabel>
@@ -34,10 +36,14 @@ export function OrganizationMenuItems({ user }: { user: User | LocalUser | null 
 					</DropdownMenuItem>
 				))}
 			</div>
-			<DropdownMenuSeparator />
-			<DropdownMenuItem asChild>
-				<Link to="/">All organizations</Link>
-			</DropdownMenuItem>
+			{showAll && (
+				<>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem asChild>
+						<Link to="/">All organizations</Link>
+					</DropdownMenuItem>
+				</>
+			)}
 		</>
 	);
 }
@@ -45,10 +51,11 @@ export function OrganizationMenuItems({ user }: { user: User | LocalUser | null 
 export function OrganizationSwitcher() {
 	const { user } = useCloudAuth();
 	const { organizationId } = useParams({ strict: false });
+	const targets = useMemo(() => getOrganizationTargets(user), [user]);
+	const { data: organization } = useQuery<Organization>({ queryKey: [organizationId], enabled: false });
 	if (isLocalStudio || !organizationId) { return null; }
-	const targets = getOrganizationTargets(user);
 	const current = targets.find(target => target.id === organizationId);
-	const label = current?.name ?? organizationId;
+	const label = organization?.name || current?.name || organizationId;
 	const canSwitch = targets.some(target => !target.locked && target.id !== organizationId);
 	const content = (
 		<>
