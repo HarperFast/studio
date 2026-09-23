@@ -15,7 +15,6 @@ import {
 	ArrowDownToLineIcon,
 	ArrowRightIcon,
 	ArrowUpFromLineIcon,
-	CalendarClockIcon,
 	GaugeIcon,
 	type LucideIcon,
 } from 'lucide-react';
@@ -176,11 +175,6 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 			value: humanNumber(totalWrites),
 			fill: logarithmicFill(totalWrites, usageScale.totalWrites),
 		},
-		!!expirationMonths && {
-			icon: CalendarClockIcon,
-			label: 'License Term',
-			value: pluralize(expirationMonths, 'month', 'months'),
-		},
 	] satisfies Array<boolean | { icon: LucideIcon; label: string; value: string; fill?: number }>).filter(excludeFalsy);
 
 	return (
@@ -198,7 +192,8 @@ export function ResourcesPerInstance({ selectedPlan, selectedRegion, usageScale,
 					Learn More {toggled ? <ArrowDownIcon /> : <ArrowRightIcon />}
 				</Button>
 			</div>
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+			{/* Wraps and grows rather than fixed columns: a plan may have two to four stats, and every row fills. */}
+			<div className="flex flex-wrap gap-3">
 				{usageStats.map(stat => (
 					<UsageStat
 						key={stat.label}
@@ -247,7 +242,7 @@ function UsageStat({ icon: Icon, label, value, fill }: {
 	readonly fill?: number;
 }) {
 	return (
-		<div className="flex flex-col gap-2 rounded-md border border-border bg-background/50 p-3">
+		<div className="flex min-w-36 flex-1 flex-col gap-2 rounded-md border border-border bg-background/50 p-3">
 			<div className="flex items-center gap-1.5 text-muted-foreground">
 				<Icon className="size-4 shrink-0" />
 				<span className="text-xs font-medium">{label}</span>
