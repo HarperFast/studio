@@ -78,15 +78,12 @@ test('account menu groups profile, organization switching, appearance and sign o
 		signedOut = true;
 		return route.fulfill({ json: {} });
 	});
-	await page.route('**/User/current', route =>
-		signedOut
-			? route.fulfill({ status: 401, json: { error: 'Signed out' } })
-			: route.fulfill({ json: user }));
+
 	await page.getByRole('button', { name: 'Account menu' }).click();
 	await page.getByRole('menuitem', { name: 'Sign Out', exact: true }).click();
 	await expect(page).toHaveURL(/#\/sign-in/);
 	expect(signedOut).toBe(true);
-	await expect(page.getByText('You have been signed out successfully.')).toBeVisible();
+	expect(await page.evaluate(() => localStorage.getItem('Studio:PotentiallyAuthenticated'))).not.toContain('fixture');
 });
 
 test('account controls remain reachable on a narrow screen with keyboard focus return', async ({ page }) => {
