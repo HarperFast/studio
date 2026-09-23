@@ -43,3 +43,23 @@ it('preserves normal error presentation for a page observing the same organizati
 	unsubscribe();
 	client.clear();
 });
+
+it('does not retain search-only error presentation when a normal route later fetches the same key', async () => {
+	vi.spyOn(console, 'error').mockImplementation(() => {});
+	const client = new QueryClient({ queryCache: new QueryCache({ onError: queryErrorHandler }) });
+	await client.fetchQuery({
+		queryKey: ['org-route'],
+		queryFn: async () => ({ id: 'org-route' }),
+		meta: { inlineSearchError: true },
+	});
+	await client.invalidateQueries({ queryKey: ['org-route'] });
+	await expect(
+		client.fetchQuery({
+			queryKey: ['org-route'],
+			queryFn: () => Promise.reject(new Error('Route unavailable')),
+			retry: false,
+		}),
+	).rejects.toThrow();
+	expect(toast.error).toHaveBeenCalledOnce();
+	client.clear();
+});
