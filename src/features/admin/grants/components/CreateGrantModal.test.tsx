@@ -10,13 +10,26 @@ import { CreateGrantModal } from './CreateGrantModal';
 const createGrant = vi.fn();
 const onCreated = vi.fn();
 const toastSuccess = vi.fn();
-vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: vi.fn() } }));
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+	toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) },
+}));
+// When set, the mutation fails with this error instead of succeeding.
+let createFailure: unknown = null;
 // When set, the mutation succeeds with this list instead of one grant per requested quantity.
 let createdOverride: unknown[] | null = null;
 vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 	useCreateGrantMutation: () => ({
-		mutate: (body: unknown, opts?: { onSuccess?: (grants: unknown[]) => void; onSettled?: () => void }) => {
+		mutate: (
+			body: unknown,
+			opts?: { onSuccess?: (grants: unknown[]) => void; onError?: (error: unknown) => void; onSettled?: () => void },
+		) => {
 			createGrant(body);
+			if (createFailure) {
+				opts?.onError?.(createFailure);
+				opts?.onSettled?.();
+				return;
+			}
 			// The real mutation normalizes the server's single-or-batch reply to an array.
 			const quantity = (body as { quantity?: number }).quantity ?? 1;
 			opts?.onSuccess?.(
@@ -36,7 +49,7 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 		queryKey: ['test-policies'],
 		queryFn: async () => ({
 			editableAtRuntime: false,
-			policies: { 'consumer-trial': [], 'conversion-pending': [] },
+			policies: { 'consumer-trial': [], comped: [], 'conversion-pending': [] },
 		}),
 		retry: false,
 	}),
@@ -96,6 +109,9 @@ afterEach(() => {
 	createGrant.mockClear();
 	onCreated.mockClear();
 	toastSuccess.mockClear();
+	toastError.mockClear();
+	createFailure = null;
+	createdOverride = null;
 });
 
 async function mount() {
@@ -200,6 +216,8 @@ describe('CreateGrantModal', () => {
 	// would time-box a grant against a conversion that is not happening.
 	it('does not offer the policy central-manager applies to itself', async () => {
 		await mount();
+		// A comped grant's policy is set for it, so the list is only offered to a trial.
+		await pick('Source', 'trial');
 		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
 		await act(() => null);
 		const options = screen.getAllByRole('option').map((o) => o.textContent);
@@ -330,18 +348,6 @@ describe('CreateGrantModal', () => {
 		expect(body).not.toHaveProperty('shape');
 	});
 
-	// A comped grant may run forever, but once it is given an end it must stage, or the runner would
-	// never act on it — so `none` stops being offered the moment a date is set.
-	it('withdraws the none policy from a comped grant once it has an end date', async () => {
-		await mount();
-		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
-		await act(() => null);
-		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
-		await act(() => null);
-		const none = screen.getAllByRole('option').find((o) => o.textContent === 'none');
-		expect(none?.getAttribute('aria-disabled')).toBe('true');
-	});
-
 	// The id is generated server-side and is the only handle on an unbound grant, so the caller is
 	// handed the created record rather than a toast that disappears.
 	it('hands the created grant to its caller', async () => {
@@ -356,24 +362,63 @@ describe('CreateGrantModal', () => {
 		expect(onCreated.mock.calls[0][0][0].id).toBe('grt-created');
 	});
 
-	// One grant keeps the single-grant request; only a real batch carries a quantity.
-	it('reports a success that returned no grants, instead of opening nothing', async () => {
-		createdOverride = [];
-		try {
-			await mount();
-			await pick('Organization', /org-1/);
-			await fillCompedScope();
-			fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
-			await act(() => null);
-			fireEvent.click(submit());
-			await act(() => null);
-			expect(onCreated).not.toHaveBeenCalled();
-			expect(toastSuccess).toHaveBeenCalledTimes(1);
-		} finally {
-			createdOverride = null;
-		}
+	it("sets a comped grant's policy from its end date, and does not let it be picked", async () => {
+		await mount();
+		const policy = () => screen.getByLabelText('Expiry policy');
+		expect(policy().hasAttribute('disabled')).toBe(true);
+		expect(policy().textContent).toContain('none');
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => null);
+		expect(policy().textContent).toContain('comped');
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
+		await act(() => null);
+		expect(policy().textContent).toContain('none');
 	});
 
+	it('drops the comp policy when a dated comped grant is switched to a trial', async () => {
+		await mount();
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => null);
+		expect(screen.getByLabelText('Expiry policy').textContent).toContain('comped');
+		await pick('Source', 'trial');
+		expect(screen.getByLabelText('Expiry policy').textContent).toContain('none');
+		expect(screen.getByText('A trial needs an expiry policy')).toBeTruthy();
+		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
+		await act(() => null);
+		const comped = screen.getAllByRole('option').find((o) => o.textContent === 'comped');
+		expect(comped?.getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it("shows central-manager's reason when it refuses the create, not the transport's status line", async () => {
+		createFailure = Object.assign(new Error('Request failed with status code 400'), {
+			response: { status: 400, data: { title: "expiryPolicy: a comped grant with no endsAt must use 'none'" } },
+		});
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(toastError).toHaveBeenCalledWith('Could not create the grant', {
+			description: "expiryPolicy: a comped grant with no endsAt must use 'none'",
+		});
+	});
+
+	it('reports a success that returned no grants, instead of opening nothing', async () => {
+		createdOverride = [];
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		fireEvent.change(reasonBox(), { target: { value: 'conference comp' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+		expect(onCreated).not.toHaveBeenCalled();
+		expect(toastSuccess).toHaveBeenCalledTimes(1);
+	});
+
+	// One grant keeps the single-grant request; only a real batch carries a quantity.
 	it('sends a quantity only when more than one unbound voucher is asked for', async () => {
 		await mount();
 		await pick('Organization', /org-1/);

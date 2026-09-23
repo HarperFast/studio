@@ -43,6 +43,16 @@ function addShapeIssues(shape: ShapeRow[], ctx: z.RefinementCtx) {
 /** `none` is a real policy value meaning "no expiry timeline", distinct from an unset field. */
 export const NO_EXPIRY_POLICY = 'none';
 
+/** The only staging policy central-manager lets a comped grant use: it warns, then stops, and never deletes. */
+export const COMPED_EXPIRY_POLICY = 'comped';
+
+/**
+ * The one policy a comped grant may carry, mirroring central-manager's expiryPolicyRefusal: with an
+ * end date it stages under `comped` (the others delete the cluster); without one there is no end
+ * for stages to count from, so it is `none`.
+ */
+export const compedExpiryPolicy = (endsAt: string) => (endsAt ? COMPED_EXPIRY_POLICY : NO_EXPIRY_POLICY);
+
 /**
  * Policies central-manager applies to itself, which an admin never picks. `conversion-pending` is
  * the bounded window it mints while a trial->paid conversion is in flight; setting it by hand would
@@ -144,6 +154,13 @@ export const CreateGrantSchema = z
 			if (values.expiryPolicy === NO_EXPIRY_POLICY) {
 				ctx.addIssue({ code: 'custom', path: ['expiryPolicy'], message: 'A trial needs an expiry policy' });
 			}
+			if (values.expiryPolicy === COMPED_EXPIRY_POLICY) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['expiryPolicy'],
+					message: 'A trial needs a trial policy, not the comp one',
+				});
+			}
 		}
 
 		// A comp has no external bound — no clock, no card — so the shape IS the bound: the server
@@ -157,11 +174,13 @@ export const CreateGrantSchema = z
 				});
 			}
 			addShapeIssues(values.shape, ctx);
-			if (values.endsAt && values.expiryPolicy === NO_EXPIRY_POLICY) {
+			if (values.expiryPolicy !== compedExpiryPolicy(values.endsAt)) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['expiryPolicy'],
-					message: 'A comped grant with an end date needs an expiry policy',
+					message: values.endsAt
+						? `A comped grant with an end date uses the '${COMPED_EXPIRY_POLICY}' policy — the others delete the cluster`
+						: `A comped grant with no end date uses '${NO_EXPIRY_POLICY}' — there is no end for stages to count from`,
 				});
 			}
 		}
