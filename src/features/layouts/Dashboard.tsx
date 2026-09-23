@@ -1,14 +1,17 @@
 import './Dashboard.css';
 import { Loading } from '@/components/Loading';
 import { Navbar } from '@/components/Navbar';
+import { isLocalStudio } from '@/config/constants';
+import { GlobalSearch } from '@/features/search/GlobalSearch';
 import { useOverallAuth } from '@/hooks/useAuth';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
+import { isLocalUser } from '@/lib/types/isLocalUser';
 import { Outlet, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 export function Dashboard() {
-	const { isLoading: isUserLoading } = useOverallAuth();
+	const { isLoading: isUserLoading, user } = useOverallAuth();
 	const { createCluster }: { createCluster?: string } = useSearch({ strict: false });
 	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 	useEffect(() => {
@@ -21,7 +24,7 @@ export function Dashboard() {
 		return <Loading className="fixed z-50 translate-1/2" />;
 	}
 
-	return (
+	const content = (
 		<div className="studio-shell">
 			<header className="studio-shell-header fixed top-0 z-40 w-full h-20 p-4 md:px-12">
 				<Navbar />
@@ -31,4 +34,7 @@ export function Dashboard() {
 			</main>
 		</div>
 	);
+	return user && !isLocalStudio && !isLocalUser(user)
+		? <GlobalSearch key={user.id} user={user}>{content}</GlobalSearch>
+		: content;
 }
