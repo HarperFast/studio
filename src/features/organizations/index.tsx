@@ -103,11 +103,12 @@ export function OrganizationsIndex() {
 		() => [...new Set(targets.filter(target => !target.locked).map(target => target.roleName))].sort(),
 		[targets],
 	);
+	const activeRole = roles.includes(role) ? role : '';
 	const visibleTargets = useMemo(
-		() => isServerSearch ? [] : selectOrganizations(targets, filterByNameValue, access, role, descending),
-		[targets, filterByNameValue, access, role, descending, isServerSearch],
+		() => isServerSearch ? [] : selectOrganizations(targets, filterByNameValue, access, activeRole, descending),
+		[targets, filterByNameValue, access, activeRole, descending, isServerSearch],
 	);
-	const hasControls = !!filterByNameValue || access !== 'all' || !!role || descending;
+	const hasControls = !!filterByNameValue || access !== 'all' || !!activeRole || descending;
 
 	// Roles for organizations the staff account is fetching server-side. Falls
 	// back to "fabric staff" for organizations the user has no role in.
@@ -235,10 +236,10 @@ export function OrganizationsIndex() {
 								<option value="accessible">Accessible</option>
 								<option value="locked">Sign-in required</option>
 							</select>
-							{access !== 'locked' && roles.length > 1 && (
+							{access !== 'locked' && (roles.length > 1 || !!activeRole) && (
 								<select
 									aria-label="Organization role"
-									value={role}
+									value={activeRole}
 									onChange={event => setRole(event.target.value)}
 									className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
 								>
