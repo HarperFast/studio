@@ -312,15 +312,17 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	return (
 		<EntityContextMenu items={isTerminated ? [] : menuItems}>
 			<Card
-				className={`relative min-w-0 h-full overflow-hidden border border-border bg-card/30 py-0 gap-0 shadow-sm transition-shadow duration-200 ${
-					cardHref ? 'hover:shadow-lg hover:ring-1 hover:ring-primary/60' : ''
+				className={`group/cluster relative isolate min-w-0 h-full overflow-hidden border border-border bg-card/30 py-0 gap-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-200 motion-reduce:transition-none ${
+					cardHref
+						? 'cursor-pointer hover:border-primary hover:bg-card/70 hover:shadow-xl hover:shadow-primary/20 hover:ring-2 hover:ring-primary/70 dark:hover:border-violet-400 dark:hover:ring-violet-400/70'
+						: ''
 				}`}
 			>
 				{cardHref && (
 					<Link
 						to={cardHref}
 						aria-label={`${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
-						className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
+						className="absolute inset-0 z-1 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 					/>
 				)}
 				<CardHeader className="gap-3 bg-linear-to-br from-primary/15 via-primary/5 to-transparent px-5 py-5">
