@@ -83,19 +83,13 @@ export function ClusterDetails({
 			currentPlanId,
 			selectedPerformance,
 		});
-		// Premium means "costs money", matching calculatePremiumOnlyRegions. Keyed on planLevel it
-		// disagreed with itself inside one form: Hobbyist is planLevel 0 like the trial, so the $20
-		// tier carried no badge while the regions inside it did.
-		const hasFreeTier = Object.values(plansByTier).some(plan => !plan.priceUsd);
 		return Object.keys(plansByTier).map(performanceTier => {
-			const isPremium = hasFreeTier && !!plansByTier[performanceTier].priceUsd;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
 				return {
 					performanceTier,
 					name: splitByParens[0],
 					description: splitByParens[1],
-					isPremium,
 				};
 			}
 			const splitByFor = performanceTier.split(' for ');
@@ -104,14 +98,12 @@ export function ClusterDetails({
 					performanceTier,
 					name: splitByFor[0],
 					description: 'For ' + splitByFor[1],
-					isPremium,
 				};
 			}
 			return {
 				performanceTier,
 				name: performanceTier,
 				description: '',
-				isPremium,
 			};
 		});
 	}, [clusterId, currentPlanId, deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
