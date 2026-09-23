@@ -1,5 +1,4 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
-import { Badge } from '@/components/ui/badge';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
@@ -22,7 +21,6 @@ export function ClusterPerformanceDescription({
 		name: string;
 		performanceTier: string;
 		description?: string;
-		isPremium?: boolean;
 	}[];
 	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
 	selectedDeployment: string;
@@ -59,7 +57,6 @@ export function ClusterPerformanceDescription({
 											>
 												<dt className="text-left font-bold text-sm/6 flex items-center gap-2">
 													{performanceDescription.name}
-													{performanceDescription.isPremium && <Badge>Premium</Badge>}
 												</dt>
 												{performanceDescription.description && (
 													<dd className="text-left font-light">{performanceDescription.description}</dd>
