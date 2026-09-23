@@ -23,7 +23,7 @@ export function SearchDialog(
 	const listId = useId();
 	const list = useRef<HTMLDivElement>(null);
 	const memberships = useMemo(() => getOrganizationTargets(user).filter(target => !target.locked), [user]);
-	const membershipIds = JSON.stringify(memberships.map(target => target.id));
+	const membershipIds = useMemo(() => JSON.stringify(memberships.map(target => target.id)), [memberships]);
 	useEffect(() => {
 		let cancelled = false;
 		setFailed(0);
