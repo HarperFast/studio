@@ -1,3 +1,4 @@
+import { OrganizationSwitcher } from '@/components/OrganizationSwitcher';
 import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -44,6 +45,7 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
 			<div className="md:grid gap-6 md:grid-cols-12">
 				<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
+					<OrganizationSwitcher />
 					<SubNavRail items={items} ariaLabel="Cluster sections" />
 				</aside>
 				<section className="md:col-span-9 lg:col-span-10 min-w-0">{children}</section>

@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { getCurrentUserQueryOptions } from '@/features/auth/queries/getCurrentUser';
 import { OAuthLockedOrgCard } from '@/features/organizations/components/OAuthLockedOrgCard';
 import { OrgCard } from '@/features/organizations/components/OrgCard';
+import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
 import { useDeleteOrganizationMutation } from '@/features/organizations/mutations/deleteOrganization';
 import { NewOrg } from '@/features/organizations/NewOrg';
 import {
@@ -77,28 +78,24 @@ export function OrganizationsIndex() {
 	});
 
 	const { organizationRoles, oauthLockedOrgs } = useMemo(() => {
-		const roles = user?.roles || {};
-		const normal: Array<{ organizationId: string; organizationName?: string; roleName: string }> = [];
-		const locked: Array<
-			{ organizationId: string; organizationName?: string; providers: Array<{ name: string; oauthConfigId: string }> }
-		> = [];
-
-		for (const [organizationId, role] of Object.entries(roles)) {
-			// Staff access comes from org:read, not membership, so an org's OAuth
-			// requirement doesn't apply — render those cards normally.
-			if ('oauthProviders' in role && !canReadAllOrgs) {
-				locked.push({ organizationId, organizationName: role.organizationName, providers: role.oauthProviders! });
-			} else {
-				normal.push({ organizationId, organizationName: role.organizationName, roleName: role.role ?? 'fabric staff' });
-			}
-		}
+		const targets = getOrganizationTargets(user);
+		const normal = targets.filter(target => !target.locked).map(target => ({
+			organizationId: target.id,
+			organizationName: target.name,
+			roleName: target.roleName,
+		}));
+		const locked = targets.filter(target => target.locked).map(target => ({
+			organizationId: target.id,
+			organizationName: target.name,
+			providers: target.providers,
+		}));
 
 		const filteredNormal = normal
 			.filter(curryFilterByFuzzySearch(['organizationId', 'organizationName'], filterByNameValue))
 			.sort((a, b) => ((a.organizationName || '') > (b.organizationName || '') ? 1 : -1));
 
 		return { organizationRoles: filteredNormal, oauthLockedOrgs: locked };
-	}, [filterByNameValue, user?.roles, canReadAllOrgs]);
+	}, [filterByNameValue, user]);
 
 	// Roles for organizations the staff account is fetching server-side. Falls
 	// back to "fabric staff" for organizations the user has no role in.
