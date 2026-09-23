@@ -22,6 +22,7 @@ import { useUpdateGrantMutation } from '@/features/admin/grants/mutations/useUpd
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
@@ -132,7 +133,8 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 		void queryClient.invalidateQueries({ queryKey: grantsQueryKey });
 		onOpenChange(false);
 	};
-	const onError = (error: Error) => toast.error('Could not update the grant', { description: error.message });
+	const onError = (error: Error) =>
+		toast.error('Could not update the grant', { description: describeError(error).message });
 
 	// Only what actually changed is sent. Re-stating an untouched value is not free: the server
 	// refuses an internal expiryPolicy outright, and reads any scope it receives through the

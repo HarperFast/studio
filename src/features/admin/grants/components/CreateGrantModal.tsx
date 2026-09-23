@@ -12,6 +12,7 @@ import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeF
 import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
 import { OrganizationPicker } from '@/features/admin/grants/components/OrganizationPicker';
 import {
+	compedExpiryPolicy,
 	CreateGrantSchema,
 	CreateGrantValues,
 	INTERNAL_EXPIRY_POLICIES,
@@ -22,6 +23,7 @@ import { useCreateGrantMutation } from '@/features/admin/grants/mutations/useUpd
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
+import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
@@ -104,6 +106,16 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 		}
 	}, [source, form]);
 
+	// Ends decides which policy a comped grant may carry, so changing it re-checks the policy too:
+	// otherwise submit disables with the reason hidden under a select that never counts as touched.
+	const previousEndsAt = useRef(endsAt);
+	useEffect(() => {
+		if (previousEndsAt.current !== endsAt) {
+			previousEndsAt.current = endsAt;
+			void form.trigger('expiryPolicy');
+		}
+	}, [endsAt, form]);
+
 	const onSubmit = (values: CreateGrantValues) => {
 		const body = {
 			// Exactly one — sending both is refused by the server's xor.
@@ -147,7 +159,7 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 			},
 			// The server's message is the useful part: it names the missing cluster, the scope
 			// violation, or the live grant already on that cluster.
-			onError: (error) => toast.error('Could not create the grant', { description: error.message }),
+			onError: (error) => toast.error('Could not create the grant', { description: describeError(error).message }),
 			onSettled: () => {
 				inFlight.current = false;
 			},
@@ -318,8 +330,10 @@ export function CreateGrantModal({ open, onOpenChange, onCreated }: {
 													<SelectItem
 														key={policy}
 														value={policy}
-														// A trial always stages; a comped grant stages once it has an end date.
-														disabled={(isTrial || (isComped && !!endsAt)) && policy === NO_EXPIRY_POLICY}
+														// A trial always stages; a comped grant has exactly one valid policy.
+														disabled={isTrial
+															? policy === NO_EXPIRY_POLICY
+															: isComped && policy !== compedExpiryPolicy(endsAt ?? '')}
 													>
 														{policy}
 													</SelectItem>

@@ -42,7 +42,11 @@ export async function updateGrant({ id, changes }: UpdateGrantInput): Promise<Ad
 }
 
 export function useUpdateGrantMutation() {
-	return useMutation<AdminClusterGrant, Error, UpdateGrantInput>({ mutationFn: updateGrant });
+	// The dialogs toast the failure themselves, under their own heading; the global toast would stack a duplicate.
+	return useMutation<AdminClusterGrant, Error, UpdateGrantInput>({
+		mutationFn: updateGrant,
+		meta: { skipGlobalErrorToast: true },
+	});
 }
 
 /**
@@ -85,5 +89,9 @@ export async function createGrant(body: CreateGrantBody): Promise<AdminClusterGr
 }
 
 export function useCreateGrantMutation() {
-	return useMutation<AdminClusterGrant[], Error, CreateGrantBody>({ mutationFn: createGrant });
+	// As above: the create dialog toasts the failure itself.
+	return useMutation<AdminClusterGrant[], Error, CreateGrantBody>({
+		mutationFn: createGrant,
+		meta: { skipGlobalErrorToast: true },
+	});
 }
