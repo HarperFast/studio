@@ -116,7 +116,7 @@ export function FinishSetup() {
 		<>
 			<nav
 				aria-label="Breadcrumb"
-				className="fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center"
+				className="studio-subnav fixed top-20 w-full h-12 z-39 px-4 md:px-12 bg-violet-50 border-b border-violet-100 dark:bg-grey-700 dark:border-none flex items-center"
 			>
 				<Breadcrumbs />
 			</nav>

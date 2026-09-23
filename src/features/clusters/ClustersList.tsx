@@ -106,7 +106,7 @@ export function ClustersList() {
 					<p className="mb-6 text-xs text-muted-foreground">
 						Reported lifecycle status. Running does not confirm monitoring health.
 					</p>
-					<div className="mb-3 flex flex-wrap gap-3" role="search" aria-label="Find clusters">
+					<div className="cluster-list-controls mb-3 flex flex-wrap gap-3" role="search" aria-label="Find clusters">
 						<div className="relative min-w-48 basis-full sm:basis-auto flex-1">
 							<SearchIcon
 								className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
