@@ -10,8 +10,8 @@ import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { Link } from '@tanstack/react-router';
 import {
 	ArrowRight,
+	ChevronDown,
 	CreditCardIcon,
-	Ellipsis,
 	KeyRoundIcon,
 	ServerIcon,
 	ShieldCheckIcon,
@@ -102,18 +102,18 @@ export function OrgCard({
 					className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
 				/>
 				<CardHeader>
-					<CardDescription className="flex items-center justify-between">
+					<CardDescription className="flex min-w-0 items-center justify-between gap-3">
 						<span className="truncate">{organizationId}</span>
 						{showMenu && (
 							<DropdownMenu>
 								<DropdownMenuTrigger
 									aria-label="Options"
 									onClick={(e) => e.stopPropagation()}
-									className="relative z-10 -m-2 p-2 rounded-md hover:bg-accent/60 hover:text-foreground"
+									className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-ring"
 								>
-									<Ellipsis />
+									Options <ChevronDown className="size-3.5" aria-hidden="true" />
 								</DropdownMenuTrigger>
-								<DropdownMenuContent>
+								<DropdownMenuContent align="end">
 									{renderEntityMenuItems(menuItems, 'dropdown')}
 								</DropdownMenuContent>
 							</DropdownMenu>

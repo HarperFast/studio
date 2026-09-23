@@ -29,9 +29,9 @@ import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluste
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
 import {
+	ChevronDown,
 	ClipboardIcon,
 	CopyIcon,
-	Ellipsis,
 	GitGraphIcon,
 	GlobeIcon,
 	KeyIcon,
@@ -326,21 +326,37 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 					/>
 				)}
 				<CardHeader className="gap-3 bg-linear-to-br from-primary/15 via-primary/5 to-transparent px-5 py-5">
-					<div className="flex items-center gap-2">
-						<Badge
-							variant={summary.category === 'failed'
-								? 'destructive'
-								: summary.category === 'attention'
-								? 'warning'
-								: summary.category === 'running'
-								? 'success'
-								: 'secondary'}
-							className="rounded-full"
-						>
-							<span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-							{summary.label}
-						</Badge>
-						<span className="text-xs text-muted-foreground">{summary.hosting}</span>
+					<div className="flex items-start justify-between gap-3">
+						<div className="flex min-w-0 flex-wrap items-center gap-2 pt-1">
+							<Badge
+								variant={summary.category === 'failed'
+									? 'destructive'
+									: summary.category === 'attention'
+									? 'warning'
+									: summary.category === 'running'
+									? 'success'
+									: 'secondary'}
+								className="rounded-full"
+							>
+								<span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+								{summary.label}
+							</Badge>
+							<span className="text-xs text-muted-foreground">{summary.hosting}</span>
+						</div>
+						{!isTerminated && (
+							<DropdownMenu>
+								<DropdownMenuTrigger
+									aria-label="Cluster options"
+									onClick={(e) => e.stopPropagation()}
+									className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-ring"
+								>
+									Options <ChevronDown className="size-3.5" aria-hidden="true" />
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end">
+									{renderEntityMenuItems(menuItems, 'dropdown')}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
 					</div>
 					<CardTitle>
 						<h2 className="break-words text-xl font-semibold leading-snug">{cluster.name}</h2>
@@ -365,20 +381,6 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 								</>
 							)
 							: <span>{isSelfManaged ? 'Self-hosted endpoint' : 'Hostname not assigned'}</span>}
-						{!isTerminated && (
-							<DropdownMenu>
-								<DropdownMenuTrigger
-									aria-label="Cluster options"
-									onClick={(e) => e.stopPropagation()}
-									className="relative z-10 -m-2 p-2 rounded-md hover:bg-accent/60"
-								>
-									<Ellipsis />
-								</DropdownMenuTrigger>
-								<DropdownMenuContent>
-									{renderEntityMenuItems(menuItems, 'dropdown')}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						)}
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="border-t border-border px-5 py-4">
