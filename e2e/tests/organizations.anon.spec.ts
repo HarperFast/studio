@@ -59,6 +59,7 @@ test('keeps an empty access filter out of onboarding and fits a narrow screen', 
 	);
 	await page.setViewportSize({ width: 390, height: 844 });
 	await page.goto('/#/');
+	await expect(page.getByRole('group', { name: 'Organization summary' })).toBeHidden();
 	await page.getByRole('combobox', { name: 'Organization access' }).selectOption('locked');
 	await expect(page.getByRole('heading', { name: 'No matching organizations' })).toBeVisible();
 	await expect(page.getByRole('heading', { name: 'Your teams, connected.' })).toBeVisible();
