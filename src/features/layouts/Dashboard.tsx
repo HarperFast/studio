@@ -1,3 +1,4 @@
+import './Dashboard.css';
 import { Loading } from '@/components/Loading';
 import { Navbar } from '@/components/Navbar';
 import { useOverallAuth } from '@/hooks/useAuth';
@@ -21,13 +22,13 @@ export function Dashboard() {
 	}
 
 	return (
-		<>
-			<header className="fixed top-0 z-40 w-full h-20 p-4 bg-gradient-to-r from-violet-100 to-white border-b border-violet-200 dark:from-purple-950 dark:to-zinc-900 dark:border-purple-950 md:px-12">
+		<div className="studio-shell">
+			<header className="studio-shell-header fixed top-0 z-40 w-full h-20 p-4 md:px-12">
 				<Navbar />
 			</header>
 			<main>
 				<Outlet />
 			</main>
-		</>
+		</div>
 	);
 }
