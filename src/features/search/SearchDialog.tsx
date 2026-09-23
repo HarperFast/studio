@@ -57,7 +57,7 @@ export function SearchDialog(
 		organizationId,
 	]);
 	const results = matches.slice(0, 40);
-	const activeIndex = Math.max(0, results.findIndex(target => target.key === selectedKey));
+	const activeIndex = selectedKey === null ? 0 : results.findIndex(target => target.key === selectedKey);
 	useEffect(() => {
 		list.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
 	}, [activeIndex]);
@@ -91,7 +91,7 @@ export function SearchDialog(
 							aria-expanded="true"
 							aria-autocomplete="list"
 							aria-controls={listId}
-							aria-activedescendant={results.length ? `${listId}-${activeIndex}` : undefined}
+							aria-activedescendant={results.length && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
 							placeholder="Search organizations or clusters…"
 							value={search}
 							onChange={event => {
@@ -105,7 +105,11 @@ export function SearchDialog(
 									event.preventDefault();
 									setSelectedKey(
 										results.length
-											? results[(activeIndex + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length]
+											? results[
+												activeIndex < 0
+													? (event.key === 'ArrowDown' ? 0 : results.length - 1)
+													: (activeIndex + (event.key === 'ArrowDown' ? 1 : -1) + results.length) % results.length
+											]
 												.key
 											: null,
 									);
