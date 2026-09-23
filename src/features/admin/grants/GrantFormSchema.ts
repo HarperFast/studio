@@ -154,6 +154,13 @@ export const CreateGrantSchema = z
 			if (values.expiryPolicy === NO_EXPIRY_POLICY) {
 				ctx.addIssue({ code: 'custom', path: ['expiryPolicy'], message: 'A trial needs an expiry policy' });
 			}
+			if (values.expiryPolicy === COMPED_EXPIRY_POLICY) {
+				ctx.addIssue({
+					code: 'custom',
+					path: ['expiryPolicy'],
+					message: 'A trial needs a trial policy, not the comp one',
+				});
+			}
 		}
 
 		// A comp has no external bound — no clock, no card — so the shape IS the bound: the server
