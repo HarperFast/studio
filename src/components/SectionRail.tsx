@@ -21,9 +21,7 @@ export function SectionRail({ items, ariaLabel }: { items: SubNavItem[]; ariaLab
 		setMinimized(next);
 		try {
 			window.localStorage.setItem(HELP_MINIMIZED_KEY, next ? '1' : '0');
-		} catch {
-			// Keep the control usable when browser storage is unavailable.
-		}
+		} catch {}
 	};
 	return (
 		<div className="section-rail">
