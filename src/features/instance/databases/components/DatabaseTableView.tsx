@@ -293,8 +293,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
 	// Both list queries need a primary key, so for a table without one neither ever runs, and the grid
-	// would read that "no data" as rows in flight (#1748). It gets a settled empty answer instead, and
-	// the actions that would add or export rows this view can't list are withdrawn.
+	// would read that "no data" as rows still in flight (#1748).
 	const hasNoPrimaryKey = !!instanceTable && !primaryKey;
 	const [sort, setSort] = useEffectedState(
 		{
