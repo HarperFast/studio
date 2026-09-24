@@ -100,8 +100,44 @@ describe('the restart gate on instance clients', () => {
 
 		const error = await held.catch((err: unknown) => err);
 		expect(isCancel(error)).toBe(true);
+		expect((error as AxiosError).config?.url).toBe('/');
 		expect(isConnectivityFailure(error)).toBe(true);
 		expect(sent).toHaveLength(0);
+	});
+
+	it('cancels a held read if the connection changed before release, rather than sending it as someone else', async () => {
+		const token = vi.spyOn(authStore, 'getOperationToken').mockReturnValue('jwt-user-a');
+		const generation = vi.spyOn(authStore, 'getConnectionGeneration').mockReturnValue(1);
+		const { client, sent } = clientWithAdapter();
+		const release = markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
+
+		const held = client.post('/', { operation: 'get_status' });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// User A disconnects and user B connects while the restart holds A's read.
+		generation.mockReturnValue(2);
+		token.mockReturnValue('jwt-user-b');
+		release();
+
+		const error = await held.catch((err: unknown) => err);
+		expect(isCancel(error)).toBe(true);
+		expect(sent).toHaveLength(0);
+		// The hold has ended, so the entity is untracked — the cancellation is still not a failure to toast.
+		expect(isRestartNoise(error, [INSTANCE_ID, 'status'])).toBe(true);
+	});
+
+	it('holds a cluster read while its only member restarts under an instance-only op', async () => {
+		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
+		const { client, sent } = clientWithAdapter({ id: CLUSTER_ID });
+		const oneNode = { id: CLUSTER_ID, status: 'RUNNING', instances: [{ id: 'ins-a', status: 'RESTARTING' }] };
+		syncRestartsFromCluster(oneNode);
+
+		const request = client.post('/', { operation: 'get_status' });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(sent).toHaveLength(0);
+
+		syncRestartsFromCluster({ ...oneNode, instances: [{ id: 'ins-a', status: 'RUNNING' }] });
+		await request;
+		expect(sent).toHaveLength(1);
 	});
 
 	it('refuses a write to an entity that is down at once, rather than replaying it later', async () => {

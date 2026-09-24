@@ -178,6 +178,22 @@ describe('restartTracker', () => {
 			expect(getRestartState('ins-1')).toBeUndefined();
 		});
 
+		it('marks a one-node cluster down when an instance-only op restarts its member', () => {
+			syncRestartsFromCluster({ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RESTARTING' }] });
+			expect(getRestartState('clu-1')).toEqual({ reach: 'down', proxyRefuses: true, label: 'Restarting' });
+			expect(getRestartState('ins-1')?.reach).toBe('down');
+		});
+
+		it('leaves a multi-node cluster unmarked when one member restarts on its own', () => {
+			syncRestartsFromCluster({
+				id: 'clu-1',
+				status: 'PARTIAL',
+				instances: [{ id: 'ins-1', status: 'RESTARTING' }, { id: 'ins-2', status: 'RUNNING' }],
+			});
+			expect(getRestartState('clu-1')).toBeUndefined();
+			expect(getRestartState('ins-1')?.reach).toBe('down');
+		});
+
 		it('does not hold requests for a cluster that is stopping', () => {
 			syncRestartsFromCluster({ id: 'clu-1', status: 'STOPPING', instances: [{ id: 'ins-1', status: 'STOPPING' }] });
 			expect(getRestartState('clu-1')).toBeUndefined();

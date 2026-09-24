@@ -338,10 +338,14 @@ export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observ
 			}
 		}
 		if (!claimObservation(clusterId, observedAt)) { return; }
-		const label = COMING_BACK_LABELS[cluster.status ?? ''];
+		const allDown = liveInstances.length > 0
+			&& liveInstances.every((instance) => UNREACHABLE_STATUSES.has(instance.status ?? ''));
+		// An instance-only op leaves the cluster itself RUNNING or PARTIAL, yet a one-node cluster whose
+		// member is coming back is just as down.
+		const memberComingBack = liveInstances.find((instance) => COMING_BACK_LABELS[instance.status ?? '']);
+		const label = COMING_BACK_LABELS[cluster.status ?? '']
+			?? (allDown && memberComingBack ? COMING_BACK_LABELS[memberComingBack.status!] : undefined);
 		if (label) {
-			const allDown = liveInstances.length > 0
-				&& liveInstances.every((instance) => UNREACHABLE_STATUSES.has(instance.status ?? ''));
 			setMark(clusterId, CONTAINER_TOKEN, {
 				reach: allDown ? 'down' : 'rolling',
 				proxyRefuses: true,

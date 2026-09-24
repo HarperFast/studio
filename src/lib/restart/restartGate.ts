@@ -51,11 +51,15 @@ function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
  * axios runs request interceptors last-registered-first, so the stamp then reflects the real send.
  * `runWhen` skips the interceptor outright while nothing is held, which keeps axios on its
  * synchronous path for every ordinary request.
+ *
+ * `connectionGeneration` identifies the connection a request was issued under. A held read is
+ * cancelled if it changed before release: the credentials are read at send time, so it would
+ * otherwise go out as whoever connected meanwhile.
  */
 export function installRestartGate(
 	client: Pick<AxiosInstance, 'interceptors'>,
 	entityId: string,
-	{ proxied }: { proxied: boolean },
+	{ proxied, connectionGeneration }: { proxied: boolean; connectionGeneration?: () => number },
 ) {
 	client.interceptors.request.use(
 		(config: InternalAxiosRequestConfig) => {
@@ -68,16 +72,35 @@ export function installRestartGate(
 				);
 			}
 			const signal = config.signal as AbortSignal | undefined;
-			return waitUntilReachable(entityId, { proxied, signal }).then(() => config, (err: unknown) => {
-				// Abandoned before it was sent: reject the way axios would, so `axios.isCancel` knows it.
-				throw signal?.aborted ? new CanceledError(undefined, undefined, config) : err;
-			});
+			const heldUnder = connectionGeneration?.();
+			return waitUntilReachable(entityId, { proxied, signal }).then(
+				() => {
+					if (connectionGeneration && connectionGeneration() !== heldUnder) {
+						throw gateCancellation('The connection changed while this request was held for a restart.', config);
+					}
+					return config;
+				},
+				(err: unknown) => {
+					// Abandoned before it was sent: reject the way axios would, so `axios.isCancel` knows it.
+					throw signal?.aborted ? gateCancellation(undefined, config) : err;
+				},
+			);
 		},
 		undefined,
 		{
 			runWhen: (config) => !config.skipRestartGate && holdsRequests(getRestartState(entityId), { proxied }),
 		},
 	);
+}
+
+/** The gate's own cancellations. They land as the hold ends, when the entity is no longer tracked,
+ *  so they are recognized by identity rather than by the tracker. */
+const gateCancellations = new WeakSet<object>();
+
+function gateCancellation(message: string | undefined, config: InternalAxiosRequestConfig) {
+	const error = new CanceledError(message, config);
+	gateCancellations.add(error);
+	return error;
 }
 
 const GATEWAY_STATUSES = new Set([502, 503, 504]);
@@ -117,8 +140,11 @@ export function isConnectivityFailure(err: unknown): boolean {
 	return false;
 }
 
-/** Keyed to a restarting entity (the two conventions `invalidateEntityQueries` matches) and connectivity-class. */
+/** The gate's own cancellation, or keyed to a restarting entity (the two conventions `invalidateEntityQueries` matches) and connectivity-class. */
 export function isRestartNoise(err: unknown, queryKey: readonly unknown[]): boolean {
+	if (typeof err === 'object' && err !== null && gateCancellations.has(err)) {
+		return true;
+	}
 	const [first, second] = queryKey;
 	const belongsToRestart = (typeof first === 'string' && isRestarting(first))
 		|| (typeof second === 'string' && isRestarting(second));
