@@ -35,5 +35,6 @@ The wide hero artwork spans both columns beneath the form card in three independ
   its own route: TanStack resolves it against the _current_ location, so a row that outlives a pending
   navigation re-resolves its href one level too deep (HarperFast/studio#1710).
 - **Data fetching**: TanStack React Query 5. Query keys must be instance-scoped when the request targets a specific instance.
+- **Cloud permission gates** ([`usePermissions.ts`](src/hooks/usePermissions.ts)) must mirror the check the central manager endpoint runs, not the nearest role flag. An org admin appears in `/User/current` as `roles[orgId].role === 'admin'`; central manager builds every org role with `permission.super_user: false`, so the member helpers' `super_user` short-circuits never identify one — an admin gets full access there from its all-true flags. Container lifecycle ops are where the two diverge: their endpoints admit only org admins and staff holding `instance:update`, so gate them on `useContainerOpsPermission`, never on cluster `update`.
 
 - [`src/features/search/DESIGN.md`](src/features/search/DESIGN.md) — global search loading, shared-query ownership, session isolation, and shortcut behavior.
