@@ -154,9 +154,8 @@ export function Instances() {
 			}
 			return cluster.instances
 				.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status))
-				// Central manager never hears about a restart Studio drives through Harper's own
-				// `restart` operation, so its status still reads RUNNING. Show the row as restarting
-				// instead — which also stops every cell from polling an instance that is down.
+				// Central manager never hears of a Studio-driven Harper `restart`, so its status still
+				// reads RUNNING; the override also stops each cell polling an instance that is down.
 				.map(instance =>
 					getRestartState(instance.id)?.reach === 'down' && !isStoppedOrTransitioning(instance.status)
 						? { ...instance, status: 'RESTARTING' }
