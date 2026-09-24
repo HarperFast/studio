@@ -91,6 +91,7 @@ import { rowSelectionKey, TableRowSelection, TableView } from './TableView';
 
 // Stable so `useEffectedState` can reset to it without rebuilding a set on every render.
 const EMPTY_SELECTION: ReadonlySet<unknown> = new Set();
+const NO_ROWS: Record<string, unknown>[] = [];
 
 export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName }: {
 	instanceDatabaseMap?: InstanceDatabaseMap;
@@ -291,6 +292,10 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	]);
 
 	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
+	// Both list queries page and address records by primary key, so neither runs for a table without
+	// one (a component's `ensureTable({ attributes: [] })` creates these). The grid reads "no data" as
+	// "rows in flight", so it must be told the answer has settled or it spins forever (#1748).
+	const hasNoPrimaryKey = !!instanceTable && !primaryKey;
 	const [sort, setSort] = useEffectedState(
 		{
 			attribute: primaryKey,
@@ -343,7 +348,8 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [wantExactCount, refetchExactCount, setWantExactCount]);
 
 	const totalRecords = exactCount ?? estimatedCount;
-	const totalPages = totalRecords ? Math.ceil(totalRecords / pageSize) : 0;
+	// No pages to offer when nothing can be listed; the count still describes the table.
+	const totalPages = totalRecords && !hasNoPrimaryKey ? Math.ceil(totalRecords / pageSize) : 0;
 	// A count is approximate only while we're still showing the estimate and the server flagged it as one.
 	const isEstimatedCount = exactCount === undefined && estimatedRange !== undefined;
 
@@ -978,10 +984,11 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 
 			<TableView<Record<string, unknown>>
 				primaryKey={primaryKey}
-				data={pageRows}
+				data={hasNoPrimaryKey ? NO_ROWS : pageRows}
 				emptyState={
 					<EmptyResultSet
 						tableName={tableName}
+						hasPrimaryKey={!hasNoPrimaryKey}
 						isFiltered={useFilteredList}
 						isPastFirstPage={pageIndex > 0}
 						recordCount={totalRecords}

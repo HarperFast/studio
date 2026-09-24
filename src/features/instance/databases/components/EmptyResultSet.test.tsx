@@ -10,6 +10,7 @@ afterEach(() => cleanup());
 function renderEmptyResultSet(overrides: Partial<Parameters<typeof EmptyResultSet>[0]> = {}) {
 	const props = {
 		tableName: 'users',
+		hasPrimaryKey: true,
 		isFiltered: false,
 		isPastFirstPage: false,
 		recordCount: 0 as number | undefined,
@@ -146,5 +147,19 @@ describe('EmptyResultSet', () => {
 		cleanup();
 		renderEmptyResultSet({ recordCount: 0 });
 		expect(screen.getByRole('heading').textContent).toBe('users has no records yet');
+	});
+
+	// No page, filter or count explains a table that can't be listed, and inviting records into it would
+	// promise rows Studio then can't show.
+	it('explains a table with no primary key ahead of every other reason, and invites nothing', () => {
+		renderEmptyResultSet({ hasPrimaryKey: false, isFiltered: true, isPastFirstPage: true, recordCount: 1234 });
+		expect(screen.getByRole('heading').textContent).toBe('users has no primary key');
+		expect(screen.getByText(/It reports 1,234 records/)).toBeTruthy();
+		expect(screen.queryAllByRole('button')).toHaveLength(0);
+
+		cleanup();
+		renderEmptyResultSet({ hasPrimaryKey: false, recordCount: undefined });
+		expect(screen.queryByText(/It reports/)).toBeNull();
+		expect(screen.getByText(/can't browse this table/)).toBeTruthy();
 	});
 });
