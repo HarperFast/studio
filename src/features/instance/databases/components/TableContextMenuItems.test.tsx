@@ -25,7 +25,9 @@ vi.mock('@/features/instance/databases/hooks/useExportTableCsv', () => ({
 	useExportTableCsv: () => ({ exportCsv: () => undefined }),
 }));
 
-function renderMenu(rolePermission: Record<string, unknown>) {
+const keyedTable = { primary_key: 'id', attributes: [{ attribute: 'id', is_primary_key: true }] };
+
+function renderMenu(rolePermission: Record<string, unknown>, dog: Record<string, unknown> = keyedTable) {
 	permission.current = rolePermission as unknown as LocalRolePermission;
 	return render(
 		<ContextMenu open>
@@ -33,7 +35,7 @@ function renderMenu(rolePermission: Record<string, unknown>) {
 				<TableContextMenuItems
 					databaseName="data"
 					tableName="dog"
-					instanceDatabaseMap={{ data: { dog: {}, cat: {} } } as never}
+					instanceDatabaseMap={{ data: { dog, cat: keyedTable } } as never}
 				/>
 			</ContextMenuContent>
 		</ContextMenu>,
@@ -42,6 +44,7 @@ function renderMenu(rolePermission: Record<string, unknown>) {
 
 const addRecords = () => screen.queryByText('Add New Record(s)');
 const importData = () => screen.queryByText('Import Data');
+const exportCsv = () => screen.getByRole('menuitem', { name: 'Export CSV' });
 
 afterEach(() => {
 	cleanup();
@@ -84,6 +87,21 @@ describe('TableContextMenuItems allowlist gating', () => {
 		renderMenu(undefined as never);
 		expect(addRecords()).toBeNull();
 		expect(importData()).toBeNull();
+	});
+});
+
+// The table view can't list a table without a primary key, so this menu mustn't feed rows into one.
+describe('TableContextMenuItems on a table with no primary key', () => {
+	it('withdraws Add and Import and disables Export, even for a super_user', () => {
+		renderMenu({ super_user: true }, { attributes: [] });
+		expect(addRecords()).toBeNull();
+		expect(importData()).toBeNull();
+		expect(exportCsv().hasAttribute('data-disabled')).toBe(true);
+	});
+
+	it('leaves Export enabled on a keyed table', () => {
+		renderMenu({ super_user: true });
+		expect(exportCsv().hasAttribute('data-disabled')).toBe(false);
 	});
 });
 
