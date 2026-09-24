@@ -18,7 +18,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Building2, ExternalLink, Globe2 } from 'lucide-react';
+import { ArrowRight, Building2, ExternalLink, Globe2, LockKeyhole } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -83,9 +83,9 @@ export function NewOrgForm() {
 						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 py-5 dark:from-primary/20 dark:to-primary/5">
 							<div className="flex items-center gap-2 text-primary dark:text-violet-300">
 								<Building2 className="size-4" aria-hidden="true" />
-								<h2 className="text-balance text-base font-semibold text-foreground">Organization details</h2>
+								<h2 className="text-base font-semibold text-foreground">Organization details</h2>
 							</div>
-							<p className="text-balance text-sm text-muted-foreground">
+							<p className="text-sm text-muted-foreground">
 								Choose a name and an address for your organization.
 							</p>
 						</CardHeader>
@@ -106,7 +106,7 @@ export function NewOrgForm() {
 												{...field}
 											/>
 										</FormControl>
-										<FormDescription className="text-balance">Use a name your team will recognize.</FormDescription>
+										<FormDescription>Use a name your team will recognize.</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -128,7 +128,7 @@ export function NewOrgForm() {
 												{...field}
 											/>
 										</FormControl>
-										<FormDescription className="text-balance">
+										<FormDescription>
 											Lowercase letters, numbers, and dashes. Leave blank to use the suggested subdomain.
 										</FormDescription>
 										<FormMessage />
@@ -150,26 +150,32 @@ export function NewOrgForm() {
 							<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-violet-300">
 								<Globe2 className="size-5" aria-hidden="true" />
 							</div>
-							<h2 id="org-address-heading" className="text-balance text-base font-semibold">Your cluster addresses</h2>
+							<h2 id="org-address-heading" className="text-base font-semibold">Your cluster addresses</h2>
 						</div>
-						<p className="text-balance mt-2 text-sm leading-relaxed text-muted-foreground">
-							Your subdomain is part of the address for each cluster you create in this organization.
+						<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+							Your subdomain is part of the address for Harper-hosted clusters you create in this organization.
 						</p>
-						<div className="my-5 rounded-xl border border-border/60 bg-background/70 p-4">
-							<p className="text-balance mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-								Address preview
-							</p>
-							<p className="break-all font-mono text-sm leading-6" data-testid="org-hostname-preview">
-								{calculatedNames.fullHostName}
-							</p>
+						<div className="my-5">
+							<p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Address preview</p>
+							<div className="flex min-w-0 items-center gap-3 rounded-full border border-border/60 bg-background/70 px-4 py-3 shadow-inner">
+								<LockKeyhole className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+								<p
+									className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs leading-5"
+									data-testid="org-hostname-preview"
+									tabIndex={0}
+									aria-label="Example cluster address"
+								>
+									{calculatedNames.fullHostName}
+								</p>
+							</div>
 						</div>
-						<p className="text-balance text-xs leading-relaxed text-muted-foreground">
-							The cluster name is a placeholder. You’ll name your clusters when you create them.
+						<p className="text-xs leading-relaxed text-muted-foreground">
+							The cluster name here is a placeholder. After creating your organization, you’ll name your first cluster!
 						</p>
 						<div className="mt-5 border-t border-primary/15 pt-5">
-							<h3 className="text-balance text-sm font-medium">Prefer your own domain?</h3>
-							<p className="text-balance mt-2 text-sm leading-relaxed text-muted-foreground">
-								You can also bind a domain you own to a cluster after creating it.
+							<h3 className="text-sm font-medium">Prefer your own domain?</h3>
+							<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+								You can also bind a domain you own to a Harper-hosted cluster after creating it.
 							</p>
 							<a
 								href="https://docs.harperdb.io/fabric/custom-domains"
