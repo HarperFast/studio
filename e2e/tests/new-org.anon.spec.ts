@@ -66,7 +66,7 @@ for (const custom of [false, true]) {
 		}
 		await page.getByRole('button', { name: 'Create organization', exact: true }).click();
 		await expect(page.getByRole('button', { name: 'Creating organization…' })).toBeDisabled();
-		expect(payload).toEqual(
+		await expect.poll(() => payload).toEqual(
 			custom
 				? { name: 'Test Team', subdomain: 'team-custom' }
 				: { name: 'Taylor River Org', subdomain: 'taylor-river-org' },
