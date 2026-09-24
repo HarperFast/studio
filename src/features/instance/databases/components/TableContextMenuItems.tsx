@@ -29,27 +29,30 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 	const { exportCsv } = useExportTableCsv();
 
 	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
+	const instanceTable = instanceDatabaseMap?.[databaseName]?.[tableName];
+	const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
+	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there (#1748).
+	const hasNoPrimaryKey = !!instanceTable && !primaryKey;
 
 	const onExport = () => {
-		const { primaryKey } = formatBrowseDataTableHeader(instanceDatabaseMap?.[databaseName]?.[tableName]);
 		void exportCsv({ databaseName, tableName, primaryKey, conditions: null });
 	};
 
 	return (
 		<>
-			{canInsert && (
+			{canInsert && !hasNoPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowAddTableRecords', { databaseName, tableName })}>
 					<PlusIcon />
 					Add New Record(s)
 				</ContextMenuItem>
 			)}
-			{canImport && (
+			{canImport && !hasNoPrimaryKey && (
 				<ContextMenuItem onSelect={() => setWatchedValue('ShowImportData', { databaseName, tableName })}>
 					<CloudUploadIcon />
 					Import Data
 				</ContextMenuItem>
 			)}
-			<ContextMenuItem onSelect={onExport}>
+			<ContextMenuItem onSelect={onExport} disabled={hasNoPrimaryKey}>
 				<CloudDownloadIcon />
 				Export CSV
 			</ContextMenuItem>
