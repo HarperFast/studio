@@ -163,7 +163,6 @@ export function NewOrgForm() {
 									className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs leading-5"
 									data-testid="org-hostname-preview"
 									tabIndex={0}
-									aria-label="Example cluster address"
 								>
 									{calculatedNames.fullHostName}
 								</p>
