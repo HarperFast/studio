@@ -13,13 +13,19 @@ interface RestartInstanceParams {
 export async function restartInstance(
 	{ operation, replicated, instanceClient }: RestartInstanceParams & InstanceClientConfig,
 ): Promise<ReplicatedResponse> {
+	// Both calls skip the restart gate: the caller may already have marked this instance as
+	// restarting, and these are the requests driving and watching that restart.
 	const { data } = await instanceClient.post('/', {
 		operation,
 		service: operation === 'restart_service' ? 'http' : undefined,
 		replicated,
-	});
+	}, { skipRestartGate: true });
 	await sleep(10_000);
-	await axiosRetry(() => getInstanceUserInfo({ instanceClient, timeout: 3_000 }), 12, 15_000);
+	await axiosRetry(
+		() => getInstanceUserInfo({ instanceClient, timeout: 3_000, skipRestartGate: true }),
+		12,
+		15_000,
+	);
 	return data;
 }
 

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { getInstanceClient } from '@/config/getInstanceClient';
+import { connectsThroughProxy, getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -109,5 +109,28 @@ describe('getInstanceClient', () => {
 
 		expect(client.defaults.baseURL).toContain('/Cluster/clu-123/operation');
 		expect(authHeader(client)).toBeUndefined();
+	});
+});
+
+describe('connectsThroughProxy', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	const basicAuth = { username: 'admin', password: 'pw' };
+
+	it.each([
+		['a held Fabric Connect JWT', { operationToken: 'jwt-abc', fabricConnect: true }, false],
+		['the Fabric Connect flag with no token', { fabricConnect: true }, true],
+		['basic auth under the Fabric Connect flag', { operationToken: 'jwt-abc', fabricConnect: true, basicAuth }, true],
+		['basic auth alone', { operationToken: 'jwt-abc', basicAuth }, false],
+		['no token, flag, or basic auth', {}, false],
+	])('agrees with the client getInstanceClient builds for %s', (_name, auth, expected) => {
+		stubAuthStore(auth);
+
+		const client = getInstanceClient({ id: INSTANCE_ID });
+
+		expect(client.defaults.baseURL?.includes(`/HDBInstance/${INSTANCE_ID}/operation`)).toBe(expected);
+		expect(connectsThroughProxy(INSTANCE_ID)).toBe(expected);
 	});
 });

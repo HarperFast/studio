@@ -1,4 +1,7 @@
 import { errorText } from '@/lib/errorText';
+import { isRestartNoise } from '@/lib/restart/restartGate';
+import { onRestartSettled } from '@/lib/restart/restartTracker';
+import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
@@ -104,7 +107,17 @@ export const mutationErrorHandler: NonNullable<MutationCache['config']['onError'
 	errorHandler(error);
 };
 
+/**
+ * A connectivity failure from an entity Studio knows is restarting is expected, not news: requests
+ * already in flight when it went down, and those to a cluster restarting one member at a time, still
+ * fail even though new ones are held (`installRestartGate`). `console.debug`, not `console.error`:
+ * the RUM SDK reports the latter.
+ */
 export const queryErrorHandler: NonNullable<QueryCache['config']['onError']> = (error, query) => {
+	if (isRestartNoise(error, query.queryKey)) {
+		console.debug('Suppressed a failure from a restarting entity', error);
+		return;
+	}
 	if (query.meta?.inlineSearchError && query.getObserversCount() === 0) {
 		console.error(error);
 		return;
@@ -118,3 +131,6 @@ export const queryClient = new QueryClient({
 	}),
 	mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 });
+
+// Whatever errored or went stale while an entity restarted, fetch it fresh once it is back.
+onRestartSettled((entityId) => void invalidateEntityQueries(queryClient, entityId));
