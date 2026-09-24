@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
@@ -178,6 +179,9 @@ export function ProfileIndex() {
 													{...field}
 												/>
 											</FormControl>
+											<FormDescription>
+												Use at least 8 characters. Changing your password will sign you out.
+											</FormDescription>
 											<FormMessage />
 										</FormItem>
 									)}
@@ -202,10 +206,6 @@ export function ProfileIndex() {
 										</FormItem>
 									)}
 								/>
-
-								<p className="text-xs leading-relaxed text-muted-foreground">
-									Use at least 8 characters. Changing your password will sign you out.
-								</p>
 							</CardContent>
 						</Card>
 					</div>

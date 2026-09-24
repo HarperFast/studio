@@ -22,6 +22,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await page.emulateMedia({ colorScheme });
 		await page.setViewportSize({ width: 1440, height: 1000 });
 		await page.goto('/#/profile');
+		await expect(page.locator('html')).toHaveClass(colorScheme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/);
 		await expect(page.getByRole('heading', { name: 'Personal information' })).toBeVisible();
 		await expect(page.getByRole('heading', { name: 'Password', exact: true })).toBeVisible();
 		await expect(page.getByLabel('Email', { exact: true })).toBeDisabled();
@@ -57,8 +58,14 @@ test('saving personal information sends only names and resets the save state', a
 
 test('password confirmation gates save and a password update returns to sign-in', async ({ page }) => {
 	let payload: unknown;
+	let passwordChanged = false;
+	await page.route(
+		'**/User/current',
+		route => passwordChanged ? route.fulfill({ status: 401, json: {} }) : route.fulfill({ json: user }),
+	);
 	await page.route('**/User/profile-user', async route => {
 		payload = route.request().postDataJSON();
+		passwordChanged = true;
 		await route.fulfill({ json: user });
 	});
 	await page.goto('/#/profile');
