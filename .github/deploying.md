@@ -81,15 +81,16 @@ passes `build: 'true'`, since the `build` script is `tsc -b && vite build`.
 `@fastify/static` majors track fastify majors, and Harper embeds fastify: v7 pairs with fastify 4
 (harperdb 4.x), v8 with fastify 5 (Harper 5.x).
 
-**Each environment defaults to the major its CM runs today** — currently dev `v5`, stage `v5`,
-prod `v4` — not to the major we intend to end up on. The rest position of a switch should be where
+**Each environment defaults to the major its CM runs today** — currently `v5` for dev, stage and
+prod — not to the major we intend to end up on. The rest position of a switch should be where
 the system is, so merging a change to this repo never moves a CM by itself, and shelving or
 resuming Harper 5 is an explicit act.
 
 Each caller's `harper-version: ${{ inputs.harper_version || '<major>' }}` line **is the source of
 truth**. The dispatch input overrides a single run and does _not_ stick, so a one-off manual `v5`
 deploy is undone by the next ordinary push. **When a CM changes major in central manager, change
-that literal in the same breath.**
+that literal in the same breath**, along with the dispatch input's `default:` — changing only the
+default leaves every push on the old major.
 
 There is one template. It carries the 4.x pin, and a `v5` deploy rewrites that single range as it
 stages the component (`FASTIFY_STATIC_V5` in `studio-deploy`) — so the range is by construction
