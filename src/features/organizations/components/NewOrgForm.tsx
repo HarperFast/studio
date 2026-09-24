@@ -18,7 +18,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Building2, Globe2 } from 'lucide-react';
+import { ArrowRight, Building2, ExternalLink, Globe2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -160,6 +160,22 @@ export function NewOrgForm() {
 						<p className="text-xs leading-relaxed text-muted-foreground">
 							The cluster name is a placeholder. You’ll name your clusters when you create them.
 						</p>
+						<div className="mt-5 border-t border-primary/15 pt-5">
+							<h3 className="text-sm font-medium">Prefer your own domain?</h3>
+							<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+								You can also bind a domain you own to a cluster after creating it.
+							</p>
+							<a
+								href="https://docs.harperdb.io/fabric/custom-domains"
+								target="_blank"
+								rel="noopener noreferrer"
+								className="mt-3 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline underline-offset-4 hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring dark:text-violet-300"
+							>
+								Learn about custom domains
+								<ExternalLink className="size-3.5" aria-hidden="true" />
+								<span className="sr-only">(opens in a new tab)</span>
+							</a>
+						</div>
 					</aside>
 				</form>
 			</Form>
