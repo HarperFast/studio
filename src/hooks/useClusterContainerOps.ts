@@ -43,7 +43,6 @@ export function useClusterContainerOps(cluster: Cluster) {
 					safeMode: opts?.safeMode,
 					strategy: opts?.strategy,
 				});
-				// Track it now rather than on the next status poll, which then refines it per instance.
 				if (action !== 'stop') {
 					markContainerOpAccepted({
 						clusterId: cluster.id,

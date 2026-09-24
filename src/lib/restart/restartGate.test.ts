@@ -111,6 +111,19 @@ describe('the restart gate on instance clients', () => {
 		expect(sent).toHaveLength(0);
 	});
 
+	it('still recognizes a read whose body axios already serialized, as a gateway retry re-sends it', async () => {
+		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
+		const { client, sent } = clientWithAdapter();
+		const release = markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
+
+		const retried = client.post('/', JSON.stringify({ operation: 'get_status' }));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(sent).toHaveLength(0);
+		release();
+		await expect(retried).resolves.toMatchObject({ status: 200 });
+		expect(sent).toHaveLength(1);
+	});
+
 	it('never holds the restart’s own requests', async () => {
 		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
 		const { client, sent } = clientWithAdapter();
