@@ -159,8 +159,7 @@ describe('EmptyResultSet', () => {
 		renderEmptyResultSet({ hasPrimaryKey: false, recordCount: undefined });
 		expect(screen.queryByText(/It reports/)).toBeNull();
 		expect(screen.getByText(/can't browse this table/)).toBeTruthy();
-		// Declaring a key on the existing table fails once it holds records (HarperFast/harper#2480).
-		expect(screen.getByText(/recreate the table with a primary key/)).toBeTruthy();
-		expect(screen.queryByText(/declare a primary key/i)).toBeNull();
+		expect(screen.getByText(/copy them into a new table that has a primary key/)).toBeTruthy();
+		expect(screen.queryByText(/declare a primary key|recreate/i)).toBeNull();
 	});
 });
