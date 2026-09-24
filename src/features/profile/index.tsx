@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
@@ -13,7 +14,7 @@ import { UpdateUserSchema } from '@/features/profile/mutations/updateUserSchema'
 import { useCloudAuth } from '@/hooks/useAuth';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { Save } from 'lucide-react';
+import { KeyRound, Save, UserRound } from 'lucide-react';
 import { useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -65,118 +66,159 @@ export function ProfileIndex() {
 	);
 
 	return (
-		<div className="mt-20 px-4 pt-4 md:px-12 max-w-2xl">
-			<h1 className="text-2xl font-light">Profile</h1>
+		<div className="mx-auto mt-20 w-full max-w-6xl px-4 py-8 md:px-12 md:py-10">
+			<header className="mb-8 flex items-center gap-4">
+				<div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary dark:text-violet-300">
+					<UserRound className="size-6" aria-hidden="true" />
+				</div>
+				<div>
+					<p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Your account</p>
+					<h1 className="text-3xl font-semibold tracking-tight">Profile</h1>
+					<p className="mt-2 text-sm text-muted-foreground">Manage your personal details and account password.</p>
+				</div>
+			</header>
 			<Form {...methods}>
 				<form
 					id="profile-edit-form"
 					name="profile-edit-form"
 					onSubmit={handleSubmit(onSubmitClick)}
-					className="grid gap-4 my-4"
+					className="space-y-6"
 				>
-					<FormField
-						control={control}
-						name="firstname"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">First Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										className="dark:bg-black dark:border-black"
-										autoCapitalize="words"
-										autoFocus
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					<div className="grid items-start gap-6 lg:grid-cols-2">
+						<Card className="gap-0 overflow-hidden py-0">
+							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 py-5 dark:from-primary/20 dark:to-primary/5">
+								<div className="flex items-center gap-2 text-primary dark:text-violet-300">
+									<UserRound className="size-4" aria-hidden="true" />
+									<h2 className="text-base font-semibold text-foreground">Personal information</h2>
+								</div>
+								<p className="text-sm text-muted-foreground">Your name and sign-in email.</p>
+							</CardHeader>
+							<CardContent className="grid gap-5 py-6 sm:grid-cols-2">
+								<FormField
+									control={control}
+									name="firstname"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="pb-1">First Name</FormLabel>
+											<FormControl>
+												<Input
+													type="text"
+													className="bg-background/60"
+													autoCapitalize="words"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-					<FormField
-						control={control}
-						name="lastname"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Last Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										className="dark:bg-black dark:border-black"
-										autoCapitalize="words"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+								<FormField
+									control={control}
+									name="lastname"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="pb-1">Last Name</FormLabel>
+											<FormControl>
+												<Input
+													type="text"
+													className="bg-background/60"
+													autoCapitalize="words"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-					<FormItem>
-						<FormLabel htmlFor="profile-email" className="pb-1">Email</FormLabel>
-						<FormControl>
-							<Input
-								id="profile-email"
-								type="email"
-								enterKeyHint="next"
-								autoComplete="email"
-								autoCapitalize="none"
-								value={user?.email || ''}
-								disabled={true}
-								readOnly={true}
-							/>
-						</FormControl>
-					</FormItem>
+								<FormItem className="sm:col-span-2">
+									<FormLabel htmlFor="profile-email" className="pb-1">Email</FormLabel>
+									<FormControl>
+										<Input
+											id="profile-email"
+											type="email"
+											enterKeyHint="next"
+											autoComplete="email"
+											autoCapitalize="none"
+											value={user?.email || ''}
+											disabled={true}
+											readOnly={true}
+										/>
+									</FormControl>
+								</FormItem>
 
-					<FormField
-						control={control}
-						name="newPassword"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">New Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										placeholder="Optional"
-										className="dark:bg-black dark:border-black"
-										autoComplete="new-password"
-										autoCapitalize="none"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+								<p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">
+									Your email is used to sign in and can’t be changed here.
+								</p>
+							</CardContent>
+						</Card>
+						<Card className="gap-0 overflow-hidden py-0">
+							<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 py-5 dark:from-primary/20 dark:to-primary/5">
+								<div className="flex items-center gap-2 text-primary dark:text-violet-300">
+									<KeyRound className="size-4" aria-hidden="true" />
+									<h2 className="text-base font-semibold text-foreground">Password</h2>
+								</div>
+								<p className="text-sm text-muted-foreground">Leave these fields empty to keep your current password.</p>
+							</CardHeader>
+							<CardContent className="grid gap-5 py-6">
+								<FormField
+									control={control}
+									name="newPassword"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="pb-1">New Password</FormLabel>
+											<FormControl>
+												<Input
+													type="password"
+													placeholder="Optional"
+													className="bg-background/60"
+													autoComplete="new-password"
+													autoCapitalize="none"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-					<FormField
-						control={control}
-						name="confirmNewPassword"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Confirm New Password</FormLabel>
-								<FormControl>
-									<Input
-										type="password"
-										className="dark:bg-black dark:border-black"
-										autoComplete="new-password"
-										autoCapitalize="none"
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+								<FormField
+									control={control}
+									name="confirmNewPassword"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel className="pb-1">Confirm New Password</FormLabel>
+											<FormControl>
+												<Input
+													type="password"
+													className="bg-background/60"
+													autoComplete="new-password"
+													autoCapitalize="none"
+													{...field}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
 
-					<div className="flex justify-between w-full">
+								<p className="text-xs leading-relaxed text-muted-foreground">
+									Use at least 8 characters. Changing your password will sign you out.
+								</p>
+							</CardContent>
+						</Card>
+					</div>
+					<div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card/70 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+						<p className="text-sm text-muted-foreground">
+							{isDirty ? 'You have unsaved changes.' : 'Your profile is up to date.'}
+						</p>
 						<Button
 							type="submit"
 							variant="submit"
 							disabled={isUpdatePending || !isDirty || !isValid}
 						>
-							<Save /> Update Profile
+							<Save className="size-4" aria-hidden="true" /> {isUpdatePending ? 'Saving…' : 'Save changes'}
 						</Button>
 					</div>
 				</form>
