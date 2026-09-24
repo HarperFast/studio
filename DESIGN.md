@@ -8,6 +8,8 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope.
 
+- [`src/features/instance/databases/DESIGN.md`](src/features/instance/databases/DESIGN.md) — when the browse grid may show its spinner, and why a table without a primary key can't be listed.
+
 - [`docs/status-redesign.md`](docs/status-redesign.md) — port of analytics-viz visualizations + spec system into the instance Status tab. Covers: 7-tab IA, the data-path adapter (no SQL — `get_analytics` only), bucket-by-window clamps, chart-surface CSS tokens, feature-flag rollback, testing strategy. Read before touching `src/features/instance/status/**`.
 
 ## API explorer (the instance/cluster "APIs" tab)
