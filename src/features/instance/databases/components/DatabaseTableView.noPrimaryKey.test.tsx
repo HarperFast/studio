@@ -3,13 +3,12 @@
  */
 import { InstanceDatabaseMap, InstanceTable } from '@/integrations/api/api.patch';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DatabaseTableView } from './DatabaseTableView';
 
-// Unlike DatabaseTableView.test.tsx, the grid and React Query are real here: the bug is the two of
-// them disagreeing -- the view never enabling a list query, and the grid reading "no data" as "rows
-// still in flight" -- so stubbing either side would hide it.
+// The grid and React Query stay real here, unlike DatabaseTableView.test.tsx: a query that never
+// starts only hangs against a grid that waits for one, so stubbing either side hides it.
 
 vi.mock('@tanstack/react-router', () => {
 	const params = {};
@@ -63,6 +62,17 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('./PickColumnsDropdown', () => ({ PickColumnsDropdown: () => null }));
 vi.mock('../modals/EditTableRowModal', () => ({ EditTableRowModal: () => null }));
 
+// Radix's dropdown opens on pointerdown and probes pointer-capture APIs jsdom doesn't implement.
+beforeAll(() => {
+	Element.prototype.hasPointerCapture ??= () => false;
+	Element.prototype.setPointerCapture ??= () => undefined;
+	Element.prototype.releasePointerCapture ??= () => undefined;
+	Element.prototype.scrollIntoView ??= () => undefined;
+	if (typeof window.PointerEvent === 'undefined') {
+		window.PointerEvent = class extends MouseEvent {} as typeof PointerEvent;
+	}
+});
+
 afterEach(() => {
 	cleanup();
 	instance.describeTable = undefined;
@@ -85,7 +95,8 @@ const unkeyedTable = {
 
 function renderView(describeTable: InstanceTable) {
 	instance.describeTable = describeTable;
-	const instanceDatabaseMap: InstanceDatabaseMap = { data: { ws: describeTable } };
+	// The page fetches describe_all with `skipRecordCount`, so only describe_table can supply the count.
+	const instanceDatabaseMap: InstanceDatabaseMap = { data: { ws: { ...describeTable, record_count: undefined } } };
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={queryClient}>
@@ -94,21 +105,34 @@ function renderView(describeTable: InstanceTable) {
 	);
 }
 
+function openTableOptions() {
+	fireEvent.pointerDown(screen.getByRole('button', { name: /table options/i }), { button: 0, ctrlKey: false });
+}
+
 describe('DatabaseTableView on a table with no primary key', () => {
 	it('settles into an explanation instead of loading forever', async () => {
 		const { container } = renderView(unkeyedTable);
 
-		await waitFor(() => expect(instance.operations).toContain('describe_table'));
 		await screen.findByRole('heading', { name: 'ws has no primary key' });
+		await screen.findByText(/It reports 36 records/);
 		expect(container.querySelector('.animate-spin')).toBeNull();
-		// The count describe_table carried still describes the table, even though no page can.
-		expect(screen.getByText(/It reports 36 records/)).toBeTruthy();
 		expect((screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(true);
 		expect(instance.operations).not.toContain('search_by_value');
 		expect(instance.operations).not.toContain('search_by_conditions');
 	});
 
-	it('still lists a table that does declare one', async () => {
+	it('withdraws the actions that would add or export rows it cannot list', async () => {
+		renderView(unkeyedTable);
+		await screen.findByRole('heading', { name: 'ws has no primary key' });
+
+		expect(screen.queryByRole('button', { name: /Add New Record/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Show Filters' })).toBeNull();
+		openTableOptions();
+		expect(screen.queryByRole('menuitem', { name: 'Import Data' })).toBeNull();
+		expect(screen.getByRole('menuitem', { name: 'Export CSV' }).getAttribute('aria-disabled')).toBe('true');
+	});
+
+	it('still lists a table that does declare one, with its actions', async () => {
 		renderView({
 			...unkeyedTable,
 			primary_key: 'id',
@@ -117,5 +141,10 @@ describe('DatabaseTableView on a table with no primary key', () => {
 
 		await waitFor(() => expect(instance.operations).toContain('search_by_value'));
 		expect(screen.queryByRole('heading', { name: /no primary key/ })).toBeNull();
+		expect(screen.getByRole('button', { name: /Add New Record/ })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show Filters' })).toBeTruthy();
+		openTableOptions();
+		expect(screen.getByRole('menuitem', { name: 'Import Data' })).toBeTruthy();
+		expect(screen.getByRole('menuitem', { name: 'Export CSV' }).getAttribute('aria-disabled')).toBeNull();
 	});
 });

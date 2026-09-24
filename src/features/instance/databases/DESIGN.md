@@ -12,11 +12,16 @@ Both queries are gated on the table having a primary key. They page, sort and ad
 it. A table a component created with `ensureTable({ attributes: [] })` describes with none
 (`attributes: []`, no `primary_key` / `hash_attribute`). Such tables exist in the field on 4.7, and
 until #1748 they spun forever with no request behind the spinner. A new gate on those queries owes
-the same settled answer.
+the same settled answer. Pinned by
+[`DatabaseTableView.noPrimaryKey.test.tsx`](components/DatabaseTableView.noPrimaryKey.test.tsx),
+which keeps the grid and React Query real.
 
-`$id` is not a stand-in key. On both 4.7.36 and 5.2.13, `search_by_value` on `$id` with `'*'` lists
-the rows, but only unsorted and unfiltered: sorting or matching on `$id` returns 404
-`$id is not a defined attribute`. `search_by_id` with `$id` in `get_attributes` returns a
-`TypeError` body, `update` is rejected, and a record written with a `$id` field keeps it as data
-that shadows the real key in reads. Pinned by
-[`DatabaseTableView.noPrimaryKey.test.tsx`](components/DatabaseTableView.noPrimaryKey.test.tsx).
+`$id` is not a stand-in key. These are live-probe observations on `harperdb:4.7.36` and
+`harper-pro:5.2.13` (2026-09), not covered by a test here:
+
+- `search_by_value` on `$id` with `'*'` lists the rows, but only unsorted and unfiltered.
+- Sorting or matching on `$id` returns 404 `$id is not a defined attribute`.
+- `search_by_id` with `$id` in `get_attributes` returns a `TypeError` body.
+- `update` is rejected.
+- A record written with a `$id` field keeps it as ordinary data, which shadows the real key in
+  reads.

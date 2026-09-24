@@ -26,7 +26,7 @@ export function EmptyResultSet({
 	onClearFilters,
 }: {
 	readonly tableName: string;
-	/** False once the schema has arrived without one: nothing can be listed, so no rows were ever fetched. */
+	/** False only once the schema has arrived without one. */
 	readonly hasPrimaryKey: boolean;
 	readonly isFiltered: boolean;
 	readonly isPastFirstPage: boolean;
