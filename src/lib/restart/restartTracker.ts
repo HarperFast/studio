@@ -54,7 +54,6 @@ const COMING_BACK_LABELS: Record<string, string> = {
 	STARTING: 'Starting',
 };
 
-/** CM statuses in which an instance's operations API does not answer. */
 const UNREACHABLE_STATUSES = new Set(['RESTARTING', 'STARTING', 'STOPPING', 'STOPPED']);
 
 const TERMINAL_INSTANCE_STATUSES = new Set(['TERMINATED', 'TERMINATING', 'REMOVED']);
@@ -66,6 +65,7 @@ const marks = new Map<string, Map<symbol, Mark>>();
  * overwrite a newer one.
  */
 const containerObservedAt = new Map<string, number>();
+let lastObservationStamp = 0;
 const listeners = new Set<() => void>();
 const settledListeners = new Set<(entityId: string) => void>();
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -159,13 +159,21 @@ function deleteMark(entityId: string, token: symbol) {
 	}
 }
 
-/** Whether a CM observation requested at `observedAt` is at least as new as what was applied. */
 function claimObservation(entityId: string, observedAt: number): boolean {
 	if (observedAt < (containerObservedAt.get(entityId) ?? -Infinity)) {
 		return false;
 	}
 	containerObservedAt.set(entityId, observedAt);
 	return true;
+}
+
+/**
+ * A request time for a cluster read, strictly increasing so two reads sent in the same millisecond
+ * still order: the later one wins the watermark whichever reply arrives first.
+ */
+export function nextObservationStamp(): number {
+	lastObservationStamp = Math.max(Date.now(), lastObservationStamp + 0.001);
+	return lastObservationStamp;
 }
 
 /**
@@ -203,7 +211,7 @@ export function markRestarting(
  * mark does, and the label of the strongest mark.
  */
 export function getRestartState(entityId: string | undefined): RestartState | undefined {
-	if (!entityId) { return undefined; }
+	if (!entityId || marks.size === 0) { return undefined; }
 	const now = Date.now();
 	let state: RestartState | undefined;
 	for (const mark of marks.get(entityId)?.values() ?? []) {
@@ -267,7 +275,7 @@ export function subscribeToRestarts(listener: () => void): () => void {
 	return () => listeners.delete(listener);
 }
 
-/** Called with each entity id that stops being tracked — released, cleared by CM, or expired. */
+/** Fires for each entity id that stops being tracked: released, cleared by CM, or expired. */
 export function onRestartSettled(listener: (entityId: string) => void): () => void {
 	settledListeners.add(listener);
 	return () => settledListeners.delete(listener);
@@ -289,13 +297,22 @@ interface ClusterLike {
  *
  * `observedAt` is when the request for this record was sent; see `containerObservedAt`.
  */
-export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observedAt = Date.now()) {
+export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observedAt = nextObservationStamp()) {
 	if (!cluster?.id) { return; }
 	const clusterId = cluster.id;
-	const expiresAt = observedAt + CONTAINER_MARK_TTL_MS;
+	const expiresAt = Date.now() + CONTAINER_MARK_TTL_MS;
 	const liveInstances = (cluster.instances ?? []).filter(
 		(instance) => instance.id && !TERMINAL_INSTANCE_STATUSES.has(instance.status ?? ''),
 	);
+	const entityIds = [clusterId, ...liveInstances.map((instance) => instance.id!)];
+	const reportsTransition = !!COMING_BACK_LABELS[cluster.status ?? '']
+		|| liveInstances.some((instance) => COMING_BACK_LABELS[instance.status ?? '']);
+	if (!reportsTransition && !entityIds.some((entityId) => marks.has(entityId))) {
+		for (const entityId of entityIds) {
+			claimObservation(entityId, observedAt);
+		}
+		return;
+	}
 	mutate(() => {
 		for (const instance of liveInstances) {
 			if (!claimObservation(instance.id!, observedAt)) { continue; }
@@ -336,12 +353,12 @@ export function markContainerOpAccepted(
 		allAtOnce: boolean;
 	},
 ) {
-	const now = Date.now();
-	const mark = { proxyRefuses: true, label, expiresAt: now + CONTAINER_MARK_TTL_MS };
+	const mark = { proxyRefuses: true, label, expiresAt: Date.now() + CONTAINER_MARK_TTL_MS };
+	const graceUntil = nextObservationStamp() + ACCEPTED_OP_GRACE_MS;
 	const reach: RestartReach = allAtOnce ? 'down' : 'rolling';
 	mutate(() => {
 		for (const entityId of clusterId ? [clusterId, ...instanceIds] : instanceIds) {
-			containerObservedAt.set(entityId, now + ACCEPTED_OP_GRACE_MS);
+			containerObservedAt.set(entityId, graceUntil);
 			setMark(entityId, CONTAINER_TOKEN, { ...mark, reach });
 		}
 	});
@@ -354,4 +371,5 @@ export function resetRestartTracker() {
 	marks.clear();
 	containerObservedAt.clear();
 	publishedStates = '';
+	lastObservationStamp = 0;
 }

@@ -123,10 +123,7 @@ export function getInstanceClient(
 	return client;
 }
 
-/**
- * Whether the default client for `id` — `getInstanceClient({ id })`, no overrides — goes through
- * central manager's operations proxy. Mirrors the resolution above for that one case.
- */
+/** Mirrors the resolution above for a `getInstanceClient({ id })` with no overrides; keep in step. */
 export function connectsThroughProxy(id: EntityIds): boolean {
 	const operationToken = authStore.checkForBasicAuth(id) ? undefined : authStore.getOperationToken(id);
 	return !operationToken && authStore.checkForFabricConnect(id);

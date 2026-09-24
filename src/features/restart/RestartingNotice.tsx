@@ -6,7 +6,6 @@ import { holdsRequests } from '@/lib/restart/restartTracker';
 import { useQuery } from '@tanstack/react-query';
 import { LoaderCircleIcon } from 'lucide-react';
 
-/** How often to re-read the cluster from central manager while it is restarting. */
 const RESTART_POLL_MS = 5_000;
 
 /**

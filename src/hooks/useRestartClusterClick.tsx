@@ -99,11 +99,11 @@ export function useRestartClusterClick(
 							instanceClient,
 							skipRestartGate: true,
 						});
-						// Then restart it.
 						releaseInstance = markRestarting([runningInstances[i].id], {
 							reach: 'down',
 							ttlMs: INSTANCE_RESTART_TTL_MS,
 						});
+						// Then restart it.
 						await restartInstance({
 							operation: 'restart',
 							replicated: false,
