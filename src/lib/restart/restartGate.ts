@@ -1,5 +1,5 @@
 import { getRestartState, holdsRequests, isRestarting, waitUntilReachable } from '@/lib/restart/restartTracker';
-import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, type AxiosInstance, CanceledError, type InternalAxiosRequestConfig } from 'axios';
 
 declare module 'axios' {
 	interface AxiosRequestConfig {
@@ -67,8 +67,11 @@ export function installRestartGate(
 					config,
 				);
 			}
-			return waitUntilReachable(entityId, { proxied, signal: config.signal as AbortSignal | undefined })
-				.then(() => config);
+			const signal = config.signal as AbortSignal | undefined;
+			return waitUntilReachable(entityId, { proxied, signal }).then(() => config, (err: unknown) => {
+				// Abandoned before it was sent: reject the way axios would, so `axios.isCancel` knows it.
+				throw signal?.aborted ? new CanceledError(undefined, undefined, config) : err;
+			});
 		},
 		undefined,
 		{
