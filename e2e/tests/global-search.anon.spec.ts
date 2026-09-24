@@ -43,7 +43,13 @@ test.beforeEach(async ({ page }) => {
 		'**/Cluster/*',
 		route =>
 			route.fulfill({
-				json: { id: 'cluster-b', name: 'Production', organizationId: 'b', status: 'RUNNING', instances: [] },
+				json: {
+					id: route.request().url().split('/').at(-1),
+					name: 'Production',
+					organizationId: 'b',
+					status: 'RUNNING',
+					instances: [],
+				},
 			}),
 	);
 	await page.route('**/Region/**', route => route.fulfill({ json: [] }));
