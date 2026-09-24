@@ -98,3 +98,38 @@ test('clickable cards keep a pointer across their border and Open affordance', a
 	await page.mouse.click(action!.x + action!.width / 2, action!.y + action!.height / 2);
 	await expect(page).toHaveURL(/#\/org-fixture\/clu-production$/);
 });
+
+test('updated clusters stay out of Running until they can be opened', async ({ page }) => {
+	await page.route('**/Organization/org-fixture', route =>
+		route.fulfill({
+			json: { ...organization, clusters: [{ ...clusters[0], status: 'UPDATED' }] },
+		}));
+	await page.goto('/#/org-fixture');
+	await expect(page.getByRole('button', { name: 'Running 0', exact: true })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Needs attention 1', exact: true })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Open Production' })).toHaveCount(0);
+	await page.getByLabel('Cluster status', { exact: true }).selectOption('running');
+	await expect(page.getByText('No matching clusters', { exact: true })).toBeVisible();
+});
+
+test('finds live instance regions when only some plan regions resolve', async ({ page }) => {
+	await page.route('**/Organization/org-fixture', route =>
+		route.fulfill({
+			json: {
+				...organization,
+				clusters: [{
+					...clusters[0],
+					plans: [{ planId: 'shared', regionId: 'reg-east' }, { planId: 'shared', regionId: 'missing' }],
+					instances: [
+						{ id: 'east', status: 'RUNNING', region: 'US East' },
+						{ id: 'west', status: 'RUNNING', region: 'US West' },
+					],
+				}],
+			},
+		}));
+	await page.goto('/#/org-fixture');
+	await page.getByLabel('Cluster region', { exact: true }).selectOption('US West');
+	await expect(page.getByRole('heading', { name: 'Production', exact: true })).toBeVisible();
+	await expect(page.getByRole('status')).toHaveText('Showing 1 of 1 clusters');
+	await expect(page.getByRole('link', { name: 'Open Production' })).toBeVisible();
+});

@@ -45,8 +45,10 @@ describe('cluster list model', () => {
 		expect(selectClusters(model.items, { ...defaultClusterListControls, search: 'East' })).toHaveLength(1);
 	});
 
-	it('includes completed updates in the running summary', () => {
-		expect(describeCluster(cluster({ status: 'UPDATED' })).category).toBe('running');
+	it('keeps completed updates in attention until their lifecycle is navigable', () => {
+		const model = buildClusterList([cluster({ status: 'UPDATED' })]);
+		expect(model.items[0].category).toBe('attention');
+		expect(model.counts.running).toBe(0);
 	});
 
 	it('retains unknown states without claiming that they are running', () => {
@@ -104,6 +106,17 @@ describe('cluster list model', () => {
 			}),
 		);
 		expect(item.regions).toEqual(['US East']);
+	});
+
+	it('combines partially resolved plan regions with live instance labels for display and filtering', () => {
+		const model = buildClusterList([cluster({
+			plans: [{ planId: 'shared', regionId: 'east' }, { planId: 'shared', regionId: 'missing' }],
+			instances: [instance({ region: 'US East' }), instance({ id: 'west', region: 'US West' })],
+		})], new Map([['east', 'US East']]));
+		expect(model.items[0].regions).toEqual(['US East', 'US West']);
+		expect(model.regions).toEqual(['US East', 'US West']);
+		expect(selectClusters(model.items, { ...defaultClusterListControls, region: 'US West' })).toHaveLength(1);
+		expect(selectClusters(model.items, { ...defaultClusterListControls, search: 'US West' })).toHaveLength(1);
 	});
 
 	it('surfaces a failed instance even when the cluster lifecycle still reports running', () => {
