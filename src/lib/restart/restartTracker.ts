@@ -24,8 +24,6 @@ export interface RestartState {
 }
 
 interface Mark extends RestartState {
-	/** When this mark was last written — lets a CM sync ignore a response older than the mark. */
-	setAt: number;
 	expiresAt: number;
 }
 
@@ -43,6 +41,10 @@ const CONTAINER_TOKEN = Symbol('container');
  *  every 5–10s, so this only fires once nothing is watching the cluster any more. */
 const CONTAINER_MARK_TTL_MS = 60_000;
 
+/** A cluster read sent this soon after CM accepted an op is not trusted to clear it: another CM node
+ *  can still be serving the pre-op status. */
+const ACCEPTED_OP_GRACE_MS = 5_000;
+
 /**
  * CM statuses for a container on its way back up. `STOPPING` is deliberately absent: holding
  * requests only makes sense for an entity that will answer them afterwards.
@@ -58,10 +60,19 @@ const UNREACHABLE_STATUSES = new Set(['RESTARTING', 'STARTING', 'STOPPING', 'STO
 const TERMINAL_INSTANCE_STATUSES = new Set(['TERMINATED', 'TERMINATING', 'REMOVED']);
 
 const marks = new Map<string, Map<symbol, Mark>>();
+/**
+ * Per entity, when the newest central-manager observation applied to it was requested. It outlives
+ * the mark, so a slower response to an older request can neither resurrect a cleared restart nor
+ * overwrite a newer one.
+ */
+const containerObservedAt = new Map<string, number>();
 const listeners = new Set<() => void>();
 const settledListeners = new Set<(entityId: string) => void>();
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 let version = 0;
+/** The effective states subscribers last heard about. Compared against, rather than a before-change
+ *  snapshot, because an expired mark already reads as gone before the timer's mutate runs. */
+let publishedStates = '';
 
 function purgeExpired(now: number) {
 	for (const [entityId, byToken] of marks) {
@@ -90,21 +101,37 @@ function scheduleExpiry() {
 	}
 }
 
+function effectiveStates(): string {
+	const states: string[] = [];
+	for (const entityId of marks.keys()) {
+		const state = getRestartState(entityId);
+		if (state) {
+			states.push(`${entityId}:${state.reach}:${state.proxyRefuses}:${state.label}`);
+		}
+	}
+	return states.sort().join('|');
+}
+
 /**
- * Apply a change, then tell everyone once. Settled notifications are deferred a tick: a sync runs
- * inside the cluster query's own fetch, and a listener that invalidates queries would otherwise
- * cancel the very fetch that reported the recovery.
+ * Apply a change, then notify only if some entity's effective state moved — a poll that merely
+ * extends a mark's expiry is not news. Settled notifications are deferred a tick: a sync runs inside
+ * the cluster query's own fetch, and a listener that invalidates queries would otherwise cancel the
+ * very fetch that reported the recovery.
  */
 function mutate(change: () => void) {
-	const before = new Set(marks.keys());
+	const trackedBefore = new Set(marks.keys());
 	change();
 	purgeExpired(Date.now());
 	scheduleExpiry();
-	version += 1;
-	for (const listener of listeners) {
-		listener();
+	const states = effectiveStates();
+	if (states !== publishedStates) {
+		publishedStates = states;
+		version += 1;
+		for (const listener of listeners) {
+			listener();
+		}
 	}
-	const settled = [...before].filter((entityId) => !marks.has(entityId));
+	const settled = [...trackedBefore].filter((entityId) => !marks.has(entityId));
 	if (settled.length) {
 		setTimeout(() => {
 			for (const entityId of settled) {
@@ -125,16 +152,20 @@ function setMark(entityId: string, token: symbol, mark: Mark) {
 	byToken.set(token, mark);
 }
 
-function deleteMark(entityId: string, token: symbol, unlessSetAfter = Infinity) {
+function deleteMark(entityId: string, token: symbol) {
 	const byToken = marks.get(entityId);
-	const mark = byToken?.get(token);
-	if (!byToken || !mark || mark.setAt > unlessSetAfter) {
-		return;
-	}
-	byToken.delete(token);
-	if (byToken.size === 0) {
+	if (byToken?.delete(token) && byToken.size === 0) {
 		marks.delete(entityId);
 	}
+}
+
+/** Whether a CM observation requested at `observedAt` is at least as new as what was applied. */
+function claimObservation(entityId: string, observedAt: number): boolean {
+	if (observedAt < (containerObservedAt.get(entityId) ?? -Infinity)) {
+		return false;
+	}
+	containerObservedAt.set(entityId, observedAt);
+	return true;
 }
 
 /**
@@ -149,10 +180,10 @@ export function markRestarting(
 	{ reach, label = 'Restarting', ttlMs }: MarkRestartingOptions,
 ): () => void {
 	const token = Symbol('restart');
-	const now = Date.now();
+	const expiresAt = Date.now() + ttlMs;
 	mutate(() => {
 		for (const entityId of entityIds) {
-			setMark(entityId, token, { reach, proxyRefuses: false, label, setAt: now, expiresAt: now + ttlMs });
+			setMark(entityId, token, { reach, proxyRefuses: false, label, expiresAt });
 		}
 	});
 	let released = false;
@@ -189,7 +220,6 @@ export function isRestarting(entityId: string | undefined): boolean {
 	return getRestartState(entityId) !== undefined;
 }
 
-/** Whether a client should hold its requests for an entity in this state. */
 export function holdsRequests(state: RestartState | undefined, { proxied }: { proxied: boolean }): boolean {
 	return !!state && (state.reach === 'down' || (proxied && state.proxyRefuses));
 }
@@ -202,6 +232,9 @@ export function waitUntilReachable(
 	entityId: string,
 	{ proxied, signal }: { proxied: boolean; signal?: AbortSignal },
 ): Promise<void> {
+	if (signal?.aborted) {
+		return Promise.reject(signal.reason);
+	}
 	const held = () => holdsRequests(getRestartState(entityId), { proxied });
 	if (!held()) {
 		return Promise.resolve();
@@ -225,7 +258,6 @@ export function waitUntilReachable(
 	});
 }
 
-/** Bumped on every change, for `useSyncExternalStore` consumers that read several entities. */
 export function getRestartTrackerVersion(): number {
 	return version;
 }
@@ -255,8 +287,7 @@ interface ClusterLike {
  * restart keeps the cluster serving through the members not currently restarting. Either way the
  * proxy refuses it until CM settles the status.
  *
- * `observedAt` is when the request for this record was sent. A mark written after that (by the
- * container-op response itself) is newer than anything this record can say, so it is not cleared.
+ * `observedAt` is when the request for this record was sent; see `containerObservedAt`.
  */
 export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observedAt = Date.now()) {
 	if (!cluster?.id) { return; }
@@ -267,19 +298,15 @@ export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observ
 	);
 	mutate(() => {
 		for (const instance of liveInstances) {
+			if (!claimObservation(instance.id!, observedAt)) { continue; }
 			const label = COMING_BACK_LABELS[instance.status ?? ''];
 			if (label) {
-				setMark(instance.id!, CONTAINER_TOKEN, {
-					reach: 'down',
-					proxyRefuses: true,
-					label,
-					setAt: observedAt,
-					expiresAt,
-				});
+				setMark(instance.id!, CONTAINER_TOKEN, { reach: 'down', proxyRefuses: true, label, expiresAt });
 			} else {
-				deleteMark(instance.id!, CONTAINER_TOKEN, observedAt);
+				deleteMark(instance.id!, CONTAINER_TOKEN);
 			}
 		}
+		if (!claimObservation(clusterId, observedAt)) { return; }
 		const label = COMING_BACK_LABELS[cluster.status ?? ''];
 		if (label) {
 			const allDown = liveInstances.length > 0
@@ -288,18 +315,18 @@ export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observ
 				reach: allDown ? 'down' : 'rolling',
 				proxyRefuses: true,
 				label,
-				setAt: observedAt,
 				expiresAt,
 			});
 		} else {
-			deleteMark(clusterId, CONTAINER_TOKEN, observedAt);
+			deleteMark(clusterId, CONTAINER_TOKEN);
 		}
 	});
 }
 
 /**
- * Record a container op CM just accepted, ahead of the next cluster fetch. A parallel op takes
- * every listed instance down at once; a rolling one leaves the per-instance detail to the sync.
+ * Record a container op CM just accepted, ahead of the next cluster fetch. A parallel op takes every
+ * listed instance down at once. A rolling one's instances are only known to be refused by the proxy
+ * until the next fetch says which member is restarting.
  */
 export function markContainerOpAccepted(
 	{ clusterId, instanceIds, label, allAtOnce }: {
@@ -310,15 +337,12 @@ export function markContainerOpAccepted(
 	},
 ) {
 	const now = Date.now();
-	const mark = { proxyRefuses: true, label, setAt: now, expiresAt: now + CONTAINER_MARK_TTL_MS };
+	const mark = { proxyRefuses: true, label, expiresAt: now + CONTAINER_MARK_TTL_MS };
+	const reach: RestartReach = allAtOnce ? 'down' : 'rolling';
 	mutate(() => {
-		if (clusterId) {
-			setMark(clusterId, CONTAINER_TOKEN, { ...mark, reach: allAtOnce ? 'down' : 'rolling' });
-		}
-		if (allAtOnce || !clusterId) {
-			for (const instanceId of instanceIds) {
-				setMark(instanceId, CONTAINER_TOKEN, { ...mark, reach: 'down' });
-			}
+		for (const entityId of clusterId ? [clusterId, ...instanceIds] : instanceIds) {
+			containerObservedAt.set(entityId, now + ACCEPTED_OP_GRACE_MS);
+			setMark(entityId, CONTAINER_TOKEN, { ...mark, reach });
 		}
 	});
 }
@@ -328,4 +352,6 @@ export function resetRestartTracker() {
 	clearTimeout(expiryTimer);
 	expiryTimer = undefined;
 	marks.clear();
+	containerObservedAt.clear();
+	publishedStates = '';
 }

@@ -31,8 +31,6 @@ export function RestartingNotice(
 	if (!state) {
 		return null;
 	}
-	// Mirrors what this page's own client does: a proxied one waits out a rolling container restart
-	// too, because central manager refuses the cluster until the op completes.
 	const held = holdsRequests(state, { proxied: !!entityId && connectsThroughProxy(entityId) });
 
 	return (

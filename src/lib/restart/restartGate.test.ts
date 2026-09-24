@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
-import { isConnectivityFailure, isRestartNoise } from '@/lib/restart/restartGate';
+import { isConnectivityFailure, isRestartNoise, RESTARTING_ERROR_CODE } from '@/lib/restart/restartGate';
 import { markRestarting, resetRestartTracker, syncRestartsFromCluster } from '@/lib/restart/restartTracker';
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -87,6 +87,30 @@ describe('the restart gate on instance clients', () => {
 		expect(sent).toHaveLength(1);
 	});
 
+	it('refuses a write to an entity that is down at once, rather than replaying it later', async () => {
+		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
+		const { client, sent } = clientWithAdapter();
+		markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
+
+		const write = client.post('/', { operation: 'insert', table: 'dog', records: [] });
+		await expect(write).rejects.toMatchObject({
+			code: RESTARTING_ERROR_CODE,
+			message: expect.stringContaining('This instance is restarting'),
+		});
+		expect(sent).toHaveLength(0);
+	});
+
+	it("refuses token minting at once, so a route guard's Fabric Connect attempt is not stalled", async () => {
+		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
+		const { client, sent } = clientWithAdapter();
+		markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
+
+		await expect(client.post('/', { operation: 'create_authentication_tokens' })).rejects.toMatchObject({
+			code: RESTARTING_ERROR_CODE,
+		});
+		expect(sent).toHaveLength(0);
+	});
+
 	it('never holds the restart’s own requests', async () => {
 		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
 		const { client, sent } = clientWithAdapter();
@@ -126,6 +150,7 @@ describe('isConnectivityFailure', () => {
 		['a network error', new AxiosError('Network Error', 'ERR_NETWORK')],
 		['a timeout', new AxiosError('timeout', 'ECONNABORTED')],
 		['a gateway error', Object.assign(new AxiosError('Bad Gateway'), { response: { status: 502 } })],
+		['a write the gate refused', new AxiosError('This instance is restarting.', RESTARTING_ERROR_CODE)],
 	])('is true for %s', (_name, err) => {
 		expect(isConnectivityFailure(err)).toBe(true);
 	});

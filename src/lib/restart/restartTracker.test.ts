@@ -5,6 +5,7 @@ import {
 	markRestarting,
 	onRestartSettled,
 	resetRestartTracker,
+	subscribeToRestarts,
 	syncRestartsFromCluster,
 	waitUntilReachable,
 } from '@/lib/restart/restartTracker';
@@ -49,6 +50,24 @@ describe('restartTracker', () => {
 			expect(getRestartState('clu-1')).toBeUndefined();
 		});
 
+		it("notifies only when an entity's effective state changes, not when a poll extends it", () => {
+			const listener = vi.fn();
+			const unsubscribe = subscribeToRestarts(listener);
+			const restarting = { id: 'clu-1', status: 'RESTARTING', instances: [{ id: 'ins-1', status: 'RESTARTING' }] };
+			const running = { id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] };
+
+			syncRestartsFromCluster(running);
+			expect(listener).not.toHaveBeenCalled();
+			syncRestartsFromCluster(restarting);
+			expect(listener).toHaveBeenCalledTimes(1);
+			vi.advanceTimersByTime(5_000);
+			syncRestartsFromCluster(restarting);
+			expect(listener).toHaveBeenCalledTimes(1);
+			syncRestartsFromCluster(running);
+			expect(listener).toHaveBeenCalledTimes(2);
+			unsubscribe();
+		});
+
 		it('lapses on its own when the owner never releases it', async () => {
 			const settled = vi.fn();
 			const unsubscribe = onRestartSettled(settled);
@@ -90,6 +109,15 @@ describe('restartTracker', () => {
 
 			await vi.advanceTimersByTimeAsync(TTL);
 			expect(done).toHaveBeenCalled();
+		});
+
+		it('rejects at once for a request that was already aborted', async () => {
+			markRestarting(['ins-1'], { reach: 'down', ttlMs: TTL });
+			const controller = new AbortController();
+			controller.abort(new Error('already cancelled'));
+			await expect(waitUntilReachable('ins-1', { proxied: false, signal: controller.signal })).rejects.toThrow(
+				'already cancelled',
+			);
 		});
 
 		it('rejects with the abort reason when the caller gives up first', async () => {
@@ -178,14 +206,57 @@ describe('restartTracker', () => {
 			expect(getRestartState('clu-1')?.reach).toBe('down');
 			expect(getRestartState('ins-1')?.reach).toBe('down');
 
-			// One sent afterwards is authoritative.
+			// A read sent within the grace window can still be a lagging CM node's pre-op status.
+			vi.advanceTimersByTime(1_000);
+			syncRestartsFromCluster({ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] });
+			expect(getRestartState('clu-1')?.reach).toBe('down');
+
+			// One sent after it is authoritative.
+			vi.advanceTimersByTime(5_000);
 			syncRestartsFromCluster({ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] });
 			expect(getRestartState('clu-1')).toBeUndefined();
+		});
+
+		it('does not let a slower, older response resurrect a restart a newer one cleared', () => {
+			const olderRequest = Date.now();
+			vi.advanceTimersByTime(10);
+			const newerRequest = Date.now();
+			syncRestartsFromCluster(
+				{ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] },
+				newerRequest,
+			);
+			syncRestartsFromCluster(
+				{ id: 'clu-1', status: 'RESTARTING', instances: [{ id: 'ins-1', status: 'RESTARTING' }] },
+				olderRequest,
+			);
+			expect(getRestartState('clu-1')).toBeUndefined();
+			expect(getRestartState('ins-1')).toBeUndefined();
+		});
+
+		it('does not let an older response overwrite a newer restart', () => {
+			const olderRequest = Date.now();
+			vi.advanceTimersByTime(10);
+			markContainerOpAccepted({
+				clusterId: 'clu-1',
+				instanceIds: ['ins-1', 'ins-2'],
+				label: 'Restarting',
+				allAtOnce: true,
+			});
+			syncRestartsFromCluster(
+				{
+					id: 'clu-1',
+					status: 'RESTARTING',
+					instances: [{ id: 'ins-1', status: 'RUNNING' }, { id: 'ins-2', status: 'RESTARTING' }],
+				},
+				olderRequest,
+			);
+			expect(getRestartState('clu-1')?.reach).toBe('down');
+			expect(getRestartState('ins-1')?.reach).toBe('down');
 		});
 	});
 
 	describe('markContainerOpAccepted', () => {
-		it('leaves a rolling op to the sync for per-instance detail', () => {
+		it("holds a rolling op's instances for proxied clients until the sync says which one is restarting", () => {
 			markContainerOpAccepted({
 				clusterId: 'clu-1',
 				instanceIds: ['ins-1', 'ins-2'],
@@ -193,7 +264,17 @@ describe('restartTracker', () => {
 				allAtOnce: false,
 			});
 			expect(getRestartState('clu-1')?.reach).toBe('rolling');
+			expect(holdsRequests(getRestartState('ins-1'), { proxied: true })).toBe(true);
+			expect(holdsRequests(getRestartState('ins-1'), { proxied: false })).toBe(false);
+
+			vi.advanceTimersByTime(5_000);
+			syncRestartsFromCluster({
+				id: 'clu-1',
+				status: 'RESTARTING',
+				instances: [{ id: 'ins-1', status: 'RUNNING' }, { id: 'ins-2', status: 'RESTARTING' }],
+			});
 			expect(getRestartState('ins-1')).toBeUndefined();
+			expect(getRestartState('ins-2')?.reach).toBe('down');
 		});
 	});
 });

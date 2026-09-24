@@ -1,5 +1,5 @@
-import { isRestarting, waitUntilReachable } from '@/lib/restart/restartTracker';
-import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import { getRestartState, holdsRequests, isRestarting, waitUntilReachable } from '@/lib/restart/restartTracker';
+import { AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios';
 
 declare module 'axios' {
 	interface AxiosRequestConfig {
@@ -12,10 +12,28 @@ declare module 'axios' {
 	}
 }
 
+/** Set on a write refused because its target is restarting, so it can be told from a real failure. */
+export const RESTARTING_ERROR_CODE = 'ERR_TARGET_RESTARTING';
+
 /**
- * Hold requests to `entityId` while the tracker says this kind of client cannot reach it, and send
- * them once it can: a held request is a query still fetching, where a failed one is an error state,
- * a retry and a toast. The request's own timeout only starts once it is sent. `proxied` is whether
+ * Operations safe to send minutes late: reads, by Harper's naming. Token minting is deliberately not
+ * one — held, it would stall a route guard's Fabric Connect attempt behind a notice that cannot mount
+ * yet; refused, the guard falls through to sign-in at once.
+ */
+const SAFE_TO_DELAY =
+	/^(?:get_|search_|describe_|list_|read_|user_info$|system_information$|cluster_status$|registration_info$)/;
+
+function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
+	if (config.method?.toLowerCase() === 'get') { return true; }
+	const operation = (config.data as { operation?: unknown } | undefined)?.operation;
+	return typeof operation === 'string' && SAFE_TO_DELAY.test(operation);
+}
+
+/**
+ * While the tracker says this kind of client cannot reach `entityId`, hold its reads and send them
+ * once it can — a held read is a query still fetching, where a failed one is an error state, a retry
+ * and a toast; its own timeout only starts once it is sent. Anything else is refused at once: a write
+ * queued for minutes can land after the user has given up on it, or retried it. `proxied` is whether
  * the client goes through central manager's operations proxy (see `holdsRequests`).
  *
  * Register after any interceptor that stamps a request at send time (the direct-connect Bearer):
@@ -26,11 +44,20 @@ export function installRestartGate(
 	entityId: string,
 	{ proxied }: { proxied: boolean },
 ) {
-	client.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-		if (!config.skipRestartGate) {
-			await waitUntilReachable(entityId, { proxied, signal: config.signal as AbortSignal | undefined });
+	client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+		if (config.skipRestartGate || !holdsRequests(getRestartState(entityId), { proxied })) {
+			return config;
 		}
-		return config;
+		if (!isSafeToDelay(config)) {
+			const target = entityId.startsWith('clu-') ? 'This cluster' : 'This instance';
+			throw new AxiosError(
+				`${target} is restarting. Try again once it's back online.`,
+				RESTARTING_ERROR_CODE,
+				config,
+			);
+		}
+		return waitUntilReachable(entityId, { proxied, signal: config.signal as AbortSignal | undefined })
+			.then(() => config);
 	});
 }
 
@@ -61,7 +88,8 @@ function bodyText(data: unknown): string {
 export function isConnectivityFailure(err: unknown): boolean {
 	const { response, code } = (err ?? {}) as { response?: { status?: number; data?: unknown }; code?: string };
 	if (!response) {
-		return code === 'ERR_NETWORK' || code === 'ECONNABORTED' || code === 'ETIMEDOUT' || code === 'ERR_CANCELED';
+		return code === 'ERR_NETWORK' || code === 'ECONNABORTED' || code === 'ETIMEDOUT' || code === 'ERR_CANCELED'
+			|| code === RESTARTING_ERROR_CODE;
 	}
 	const status = response.status ?? 0;
 	if (GATEWAY_STATUSES.has(status)) { return true; }

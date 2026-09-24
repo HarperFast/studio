@@ -70,9 +70,8 @@ export function useRestartClusterClick(
 		);
 		let instancesRestarted = 0;
 
-		// Instances restart one at a time, so the cluster stays reachable through the others — unless
-		// there is only one, in which case the cluster is down with it. Each instance is `down` for
-		// its own turn. The TTLs only matter if this loop dies without reaching `finally`.
+		// One instance at a time, so the cluster stays reachable through the others unless it has only
+		// one. The TTLs only matter if this loop dies without reaching `finally`.
 		const releaseCluster = markRestarting([clusterId], {
 			reach: runningInstances.length === 1 ? 'down' : 'rolling',
 			ttlMs: (runningInstances.length + 1) * INSTANCE_RESTART_TTL_MS,
@@ -94,8 +93,8 @@ export function useRestartClusterClick(
 					});
 					let releaseInstance: (() => void) | undefined;
 					try {
-						// Make sure the instance is responding. Skips the gate so an instance central manager
-						// already reports as restarting fails fast here instead of holding the whole loop.
+						// Make sure the instance is responding. Ungated, so an instance central manager already
+						// reports as restarting fails here instead of stalling the loop.
 						await getInstanceUserInfo({
 							instanceClient,
 							skipRestartGate: true,
@@ -127,7 +126,7 @@ export function useRestartClusterClick(
 				}
 			}
 		} finally {
-			// Releasing refetches everything the cluster's pages hold (see `onRestartSettled`).
+			// Releasing refetches the cluster's queries (`onRestartSettled`).
 			releaseCluster();
 		}
 
