@@ -83,9 +83,11 @@ export function NewOrgForm() {
 						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 py-5 dark:from-primary/20 dark:to-primary/5">
 							<div className="flex items-center gap-2 text-primary dark:text-violet-300">
 								<Building2 className="size-4" aria-hidden="true" />
-								<h2 className="text-base font-semibold text-foreground">Organization details</h2>
+								<h2 className="text-balance text-base font-semibold text-foreground">Organization details</h2>
 							</div>
-							<p className="text-sm text-muted-foreground">Choose a name and an address for your organization.</p>
+							<p className="text-balance text-sm text-muted-foreground">
+								Choose a name and an address for your organization.
+							</p>
 						</CardHeader>
 						<CardContent className="grid gap-6 py-6">
 							<FormField
@@ -104,7 +106,7 @@ export function NewOrgForm() {
 												{...field}
 											/>
 										</FormControl>
-										<FormDescription>Use a name your team will recognize.</FormDescription>
+										<FormDescription className="text-balance">Use a name your team will recognize.</FormDescription>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -126,7 +128,7 @@ export function NewOrgForm() {
 												{...field}
 											/>
 										</FormControl>
-										<FormDescription>
+										<FormDescription className="text-balance">
 											Lowercase letters, numbers, and dashes. Leave blank to use the suggested subdomain.
 										</FormDescription>
 										<FormMessage />
@@ -144,25 +146,29 @@ export function NewOrgForm() {
 						className="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 p-6"
 						aria-labelledby="org-address-heading"
 					>
-						<div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-violet-300">
-							<Globe2 className="size-5" aria-hidden="true" />
+						<div className="mb-4 flex items-center gap-3">
+							<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-violet-300">
+								<Globe2 className="size-5" aria-hidden="true" />
+							</div>
+							<h2 id="org-address-heading" className="text-balance text-base font-semibold">Your cluster addresses</h2>
 						</div>
-						<h2 id="org-address-heading" className="text-base font-semibold">Your cluster addresses</h2>
-						<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+						<p className="text-balance mt-2 text-sm leading-relaxed text-muted-foreground">
 							Your subdomain is part of the address for each cluster you create in this organization.
 						</p>
 						<div className="my-5 rounded-xl border border-border/60 bg-background/70 p-4">
-							<p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Address preview</p>
+							<p className="text-balance mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+								Address preview
+							</p>
 							<p className="break-all font-mono text-sm leading-6" data-testid="org-hostname-preview">
 								{calculatedNames.fullHostName}
 							</p>
 						</div>
-						<p className="text-xs leading-relaxed text-muted-foreground">
+						<p className="text-balance text-xs leading-relaxed text-muted-foreground">
 							The cluster name is a placeholder. You’ll name your clusters when you create them.
 						</p>
 						<div className="mt-5 border-t border-primary/15 pt-5">
-							<h3 className="text-sm font-medium">Prefer your own domain?</h3>
-							<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+							<h3 className="text-balance text-sm font-medium">Prefer your own domain?</h3>
+							<p className="text-balance mt-2 text-sm leading-relaxed text-muted-foreground">
 								You can also bind a domain you own to a cluster after creating it.
 							</p>
 							<a
