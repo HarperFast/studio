@@ -71,3 +71,21 @@ for (const path of ['/#/org-help', '/#/org-help/clu-help']) {
 		expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 	});
 }
+
+test('help minimization survives reload and layout changes and can be reversed', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 1100 });
+	await page.goto('/#/org-help');
+	const help = page.getByRole('region', { name: 'Need help?' });
+	await help.getByRole('button', { name: 'Minimize help card' }).press('Enter');
+	await expect(help.getByRole('link', { name: 'View docs' })).toBeHidden();
+	await page.reload();
+	await expect(help.getByRole('button', { name: 'Expand help card' })).toHaveAttribute('aria-expanded', 'false');
+	await page.goto('/#/org-help/clu-help');
+	await expect(help.getByRole('link', { name: 'View docs' })).toBeHidden();
+	await help.getByRole('button', { name: 'Expand help card' }).press('Enter');
+	await page.reload();
+	await expect(help.getByRole('link', { name: 'View docs' })).toBeVisible();
+	await help.getByRole('button', { name: 'Minimize help card' }).click();
+	await page.setViewportSize({ width: 1440, height: 500 });
+	await expect(help).toBeHidden();
+});
