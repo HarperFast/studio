@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { FormControl } from '@/components/ui/form/FormControl';
+import { FormDescription } from '@/components/ui/form/FormDescription';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
@@ -17,7 +18,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Building2, Globe2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -76,61 +77,90 @@ export function NewOrgForm() {
 					id="org-add-form"
 					name="org-add-form"
 					onSubmit={form.handleSubmit(submitForm)}
-					className="grid gap-6 text-foreground max-w-xl"
+					className="grid items-start gap-6 text-foreground lg:grid-cols-[1.2fr_1fr]"
 				>
-					<FormField
-						control={form.control}
-						name="name"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Name</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										maxLength={NewOrganizationSchema.shape.name.maxLength!}
-										autoCapitalize="words"
-										placeholder={defaultName}
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+					<Card className="min-w-0 gap-0 overflow-hidden py-0">
+						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/20 py-5 dark:from-primary/20 dark:to-primary/5">
+							<div className="flex items-center gap-2 text-primary dark:text-violet-300">
+								<Building2 className="size-4" aria-hidden="true" />
+								<h2 className="text-base font-semibold text-foreground">Organization details</h2>
+							</div>
+							<p className="text-sm text-muted-foreground">Choose a name and an address for your organization.</p>
+						</CardHeader>
+						<CardContent className="grid gap-6 py-6">
+							<FormField
+								control={form.control}
+								name="name"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Name</FormLabel>
+										<FormControl>
+											<Input
+												type="text"
+												className="bg-background/60"
+												maxLength={NewOrganizationSchema.shape.name.maxLength!}
+												autoCapitalize="words"
+												placeholder={defaultName}
+												{...field}
+											/>
+										</FormControl>
+										<FormDescription>Use a name your team will recognize.</FormDescription>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 
-					<FormField
-						control={form.control}
-						name="subdomain"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel className="pb-1">Subdomain</FormLabel>
-								<FormControl>
-									<Input
-										type="text"
-										maxLength={specifiedSubdomain.maxLength!}
-										autoCapitalize="none"
-										placeholder={calculatedNames.suggestedSubdomain}
-										{...field}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormItem>
-						<FormLabel className="pb-1">Full Host Name</FormLabel>
-						<FormControl>
-							<span>{calculatedNames.fullHostName}</span>
-						</FormControl>
-						<FormMessage />
-					</FormItem>
-
-					<DialogFooter>
-						<Button type="submit" variant="submit" disabled={isPending}>
-							Create New Organization <ArrowRight />
-						</Button>
-					</DialogFooter>
+							<FormField
+								control={form.control}
+								name="subdomain"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel className="pb-1">Subdomain</FormLabel>
+										<FormControl>
+											<Input
+												type="text"
+												className="bg-background/60"
+												maxLength={specifiedSubdomain.maxLength!}
+												autoCapitalize="none"
+												placeholder={calculatedNames.suggestedSubdomain}
+												{...field}
+											/>
+										</FormControl>
+										<FormDescription>
+											Lowercase letters, numbers, and dashes. Leave blank to use the suggested subdomain.
+										</FormDescription>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</CardContent>
+						<div className="border-t border-border/60 bg-muted/20 px-6 py-5">
+							<Button type="submit" variant="submit" disabled={isPending} className="w-full sm:w-auto">
+								{isPending ? 'Creating organization…' : 'Create organization'} <ArrowRight aria-hidden="true" />
+							</Button>
+						</div>
+					</Card>
+					<aside
+						className="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 p-6"
+						aria-labelledby="org-address-heading"
+					>
+						<div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary dark:text-violet-300">
+							<Globe2 className="size-5" aria-hidden="true" />
+						</div>
+						<h2 id="org-address-heading" className="text-base font-semibold">Your cluster addresses</h2>
+						<p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+							Your subdomain is part of the address for each cluster you create in this organization.
+						</p>
+						<div className="my-5 rounded-xl border border-border/60 bg-background/70 p-4">
+							<p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Address preview</p>
+							<p className="break-all font-mono text-sm leading-6" data-testid="org-hostname-preview">
+								{calculatedNames.fullHostName}
+							</p>
+						</div>
+						<p className="text-xs leading-relaxed text-muted-foreground">
+							The cluster name is a placeholder. You’ll name your clusters when you create them.
+						</p>
+					</aside>
 				</form>
 			</Form>
 		</>
