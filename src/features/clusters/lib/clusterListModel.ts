@@ -1,5 +1,5 @@
-import { isBeingUpdated, isPendingUpdate, isRunning } from '@/components/ui/utils/badgeStatus';
-import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { isBeingUpdated, isPendingUpdate } from '@/components/ui/utils/badgeStatus';
+import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { detectPartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
 import type { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -27,9 +27,10 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 	const planRegions = (cluster.plans ?? []).map(plan => plan.region || regionNames?.get(plan.regionId ?? '')).filter(
 		Boolean,
 	);
-	const regionValues = planRegions.length
-		? planRegions
-		: (instances ?? []).map(instance => instance.region || regionNames?.get(instance.regionId ?? ''));
+	const regionValues = [
+		...planRegions,
+		...(instances ?? []).map(instance => instance.region || regionNames?.get(instance.regionId ?? '')),
+	];
 	const regions = [...new Set(regionValues.filter((region): region is string => !!region))].sort();
 	const versions = [...new Set((instances ?? []).map(instance => instance.version).filter(Boolean))].sort();
 	const status = cluster.status;
@@ -51,6 +52,7 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 		);
 	}
 	if (status === 'PARTIAL') { notices.push('Some instances are not running'); }
+	if (status === 'UPDATED') { notices.push('Waiting for running status'); }
 	if (status === 'STOPPED') { notices.push('Cluster stopped'); }
 	if (cluster.resetPassword) { notices.push('Setup required'); }
 	if (updating && !pendingUpgrade) { notices.push(capitalizeWords(status!)); }
@@ -58,7 +60,7 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 		? 'failed'
 		: notices.length
 		? 'attention'
-		: isRunning(status)
+		: activeClusterStatuses.includes(status ?? '')
 		? 'running'
 		: 'other';
 	const date = Date.parse(cluster.createdAt ?? '');
