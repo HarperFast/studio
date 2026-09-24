@@ -292,9 +292,9 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	]);
 
 	const { dataTableColumns, primaryKey } = formatBrowseDataTableHeader(instanceTable, relationshipInfoMap);
-	// Both list queries page and address records by primary key, so neither runs for a table without
-	// one (a component's `ensureTable({ attributes: [] })` creates these). The grid reads "no data" as
-	// "rows in flight", so it must be told the answer has settled or it spins forever (#1748).
+	// Both list queries need a primary key, so for a table without one neither ever runs, and the grid
+	// would read that "no data" as rows in flight (#1748). It gets a settled empty answer instead, and
+	// the actions that would add or export rows this view can't list are withdrawn.
 	const hasNoPrimaryKey = !!instanceTable && !primaryKey;
 	const [sort, setSort] = useEffectedState(
 		{
@@ -348,7 +348,6 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 	}, [wantExactCount, refetchExactCount, setWantExactCount]);
 
 	const totalRecords = exactCount ?? estimatedCount;
-	// No pages to offer when nothing can be listed; the count still describes the table.
 	const totalPages = totalRecords && !hasNoPrimaryKey ? Math.ceil(totalRecords / pageSize) : 0;
 	// A count is approximate only while we're still showing the estimate and the server flagged it as one.
 	const isEstimatedCount = exactCount === undefined && estimatedRange !== undefined;
@@ -844,7 +843,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 		<>
 			<div className="shrink-0 flex flex-col md:flex-row md:flex-wrap items-center justify-between gap-3 pt-15 pb-4 px-4">
 				<div className="flex space-x-2">
-					{canAddRecords && (
+					{canAddRecords && !hasNoPrimaryKey && (
 						<Button
 							variant="positiveOutline"
 							onClick={onAddClicked}
@@ -892,7 +891,7 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 						</Button>
 					)}
 
-					{!filtersToggled && (
+					{!filtersToggled && !hasNoPrimaryKey && (
 						<Button variant="ghost" onClick={showFilters} accessKey="f">
 							<FunnelIcon className="inline-block " />
 							<span>
@@ -922,13 +921,13 @@ export function DatabaseTableView({ instanceDatabaseMap, databaseName, tableName
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent side="bottom" align="end">
-							{canImportData && (
+							{canImportData && !hasNoPrimaryKey && (
 								<DropdownMenuItem onClick={onImportDataClicked}>
 									<CloudUploadIcon />
 									Import Data
 								</DropdownMenuItem>
 							)}
-							<DropdownMenuItem onClick={onExportCSVClicked} disabled={isExportingCSV}>
+							<DropdownMenuItem onClick={onExportCSVClicked} disabled={isExportingCSV || hasNoPrimaryKey}>
 								<CloudDownloadIcon />
 								Export CSV
 							</DropdownMenuItem>
