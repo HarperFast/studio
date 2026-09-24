@@ -18,8 +18,9 @@ the same settled answer. Pinned by
 which keeps the grid and React Query real.
 
 Adding a key later is no remedy. 4.x keeps the table's original nameless key, and 5.x refuses the
-change once the table holds records (HarperFast/harper#2480). That's why the panel says to recreate
-the table or move the records instead.
+change once the table holds records (HarperFast/harper#2480). Dropping and recreating the table
+deletes the records, and this view disables Export for it. So the panel's only advice is to copy the
+records into a new table that has a primary key.
 
 `$id` is not a stand-in key. These are live-probe observations on `harperdb:4.7.36` and
 `harper-pro:5.2.13` (2026-09), not covered by a test here:
