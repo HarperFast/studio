@@ -12,11 +12,11 @@ export function NewOrg() {
 						<Building2 className="size-6" aria-hidden="true" />
 					</div>
 					<div>
-						<p className="text-balance mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+						<p className="mb-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
 							Your workspace
 						</p>
-						<h1 className="text-balance text-3xl font-semibold tracking-tight">Create an organization</h1>
-						<p className="text-balance mt-2 text-sm text-muted-foreground">
+						<h1 className="text-3xl font-semibold tracking-tight">Create an organization</h1>
+						<p className="mt-2 text-sm text-muted-foreground">
 							A home for your team and clusters in Harper Fabric.
 						</p>
 					</div>
