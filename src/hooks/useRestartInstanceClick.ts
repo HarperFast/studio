@@ -79,6 +79,7 @@ export function useRestartInstanceClick({
 				},
 			});
 		} finally {
+			// Released on failure too: once the restart has failed, the errors that follow are real.
 			releaseTarget?.();
 		}
 	}, [

@@ -12,7 +12,6 @@ declare module 'axios' {
 	}
 }
 
-/** Set on a write refused because its target is restarting, so it can be told from a real failure. */
 export const RESTARTING_ERROR_CODE = 'ERR_TARGET_RESTARTING';
 
 /**
@@ -23,9 +22,21 @@ export const RESTARTING_ERROR_CODE = 'ERR_TARGET_RESTARTING';
 const SAFE_TO_DELAY =
 	/^(?:get_|search_|describe_|list_|read_|user_info$|system_information$|cluster_status$|registration_info$)/;
 
+function operationOf(data: unknown): unknown {
+	if (typeof data !== 'string') {
+		return (data as { operation?: unknown } | undefined)?.operation;
+	}
+	// A gateway retry re-sends the config axios already serialized.
+	try {
+		return (JSON.parse(data) as { operation?: unknown } | null)?.operation;
+	} catch {
+		return undefined;
+	}
+}
+
 function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
 	if (config.method?.toLowerCase() === 'get') { return true; }
-	const operation = (config.data as { operation?: unknown } | undefined)?.operation;
+	const operation = operationOf(config.data);
 	return typeof operation === 'string' && SAFE_TO_DELAY.test(operation);
 }
 
