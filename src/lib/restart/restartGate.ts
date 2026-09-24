@@ -49,27 +49,32 @@ function isSafeToDelay(config: InternalAxiosRequestConfig): boolean {
  *
  * Register after any interceptor that stamps a request at send time (the direct-connect Bearer):
  * axios runs request interceptors last-registered-first, so the stamp then reflects the real send.
+ * `runWhen` skips the interceptor outright while nothing is held, which keeps axios on its
+ * synchronous path for every ordinary request.
  */
 export function installRestartGate(
 	client: Pick<AxiosInstance, 'interceptors'>,
 	entityId: string,
 	{ proxied }: { proxied: boolean },
 ) {
-	client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-		if (config.skipRestartGate || !holdsRequests(getRestartState(entityId), { proxied })) {
-			return config;
-		}
-		if (!isSafeToDelay(config)) {
-			const target = entityId.startsWith('clu-') ? 'This cluster' : 'This instance';
-			throw new AxiosError(
-				`${target} is restarting. Try again once it's back online.`,
-				RESTARTING_ERROR_CODE,
-				config,
-			);
-		}
-		return waitUntilReachable(entityId, { proxied, signal: config.signal as AbortSignal | undefined })
-			.then(() => config);
-	});
+	client.interceptors.request.use(
+		(config: InternalAxiosRequestConfig) => {
+			if (!isSafeToDelay(config)) {
+				const target = entityId.startsWith('clu-') ? 'This cluster' : 'This instance';
+				throw new AxiosError(
+					`${target} is restarting. Try again once it's back online.`,
+					RESTARTING_ERROR_CODE,
+					config,
+				);
+			}
+			return waitUntilReachable(entityId, { proxied, signal: config.signal as AbortSignal | undefined })
+				.then(() => config);
+		},
+		undefined,
+		{
+			runWhen: (config) => !config.skipRestartGate && holdsRequests(getRestartState(entityId), { proxied }),
+		},
+	);
 }
 
 const GATEWAY_STATUSES = new Set([502, 503, 504]);

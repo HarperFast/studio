@@ -132,5 +132,8 @@ export const queryClient = new QueryClient({
 	mutationCache: new MutationCache({ onError: mutationErrorHandler }),
 });
 
-// Whatever errored or went stale while an entity restarted, fetch it fresh once it is back.
-onRestartSettled((entityId) => void invalidateEntityQueries(queryClient, entityId));
+// Without `cancelRefetch: false`, every read the restart held — released a tick earlier — would be
+// cancelled and sent again, doubling the burst a just-recovered instance receives.
+onRestartSettled((entityId) =>
+	void invalidateEntityQueries(queryClient, entityId, undefined, { cancelRefetch: false })
+);

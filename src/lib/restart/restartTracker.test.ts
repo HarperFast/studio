@@ -3,6 +3,7 @@ import {
 	holdsRequests,
 	markContainerOpAccepted,
 	markRestarting,
+	nextObservationStamp,
 	onRestartSettled,
 	resetRestartTracker,
 	subscribeToRestarts,
@@ -228,6 +229,21 @@ describe('restartTracker', () => {
 			syncRestartsFromCluster(
 				{ id: 'clu-1', status: 'RESTARTING', instances: [{ id: 'ins-1', status: 'RESTARTING' }] },
 				olderRequest,
+			);
+			expect(getRestartState('clu-1')).toBeUndefined();
+			expect(getRestartState('ins-1')).toBeUndefined();
+		});
+
+		it('orders two reads sent in the same millisecond by when they were sent', () => {
+			const sentFirst = nextObservationStamp();
+			const sentSecond = nextObservationStamp();
+			syncRestartsFromCluster(
+				{ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] },
+				sentSecond,
+			);
+			syncRestartsFromCluster(
+				{ id: 'clu-1', status: 'RESTARTING', instances: [{ id: 'ins-1', status: 'RESTARTING' }] },
+				sentFirst,
 			);
 			expect(getRestartState('clu-1')).toBeUndefined();
 			expect(getRestartState('ins-1')).toBeUndefined();

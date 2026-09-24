@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { getInstanceClient } from '@/config/getInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { isConnectivityFailure, isRestartNoise, RESTARTING_ERROR_CODE } from '@/lib/restart/restartGate';
 import { markRestarting, resetRestartTracker, syncRestartsFromCluster } from '@/lib/restart/restartTracker';
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
@@ -130,7 +131,10 @@ describe('the restart gate on instance clients', () => {
 		markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
 
 		await client.post('/', { operation: 'user_info' }, { skipRestartGate: true });
-		expect(sent).toHaveLength(1);
+		// restartInstance's recovery probe goes through getInstanceUserInfo; holding it would wait on
+		// the very restart it is watching.
+		await getInstanceUserInfo({ instanceClient: client, skipRestartGate: true });
+		expect(sent).toHaveLength(2);
 	});
 
 	it('only holds requests for the entity that is restarting', async () => {
