@@ -45,6 +45,10 @@ const CONTAINER_MARK_TTL_MS = 60_000;
  *  can still be serving the pre-op status. */
 const ACCEPTED_OP_GRACE_MS = 5_000;
 
+/** Watermarks older than this are forgotten. No request stays in flight this long (axios gives up
+ *  after 60s), so no response can arrive that one would have had to reject. */
+const OBSERVATION_HORIZON_MS = 5 * 60_000;
+
 /**
  * CM statuses for a container on its way back up. `STOPPING` is deliberately absent: holding
  * requests only makes sense for an entity that will answer them afterwards.
@@ -83,6 +87,15 @@ function purgeExpired(now: number) {
 		}
 		if (byToken.size === 0) {
 			marks.delete(entityId);
+		}
+	}
+	forgetOldObservations(now);
+}
+
+function forgetOldObservations(now: number) {
+	for (const [entityId, observedAt] of containerObservedAt) {
+		if (observedAt < now - OBSERVATION_HORIZON_MS) {
+			containerObservedAt.delete(entityId);
 		}
 	}
 }
@@ -311,6 +324,7 @@ export function syncRestartsFromCluster(cluster: ClusterLike | undefined, observ
 		for (const entityId of entityIds) {
 			claimObservation(entityId, observedAt);
 		}
+		forgetOldObservations(Date.now());
 		return;
 	}
 	mutate(() => {
@@ -362,6 +376,11 @@ export function markContainerOpAccepted(
 			setMark(entityId, CONTAINER_TOKEN, { ...mark, reach });
 		}
 	});
+}
+
+/** Test-only: how many entities currently carry an observation watermark. */
+export function getObservationCount(): number {
+	return containerObservedAt.size;
 }
 
 /** Test-only: forget every mark. Listeners stay — the app's own are registered at module load. */

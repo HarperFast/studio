@@ -1,4 +1,5 @@
 import {
+	getObservationCount,
 	getRestartState,
 	holdsRequests,
 	markContainerOpAccepted,
@@ -247,6 +248,16 @@ describe('restartTracker', () => {
 			);
 			expect(getRestartState('clu-1')).toBeUndefined();
 			expect(getRestartState('ins-1')).toBeUndefined();
+		});
+
+		it('forgets observation watermarks once no response could still need them', () => {
+			syncRestartsFromCluster({ id: 'clu-1', status: 'RUNNING', instances: [{ id: 'ins-1', status: 'RUNNING' }] });
+			expect(getObservationCount()).toBe(2);
+
+			vi.advanceTimersByTime(5 * 60_000 + 1);
+			// Any later read prunes; here, one for a different cluster.
+			syncRestartsFromCluster({ id: 'clu-2', status: 'RUNNING', instances: [] });
+			expect(getObservationCount()).toBe(1);
 		});
 
 		it('does not let an older response overwrite a newer restart', () => {

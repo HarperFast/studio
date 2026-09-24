@@ -4,7 +4,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInstanceUserInfo';
 import { isConnectivityFailure, isRestartNoise, RESTARTING_ERROR_CODE } from '@/lib/restart/restartGate';
 import { markRestarting, resetRestartTracker, syncRestartsFromCluster } from '@/lib/restart/restartTracker';
-import { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { AxiosError, InternalAxiosRequestConfig, isCancel } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const INSTANCE_ID = 'ins-123';
@@ -86,6 +86,22 @@ describe('the restart gate on instance clients', () => {
 
 		await client.post('/', { operation: 'get_status' });
 		expect(sent).toHaveLength(1);
+	});
+
+	it('rejects a held read abandoned by its caller the way axios cancels, and never sends it', async () => {
+		vi.spyOn(authStore, 'getOperationToken').mockReturnValue(undefined);
+		const { client, sent } = clientWithAdapter();
+		markRestarting([INSTANCE_ID], { reach: 'down', ttlMs: 60_000 });
+		const controller = new AbortController();
+
+		const held = client.post('/', { operation: 'get_status' }, { signal: controller.signal });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		controller.abort();
+
+		const error = await held.catch((err: unknown) => err);
+		expect(isCancel(error)).toBe(true);
+		expect(isConnectivityFailure(error)).toBe(true);
+		expect(sent).toHaveLength(0);
 	});
 
 	it('refuses a write to an entity that is down at once, rather than replaying it later', async () => {
