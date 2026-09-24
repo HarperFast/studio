@@ -110,7 +110,10 @@ export function getInstanceClient(
 	}
 	// After the Bearer interceptor, so it runs first: a request held through a restart picks up its
 	// token (and connection generation) when it is finally sent.
-	installRestartGate(client, id, { proxied: fabricConnect });
+	installRestartGate(client, id, {
+		proxied: fabricConnect,
+		connectionGeneration: () => authStore.getConnectionGeneration(id),
+	});
 	client.interceptors.response.use(
 		rejectReplicationFailures,
 		curryRetryGatewayErrors(client),
