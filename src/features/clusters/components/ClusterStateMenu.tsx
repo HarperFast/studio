@@ -191,7 +191,7 @@ function DisabledReasonTooltip({ reason, children }: { reason?: string; children
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<div>{children}</div>
+				<div role="none">{children}</div>
 			</TooltipTrigger>
 			<TooltipContent side="left" className="max-w-60">{reason}</TooltipContent>
 		</Tooltip>
