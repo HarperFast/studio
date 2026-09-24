@@ -138,6 +138,34 @@ function memberClusterPermissions(user: User | null, orgId: string, clusterId: s
 	};
 }
 
+/**
+ * Whether this user may run container lifecycle ops (start, stop, restart) on a cluster or instance.
+ * Deliberately not the cluster/instance `update` grant: central manager's container endpoints
+ * (`resources/cluster/containerOperation.js`, `resources/hdbInstance/containerOperation.js`) require
+ * `isSuperUser || isOrgAdmin() || can(INSTANCE_UPDATE)`, so `clusters.update` alone gets a 403.
+ */
+export function useContainerOpsPermission(orgId?: string): boolean {
+	const { user } = useCloudAuth();
+	const { organizationId: orgIdFromRoute }: { organizationId: string } = useParams({ strict: false });
+	return getContainerOpsPermission(user, orgId ?? orgIdFromRoute);
+}
+
+export function getContainerOpsPermission(user: User | null, orgId: string): boolean {
+	// `/User/current` reports every staff permission for the core super user, so this covers it too.
+	return hasStaffPermission(user, 'instance:update') || memberIsOrganizationAdmin(user, orgId);
+}
+
+// isOrgAdmin() (central-manager `lib/permissions.js`) is `role === 'admin'` on the aggregated org
+// role — the same aggregate `/User/current` returns in `roles`. Not `permission.super_user`, which
+// createOrgAdminRole sets false; and exact, since a custom role may be named "Admin".
+function memberIsOrganizationAdmin(user: User | null, orgId: string): boolean {
+	const role = user?.roles?.[orgId];
+	if (!role || 'oauthProviders' in role) {
+		return false;
+	}
+	return role.role === 'admin';
+}
+
 export function useOrganizationClusterInstancePermissions(orgId?: string, clusterId?: string): CRUV {
 	const { user } = useCloudAuth();
 	const { organizationId: orgIdFromRoute, clusterId: clusterIdFromRoute }: {

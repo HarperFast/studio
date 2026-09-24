@@ -11,6 +11,7 @@ function ClusterCard({ cluster }: { cluster: Cluster }) {
 
 const state = vi.hoisted(() => ({
 	permissions: { view: true, create: true, update: true, remove: true },
+	canRunContainerOps: true,
 	copy: vi.fn(),
 }));
 vi.mock(
@@ -24,7 +25,10 @@ vi.mock('@tanstack/react-router', () => ({
 	useRouter: () => ({ navigate: vi.fn(), invalidate: vi.fn() }),
 	Link: ({ children, to, ...props }: { children: ReactNode; to: string }) => <a href={to} {...props}>{children}</a>,
 }));
-vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterPermissions: () => state.permissions }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useOrganizationClusterPermissions: () => state.permissions,
+	useContainerOpsPermission: () => state.canRunContainerOps,
+}));
 vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: null, isLoading: false }) }));
 vi.mock('@/config/useInstanceClient', () => ({ useInstanceClient: () => ({}) }));
 vi.mock('@/features/auth/store/authStore', () => ({ authStore: { checkForFabricConnect: () => false } }));
@@ -55,6 +59,7 @@ beforeAll(() => {
 afterEach(() => {
 	cleanup();
 	state.permissions = { view: true, create: true, update: true, remove: true };
+	state.canRunContainerOps = true;
 	state.copy.mockClear();
 });
 const cluster = (overrides: Partial<Cluster> = {}): Cluster => ({
@@ -84,6 +89,17 @@ describe('ClusterCard', () => {
 		expect(screen.getByRole('link', { name: 'Open Production' }).getAttribute('href')).toBe('/org-a/clu-a/instances');
 		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
 		expect(screen.getByRole('menuitem', { name: 'Start' })).toBeTruthy();
+	});
+
+	it('leaves the container actions out for a cluster updater who cannot run them', () => {
+		state.canRunContainerOps = false;
+		render(<ClusterCard cluster={cluster()} />);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+		expect(screen.getByRole('menuitem', { name: 'Edit Scaling' })).toBeTruthy();
+		expect(screen.queryByText('Container')).toBeNull();
+		for (const name of ['Restart', 'Restart in safe mode', 'Stop']) {
+			expect(screen.queryByRole('menuitem', { name })).toBeNull();
+		}
 	});
 
 	it('preserves finish-setup navigation without a competing whole-card link', () => {

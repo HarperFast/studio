@@ -19,7 +19,7 @@ import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
@@ -57,6 +57,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const { view, update, remove, create } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const canRunContainerOps = useContainerOpsPermission(cluster.organizationId);
 	const { mutate: terminateCluster, isPending: isTerminateClusterPending } = useTerminateClusterMutation();
 
 	const [signingOut, setSigningOut] = useState(false);
@@ -80,7 +81,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const isSelfManaged = clusterIsSelfManaged(cluster);
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
-	const showContainerActions = update && !isSelfManaged;
+	const showContainerActions = canRunContainerOps && !isSelfManaged;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
