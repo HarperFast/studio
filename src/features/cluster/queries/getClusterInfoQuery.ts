@@ -1,10 +1,14 @@
 import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/integrations/api/api.patch';
+import { syncRestartsFromCluster } from '@/lib/restart/restartTracker';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { QueryClient, queryOptions } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
+	const requestedAt = Date.now();
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
+	// Every cluster read doubles as the restart tracker's view of central manager's container ops.
+	syncRestartsFromCluster(data as Cluster, requestedAt);
 	return data as Cluster;
 }
 

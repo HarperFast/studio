@@ -1,6 +1,8 @@
 import { isLocalStudio } from '@/config/constants';
 import { InstanceClientConfig } from '@/config/instanceClientConfig';
+import { OverallAppSignIn } from '@/features/auth/store/authStore';
 import { useRestartInstance } from '@/integrations/api/instance/status/restartInstance';
+import { markRestarting } from '@/lib/restart/restartTracker';
 import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
@@ -35,6 +37,12 @@ export function useRestartInstanceClick({
 				onClick: () => toast.dismiss(),
 			},
 		});
+		// Only a full `restart` takes the target down; `restart_service` keeps answering. A cluster
+		// target restarts whichever member the load balancer picked, so the cluster stays reachable.
+		const entityId = isLocalStudio ? OverallAppSignIn : instanceId ?? clusterId;
+		const releaseTarget = operation === 'restart' && entityId
+			? markRestarting([entityId], { reach: targetNoun === 'Instance' ? 'down' : 'rolling', ttlMs: 5 * 60_000 })
+			: undefined;
 		// Await the mutation directly rather than using the mutate() callbacks. Those callbacks are
 		// dropped if the component unmounts before the restart finishes (e.g. the user navigates to
 		// another tab while the instance comes back up), which would orphan the loading toast forever
@@ -45,8 +53,13 @@ export function useRestartInstanceClick({
 				replicated: operation === 'restart_service' && targetNoun === 'Cluster',
 				instanceClient,
 			});
-			void invalidateEntityQueries(queryClient, clusterId);
-			void invalidateEntityQueries(queryClient, instanceId);
+			// Releasing a tracked target refetches its queries (`onRestartSettled`); invalidating it here
+			// too would cancel those refetches and resend them.
+			for (const id of [clusterId, instanceId]) {
+				if (!releaseTarget || id !== entityId) {
+					void invalidateEntityQueries(queryClient, id);
+				}
+			}
 			toast.dismiss(toastId);
 			toast.success('Success', {
 				description: `${targetNoun} restarted!`,
@@ -65,6 +78,8 @@ export function useRestartInstanceClick({
 					onClick: () => toast.dismiss(),
 				},
 			});
+		} finally {
+			releaseTarget?.();
 		}
 	}, [
 		clusterId,

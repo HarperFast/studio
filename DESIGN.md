@@ -26,6 +26,16 @@ All cloud authentication routes use `AuthLayout`; keep form submission, validati
 
 The wide hero artwork spans both columns beneath the form card in three independent layers: a globe-only background, SVG energy lines/particles, and a transparent platform cutout. There is only one globe surface per theme, so resizing it cannot create a seam against the platform. Keep its max-width unrestricted; the footer’s bottom margin reserves its overflow without moving the form or platform. Each platform cutout has its own scale/offset to align with the original 2054 × 766 coordinates. Keep the headline and feature copy as HTML. `HeroParticles` draws static lines and animates particles from the same theme-specific paths; resizing or replacing the globe does not require retracing them. Reduced-motion mode hides only particles, retaining the static lines, and disables decorative animation. Linux visual baselines use reduced motion so animated decoration does not introduce pixel-diff noise.
 
+## Restarts — the restart tracker and request gate
+
+[`restartTracker.ts`](src/lib/restart/restartTracker.ts) is the one record of which clusters and instances are restarting, so a planned outage doesn't read as a failure. Read it before adding anything that takes an instance down.
+
+- **Two sources.** Studio's own Harper `restart` runs mark and release their targets (`markRestarting`, released in `finally`) — central manager never hears about these. Container ops are central manager's: every `getClusterInfo` fetch mirrors its `RESTARTING`/`STARTING` statuses into the tracker. A new flow that takes an instance down must use one of the two, or its failures toast like before.
+- **Requests are held, not failed.** Every `getInstanceClient` client waits while its entity is `down` ([`restartGate.ts`](src/lib/restart/restartGate.ts)). Requests that drive or watch a restart must pass `skipRestartGate: true`, or they wait on themselves.
+- **Central manager's operations proxy refuses a transitional target outright** — `400 "Cluster is not active"` / `"Instance is not active"` for any `INACTIVE_STATES` status, which includes a _rolling_ restart's `RESTARTING` cluster — and relays the host manager's connection errors as a `500` carrying the raw error text. That is why a proxied client holds for marks with `proxyRefuses`, and why `isConnectivityFailure` counts those two shapes.
+- **Only query errors are muted, and only connectivity-class ones.** Mutations still toast; a 403 or a Harper 500 during a restart still toasts.
+- **Detection is per tab.** A page learns of a container op started elsewhere only from a cluster-record fetch, and the in-cluster studio pages don't poll the cluster, so they don't notice one started in another tab.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.

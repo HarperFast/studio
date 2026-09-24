@@ -1,5 +1,6 @@
 import { Instance } from '@/integrations/api/api.patch';
 import { ContainerAction, useInstanceContainerOperation } from '@/integrations/api/instance/containerOperation';
+import { markContainerOpAccepted } from '@/lib/restart/restartTracker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -40,6 +41,9 @@ export function useInstanceContainerOps(instance: Instance) {
 			});
 			try {
 				await mutateAsync({ instanceId: instance.id, action, safeMode: opts?.safeMode });
+				if (action !== 'stop') {
+					markContainerOpAccepted({ instanceIds: [instance.id], label: GERUND[action], allAtOnce: true });
+				}
 				// clusterId is optional (useParams strict:false); guard so we don't invalidate [undefined].
 				if (clusterId) {
 					void queryClient.invalidateQueries({ queryKey: [clusterId] });

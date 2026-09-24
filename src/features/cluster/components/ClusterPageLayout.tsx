@@ -1,6 +1,7 @@
 import { SectionRail } from '@/components/SectionRail';
 import type { SubNavItem } from '@/components/SubNavRail';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
@@ -47,7 +48,10 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 				<aside className="section-rail-aside md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
 					<SectionRail items={items} ariaLabel="Cluster sections" />
 				</aside>
-				<section className="md:col-span-9 lg:col-span-10 min-w-0">{children}</section>
+				<section className="md:col-span-9 lg:col-span-10 min-w-0">
+					<RestartingNotice entityId={clusterId} clusterId={clusterId} noun="cluster" className="mb-4" />
+					{children}
+				</section>
 			</div>
 		</div>
 	);

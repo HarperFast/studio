@@ -7,10 +7,12 @@ import { isStoppedOrTransitioning, renderBadgeStatusVariant } from '@/components
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
+import { useRestartTrackerVersion } from '@/hooks/useRestartState';
 import { Instance } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
+import { getRestartState } from '@/lib/restart/restartTracker';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { ColumnDef } from '@/lib/table';
 import { useQuery } from '@tanstack/react-query';
@@ -144,6 +146,7 @@ export function Instances() {
 			] satisfies Array<ColumnDef<Instance> | false>).filter(excludeFalsy),
 		[isSelfManaged],
 	);
+	const restartVersion = useRestartTrackerVersion();
 	const instances = useMemo(
 		() => {
 			if (!cluster?.instances) {
@@ -151,9 +154,17 @@ export function Instances() {
 			}
 			return cluster.instances
 				.filter(instance => instance.status && !deletedClusterStatuses.includes(instance.status))
+				// Central manager never hears about a restart Studio drives through Harper's own
+				// `restart` operation, so its status still reads RUNNING. Show the row as restarting
+				// instead — which also stops every cell from polling an instance that is down.
+				.map(instance =>
+					getRestartState(instance.id)?.reach === 'down' && !isStoppedOrTransitioning(instance.status)
+						? { ...instance, status: 'RESTARTING' }
+						: instance
+				)
 				.sort(byInstanceFqdnThenPort);
 		},
-		[cluster],
+		[cluster, restartVersion],
 	);
 	return (
 		<>
