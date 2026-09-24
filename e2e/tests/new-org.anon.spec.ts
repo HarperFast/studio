@@ -35,6 +35,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 				page.getByTestId('org-hostname-preview'),
 			]
 		) {
+			await expect(target).toBeVisible();
 			const box = await target.boundingBox();
 			expect(box!.x).toBeGreaterThanOrEqual(0);
 			expect(box!.x + box!.width).toBeLessThanOrEqual(390);
