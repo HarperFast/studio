@@ -149,8 +149,6 @@ describe('EmptyResultSet', () => {
 		expect(screen.getByRole('heading').textContent).toBe('users has no records yet');
 	});
 
-	// No page, filter or count explains a table that can't be listed, and inviting records into it would
-	// promise rows Studio then can't show.
 	it('explains a table with no primary key ahead of every other reason, and invites nothing', () => {
 		renderEmptyResultSet({ hasPrimaryKey: false, isFiltered: true, isPastFirstPage: true, recordCount: 1234 });
 		expect(screen.getByRole('heading').textContent).toBe('users has no primary key');
@@ -161,5 +159,8 @@ describe('EmptyResultSet', () => {
 		renderEmptyResultSet({ hasPrimaryKey: false, recordCount: undefined });
 		expect(screen.queryByText(/It reports/)).toBeNull();
 		expect(screen.getByText(/can't browse this table/)).toBeTruthy();
+		// Declaring a key on the existing table fails once it holds records (HarperFast/harper#2480).
+		expect(screen.getByText(/recreate the table with a primary key/)).toBeTruthy();
+		expect(screen.queryByText(/declare a primary key/i)).toBeNull();
 	});
 });

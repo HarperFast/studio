@@ -45,6 +45,8 @@ export function EmptyResultSet({
 	readonly onClearFilters: () => void;
 }) {
 	// Ahead of every other reason: no page, filter or count can explain a table that can't be listed.
+	// The remedy is Harper's own: declaring a key on the existing table doesn't work (4.x keeps the
+	// original key; 5.x refuses the change once the table holds records, HarperFast/harper#2480).
 	if (!hasPrimaryKey) {
 		return (
 			<EmptyResultSetShell>
@@ -55,8 +57,8 @@ export function EmptyResultSet({
 					{recordCount
 						? `It reports ${pluralize(addCommasToNumbers(recordCount), 'record', 'records')}, but Studio`
 						: 'Studio'}{' '}
-					lists and opens records by their primary key, so it can't browse this table. Declare a primary key in the
-					table's schema to browse it here.
+					lists and opens records by their primary key, so it can't browse this table. To browse its records here,
+					recreate the table with a primary key or move its records into a table that has one.
 				</p>
 			</EmptyResultSetShell>
 		);

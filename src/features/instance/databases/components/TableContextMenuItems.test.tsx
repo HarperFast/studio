@@ -90,7 +90,6 @@ describe('TableContextMenuItems allowlist gating', () => {
 	});
 });
 
-// The table view can't list a table without a primary key, so this menu mustn't feed rows into one.
 describe('TableContextMenuItems on a table with no primary key', () => {
 	it('withdraws Add and Import and disables Export, even for a super_user', () => {
 		renderMenu({ super_user: true }, { attributes: [] });

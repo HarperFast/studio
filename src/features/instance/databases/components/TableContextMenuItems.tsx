@@ -30,11 +30,11 @@ export function TableContextMenuItems({ databaseName, tableName, instanceDatabas
 
 	const isLastTable = Object.keys(instanceDatabaseMap?.[databaseName] || {}).length <= 1;
 	const instanceTable = instanceDatabaseMap?.[databaseName]?.[tableName];
-	const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
-	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there (#1748).
-	const hasNoPrimaryKey = !!instanceTable && !primaryKey;
+	// Same withdrawal as the table view's toolbar: rows added here couldn't be listed there.
+	const hasNoPrimaryKey = !!instanceTable && !(instanceTable.primary_key ?? instanceTable.hash_attribute);
 
 	const onExport = () => {
+		const { primaryKey } = formatBrowseDataTableHeader(instanceTable);
 		void exportCsv({ databaseName, tableName, primaryKey, conditions: null });
 	};
 
