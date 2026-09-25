@@ -226,7 +226,7 @@ export function OrganizationsIndex() {
 									setAccess(event.target.value as OrganizationAccess);
 									setRole('');
 								}}
-								className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+								className="native-select max-w-full rounded-lg border border-border bg-background pl-3 py-2 text-sm"
 							>
 								<option value="all">All access</option>
 								<option value="accessible">Accessible</option>
@@ -237,7 +237,7 @@ export function OrganizationsIndex() {
 									aria-label="Organization role"
 									value={activeRole}
 									onChange={event => setRole(event.target.value)}
-									className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+									className="native-select max-w-full rounded-lg border border-border bg-background pl-3 py-2 text-sm"
 								>
 									<option value="">All roles</option>
 									{roles.map(value => <option key={value} value={value}>{capitalizeWords(value)}</option>)}
@@ -247,7 +247,7 @@ export function OrganizationsIndex() {
 								aria-label="Sort organizations"
 								value={descending ? 'desc' : 'asc'}
 								onChange={event => setDescending(event.target.value === 'desc')}
-								className="max-w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+								className="native-select max-w-full rounded-lg border border-border bg-background pl-3 py-2 text-sm"
 							>
 								<option value="asc">Name: A–Z</option>
 								<option value="desc">Name: Z–A</option>
