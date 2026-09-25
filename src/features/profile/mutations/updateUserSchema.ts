@@ -25,7 +25,12 @@ export const UpdateUserSchema = z
 			.string()
 			.optional(),
 	})
-	.refine((data) => data.newPassword === data.confirmNewPassword, {
-		error: 'Passwords do not match',
-		path: ['confirmNewPassword'],
+	.superRefine((data, ctx) => {
+		if (data.newPassword !== data.confirmNewPassword) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['confirmNewPassword'],
+				message: data.confirmNewPassword ? 'Passwords do not match' : 'Please confirm your new password.',
+			});
+		}
 	});
