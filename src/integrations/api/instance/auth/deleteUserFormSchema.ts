@@ -7,10 +7,10 @@ export const DeleteUserFormSchema = z.object({
 		.string()
 		.nonempty({
 			error: 'Please type the username again to confirm deletion.',
-		})
-		.toLowerCase(),
+		}),
 })
-	.refine((data) => data.username === data.confirmUsernameForDeletion, {
+	// Harper usernames can hold capitals (HDB_ADMIN), so fold both sides rather than just the typed one.
+	.refine((data) => data.username.toLowerCase() === data.confirmUsernameForDeletion.toLowerCase(), {
 		error: 'Username does not match.',
 		path: ['confirmUsernameForDeletion'], // This specifies where the error message should be attached
 	});
