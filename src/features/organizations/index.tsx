@@ -171,13 +171,9 @@ export function OrganizationsIndex() {
 			<SubNavMenu />
 			<section className="mt-32 px-4 pt-6 pb-10 md:px-12 min-h-[calc(100vh-theme(spacing.32))]">
 				<header className="flex flex-wrap items-center justify-between gap-4 pb-6">
-					<div>
-						<p className="text-xs font-semibold uppercase tracking-widest text-primary dark:text-violet-300">
-							Organizations
-						</p>
-						<h1 className="mt-2 text-3xl font-semibold tracking-tight">Your teams, connected.</h1>
-						<p className="mt-2 text-sm text-muted-foreground">Find your organization and get back to building.</p>
-					</div>
+					<h1 className="text-2xl font-bold tracking-normal text-primary sm:text-3xl dark:text-violet-300">
+						Organizations
+					</h1>
 					<Button asChild variant="positive" accessKey="n">
 						<Link to="/new-org">
 							<PlusIcon />New Organization
