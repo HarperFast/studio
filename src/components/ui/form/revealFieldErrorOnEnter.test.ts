@@ -16,9 +16,12 @@ function keyDown(target: EventTarget, key = 'Enter', isComposing = false) {
 	return { key, target, nativeEvent: { isComposing } } as unknown as KeyboardEvent<HTMLFormElement>;
 }
 
-function field(tag: 'input' | 'textarea', name: string) {
+function field(tag: 'input' | 'textarea', name: string, type?: string) {
 	const element = document.createElement(tag);
 	element.name = name;
+	if (type && element instanceof HTMLInputElement) {
+		element.type = type;
+	}
 	return element;
 }
 
@@ -34,6 +37,8 @@ describe('revealFieldErrorOnEnter', () => {
 		['another key', keyDown(field('input', 'name'), 'a')],
 		['Enter that confirms an IME composition', keyDown(field('input', 'name'), 'Enter', true)],
 		['Enter in a textarea, where it adds a line', keyDown(field('textarea', 'name'))],
+		['Enter on a checkbox, which has no text to leave', keyDown(field('input', 'name', 'checkbox'))],
+		['Enter on an input button, which Enter activates', keyDown(field('input', 'name', 'submit'))],
 		['an input the form has no value for', keyDown(field('input', 'other'))],
 		['an unnamed input', keyDown(field('input', ''))],
 	])('ignores %s', (_, event) => {

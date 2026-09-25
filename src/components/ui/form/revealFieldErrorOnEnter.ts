@@ -1,6 +1,8 @@
 import type { KeyboardEvent } from 'react';
 import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
 
+const nonTextInputTypes = new Set(['checkbox', 'radio', 'file', 'submit', 'button', 'image', 'reset']);
+
 export function revealFieldErrorOnEnter<T extends FieldValues>(form: UseFormReturn<T>) {
 	return (event: KeyboardEvent<HTMLFormElement>) => {
 		const input = event.target;
@@ -8,6 +10,7 @@ export function revealFieldErrorOnEnter<T extends FieldValues>(form: UseFormRetu
 			event.key !== 'Enter'
 			|| event.nativeEvent.isComposing
 			|| !(input instanceof HTMLInputElement)
+			|| nonTextInputTypes.has(input.type)
 			|| !input.name
 		) {
 			return;
