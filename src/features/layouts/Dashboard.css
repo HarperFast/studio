@@ -72,11 +72,6 @@
 	}
 }
 
-.studio-shell .cluster-overview-hero {
-	background: transparent;
-	border-color: transparent;
-}
-
 .dark .studio-shell .cluster-list-controls input[data-slot="input"] {
 	background-color: var(--card);
 }
