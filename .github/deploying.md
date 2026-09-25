@@ -161,7 +161,7 @@ yet.
 - **What fails it:** a failed test, a skipped test (a skip means a prerequisite the run was given
   stopped working — `e2e/README.md`, "Skips are deliberate"), no tests run, or no report. Flaky
   tests warn. Playwright stops after 10 failures or 25 minutes (the signup round-trip alone may take
-  10 minutes an attempt), inside the job's 40, so a slow red run still writes its report.
+  10 minutes an attempt), inside the job's 45, so a slow red run still writes its report.
 - **What it publishes:** the log, failure annotations and a job summary with a repro command. **No
   trace, video, screenshot or HTML report is uploaded**: anyone signed in to GitHub can download a
   public repo's artifacts, and a Playwright trace records the session cookie. GitHub masks the

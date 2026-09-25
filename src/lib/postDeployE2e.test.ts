@@ -203,7 +203,11 @@ describe('the post-deploy verdict', () => {
 			report([failed, notRun], [{ message: 'Testing stopped early after 10 maximum allowed failures.' }]),
 			1,
 		);
-		expect(verdict.problems).toEqual(['1 failed', 'Testing stopped early after 10 maximum allowed failures.']);
+		expect(verdict.problems).toEqual([
+			'1 failed',
+			'Testing stopped early after 10 maximum allowed failures.',
+			'1 did not run',
+		]);
 		expect(verdict.counts['not run']).toBe(1);
 		expect(verdict.counts.skipped).toBe(0);
 	});

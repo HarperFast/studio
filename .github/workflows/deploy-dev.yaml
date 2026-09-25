@@ -60,8 +60,9 @@ jobs:
     name: E2E against Dev
     needs: deployToDev
     runs-on: ubuntu-latest
-    # Install, up to 10 min for the build to go live, and the suite's own 25-minute global timeout.
-    timeout-minutes: 40
+    # Must outlast the 10-minute build wait plus Playwright's 25-minute --global-timeout, or the
+    # Report step never runs.
+    timeout-minutes: 45
     environment: e2e-dev
     permissions:
       contents: read
