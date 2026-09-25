@@ -64,8 +64,7 @@ export function ClustersList() {
 			<OrgPageLayout>
 				<div className="pb-16">
 					<header className="flex flex-wrap items-center justify-between gap-4 pb-6">
-						{/* The same label the organizations page leads with, so the two lists read as one family. */}
-						<h1 className="text-xs font-semibold uppercase tracking-widest text-primary dark:text-violet-300">
+						<h1 className="text-2xl font-bold tracking-normal text-primary sm:text-3xl dark:text-violet-300">
 							Clusters
 						</h1>
 						{create && (
