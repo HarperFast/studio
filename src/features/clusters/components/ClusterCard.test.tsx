@@ -73,12 +73,10 @@ const cluster = (overrides: Partial<Cluster> = {}): Cluster => ({
 });
 
 describe('ClusterCard', () => {
-	it('renders real metadata, an honest status, and the existing open and copy actions', () => {
+	it('renders the name, an honest status, and the existing open and copy actions', () => {
 		render(<ClusterCard cluster={cluster()} />);
 		expect(screen.getByRole('heading', { name: 'Production' })).toBeTruthy();
 		expect(screen.getByText('Running')).toBeTruthy();
-		expect(screen.getByText('US East')).toBeTruthy();
-		expect(screen.getAllByText('Not reported')).toHaveLength(2);
 		expect(screen.getByRole('link', { name: 'Open Production' }).getAttribute('href')).toBe('/org-a/clu-a');
 		fireEvent.click(screen.getByRole('button', { name: 'Copy host name' }));
 		expect(state.copy).toHaveBeenCalledOnce();

@@ -432,36 +432,6 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 							: <span>{isSelfManaged ? 'Self-hosted endpoint' : 'Hostname not assigned'}</span>}
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="border-t border-border px-5 py-4">
-					<dl className="grid grid-cols-3 gap-3 text-sm">
-						<div>
-							<dt className="text-xs text-muted-foreground">Instances</dt>
-							<dd className="mt-1 font-medium tabular-nums">
-								{summary.instanceCount ?? (
-									<span title="Not reported">
-										<span aria-hidden="true">—</span>
-										<span className="sr-only">Not reported</span>
-									</span>
-								)}
-							</dd>
-						</div>
-						<div className="min-w-0">
-							<dt className="text-xs text-muted-foreground">Regions</dt>
-							<dd className="mt-1 break-words font-medium">{summary.regions.join(', ') || 'Not reported'}</dd>
-						</div>
-						<div className="min-w-0">
-							<dt className="text-xs text-muted-foreground">Harper version</dt>
-							<dd className="mt-1 break-words font-medium">
-								{summary.version || (
-									<span title="Not reported">
-										<span aria-hidden="true">—</span>
-										<span className="sr-only">Not reported</span>
-									</span>
-								)}
-							</dd>
-						</div>
-					</dl>
-				</CardContent>
 				<CardContent className="mt-auto flex flex-col gap-3 border-t border-border px-5 py-4">
 					<ClusterProgress cluster={cluster} />
 					<div className="flex flex-wrap items-center justify-between gap-3">
