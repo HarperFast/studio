@@ -63,8 +63,11 @@ export function ClustersList() {
 			<SubNavMenu />
 			<OrgPageLayout>
 				<div className="pb-16">
-					<header className="cluster-overview-hero relative mb-6 flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border border-primary/10 bg-linear-to-br from-primary/10 via-background to-background p-5 sm:p-6">
-						<h1 className="text-2xl font-bold tracking-normal sm:text-3xl">Clusters</h1>
+					<header className="flex flex-wrap items-center justify-between gap-4 pb-6">
+						{/* The same label the organizations page leads with, so the two lists read as one family. */}
+						<h1 className="text-xs font-semibold uppercase tracking-widest text-primary dark:text-violet-300">
+							Clusters
+						</h1>
 						{create && (
 							<Button variant="positive" asChild accessKey="n" className="shrink-0">
 								<Link to={`/${organizationId}/new-cluster`}>
