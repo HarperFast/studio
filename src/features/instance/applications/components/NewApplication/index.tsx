@@ -73,7 +73,7 @@ export function NewApplication() {
 			},
 		},
 	});
-	const { watch, handleSubmit, control, setValue, formState, trigger } = methods;
+	const { watch, handleSubmit, control, setValue, formState } = methods;
 
 	const [isReloading, setIsReloading] = useState(false);
 
@@ -101,12 +101,8 @@ export function NewApplication() {
 
 	const contentsType = watch('contents.type');
 	const setContentsType = useCallback((type: string) => {
-		const wasValid = formState.isValid;
-		setValue('contents.type', type as 'template' | 'import' | 'cli');
-		if (!wasValid) {
-			void trigger();
-		}
-	}, [setValue, formState, trigger]);
+		setValue('contents.type', type as 'template' | 'import' | 'cli', { shouldValidate: true });
+	}, [setValue]);
 
 	return (
 		<div className="mx-auto max-w-4xl mt-6">
