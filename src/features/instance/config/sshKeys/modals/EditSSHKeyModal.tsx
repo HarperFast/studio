@@ -40,6 +40,7 @@ export function EditSSHKeyModal({
 
 	const form = useForm({
 		resolver: zodResolver(UpdateSSHKeySchema),
+		mode: 'onChange',
 		defaultValues: {
 			name,
 			key: '',
@@ -140,13 +141,15 @@ export function EditSSHKeyModal({
 									<FormItem className="md:col-span-2">
 										<FormLabel className="pb-1">Key</FormLabel>
 										<FormDescription>
-											Replace your existing private key. Lost it? Try out "ssh-keygen"! You'll want to add your public
-											key to your registry, i.e. GitHub.
+											Replace your existing private key: the file without the .pub extension, with no passphrase. Lost
+											it? Try out "ssh-keygen"! You'll want to add your public key (the .pub file) to your registry,
+											i.e. GitHub.
 										</FormDescription>
 										<FormControl>
 											<Textarea
 												autoComplete="off"
 												autoCapitalize="off"
+												spellCheck={false}
 												autoFocus={true}
 												rows={3}
 												{...field}

@@ -17,25 +17,34 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
-import { SSHKeySchema, useAddSSHKey } from '@/integrations/api/instance/ssh/addSSHKey';
+import { refineAgainstExistingSSHKeys, SSHKeySchema, useAddSSHKey } from '@/integrations/api/instance/ssh/addSSHKey';
+import { SSHKeyName } from '@/integrations/api/instance/ssh/listSSHKeys';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Save } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+const NO_EXISTING_KEYS: readonly SSHKeyName[] = [];
+
 export function AddSSHKeyModal({
+	existingKeys = NO_EXISTING_KEYS,
 	isModalOpen,
 	onChangesSaved,
 	setIsModalOpen,
 }: {
+	existingKeys?: readonly SSHKeyName[];
 	isModalOpen: boolean;
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
+	const resolver = useMemo(
+		() => zodResolver(SSHKeySchema.superRefine(refineAgainstExistingSSHKeys(existingKeys))),
+		[existingKeys],
+	);
 	const form = useForm({
-		resolver: zodResolver(SSHKeySchema),
+		resolver,
 		mode: 'onChange',
 		defaultValues: {
 			name: '',
@@ -58,7 +67,8 @@ export function AddSSHKeyModal({
 						key: key.trim() + '\n',
 						host,
 						hostname,
-						known_hosts: known_hosts || undefined,
+						// Harper appends this to known_hosts as-is, so it must end its own last line.
+						known_hosts: known_hosts ? known_hosts + '\n' : undefined,
 						...instanceParams,
 					},
 					{
@@ -124,13 +134,14 @@ export function AddSSHKeyModal({
 								<FormItem className="md:col-span-2">
 									<FormLabel className="pb-1">Key</FormLabel>
 									<FormDescription>
-										Your private key. Don't have one? Try out "ssh-keygen"! You'll want to add your public key to your
-										registry, i.e. GitHub.
+										Your private key: the file without the .pub extension, with no passphrase. Don't have one? Try out
+										"ssh-keygen"! You'll want to add your public key (the .pub file) to your registry, i.e. GitHub.
 									</FormDescription>
 									<FormControl>
 										<Textarea
 											autoComplete="off"
 											autoCapitalize="off"
+											spellCheck={false}
 											rows={3}
 											{...field}
 										/>
@@ -167,6 +178,7 @@ export function AddSSHKeyModal({
 						<FormField
 							control={form.control}
 							name="hostname"
+							rules={{ deps: ['host'] }}
 							render={({ field }) => (
 								<FormItem className="md:col-span-2">
 									<FormLabel className="pb-1">Hostname</FormLabel>
