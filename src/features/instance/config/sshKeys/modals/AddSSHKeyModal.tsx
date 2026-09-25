@@ -67,7 +67,8 @@ export function AddSSHKeyModal({
 						key: key.trim() + '\n',
 						host,
 						hostname,
-						known_hosts: known_hosts || undefined,
+						// Harper appends this to known_hosts as-is, so it must end its own last line.
+						known_hosts: known_hosts ? known_hosts + '\n' : undefined,
 						...instanceParams,
 					},
 					{
