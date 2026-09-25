@@ -22,6 +22,7 @@ export function ConfigSSHKeysIndex() {
 		data: localSSHKeys,
 		refetch,
 		isFetching,
+		isLoading,
 		isRefetching,
 	} = useQuery(listSSHKeysQueryOptions(instanceParams));
 
@@ -67,7 +68,12 @@ export function ConfigSSHKeysIndex() {
 						<u>R</u>efresh
 					</span>
 				</Button>
-				<Button variant="positiveOutline" onClick={onAddClicked} accessKey="a" disabled={isAddModalOpen}>
+				<Button
+					variant="positiveOutline"
+					onClick={onAddClicked}
+					accessKey="a"
+					disabled={isAddModalOpen || isLoading}
+				>
 					<PlusIcon />
 					<span>
 						<u>A</u>dd
@@ -75,7 +81,12 @@ export function ConfigSSHKeysIndex() {
 				</Button>
 			</SimpleBrowseDataTable>
 			{isAddModalOpen && (
-				<AddSSHKeyModal isModalOpen={isAddModalOpen} onChangesSaved={refetch} setIsModalOpen={setIsAddModalOpen} />
+				<AddSSHKeyModal
+					existingKeys={localSSHKeys}
+					isModalOpen={isAddModalOpen}
+					onChangesSaved={refetch}
+					setIsModalOpen={setIsAddModalOpen}
+				/>
 			)}
 			{isEditModalOpen && (
 				<EditSSHKeyModal

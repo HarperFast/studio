@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { AddSSHKeyModal } from '@/features/instance/config/sshKeys/modals/AddSSHKeyModal';
+import type { SSHKeyName } from '@/integrations/api/instance/ssh/listSSHKeys';
 import { ED25519_PUBLIC_KEY, openSSHPrivateKey } from '@/integrations/api/instance/ssh/testHelpers';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -30,8 +31,10 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-function renderModal() {
-	return render(<AddSSHKeyModal isModalOpen onChangesSaved={() => {}} setIsModalOpen={() => {}} />);
+function renderModal(existingKeys?: SSHKeyName[]) {
+	return render(
+		<AddSSHKeyModal existingKeys={existingKeys} isModalOpen onChangesSaved={() => {}} setIsModalOpen={() => {}} />,
+	);
 }
 
 async function type(label: string, value: string) {
@@ -65,6 +68,56 @@ describe('AddSSHKeyModal', () => {
 		await type('Key', ED25519_PUBLIC_KEY);
 
 		expect(await screen.findByText(/This looks like a public key \("ssh-ed25519 …"\)/)).toBeTruthy();
+	});
+
+	it('flags the alias when the hostname is changed to match it, not only when the alias changes', async () => {
+		renderModal();
+		await type('Host', 'git.example.com');
+		expect(screen.queryByText(/Host alias must differ from the hostname/)).toBeNull();
+
+		await type('Hostname', 'git.example.com');
+
+		expect(await screen.findByText(/Host alias must differ from the hostname/)).toBeTruthy();
+	});
+
+	it('flags an alias another key already uses', async () => {
+		renderModal([{ name: 'website', host: 'website.github.com', hostname: 'github.com' }]);
+		await type('Host', 'website.github.com');
+
+		expect(
+			await screen.findByText('The key "website" already uses the alias "website.github.com". Each key needs its own.'),
+		).toBeTruthy();
+	});
+
+	it('checks a key list that arrives after the modal opened when the form is submitted', async () => {
+		const website = { name: 'website', host: 'website.github.com', hostname: 'github.com' };
+		const onChangesSaved = () => {};
+		const setIsModalOpen = () => {};
+		const { rerender } = render(
+			<AddSSHKeyModal isModalOpen onChangesSaved={onChangesSaved} setIsModalOpen={setIsModalOpen} />,
+		);
+		await type('Name', 'my-repo');
+		await type('Key', openSSHPrivateKey());
+		await type('Host', 'website.github.com');
+		await type('Hostname', 'github.com');
+		await waitFor(() => expect(addButton().disabled).toBe(false));
+
+		rerender(
+			<AddSSHKeyModal
+				existingKeys={[website]}
+				isModalOpen
+				onChangesSaved={onChangesSaved}
+				setIsModalOpen={setIsModalOpen}
+			/>,
+		);
+		await act(async () => {
+			fireEvent.click(addButton());
+		});
+
+		expect(
+			await screen.findByText('The key "website" already uses the alias "website.github.com". Each key needs its own.'),
+		).toBeTruthy();
+		expect(mutate).not.toHaveBeenCalled();
 	});
 
 	it('sends the key as ssh reads it, even from an indented, double-spaced paste', async () => {
