@@ -23,29 +23,28 @@ export function KnownHosts() {
 	const { data } = useSuspenseQuery(getSSHKnownHostsQueryOptions(instanceParams));
 	const form = useForm({
 		resolver: zodResolver(SSHKnownHostsSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			known_hosts: data?.known_hosts || '',
 		},
 	});
+	const { isDirty, isValid } = form.formState;
 	const { mutate: setSSHKnownHosts, isPending } = useSetSSHKnownHosts();
 
 	const onSubmitClick = useCallback(
 		async (formData: z.infer<typeof SSHKnownHostsSchema>) => {
-			const { known_hosts } = formData;
-			if (known_hosts) {
-				setSSHKnownHosts(
-					{
-						known_hosts: known_hosts.trim() + '\n',
-						...instanceParams,
+			setSSHKnownHosts(
+				{
+					known_hosts: formData.known_hosts.trim() + '\n',
+					...instanceParams,
+				},
+				{
+					onSuccess: () => {
+						form.reset(formData);
+						toast.success('Known hosts saved!');
 					},
-					{
-						onSuccess: () => {
-							form.reset(formData);
-							toast.success('Known hosts saved!');
-						},
-					},
-				);
-			}
+				},
+			);
 		},
 		[setSSHKnownHosts, form, instanceParams],
 	);
@@ -86,7 +85,7 @@ export function KnownHosts() {
 									type="submit"
 									variant="submit"
 									className="mt-2"
-									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+									disabled={isPending || !isDirty || !isValid}
 								>
 									<Save /> {isPending ? 'Saving' : 'Save'} Known Hosts{isPending ? '...' : ''}
 								</Button>

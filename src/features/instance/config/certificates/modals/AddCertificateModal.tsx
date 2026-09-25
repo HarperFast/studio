@@ -14,6 +14,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +38,7 @@ export function AddCertificateModal({
 }) {
 	const form = useForm({
 		resolver: zodResolver(CertificateSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			name: '',
 			certificate: '',
@@ -102,6 +104,7 @@ export function AddCertificateModal({
 						id="instance-add-certificate-form"
 						name="instance-add-certificate-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 						className="grid gap-4 my-4"
 					>
 						<DialogHeader>

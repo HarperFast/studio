@@ -13,6 +13,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
@@ -51,12 +52,12 @@ export function RenameFileModal() {
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
+			.trim()
 			.nonempty({ error: 'Please enter a valid name.' })
 			.regex(/^[a-zA-Z0-9_\- .]*$/, {
 				error: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces.',
 			})
 			.max(50, { error: 'Names cannot be longer than 50 characters.' })
-			.trim()
 			.refine((name) => name !== openedEntry?.name, {
 				error: 'Please enter a new name.',
 			}),
@@ -66,7 +67,9 @@ export function RenameFileModal() {
 
 	const form = useForm({
 		resolver: zodResolver(RenameFileSchema),
+		mode: 'onTouched',
 	});
+	const { isDirty, isValid } = form.formState;
 
 	useEffect(() => {
 		if (openedEntry?.name) {
@@ -162,6 +165,7 @@ export function RenameFileModal() {
 						id="instance-rename-app-file-form"
 						name="instance-rename-app-file-form"
 						onSubmit={form.handleSubmit(submitForm)}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 					>
 						<DialogHeader>
 							<DialogTitle>Rename {isDirectory(openedEntry) ? 'Directory' : 'File'}</DialogTitle>
@@ -198,7 +202,7 @@ export function RenameFileModal() {
 								<Button
 									variant="positiveOutline"
 									type="submit"
-									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+									disabled={isPending || !isDirty || !isValid}
 								>
 									<PencilIcon /> Rename
 								</Button>

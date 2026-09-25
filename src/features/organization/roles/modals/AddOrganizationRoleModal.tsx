@@ -6,6 +6,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { useAddOrganizationRole } from '@/features/organization/mutations/addOrganizationRole';
 import {
@@ -57,6 +58,7 @@ export function AddOrganizationRoleModal({
 
 	const form = useForm({
 		resolver: zodResolver(OrganizationRoleOverviewSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			name: '',
 			update: false,
@@ -113,6 +115,7 @@ export function AddOrganizationRoleModal({
 						name="org-add-role-form"
 						className="flex flex-1 min-h-0 flex-col gap-4 my-4"
 						onSubmit={form.handleSubmit(onSubmitRoleEdits)}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 					>
 						<div className="grid grid-cols-2 gap-4">
 							<FormField
