@@ -42,7 +42,7 @@ test.beforeEach(async ({ page }) => {
 
 test('cluster overview filters the real route and retains card navigation', async ({ page }) => {
 	await page.goto('/#/org-fixture');
-	await expect(page.getByRole('heading', { name: 'Your infrastructure, at a glance' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Total clusters 2' })).toBeVisible();
 	await page.getByLabel('Search clusters', { exact: true }).fill('Staging');
 	await expect(page.getByRole('heading', { name: 'Production', exact: true })).toHaveCount(0);

@@ -189,7 +189,7 @@ test('keeps the dashboard usable when the search bundle cannot load', async ({ p
 	const trigger = page.getByRole('button', { name: 'Search organizations and clusters' });
 	await trigger.click();
 	await expect(page.getByRole('alert')).toContainText('Search couldn’t load');
-	await expect(page.getByRole('heading', { name: 'Your infrastructure, at a glance' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Clusters', exact: true })).toBeVisible();
 	await page.getByRole('button', { name: 'Close', exact: true }).click();
 	await expect(trigger).toBeFocused();
 });
