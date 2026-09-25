@@ -98,6 +98,14 @@ test('paid creation preserves its values through billing and submits once', asyn
 	await page.getByRole('button', { name: 'Back to Details' }).click();
 	await expect(page.getByLabel('Cluster Name', { exact: true })).toHaveValue('Preview Cluster');
 	await page.getByRole('button', { name: 'Confirm Payment Details' }).click();
+	await page.setViewportSize({ width: 390, height: 844 });
+	const summary = page.getByRole('complementary', { name: 'Price summary' });
+	const submit = page.getByRole('button', { name: 'Create New Cluster' });
+	await expect(summary).toContainText('$250.00');
+	await expect(submit).toBeVisible();
+	const summaryBox = await summary.boundingBox();
+	const submitBox = await submit.boundingBox();
+	expect(summaryBox!.y + summaryBox!.height).toBeLessThan(submitBox!.y);
 	await page.getByRole('button', { name: 'Create New Cluster' }).click();
 	await expect.poll(() => payloads).toEqual([{
 		abbreviatedName: 'preview-cluster',

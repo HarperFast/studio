@@ -155,9 +155,7 @@ export function ClusterDetails({
 							<Server className="size-4 text-primary" aria-hidden="true" />Cluster details
 						</h2>
 						<CardDescription>
-							{mode === 'version'
-								? 'Choose the Harper version for your cluster.'
-								: 'Your cluster’s identity, version, and address.'}
+							Choose the Harper version for your cluster.
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
@@ -197,9 +195,7 @@ export function ClusterDetails({
 								<Server className="size-4 text-primary" aria-hidden="true" />Cluster details
 							</h2>
 							<CardDescription>
-								{mode === 'version'
-									? 'Choose the Harper version for your cluster.'
-									: 'Your cluster’s identity, version, and address.'}
+								Your cluster’s identity, version, and address.
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">

@@ -472,7 +472,7 @@ export function ClusterForm({
 		? (
 			<aside
 				aria-label="Price summary"
-				className="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 p-6 xl:sticky xl:top-6"
+				className="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 p-6 xl:order-2"
 			>
 				<p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your plan</p>
 				<dl>
@@ -562,7 +562,8 @@ export function ClusterForm({
 					: (
 						<>
 							<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
-								<Card className="min-w-0">
+								{priceSummary}
+								<Card className="min-w-0 xl:order-1">
 									<CardHeader>
 										<h2 className="flex items-center gap-2 text-base font-semibold">
 											<CreditCard className="size-4 text-primary" aria-hidden="true" />Payment review
@@ -580,7 +581,6 @@ export function ClusterForm({
 										/>
 									</CardContent>
 								</Card>
-								{priceSummary}
 							</div>
 						</>
 					)}

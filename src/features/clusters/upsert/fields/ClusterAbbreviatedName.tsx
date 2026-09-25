@@ -6,6 +6,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { specifiedAbbreviatedName, UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { useId } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -18,6 +19,7 @@ export function ClusterAbbreviatedName({
 	disabled?: boolean | undefined;
 	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
 }) {
+	const labelId = useId();
 	return (
 		<>
 			<FormField
@@ -43,8 +45,12 @@ export function ClusterAbbreviatedName({
 				)}
 			/>
 			<div className="col-span-3 min-w-0 space-y-2">
-				<p className="text-sm font-medium">Full Host Name</p>
-				<HostnamePreview hostname={calculatedNames.fullHostName} testId="cluster-hostname-preview" />
+				<p id={labelId} className="text-sm font-medium">Full Host Name</p>
+				<HostnamePreview
+					hostname={calculatedNames.fullHostName}
+					testId="cluster-hostname-preview"
+					describedBy={labelId}
+				/>
 			</div>
 		</>
 	);
