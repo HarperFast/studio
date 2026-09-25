@@ -1,4 +1,5 @@
 import Mailosaur from 'mailosaur';
+import { maskInCi } from './maskInCi';
 
 /**
  * Thin wrapper around the controlled Mailosaur inbox.
@@ -68,6 +69,8 @@ export async function waitForVerificationEmail(
 				+ `Links seen: ${hrefs.join(', ') || 'none'}`,
 		);
 	}
+	maskInCi(link);
+	maskInCi(/[?&]token=([^&#]+)/.exec(link)?.[1]);
 	return { subject: message.subject ?? '', link };
 }
 

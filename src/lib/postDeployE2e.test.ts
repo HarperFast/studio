@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-	advertisedVersion,
+	advertisedVersions,
 	collectOutcomes,
+	composeReport,
 	findEntryChunk,
 	judge,
 	observeDeployment,
+	parseTimeoutSeconds,
 	type PlaywrightReport,
 	redact,
+	redactDeep,
 	renderSummary,
 	servesVersion,
 	waitForVersion,
@@ -52,6 +55,7 @@ const skipped = playwrightTest('skipped', [{ status: 'skipped' }], [{
 	description: 'No test account configured',
 }]);
 const notRun = playwrightTest('skipped', []);
+const interrupted = playwrightTest('skipped', [{ status: 'skipped' }]);
 
 describe('the deployed-version gate', () => {
 	it.each([
@@ -71,10 +75,21 @@ describe('the deployed-version gate', () => {
 		expect(servesVersion(bundle, 'dev_e1fb68')).toBe(false);
 	});
 
-	it('names the version a bundle advertises, for the failure message', () => {
-		expect(advertisedVersion('x=`dev_e1fb687`')).toBe('dev_e1fb687');
-		expect(advertisedVersion('x=`v2.183.1`')).toBe('v2.183.1');
-		expect(advertisedVersion('no marker here')).toBeUndefined();
+	it('names every version-looking token a bundle carries, for the failure message', () => {
+		expect(advertisedVersions('a=`v1.4.0`,b=`v2.183.1`,c=`v2.183.1`,d=`dev_e1fb687`')).toEqual([
+			'v1.4.0',
+			'v2.183.1',
+			'dev_e1fb687',
+		]);
+		expect(advertisedVersions('no marker here')).toEqual([]);
+	});
+
+	it.each([['', 600], ['30', 30]])('reads a timeout of %j as %d seconds', (value, seconds) => {
+		expect(parseTimeoutSeconds(value)).toBe(seconds);
+	});
+
+	it.each(['10m', '0', '-5'])('refuses a timeout of %j instead of waiting forever', (value) => {
+		expect(() => parseTimeoutSeconds(value)).toThrow('version-timeout-seconds must be a positive number');
 	});
 
 	function fakeFetch(routes: Record<string, () => Response>): typeof fetch {
@@ -193,6 +208,15 @@ describe('the post-deploy verdict', () => {
 		expect(verdict.counts.skipped).toBe(0);
 	});
 
+	it('reports tests cut off by --global-timeout as not run rather than as skips', () => {
+		const verdict = judge(
+			report([passed, interrupted, notRun], [{ message: 'Timed out waiting 1500s for the test suite to run' }]),
+			1,
+		);
+		expect(verdict.problems).toEqual(['Timed out waiting 1500s for the test suite to run', '2 did not run']);
+		expect(verdict.counts).toMatchObject({ skipped: 0, 'not run': 2 });
+	});
+
 	it('fails a run in which nothing executed', () => {
 		expect(judge(report([skipped, skipped]), 0).problems).toEqual(['no tests ran', '2 skipped']);
 	});
@@ -257,6 +281,29 @@ describe('the job summary', () => {
 		const markdown = renderSummary(judge(report(Array.from({ length: 53 }, () => failed)), 1), context);
 		expect(markdown).toContain('### Failed (53)');
 		expect(markdown).toContain('…and 3 more — see the job log.');
+	});
+
+	it('redacts the raw report before formatting, so escaping cannot turn a secret into a form that survives', () => {
+		const secret = 'Qa|demo<Password!42';
+		const leaky = playwrightTest('unexpected', [{
+			status: 'failed',
+			error: {
+				message: `Timed out at https://dev.example.test/#/verify-email?token=verification-123456 with ${secret}`,
+			},
+		}]);
+		const { markdown, headline } = composeReport(report([leaky]), 1, context, [secret]);
+		expect(markdown).toContain('?token=[redacted] with [redacted]');
+		expect(markdown).not.toContain('verification-123456');
+		expect(markdown).not.toContain('demo');
+		expect(headline).toBe('❌ E2E failed on dev — 1 failed');
+	});
+
+	it('redacts every string of a nested report and leaves other values alone', () => {
+		expect(redactDeep({ a: ['x hunter22 y', 3], b: { c: 'hunter22' }, d: null }, ['hunter22'])).toEqual({
+			a: ['x [redacted] y', 3],
+			b: { c: '[redacted]' },
+			d: null,
+		});
 	});
 
 	it('redacts each secret and its URL-encoded form, and leaves short values alone', () => {

@@ -30,7 +30,6 @@ export default defineConfig({
 		['html', { open: 'never', outputFolder: 'playwright-report' }],
 		// Machine-readable results for the automation triage step (results/results.json).
 		['json', { outputFile: 'results/results.json' }],
-		// Failure annotations on the run page for the post-deploy check (.github/actions/studio-e2e).
 		...(process.env.GITHUB_ACTIONS ? [['github'] as const] : []),
 	],
 	timeout: 60_000,

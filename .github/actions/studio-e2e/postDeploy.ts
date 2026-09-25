@@ -1,12 +1,5 @@
-/**
- * The two halves of the post-deploy e2e check that are not Playwright itself:
- *
- *   node postDeploy.ts wait     block until BASE_URL serves EXPECTED_VERSION
- *   node postDeploy.ts report   judge RESULTS_FILE, write the job summary, exit non-zero on red
- *
- * Self-contained on purpose — Node runs it by type stripping, which cannot resolve this repo's
- * extensionless imports.
- */
+// Self-contained: Node runs this file by type stripping, which cannot resolve this repo's
+// extensionless imports.
 import { appendFileSync, readFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -44,10 +37,16 @@ export type Verdict = {
 
 export type Observation = { matches: boolean; detail: string };
 
-/** The run's own secrets, stripped from everything it publishes (the repo is public). */
-const SECRET_ENV = ['PLAYWRIGHT_USER_EMAIL', 'PLAYWRIGHT_USER_PASSWORD', 'MAILOSAUR_API_KEY'];
+const SECRET_ENV = [
+	'PLAYWRIGHT_USER_EMAIL',
+	'PLAYWRIGHT_USER_PASSWORD',
+	'PLAYWRIGHT_ORG_ID',
+	'MAILOSAUR_API_KEY',
+	'MAILOSAUR_SERVER_ID',
+];
+const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&#\s'"`)]+/gi;
 const ENTRY_CHUNK = /(?:\.?\/)?assets\/index-[\w-]+\.js/;
-const VERSION_MARKER = /(?<![\w.-])(?:(?:dev|stage|prod)_[0-9a-f]{7,40}|v\d+\.\d+\.\d+)(?![\w.-])/;
+const VERSION_MARKER = /(?<![\w.-])(?:(?:dev|stage|prod)_[0-9a-f]{7,40}|v\d+\.\d+\.\d+)(?![\w.-])/g;
 const MAX_ROWS = 50;
 const ANSI_COLOR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 
@@ -56,14 +55,15 @@ export function findEntryChunk(html: string): string | undefined {
 	return match ? `/${match[0].replace(/^\.?\//, '')}` : undefined;
 }
 
-/** Delimited, not a substring test: `v2.18.3` must not match a bundle that says `v2.18.30`. */
+/** `v2.18.3` must not match a bundle that says `v2.18.30`. */
 export function servesVersion(bundle: string, version: string): boolean {
 	const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	return new RegExp(`(?<![\\w.-])${escaped}(?![\\w.-])`).test(bundle);
 }
 
-export function advertisedVersion(bundle: string): string | undefined {
-	return VERSION_MARKER.exec(bundle)?.[0];
+/** Every version-looking token, since a dependency's own version can precede Studio's. */
+export function advertisedVersions(bundle: string): string[] {
+	return [...new Set(bundle.match(VERSION_MARKER) ?? [])].slice(0, 3);
 }
 
 export async function observeDeployment(
@@ -83,16 +83,14 @@ export async function observeDeployment(
 		if (!chunk.ok) { return { matches: false, detail: `GET ${entry} answered ${chunk.status}` }; }
 		const bundle = await chunk.text();
 		if (servesVersion(bundle, version)) { return { matches: true, detail: `${entry} serves ${version}` }; }
-		return { matches: false, detail: `${entry} serves ${advertisedVersion(bundle) ?? 'no recognizable version'}` };
+		const seen = advertisedVersions(bundle);
+		return { matches: false, detail: `${entry} serves ${seen.length ? seen.join(', ') : 'no recognizable version'}` };
 	} catch (error) {
 		return { matches: false, detail: `request failed: ${error instanceof Error ? error.message : String(error)}` };
 	}
 }
 
-/**
- * A CM deploys `replicated=true` behind a load balancer, so one matching response can come from the
- * one node that has the new build. Only `required` matches in a row count as live.
- */
+/** Behind the CM's load balancer one match can come from the only node that has the new build. */
 export async function waitForVersion({
 	observe,
 	timeoutMs,
@@ -148,14 +146,13 @@ function toOutcome(title: string, location: string, test: ReportTest): TestOutco
 				status: 'failed',
 				detail: firstLines(errors.at(-1)?.error?.message) || 'passed, but was expected to fail',
 			};
-		default:
-			// A test cut off by --max-failures is reported as skipped with no results at all.
-			if (test.results.length === 0) { return { ...base, status: 'not run', detail: '' }; }
-			return {
-				...base,
-				status: 'skipped',
-				detail: test.annotations?.find((note) => note.type === 'skip')?.description ?? 'skipped without a reason',
-			};
+		default: {
+			// Tests cut off by --max-failures or --global-timeout are reported as skipped, but only a
+			// real skip carries a skip annotation.
+			const reason = test.annotations?.find((note) => note.type === 'skip' || note.type === 'fixme');
+			if (!reason) { return { ...base, status: 'not run', detail: '' }; }
+			return { ...base, status: 'skipped', detail: reason.description ?? 'skipped without a reason' };
+		}
 	}
 }
 
@@ -206,7 +203,17 @@ export function redact(text: string, secrets: readonly string[]): string {
 			result = result.split(form).join('[redacted]');
 		}
 	}
-	return result;
+	return result.replace(CREDENTIAL_PARAM, '$1[redacted]');
+}
+
+/** Before any formatting: escaping or clipping a secret first would leave a form that no longer matches. */
+export function redactDeep<T>(value: T, secrets: readonly string[]): T {
+	if (typeof value === 'string') { return redact(value, secrets) as T; }
+	if (Array.isArray(value)) { return value.map((item) => redactDeep(item, secrets)) as T; }
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactDeep(item, secrets)])) as T;
+	}
+	return value;
 }
 
 function cell(text: string): string {
@@ -309,6 +316,34 @@ function publish(markdown: string): void {
 	else { console.log(markdown); }
 }
 
+export function parseTimeoutSeconds(value: string | undefined): number {
+	const seconds = Number(value || 600);
+	if (!Number.isFinite(seconds) || seconds <= 0) {
+		throw new Error(`version-timeout-seconds must be a positive number of seconds, got "${value}"`);
+	}
+	return seconds;
+}
+
+export function composeReport(
+	raw: PlaywrightReport | undefined,
+	playwrightExit: number,
+	context: SummaryContext,
+	secrets: readonly string[],
+): { verdict: Verdict; markdown: string; headline: string } {
+	const report = redactDeep(raw, secrets);
+	const verdict = judge(report, playwrightExit);
+	const markdown = renderSummary(verdict, {
+		...context,
+		durationMs: report?.stats?.duration,
+		playwrightVersion: report?.config?.version,
+	});
+	return {
+		verdict,
+		markdown: redact(markdown, secrets),
+		headline: redact(headline(verdict, context.environment), secrets),
+	};
+}
+
 function requiredEnv(name: string): string {
 	const value = process.env[name];
 	if (!value) { throw new Error(`${name} is required`); }
@@ -326,7 +361,7 @@ function readReport(file: string): PlaywrightReport | undefined {
 async function waitCommand(): Promise<number> {
 	const baseUrl = requiredEnv('BASE_URL').replace(/\/+$/, '');
 	const version = requiredEnv('EXPECTED_VERSION');
-	const timeoutSeconds = Number(process.env.TIMEOUT_SECONDS || 600);
+	const timeoutSeconds = parseTimeoutSeconds(process.env.TIMEOUT_SECONDS);
 	const result = await waitForVersion({
 		observe: () => observeDeployment(baseUrl, version),
 		timeoutMs: timeoutSeconds * 1000,
@@ -341,24 +376,23 @@ async function waitCommand(): Promise<number> {
 }
 
 function reportCommand(): number {
-	const report = readReport(process.env.RESULTS_FILE || 'e2e/results/results.json');
-	const verdict = judge(report, Number(process.env.PLAYWRIGHT_EXIT || 1));
 	const environment = process.env.ENVIRONMENT || 'the target';
 	const secrets = SECRET_ENV.map((name) => process.env[name] ?? '');
-	publish(redact(
-		renderSummary(verdict, {
+	const { verdict, markdown, headline: line } = composeReport(
+		readReport(process.env.RESULTS_FILE || 'e2e/results/results.json'),
+		Number(process.env.PLAYWRIGHT_EXIT || 1),
+		{
 			environment,
 			baseUrl: process.env.BASE_URL ?? '',
 			version: process.env.EXPECTED_VERSION ?? '',
 			sha: process.env.GITHUB_SHA ?? '',
 			grepInvert: process.env.GREP_INVERT ?? '',
 			project: process.env.PROJECT ?? '',
-			durationMs: report?.stats?.duration,
-			playwrightVersion: report?.config?.version,
-		}),
+		},
 		secrets,
-	));
-	console.log(redact(headline(verdict, environment), secrets));
+	);
+	publish(markdown);
+	console.log(line);
 	if (!verdict.ok) { annotate('error', `E2E failed on ${environment}`, redact(verdict.problems.join('; '), secrets)); }
 	else if (verdict.counts.flaky) {
 		annotate('warning', `Flaky e2e on ${environment}`, `${verdict.counts.flaky} passed only on retry`);
