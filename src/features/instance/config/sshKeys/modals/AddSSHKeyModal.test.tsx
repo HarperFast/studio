@@ -137,4 +137,17 @@ describe('AddSSHKeyModal', () => {
 			known_hosts: undefined,
 		});
 	});
+
+	it('ends known hosts with a newline, since Harper appends them to its file as-is', async () => {
+		renderModal();
+		await type('Name', 'my-repo');
+		await type('Key', openSSHPrivateKey());
+		await type('Host', 'my-repo.git.example.com');
+		await type('Hostname', 'git.example.com');
+		await type('Known Hosts', 'git.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n\n');
+		await submit();
+
+		expect(mutate).toHaveBeenCalledTimes(1);
+		expect(mutate.mock.calls[0][0].known_hosts).toBe('git.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n');
+	});
 });
