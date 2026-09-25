@@ -23,6 +23,7 @@ export function KnownHosts() {
 	const { data } = useSuspenseQuery(getSSHKnownHostsQueryOptions(instanceParams));
 	const form = useForm({
 		resolver: zodResolver(SSHKnownHostsSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			known_hosts: data?.known_hosts || '',
 		},
@@ -31,21 +32,18 @@ export function KnownHosts() {
 
 	const onSubmitClick = useCallback(
 		async (formData: z.infer<typeof SSHKnownHostsSchema>) => {
-			const { known_hosts } = formData;
-			if (known_hosts) {
-				setSSHKnownHosts(
-					{
-						known_hosts: known_hosts.trim() + '\n',
-						...instanceParams,
+			setSSHKnownHosts(
+				{
+					known_hosts: formData.known_hosts.trim() + '\n',
+					...instanceParams,
+				},
+				{
+					onSuccess: () => {
+						form.reset(formData);
+						toast.success('Known hosts saved!');
 					},
-					{
-						onSuccess: () => {
-							form.reset(formData);
-							toast.success('Known hosts saved!');
-						},
-					},
-				);
-			}
+				},
+			);
 		},
 		[setSSHKnownHosts, form, instanceParams],
 	);
