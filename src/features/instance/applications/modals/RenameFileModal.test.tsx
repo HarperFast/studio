@@ -68,6 +68,13 @@ describe('RenameFileModal', () => {
 		expect(renameButton().disabled).toBe(false);
 	});
 
+	it('enables Rename after a single change, such as pasting a new name', async () => {
+		render(<RenameFileModal />);
+		await typeName('renamed.js');
+
+		await waitFor(() => expect(renameButton().disabled).toBe(false));
+	});
+
 	it.each([
 		[
 			"a character names can't hold",

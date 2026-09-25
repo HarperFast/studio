@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
@@ -37,6 +37,23 @@ function saveButton() {
 }
 
 describe('KnownHosts', () => {
+	it('enables Save after a single change, such as a paste, and saves it', async () => {
+		render(<KnownHosts />);
+		await type('gitlab.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPasted\n');
+		await waitFor(() => expect(saveButton().disabled).toBe(false));
+
+		await act(async () => {
+			fireEvent.click(saveButton());
+		});
+
+		await waitFor(() =>
+			expect(mutate).toHaveBeenCalledWith(
+				expect.objectContaining({ known_hosts: 'gitlab.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPasted\n' }),
+				expect.anything(),
+			)
+		);
+	});
+
 	it.each([['nothing', ''], ['only whitespace', '  \n  ']])(
 		'explains why %s is refused once the box is left, instead of saving nothing',
 		async (_, value) => {

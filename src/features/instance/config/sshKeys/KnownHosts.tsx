@@ -28,6 +28,7 @@ export function KnownHosts() {
 			known_hosts: data?.known_hosts || '',
 		},
 	});
+	const { isDirty, isValid } = form.formState;
 	const { mutate: setSSHKnownHosts, isPending } = useSetSSHKnownHosts();
 
 	const onSubmitClick = useCallback(
@@ -84,7 +85,7 @@ export function KnownHosts() {
 									type="submit"
 									variant="submit"
 									className="mt-2"
-									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+									disabled={isPending || !isDirty || !isValid}
 								>
 									<Save /> {isPending ? 'Saving' : 'Save'} Known Hosts{isPending ? '...' : ''}
 								</Button>
