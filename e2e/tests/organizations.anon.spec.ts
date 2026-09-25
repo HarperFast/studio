@@ -65,7 +65,7 @@ test('keeps an empty access filter out of onboarding on a narrow screen', async 
 	await expect(page.getByRole('group', { name: 'Organization summary' })).toBeHidden();
 	await page.getByRole('combobox', { name: 'Organization access' }).selectOption('locked');
 	await expect(page.getByRole('heading', { name: 'No matching organizations' })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Your teams, connected.' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Organizations', exact: true })).toBeVisible();
 	expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
