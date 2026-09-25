@@ -69,6 +69,7 @@ export function RenameFileModal() {
 		resolver: zodResolver(RenameFileSchema),
 		mode: 'onTouched',
 	});
+	const { isDirty, isValid } = form.formState;
 
 	useEffect(() => {
 		if (openedEntry?.name) {
@@ -201,7 +202,7 @@ export function RenameFileModal() {
 								<Button
 									variant="positiveOutline"
 									type="submit"
-									disabled={isPending || !form.formState.isDirty || !form.formState.isValid}
+									disabled={isPending || !isDirty || !isValid}
 								>
 									<PencilIcon /> Rename
 								</Button>
