@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 
 export const SSHKnownHostsSchema = z.object({
-	known_hosts: z.string().trim(),
+	known_hosts: z.string().trim().nonempty({ error: 'Please enter at least one known host.' }),
 });
 
 type SetSSHKnownHostsFormData = z.infer<typeof SSHKnownHostsSchema> & InstanceClientConfig & InstanceTypeConfig;
