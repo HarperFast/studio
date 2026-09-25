@@ -8,6 +8,7 @@ import {
 	waitForSetPasswordEmail,
 	waitForVerificationEmail,
 } from './mail';
+import { maskInCi } from './maskInCi';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
@@ -71,6 +72,8 @@ test.describe('signup → email verification → login', () => {
 		const email = newTestEmailAddress();
 		addressesUsed.push(email);
 		const password = randomPassword();
+		maskInCi(email);
+		maskInCi(password);
 		const receivedAfter = new Date(Date.now() - 15_000);
 		let accountApiBase: URL | undefined;
 
