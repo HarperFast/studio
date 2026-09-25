@@ -102,10 +102,9 @@ describe('workflow privilege boundary', () => {
 });
 
 /**
- * The post-deploy e2e job installs and runs e2e code from the pushed ref, so it must stay a job of its
- * own — its own runner — holding test-account secrets only. And it must test the commit the deploy job
- * shipped: a checkout `ref` would pair one commit's specs with another commit's deployment, which is
- * the skew that turned studio-e2e-harness#10 red.
+ * A post-deploy e2e job runs e2e code from the pushed ref, so it stays a job of its own — its own
+ * runner — with test-account secrets only. It must test the commit its deploy job shipped: a checkout
+ * `ref` would pair one commit's specs with another commit's deployment.
  */
 describe('post-deploy e2e jobs', () => {
 	type Step = { uses?: string; with?: Record<string, unknown> };
