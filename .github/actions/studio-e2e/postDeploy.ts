@@ -46,7 +46,7 @@ const SECRET_ENV = [
 	'MAILOSAUR_API_KEY',
 	'MAILOSAUR_SERVER_ID',
 ];
-const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&#\s'"`)]+/gi;
+const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&#\s'"`):]+/gi;
 const ENTRY_CHUNK = /(?:\.?\/)?assets\/index-[\w-]+\.js/;
 const VERSION_MARKER = /(?<![\w.-])(?:(?:dev|stage|prod)_[0-9a-f]{7,40}|v\d+\.\d+\.\d+)(?![\w.-])/g;
 const MAX_ROWS = 50;
@@ -264,7 +264,9 @@ function table(title: string, rows: TestOutcome[], detailHeader: string): string
 		'',
 		`| test | project | where | ${detailHeader} |`,
 		'|---|---|---|---|',
-		...shown.map((row) => `| ${cell(row.title)} | ${row.project} | ${cell(row.location)} | ${cell(row.detail)} |`),
+		...shown.map((row) =>
+			`| ${cell(row.title)} | ${cell(row.project)} | ${cell(row.location)} | ${cell(row.detail)} |`
+		),
 		...(rows.length > shown.length ? ['', `…and ${rows.length - shown.length} more — see the job log.`] : []),
 		'',
 	];
@@ -324,7 +326,6 @@ function annotation(level: 'error' | 'warning', title: string, message: string, 
 	return `::${level} ${where}title=${escapeProperty(title)}::${escapeData(message)}`;
 }
 
-/** The verdict first, then one per failed test (not per retry), within GitHub's per-step budget. */
 export function annotationsFor(verdict: Verdict, environment: string): string[] {
 	if (verdict.ok) {
 		return verdict.counts.flaky

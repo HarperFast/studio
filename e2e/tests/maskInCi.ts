@@ -4,5 +4,6 @@
  * runner reads `::add-mask::`.
  */
 export function maskInCi(value: string | undefined): void {
-	if (process.env.GITHUB_ACTIONS && value) { console.log(`::add-mask::${value}`); }
+	if (!process.env.GITHUB_ACTIONS || !value) { return; }
+	for (const form of new Set([value, encodeURIComponent(value)])) { console.log(`::add-mask::${form}`); }
 }

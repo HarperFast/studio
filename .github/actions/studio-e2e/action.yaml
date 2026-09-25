@@ -78,9 +78,11 @@ runs:
         GREP_INVERT: ${{ inputs.grep-invert }}
         PROJECT: ${{ inputs.project }}
       run: |
+        args=(--max-failures=10 --global-timeout=1500000)
+        if [ -n "$GREP_INVERT" ]; then args+=(--grep-invert="$GREP_INVERT"); fi
+        if [ -n "$PROJECT" ]; then args+=(--project="$PROJECT"); fi
         set +e
-        pnpm exec playwright test --max-failures=10 --global-timeout=1500000 \
-          ${GREP_INVERT:+--grep-invert="$GREP_INVERT"} ${PROJECT:+--project="$PROJECT"}
+        pnpm exec playwright test "${args[@]}"
         echo "exit-code=$?" >> "$GITHUB_OUTPUT"
     - name: Report
       shell: bash
