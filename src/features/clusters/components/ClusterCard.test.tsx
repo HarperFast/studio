@@ -77,6 +77,8 @@ describe('ClusterCard', () => {
 		render(<ClusterCard cluster={cluster()} />);
 		expect(screen.getByRole('heading', { name: 'Production' })).toBeTruthy();
 		expect(screen.getByText('Running')).toBeTruthy();
+		// The status is said once, in the header pill: no "Cluster is running" filler under it.
+		expect(screen.queryByText('Cluster is running')).toBeNull();
 		expect(screen.getByRole('link', { name: 'Open Production' }).getAttribute('href')).toBe('/org-a/clu-a');
 		fireEvent.click(screen.getByRole('button', { name: 'Copy host name' }));
 		expect(state.copy).toHaveBeenCalledOnce();

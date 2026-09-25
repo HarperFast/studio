@@ -436,25 +436,16 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 					<ClusterProgress cluster={cluster} />
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<div className="min-w-0 flex-1 text-xs">
-							{summary.notices.length
-								? (
-									<ul
-										className={`space-y-1 ${
-											summary.category === 'failed' ? 'text-destructive' : 'text-amber-800 dark:text-yellow'
-										}`}
-									>
-										{summary.notices.map(notice => <li key={notice}>{notice}</li>)}
-									</ul>
-								)
-								: (
-									<span className="text-muted-foreground">
-										{isSelfManaged
-											? 'Monitoring managed externally'
-											: summary.category === 'running'
-											? 'Cluster is running'
-											: summary.label}
-									</span>
-								)}
+							{/* Notices only: the header pill already carries the status, so a healthy cluster says nothing here. */}
+							{summary.notices.length > 0 && (
+								<ul
+									className={`space-y-1 ${
+										summary.category === 'failed' ? 'text-destructive' : 'text-amber-800 dark:text-yellow'
+									}`}
+								>
+									{summary.notices.map(notice => <li key={notice}>{notice}</li>)}
+								</ul>
+							)}
 							{clusterHasFailed && create && (
 								<p className="mt-1 text-muted-foreground">Open cluster options to retry or manage this cluster.</p>
 							)}
