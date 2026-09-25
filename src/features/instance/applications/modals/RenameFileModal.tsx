@@ -52,12 +52,12 @@ export function RenameFileModal() {
 	const RenameFileSchema = z.object({
 		name: z
 			.string()
+			.trim()
 			.nonempty({ error: 'Please enter a valid name.' })
 			.regex(/^[a-zA-Z0-9_\- .]*$/, {
 				error: 'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces.',
 			})
 			.max(50, { error: 'Names cannot be longer than 50 characters.' })
-			.trim()
 			.refine((name) => name !== openedEntry?.name, {
 				error: 'Please enter a new name.',
 			}),
