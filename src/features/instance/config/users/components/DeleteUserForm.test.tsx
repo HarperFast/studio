@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import type { LocalUser } from '@/integrations/api/api.patch';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -47,6 +47,16 @@ describe('DeleteUserForm', () => {
 
 		expect(await screen.findByText('Username does not match.')).toBeTruthy();
 	});
+
+	it.each(['HDB_ADMIN', 'hdb_admin'])(
+		'enables Delete for a username with capitals once it is typed as %s',
+		async (typed) => {
+			renderForm('HDB_ADMIN');
+			await confirm(typed);
+
+			await waitFor(() => expect(deleteButton().disabled).toBe(false));
+		},
+	);
 
 	it.each([
 		['a different name', 'someone', 'Username does not match.'],
