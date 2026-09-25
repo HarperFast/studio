@@ -139,6 +139,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		for (const route of ['new-cluster', 'clu-fixture/edit']) {
 			await page.goto(`/#/org-fixture/${route}`);
 			await expect(page.getByLabel('Cluster Name', { exact: true })).toBeVisible();
+			const preview = page.getByRole('region', { name: 'Full Host Name', exact: true });
+			await expect(preview).toBeVisible();
+			await preview.focus();
+			await expect(preview).toBeFocused();
 			if (route === 'new-cluster') { await page.getByLabel('Cluster Name', { exact: true }).fill('Preview Cluster'); }
 			else { await expect(page.getByLabel('Cluster Name', { exact: true })).toBeDisabled(); }
 			for (const width of [1440, 1024, 390]) {

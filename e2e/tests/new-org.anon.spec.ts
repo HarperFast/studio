@@ -21,6 +21,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
 		await page.goto('/#/new-org');
 		await expect(page.locator('html')).toHaveClass(colorScheme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/);
 		await expect(page.getByRole('heading', { name: 'Create an organization' })).toBeVisible();
+		const preview = page.getByRole('region', { name: 'Address preview', exact: true });
+		await expect(preview).toBeVisible();
+		await preview.focus();
+		await expect(preview).toBeFocused();
 		await expect(page.getByTestId('org-hostname-preview')).toHaveText(
 			'future-cluster-names.taylor-river-org.harperfabric.com',
 		);

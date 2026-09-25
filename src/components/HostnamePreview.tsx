@@ -1,7 +1,7 @@
 import { LockKeyhole } from 'lucide-react';
 
 export function HostnamePreview(
-	{ hostname, testId, describedBy }: { hostname: string; testId?: string; describedBy?: string },
+	{ hostname, testId, labelledBy }: { hostname: string; testId?: string; labelledBy?: string },
 ) {
 	return (
 		<div className="flex min-w-0 items-center gap-3 rounded-full border border-border/60 bg-background/70 px-4 py-3 shadow-inner">
@@ -9,7 +9,9 @@ export function HostnamePreview(
 			<p
 				className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs leading-5"
 				data-testid={testId}
-				aria-describedby={describedBy}
+				role="region"
+				aria-labelledby={labelledBy}
+				aria-label={labelledBy ? undefined : 'Address preview'}
 				tabIndex={0}
 			>
 				{hostname}

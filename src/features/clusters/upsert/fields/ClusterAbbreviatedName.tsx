@@ -49,7 +49,7 @@ export function ClusterAbbreviatedName({
 				<HostnamePreview
 					hostname={calculatedNames.fullHostName}
 					testId="cluster-hostname-preview"
-					describedBy={labelId}
+					labelledBy={labelId}
 				/>
 			</div>
 		</>
