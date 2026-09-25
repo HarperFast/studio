@@ -1,3 +1,4 @@
+import { HostnamePreview } from '@/components/HostnamePreview';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
@@ -41,13 +42,10 @@ export function ClusterAbbreviatedName({
 					</FormItem>
 				)}
 			/>
-			<FormItem className="col-span-3 ">
-				<FormLabel className="pb-1">Full Host Name</FormLabel>
-				<FormControl>
-					<span>{calculatedNames.fullHostName}</span>
-				</FormControl>
-				<FormMessage />
-			</FormItem>
+			<div className="col-span-3 min-w-0 space-y-2">
+				<p className="text-sm font-medium">Full Host Name</p>
+				<HostnamePreview hostname={calculatedNames.fullHostName} testId="cluster-hostname-preview" />
+			</div>
 		</>
 	);
 }

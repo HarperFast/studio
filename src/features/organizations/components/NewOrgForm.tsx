@@ -1,3 +1,4 @@
+import { HostnamePreview } from '@/components/HostnamePreview';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
@@ -18,7 +19,7 @@ import { toKebabCase } from '@/lib/string/to-kebab-case';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Building2, ExternalLink, Globe2, LockKeyhole } from 'lucide-react';
+import { ArrowRight, Building2, ExternalLink, Globe2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import z from 'zod';
@@ -157,16 +158,7 @@ export function NewOrgForm() {
 						</p>
 						<div className="my-5">
 							<p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Address preview</p>
-							<div className="flex min-w-0 items-center gap-3 rounded-full border border-border/60 bg-background/70 px-4 py-3 shadow-inner">
-								<LockKeyhole className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-								<p
-									className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs leading-5"
-									data-testid="org-hostname-preview"
-									tabIndex={0}
-								>
-									{calculatedNames.fullHostName}
-								</p>
-							</div>
+							<HostnamePreview hostname={calculatedNames.fullHostName} testId="org-hostname-preview" />
 						</div>
 						<p className="text-xs leading-relaxed text-muted-foreground">
 							The cluster name here is a placeholder. After creating your organization, you’ll name your first cluster!

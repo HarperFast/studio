@@ -281,7 +281,7 @@ export function UpsertCluster() {
 	}
 
 	return (
-		<UpsertClusterLayout isEdit={!!clusterId} className="max-w-4xl mx-auto">
+		<UpsertClusterLayout isEdit={!!clusterId} className="w-full max-w-6xl mx-auto">
 			<ClusterForm
 				alreadyUsingFree={alreadyUsingFree}
 				clusterId={clusterId}
