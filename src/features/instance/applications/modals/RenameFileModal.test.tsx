@@ -82,6 +82,7 @@ describe('RenameFileModal', () => {
 			'Names can only contain letters, numbers, underscores, hyphens, periods, and spaces.',
 		],
 		['the current name', 'index.js', 'Please enter a new name.'],
+		['only spaces', '   ', 'Please enter a valid name.'],
 	])('explains why %s is refused once the field is left', async (_, value, message) => {
 		render(<RenameFileModal />);
 		await typeName('renamed.js');
