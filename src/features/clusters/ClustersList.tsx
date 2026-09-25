@@ -123,7 +123,7 @@ export function ClustersList() {
 						<label className="sr-only" htmlFor="cluster-status">Cluster status</label>
 						<select
 							id="cluster-status"
-							className="h-10 rounded-md border border-input bg-card px-3 text-sm"
+							className="native-select h-10 rounded-md border border-input bg-card pl-3 text-sm"
 							value={controls.category}
 							onChange={event => setControls({ ...controls, category: event.target.value as ClusterCategory | 'all' })}
 						>
@@ -136,7 +136,7 @@ export function ClustersList() {
 						<label className="sr-only" htmlFor="cluster-region">Cluster region</label>
 						<select
 							id="cluster-region"
-							className="h-10 max-w-full rounded-md border border-input bg-card px-3 text-sm"
+							className="native-select h-10 max-w-full rounded-md border border-input bg-card pl-3 text-sm"
 							value={controls.region}
 							onChange={event => setControls({ ...controls, region: event.target.value })}
 						>
@@ -149,7 +149,7 @@ export function ClustersList() {
 						<label className="sr-only" htmlFor="cluster-sort">Sort clusters</label>
 						<select
 							id="cluster-sort"
-							className="h-10 rounded-md border border-input bg-card px-3 text-sm"
+							className="native-select h-10 rounded-md border border-input bg-card pl-3 text-sm"
 							value={controls.sort}
 							onChange={event => setControls({ ...controls, sort: event.target.value as ClusterSort })}
 						>
