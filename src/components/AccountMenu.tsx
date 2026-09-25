@@ -19,7 +19,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { LocalUser, User } from '@/integrations/api/api.patch';
 import { isLocalUser } from '@/lib/types/isLocalUser';
 import { Link, useParams } from '@tanstack/react-router';
-import { Building2, ChevronDown, LogOut, Palette, Shield, UserRound } from 'lucide-react';
+import { Building2, ChevronDown, LayoutGrid, LogOut, Palette, Shield, UserRound } from 'lucide-react';
 import { useMemo } from 'react';
 
 export function AccountMenu(
@@ -71,7 +71,9 @@ export function AccountMenu(
 							</DropdownMenuSub>
 						)}
 						<DropdownMenuItem asChild>
-							<Link to="/">All organizations</Link>
+							<Link to="/">
+								<LayoutGrid className="size-4" />All organizations
+							</Link>
 						</DropdownMenuItem>
 						{canSeeAdminSection(user) && (
 							<DropdownMenuItem asChild>
