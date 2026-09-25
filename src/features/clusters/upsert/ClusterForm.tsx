@@ -1,5 +1,6 @@
 import { EstimatedProgressBar } from '@/components/EstimatedProgressBar';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { defaultOperationsApiPort } from '@/config/constants';
@@ -22,7 +23,7 @@ import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { cx } from 'class-variance-authority';
+import { CreditCard, Server } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -467,19 +468,22 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	const pricingMarginRight = !isEnterprise && 'mr-37.5';
-	return (
-		<>
-			{!isEnterprise && mode !== 'version' && (
-				<div className="absolute top-3 right-4 md:right-12 flex flex-col items-end text-right">
-					<dt className="font-light">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
-					<dd className="font-bold">
+	const priceSummary = !isEnterprise && mode !== 'version'
+		? (
+			<aside
+				aria-label="Price summary"
+				className="min-w-0 rounded-2xl border border-primary/15 bg-primary/5 p-6 xl:sticky xl:top-6"
+			>
+				<p className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your plan</p>
+				<dl>
+					<dt className="text-sm text-muted-foreground">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
+					<dd className="mt-2 font-bold">
 						{totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
 									<PriceDisplay price={monthlyPrice} />
 									{!!termMonths && (
-										<span className="font-light text-base text-muted-foreground">
+										<span className="text-base font-normal text-muted-foreground">
 											/mo{termMonths > 1 && <sup>*</sup>}
 										</span>
 									)}
@@ -487,39 +491,54 @@ export function ClusterForm({
 							)
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
+				</dl>
+				{!!termMonths && termMonths > 1 && totalPrice > 0 && (
+					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
+						every{' '}
+						{pluralize(termMonths, 'month', 'months')}, or sooner if you reach a usage limit — then a new license is
+						issued.
+					</p>
+				)}
+				<div className="mt-5 border-t border-primary/15 pt-5">
+					<Badge variant="warning">Beta pricing subject to change.</Badge>
 				</div>
-			)}
+			</aside>
+		)
+		: null;
+	return (
+		<div className="space-y-7 py-5">
+			<header className="flex items-start gap-4">
+				<div className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+					<Server className="size-6" aria-hidden="true" />
+				</div>
+				<div className="min-w-0">
+					<p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+						{mode === 'version' ? 'Cluster upgrade' : clusterId ? 'Manage your cluster' : 'Your infrastructure'}
+					</p>
+					<h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+						{confirmingPaymentDetails ? 'Cluster Billing' : 'Cluster Configuration'}
+					</h1>
+					<p className="mt-2 text-sm text-muted-foreground">
+						{confirmingPaymentDetails
+							? 'Review your billing details before applying these changes.'
+							: mode === 'version'
+							? 'Keep your cluster up to date with the right Harper version.'
+							: 'Configure your Harper cluster and define deployment plans.'}
+					</p>
+				</div>
+			</header>
 			<Form {...form}>
 				{!confirmingPaymentDetails
 					? (
 						<>
-							<h1 className={cx('text-lg leading-none text-foreground font-semibold mb-4', pricingMarginRight)}>
-								Cluster Configuration
-							</h1>
-							<div className={cx('mb-6 flex flex-col items-start gap-2', pricingMarginRight)}>
-								<p className="sr-only">Configure your Harper cluster and define deployment plans.</p>
-								{!isEnterprise && mode !== 'version' && (
-									<>
-										<Badge variant="warning">Beta pricing subject to change.</Badge>
-										{!!termMonths && termMonths > 1 && totalPrice > 0 && (
-											<p className="max-w-prose text-xs font-light text-muted-foreground">
-												* Billed as{' '}
-												{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
-												every{' '}
-												{pluralize(termMonths, 'month', 'months')}, or sooner if you reach a usage limit — then a new
-												license is issued.
-											</p>
-										)}
-									</>
-								)}
-							</div>
-
 							<form
 								id="cluster-upsert-form"
 								name="cluster-upsert-form"
 								onSubmit={form.handleSubmit(submitClusterDetailsForm)}
 							>
 								<ClusterDetails
+									priceSummary={priceSummary}
 									calculatedNames={calculatedNames}
 									clusterId={clusterId}
 									deploymentToPerformanceToPlan={deploymentToPerformanceToPlan}
@@ -542,25 +561,30 @@ export function ClusterForm({
 					)
 					: (
 						<>
-							<h1 className={cx('text-lg leading-none text-foreground font-semibold mb-4', pricingMarginRight)}>
-								Cluster Billing
-							</h1>
-							<p className={cx('text-muted-foreground text-sm mb-2', pricingMarginRight)}>
-								Please confirm the following billing details:
-							</p>
-
-							<ClusterBilling
-								clusterId={clusterId}
-								isPending={isCreatePending || isEditPending}
-								onGoBackToDetails={onGoBackToDetails}
-								onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
-								onSubmit={executeChangesToCluster}
-								organizationId={organizationId}
-								selectedPlan={selectedPlan}
-							/>
+							<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
+								<Card className="min-w-0">
+									<CardHeader>
+										<h2 className="flex items-center gap-2 text-base font-semibold">
+											<CreditCard className="size-4 text-primary" aria-hidden="true" />Payment review
+										</h2>
+									</CardHeader>
+									<CardContent>
+										<ClusterBilling
+											clusterId={clusterId}
+											isPending={isCreatePending || isEditPending}
+											onGoBackToDetails={onGoBackToDetails}
+											onSaveStateForBillingRedirect={onSaveStateForBillingRedirect}
+											onSubmit={executeChangesToCluster}
+											organizationId={organizationId}
+											selectedPlan={selectedPlan}
+										/>
+									</CardContent>
+								</Card>
+								{priceSummary}
+							</div>
 						</>
 					)}
 			</Form>
-		</>
+		</div>
 	);
 }
