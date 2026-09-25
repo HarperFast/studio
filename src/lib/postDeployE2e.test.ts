@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	advertisedVersions,
+	annotationsFor,
 	collectOutcomes,
 	composeReport,
 	findEntryChunk,
@@ -295,11 +296,47 @@ describe('the job summary', () => {
 				message: `Timed out at https://dev.example.test/#/verify-email?token=verification-123456 with ${secret}`,
 			},
 		}]);
-		const { markdown, headline } = composeReport(report([leaky]), 1, context, [secret]);
+		const { markdown, headline, annotations } = composeReport(report([leaky]), 1, context, [secret]);
 		expect(markdown).toContain('?token=[redacted] with [redacted]');
 		expect(markdown).not.toContain('verification-123456');
 		expect(markdown).not.toContain('demo');
 		expect(headline).toBe('❌ E2E failed on dev — 1 failed');
+		expect(annotations.join('\n')).not.toMatch(/verification-123456|demo/);
+	});
+
+	it('annotates the verdict first, then each failed test once, within GitHub’s 10-per-step budget', () => {
+		const lines = annotationsFor(judge(report(Array.from({ length: 12 }, () => failed)), 1), 'dev');
+		expect(lines).toHaveLength(9);
+		expect(lines[0]).toBe('::error title=E2E failed on dev::12 failed');
+		expect(lines[1]).toMatch(
+			/^::error file=e2e\/tests\/a\.anon\.spec\.ts,line=1,title=a\.anon\.spec\.ts › case 0::TimeoutError/,
+		);
+	});
+
+	it('escapes the separators GitHub reads inside annotation properties', () => {
+		const titled: PlaywrightReport = {
+			stats: {},
+			suites: [{
+				title: 'x.anon.spec.ts',
+				specs: [{
+					title: 'switches org, then signs out: fast',
+					file: 'x.anon.spec.ts',
+					line: 7,
+					tests: [playwrightTest('unexpected', [{ status: 'failed', error: { message: '50% done\nnext' } }])],
+				}],
+			}],
+		};
+		expect(annotationsFor(judge(titled, 1), 'dev')[1]).toBe(
+			'::error file=e2e/tests/x.anon.spec.ts,line=7,title=x.anon.spec.ts › switches org%2C then signs out%3A fast::50%25 done — next',
+		);
+	});
+
+	it('warns once for a flaky pass and stays silent on a clean one', () => {
+		const flaky = playwrightTest('flaky', [{ status: 'failed', error: { message: 'boom' } }, { status: 'passed' }]);
+		expect(annotationsFor(judge(report([passed, flaky]), 0), 'dev')).toEqual([
+			'::warning title=Flaky e2e on dev::1 passed only on retry',
+		]);
+		expect(annotationsFor(judge(report([passed]), 0), 'dev')).toEqual([]);
 	});
 
 	it('redacts every string of a nested report and leaves other values alone', () => {
