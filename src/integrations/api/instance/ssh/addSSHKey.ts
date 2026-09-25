@@ -1,4 +1,5 @@
 import { InstanceClientIdConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { sshPrivateKeySchema } from '@/integrations/api/instance/ssh/sshPrivateKey';
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ export const SSHKeySchema = z
 			.trim()
 			.min(1)
 			.regex(/^[a-zA-Z0-9-_]*$/, { error: 'Can only contain letters, numbers, dashes and underscores.' }),
-		key: z.string().min(1).trim(),
+		key: sshPrivateKeySchema,
 		host: z.string().min(1).trim(),
 		hostname: z.string().min(1).trim(),
 		known_hosts: z.string().trim().optional(),
