@@ -7,6 +7,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { logoutOnSuccess } from '@/features/auth/handlers/logoutOnSuccess';
 import { authStore, OverallAppSignIn } from '@/features/auth/store/authStore';
@@ -28,6 +29,7 @@ export function ProfileIndex() {
 
 	const methods = useForm({
 		resolver: zodResolver(UpdateUserSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			confirmNewPassword: '',
 			firstname: user?.firstname || '',
@@ -36,7 +38,8 @@ export function ProfileIndex() {
 			newPassword: '',
 		},
 	});
-	const { control, handleSubmit, reset, formState: { defaultValues, isDirty, isValid } } = methods;
+	const { control, getFieldState, handleSubmit, reset, trigger, formState: { defaultValues, isDirty, isValid } } =
+		methods;
 	const { mutate: updateUser, isPending: isUpdatePending } = useUpdateUserMutation();
 
 	const onSubmitClick = useCallback(
@@ -83,6 +86,7 @@ export function ProfileIndex() {
 					id="profile-edit-form"
 					name="profile-edit-form"
 					onSubmit={handleSubmit(onSubmitClick)}
+					onKeyDown={revealFieldErrorOnEnter(methods)}
 					className="space-y-6"
 				>
 					<div className="grid items-start gap-6 lg:grid-cols-2">
@@ -177,6 +181,13 @@ export function ProfileIndex() {
 													autoComplete="new-password"
 													autoCapitalize="none"
 													{...field}
+													onChange={(event) => {
+														field.onChange(event);
+														// Not `deps`: they fire on this field's first blur, before the confirmation is visited.
+														if (getFieldState('confirmNewPassword').isTouched) {
+															void trigger('confirmNewPassword');
+														}
+													}}
 												/>
 											</FormControl>
 											<FormDescription>

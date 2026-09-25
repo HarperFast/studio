@@ -6,6 +6,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientParams } from '@/config/useInstanceClient';
 import { LocalUser } from '@/integrations/api/api.patch';
@@ -27,6 +28,7 @@ export function DeleteUserForm({
 	const { mutate: deleteUser, isPending: isDeleteUserPending } = useDeleteUserMutation();
 	const deleteForm = useForm({
 		resolver: zodResolver(DeleteUserFormSchema),
+		mode: 'onTouched',
 		defaultValues: {
 			username: data.username,
 			confirmUsernameForDeletion: '',
@@ -56,6 +58,7 @@ export function DeleteUserForm({
 				id="instance-delete-user-form"
 				name="instance-delete-user-form"
 				onSubmit={deleteForm.handleSubmit(onDeleteClicked)}
+				onKeyDown={revealFieldErrorOnEnter(deleteForm)}
 				className="grid gap-4 my-4"
 			>
 				<FormField

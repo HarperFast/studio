@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form/Form';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useEditorView } from '@/features/instance/applications/hooks/useEditorView';
@@ -61,6 +62,7 @@ export function NewApplication() {
 
 	const methods = useForm({
 		resolver: zodResolver(NewApplicationSchema.superRefine(refineZod)),
+		mode: 'onTouched',
 		defaultValues: {
 			applicationName: '',
 			contents: {
@@ -120,6 +122,7 @@ export function NewApplication() {
 					id="instance-add-application-form"
 					name="instance-add-application-form"
 					onSubmit={handleSubmit(submitForm)}
+					onKeyDown={revealFieldErrorOnEnter(methods)}
 					className="flex flex-col gap-4 p-4"
 				>
 					<fieldset disabled={isImportingApplication || isCreatingFromTemplate || isReloading}>

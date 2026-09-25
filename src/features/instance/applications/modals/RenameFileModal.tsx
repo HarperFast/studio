@@ -13,6 +13,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import type { DirectoryEntry } from '@/features/instance/applications/context/directoryEntry';
@@ -66,6 +67,7 @@ export function RenameFileModal() {
 
 	const form = useForm({
 		resolver: zodResolver(RenameFileSchema),
+		mode: 'onTouched',
 	});
 
 	useEffect(() => {
@@ -162,6 +164,7 @@ export function RenameFileModal() {
 						id="instance-rename-app-file-form"
 						name="instance-rename-app-file-form"
 						onSubmit={form.handleSubmit(submitForm)}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 					>
 						<DialogHeader>
 							<DialogTitle>Rename {isDirectory(openedEntry) ? 'Directory' : 'File'}</DialogTitle>
