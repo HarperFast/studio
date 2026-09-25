@@ -10,7 +10,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { useDeleteOrganizationRole } from '@/features/organization/mutations/deleteOrganizationRole';
 import {
-	OrganizationRoleOverviewSchema,
+	OrganizationRoleEditSchema,
 	OrganizationRoleOverviewType,
 	OrganizationRoleSpecificPermissionsType,
 	OrganizationRoleUpdatePayloadType,
@@ -88,13 +88,14 @@ function EditOrganizationRoleModalContent({
 	const [isConfirmingRoleDeletion, setIsConfirmingRoleDeletion] = useState(false);
 
 	const form = useForm({
-		resolver: zodResolver(OrganizationRoleOverviewSchema),
+		resolver: zodResolver(OrganizationRoleEditSchema),
 		defaultValues: {
 			name: data.roleName,
 			update: roleInfo.organization.update || false,
 			delete: roleInfo.organization.delete || false,
 		},
 	});
+	const { isDirty, isValid } = form.formState;
 
 	const onRoleDeleteClick = useCallback(() => {
 		deleteOrganizationRole(
@@ -308,8 +309,7 @@ function EditOrganizationRoleModalContent({
 									{update && (
 										<Button
 											variant="submit"
-											disabled={!isValidJSON || isRoleUpdatePending || !form.formState.isValid
-												|| (!form.formState.isDirty && !isPermissionsDirty)}
+											disabled={!isValidJSON || isRoleUpdatePending || !isValid || (!isDirty && !isPermissionsDirty)}
 										>
 											Save Changes
 										</Button>
