@@ -190,7 +190,7 @@ export function judge(report: PlaywrightReport | undefined, playwrightExit: numb
 	}
 	if (counts.passed + counts.failed + counts.flaky === 0) { problems.push('no tests ran'); }
 	if (counts.skipped) { problems.push(`${counts.skipped} skipped`); }
-	if (counts['not run'] && !counts.failed) { problems.push(`${counts['not run']} did not run`); }
+	if (counts['not run']) { problems.push(`${counts['not run']} did not run`); }
 	if (playwrightExit !== 0 && problems.length === 0) { problems.push(`Playwright exited ${playwrightExit}`); }
 	return { ok: problems.length === 0, problems, counts, outcomes };
 }
