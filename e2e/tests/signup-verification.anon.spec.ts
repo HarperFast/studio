@@ -1,6 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { deleteAllMail, mailConfigured, newTestEmailAddress, waitForVerificationEmail } from './mail';
+import { maskInCi } from './maskInCi';
 
 /**
  * Full email round-trip: sign up with a fresh controlled address → receive the
@@ -53,6 +54,8 @@ test.describe('signup → email verification → login', () => {
 	test('a new user can verify their email and sign in @roundtrip', async ({ page }) => {
 		const email = newTestEmailAddress();
 		const password = randomPassword();
+		maskInCi(email);
+		maskInCi(password);
 		const receivedAfter = new Date(Date.now() - 15_000);
 
 		// Wrap the WHOLE flow so cleanup runs even if an earlier step fails — otherwise a failure

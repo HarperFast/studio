@@ -101,6 +101,46 @@ describe('workflow privilege boundary', () => {
 	});
 });
 
+/**
+ * A post-deploy e2e job runs e2e code from the pushed ref, so it stays a job of its own — its own
+ * runner — with test-account secrets only. It must test the commit its deploy job shipped: a checkout
+ * `ref` would pair one commit's specs with another commit's deployment.
+ */
+describe('post-deploy e2e jobs', () => {
+	type Step = { uses?: string; with?: Record<string, unknown> };
+	type E2eJob = { needs?: string | string[]; environment?: unknown; permissions?: unknown; steps?: Step[] };
+	const DEPLOY_SECRET = /CLI_TARGET_USERNAME|HARPERDB_CLI_TARGET_PASSWORD|CLI_DEPLOY_TARGET|DATADOG_API_KEY/;
+
+	const e2eJobs = () =>
+		workflowFiles().flatMap((name) => {
+			const jobs = (parse(readFileSync(join(WORKFLOWS_DIR, name), 'utf8')).jobs ?? {}) as Record<string, E2eJob>;
+			return Object.entries(jobs)
+				.filter(([, job]) => job.steps?.some((step) => step.uses === './.github/actions/studio-e2e'))
+				.map(([id, job]) => ({ label: `${name} › ${id}`, job }));
+		});
+
+	it('finds the e2e jobs to check', () => {
+		expect(e2eJobs().length).toBeGreaterThan(0);
+	});
+
+	it.each(e2eJobs())('$label holds no deploy credential and only reads the repo', ({ job }) => {
+		expect(JSON.stringify(job)).not.toMatch(DEPLOY_SECRET);
+		expect(JSON.stringify(job)).not.toContain('inherit');
+		expect(job.permissions).toEqual({ contents: 'read' });
+		expect(job.environment).toBeTruthy();
+	});
+
+	it.each(e2eJobs())('$label tests the version its own deploy job just shipped', ({ job }) => {
+		const needs = [job.needs ?? []].flat();
+		const e2e = job.steps?.find((step) => step.uses === './.github/actions/studio-e2e');
+		const expected = String(e2e?.with?.['expected-version']);
+		expect(needs).toContainEqual(expected.match(/needs\.(\w+)\.outputs\.version/)?.[1]);
+		const checkout = job.steps?.find((step) => step.uses?.startsWith('actions/checkout@'));
+		expect(checkout).toBeDefined();
+		expect(checkout?.with?.ref).toBeUndefined();
+	});
+});
+
 describe('isPrivileged recognises every privileged form', () => {
 	const job = (body: string) => `on: [merge_group]\njobs:\n  j:\n${body}`;
 
