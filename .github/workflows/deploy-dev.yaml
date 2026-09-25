@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.deploy.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +42,7 @@ jobs:
         with:
           environment: dev
       - name: Build and deploy
+        id: deploy
         uses: ./.github/actions/studio-deploy
         with:
           environment: dev
@@ -51,3 +54,30 @@ jobs:
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME_DEV }}
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}
           cli-deploy-target: ${{ secrets.CLI_DEPLOY_TARGET_DEV }}
+
+  # A separate job, so a separate runner: the deploy credentials above never share a machine with
+  # the e2e code below, which gets only the `e2e-dev` environment's test-account secrets.
+  e2e:
+    name: E2E against Dev
+    needs: deployToDev
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: e2e-dev
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run e2e against the deployed build
+        uses: ./.github/actions/studio-e2e
+        with:
+          environment: dev
+          base-url: https://dev.studio.harperfabric.com
+          expected-version: ${{ needs.deployToDev.outputs.version }}
+          user-email: ${{ secrets.PLAYWRIGHT_USER_EMAIL }}
+          user-password: ${{ secrets.PLAYWRIGHT_USER_PASSWORD }}
+          org-id: ${{ secrets.PLAYWRIGHT_ORG_ID }}
+          mailosaur-api-key: ${{ secrets.MAILOSAUR_API_KEY }}
+          mailosaur-server-id: ${{ secrets.MAILOSAUR_SERVER_ID }}

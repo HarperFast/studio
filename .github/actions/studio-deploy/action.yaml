@@ -37,6 +37,11 @@ inputs:
     description: 'Harper CLI deploy target for the CM'
     required: true
 
+outputs:
+  version:
+    description: 'The VITE_STUDIO_VERSION baked into the deployed bundle — what the deployed site advertises'
+    value: ${{ steps.version.outputs.version }}
+
 runs:
   using: composite
   steps:
@@ -47,6 +52,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
     - name: Determine version tag for build
+      id: version
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
@@ -59,6 +65,7 @@ runs:
           VERSION_TAG="${ENVIRONMENT}_${GITHUB_SHA:0:7}"
         fi
         echo "VITE_STUDIO_VERSION=$VERSION_TAG" >> "$GITHUB_ENV"
+        echo "version=$VERSION_TAG" >> "$GITHUB_OUTPUT"
     - name: Build ${{ inputs.environment }}
       shell: bash
       env:
