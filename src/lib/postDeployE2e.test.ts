@@ -331,6 +331,25 @@ describe('the job summary', () => {
 		);
 	});
 
+	it('keeps the annotation separator when a test title carries a credential-shaped parameter', () => {
+		const titled: PlaywrightReport = {
+			stats: {},
+			suites: [{
+				title: 'v.anon.spec.ts',
+				specs: [{
+					title: 'rejects /#/verify-email?token=expired',
+					file: 'v.anon.spec.ts',
+					line: 3,
+					tests: [playwrightTest('unexpected', [{ status: 'failed', error: { message: 'boom' } }])],
+				}],
+			}],
+		};
+		const { annotations } = composeReport(titled, 1, context, []);
+		expect(annotations[1]).toBe(
+			'::error file=e2e/tests/v.anon.spec.ts,line=3,title=v.anon.spec.ts › rejects /#/verify-email?token=[redacted]::boom',
+		);
+	});
+
 	it('warns once for a flaky pass and stays silent on a clean one', () => {
 		const flaky = playwrightTest('flaky', [{ status: 'failed', error: { message: 'boom' } }, { status: 'passed' }]);
 		expect(annotationsFor(judge(report([passed, flaky]), 0), 'dev')).toEqual([
