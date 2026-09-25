@@ -565,7 +565,7 @@ export function ClusterForm({
 					<dd className="mt-2 font-bold">
 						{selectedGrant
 							? (
-								<span className="text-4xl text-green">
+								<span className="text-3xl text-green">
 									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
 								</span>
 							)
@@ -583,7 +583,7 @@ export function ClusterForm({
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
 				</dl>
-				{!!termMonths && termMonths > 1 && totalPrice > 0 && (
+				{!selectedGrant && !!termMonths && termMonths > 1 && totalPrice > 0 && (
 					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
 						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
 						every{' '}
