@@ -55,13 +55,13 @@ jobs:
           cli-target-password: ${{ secrets.HARPERDB_CLI_TARGET_PASSWORD_DEV }}
           cli-deploy-target: ${{ secrets.CLI_DEPLOY_TARGET_DEV }}
 
-  # A separate job, so a separate runner: the deploy credentials above never share a machine with
-  # the e2e code below, which gets only the `e2e-dev` environment's test-account secrets.
+  # Its own job so its own runner: e2e code never shares a machine with the deploy credentials.
   e2e:
     name: E2E against Dev
     needs: deployToDev
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Install, up to 10 min for the build to go live, and the suite's own 25-minute global timeout.
+    timeout-minutes: 40
     environment: e2e-dev
     permissions:
       contents: read

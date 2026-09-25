@@ -160,17 +160,24 @@ yet.
   only reads the repo, and never overrides the checkout ref.
 - **What fails it:** a failed test, a skipped test (a skip means a prerequisite the run was given
   stopped working — `e2e/README.md`, "Skips are deliberate"), no tests run, or no report. Flaky
-  tests warn. The run stops after 10 failures, which bounds how long it holds the `dev` group.
+  tests warn. Playwright stops after 10 failures or 25 minutes (the signup round-trip alone may take
+  10 minutes an attempt), inside the job's 40, so a slow red run still writes its report.
 - **What it publishes:** the log, failure annotations and a job summary with a repro command. **No
   trace, video, screenshot or HTML report is uploaded**: anyone signed in to GitHub can download a
-  public repo's artifacts, and a Playwright trace records the session cookie.
+  public repo's artifacts, and a Playwright trace records the session cookie. GitHub masks the
+  configured secrets; a value a spec generates (the round-trip's address, password and
+  verification token) must be masked by the spec with `maskInCi` (`e2e/tests/maskInCi.ts`)
+  before anything can print it.
 - **Concurrency:** the workflow-level `dev` group spans the e2e job, so the next dev deploy waits
   for it — a deploy landing mid-run would change the build under the tests. GitHub keeps one
   pending run per group, so a burst of pushes waits for one e2e run, not one each. **Re-run failed
   jobs** re-runs only `e2e`, which passes its gate only while that version is still deployed.
 
-To set up an environment's secrets (values from whoever owns the test accounts — never a personal
-login; give each environment its own Mailosaur server and key):
+**Create the environment before the job reaches its branch.** GitHub auto-creates a missing
+environment with no secrets and no branch policy, so until this runs every deploy of that branch
+goes red on skipped specs, and nothing restricts which branch could read secrets added later.
+Values come from whoever owns the test accounts — never a personal login — and each environment
+gets its own Mailosaur server and key:
 
 ```bash
 gh api -X PUT repos/HarperFast/studio/environments/e2e-dev \

@@ -1,10 +1,8 @@
 name: Studio e2e
 description: Wait until an environment serves the build just deployed, then run e2e/ against it and fail on red.
 
-# Runs the specs of the checked-out commit, so the caller must check out the commit it deployed —
-# testing any other commit's specs against a deployment is the skew this action exists to prevent.
-# Holds e2e test-account credentials only. Deploy credentials never reach this action; keep it that
-# way (.github/deploying.md, "Post-deploy e2e").
+# The caller must check out the commit it deployed: another commit's specs against this deployment
+# fail for reasons that are not regressions. Never pass this action a deploy credential.
 inputs:
   environment:
     description: 'dev | stage | prod — labels the report'
@@ -81,7 +79,7 @@ runs:
         PROJECT: ${{ inputs.project }}
       run: |
         set +e
-        pnpm exec playwright test --max-failures=10 \
+        pnpm exec playwright test --max-failures=10 --global-timeout=1500000 \
           ${GREP_INVERT:+--grep-invert="$GREP_INVERT"} ${PROJECT:+--project="$PROJECT"}
         echo "exit-code=$?" >> "$GITHUB_OUTPUT"
     - name: Report
@@ -96,5 +94,7 @@ runs:
         RESULTS_FILE: e2e/results/results.json
         PLAYWRIGHT_USER_EMAIL: ${{ inputs.user-email }}
         PLAYWRIGHT_USER_PASSWORD: ${{ inputs.user-password }}
+        PLAYWRIGHT_ORG_ID: ${{ inputs.org-id }}
         MAILOSAUR_API_KEY: ${{ inputs.mailosaur-api-key }}
+        MAILOSAUR_SERVER_ID: ${{ inputs.mailosaur-server-id }}
       run: node "$GITHUB_ACTION_PATH/postDeploy.ts" report
