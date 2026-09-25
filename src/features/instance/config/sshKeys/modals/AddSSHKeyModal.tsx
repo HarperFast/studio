@@ -124,13 +124,14 @@ export function AddSSHKeyModal({
 								<FormItem className="md:col-span-2">
 									<FormLabel className="pb-1">Key</FormLabel>
 									<FormDescription>
-										Your private key. Don't have one? Try out "ssh-keygen"! You'll want to add your public key to your
-										registry, i.e. GitHub.
+										Your private key: the file without the .pub extension, with no passphrase. Don't have one? Try out
+										"ssh-keygen"! You'll want to add your public key (the .pub file) to your registry, i.e. GitHub.
 									</FormDescription>
 									<FormControl>
 										<Textarea
 											autoComplete="off"
 											autoCapitalize="off"
+											spellCheck={false}
 											rows={3}
 											{...field}
 										/>

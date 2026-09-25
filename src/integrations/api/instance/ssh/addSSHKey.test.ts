@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { SSHKeySchema } from './addSSHKey';
+import { ED25519_PUBLIC_KEY, openSSHPrivateKey } from './testHelpers';
 
 const validKey = {
 	name: 'my-repo',
-	key: 'PRIVATE KEY',
+	key: openSSHPrivateKey(),
 	host: 'my-repo.github.com',
 	hostname: 'github.com',
 };
+
+function messagesFor(result: ReturnType<typeof SSHKeySchema.safeParse>, field: string) {
+	return (result.error?.issues ?? []).filter((issue) => issue.path[0] === field).map((issue) => issue.message);
+}
 
 describe('SSHKeySchema host alias guard', () => {
 	it('accepts a unique alias distinct from the hostname', () => {
@@ -37,5 +42,18 @@ describe('SSHKeySchema host alias guard', () => {
 	it('still requires host and hostname to be present', () => {
 		expect(SSHKeySchema.safeParse({ ...validKey, host: '' }).success).toBe(false);
 		expect(SSHKeySchema.safeParse({ ...validKey, hostname: '' }).success).toBe(false);
+	});
+});
+
+describe('SSHKeySchema field messages', () => {
+	it('rejects a public key where the private key belongs', () => {
+		expect(messagesFor(SSHKeySchema.safeParse({ ...validKey, key: ED25519_PUBLIC_KEY }), 'key')[0]).toContain(
+			'This looks like a public key',
+		);
+	});
+
+	it('parses the key to its normalized form', () => {
+		const indented = openSSHPrivateKey().replaceAll('\n', '\n  ');
+		expect(SSHKeySchema.parse({ ...validKey, key: `  ${indented}\n` }).key).toBe(openSSHPrivateKey());
 	});
 });
