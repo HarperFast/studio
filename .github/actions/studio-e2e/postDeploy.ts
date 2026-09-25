@@ -22,6 +22,8 @@ export type OutcomeStatus = 'passed' | 'failed' | 'flaky' | 'skipped' | 'not run
 
 export type TestOutcome = {
 	title: string;
+	file: string;
+	line: number;
 	location: string;
 	project: string;
 	status: OutcomeStatus;
@@ -48,6 +50,8 @@ const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&
 const ENTRY_CHUNK = /(?:\.?\/)?assets\/index-[\w-]+\.js/;
 const VERSION_MARKER = /(?<![\w.-])(?:(?:dev|stage|prod)_[0-9a-f]{7,40}|v\d+\.\d+\.\d+)(?![\w.-])/g;
 const MAX_ROWS = 50;
+/** GitHub keeps 10 error annotations per step; the verdict takes one. */
+const MAX_TEST_ANNOTATIONS = 8;
 const ANSI_COLOR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 
 export function findEntryChunk(html: string): string | undefined {
@@ -132,8 +136,14 @@ function firstLines(message: string | undefined): string {
 	return lines.slice(0, 2).join(' — ');
 }
 
-function toOutcome(title: string, location: string, test: ReportTest): TestOutcome {
-	const base = { title, location, project: test.projectName };
+function toOutcome(title: string, spec: ReportSpec, test: ReportTest): TestOutcome {
+	const base = {
+		title,
+		file: spec.file,
+		line: spec.line,
+		location: `${spec.file}:${spec.line}`,
+		project: test.projectName,
+	};
 	const errors = test.results.filter((result) => result.error);
 	switch (test.status) {
 		case 'expected':
@@ -161,7 +171,7 @@ export function collectOutcomes(report: PlaywrightReport): TestOutcome[] {
 	const visit = (suite: ReportSuite, path: string[]) => {
 		for (const spec of suite.specs ?? []) {
 			for (const test of spec.tests) {
-				outcomes.push(toOutcome([...path, spec.title].join(' › '), `${spec.file}:${spec.line}`, test));
+				outcomes.push(toOutcome([...path, spec.title].join(' › '), spec, test));
 			}
 		}
 		for (const child of suite.suites ?? []) { visit(child, [...path, child.title]); }
@@ -305,9 +315,29 @@ function escapeData(text: string): string {
 	return text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 }
 
-function annotate(level: 'error' | 'warning', title: string, message: string): void {
-	const property = escapeData(title).replace(/:/g, '%3A').replace(/,/g, '%2C');
-	console.log(`::${level} title=${property}::${escapeData(message)}`);
+function escapeProperty(text: string): string {
+	return escapeData(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
+}
+
+function annotation(level: 'error' | 'warning', title: string, message: string, file?: string, line?: number): string {
+	const where = file ? `file=${escapeProperty(file)},line=${line ?? 1},` : '';
+	return `::${level} ${where}title=${escapeProperty(title)}::${escapeData(message)}`;
+}
+
+/** The verdict first, then one per failed test (not per retry), within GitHub's per-step budget. */
+export function annotationsFor(verdict: Verdict, environment: string): string[] {
+	if (verdict.ok) {
+		return verdict.counts.flaky
+			? [annotation('warning', `Flaky e2e on ${environment}`, `${verdict.counts.flaky} passed only on retry`)]
+			: [];
+	}
+	return [
+		annotation('error', `E2E failed on ${environment}`, verdict.problems.join('; ')),
+		...verdict.outcomes
+			.filter((outcome) => outcome.status === 'failed')
+			.slice(0, MAX_TEST_ANNOTATIONS)
+			.map((outcome) => annotation('error', outcome.title, outcome.detail, `e2e/tests/${outcome.file}`, outcome.line)),
+	];
 }
 
 function publish(markdown: string): void {
@@ -329,7 +359,7 @@ export function composeReport(
 	playwrightExit: number,
 	context: SummaryContext,
 	secrets: readonly string[],
-): { verdict: Verdict; markdown: string; headline: string } {
+): { verdict: Verdict; markdown: string; headline: string; annotations: string[] } {
 	const report = redactDeep(raw, secrets);
 	const verdict = judge(report, playwrightExit);
 	const markdown = renderSummary(verdict, {
@@ -341,6 +371,7 @@ export function composeReport(
 		verdict,
 		markdown: redact(markdown, secrets),
 		headline: redact(headline(verdict, context.environment), secrets),
+		annotations: annotationsFor(verdict, context.environment).map((line) => redact(line, secrets)),
 	};
 }
 
@@ -370,7 +401,7 @@ async function waitCommand(): Promise<number> {
 	if (result.ok) { return 0; }
 	const message = `${baseUrl} did not serve ${version} within ${timeoutSeconds}s (${result.checks} checks). `
 		+ `Last check: ${result.lastSeen}. The e2e suite did not run.`;
-	annotate('error', 'Deploy did not land', message);
+	console.log(annotation('error', 'Deploy did not land', message));
 	publish(`## ❌ ${version} never went live on ${baseUrl}\n\n${message}\n`);
 	return 1;
 }
@@ -378,7 +409,7 @@ async function waitCommand(): Promise<number> {
 function reportCommand(): number {
 	const environment = process.env.ENVIRONMENT || 'the target';
 	const secrets = SECRET_ENV.map((name) => process.env[name] ?? '');
-	const { verdict, markdown, headline: line } = composeReport(
+	const { verdict, markdown, headline: line, annotations } = composeReport(
 		readReport(process.env.RESULTS_FILE || 'e2e/results/results.json'),
 		Number(process.env.PLAYWRIGHT_EXIT || 1),
 		{
@@ -393,10 +424,7 @@ function reportCommand(): number {
 	);
 	publish(markdown);
 	console.log(line);
-	if (!verdict.ok) { annotate('error', `E2E failed on ${environment}`, redact(verdict.problems.join('; '), secrets)); }
-	else if (verdict.counts.flaky) {
-		annotate('warning', `Flaky e2e on ${environment}`, `${verdict.counts.flaky} passed only on retry`);
-	}
+	for (const command of annotations) { console.log(command); }
 	return verdict.ok ? 0 : 1;
 }
 
