@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdownMenu';
 import { EntityContextMenu, type EntityMenuItem, renderEntityMenuItems } from '@/components/ui/entityMenu';
-import { isBeingUpdated, isFailed, isPendingUpdate, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
+import { isBeingUpdated, isFailed, isPendingUpdate } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
@@ -13,6 +13,7 @@ import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAct
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
+import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
 import {
 	describeGrantExpiry,
 	describeTrial,
@@ -26,22 +27,20 @@ import { useInstanceAuth } from '@/hooks/useAuth';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
-import { Cluster } from '@/integrations/api/api.patch';
+import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { onInstanceLogoutSubmit } from '@/integrations/api/instance/auth/onInstanceLogoutSubmit';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { cn } from '@/lib/cn';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { capitalizeWords } from '@/lib/string/capitalizeWords';
 import { getOperationsUrlForCluster } from '@/lib/urls/getOperationsUrlForCluster';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useRouter } from '@tanstack/react-router';
 import {
+	ChevronDown,
 	ClipboardIcon,
 	CopyIcon,
-	Ellipsis,
 	GitGraphIcon,
 	GlobeIcon,
 	KeyIcon,
@@ -71,7 +70,8 @@ const PILL_TONE: Record<ExpirySeverity, string> = {
 };
 const PILL_DATE = 'text-sm text-muted-foreground dark:text-foreground/70';
 
-export function ClusterCard({ cluster }: { cluster: Cluster }) {
+export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
+	const { cluster } = summary;
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
@@ -80,6 +80,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const [, setSavedClusterState] = useLocalStorage<unknown | null>(LocalStorageKeys.SavedClusterState, null);
 
 	const { view, update, remove, create } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const canRunContainerOps = useContainerOpsPermission(cluster.organizationId);
 	const { mutate: terminateCluster, isPending: isTerminateClusterPending } = useTerminateClusterMutation();
 
 	const [signingOut, setSigningOut] = useState(false);
@@ -95,13 +96,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const isClusterRunning = cluster.status === 'RUNNING';
 	const isClusterStopped = cluster.status === 'STOPPED';
 	const isClusterPartial = cluster.status === 'PARTIAL';
-
-	// Temporary status badge on the card for container-op states. Transitional states tell the user
-	// what's happening (Stopping/Starting/Restarting) and clear on their own as the clusters list
-	// polls; STOPPED/PARTIAL are resting labels. RUNNING stays clean (no badge) on this route.
-	const isClusterTransitioning = cluster.status === 'STOPPING' || cluster.status === 'STARTING'
-		|| cluster.status === 'RESTARTING';
-	const showContainerOpBadge = isClusterTransitioning || isClusterStopped || isClusterPartial;
 
 	const isActive = useMemo(
 		() => !!(cluster.status && activeClusterStatuses.includes(cluster.status)),
@@ -122,7 +116,7 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	const planEndedAndDown = startBlocked && !isClusterRunning && !isClusterPartial;
 	// Self-hosted clusters have no managed container lifecycle — Harper doesn't control their
 	// runtime — so the whole Container action group is hidden for them (matching ClusterStateMenu).
-	const showContainerActions = update && !isSelfManaged && !planEndedAndDown;
+	const showContainerActions = canRunContainerOps && !isSelfManaged && !planEndedAndDown;
 	const isFabricConnect = authStore.checkForFabricConnect(cluster.id);
 	const isDirectConnect = !isFabricConnect && !!auth.user;
 	const isTerminated = useMemo(
@@ -366,10 +360,10 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 	return (
 		<EntityContextMenu items={isTerminated ? [] : menuItems}>
 			<Card
-				className={`relative h-full justify-between transition-[transform,box-shadow] duration-200 ${
+				className={`group/cluster relative isolate min-w-0 h-full overflow-hidden border border-border bg-card/30 py-0 gap-0 shadow-sm transition-[background-color,border-color,box-shadow] duration-200 motion-reduce:transition-none ${
 					cardHref
-						? 'hover:scale-[1.02] hover:shadow-lg hover:ring-2 hover:ring-primary/60 dark:hover:ring-violet-400/70'
-						: 'hover:shadow-lg'
+						? 'cursor-pointer hover:border-primary hover:bg-card/70 hover:shadow-xl hover:shadow-primary/20 hover:ring-2 hover:ring-primary/70 dark:hover:border-violet-400 dark:hover:ring-violet-400/70'
+						: ''
 				}`}
 			>
 				{cardHref && (
@@ -377,15 +371,50 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 						to={cardHref}
 						search={cardHref === upgradeHref ? { upgrade: HOBBYIST_UPGRADE } : undefined}
 						aria-label={`${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
-						className="absolute inset-0 rounded-[inherit] focus-visible:ring-2 focus-visible:ring-purple-200 focus-visible:outline-none"
+						className="absolute inset-0 z-1 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 					/>
 				)}
-				<CardHeader>
-					<CardDescription className="flex items-center justify-between">
+				<CardHeader className="gap-3 bg-linear-to-br from-transparent via-primary/5 to-primary/15 dark:from-primary/15 dark:to-transparent px-5 py-5">
+					<div className="flex items-start justify-between gap-3">
+						<div className="flex min-w-0 flex-wrap items-center gap-2 pt-1">
+							<Badge
+								variant={summary.category === 'failed'
+									? 'destructive'
+									: summary.category === 'attention'
+									? 'warning'
+									: summary.category === 'running'
+									? 'success'
+									: 'secondary'}
+								className="rounded-full"
+							>
+								<span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+								{summary.label}
+							</Badge>
+							<span className="text-xs text-muted-foreground">{summary.hosting}</span>
+						</div>
+						{!isTerminated && (
+							<DropdownMenu>
+								<DropdownMenuTrigger
+									aria-label="Cluster options"
+									onClick={(e) => e.stopPropagation()}
+									className="relative z-10 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/25 bg-background/60 px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-primary/60 hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-ring"
+								>
+									Options <ChevronDown className="size-3.5" aria-hidden="true" />
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end">
+									{renderEntityMenuItems(menuItems, 'dropdown')}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						)}
+					</div>
+					<CardTitle>
+						<h2 className="break-words text-xl font-semibold leading-snug">{cluster.name}</h2>
+					</CardTitle>
+					<CardDescription className="flex min-w-0 items-center gap-3 justify-between">
 						{clusterFQDN
 							? (
 								<>
-									<span className="truncate max-w-48">{clusterFQDN}</span>
+									<span className="min-w-0 truncate" title={clusterFQDN}>{clusterFQDN}</span>
 									<button
 										type="button"
 										aria-label="Copy host name"
@@ -400,33 +429,27 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 									<span className="grow"></span>
 								</>
 							)
-							: <span>Self-Hosted</span>}
-						{!isTerminated && (
-							<DropdownMenu>
-								<DropdownMenuTrigger
-									aria-label="Cluster options"
-									onClick={(e) => e.stopPropagation()}
-									className="relative z-10 -m-2 p-2 rounded-md hover:bg-accent/60"
-								>
-									<Ellipsis />
-								</DropdownMenuTrigger>
-								<DropdownMenuContent>
-									{renderEntityMenuItems(menuItems, 'dropdown')}
-								</DropdownMenuContent>
-							</DropdownMenu>
-						)}
+							: <span>{isSelfManaged ? 'Self-hosted endpoint' : 'Hostname not assigned'}</span>}
 					</CardDescription>
-					<CardTitle>
-						<h2>{cluster.name}</h2>
-					</CardTitle>
 				</CardHeader>
-				{
-					/* The bar is full width and every pill and the CTA are shrink-0 nowrap, so one shared row
-				    pushed the CTA past the card edge: the bar gets its own line and the rest wraps. */
-				}
-				<CardContent className="flex flex-col gap-2">
+				<CardContent className="mt-auto flex flex-col gap-3 border-t border-border px-5 py-4">
 					<ClusterProgress cluster={cluster} />
-					<div className="flex flex-wrap items-center justify-between gap-2">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<div className="min-w-0 flex-1 text-xs">
+							{/* Notices only: the header pill already carries the status, so a healthy cluster says nothing here. */}
+							{summary.notices.length > 0 && (
+								<ul
+									className={`space-y-1 ${
+										summary.category === 'failed' ? 'text-destructive' : 'text-amber-800 dark:text-yellow'
+									}`}
+								>
+									{summary.notices.map(notice => <li key={notice}>{notice}</li>)}
+								</ul>
+							)}
+							{clusterHasFailed && create && (
+								<p className="mt-1 text-muted-foreground">Open cluster options to retry or manage this cluster.</p>
+							)}
+						</div>
 						{expiry && (
 							<span className="inline-flex items-center gap-2">
 								<Badge
@@ -450,20 +473,6 @@ export function ClusterCard({ cluster }: { cluster: Cluster }) {
 							</span>
 						)}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
-						{showContainerOpBadge && cluster.status && (
-							<Badge variant={isClusterStopped ? 'destructive' : 'warning'} className={STATUS_PILL}>
-								{isClusterTransitioning && <Loader2 className="animate-spin" />}
-								{capitalizeWords(cluster.status)}
-							</Badge>
-						)}
-						{clusterHasFailed && cluster.status && (
-							<>
-								<Badge variant={renderBadgeStatusVariant(cluster.status)} className={STATUS_PILL}>
-									{capitalizeWords(cluster.status)}
-								</Badge>
-								<span className="text-xs">Click "..." to choose how to proceed.</span>
-							</>
-						)}
 					</div>
 				</CardContent>
 

@@ -36,12 +36,14 @@ const firstSegment = (url: string): string => new URL(url).hash.replace(/^#\/?/,
 test.describe('authenticated app', () => {
 	test.skip(!hasCreds, 'No test account configured (see e2e/.env.e2e).');
 
-	test('shows the authenticated shell (Sign Out present, not on sign-in)', async ({ page }) => {
+	test('shows the authenticated shell (account menu present, not on sign-in)', async ({ page }) => {
 		await page.goto('/#/');
-		// The nav's Sign Out control carries aria-label="Sign Out" at any width;
-		// its presence is the robust logged-in signal.
-		await expect(page.getByLabel('Sign Out')).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Account menu' })).toBeVisible();
 		await expect(page).not.toHaveURL(/#\/sign-in/);
+		await page.getByRole('button', { name: 'Account menu' }).click();
+		await expect(page.getByRole('menuitem', { name: 'Profile', exact: true })).toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Sign Out', exact: true })).toBeVisible();
+		await page.keyboard.press('Escape');
 	});
 
 	test('org users list renders with the expected columns', async ({ page }) => {

@@ -1,6 +1,8 @@
-import { SubNavItem, SubNavRail } from '@/components/SubNavRail';
+import { SectionRail } from '@/components/SectionRail';
+import type { SubNavItem } from '@/components/SubNavRail';
 import { ClusterExpiryBanner } from '@/features/cluster/components/ClusterExpiryBanner';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
+import { RestartingNotice } from '@/features/restart/RestartingNotice';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQuery } from '@tanstack/react-query';
@@ -42,26 +44,16 @@ export function ClusterPageLayout({ children }: { children: ReactNode }) {
 	].filter(Boolean) as SubNavItem[];
 
 	return (
-		<div className="mt-32 pt-4">
-			{
-				/* Outside the `relative` box below, so the editor's absolutely-positioned price display
-			    anchors beneath the banner instead of floating over it. Same padding, so both align. */
-			}
-			<div className="px-4 md:px-12">
-				<ClusterExpiryBanner cluster={cluster} canUpdate={!!update} onPlanPage={onPlanPage} />
-			</div>
-			{
-				/* `relative` so absolutely-positioned page furniture (the cluster editor's price display)
-			    anchors to the content area, matching SubNavSimpleLayout — not the viewport, where the
-			    fixed header hides it. */
-			}
-			<div className="relative px-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
-				<div className="md:grid gap-6 md:grid-cols-12">
-					<aside className="md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
-						<SubNavRail items={items} ariaLabel="Cluster sections" />
-					</aside>
-					<section className="md:col-span-9 lg:col-span-10 min-w-0">{children}</section>
-				</div>
+		<div className="relative mt-32 px-4 pt-4 md:px-12 min-h-[calc(100vh-(--spacing(32)))]">
+			<ClusterExpiryBanner cluster={cluster} canUpdate={!!update} onPlanPage={onPlanPage} />
+			<div className="md:grid gap-6 md:grid-cols-12">
+				<aside className="section-rail-aside md:col-span-3 lg:col-span-2 mb-4 md:mb-0">
+					<SectionRail items={items} ariaLabel="Cluster sections" />
+				</aside>
+				<section className="md:col-span-9 lg:col-span-10 min-w-0">
+					<RestartingNotice entityId={clusterId} clusterId={clusterId} noun="cluster" className="mb-4" />
+					{children}
+				</section>
 			</div>
 		</div>
 	);

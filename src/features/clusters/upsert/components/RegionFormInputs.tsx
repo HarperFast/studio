@@ -103,7 +103,7 @@ export function RegionFormInputs({
 				control={control}
 				name={`regionPlans.${index}.regionName`}
 				render={({ field: regionField }) => (
-					<FormItem className="flex-1">
+					<FormItem className="min-w-0 basis-full sm:flex-1">
 						<FormLabel className="flex items-center gap-1.5">
 							<MapPinIcon className="size-4 shrink-0" />
 							Region {fieldArray.fields.length > 1 ? index + 1 : ''}
@@ -143,7 +143,7 @@ export function RegionFormInputs({
 				control={control}
 				name={`regionPlans.${index}.latencyDescription`}
 				render={({ field: regionField }) => (
-					<FormItem className="flex-1">
+					<FormItem className="min-w-0 basis-full sm:flex-1">
 						<FormLabel>Estimated {isDedicated ? 'P95' : 'P90'} Latency, Distribution</FormLabel>
 						<FormControl>
 							<Select

@@ -14,7 +14,10 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/useAuth', () => ({ useInstanceAuth: () => ({ user: undefined, isLoading: false }) }));
-vi.mock('@/hooks/usePermissions', () => ({ useOrganizationClusterInstancePermissions: () => ({ update: true }) }));
+vi.mock('@/hooks/usePermissions', () => ({
+	useOrganizationClusterInstancePermissions: () => ({ update: true }),
+	useContainerOpsPermission: () => true,
+}));
 vi.mock('@/config/useInstanceClient', () => ({
 	useInstanceClient: () => ({}),
 	useInstanceClientIdParams: () => ({}),

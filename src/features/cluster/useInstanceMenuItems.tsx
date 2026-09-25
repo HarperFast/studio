@@ -10,7 +10,7 @@ import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateI
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInstanceContainerOps } from '@/hooks/useInstanceContainerOps';
-import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
+import { useContainerOpsPermission, useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
 import { getStatusQueryOptions, getSystemStatusById } from '@/integrations/api/instance/status/getStatus';
 import { useSetStatus } from '@/integrations/api/instance/status/setStatus';
@@ -61,6 +61,7 @@ export function useInstanceMenuItems(
 	const operationsUrl = useMemo(() => getOperationsUrlForInstance(instance), [instance]);
 	const instanceClient = useInstanceClient({ operationsUrl });
 	const { update: canManage } = useOrganizationClusterInstancePermissions();
+	const canRunContainerOps = useContainerOpsPermission();
 	const isFabricConnect = authStore.checkForFabricConnect(instance.id);
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
@@ -102,7 +103,7 @@ export function useInstanceMenuItems(
 	const isStopped = instance.status === 'STOPPED';
 	// Only the stopped-instance actions die with the plan: Start is refused with a 402, while a
 	// still-running instance keeps Restart and Stop, which central-manager allows on the way down.
-	const hasContainerOps = canManage && !isSelfManaged && (isRunning || (isStopped && !planEnded));
+	const hasContainerOps = canRunContainerOps && !isSelfManaged && (isRunning || (isStopped && !planEnded));
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {

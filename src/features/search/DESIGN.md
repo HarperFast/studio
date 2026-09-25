@@ -1,0 +1,11 @@
+# Global navigation search
+
+Dashboard owns one cloud-session search controller; responsive navbar controls share it. The dialog is loaded on first open and has no observer or request while closed. The bubbling shortcut handler yields to prevented events and editable/editor/dialog targets so it cannot consume Monaco chord prefixes.
+
+Organization names come from unlocked current memberships. Cluster names come from the existing organization query keys, loaded progressively by at most four workers with a 60-second freshness window. fetchQuery creates no polling observer. Closing or replacing the dialog stops queued work and discards late callbacks; it deliberately never cancels shared organization queries that an open page may need. Logout's existing cache clear discards outstanding query results; it does not need to abort the underlying shared HTTP read. No search terms leave the browser. Server authorization remains authoritative, and the result projection applies current cluster view permissions in addition to excluding removed clusters and locked memberships. An identity change unmounts the controller; membership/permission changes replace dialog state.
+
+Search errors on observer-free queries are reported through console.error, with one inline partial-results notice instead of per-organization toasts. Queries with page observers keep their normal global error presentation even if search initiated the shared fetch. Failed retry results remove any old local snapshot. The dialog limits rendering to 40 results and shows match counts and loading status. Very large membership sets take longer to finish their first load; a future server projection could reduce that cost but requires a coordinated CM API change.
+
+Search ranking prioritizes exact names, full prefixes, word prefixes, name substrings, then parent-organization context. Current-organization affinity breaks ties after relevance. Empty search puts organizations before clusters, with the current organization first; the result limit is applied only after ranking.
+
+Explicit selection is keyed by target. If progressive results push that key beyond the 40 visible rows, no option is active and Enter does not navigate. ArrowDown/ArrowUp reselect the first/last visible row; changing the search text restores the normal first-result default.

@@ -1,6 +1,7 @@
 import { Cluster } from '@/integrations/api/api.patch';
 import { ContainerStrategy, useClusterContainerOperation } from '@/integrations/api/cluster/containerOperation';
 import { ContainerAction } from '@/integrations/api/instance/containerOperation';
+import { markContainerOpAccepted } from '@/lib/restart/restartTracker';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { toast } from 'sonner';
@@ -36,7 +37,20 @@ export function useClusterContainerOps(cluster: Cluster) {
 				action: { label: 'Dismiss', onClick: () => toast.dismiss() },
 			});
 			try {
-				await mutateAsync({ clusterId: cluster.id, action, safeMode: opts?.safeMode, strategy: opts?.strategy });
+				const accepted = await mutateAsync({
+					clusterId: cluster.id,
+					action,
+					safeMode: opts?.safeMode,
+					strategy: opts?.strategy,
+				});
+				if (action !== 'stop') {
+					markContainerOpAccepted({
+						clusterId: cluster.id,
+						instanceIds: accepted?.instanceIds ?? [],
+						label: GERUND[action],
+						allAtOnce: accepted?.strategy === 'parallel',
+					});
+				}
 				void queryClient.invalidateQueries({ queryKey: [cluster.organizationId] });
 				void queryClient.invalidateQueries({ queryKey: [cluster.id] });
 				toast.dismiss(toastId);

@@ -1,12 +1,7 @@
-import { LocalUser, User } from '@/integrations/api/api.patch';
-import { isLocalUser } from '@/lib/types/isLocalUser';
+import { getOrganizationTargets } from '@/features/organizations/lib/organizationTargets';
+import type { LocalUser, User } from '@/integrations/api/api.patch';
 
 export function getDefaultSignedInCloudRouteForUser(user: User | LocalUser | null): string {
-	if (user && !isLocalUser(user)) {
-		const orgIds = Object.keys(user.roles);
-		if (orgIds.length === 1) {
-			return `/${orgIds[0]}`;
-		}
-	}
-	return '/';
+	const targets = getOrganizationTargets(user);
+	return targets.length === 1 && !targets[0].locked ? `/${targets[0].id}` : '/';
 }

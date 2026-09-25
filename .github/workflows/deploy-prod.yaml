@@ -45,7 +45,7 @@ jobs:
           environment: prod
           sourcemap-url-prefix: https://fabric.harper.fast/assets
           # This literal, not the dispatch input, is what the CM runs — .github/deploying.md.
-          harper-version: ${{ inputs.harper_version || 'v4' }}
+          harper-version: ${{ inputs.harper_version || 'v5' }}
           restart: ${{ inputs.restart || false }}
           datadog-api-key: ${{ secrets.DATADOG_API_KEY }}
           cli-target-username: ${{ secrets.CLI_TARGET_USERNAME_PROD }}

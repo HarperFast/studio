@@ -8,31 +8,34 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
 import { isStartBlockedByPlan } from '@/features/clusters/lib/grantExpiry';
 import { useTerminateClusterMutation } from '@/features/clusters/mutations/terminateCluster';
 import { useClusterContainerOps } from '@/hooks/useClusterContainerOps';
-import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
+import { useContainerOpsPermission, useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { Cluster } from '@/integrations/api/api.patch';
 import { ContainerStrategy } from '@/integrations/api/cluster/containerOperation';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { ChevronDown, LifeBuoyIcon, PlayIcon, RotateCwIcon, SquareIcon, TrashIcon } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 /**
  * "Cluster actions" dropdown (AWS EC2 "Instance state" style) for the cluster overview: every
  * container lifecycle op plus Terminate in one discoverable, labeled place. Ops that don't apply to
- * the current status are shown but disabled, so users can see the feature set exists. Self-hosted
- * clusters have no container ops, so the control is hidden for them.
+ * the current status are shown but disabled, so users can see the feature set exists — as are ops
+ * the user isn't allowed to run, with a tooltip saying why. Self-hosted clusters have no container
+ * ops, so the control is hidden for them.
  */
 export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const { update, remove } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
+	const canRunContainerOps = useContainerOpsPermission(cluster.organizationId);
 	const { run: runClusterOp, isPending } = useClusterContainerOps(cluster);
 	const { mutate: terminateCluster, isPending: isTerminatePending } = useTerminateClusterMutation();
 
@@ -45,7 +48,7 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 	const isRunning = cluster.status === 'RUNNING';
 	const isStopped = cluster.status === 'STOPPED';
 	const isPartial = cluster.status === 'PARTIAL';
-	const opsDisabled = !update || isPending;
+	const opsDisabled = !canRunContainerOps || isPending;
 	// Only STARTING is blocked — the server admits `stop` unconditionally, and a suspended cluster
 	// can still be RUNNING or PARTIAL. Hiding the whole group on this alone left an up-and-billing
 	// cluster with Terminate as its only control.
@@ -85,8 +88,8 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 		}
 	}, [safeModeAction, runClusterOp]);
 
-	// Container ops are managed-cluster only; a user with neither permission gets no control.
-	if (clusterIsSelfManaged(cluster) || (!update && !remove)) { return null; }
+	// `update` alone still gets the menu, so someone managing the cluster can see why its ops are disabled.
+	if (clusterIsSelfManaged(cluster) || (!update && !remove && !canRunContainerOps)) { return null; }
 
 	return (
 		<>
@@ -105,35 +108,44 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 				<DropdownMenuContent align="end" className="w-56">
 					{!planEndedAndDown && (
 						<>
-							<DropdownMenuLabel className="text-gray-600 text-xs">Container</DropdownMenuLabel>
-							<DropdownMenuItem
-								disabled={opsDisabled || startBlocked || !(isStopped || isPartial)}
-								onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
+							<DropdownMenuLabel className="text-gray-600 text-xs">
+								Container
+								{!canRunContainerOps && <span className="block font-normal">Requires an organization admin</span>}
+							</DropdownMenuLabel>
+							<DisabledReasonTooltip
+								reason={canRunContainerOps
+									? undefined
+									: 'Only an organization administrator can start, stop, or restart this cluster.'}
 							>
-								<PlayIcon /> Start
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								disabled={opsDisabled || startBlocked || !isStopped}
-								onClick={() => setSafeModeAction('start')}
-							>
-								<LifeBuoyIcon /> Start in safe mode
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								disabled={opsDisabled || !(isRunning || isPartial)}
-								onClick={() => setRestartOpen(true)}
-							>
-								<RotateCwIcon /> Restart
-							</DropdownMenuItem>
-							<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
-								<LifeBuoyIcon /> Restart in safe mode
-							</DropdownMenuItem>
-							<DropdownMenuItem
-								variant="destructive"
-								disabled={opsDisabled || !(isRunning || isPartial)}
-								onClick={() => setStopOpen(true)}
-							>
-								<SquareIcon /> Stop
-							</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={opsDisabled || startBlocked || !(isStopped || isPartial)}
+									onClick={() => void runClusterOp('start', { safeMode: false, strategy: 'parallel' })}
+								>
+									<PlayIcon /> Start
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={opsDisabled || startBlocked || !isStopped}
+									onClick={() => setSafeModeAction('start')}
+								>
+									<LifeBuoyIcon /> Start in safe mode
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									disabled={opsDisabled || !(isRunning || isPartial)}
+									onClick={() => setRestartOpen(true)}
+								>
+									<RotateCwIcon /> Restart
+								</DropdownMenuItem>
+								<DropdownMenuItem disabled={opsDisabled || !isRunning} onClick={() => setSafeModeAction('restart')}>
+									<LifeBuoyIcon /> Restart in safe mode
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									variant="destructive"
+									disabled={opsDisabled || !(isRunning || isPartial)}
+									onClick={() => setStopOpen(true)}
+								>
+									<SquareIcon /> Stop
+								</DropdownMenuItem>
+							</DisabledReasonTooltip>
 							<DropdownMenuSeparator />
 						</>
 					)}
@@ -183,5 +195,19 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 				deletionPending={isTerminatePending}
 			/>
 		</>
+	);
+}
+
+// Disabled menu items take no pointer events, so the hover has to land on a wrapper around them. A
+// tooltip never reaches keyboard or touch users either, which is why the menu label states the reason.
+function DisabledReasonTooltip({ reason, children }: { reason?: string; children: ReactNode }) {
+	if (!reason) { return <>{children}</>; }
+	return (
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<div role="none">{children}</div>
+			</TooltipTrigger>
+			<TooltipContent side="left" className="max-w-60">{reason}</TooltipContent>
+		</Tooltip>
 	);
 }

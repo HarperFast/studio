@@ -1,3 +1,4 @@
+import { AccountMenu } from '@/components/AccountMenu';
 import { DiscordLogo } from '@/components/DiscordLogo';
 import { MainLogo } from '@/components/MainLogo';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -9,25 +10,22 @@ import { NavigationMenuList } from '@/components/ui/navigation/NavigationMenuLis
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Version } from '@/components/Version';
 import { defaultInstanceRoute, isLocalStudio } from '@/config/constants';
-import { canSeeAdminSection } from '@/features/admin/components/AdminShell';
 import { useLogoutMutation } from '@/features/auth/hooks/useLogout';
+import { GlobalSearchTrigger } from '@/features/search/GlobalSearch';
 import { useOverallAuth } from '@/hooks/useAuth';
-import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
+import type { LocalUser, User } from '@/integrations/api/api.patch';
 import { getDefaultSignedInCloudRouteForUser } from '@/lib/urls/getDefaultSignedInCloudRouteForUser';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
-import { BookOpenTextIcon, BugIcon, LogInIcon, LogOutIcon, Menu, ShieldIcon, UserIcon, X } from 'lucide-react';
+import { BookOpenTextIcon, BugIcon, LogInIcon, Menu, X } from 'lucide-react';
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 const activeLinkProps = { className: 'text-foreground dark:text-white font-semibold' };
 
 export function Navbar() {
-	const { mutate: signOut } = useLogoutMutation();
+	const { mutate: signOut, isPending: signingOut } = useLogoutMutation();
 	const navigate = useNavigate();
 	const { user } = useOverallAuth();
-	// Derived from the existing subscription — a permission hook would add a
-	// second authStore listener per Navbar (review feedback on #1533).
-	const isAdmin = canSeeAdminSection(user);
 	const router = useRouter();
 
 	const handleSignOut = useCallback(() => {
@@ -49,20 +47,6 @@ export function Navbar() {
 	const menuItems: Array<MenuGroup | MenuItem> = useMemo(
 		() =>
 			[
-				// Organizations lives in the breadcrumbs; Roles / Users / Billing moved into the org page's
-				// sub-nav (OrgPageLayout), so they're no longer in the global header.
-				!isLocalStudio && {
-					to: '/profile',
-					icon: <UserIcon />,
-					text: 'Profile',
-					textBreakpoint: 'xl',
-				},
-				!isLocalStudio && isAdmin && {
-					to: '/admin',
-					icon: <ShieldIcon />,
-					text: 'Admin',
-					textBreakpoint: 'xl',
-				},
 				{
 					to: 'https://docs.harperdb.io/docs',
 					target: '_blank',
@@ -84,14 +68,8 @@ export function Navbar() {
 					text: 'Discord',
 					textBreakpoint: isLocalStudio ? 'lg' : 'xl',
 				},
-				{
-					onClick: handleSignOut,
-					icon: <LogOutIcon />,
-					text: 'Sign Out',
-					textBreakpoint: isLocalStudio ? 'md' : 'xl',
-				},
-			].filter(excludeFalsy) satisfies Array<MenuGroup | MenuItem>,
-		[handleSignOut, isAdmin],
+			] satisfies Array<MenuGroup | MenuItem>,
+		[],
 	);
 
 	if (!user) {
@@ -99,8 +77,16 @@ export function Navbar() {
 	}
 	return (
 		<>
-			<MobileNav menuItems={menuItems} />
-			<DesktopNav menuItems={menuItems} />
+			<MobileNav
+				menuItems={menuItems}
+				user={user}
+				accountMenu={<AccountMenu user={user} onSignOut={handleSignOut} signingOut={signingOut} />}
+			/>
+			<DesktopNav
+				menuItems={menuItems}
+				user={user}
+				accountMenu={<AccountMenu user={user} onSignOut={handleSignOut} signingOut={signingOut} />}
+			/>
 		</>
 	);
 }
@@ -162,9 +148,14 @@ function AnonymousNav() {
 	);
 }
 
-function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
-	const { user } = useOverallAuth();
-	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+function DesktopNav(
+	{ menuItems, accountMenu, user }: {
+		menuItems: Array<MenuGroup | MenuItem>;
+		accountMenu: ReactNode;
+		user: User | LocalUser;
+	},
+) {
+	const defaultCloudRoute = useMemo(() => getDefaultSignedInCloudRouteForUser(user), [user]);
 
 	return (
 		// Hover-capable devices get the inline nav from md up (tooltips cover the icon-only
@@ -180,6 +171,11 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				</div>
 				<NavigationMenu>
 					<NavigationMenuList className="text-muted-foreground dark:text-grey-400">
+						{!isLocalStudio && (
+							<NavigationMenuItem>
+								<GlobalSearchTrigger />
+							</NavigationMenuItem>
+						)}
 						{menuItems.map(menuItem =>
 							isMenuGroup(menuItem)
 								? !!menuItem.items.length && (
@@ -196,9 +192,7 @@ function DesktopNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 								<NotificationBell />
 							</NavigationMenuItem>
 						)}
-						<NavigationMenuItem>
-							<ThemeToggle />
-						</NavigationMenuItem>
+						<NavigationMenuItem>{accountMenu}</NavigationMenuItem>
 					</NavigationMenuList>
 				</NavigationMenu>
 			</div>
@@ -235,9 +229,14 @@ function DesktopNavItem({ menuItem }: { menuItem: MenuItem }) {
 	);
 }
 
-function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
-	const { user } = useOverallAuth();
-	const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+function MobileNav(
+	{ menuItems, accountMenu, user }: {
+		menuItems: Array<MenuGroup | MenuItem>;
+		accountMenu: ReactNode;
+		user: User | LocalUser;
+	},
+) {
+	const defaultCloudRoute = useMemo(() => getDefaultSignedInCloudRouteForUser(user), [user]);
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const toggleMenu = useCallback(() => setIsMenuOpen(open => !open), []);
 	const closeMenu = useCallback(() => setIsMenuOpen(false), []);
@@ -251,7 +250,9 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 				</Link>
 				<Version />
 				<div className="flex items-center">
+					<GlobalSearchTrigger />
 					{!isLocalStudio && <NotificationBell />}
+					{accountMenu}
 					<button
 						type="button"
 						className="shadow-xs text-muted-foreground dark:text-grey-400 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-black-dark"
@@ -274,9 +275,6 @@ function MobileNav({ menuItems }: { menuItems: Array<MenuGroup | MenuItem> }) {
 					isMenuOpen ? 'block' : 'hidden'
 				} md:hidden z-50 space-y-1 pb-3 bg-card border-b border-border dark:bg-black-dark dark:border-none absolute left-0 top-full w-full rounded-b-md`}
 			>
-				<div className="flex justify-end px-3 pt-2">
-					<ThemeToggle />
-				</div>
 				{menuItems.map(menuItem =>
 					isMenuGroup(menuItem)
 						? !!menuItem.items.length && (

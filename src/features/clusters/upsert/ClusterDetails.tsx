@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { DialogFooter } from '@/components/ui/dialog';
 import { hobbyistPlanId } from '@/config/constants';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
@@ -13,8 +14,8 @@ import { ClusterVersion } from '@/features/clusters/upsert/fields/ClusterVersion
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { ClusterGrant } from '@/integrations/api/api.patch';
-import { ArrowRight } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { ArrowRight, Layers3, Server } from 'lucide-react';
+import { ReactNode, useEffect, useMemo } from 'react';
 import { UseFormReturn, useFormState } from 'react-hook-form';
 import { ClusterRegions } from './ClusterRegions';
 import { ClusterInstances } from './components/ClusterInstances';
@@ -25,6 +26,7 @@ import { selectablePlansByTier } from './lib/selectablePlans';
 import { UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterDetailsProps {
+	priceSummary?: ReactNode;
 	calculatedNames: { suggestedAbbreviatedName: string; fullHostName: string };
 	clusterId?: string;
 	deploymentToPerformanceToPlan: Record<string, Record<string, SchemaPlan>>;
@@ -50,6 +52,7 @@ interface ClusterDetailsProps {
 }
 
 export function ClusterDetails({
+	priceSummary,
 	calculatedNames,
 	clusterId,
 	deploymentToPerformanceToPlan,
@@ -165,8 +168,9 @@ export function ClusterDetails({
 	const allowUpgradeResubmit = !!clusterId && !!currentPlanId && selectedPlan?.id !== currentPlanId;
 
 	const footer = (
-		<DialogFooter className="mt-3 mb-12">
+		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6">
 			<Button
+				className="w-full sm:w-auto"
 				type="submit"
 				variant="submit"
 				disabled={isPending
@@ -186,27 +190,37 @@ export function ClusterDetails({
 	if (mode === 'version') {
 		return (
 			<>
-				<div className="grid grid-cols-3 items-start gap-6 text-foreground md:grid-cols-6">
-					<ClusterName
-						className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
-						disabled={true}
-						form={form}
-					/>
-					<ClusterVersion
-						className="col-span-3"
-						form={form}
-						harperVersions={harperVersions}
-					/>
-					<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
-					{partialUpgrade && (
-						<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
-							{partialUpgrade.behindCount} of {partialUpgrade.total} instances{' '}
-							{partialUpgrade.behindCount === 1 ? 'is' : 'are'} still on an older version. Re-run the upgrade to bring
-							{' '}
-							{partialUpgrade.behindCount === 1 ? 'it' : 'them'} up to {partialUpgrade.latest}.
-						</p>
-					)}
-				</div>
+				<Card className="min-w-0 gap-0 overflow-hidden py-0">
+					<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
+						<h2 className="flex items-center gap-2 text-base font-semibold">
+							<Server className="size-4 text-primary" aria-hidden="true" />Cluster details
+						</h2>
+						<CardDescription>
+							Choose the Harper version for your cluster.
+						</CardDescription>
+					</CardHeader>
+					<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
+						<ClusterName
+							className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
+							disabled={true}
+							form={form}
+						/>
+						<ClusterVersion
+							className="col-span-3"
+							form={form}
+							harperVersions={harperVersions}
+						/>
+						<ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />
+						{partialUpgrade && (
+							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
+								{partialUpgrade.behindCount} of {partialUpgrade.total} instances{' '}
+								{partialUpgrade.behindCount === 1 ? 'is' : 'are'} still on an older version. Re-run the upgrade to bring
+								{' '}
+								{partialUpgrade.behindCount === 1 ? 'it' : 'them'} up to {partialUpgrade.latest}.
+							</p>
+						)}
+					</CardContent>
+				</Card>
 				{footer}
 			</>
 		);
@@ -214,65 +228,89 @@ export function ClusterDetails({
 
 	return (
 		<>
-			<div className="grid grid-cols-3 items-start gap-6 text-foreground md:grid-cols-6">
-				<ClusterName
-					className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
-					disabled={!!clusterId}
-					form={form}
-				/>
-				<ClusterVersion
-					className="col-span-3"
-					disabled={!!clusterId}
-					form={form}
-					harperVersions={harperVersions}
-				/>
+			<div className={priceSummary ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]' : ''}>
+				<div className="min-w-0 space-y-6">
+					<Card className="min-w-0 gap-0 overflow-hidden py-0">
+						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
+							<h2 className="flex items-center gap-2 text-base font-semibold">
+								<Server className="size-4 text-primary" aria-hidden="true" />Cluster details
+							</h2>
+							<CardDescription>
+								Your cluster’s identity, version, and address.
+							</CardDescription>
+						</CardHeader>
+						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
+							<ClusterName
+								className={harperVersions?.value?.length ? 'col-span-3' : 'md:col-span-6 col-span-3'}
+								disabled={!!clusterId}
+								form={form}
+							/>
+							<ClusterVersion
+								className="col-span-3"
+								disabled={!!clusterId}
+								form={form}
+								harperVersions={harperVersions}
+							/>
 
-				{isSelfManaged
-					? <ClusterFQDN form={form} disabled={!!clusterId} />
-					: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
+							{isSelfManaged
+								? <ClusterFQDN form={form} disabled={!!clusterId} />
+								: <ClusterAbbreviatedName form={form} calculatedNames={calculatedNames} disabled={!!clusterId} />}
+						</CardContent>
+					</Card>
+					<Card className="min-w-0 gap-0 overflow-hidden py-0">
+						<CardHeader className="border-b border-primary/10 bg-linear-to-br from-primary/5 to-primary/15 py-5 dark:from-primary/15 dark:to-primary/5">
+							<h2 className="flex items-center gap-2 text-base font-semibold">
+								<Layers3 className="size-4 text-primary" aria-hidden="true" />Deployment &amp; capacity
+							</h2>
+							<CardDescription>Choose your infrastructure and the capacity your workload needs.</CardDescription>
+						</CardHeader>
+						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
+							<ClusterDeploymentDescription
+								form={form}
+								availableDeploymentTypes={availableDeploymentTypes}
+								disabled={isHobbyist || lockedByGrant}
+							/>
 
-				<ClusterDeploymentDescription
-					form={form}
-					availableDeploymentTypes={availableDeploymentTypes}
-					disabled={isHobbyist || lockedByGrant}
-				/>
+							<ClusterPerformanceDescription
+								availablePerformanceDescriptions={availablePerformanceDescriptions}
+								form={form}
+								selectedDeployment={selectedDeployment}
+								disabled={lockedByGrant}
+							/>
 
-				<ClusterPerformanceDescription
-					availablePerformanceDescriptions={availablePerformanceDescriptions}
-					form={form}
-					selectedDeployment={selectedDeployment}
-					disabled={lockedByGrant}
-				/>
-
-				{isSelfManaged
-					? <ClusterInstances form={form} />
-					: (
-						<ClusterRegions
-							disabled={regionSetFrozen || lockedByGrant}
-							disabledReason={lockedByGrant
-								? 'Set by the grant chosen above. Choose None there to pick your own regions.'
-								: undefined}
-							form={form}
-							regionLocations={regionLocations}
-							regionNameToLatencyToRegion={regionNameToLatencyToRegion}
-							premiumOnlyRegions={premiumOnlyRegions}
-							usageScale={usageScale}
-							selectedPlan={selectedPlan}
-							totalPrice={totalPrice}
-							isEnterprise={isEnterprise}
-							cloudProvider={cloudProvider}
-						/>
-					)}
-				{!clusterId && (
-					<ClusterGrantId
-						className="col-span-3"
-						form={form}
-						unboundGrants={unboundGrants}
-						planNameById={planNameById}
-						regionNameById={regionNameById}
-					/>
-				)}
-				{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
+							{isSelfManaged
+								? <ClusterInstances form={form} />
+								: (
+									<ClusterRegions
+										disabled={regionSetFrozen || lockedByGrant}
+										disabledReason={lockedByGrant
+											? 'Set by the grant chosen above. Choose None there to pick your own regions.'
+											: undefined}
+										form={form}
+										regionLocations={regionLocations}
+										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+										premiumOnlyRegions={premiumOnlyRegions}
+										usageScale={usageScale}
+										selectedPlan={selectedPlan}
+										totalPrice={totalPrice}
+										isEnterprise={isEnterprise}
+										cloudProvider={cloudProvider}
+									/>
+								)}
+							{!clusterId && (
+								<ClusterGrantId
+									className="col-span-3"
+									form={form}
+									unboundGrants={unboundGrants}
+									planNameById={planNameById}
+									regionNameById={regionNameById}
+								/>
+							)}
+							{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
+						</CardContent>
+					</Card>
+				</div>
+				{priceSummary}
 			</div>
 			{footer}
 		</>

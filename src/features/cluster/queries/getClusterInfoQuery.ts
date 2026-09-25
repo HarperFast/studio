@@ -1,10 +1,13 @@
 import { apiClient } from '@/config/apiClient';
 import { Cluster } from '@/integrations/api/api.patch';
+import { nextObservationStamp, syncRestartsFromCluster } from '@/lib/restart/restartTracker';
 import { pollUnlessForbidden } from '@/react-query/pollUnlessForbidden';
 import { QueryClient, queryOptions, useQuery } from '@tanstack/react-query';
 
 export async function getClusterInfo(clusterId: string) {
+	const requestedAt = nextObservationStamp();
 	const { data } = await apiClient.get(`/Cluster/${clusterId}` as '/Cluster/{id}');
+	syncRestartsFromCluster(data as Cluster, requestedAt);
 	return data as Cluster;
 }
 

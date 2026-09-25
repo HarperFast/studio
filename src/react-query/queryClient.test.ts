@@ -1,8 +1,9 @@
-import { MutationObserver } from '@tanstack/react-query';
+import { markRestarting, resetRestartTracker } from '@/lib/restart/restartTracker';
+import { MutationObserver, QueryObserver } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
-import { errorHandler, queryClient } from './queryClient';
+import { errorHandler, queryClient, queryErrorHandler } from './queryClient';
 
 // Mock the toast module
 vi.mock('sonner', () => ({
@@ -283,5 +284,72 @@ describe('errorHandler', () => {
 			'Error',
 			expect.objectContaining({ description: 'Internal error' }),
 		);
+	});
+});
+
+describe('queryErrorHandler', () => {
+	const networkError = new AxiosError('Network Error', 'ERR_NETWORK');
+	const queryFor = (queryKey: unknown[]) => ({ queryKey }) as unknown as Parameters<typeof queryErrorHandler>[1];
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		resetRestartTracker();
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+	});
+	afterEach(() => {
+		resetRestartTracker();
+		vi.restoreAllMocks();
+	});
+
+	it('toasts a connectivity failure from an entity that is not restarting', () => {
+		queryErrorHandler(networkError, queryFor(['ins-1', 'databases']));
+		expect(toast.error).toHaveBeenCalled();
+	});
+
+	it('keeps a restarting entity’s connectivity failures out of toasts and out of RUM', () => {
+		markRestarting(['ins-1'], { reach: 'down', ttlMs: 60_000 });
+		queryErrorHandler(networkError, queryFor(['get_status', 'ins-1']));
+		expect(toast.error).not.toHaveBeenCalled();
+		// console.error is what the RUM SDK collects; the suppressed failure must not reach it.
+		expect(console.error).not.toHaveBeenCalled();
+		expect(console.debug).toHaveBeenCalled();
+	});
+
+	it('lets a read in flight when a restart settles finish, instead of cancelling and resending it', async () => {
+		const release = markRestarting(['ins-9'], { reach: 'down', ttlMs: 60_000 });
+		// A poll already holds data, which is when TanStack cancels an in-flight fetch to refetch.
+		queryClient.setQueryData(['ins-9', 'status'], 'before');
+		let calls = 0;
+		let resolveFetch: (value: string) => void = () => {};
+		const observer = new QueryObserver(queryClient, {
+			queryKey: ['ins-9', 'status'],
+			queryFn: () => {
+				calls += 1;
+				return new Promise<string>((resolve) => {
+					resolveFetch = resolve;
+				});
+			},
+		});
+		const unsubscribe = observer.subscribe(() => {});
+
+		release();
+		// The settle listener's invalidation runs a tick after the release.
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		resolveFetch('ok');
+		await new Promise((resolve) => setTimeout(resolve, 10));
+
+		expect(calls).toBe(1);
+		unsubscribe();
+		queryClient.removeQueries({ queryKey: ['ins-9'] });
+	});
+
+	it('still toasts a real answer from a restarting entity', () => {
+		markRestarting(['ins-1'], { reach: 'down', ttlMs: 60_000 });
+		queryErrorHandler(
+			Object.assign(new AxiosError('Forbidden'), { response: { status: 403, data: 'Forbidden' } }),
+			queryFor(['ins-1', 'databases']),
+		);
+		expect(toast.error).toHaveBeenCalled();
 	});
 });

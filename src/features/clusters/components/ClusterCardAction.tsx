@@ -22,8 +22,9 @@ export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: C
 	if (!cluster.fqdn) {
 		if (hasCardLink) {
 			return (
-				<span className="text-sm text-nowrap py-2 ml-auto">
-					Instances <ArrowRight className="inline-block" />
+				<span className="pointer-events-none text-sm text-nowrap py-2 ml-auto">
+					Instances{' '}
+					<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
 				</span>
 			);
 		}
@@ -35,7 +36,8 @@ export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: C
 				title={`View ${cluster.name}`}
 			>
 				<span className="py-2 hover:border-b-2">
-					Instances <ArrowRight className="inline-block" />
+					Instances{' '}
+					<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
 				</span>
 			</Link>
 		);
@@ -71,8 +73,9 @@ export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: C
 function OpenAction({ cluster, hasCardLink }: { cluster: Cluster; hasCardLink: boolean }) {
 	if (hasCardLink) {
 		return (
-			<span className="text-sm text-nowrap py-2 ml-auto">
-				Open <ArrowRight className="inline-block" />
+			<span className="pointer-events-none text-sm text-nowrap py-2 ml-auto">
+				Open{' '}
+				<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
 			</span>
 		);
 	}
@@ -84,7 +87,8 @@ function OpenAction({ cluster, hasCardLink }: { cluster: Cluster; hasCardLink: b
 			title={`Open ${cluster.name}`}
 		>
 			<span className="py-2 hover:border-b-2">
-				Open <ArrowRight className="inline-block" />
+				Open{' '}
+				<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
 			</span>
 		</Link>
 	);

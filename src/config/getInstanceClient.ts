@@ -3,6 +3,7 @@ import { authStore, EntityIds, OverallAppSignIn } from '@/features/auth/store/au
 import { rejectReplicationFailures } from '@/integrations/api/replication';
 import { curryRecoverExpiredOperationToken } from '@/integrations/api/retryExpiredOperationToken';
 import { curryRetryGatewayErrors } from '@/integrations/api/retryGatewayErrors';
+import { installRestartGate } from '@/lib/restart/restartGate';
 import axios, { AxiosError } from 'axios';
 
 interface InstanceClient {
@@ -107,6 +108,12 @@ export function getInstanceClient(
 			return config;
 		});
 	}
+	// After the Bearer interceptor, so it runs first: a request held through a restart picks up its
+	// token (and connection generation) when it is finally sent.
+	installRestartGate(client, id, {
+		proxied: fabricConnect,
+		connectionGeneration: () => authStore.getConnectionGeneration(id),
+	});
 	client.interceptors.response.use(
 		rejectReplicationFailures,
 		curryRetryGatewayErrors(client),
@@ -117,4 +124,10 @@ export function getInstanceClient(
 		client.interceptors.response.use(undefined, curryRecoverExpiredOperationToken(client, id));
 	}
 	return client;
+}
+
+/** Mirrors the resolution above for a `getInstanceClient({ id })` with no overrides; keep in step. */
+export function connectsThroughProxy(id: EntityIds): boolean {
+	const operationToken = authStore.checkForBasicAuth(id) ? undefined : authStore.getOperationToken(id);
+	return !operationToken && authStore.checkForFabricConnect(id);
 }

@@ -6,13 +6,15 @@ import { getInstanceUserInfo } from '@/integrations/api/instance/status/getInsta
 import { restartInstance } from '@/integrations/api/instance/status/restartInstance';
 import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { pluralize } from '@/lib/pluralize';
+import { markRestarting } from '@/lib/restart/restartTracker';
 import { sleep } from '@/lib/sleep';
 import { getOperationsUrlForInstance } from '@/lib/urls/getOperationsUrlForInstance';
-import { invalidateEntityQueries } from '@/react-query/invalidateEntityQueries';
-import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+
+/** Longest a single `restartInstance` can take: 10s settle + 12 probes of up to 3s + 15s apart. */
+const INSTANCE_RESTART_TTL_MS = 5 * 60_000;
 
 interface RestartClusterClickParams {
 	onRestartedSuccessfully?: () => void;
@@ -27,7 +29,6 @@ export function useRestartClusterClick(
 	{ onRestartedSuccessfully }: RestartClusterClickParams = {},
 ): RestartClusterClickResponse {
 	const { clusterId }: { clusterId?: string } = useParams({ strict: false });
-	const queryClient = useQueryClient();
 	const [isRestartPending, setIsRestartPending] = useState(false);
 	const onRestartClick = useCallback(async () => {
 		if (!clusterId) {
@@ -59,19 +60,24 @@ export function useRestartClusterClick(
 		const cluster = await getClusterInfo(clusterId);
 		const clusterUsesFabricConnect = authStore.checkForFabricConnect(cluster.id);
 		const allInstances = cluster?.instances ?? [];
-		const instanceClients = allInstances
-			.filter(instance => instance.status === 'RUNNING')
-			.map(instance =>
-				getInstanceClient({
-					id: instance.id,
-					forceFabricConnect: clusterUsesFabricConnect,
-					operationsUrl: getOperationsUrlForInstance(instance),
-				})
-			)
-			.reverse();
+		const runningInstances = allInstances.filter(instance => instance.status === 'RUNNING').reverse();
+		const instanceClients = runningInstances.map(instance =>
+			getInstanceClient({
+				id: instance.id,
+				forceFabricConnect: clusterUsesFabricConnect,
+				operationsUrl: getOperationsUrlForInstance(instance),
+			})
+		);
 		let instancesRestarted = 0;
 
-		if (instanceClients.length) {
+		// One instance at a time, so the cluster stays reachable through the others unless it has only
+		// one. The TTLs only matter if this loop dies without reaching `finally`.
+		const releaseCluster = markRestarting([clusterId], {
+			reach: runningInstances.length === 1 ? 'down' : 'rolling',
+			ttlMs: (runningInstances.length + 1) * INSTANCE_RESTART_TTL_MS,
+		});
+
+		try {
 			for (let i = 0; i < instanceClients.length; i++) {
 				const instanceClient = instanceClients[i];
 				if (!canceled) {
@@ -85,10 +91,17 @@ export function useRestartClusterClick(
 							/>
 						),
 					});
+					let releaseInstance: (() => void) | undefined;
 					try {
-						// Make sure the instance is responding.
+						// Make sure the instance is responding. Ungated, so an instance central manager already
+						// reports as restarting fails here instead of stalling the loop.
 						await getInstanceUserInfo({
 							instanceClient,
+							skipRestartGate: true,
+						});
+						releaseInstance = markRestarting([runningInstances[i].id], {
+							reach: 'down',
+							ttlMs: INSTANCE_RESTART_TTL_MS,
 						});
 						// Then restart it.
 						await restartInstance({
@@ -107,13 +120,17 @@ export function useRestartClusterClick(
 							});
 							await sleep(3000);
 						}
+					} finally {
+						releaseInstance?.();
 					}
 				}
 			}
+		} finally {
+			// Releasing refetches the cluster's queries (`onRestartSettled`).
+			releaseCluster();
 		}
 
 		setIsRestartPending(false);
-		void invalidateEntityQueries(queryClient, clusterId);
 
 		if (canceled) {
 			toast.error('Cancelled', {
@@ -159,7 +176,7 @@ export function useRestartClusterClick(
 				},
 			});
 		}
-	}, [clusterId, onRestartedSuccessfully, queryClient]);
+	}, [clusterId, onRestartedSuccessfully]);
 
 	return {
 		onRestartClick,

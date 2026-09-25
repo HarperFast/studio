@@ -1,3 +1,4 @@
+import { HostnamePreview } from '@/components/HostnamePreview';
 import { FormControl } from '@/components/ui/form/FormControl';
 import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
@@ -5,6 +6,7 @@ import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { specifiedAbbreviatedName, UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
+import { useId } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -17,6 +19,7 @@ export function ClusterAbbreviatedName({
 	disabled?: boolean | undefined;
 	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
 }) {
+	const labelId = useId();
 	return (
 		<>
 			<FormField
@@ -41,13 +44,14 @@ export function ClusterAbbreviatedName({
 					</FormItem>
 				)}
 			/>
-			<FormItem className="col-span-3 ">
-				<FormLabel className="pb-1">Full Host Name</FormLabel>
-				<FormControl>
-					<span>{calculatedNames.fullHostName}</span>
-				</FormControl>
-				<FormMessage />
-			</FormItem>
+			<div className="col-span-3 min-w-0 space-y-2">
+				<p id={labelId} className="text-sm font-medium">Full Host Name</p>
+				<HostnamePreview
+					hostname={calculatedNames.fullHostName}
+					testId="cluster-hostname-preview"
+					labelledBy={labelId}
+				/>
+			</div>
 		</>
 	);
 }

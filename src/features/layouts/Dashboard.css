@@ -1,0 +1,77 @@
+.studio-shell {
+	--shell-background: #f7f7fc;
+	--shell-header: linear-gradient(110deg, #ede8ff, #faf9ff 58%, #ffffff);
+	--shell-subnav: #f5f3fc;
+	--shell-line: #dfdaef;
+	--shell-glow: rgb(122 82 214 / 9%);
+	--shell-facet: rgb(122 82 214 / 5%);
+	position: relative;
+	display: flow-root;
+	isolation: isolate;
+	min-height: 100svh;
+	background: var(--shell-background);
+}
+
+.dark .studio-shell {
+	--shell-background: #0d0e19;
+	--shell-header: linear-gradient(110deg, #290957, #19102f 55%, #10111d);
+	--shell-subnav: #11111f;
+	--shell-line: #29213e;
+	--shell-glow: rgb(118 43 208 / 18%);
+	--shell-facet: rgb(130 57 224 / 9%);
+	--card: #171925;
+	--border: #2c2b3d;
+}
+
+.studio-shell::before,
+.studio-shell::after {
+	content: "";
+	position: fixed;
+	z-index: -1;
+	top: 8rem;
+	right: 0;
+	width: min(70vw, 70rem);
+	height: 18rem;
+	pointer-events: none;
+}
+
+.studio-shell::before {
+	background: radial-gradient(ellipse at top right, var(--shell-glow), transparent 70%);
+}
+
+.studio-shell::after {
+	background: var(--shell-facet);
+	mask-image: linear-gradient(to bottom, black, transparent);
+	clip-path: polygon(52% 0, 83% 0, 43% 68%, 8% 93%);
+}
+
+.studio-shell-header {
+	background: var(--shell-header);
+	border-bottom: 1px solid var(--shell-line);
+}
+
+.studio-shell .studio-subnav {
+	background: var(--shell-subnav);
+	border-bottom: 1px solid var(--shell-line);
+}
+
+.studio-shell .studio-section-rail a[data-status="active"] {
+	background: linear-gradient(100deg, rgb(115 73 204 / 18%), rgb(115 73 204 / 8%));
+	box-shadow: inset 0 0 0 1px rgb(115 73 204 / 12%);
+}
+
+.dark .studio-shell .studio-section-rail a[data-status="active"] {
+	background: linear-gradient(100deg, #39246c, #251c47);
+	box-shadow: inset 0 0 0 1px rgb(159 117 248 / 15%);
+}
+
+@media (forced-colors: active) {
+	.studio-shell::before,
+	.studio-shell::after {
+		display: none;
+	}
+}
+
+.dark .studio-shell .cluster-list-controls input[data-slot="input"] {
+	background-color: var(--card);
+}
