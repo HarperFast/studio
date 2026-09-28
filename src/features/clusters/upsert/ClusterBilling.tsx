@@ -109,7 +109,6 @@ export function ClusterBilling({
 						Scaling up or changing plans charges for the new usage today, and starts a new billing period from today.
 					</li>
 				)}
-				{clusterId && <li>Removing a region ends its usage, and the rest of its billing period isn't refunded.</li>}
 				<li>
 					Payments are non-refundable. <ContactUs overEmail={true} /> if you need help planning your usage.
 				</li>
