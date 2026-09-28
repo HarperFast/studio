@@ -12,7 +12,7 @@ import { plansFromShape, prefillFromGrant } from '@/features/clusters/upsert/lib
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
-import { Organization } from '@/integrations/api/api.patch';
+import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -57,6 +57,8 @@ interface ClusterFormProps {
 	currentPlanId?: string;
 	/** Lowest planLevel central-manager accepts for this cluster; unset when creating or self-hosted. */
 	planLevelFloor?: number;
+	/** The cluster's live grant when editing, so an unchanged free plan reads as the trial or comp it is. */
+	currentGrant?: ClusterGrant | null;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -77,6 +79,7 @@ export function ClusterForm({
 	regionSetFrozen,
 	currentPlanId,
 	planLevelFloor,
+	currentGrant,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -558,6 +561,10 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
+	// A grant picked on create, or — when the plan still costs nothing — the grant the cluster runs on.
+	const labelledGrant = selectedGrant
+		?? (totalPrice > 0 || !currentGrant || !['trial', 'comped'].includes(currentGrant.source) ? null : currentGrant);
+	const grantLabel = labelledGrant && (labelledGrant.source === 'trial' ? 'Trial' : 'Complimentary');
 	const priceSummary = !isEnterprise && mode !== 'version'
 		? (
 			<aside
@@ -568,12 +575,8 @@ export function ClusterForm({
 				<dl>
 					<dt className="text-sm text-muted-foreground">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="mt-2 font-bold">
-						{selectedGrant
-							? (
-								<span className="text-3xl text-green">
-									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
-								</span>
-							)
+						{grantLabel
+							? <span className="text-3xl text-green">{grantLabel}</span>
 							: totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
