@@ -62,9 +62,9 @@ export function ClusterGrantId({
 									</button>
 								</TooltipTrigger>
 								<TooltipContent className="max-w-xs text-left">
-									Trials and complimentary plans your organization has been given. Pick one and this cluster runs on it
-									— no payment needed. A complimentary grant fills in its plan and regions for you; a trial lets you
-									choose within the plans and regions it covers. Choose None to configure and pay as usual.
+									Complimentary deployments assigned to your organization. Each grant includes predefined plans and
+									regions, so selecting one will automatically populate the available options. No payment is required
+									for the duration of the grant.
 								</TooltipContent>
 							</Tooltip>
 						</div>
