@@ -18,8 +18,8 @@ export function renewalTerms(expirationMonths: number | false | undefined, start
 	}
 	const day = startsOn.getDate();
 	const onDay = `the ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]}`;
-	// central-manager clamps on the UTC day, which can already be past the 28th when the local one is not.
-	const shorterMonths = day > 28 || startsOn.getUTCDate() > 28 ? ' (or the last day of shorter months)' : '';
+	// central-manager clamps on the UTC day, so near month-end a short month can land a day either side locally.
+	const shorterMonths = day > 28 || startsOn.getUTCDate() > 28 ? ' (around the last day in shorter months)' : '';
 	return expirationMonths === 1
 		? `It renews automatically on ${onDay} of each month${shorterMonths}.`
 		: `It renews automatically every ${pluralize(expirationMonths, 'month', 'months')}, on ${onDay}${shorterMonths}.`;
