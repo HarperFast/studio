@@ -156,9 +156,12 @@ yet.
 - **Every node, not a sample.** The public origin reaches whichever node the load balancer picks, so
   repeated checks through it cannot prove every node updated. `deploy_component … replicated=true`
   names the peers it replicated to, `studio-deploy` passes them on as its `nodes` output, and the
-  gate probes each by its own hostname: every one must serve the new version, three rounds in a row.
-  Dev is a single node today (`replicated: []`); stage and prod replicate to `stage-2` and
-  `studio-2`.
+  gate probes each by its own hostname alongside the public origin: every one must serve the new
+  version, three rounds in a row. The node the deploy ran on reports its own result; its hostname is
+  part of the `CLI_DEPLOY_TARGET` secret, so it is not probed by name. This relies on each peer's
+  Harper node name being the public hostname it serves Studio on — true today: dev is a single node
+  (`replicated: []`), stage replicates to `stage-2.studio.harperfabric.com` and prod to
+  `studio-2.harperfabric.com`. A name that is not a hostname fails the gate rather than being skipped.
 - **Its own runner, its own secrets.** The job never receives the CM or Datadog credentials. Its
   test-account secrets live in the `e2e-dev` environment; restricted to the `dev` branch (setup
   below), a job on any other branch cannot read them — the scoping studio#1651 wants for the deploy

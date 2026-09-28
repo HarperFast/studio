@@ -66,7 +66,9 @@ export async function waitForVerificationEmail(
 	if (!link) {
 		throw new Error(
 			`No verification link found in email to ${address} (subject: "${message.subject}"). `
-				+ `Links seen: ${hrefs.join(', ') || 'none'}`,
+				+ `Links seen, without their query strings: ${
+					hrefs.map((href) => href.replace(/[?#].*$/, '')).join(', ') || 'none'
+				}`,
 		);
 	}
 	maskInCi(link);
