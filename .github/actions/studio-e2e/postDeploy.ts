@@ -46,7 +46,8 @@ const SECRET_ENV = [
 	'MAILOSAUR_API_KEY',
 	'MAILOSAUR_SERVER_ID',
 ];
-const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&#\s'"`):]+/gi;
+/** A value never starts with `[`, so a second pass leaves `[redacted]` and what follows it alone. */
+const CREDENTIAL_PARAM = /([?&](?:token|code|password|secret|key|signature)=)[^&#\s'"`)[]+/gi;
 const ENTRY_CHUNK = /(?:\.?\/)?assets\/index-[\w-]+\.js/;
 const VERSION_MARKER = /(?<![\w.-])(?:(?:dev|stage|prod)_[0-9a-f]{7,40}|v\d+\.\d+\.\d+)(?![\w.-])/g;
 const MAX_ROWS = 50;
