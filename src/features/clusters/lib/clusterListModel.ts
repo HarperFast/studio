@@ -1,5 +1,6 @@
 import { isBeingUpdated, isPendingUpdate } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
+import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
 import { detectPartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
 import type { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
@@ -56,9 +57,12 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 	if (status === 'STOPPED') { notices.push('Cluster stopped'); }
 	if (cluster.resetPassword) { notices.push('Setup required'); }
 	if (updating && !pendingUpgrade) { notices.push(capitalizeWords(status!)); }
+	// A plan counting down, ended or failed to upgrade needs the customer even while the cluster runs.
+	// Not a notice: the card already shows it as the expiry pill.
+	const planNeedsAttention = (describeGrantExpiry(cluster)?.severity ?? 'info') !== 'info';
 	const category: ClusterCategory = failed
 		? 'failed'
-		: notices.length
+		: notices.length || planNeedsAttention
 		? 'attention'
 		: activeClusterStatuses.includes(status ?? '')
 		? 'running'
