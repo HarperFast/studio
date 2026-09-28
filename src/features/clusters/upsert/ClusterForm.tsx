@@ -561,9 +561,10 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	// A grant picked on create, or — when the plan still costs nothing — the grant the cluster runs on.
+	// The live grant pays only for the plan it was given: a change to a priced plan shows its price.
+	const keepsGrantedPlan = totalPrice === 0 || selectedPlan?.id === currentPlanId;
 	const labelledGrant = selectedGrant
-		?? (totalPrice > 0 || !currentGrant || !['trial', 'comped'].includes(currentGrant.source) ? null : currentGrant);
+		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && keepsGrantedPlan ? currentGrant : null);
 	const grantLabel = labelledGrant && (labelledGrant.source === 'trial' ? 'Trial' : 'Complimentary');
 	const priceSummary = !isEnterprise && mode !== 'version'
 		? (
@@ -591,7 +592,7 @@ export function ClusterForm({
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
 				</dl>
-				{!selectedGrant && !!termMonths && termMonths > 1 && totalPrice > 0 && (
+				{!grantLabel && !!termMonths && termMonths > 1 && totalPrice > 0 && (
 					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
 						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
 						every {pluralize(termMonths, 'month', 'months')}. Usage beyond that is added to your next bill.
