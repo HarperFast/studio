@@ -237,3 +237,47 @@ async function pick(labelText: string, option: RegExp) {
 	await act(() => null);
 	await act(() => null);
 }
+
+describe('ClusterForm — the price summary when editing a cluster on a grant', () => {
+	const trial = { id: 'cgr-t', source: 'trial', status: 'ACTIVE', isActive: true } as unknown as ClusterGrant;
+
+	async function mountEdit(currentGrant: ClusterGrant | null) {
+		render(
+			<TestProvider>
+				<ClusterForm
+					alreadyUsingFree={false}
+					clusterId="clu-1"
+					currentPlanId={TRIAL.id}
+					currentGrant={currentGrant}
+					defaultValues={{ ...defaults, grantId: undefined } as UpsertClusterSchemaType}
+					deploymentToPerformanceToPlan={CATALOGUE}
+					harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
+					mode={undefined}
+					organization={{ id: 'org-1', type: 'SELF_SERVICE' } as unknown as Organization}
+					organizationId="org-1"
+					partialUpgrade={null}
+					planTypes={PLANS}
+					regionLocationsColocated={REGIONS}
+					regionLocationsDedicated={[]}
+					setSavedClusterState={() => {}}
+					startOffOnBilling={false}
+				/>
+			</TestProvider>,
+		);
+		await act(() => null);
+		await act(() => null);
+	}
+
+	const summary = () => screen.getByRole('complementary', { name: 'Price summary' }).textContent ?? '';
+
+	it('names the trial the cluster runs on instead of calling it free', async () => {
+		await mountEdit(trial);
+		expect(summary()).toContain('Trial');
+		expect(summary()).not.toContain('Free');
+	});
+
+	it('still says free for a free plan with no grant behind it', async () => {
+		await mountEdit(null);
+		expect(summary()).toContain('Free');
+	});
+});
