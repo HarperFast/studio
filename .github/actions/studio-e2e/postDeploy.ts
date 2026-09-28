@@ -94,7 +94,36 @@ export async function observeDeployment(
 	}
 }
 
-/** Behind the CM's load balancer one match can come from the only node that has the new build. */
+const HOSTNAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;
+
+/**
+ * The public origin reaches whichever node the load balancer picks, so every node the deploy
+ * replicated to is also probed by its own hostname: a stale peer cannot hide behind a fresh one.
+ */
+export function probeOrigins(baseUrl: string, nodeHosts = ''): string[] {
+	const origins = [baseUrl];
+	for (const host of nodeHosts.split(',').map((entry) => entry.trim()).filter(Boolean)) {
+		if (!HOSTNAME.test(host)) { throw new Error(`node-hosts has an entry that is not a hostname: "${host}"`); }
+		origins.push(`https://${host}`);
+	}
+	return [...new Set(origins)];
+}
+
+export async function observeAll(
+	origins: string[],
+	version: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<Observation> {
+	const observations = await Promise.all(origins.map((origin) => observeDeployment(origin, version, fetchImpl)));
+	return {
+		matches: observations.every((observation) => observation.matches),
+		detail: origins.length === 1
+			? observations[0].detail
+			: observations.map((observation, index) => `${new URL(origins[index]).host} ${observation.detail}`).join('; '),
+	};
+}
+
+/** Several passing rounds in a row, so a node still mid-restart cannot pass on one lucky response. */
 export async function waitForVersion({
 	observe,
 	timeoutMs,
@@ -394,13 +423,15 @@ async function waitCommand(): Promise<number> {
 	const baseUrl = requiredEnv('BASE_URL').replace(/\/+$/, '');
 	const version = requiredEnv('EXPECTED_VERSION');
 	const timeoutSeconds = parseTimeoutSeconds(process.env.TIMEOUT_SECONDS);
+	const origins = probeOrigins(baseUrl, process.env.NODE_HOSTS);
 	const result = await waitForVersion({
-		observe: () => observeDeployment(baseUrl, version),
+		observe: () => observeAll(origins, version),
 		timeoutMs: timeoutSeconds * 1000,
 		log: (line) => console.log(line),
 	});
 	if (result.ok) { return 0; }
-	const message = `${baseUrl} did not serve ${version} within ${timeoutSeconds}s (${result.checks} checks). `
+	const where = origins.length === 1 ? baseUrl : `${baseUrl} and its ${origins.length - 1} replicated node(s)`;
+	const message = `${where} did not serve ${version} within ${timeoutSeconds}s (${result.checks} checks). `
 		+ `Last check: ${result.lastSeen}. The e2e suite did not run.`;
 	console.log(annotation('error', 'Deploy did not land', message));
 	publish(`## ❌ ${version} never went live on ${baseUrl}\n\n${message}\n`);

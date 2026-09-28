@@ -13,6 +13,9 @@ inputs:
   expected-version:
     description: 'The VITE_STUDIO_VERSION the deploy baked in (studio-deploy output `version`)'
     required: true
+  node-hosts:
+    description: 'Peers the deploy replicated to (studio-deploy output `nodes`); each must serve expected-version by its own hostname'
+    default: ''
   version-timeout-seconds:
     description: 'How long to wait for base-url to serve expected-version before failing'
     default: '600'
@@ -62,6 +65,7 @@ runs:
       env:
         BASE_URL: ${{ inputs.base-url }}
         EXPECTED_VERSION: ${{ inputs.expected-version }}
+        NODE_HOSTS: ${{ inputs.node-hosts }}
         TIMEOUT_SECONDS: ${{ inputs.version-timeout-seconds }}
       run: node "$GITHUB_ACTION_PATH/postDeploy.ts" wait
     - name: Run e2e against ${{ inputs.environment }}
