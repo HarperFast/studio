@@ -6,9 +6,9 @@ const ordinalRules = new Intl.PluralRules('en-US', { type: 'ordinal' });
 /**
  * When a self-serve cluster renews. central-manager anchors the cycle to the purchase moment on the
  * UTC calendar and clamps it into shorter months (grants.js nextCycleEnd). A day is named only when
- * it holds every month in the customer's own calendar: the local and UTC dates agree and no month
- * is too short for it. `startsOn` is null when the start is not known here — an edit restarts the
- * cycle only if it mints, which only the server decides.
+ * the local and UTC dates agree and every month has it; a purchase within an hour of midnight can
+ * still drift an hour across a daylight-saving change. `startsOn` is null when the start is not
+ * known here — an edit restarts the cycle only if it mints, which only the server decides.
  */
 export function renewalTerms(expirationMonths: number | false | undefined, startsOn: Date | null): string {
 	if (!expirationMonths) { return 'It renews automatically.'; }
