@@ -1,3 +1,4 @@
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -20,7 +21,7 @@ import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { refineAgainstExistingSSHKeys, SSHKeySchema, useAddSSHKey } from '@/integrations/api/instance/ssh/addSSHKey';
 import { SSHKeyName } from '@/integrations/api/instance/ssh/listSSHKeys';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Save } from 'lucide-react';
+import { Save, TriangleAlertIcon } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -29,18 +30,19 @@ import { z } from 'zod';
 const NO_EXISTING_KEYS: readonly SSHKeyName[] = [];
 
 export function AddSSHKeyModal({
-	existingKeys = NO_EXISTING_KEYS,
+	existingKeys,
 	isModalOpen,
 	onChangesSaved,
 	setIsModalOpen,
 }: {
+	/** Omitted when the key list couldn't be loaded: the modal says so rather than checking against nothing. */
 	existingKeys?: readonly SSHKeyName[];
 	isModalOpen: boolean;
 	onChangesSaved: () => void;
 	setIsModalOpen: (open: boolean) => void;
 }) {
 	const resolver = useMemo(
-		() => zodResolver(SSHKeySchema.superRefine(refineAgainstExistingSSHKeys(existingKeys))),
+		() => zodResolver(SSHKeySchema.superRefine(refineAgainstExistingSSHKeys(existingKeys ?? NO_EXISTING_KEYS))),
 		[existingKeys],
 	);
 	const form = useForm({
@@ -106,6 +108,16 @@ export function AddSSHKeyModal({
 								Enter the details of your SSH Key below.
 							</DialogDescription>
 						</DialogHeader>
+
+						{existingKeys === undefined && (
+							<Alert variant="warning" className="md:col-span-2">
+								<TriangleAlertIcon className="h-4 w-4" />
+								<AlertDescription>
+									Studio couldn't load this instance's SSH keys, so it can't warn you about a name or host alias another
+									key already uses. Refresh the list to check them.
+								</AlertDescription>
+							</Alert>
+						)}
 
 						<FormField
 							control={form.control}
