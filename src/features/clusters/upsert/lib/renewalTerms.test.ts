@@ -23,6 +23,15 @@ describe('renewalTerms', () => {
 		);
 	});
 
+	it('warns about shorter months when the UTC day is past the 28th even if the local one is not', () => {
+		const lateOn28th = new Date(2026, 0, 28, 12);
+		const utc29th = { getDate: () => 28, getUTCDate: () => 29 } as Date;
+		expect(renewalTerms(1, lateOn28th)).toBe('It renews automatically on the 28th of each month.');
+		expect(renewalTerms(1, utc29th)).toBe(
+			'It renews automatically on the 28th of each month (or the last day of shorter months).',
+		);
+	});
+
 	it('states a longer term, and falls back when the plan has none', () => {
 		expect(renewalTerms(3, on(5))).toBe('It renews automatically every 3 months, on the 5th.');
 		expect(renewalTerms(false, on(5))).toBe('It renews automatically.');
