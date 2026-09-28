@@ -95,31 +95,28 @@ export function ClusterBilling({
 		);
 	}
 
-	const orPossiblyExpires = expirationMonths && `, or ${pluralize(expirationMonths, 'month', 'months')} elapse`;
+	const renewal = expirationMonths
+		? `every ${expirationMonths === 1 ? 'month' : pluralize(expirationMonths, 'month', 'months')}`
+		: null;
 
 	return (
 		<>
 			<ul className="list-disc ml-6 mb-6">
+				<li>You'll be charged today, and your cluster is licensed for the usage you've chosen right away.</li>
+				<li>It renews automatically{renewal && ` ${renewal}`}.</li>
 				<li>
-					You will be billed for this cluster today, and will receive a license for the block of usage you've requested.
+					If you use it all before then, your cluster keeps running. The extra usage is added to your next bill at the
+					same rate, and you're only charged for what you use.
 				</li>
 				{clusterId && (
 					<li>
-						If you scale up, you'll be charged for the additional blocks you've purchased now, and your next auto
-						renewal will be for all purchased blocks.
+						Scaling up or changing plans charges for the new usage today, and starts a new billing period from today.
 					</li>
 				)}
-				{clusterId && (
-					<li>
-						If you remove a region, that region's usage block will not be used anymore (because it is specific to that
-						region).
-					</li>
-				)}
-				<li>When that block is used up{orPossiblyExpires}, you will be automatically renewed.</li>
-				<li>While refunds are not available, we’d be happy to assist you with troubleshooting.</li>
+				{clusterId && <li>Removing a region ends its usage, and the rest of its billing period isn't refunded.</li>}
 				<li>
-					We would love to work with you to sort out more precise details, and to help accomplish your objectives with
-					this cluster. <ContactUs overEmail={true} />, we are here to help.
+					Refunds aren't available, but we're happy to help troubleshoot or plan your usage.{' '}
+					<ContactUs overEmail={true} />.
 				</li>
 			</ul>
 
