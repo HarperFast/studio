@@ -19,7 +19,7 @@ describe('renewalTerms', () => {
 	it('says what happens in shorter months for a day some months lack', () => {
 		expect(renewalTerms(1, on(28))).toBe('It renews automatically on the 28th of each month.');
 		expect(renewalTerms(1, on(29))).toBe(
-			'It renews automatically on the 29th of each month (or the last day of shorter months).',
+			'It renews automatically on the 29th of each month (around the last day in shorter months).',
 		);
 	});
 
@@ -28,7 +28,7 @@ describe('renewalTerms', () => {
 		const utc29th = { getDate: () => 28, getUTCDate: () => 29 } as Date;
 		expect(renewalTerms(1, lateOn28th)).toBe('It renews automatically on the 28th of each month.');
 		expect(renewalTerms(1, utc29th)).toBe(
-			'It renews automatically on the 28th of each month (or the last day of shorter months).',
+			'It renews automatically on the 28th of each month (around the last day in shorter months).',
 		);
 	});
 
