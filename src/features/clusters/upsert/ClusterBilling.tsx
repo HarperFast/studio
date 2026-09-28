@@ -111,8 +111,7 @@ export function ClusterBilling({
 				)}
 				{clusterId && <li>Removing a region ends its usage, and the rest of its billing period isn't refunded.</li>}
 				<li>
-					Refunds aren't available, but we're happy to help troubleshoot or plan your usage.{' '}
-					<ContactUs overEmail={true} />.
+					Payments are non-refundable. <ContactUs overEmail={true} /> if you need help planning your usage.
 				</li>
 			</ul>
 
