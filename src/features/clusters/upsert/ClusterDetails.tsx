@@ -265,6 +265,16 @@ export function ClusterDetails({
 							<CardDescription>Choose your infrastructure and the capacity your workload needs.</CardDescription>
 						</CardHeader>
 						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
+							{/* First in the card: a grant can set everything below it. */}
+							{!clusterId && (
+								<ClusterGrantId
+									className="col-span-3 md:col-span-6"
+									form={form}
+									unboundGrants={unboundGrants}
+									planNameById={planNameById}
+									regionNameById={regionNameById}
+								/>
+							)}
 							<ClusterDeploymentDescription
 								form={form}
 								availableDeploymentTypes={availableDeploymentTypes}
@@ -297,15 +307,6 @@ export function ClusterDetails({
 										cloudProvider={cloudProvider}
 									/>
 								)}
-							{!clusterId && (
-								<ClusterGrantId
-									className="col-span-3"
-									form={form}
-									unboundGrants={unboundGrants}
-									planNameById={planNameById}
-									regionNameById={regionNameById}
-								/>
-							)}
 							{clusterId && !isSelfManaged && <ClusterSkipGtmWait className="col-span-3 md:col-span-6" form={form} />}
 						</CardContent>
 					</Card>
