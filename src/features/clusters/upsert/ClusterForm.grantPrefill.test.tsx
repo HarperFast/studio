@@ -280,7 +280,6 @@ describe('ClusterForm — the price summary when editing a cluster on a grant', 
 		expect(summary()).not.toContain('Free');
 	});
 
-	// A priced plan shows its price even under a comp: whether the edit is charged is the server's call.
 	it('shows the price of a priced plan even on a comped cluster', async () => {
 		const comp = { id: 'cgr-c', source: 'comped', status: 'ACTIVE', isActive: true } as unknown as ClusterGrant;
 		await mountEdit(comp, HOBBYIST);
