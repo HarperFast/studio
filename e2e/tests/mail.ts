@@ -62,17 +62,18 @@ export async function waitForVerificationEmail(
 	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
 		.map((l) => l.href)
 		.filter((href): href is string => Boolean(href));
+	// Before anything can print one: a changed template may carry its token somewhere else.
+	for (const href of hrefs) {
+		maskInCi(href);
+		maskInCi(/[?&]token=([^&#]+)/.exec(href)?.[1]);
+	}
 	const link = hrefs.find((href) => /(verify-email|[?&]token=)/i.test(href));
 	if (!link) {
 		throw new Error(
 			`No verification link found in email to ${address} (subject: "${message.subject}"). `
-				+ `Links seen, without their query strings: ${
-					hrefs.map((href) => href.replace(/[?#].*$/, '')).join(', ') || 'none'
-				}`,
+				+ `Links seen: ${hrefs.join(', ') || 'none'}`,
 		);
 	}
-	maskInCi(link);
-	maskInCi(/[?&]token=([^&#]+)/.exec(link)?.[1]);
 	return { subject: message.subject ?? '', link };
 }
 
