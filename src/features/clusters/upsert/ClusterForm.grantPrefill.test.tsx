@@ -280,11 +280,11 @@ describe('ClusterForm — the price summary when editing a cluster on a grant', 
 		expect(summary()).not.toContain('Free');
 	});
 
-	it('names the comp on a priced plan it pays for, instead of a monthly price', async () => {
+	// A priced plan shows its price even under a comp: whether the edit is charged is the server's call.
+	it('shows the price of a priced plan even on a comped cluster', async () => {
 		const comp = { id: 'cgr-c', source: 'comped', status: 'ACTIVE', isActive: true } as unknown as ClusterGrant;
 		await mountEdit(comp, HOBBYIST);
-		expect(summary()).toContain('Complimentary');
-		expect(summary()).not.toContain('/mo');
+		expect(summary()).not.toContain('Complimentary');
 	});
 
 	it('still says free for a free plan with no grant behind it', async () => {
