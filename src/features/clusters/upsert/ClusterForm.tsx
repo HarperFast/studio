@@ -55,6 +55,8 @@ interface ClusterFormProps {
 	regionSetFrozen?: boolean;
 	/** What the cluster runs today — kept selectable even when its tier is otherwise not offered. */
 	currentPlanId?: string;
+	/** Lowest planLevel central-manager accepts for this cluster; unset when creating or self-hosted. */
+	planLevelFloor?: number;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -74,6 +76,7 @@ export function ClusterForm({
 	regionLocationsDedicated,
 	regionSetFrozen,
 	currentPlanId,
+	planLevelFloor,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -565,7 +568,7 @@ export function ClusterForm({
 					<dd className="mt-2 font-bold">
 						{selectedGrant
 							? (
-								<span className="text-4xl text-green">
+								<span className="text-3xl text-green">
 									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
 								</span>
 							)
@@ -583,12 +586,10 @@ export function ClusterForm({
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
 				</dl>
-				{!!termMonths && termMonths > 1 && totalPrice > 0 && (
+				{!selectedGrant && !!termMonths && termMonths > 1 && totalPrice > 0 && (
 					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
 						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
-						every{' '}
-						{pluralize(termMonths, 'month', 'months')}, or sooner if you reach a usage limit — then a new license is
-						issued.
+						every {pluralize(termMonths, 'month', 'months')}. Usage beyond that is added to your next bill.
 					</p>
 				)}
 				<div className="mt-5 border-t border-primary/15 pt-5">
@@ -642,6 +643,7 @@ export function ClusterForm({
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									regionSetFrozen={regionSetFrozen}
 									currentPlanId={currentPlanId}
+									planLevelFloor={planLevelFloor}
 									unboundGrants={organization?.unboundGrants}
 									lockedByGrant={lockedByGrant}
 									selectedDeployment={selectedDeployment}

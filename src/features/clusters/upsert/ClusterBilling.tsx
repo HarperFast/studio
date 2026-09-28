@@ -1,11 +1,11 @@
 import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
+import { renewalTerms } from '@/features/clusters/upsert/lib/renewalTerms';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
-import { pluralize } from '@/lib/pluralize';
 import { isPositive } from '@/lib/types/isPositive';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
@@ -95,31 +95,22 @@ export function ClusterBilling({
 		);
 	}
 
-	const orPossiblyExpires = expirationMonths && `, or ${pluralize(expirationMonths, 'month', 'months')} elapse`;
-
 	return (
 		<>
 			<ul className="list-disc ml-6 mb-6">
+				<li>You'll be charged today, and your cluster will be licensed for the usage you've selected immediately.</li>
+				<li>{renewalTerms(expirationMonths)}</li>
 				<li>
-					You will be billed for this cluster today, and will receive a license for the block of usage you've requested.
+					If you use it all before then, your cluster keeps running. The extra usage is added to your next bill on top
+					of your plan's price, at the same rate.
 				</li>
 				{clusterId && (
 					<li>
-						If you scale up, you'll be charged for the additional blocks you've purchased now, and your next auto
-						renewal will be for all purchased blocks.
+						Scaling up or changing plans charges for the new usage today, and starts a new billing period from today.
 					</li>
 				)}
-				{clusterId && (
-					<li>
-						If you remove a region, that region's usage block will not be used anymore (because it is specific to that
-						region).
-					</li>
-				)}
-				<li>When that block is used up{orPossiblyExpires}, you will be automatically renewed.</li>
-				<li>While refunds are not available, we’d be happy to assist you with troubleshooting.</li>
 				<li>
-					We would love to work with you to sort out more precise details, and to help accomplish your objectives with
-					this cluster. <ContactUs overEmail={true} />, we are here to help.
+					Payments are non-refundable. <ContactUs overEmail={true} /> if you need help planning your usage.
 				</li>
 			</ul>
 

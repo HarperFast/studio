@@ -266,6 +266,74 @@ const voucher = (id: string, overrides: Partial<ClusterGrant> = {}): ClusterGran
 	...overrides,
 });
 
+describe('ClusterDetails — plan levels central-manager refuses on edit', () => {
+	const leveled = (base: SchemaPlan, planLevel: number) => ({ ...base, planLevel }) as SchemaPlan;
+	const SMALL = leveled(HOBBYIST, 0);
+	const MEDIUM = leveled(LEVEL_1, 1);
+	const LARGE = leveled(plan('fabric-block-level-2', 300, 'Large (50K read/min)'), 2);
+	const LEVELED: Record<string, Record<string, SchemaPlan>> = {
+		Colocated: {
+			[SMALL.performanceDescription!]: SMALL,
+			[MEDIUM.performanceDescription!]: MEDIUM,
+			[LARGE.performanceDescription!]: LARGE,
+		},
+	};
+	const disabledOptions = () =>
+		screen.getAllByRole('option').filter((node) => node.getAttribute('aria-disabled') === 'true').map((node) =>
+			node.textContent ?? ''
+		);
+
+	it('greys out a plan below the cluster’s level, and says why', async () => {
+		await mountEditor({
+			clusterId: 'clu-test',
+			deploymentToPerformanceToPlan: LEVELED,
+			currentPlanId: MEDIUM.id,
+			planLevelFloor: 1,
+			selectedPerformance: MEDIUM.performanceDescription!,
+			selectedPlan: MEDIUM,
+		});
+		const options = await openedOptions('Performance & Usage');
+		expect(options).toHaveLength(3);
+		expect(disabledOptions()).toEqual([expect.stringMatching(/^Hobbyist.*smaller plan isn’t supported yet/)]);
+	});
+
+	it('greys out nothing without a floor — creating, or a self-hosted cluster', async () => {
+		await mountEditor({
+			deploymentToPerformanceToPlan: LEVELED,
+			selectedPerformance: MEDIUM.performanceDescription!,
+			selectedPlan: MEDIUM,
+		});
+		await openedOptions('Performance & Usage');
+		expect(disabledOptions()).toEqual([]);
+	});
+
+	// central-manager's self-hosted update path returns before the level check.
+	it('leaves a self-hosted plan selectable whatever its level', async () => {
+		const SELF_HOSTED = leveled(plan('fabric-self-hosted-basic', 0, 'Basic support', 'Self-Hosted'), 0);
+		await mountEditor({
+			clusterId: 'clu-test',
+			deploymentToPerformanceToPlan: { 'Self-Hosted': { [SELF_HOSTED.performanceDescription!]: SELF_HOSTED } },
+			planLevelFloor: 1,
+			selectedDeployment: 'Self-Hosted',
+			selectedPerformance: SELF_HOSTED.performanceDescription!,
+			selectedPlan: SELF_HOSTED,
+		});
+		await openedOptions('Support & Usage');
+		expect(disabledOptions()).toEqual([]);
+	});
+
+	it('moves a selection that sits below the floor onto the first plan that is allowed', async () => {
+		await mountEditor({
+			clusterId: 'clu-test',
+			deploymentToPerformanceToPlan: LEVELED,
+			planLevelFloor: 1,
+			selectedPerformance: SMALL.performanceDescription!,
+			selectedPlan: SMALL,
+		});
+		expect(selectFor('Performance & Usage').textContent).toMatch(/^Medium/);
+	});
+});
+
 describe('ClusterDetails — choosing a grant on create', () => {
 	const COMPED = voucher('cgr-comped', { shape: [{ planId: LEVEL_1.id, regionId: 'us-1' }] });
 	const TRIAL_VOUCHER = voucher('cgr-trial', {
@@ -302,6 +370,14 @@ describe('ClusterDetails — choosing a grant on create', () => {
 		cleanup();
 		await mountEditor({ unboundGrants: [] });
 		expect(screen.queryByText('Available grants')).toBeNull();
+	});
+
+	it('leads the deployment card, ahead of the pickers a grant can set, with help on what it does', async () => {
+		await mountEditor({ unboundGrants: [COMPED] });
+		const grants = screen.getByRole('combobox', { name: 'Available grants' });
+		const deployment = screen.getByText('Harper Deployment');
+		expect(grants.compareDocumentPosition(deployment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'About available grants' })).toBeTruthy();
 	});
 
 	it('says a scoped grant sets the plan and regions', async () => {
