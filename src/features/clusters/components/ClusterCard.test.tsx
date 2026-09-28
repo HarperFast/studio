@@ -238,3 +238,26 @@ describe('ClusterCard — upgrade badge', () => {
 		expect(screen.getByText('Upgrade failed').querySelector('.animate-spin')).toBeNull();
 	});
 });
+
+// Same gate as ClusterStateMenu, keyed on the server's: a plan-ended cluster refuses Start (402) but
+// still admits Stop and Restart while it is up.
+describe('ClusterCard — container actions once the plan has ended', () => {
+	const lapsed = { isActive: false, status: 'EXPIRED', source: 'trial' } as Cluster['grant'];
+	const menuFor = (c: Cluster) => {
+		render(<ClusterCard cluster={c} />);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+		return screen.getAllByRole('menuitem').map(node => (node.textContent ?? '').trim());
+	};
+
+	it('drops the container group from a stopped cluster whose plan has ended', () => {
+		const items = menuFor(cluster({ status: 'STOPPED', suspendedReason: 'PLAN_ENDED', grant: lapsed }));
+		expect(screen.queryByText('Container')).toBeNull();
+		expect(items).not.toContain('Start');
+	});
+
+	it('keeps Stop on a running cluster whose plan has ended, but never Start', () => {
+		const items = menuFor(cluster({ status: 'RUNNING', suspendedReason: 'PLAN_ENDED', grant: lapsed }));
+		expect(items).toContain('Stop');
+		expect(items).not.toContain('Start');
+	});
+});
