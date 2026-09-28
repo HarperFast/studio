@@ -151,6 +151,11 @@ export function ClusterDetails({
 		if (selectable.length && !selectable.find(sp => sp.performanceTier === selectedPerformance)) {
 			form.setValue('performanceDescription', selectable[0].performanceTier);
 			void form.trigger();
+		} else if (availablePerformanceDescriptions?.length && !selectable.length && selectedPerformance) {
+			// Every tier of this deployment is below the floor: a leftover tier from another deployment
+			// names no plan here, and saving it would throw rather than be refused.
+			form.setValue('performanceDescription', '');
+			void form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
 
