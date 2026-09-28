@@ -321,6 +321,7 @@ export function UpsertCluster() {
 				regionSetFrozen={regionSetFrozen}
 				currentPlanId={cluster?.plans?.[0]?.planId}
 				planLevelFloor={planLevelFloor}
+				currentGrant={cluster?.grant?.isActive ? cluster.grant : null}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>
