@@ -1,11 +1,11 @@
 import { ContactUs } from '@/components/ContactUs';
 import { Button } from '@/components/ui/button';
+import { renewalTerms } from '@/features/clusters/upsert/lib/renewalTerms';
 import { PaymentMethodsDisplay } from '@/features/organization/billing/paymentMethod/PaymentMethodsDisplay';
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { PaymentMethodStatus } from '@/integrations/stripe/paymentMethodStatus';
-import { pluralize } from '@/lib/pluralize';
 import { isPositive } from '@/lib/types/isPositive';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
@@ -95,15 +95,11 @@ export function ClusterBilling({
 		);
 	}
 
-	const renewal = expirationMonths
-		? `every ${expirationMonths === 1 ? 'month' : pluralize(expirationMonths, 'month', 'months')}`
-		: null;
-
 	return (
 		<>
 			<ul className="list-disc ml-6 mb-6">
 				<li>You'll be charged today, and your cluster is licensed for the usage you've chosen right away.</li>
-				<li>It renews automatically{renewal && ` ${renewal}`}.</li>
+				<li>{renewalTerms(expirationMonths)}</li>
 				<li>
 					If you use it all before then, your cluster keeps running. The extra usage is added to your next bill at the
 					same rate, and you're only charged for what you use.
