@@ -89,6 +89,18 @@ describe('AddSSHKeyModal', () => {
 		).toBeTruthy();
 	});
 
+	it("says it can't check for duplicates when the key list couldn't be loaded", () => {
+		renderModal();
+
+		expect(screen.getByText(/couldn't load this instance's SSH keys/)).toBeTruthy();
+	});
+
+	it('checks a loaded key list, even an empty one, without that notice', () => {
+		renderModal([]);
+
+		expect(screen.queryByText(/couldn't load this instance's SSH keys/)).toBeNull();
+	});
+
 	it('checks a key list that arrives after the modal opened when the form is submitted', async () => {
 		const website = { name: 'website', host: 'website.github.com', hostname: 'github.com' };
 		const onChangesSaved = () => {};

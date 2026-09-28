@@ -58,10 +58,15 @@ describe('ConfigSSHKeysIndex', () => {
 		expect(addButton().disabled).toBe(false);
 	});
 
-	it('still offers Add when the key list failed to load', () => {
+	it('still offers Add when the key list failed to load, and tells the form the list is unknown', () => {
 		listQuery.current = { data: undefined, isLoading: false, isError: true };
 		render(<ConfigSSHKeysIndex />);
 		expect(addButton().disabled).toBe(false);
+
+		fireEvent.click(addButton());
+
+		expect(addModalProps.length).toBeGreaterThan(0);
+		expect(addModalProps.at(-1)?.existingKeys).toBeUndefined();
 	});
 
 	it('hands the listed keys to the Add form', () => {
