@@ -4,13 +4,19 @@ const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd'
 const ordinalRules = new Intl.PluralRules('en-US', { type: 'ordinal' });
 
 /**
- * When a self-serve cluster bought today renews. central-manager anchors the cycle to the purchase
- * moment and clamps it to the last day of shorter months (grants.js nextCycleEnd), so in the
- * customer's own calendar it lands on today's day number.
+ * When a self-serve cluster renews. central-manager anchors the cycle to the purchase moment and
+ * clamps it to the last day of shorter months (grants.js nextCycleEnd), so in the customer's own
+ * calendar a purchase made today renews on today's day number. `startsOn` is null when the day is
+ * not known here — an edit restarts the cycle only if it mints, which only the server decides.
  */
-export function renewalTerms(expirationMonths: number | false | undefined, today = new Date()): string {
+export function renewalTerms(expirationMonths: number | false | undefined, startsOn: Date | null): string {
 	if (!expirationMonths) { return 'It renews automatically.'; }
-	const day = today.getDate();
+	if (!startsOn) {
+		return `It renews automatically ${
+			expirationMonths === 1 ? 'each month' : `every ${pluralize(expirationMonths, 'month', 'months')}`
+		}.`;
+	}
+	const day = startsOn.getDate();
 	const onDay = `the ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]}`;
 	const shorterMonths = day > 28 ? ' (or the last day of shorter months)' : '';
 	return expirationMonths === 1
