@@ -99,7 +99,7 @@ export function ClusterBilling({
 		<>
 			<ul className="list-disc ml-6 mb-6">
 				<li>You'll be charged today, and your cluster will be licensed for the usage you've selected immediately.</li>
-				<li>{renewalTerms(expirationMonths)}</li>
+				<li>{renewalTerms(expirationMonths, clusterId ? null : new Date())}</li>
 				<li>
 					If you use it all before then, your cluster keeps running. The extra usage is added to your next bill on top
 					of your plan's price, at the same rate.
