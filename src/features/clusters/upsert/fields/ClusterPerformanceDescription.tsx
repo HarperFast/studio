@@ -21,6 +21,7 @@ export function ClusterPerformanceDescription({
 		name: string;
 		performanceTier: string;
 		description?: string;
+		disabledReason?: string;
 	}[];
 	form: UseFormReturn<z.infer<typeof UpsertClusterSchema>>;
 	selectedDeployment: string;
@@ -54,12 +55,16 @@ export function ClusterPerformanceDescription({
 											<SelectItem
 												key={performanceDescription.name}
 												value={performanceDescription.performanceTier}
+												disabled={!!performanceDescription.disabledReason}
 											>
 												<dt className="text-left font-bold text-sm/6 flex items-center gap-2">
 													{performanceDescription.name}
 												</dt>
 												{performanceDescription.description && (
 													<dd className="text-left font-light">{performanceDescription.description}</dd>
+												)}
+												{performanceDescription.disabledReason && (
+													<dd className="text-left text-xs">{performanceDescription.disabledReason}</dd>
 												)}
 											</SelectItem>
 										))}

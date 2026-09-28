@@ -77,6 +77,12 @@ export function UpsertCluster() {
 	>(LocalStorageKeys.SavedClusterState, null);
 
 	const { data: planTypes } = useQuery(getPlanTypesOptions(organizationId));
+	// central-manager refuses a lower planLevel in any region the cluster already runs (self-hosted
+	// updates skip that check), so the picker greys out what would be refused.
+	const currentPlans = cluster?.plans?.map(clusterPlan => planTypes?.find(p => p.id === clusterPlan.planId));
+	const planLevelFloor = !currentPlans?.length || currentPlans.some(p => !p || p.deploymentType === 'self-hosted')
+		? undefined
+		: Math.max(...currentPlans.map(p => p!.planLevel));
 	const { data: regionLocationsColocated } = useQuery(getRegionLocationsOptions({
 		availableHosts: true,
 		organizationId,
@@ -314,6 +320,7 @@ export function UpsertCluster() {
 				regionLocationsDedicated={regionLocationsDedicated}
 				regionSetFrozen={regionSetFrozen}
 				currentPlanId={cluster?.plans?.[0]?.planId}
+				planLevelFloor={planLevelFloor}
 				setSavedClusterState={setSavedClusterState}
 				startOffOnBilling={isUpsertClusterSchema(savedClusterState) && savedClusterState.skipToBilling === true}
 			/>

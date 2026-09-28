@@ -41,6 +41,7 @@ interface ClusterDetailsProps {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	regionSetFrozen?: boolean;
 	currentPlanId?: string;
+	planLevelFloor?: number;
 	/** The organization's unclaimed vouchers, offered on create. */
 	unboundGrants?: ClusterGrant[];
 	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
@@ -67,6 +68,7 @@ export function ClusterDetails({
 	regionNameToLatencyToRegion,
 	regionSetFrozen,
 	currentPlanId,
+	planLevelFloor,
 	unboundGrants,
 	lockedByGrant,
 	selectedDeployment,
@@ -86,13 +88,18 @@ export function ClusterDetails({
 			currentPlanId,
 			selectedPerformance,
 		});
-		return Object.keys(plansByTier).map(performanceTier => {
+		return Object.entries(plansByTier).map(([performanceTier, plan]) => {
+			const disabledReason = planLevelFloor != null && plan.deploymentType !== 'self-hosted'
+					&& plan.planLevel < planLevelFloor
+				? 'Moving to a smaller plan isn’t supported yet.'
+				: undefined;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
 				return {
 					performanceTier,
 					name: splitByParens[0],
 					description: splitByParens[1],
+					disabledReason,
 				};
 			}
 			const splitByFor = performanceTier.split(' for ');
@@ -101,15 +108,24 @@ export function ClusterDetails({
 					performanceTier,
 					name: splitByFor[0],
 					description: 'For ' + splitByFor[1],
+					disabledReason,
 				};
 			}
 			return {
 				performanceTier,
 				name: performanceTier,
 				description: '',
+				disabledReason,
 			};
 		});
-	}, [clusterId, currentPlanId, deploymentToPerformanceToPlan, selectedDeployment, selectedPerformance]);
+	}, [
+		clusterId,
+		currentPlanId,
+		planLevelFloor,
+		deploymentToPerformanceToPlan,
+		selectedDeployment,
+		selectedPerformance,
+	]);
 	const availableDeploymentTypes = useMemo(() => Object.keys(deploymentToPerformanceToPlan).sort(), [
 		deploymentToPerformanceToPlan,
 	]);
@@ -131,11 +147,9 @@ export function ClusterDetails({
 	);
 
 	useEffect(function autoSelectFirstAvailablePerformanceDescription() {
-		if (
-			availablePerformanceDescriptions?.length
-			&& !availablePerformanceDescriptions.find(sp => sp.performanceTier === selectedPerformance)
-		) {
-			form.setValue('performanceDescription', availablePerformanceDescriptions[0].performanceTier);
+		const selectable = availablePerformanceDescriptions?.filter(sp => !sp.disabledReason) ?? [];
+		if (selectable.length && !selectable.find(sp => sp.performanceTier === selectedPerformance)) {
+			form.setValue('performanceDescription', selectable[0].performanceTier);
 			void form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
