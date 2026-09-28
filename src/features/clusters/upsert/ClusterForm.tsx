@@ -66,6 +66,8 @@ interface ClusterFormProps {
 	regionSetFrozen?: boolean;
 	/** What the cluster runs today — kept selectable even when its tier is otherwise not offered. */
 	currentPlanId?: string;
+	/** Lowest planLevel central-manager accepts for this cluster; unset when creating or self-hosted. */
+	planLevelFloor?: number;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -90,6 +92,7 @@ export function ClusterForm({
 	regionLocationsDedicated,
 	regionSetFrozen,
 	currentPlanId,
+	planLevelFloor,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -729,6 +732,7 @@ export function ClusterForm({
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									regionSetFrozen={regionSetFrozen}
 									currentPlanId={currentPlanId}
+									planLevelFloor={planLevelFloor}
 									unboundGrants={organization?.unboundGrants}
 									lockedByGrant={lockedByGrant}
 									selectedDeployment={selectedDeployment}
