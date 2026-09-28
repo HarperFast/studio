@@ -4,9 +4,11 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { voucherLabel } from '@/features/clusters/lib/grantExpiry';
 import { UpsertClusterSchema } from '@/features/clusters/upsert/upsertClusterSchema';
 import { ClusterGrant } from '@/integrations/api/api.patch';
+import { CircleHelp } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -47,7 +49,25 @@ export function ClusterGrantId({
 				const scoped = (picked?.shape?.length ?? 0) > 0;
 				return (
 					<FormItem className={className}>
-						<FormLabel className="pb-1">Available grants</FormLabel>
+						<div className="flex items-center gap-1.5 pb-1">
+							<FormLabel>Available grants</FormLabel>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<button
+										type="button"
+										aria-label="About available grants"
+										className="rounded-full text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+									>
+										<CircleHelp className="size-3.5" aria-hidden="true" />
+									</button>
+								</TooltipTrigger>
+								<TooltipContent className="max-w-xs text-left">
+									Trials and complimentary plans your organization has been given. Pick one and this cluster runs on it
+									— no payment needed. A complimentary grant fills in its plan and regions for you; a trial lets you
+									choose within the plans and regions it covers. Choose None to configure and pay as usual.
+								</TooltipContent>
+							</Tooltip>
+						</div>
 						<FormControl>
 							<Select
 								value={field.value || NONE}
