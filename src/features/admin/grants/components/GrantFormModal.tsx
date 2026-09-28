@@ -120,9 +120,8 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// (409) — the right move is a replacement — so the editor locks rather than invites a save.
 	const isComped = grant?.source === 'comped';
 	const boundComp = isComped && grant?.clusterId != null;
-	// As on create: a comp's policy follows its end date. The edit form carries no source, so the
-	// schema's comped rule never runs here and a mismatch would only surface as the server's 400.
-	// Only once Ends is edited: a save that changes nothing else must not restate the stored policy.
+	// The edit form carries no source, so the schema's comped rule never runs here. Only once Ends is
+	// edited: a save that changes nothing else must not restate the stored policy.
 	const endsAt = form.watch('endsAt');
 	useEffect(() => {
 		if (!isComped) { return; }
