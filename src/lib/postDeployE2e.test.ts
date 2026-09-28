@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
 	advertisedVersions,
@@ -404,6 +407,12 @@ describe('the job summary', () => {
 		expect(annotationsFor(judge(report([passed]), 0), 'dev')).toEqual([]);
 	});
 
+	it('redacts a whole credential parameter, colons included, and leaves an already-redacted one alone', () => {
+		const once = redact('open /#/verify-email?token=user:session123 then ?code=[redacted]::boom', []);
+		expect(once).toBe('open /#/verify-email?token=[redacted] then ?code=[redacted]::boom');
+		expect(redact(once, [])).toBe(once);
+	});
+
 	it('redacts every string of a nested report and leaves other values alone', () => {
 		expect(redactDeep({ a: ['x hunter22 y', 3], b: { c: 'hunter22' }, d: null }, ['hunter22'])).toEqual({
 			a: ['x [redacted] y', 3],
@@ -417,5 +426,38 @@ describe('the job summary', () => {
 		expect(redact(text, ['qa@example.test', 'hunter22', '42', ''])).toBe(
 			'as [redacted], i.e. ?email=[redacted], with pw [redacted] and id 42',
 		);
+	});
+});
+
+describe('peer discovery in studio-deploy', () => {
+	const action = readFileSync(join(import.meta.dirname, '../../.github/actions/studio-deploy/action.yaml'), 'utf8');
+	const program = action.match(/nodes=\$\(sed -n '([^']+)'/)?.[1] ?? '';
+	const peers = (output: string) =>
+		execFileSync('sed', ['-n', program], { input: output, encoding: 'utf8' }).split('\n').filter(Boolean).join(',');
+
+	it('finds the sed program the deploy step runs', () => {
+		expect(program).toContain('replicated:');
+	});
+
+	// Verbatim deploy_component output from the dev, stage and prod deploy logs of 2026-09-24/25/28.
+	it.each([
+		['a single node', 'message: "Successfully deployed: hdbms"\nreplicated: []\ndeployment_id: f485c522\n', ''],
+		[
+			'stage',
+			'message: "Successfully deployed: hdbms"\nreplicated:\n  - message: "Successfully deployed: hdbms"\n    requestId: 1\n    node: stage-2.studio.harperfabric.com\ndeployment_id: dc037de3\n',
+			'stage-2.studio.harperfabric.com',
+		],
+		[
+			'prod, restarting',
+			'message: "Successfully deployed: hdbms, restarting Harper"\nreplicated:\n  - message: "Successfully deployed: hdbms, restarting Harper"\n    requestId: 1\n    node: studio-2.harperfabric.com\ndeployment_id: de104c35\n',
+			'studio-2.harperfabric.com',
+		],
+		[
+			'two peers',
+			'message: "ok"\nreplicated:\n  - message: "ok"\n    node: a-2.example.test\n  - message: "ok"\n    node: a-3.example.test\ndeployment_id: x\n',
+			'a-2.example.test,a-3.example.test',
+		],
+	])('reads the replicated peers of %s', (_label, output, expected) => {
+		expect(peers(output)).toBe(expected);
 	});
 });
