@@ -1,4 +1,4 @@
-import type { Cluster, Instance } from '@/integrations/api/api.patch';
+import type { Cluster, ClusterGrant, Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import { buildClusterList, defaultClusterListControls, describeCluster, selectClusters } from './clusterListModel';
 
@@ -18,6 +18,54 @@ const instance = (overrides: Partial<Instance> = {}): Instance => ({
 	operationsApiSecure: true,
 	status: 'RUNNING',
 	...overrides,
+});
+
+const grant = (overrides: Partial<ClusterGrant> = {}): ClusterGrant => ({
+	id: 'cgr-a',
+	source: 'trial',
+	status: 'ACTIVE',
+	isActive: true,
+	startsAt: '2026-09-01T00:00:00.000Z',
+	endsAt: '2099-01-01T00:00:00.000Z',
+	cycleAnchor: null,
+	expiryPolicy: 'consumer-trial',
+	currentStage: null,
+	stageUpdatedAt: null,
+	allowedPlanIds: null,
+	allowedRegionIds: null,
+	...overrides,
+} as ClusterGrant);
+
+describe('cluster list model — the plan behind a running cluster', () => {
+	it('puts a running cluster whose plan is ending under attention, without repeating the card pill as a notice', () => {
+		const item = describeCluster(cluster({ grant: grant({ currentStage: 'FINAL_WARNING' }) }));
+		expect(item.category).toBe('attention');
+		expect(item.label).toBe('Running');
+		expect(item.notices).toEqual([]);
+	});
+
+	it('does the same once the plan has lapsed but the cluster has not been stopped yet', () => {
+		expect(describeCluster(cluster({ grant: grant({ isActive: false, status: 'EXPIRED' }) })).category).toBe(
+			'attention',
+		);
+	});
+
+	it('leaves a healthy plan, and an upgrade still applying, as running', () => {
+		expect(describeCluster(cluster({ grant: grant() })).category).toBe('running');
+		const applying = cluster({
+			grant: grant({ source: 'purchased', expiryPolicy: 'conversion-pending' }),
+			conversionState: 'APPLYING',
+		});
+		expect(describeCluster(applying).category).toBe('running');
+	});
+
+	it('counts and sorts an ending plan with the clusters that need attention', () => {
+		const ending = cluster({ id: 'clu-b', name: 'Alpha', grant: grant({ currentStage: 'WARNED' }) });
+		const fine = cluster({ id: 'clu-c', name: 'Aardvark' });
+		const { items, counts } = buildClusterList([fine, ending]);
+		expect(counts).toMatchObject({ running: 1, attention: 1 });
+		expect(selectClusters(items, defaultClusterListControls).map(item => item.cluster.id)).toEqual(['clu-b', 'clu-c']);
+	});
 });
 
 describe('cluster list model', () => {
