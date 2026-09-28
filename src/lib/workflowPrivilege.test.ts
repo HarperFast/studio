@@ -134,7 +134,9 @@ describe('post-deploy e2e jobs', () => {
 		const needs = [job.needs ?? []].flat();
 		const e2e = job.steps?.find((step) => step.uses === './.github/actions/studio-e2e');
 		const expected = String(e2e?.with?.['expected-version']);
-		expect(needs).toContainEqual(expected.match(/needs\.(\w+)\.outputs\.version/)?.[1]);
+		const deployJob = expected.match(/needs\.(\w+)\.outputs\.version/)?.[1];
+		expect(needs).toContainEqual(deployJob);
+		expect(String(e2e?.with?.['node-hosts'])).toBe(`\${{ needs.${deployJob}.outputs.nodes }}`);
 		const checkout = job.steps?.find((step) => step.uses?.startsWith('actions/checkout@'));
 		expect(checkout).toBeDefined();
 		expect(checkout?.with?.ref).toBeUndefined();
