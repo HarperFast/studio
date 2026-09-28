@@ -304,6 +304,14 @@ describe('ClusterDetails — choosing a grant on create', () => {
 		expect(screen.queryByText('Available grants')).toBeNull();
 	});
 
+	it('leads the deployment card, ahead of the pickers a grant can set, with help on what it does', async () => {
+		await mountEditor({ unboundGrants: [COMPED] });
+		const grants = screen.getByRole('combobox', { name: 'Available grants' });
+		const deployment = screen.getByText('Harper Deployment');
+		expect(grants.compareDocumentPosition(deployment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'About available grants' })).toBeTruthy();
+	});
+
 	it('says a scoped grant sets the plan and regions', async () => {
 		await mountEditor({ unboundGrants: [COMPED] });
 		await openedOptions('Available grants');
