@@ -27,4 +27,10 @@ describe('renewalTerms', () => {
 		expect(renewalTerms(3, on(5))).toBe('It renews automatically every 3 months, on the 5th.');
 		expect(renewalTerms(false, on(5))).toBe('It renews automatically.');
 	});
+
+	// An edit keeps the old renewal day unless it charges for something, and only the server decides that.
+	it('names no day when the start of the period is not known', () => {
+		expect(renewalTerms(1, null)).toBe('It renews automatically each month.');
+		expect(renewalTerms(3, null)).toBe('It renews automatically every 3 months.');
+	});
 });
