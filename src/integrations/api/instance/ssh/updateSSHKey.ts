@@ -1,11 +1,12 @@
 import { InstanceClientConfig, InstanceTypeConfig } from '@/config/instanceClientConfig';
+import { sshPrivateKeySchema } from '@/integrations/api/instance/ssh/sshPrivateKey';
 import { ReplicatedResponse } from '@/integrations/api/replication';
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 
 export const UpdateSSHKeySchema = z.object({
 	name: z.string().trim(),
-	key: z.string().min(1).trim(),
+	key: sshPrivateKeySchema,
 });
 
 type UpdateSSHKeyFormData = z.infer<typeof UpdateSSHKeySchema> & InstanceClientConfig & InstanceTypeConfig;
