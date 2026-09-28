@@ -90,6 +90,8 @@ export function ClusterStateMenu({ cluster }: { cluster: Cluster }) {
 
 	// `update` alone still gets the menu, so someone managing the cluster can see why its ops are disabled.
 	if (clusterIsSelfManaged(cluster) || (!update && !remove && !canRunContainerOps)) { return null; }
+	// Down with its plan ended, Terminate is all that is left; without delete that is one disabled item.
+	if (planEndedAndDown && !remove) { return null; }
 
 	return (
 		<>

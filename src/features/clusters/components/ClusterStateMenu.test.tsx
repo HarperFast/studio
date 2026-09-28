@@ -170,6 +170,14 @@ describe('ClusterStateMenu — a suspended cluster that is down', () => {
 		expect(items).toEqual(['Terminate']);
 	});
 
+	it('shows no menu at all to someone who cannot terminate it either', () => {
+		state.user = member('developers', { update: true, delete: false });
+		render(
+			<ClusterStateMenu cluster={cluster({ status: 'STOPPED', suspendedReason: 'PLAN_ENDED', grant: lapsedGrant })} />,
+		);
+		expect(screen.queryByRole('button', { name: 'Cluster actions' })).toBeNull();
+	});
+
 	it('keeps the full group for an ordinary stopped cluster', () => {
 		const items = menuItemsFor(cluster({ status: 'STOPPED' }));
 		expect(items).toContain('Start');
