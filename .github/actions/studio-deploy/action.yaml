@@ -41,6 +41,9 @@ outputs:
   version:
     description: 'The VITE_STUDIO_VERSION baked into the deployed bundle — what the deployed site advertises'
     value: ${{ steps.version.outputs.version }}
+  nodes:
+    description: 'Comma-separated hostnames of the peers deploy_component replicated to; empty for a single node'
+    value: ${{ steps.component.outputs.nodes }}
 
 runs:
   using: composite
@@ -121,6 +124,7 @@ runs:
         echo "Deploying the Harper $HARPER template with restart=$RESTART"
         cat deploy/package.json
     - name: Deploy to ${{ inputs.environment }}
+      id: component
       shell: bash
       env:
         CLI_TARGET_USERNAME: ${{ inputs.cli-target-username }}
@@ -129,4 +133,6 @@ runs:
       run: |
         cd deploy
         pnpm harper deploy_component project=hdbms target="$CLI_DEPLOY_TARGET" \
-          restart="${DEPLOY_RESTART:?staging step did not run}" replicated=true
+          restart="${DEPLOY_RESTART:?staging step did not run}" replicated=true | tee "$RUNNER_TEMP/deploy-component.out"
+        nodes=$(sed -n '/^replicated:/,/^[^ -]/{s/^ *node: *//p;}' "$RUNNER_TEMP/deploy-component.out" | paste -sd, -)
+        echo "nodes=$nodes" >> "$GITHUB_OUTPUT"

@@ -149,10 +149,16 @@ yet.
 
 - **Same commit by construction.** The job checks out the run's own commit and waits until the site
   serves the version the deploy job just built (`studio-deploy`'s `version` output, the
-  `VITE_STUDIO_VERSION` in the entry chunk) on three checks in a row, for up to 10 minutes. `dev` is
-  an integration branch that does not track `stage`, so `stage`'s specs against the dev site compare
-  two different commits: that is what turned studio-e2e-harness#10 red, 36 failures for features dev
-  did not have. A deploy that never goes live fails the job too.
+  `VITE_STUDIO_VERSION` in the entry chunk), for up to 10 minutes. `dev` is an integration branch
+  that does not track `stage`, so `stage`'s specs against the dev site compare two different
+  commits: that is what turned studio-e2e-harness#10 red, 36 failures for features dev did not have.
+  A deploy that never goes live fails the job too.
+- **Every node, not a sample.** The public origin reaches whichever node the load balancer picks, so
+  repeated checks through it cannot prove every node updated. `deploy_component … replicated=true`
+  names the peers it replicated to, `studio-deploy` passes them on as its `nodes` output, and the
+  gate probes each by its own hostname: every one must serve the new version, three rounds in a row.
+  Dev is a single node today (`replicated: []`); stage and prod replicate to `stage-2` and
+  `studio-2`.
 - **Its own runner, its own secrets.** The job never receives the CM or Datadog credentials. Its
   test-account secrets live in the `e2e-dev` environment; restricted to the `dev` branch (setup
   below), a job on any other branch cannot read them — the scoping studio#1651 wants for the deploy

@@ -29,6 +29,7 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.deploy.outputs.version }}
+      nodes: ${{ steps.deploy.outputs.nodes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,6 +78,7 @@ jobs:
           environment: dev
           base-url: https://dev.studio.harperfabric.com
           expected-version: ${{ needs.deployToDev.outputs.version }}
+          node-hosts: ${{ needs.deployToDev.outputs.nodes }}
           user-email: ${{ secrets.PLAYWRIGHT_USER_EMAIL }}
           user-password: ${{ secrets.PLAYWRIGHT_USER_PASSWORD }}
           org-id: ${{ secrets.PLAYWRIGHT_ORG_ID }}

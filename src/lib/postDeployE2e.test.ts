@@ -6,9 +6,11 @@ import {
 	composeReport,
 	findEntryChunk,
 	judge,
+	observeAll,
 	observeDeployment,
 	parseTimeoutSeconds,
 	type PlaywrightReport,
+	probeOrigins,
 	redact,
 	redactDeep,
 	renderSummary,
@@ -135,6 +137,50 @@ describe('the deployed-version gate', () => {
 			fakeFetch({ '/': index, '/assets/index-A1.js': () => new Response('v=`dev_abc1234`') }),
 		);
 		expect(observation).toEqual({ matches: true, detail: '/assets/index-A1.js serves dev_abc1234' });
+	});
+
+	it('probes the public origin and every replicated node by its own hostname', () => {
+		expect(probeOrigins('https://stage.example.test')).toEqual(['https://stage.example.test']);
+		expect(probeOrigins('https://stage.example.test', ' stage-2.example.test,stage-3.example.test,')).toEqual([
+			'https://stage.example.test',
+			'https://stage-2.example.test',
+			'https://stage-3.example.test',
+		]);
+		expect(probeOrigins('https://stage.example.test', 'stage.example.test')).toEqual(['https://stage.example.test']);
+	});
+
+	it.each(['https://stage-2.example.test', 'stage-2.example.test/assets', 'stage-2'])(
+		'refuses a node entry that is not a hostname: %s',
+		(entry) => {
+			expect(() => probeOrigins('https://stage.example.test', entry)).toThrow('not a hostname');
+		},
+	);
+
+	it('fails the round while any node still serves the old build, and names it', async () => {
+		const byHost = (versions: Record<string, string>): typeof fetch =>
+			(async (input: string | URL | Request) => {
+				const url = new URL(String(input));
+				return url.pathname === '/'
+					? new Response('<script src="/assets/index-A1.js"></script>')
+					: new Response(`v=\`${versions[url.host]}\``);
+			}) as typeof fetch;
+		const origins = ['https://stage.example.test', 'https://stage-2.example.test'];
+		const stale = await observeAll(
+			origins,
+			'v2.1.0',
+			byHost({ 'stage.example.test': 'v2.1.0', 'stage-2.example.test': 'v2.0.9' }),
+		);
+		expect(stale).toEqual({
+			matches: false,
+			detail:
+				'stage.example.test /assets/index-A1.js serves v2.1.0; stage-2.example.test /assets/index-A1.js serves v2.0.9',
+		});
+		const live = await observeAll(
+			origins,
+			'v2.1.0',
+			byHost({ 'stage.example.test': 'v2.1.0', 'stage-2.example.test': 'v2.1.0' }),
+		);
+		expect(live.matches).toBe(true);
 	});
 
 	function clock() {
