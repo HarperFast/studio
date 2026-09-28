@@ -561,10 +561,9 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	// The live grant pays only for the plan it was given: a change to a priced plan shows its price.
-	const keepsGrantedPlan = totalPrice === 0 || selectedPlan?.id === currentPlanId;
+	// Named only while nothing is priced: what an edit to a comped cluster costs is central-manager's call.
 	const labelledGrant = selectedGrant
-		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && keepsGrantedPlan ? currentGrant : null);
+		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && totalPrice === 0 ? currentGrant : null);
 	const grantLabel = labelledGrant && (labelledGrant.source === 'trial' ? 'Trial' : 'Complimentary');
 	const priceSummary = !isEnterprise && mode !== 'version'
 		? (
