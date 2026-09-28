@@ -103,6 +103,17 @@ describe('ClusterExpiryBanner', () => {
 		expect(upgradeLink()).toBeNull();
 	});
 
+	it('shows a failed upgrade as a problem to act on, not as progress that never ends', async () => {
+		await renderBanner({
+			...cluster({ source: 'purchased', expiryPolicy: 'conversion-pending' }),
+			conversionState: 'FAILED',
+		} as Cluster);
+		const alert = screen.getByRole('alert');
+		expect(alert.textContent).toContain('did not go through');
+		expect(alert.querySelector('.animate-spin')).toBeNull();
+		expect(upgradeLink()).toBeTruthy();
+	});
+
 	it('does not offer an upgrade for a cluster already deleted', async () => {
 		await renderBanner(cluster({ isActive: false, status: 'EXPIRED', currentStage: 'DELETED' }));
 		expect(screen.getByRole('alert').textContent).toContain('deleted after its plan ended');

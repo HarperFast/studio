@@ -295,8 +295,10 @@ describe('describeGrantExpiry', () => {
 	it('reports a marked-FAILED conversion as failed, not as upgrading or expired', () => {
 		const failing = grant({ source: 'purchased', isActive: true, expiryPolicy: 'conversion-pending' });
 		const result = describeGrantExpiry({ grant: failing, status: 'RUNNING', conversionState: 'FAILED' }, NOW);
-		expect(result).toMatchObject({ stage: 'AWAITING_PLAN', severity: 'critical', offerUpgrade: true });
+		expect(result).toMatchObject({ stage: 'UPGRADE_FAILED', severity: 'critical', offerUpgrade: true });
 		expect(result?.title).toContain('did not go through');
+		// Repeated on the working surfaces like any other warning; only an upgrade still applying is exempt.
+		expect(isExpiryWarning(result)).toBe(true);
 		expect(result?.detail).toContain('Nothing was charged');
 	});
 
