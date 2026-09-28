@@ -591,9 +591,7 @@ export function ClusterForm({
 				{!selectedGrant && !!termMonths && termMonths > 1 && totalPrice > 0 && (
 					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
 						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
-						every{' '}
-						{pluralize(termMonths, 'month', 'months')}, or sooner if you reach a usage limit — then a new license is
-						issued.
+						every {pluralize(termMonths, 'month', 'months')}. Usage beyond that is added to your next bill.
 					</p>
 				)}
 				<div className="mt-5 border-t border-primary/15 pt-5">
