@@ -322,6 +322,17 @@ describe('ClusterDetails — plan levels central-manager refuses on edit', () =>
 		expect(disabledOptions()).toEqual([]);
 	});
 
+	it('clears the tier when every tier of the deployment is below the floor, rather than keep one that names no plan', async () => {
+		await mountEditor({
+			clusterId: 'clu-test',
+			deploymentToPerformanceToPlan: LEVELED,
+			planLevelFloor: 3,
+			selectedPerformance: MEDIUM.performanceDescription!,
+			selectedPlan: MEDIUM,
+		});
+		expect(selectFor('Performance & Usage').textContent).toContain('Choose Tier');
+	});
+
 	it('moves a selection that sits below the floor onto the first plan that is allowed', async () => {
 		await mountEditor({
 			clusterId: 'clu-test',
