@@ -12,7 +12,8 @@ import { Cluster, ClusterGrant, ExpiryStage } from '@/integrations/api/api.patch
 export type ExpirySeverity = 'info' | 'warning' | 'critical';
 
 export interface GrantExpiryDescription {
-	stage: ExpiryStage | 'EXPIRED';
+	/** AWAITING_PLAN is a conversion still applying; UPGRADE_FAILED one that stopped, a separate stage so no reader can spin or hide on it. */
+	stage: ExpiryStage | 'EXPIRED' | 'UPGRADE_FAILED';
 	severity: ExpirySeverity;
 	/** Short form for the cluster card. */
 	badgeLabel: string;
@@ -193,7 +194,7 @@ export function describeGrantExpiry(
 	// the plan change), so the copy can promise that flatly.
 	if (isConversionFailed(cluster)) {
 		return {
-			stage: 'AWAITING_PLAN',
+			stage: 'UPGRADE_FAILED',
 			severity: 'critical',
 			badgeLabel: 'Upgrade failed',
 			title: 'Your upgrade did not go through',
