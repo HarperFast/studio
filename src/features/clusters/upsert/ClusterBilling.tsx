@@ -98,7 +98,7 @@ export function ClusterBilling({
 	return (
 		<>
 			<ul className="list-disc ml-6 mb-6">
-				<li>You'll be charged today, and your cluster is licensed for the usage you've chosen right away.</li>
+				<li>You'll be charged today, and your cluster will be licensed for the usage you've selected immediately.</li>
 				<li>{renewalTerms(expirationMonths)}</li>
 				<li>
 					If you use it all before then, your cluster keeps running. The extra usage is added to your next bill at the
