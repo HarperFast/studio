@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { renewalTerms } from './renewalTerms';
 
-const on = (day: number) => new Date(2026, 8, day, 12);
+// Stubbed rather than built from a local time, so the result does not depend on the machine's zone.
+const on = (day: number, utcDay = day) => ({ getDate: () => day, getUTCDate: () => utcDay }) as Date;
 
 describe('renewalTerms', () => {
 	it('names the day of the month the cluster renews on', () => {
 		expect(renewalTerms(1, on(1))).toBe('It renews automatically on the 1st of each month.');
 		expect(renewalTerms(1, on(22))).toBe('It renews automatically on the 22nd of each month.');
 		expect(renewalTerms(1, on(23))).toBe('It renews automatically on the 23rd of each month.');
+		expect(renewalTerms(1, on(28))).toBe('It renews automatically on the 28th of each month.');
 	});
 
 	it('uses th for the teens', () => {
@@ -16,20 +18,15 @@ describe('renewalTerms', () => {
 		expect(renewalTerms(1, on(13))).toBe('It renews automatically on the 13th of each month.');
 	});
 
-	it('says what happens in shorter months for a day some months lack', () => {
-		expect(renewalTerms(1, on(28))).toBe('It renews automatically on the 28th of each month.');
-		expect(renewalTerms(1, on(29))).toBe(
-			'It renews automatically on the 29th of each month (around the last day in shorter months).',
-		);
+	it('names no day some months lack, since those renew earlier', () => {
+		expect(renewalTerms(1, on(29))).toBe('It renews automatically each month.');
+		expect(renewalTerms(1, on(31))).toBe('It renews automatically each month.');
 	});
 
-	it('warns about shorter months when the UTC day is past the 28th even if the local one is not', () => {
-		const lateOn28th = new Date(2026, 0, 28, 12);
-		const utc29th = { getDate: () => 28, getUTCDate: () => 29 } as Date;
-		expect(renewalTerms(1, lateOn28th)).toBe('It renews automatically on the 28th of each month.');
-		expect(renewalTerms(1, utc29th)).toBe(
-			'It renews automatically on the 28th of each month (around the last day in shorter months).',
-		);
+	// The cycle runs on the UTC calendar; when that is already a different date, the local day can drift.
+	it('names no day when the local and UTC dates differ', () => {
+		expect(renewalTerms(1, on(1, 30))).toBe('It renews automatically each month.');
+		expect(renewalTerms(1, on(28, 29))).toBe('It renews automatically each month.');
 	});
 
 	it('states a longer term, and falls back when the plan has none', () => {
