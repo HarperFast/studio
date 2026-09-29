@@ -16,7 +16,7 @@ const ALL: ContainerActionAvailability = { start: true, restart: true, stop: tru
  * container is a no-op, a start of a running container is a no-op that reports RUNNING, and a
  * safe-mode start of a running container recreates it with safe mode on.
  */
-export function containerActionsForStatus(status: string | undefined): ContainerActionAvailability {
+export function containerActionsForStatus(status: string | null | undefined): ContainerActionAvailability {
 	switch (status) {
 		case 'RUNNING':
 			return RUNNING;
