@@ -26,6 +26,7 @@ describe('containerActionsForStatus', () => {
 				'CLONING',
 				'UPDATING',
 				'TERMINATED',
+				null,
 				undefined,
 			]
 		) {
