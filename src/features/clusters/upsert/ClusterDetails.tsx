@@ -125,8 +125,9 @@ export function ClusterDetails({
 	const isSelfManaged = selectedDeployment === 'Self-Hosted';
 
 	// On a partially-upgraded cluster the version is already pre-selected to the latest, so the form
-	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried.
-	const allowVersionResubmit = mode === 'version' && !!partialUpgrade;
+	// never goes dirty — allow re-submitting it anyway so the lagging instances can be retried. Not
+	// when the target is ambiguous: nothing is pre-selected then, and the user's pick dirties the form.
+	const allowVersionResubmit = mode === 'version' && !!partialUpgrade && !partialUpgrade.ambiguous;
 
 	const footer = (
 		<DialogFooter className="mt-6 mb-8 border-t border-border/60 pt-6">
@@ -173,9 +174,11 @@ export function ClusterDetails({
 						{partialUpgrade && (
 							<p className="col-span-3 md:col-span-6 max-w-prose text-xs font-light text-amber-600 dark:text-amber-400">
 								{partialUpgrade.behindCount} of {partialUpgrade.total} instances{' '}
-								{partialUpgrade.behindCount === 1 ? 'is' : 'are'} still on an older version. Re-run the upgrade to bring
-								{' '}
-								{partialUpgrade.behindCount === 1 ? 'it' : 'them'} up to {partialUpgrade.latest}.
+								{partialUpgrade.behindCount === 1 ? 'is' : 'are'} {partialUpgrade.ambiguous
+									? `on a different version from ${partialUpgrade.latest}, and a version pinned to your organization is among them. Choose the version the whole cluster should run.`
+									: `still on an older version. Re-run the upgrade to bring ${
+										partialUpgrade.behindCount === 1 ? 'it' : 'them'
+									} up to ${partialUpgrade.latest}.`}
 							</p>
 						)}
 					</CardContent>

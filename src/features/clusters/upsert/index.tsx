@@ -13,7 +13,6 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { Cluster, Organization } from '@/integrations/api/api.patch';
-import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -75,14 +74,11 @@ export function UpsertCluster() {
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
-		if (cluster) {
-			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
-			if (newHarperVersions && clusterVersions) {
-				return {
-					...newHarperVersions,
-					value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], clusterVersions),
-				} satisfies HarperVersionsResponse;
-			}
+		if (cluster?.instances && newHarperVersions) {
+			return {
+				...newHarperVersions,
+				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], cluster.instances),
+			} satisfies HarperVersionsResponse;
 		}
 		return newHarperVersions;
 	}, [newHarperVersions, cluster]);
@@ -91,10 +87,15 @@ export function UpsertCluster() {
 	// rest of the cluster is on. In that state the version picker pre-selects the latest version as
 	// "current" and offers nothing newer, so the form can never become dirty — leaving no way to
 	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
-	// the current target as a recovery path.
+	// the current target as a recovery path — unless a pinned (scoped) version is among the lagging
+	// ones, in which case the target is ambiguous and the user picks it.
 	const partialUpgrade = useMemo(
-		() => detectPartialUpgrade(cluster?.instances ?? []),
-		[cluster],
+		() =>
+			detectPartialUpgrade(
+				cluster?.instances ?? [],
+				(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
+			),
+		[cluster, newHarperVersions],
 	);
 
 	const alreadyUsingFree = useMemo(() => {
@@ -194,8 +195,12 @@ export function UpsertCluster() {
 			regionPlans.push({ regionName: '', latencyDescription: '' });
 		}
 
-		const version = harperVersions.value?.find(v => v.name === 'current')?.version
-			?? harperVersions.value?.find(v => v.name === 'stable')?.version;
+		// On an ambiguous partial upgrade nothing is pre-selected: either choice then dirties the form,
+		// so the user states the target instead of the form assuming the highest version.
+		const version = partialUpgrade?.ambiguous
+			? undefined
+			: harperVersions.value?.find(v => v.name === 'current')?.version
+				?? harperVersions.value?.find(v => v.name === 'stable')?.version;
 
 		return {
 			sourceClusterId: clusterToLoad?.id,
