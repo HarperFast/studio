@@ -38,9 +38,11 @@ const plan = (id: string, priceUsd: number, performance: string, deployment = 'C
 const TRIAL = plan('fabric-block-trial', 0, '30-day trial (1K read/min)');
 const HOBBYIST = plan('fabric-block-hobbyist', 20, 'Hobbyist (1K read/min)');
 const LEVEL_1 = plan('fabric-block-level-1', 85, 'Medium (10K read/min)');
-const PLANS = [TRIAL, HOBBYIST, LEVEL_1];
+const SELF_HOSTED = plan('fabric-self-hosted-basic', 10, 'Basic support', 'Self-Hosted');
+const PLANS = [TRIAL, HOBBYIST, LEVEL_1, SELF_HOSTED];
 const CATALOGUE: Record<string, Record<string, SchemaPlan>> = {
-	Colocated: Object.fromEntries(PLANS.map((p) => [p.performanceDescription!, p])),
+	Colocated: Object.fromEntries([TRIAL, HOBBYIST, LEVEL_1].map((p) => [p.performanceDescription!, p])),
+	'Self-Hosted': { [SELF_HOSTED.performanceDescription!]: SELF_HOSTED },
 };
 const region = (id: string, name: string, latency: string): SchemaRegion =>
 	({ id, region: name, latencyDescription: latency, instanceCount: 2 }) as SchemaRegion;
@@ -343,7 +345,7 @@ describe('ClusterForm — editing a comped cluster', () => {
 			shape: [{ planId: HOBBYIST.id, regionId }],
 		}) as unknown as ClusterGrant;
 
-	async function mountCompEdit(grant: ClusterGrant) {
+	async function mountCompEdit(grant: ClusterGrant, values: Partial<UpsertClusterSchemaType> = {}) {
 		render(
 			<TestProvider>
 				<ClusterForm
@@ -355,6 +357,7 @@ describe('ClusterForm — editing a comped cluster', () => {
 						...defaults,
 						performanceDescription: HOBBYIST.performanceDescription!,
 						grantId: undefined,
+						...values,
 					} as UpsertClusterSchemaType}
 					deploymentToPerformanceToPlan={CATALOGUE}
 					harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
@@ -382,6 +385,29 @@ describe('ClusterForm — editing a comped cluster', () => {
 		expect(summary()).toContain('Complimentary');
 		expect(screen.getByRole('button', { name: /Edit Cluster/ })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Confirm Payment Details/ })).toBeNull();
+	});
+
+	// central-manager counts one pair per instance, so a comp for one self-hosted instance does not
+	// stretch to two.
+	it('counts self-hosted instances against the comp, one pair each', async () => {
+		const selfHostedComp = {
+			...comp('us-1'),
+			shape: [{ planId: SELF_HOSTED.id, regionId: null }],
+		} as unknown as ClusterGrant;
+		const instance = (fqdn: string) => ({ fqdn, port: 9925, secure: 'true' });
+		const selfHosted = {
+			deploymentDescription: 'Self-Hosted',
+			performanceDescription: SELF_HOSTED.performanceDescription!,
+			regionPlans: [],
+		} as Partial<UpsertClusterSchemaType>;
+		await mountCompEdit(selfHostedComp, { ...selfHosted, instances: [instance('a.example')] } as never);
+		expect(screen.getByRole('button', { name: /Edit Cluster/ })).toBeTruthy();
+		cleanup();
+		await mountCompEdit(selfHostedComp, {
+			...selfHosted,
+			instances: [instance('a.example'), instance('b.example')],
+		} as never);
+		expect(screen.getByRole('button', { name: /Confirm Payment Details/ })).toBeTruthy();
 	});
 
 	it('asks for payment once the request leaves the shape', async () => {
