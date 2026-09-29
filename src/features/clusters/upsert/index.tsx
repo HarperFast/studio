@@ -18,13 +18,13 @@ import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { compareVersions, wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
+import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
@@ -78,25 +78,9 @@ export function UpsertCluster() {
 		if (cluster) {
 			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
 			if (newHarperVersions && clusterVersions) {
-				// Copy before sort — sort mutates in place, and we reuse the full set below.
-				const latestClusterVersion = [...clusterVersions].sort(compareVersions).pop();
-				const clusterVersionSet = new Set(clusterVersions);
 				return {
 					...newHarperVersions,
-					value: [
-						!!latestClusterVersion && {
-							name: 'current',
-							version: latestClusterVersion,
-						} as const,
-						...(newHarperVersions?.value || []).filter(v => {
-							// Drop any version this cluster already runs: the current version is shown once as
-							// "current" above, and the backend also returns it (and any co-tenant instance's
-							// version, mid-upgrade) as a "deployed on <cluster>" entry we don't want to duplicate.
-							return !clusterVersionSet.has(v.version)
-								// Only offer newer releases — no downgrades (e.g. don't drop from "next" v5 to "stable" v4).
-								&& (!latestClusterVersion || wasAReleasedBeforeB(latestClusterVersion, v.version));
-						}),
-					].filter(excludeFalsy),
+					value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], clusterVersions),
 				} satisfies HarperVersionsResponse;
 			}
 		}

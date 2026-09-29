@@ -15,6 +15,8 @@ export interface HarperVersion {
 	 */
 	name: string;
 	version: string;
+	/** Released to the requesting organization by name (central-manager#862); absent on global entries. */
+	scoped?: boolean;
 }
 
 /**
@@ -37,10 +39,11 @@ export function dedupeHarperVersionsByTag(versions: HarperVersion[]): HarperVers
 	const bestByVersion = new Map<string, HarperVersion>();
 	for (const version of versions) {
 		const existing = bestByVersion.get(version.version);
-		if (!existing || tagRank(version.name) < tagRank(existing.name)) {
-			// Map preserves first-insertion order, so replacing the value keeps the version's original position.
-			bestByVersion.set(version.version, version);
-		}
+		const best = !existing || tagRank(version.name) < tagRank(existing.name) ? version : existing;
+		// `scoped` belongs to the version string, not the tag.
+		const scoped = version.scoped || existing?.scoped;
+		// Map preserves first-insertion order, so replacing the value keeps the version's original position.
+		bestByVersion.set(version.version, scoped && !best.scoped ? { ...best, scoped: true } : best);
 	}
 	return [...bestByVersion.values()];
 }

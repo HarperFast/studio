@@ -38,6 +38,15 @@ The wide hero artwork spans both columns beneath the form card in three independ
 - **Only query errors are muted, and only connectivity-class ones.** Mutations still toast; a 403 or a Harper 500 during a restart still toasts.
 - **Detection is per tab.** A page learns of a container op started elsewhere only from a cluster-record fetch, and the in-cluster studio pages don't poll the cluster, so they don't notice one started in another tab.
 
+## Cluster upgrade picker — which versions an existing cluster is offered
+
+[`buildUpgradeVersionOptions`](src/features/clusters/upsert/lib/buildUpgradeVersionOptions.ts) is the one place that decides, and its test file is the spec. Two rules, and they differ on purpose:
+
+- A **global** entry is offered only above the cluster's `current` version and only if no instance already runs it — no downgrades, so a `next` v5 cluster is never handed `stable` v4.
+- An entry central manager marked **`scoped`** (released to this organization by name, HarperFast/central-manager#862) is offered whatever its order, and hidden only when it _is_ `current`. Staff scope a build to pin a customer to it, and it is usually older than the fleet default; a mixed-version cluster with the pinned build on some instances still needs it selectable to converge. `dedupeHarperVersionsByTag` carries `scoped` across a tag collision because the flag belongs to the version string, not the tag.
+
+Central manager only ever sends the boolean, never the other organizations' ids; a missing flag reads as global, so an older central manager leaves the picker exactly as it was.
+
 ## Repo conventions worth knowing
 
 - **Data path to a Harper instance**: always via `instanceClient.post('/', { operation: ... })`. Never SQL, never new endpoints, never a separate transport.
