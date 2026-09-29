@@ -1,14 +1,15 @@
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { ClusterGrant, GrantShapeEntry } from '@/integrations/api/api.patch';
 
-/** Plan-and-region pairs keyed the way central-manager compares a comp's shape (scopeViolations). */
+/** Plan-and-region pairs keyed as central-manager's shapeKeys does: one key per pair, never merged. */
 const pairKeys = (pairs: ReadonlyArray<{ planId: string; regionId?: string | null }>) =>
-	[...new Set(pairs.map((pair) => `${pair.planId}@${pair.regionId ?? ''}`))].sort();
+	pairs.map((pair) => `${pair.planId}@${pair.regionId ?? '-'}`).sort();
 
 /**
- * Whether a comp's shape covers exactly this request: the same pairs, nothing more or less. That is
- * the test central-manager applies before waiving the card; anything else converts the cluster to
- * paid. An unresolved region (undefined) covers nothing.
+ * Whether a comp's shape covers exactly this request: the same pairs, as many of each, nothing more
+ * or less. That is the test central-manager applies before waiving the card; anything else converts
+ * the cluster to paid. A self-hosted request carries one pair per instance, so `regionIds` must too
+ * (a null each). An unresolved region (undefined) covers nothing.
  */
 export function shapeCoversRequest(
 	shape: GrantShapeEntry[] | null | undefined,

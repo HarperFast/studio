@@ -310,7 +310,6 @@ describe('GrantFormModal', () => {
 			const policy = screen.getByLabelText('Expiry policy');
 			expect(policy.hasAttribute('disabled') || policy.getAttribute('data-disabled') != null).toBe(true);
 			expect(screen.getByText(/Set by the end date/)).toBeTruthy();
-			// One edit at a time, as a person makes them: the policy change re-validates asynchronously.
 			fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
 			await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 			expect(policy.textContent).toContain('none');
