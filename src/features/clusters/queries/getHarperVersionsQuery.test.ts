@@ -85,6 +85,27 @@ describe('dedupeHarperVersionsByTag', () => {
 	it('handles an empty list', () => {
 		expect(dedupeHarperVersionsByTag([])).toEqual([]);
 	});
+
+	it('keeps the scoped flag when a scoped entry loses the tag contest to a global one', () => {
+		const result = dedupeHarperVersionsByTag([
+			{ name: 'acme-pin', version: '5.1.21', scoped: true },
+			{ name: 'stable', version: '5.1.21' },
+		]);
+		expect(result).toEqual([{ name: 'stable', version: '5.1.21', scoped: true }]);
+	});
+
+	it('keeps the scoped flag when the scoped entry arrives after the global one', () => {
+		const result = dedupeHarperVersionsByTag([
+			{ name: 'stable', version: '5.1.21' },
+			{ name: 'acme-pin', version: '5.1.21', scoped: true },
+		]);
+		expect(result).toEqual([{ name: 'stable', version: '5.1.21', scoped: true }]);
+	});
+
+	it('adds no scoped key to entries that never had one', () => {
+		const [entry] = dedupeHarperVersionsByTag([{ name: 'stable', version: '5.1.21' }]);
+		expect('scoped' in entry).toBe(false);
+	});
 });
 
 describe('getHarperVersionsOptions', () => {
