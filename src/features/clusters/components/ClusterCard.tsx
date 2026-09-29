@@ -17,7 +17,7 @@ import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeCo
 import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
 import {
 	describeGrantExpiry,
-	describeTrial,
+	describeGrantReminder,
 	type ExpirySeverity,
 	HOBBYIST_UPGRADE,
 	isConversionApplying,
@@ -108,7 +108,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		[cluster.status],
 	);
 	const expiry = useMemo(() => describeGrantExpiry(cluster), [cluster]);
-	const trial = useMemo(() => describeTrial(cluster), [cluster]);
+	const trial = useMemo(() => describeGrantReminder(cluster), [cluster]);
 	// A plan-ended cluster can't be restarted — the start gate refuses it with a 402. Buying a plan
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;

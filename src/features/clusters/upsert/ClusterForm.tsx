@@ -321,10 +321,18 @@ export function ClusterForm({
 	const coveredByComp = useMemo(() => {
 		if (!clusterId || currentGrant?.source !== 'comped' || !currentGrant.isActive) { return false; }
 		const regionIds = selectedDeployment === 'Self-Hosted'
-			? [null]
+			? selectedInstances.map(() => null)
 			: selectedRegionPlans.map((rp) => regionNameToLatencyToRegion[rp.regionName]?.[rp.latencyDescription]?.id);
 		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, regionIds);
-	}, [clusterId, currentGrant, regionNameToLatencyToRegion, selectedDeployment, selectedPlan, selectedRegionPlans]);
+	}, [
+		clusterId,
+		currentGrant,
+		regionNameToLatencyToRegion,
+		selectedDeployment,
+		selectedInstances,
+		selectedPlan,
+		selectedRegionPlans,
+	]);
 	useEffect(function fillFormFromGrant() {
 		if (!grantPrefill) { return; }
 		form.setValue('deploymentDescription', grantPrefill.deploymentDescription);
@@ -588,7 +596,7 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	// Named only while nothing is priced: what an edit to a comped cluster costs is central-manager's call.
+	// Named while nothing is priced, or while a live comp covers the edit as it stands.
 	const labelledGrant = selectedGrant
 		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && (totalPrice === 0 || coveredByComp)
 			? currentGrant
@@ -682,6 +690,7 @@ export function ClusterForm({
 									lockedByGrant={lockedByGrant}
 									deploymentLockedByGrant={deploymentLockedByGrant}
 									grantPlanIds={scope?.planIds ?? null}
+									grantRegionIds={scope?.regionIds ?? null}
 									allowedRegionIds={allowedRegionIds}
 									coveredByGrant={coveredByComp}
 									selectedDeployment={selectedDeployment}

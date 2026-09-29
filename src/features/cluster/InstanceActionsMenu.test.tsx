@@ -68,7 +68,6 @@ const member = (role: string) =>
 
 function openMenu(target: Instance = instance, cluster?: Cluster) {
 	const client = new QueryClient();
-	// The menu reads the cluster from the route's cached query; seed it rather than fetch.
 	if (cluster) { client.setQueryData(getClusterInfoQueryOptions('clu-b', false).queryKey, cluster); }
 	render(
 		<QueryClientProvider client={client}>
