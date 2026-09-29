@@ -4,16 +4,19 @@ const ORDINAL_SUFFIX: Record<string, string> = { one: 'st', two: 'nd', few: 'rd'
 const ordinalRules = new Intl.PluralRules('en-US', { type: 'ordinal' });
 
 /**
- * When a self-serve cluster bought today renews. central-manager anchors the cycle to the purchase
- * moment and clamps it to the last day of shorter months (grants.js nextCycleEnd), so in the
- * customer's own calendar it lands on today's day number.
+ * When a self-serve cluster renews. central-manager anchors the cycle to the purchase moment on the
+ * UTC calendar and clamps it into shorter months (grants.js nextCycleEnd). A day is named only when
+ * the local and UTC dates agree and every month has it; a purchase within an hour of midnight can
+ * still drift an hour across a daylight-saving change. `startsOn` is null when the start is not
+ * known here — an edit restarts the cycle only if it mints, which only the server decides.
  */
-export function renewalTerms(expirationMonths: number | false | undefined, today = new Date()): string {
+export function renewalTerms(expirationMonths: number | false | undefined, startsOn: Date | null): string {
 	if (!expirationMonths) { return 'It renews automatically.'; }
-	const day = today.getDate();
+	const every = expirationMonths === 1 ? 'each month' : `every ${pluralize(expirationMonths, 'month', 'months')}`;
+	const day = startsOn?.getDate();
+	if (!startsOn || !day || day !== startsOn.getUTCDate() || day > 28) { return `It renews automatically ${every}.`; }
 	const onDay = `the ${day}${ORDINAL_SUFFIX[ordinalRules.select(day)]}`;
-	const shorterMonths = day > 28 ? ' (or the last day of shorter months)' : '';
 	return expirationMonths === 1
-		? `It renews automatically on ${onDay} of each month${shorterMonths}.`
-		: `It renews automatically every ${pluralize(expirationMonths, 'month', 'months')}, on ${onDay}${shorterMonths}.`;
+		? `It renews automatically on ${onDay} of each month.`
+		: `It renews automatically ${every}, on ${onDay}.`;
 }

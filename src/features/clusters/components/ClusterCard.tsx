@@ -16,7 +16,7 @@ import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeCo
 import type { ClusterListItem } from '@/features/clusters/lib/clusterListModel';
 import {
 	describeGrantExpiry,
-	describeTrial,
+	describeGrantReminder,
 	type ExpirySeverity,
 	HOBBYIST_UPGRADE,
 	isConversionApplying,
@@ -68,6 +68,9 @@ const PILL_TONE: Record<ExpirySeverity, string> = {
 		'border-amber-500/60 bg-amber-50 text-amber-800 dark:border-amber-400/60 dark:bg-amber-400/10 dark:text-amber-200',
 	critical: 'border-red-500/60 bg-red-50 text-red-700 dark:border-red-400/60 dark:bg-red-400/10 dark:text-red-200',
 };
+/** A comp is a gift, so its pill is the one good-news colour on the card. */
+const COMPED_PILL =
+	'border-green-500/60 bg-green-50 text-green-700 dark:border-green-400/60 dark:bg-green-400/10 dark:text-green-200';
 const PILL_DATE = 'text-sm text-muted-foreground dark:text-foreground/70';
 
 export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
@@ -102,7 +105,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		[cluster.status],
 	);
 	const expiry = useMemo(() => describeGrantExpiry(cluster), [cluster]);
-	const trial = useMemo(() => describeTrial(cluster), [cluster]);
+	const trial = useMemo(() => describeGrantReminder(cluster), [cluster]);
 	// A plan-ended cluster can't be restarted — the start gate refuses it with a 402. Buying a plan
 	// is the only way back up, so the card routes to the editor instead of the instances page.
 	const upgradeHref = expiry?.needsUpgrade ? `/${cluster.organizationId}/${cluster.id}/edit` : undefined;
@@ -466,8 +469,12 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 						{trial && (
 							// One flex item, so the row's justify-between keeps the date beside its pill.
 							<span className="inline-flex items-center gap-2">
-								<Badge variant="outline" className={cn(STATUS_PILL, PILL_TONE.info)} title={trial.detail}>
-									Trial
+								<Badge
+									variant="outline"
+									className={cn(STATUS_PILL, trial.pill === 'Comped' ? COMPED_PILL : PILL_TONE.info)}
+									title={trial.detail}
+								>
+									{trial.pill}
 								</Badge>
 								{trial.endsOn && <span className={PILL_DATE}>Ends {trial.endsOn}</span>}
 							</span>

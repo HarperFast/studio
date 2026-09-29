@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GrantScopeFields } from '@/features/admin/grants/components/GrantScopeFields';
 import { GrantShapeFields } from '@/features/admin/grants/components/GrantShapeFields';
 import {
+	compedExpiryPolicy,
 	GrantFormSchema,
 	GrantFormValues,
 	INTERNAL_EXPIRY_POLICIES,
@@ -119,6 +120,15 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 	// (409) — the right move is a replacement — so the editor locks rather than invites a save.
 	const isComped = grant?.source === 'comped';
 	const boundComp = isComped && grant?.clusterId != null;
+	// The edit form carries no source, so the schema's comped rule never runs here. Only once Ends is
+	// edited: a save that changes nothing else must not restate the stored policy.
+	const endsAt = form.watch('endsAt');
+	useEffect(() => {
+		if (!isComped) { return; }
+		const initial = toFormValues(grant);
+		const policy = endsAt === initial.endsAt ? initial.expiryPolicy : compedExpiryPolicy(endsAt ?? '');
+		if (form.getValues('expiryPolicy') !== policy) { form.setValue('expiryPolicy', policy, { shouldValidate: true }); }
+	}, [isComped, endsAt, grant, form]);
 	// Only a contract moves a renewal to the 1st; the server refuses a cadence on any other source.
 	const isContracted = grant?.source === 'contracted';
 
@@ -224,7 +234,7 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 								<FormItem>
 									<FormLabel>Expiry policy</FormLabel>
 									<FormControl>
-										<Select value={field.value} onValueChange={field.onChange}>
+										<Select value={field.value} onValueChange={field.onChange} disabled={isComped}>
 											<SelectTrigger className="w-full" aria-label="Expiry policy">
 												<SelectValue />
 											</SelectTrigger>
@@ -244,6 +254,9 @@ export function GrantFormModal({ open, onOpenChange, grant }: GrantFormModalProp
 											</SelectContent>
 										</Select>
 									</FormControl>
+									{isComped && (
+										<p className="text-xs text-muted-foreground">Set by the end date: comped with one, none without.</p>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}

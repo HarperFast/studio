@@ -304,8 +304,34 @@ describe('GrantFormModal', () => {
 		});
 	});
 
+	describe('a comped grant', () => {
+		it('takes its policy from Ends once Ends is edited, and says so', async () => {
+			await mount(grant({ expiryPolicy: 'comped' }));
+			const policy = screen.getByLabelText('Expiry policy');
+			expect(policy.hasAttribute('disabled') || policy.getAttribute('data-disabled') != null).toBe(true);
+			expect(screen.getByText(/Set by the end date/)).toBeTruthy();
+			fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '' } });
+			await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			expect(policy.textContent).toContain('none');
+			fireEvent.change(reasonBox(), { target: { value: 'made perpetual' } });
+			await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			fireEvent.click(saveButton());
+			await act(() => null);
+			expect(updateGrant.mock.calls[0][0].changes).toMatchObject({ endsAt: null, expiryPolicy: 'none' });
+		});
+
+		it('leaves the stored policy alone on a save that does not touch Ends', async () => {
+			await mount(grant({ clusterId: null, expiryPolicy: 'comped' }));
+			fireEvent.change(reasonBox(), { target: { value: 'note only' } });
+			await act(() => null);
+			fireEvent.click(saveButton());
+			await act(() => null);
+			expect(updateGrant.mock.calls[0][0].changes).toEqual({ reason: 'note only' });
+		});
+	});
+
 	it('shows an internal policy the grant already carries without offering it', async () => {
-		await mount(grant({ expiryPolicy: 'conversion-pending' }));
+		await mount(grant({ source: 'purchased', shape: null, expiryPolicy: 'conversion-pending' }));
 		expect(screen.getByLabelText('Expiry policy').textContent).toContain('conversion-pending');
 		fireEvent.keyDown(screen.getByLabelText('Expiry policy'), { key: 'ArrowDown' });
 		await act(() => null);

@@ -168,6 +168,15 @@ describe('ClusterCard — trial reminder', () => {
 		expect(screen.getByText(/^Ends [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
 	});
 
+	it('shows a green Comped pill and its end date for a comp that ends', () => {
+		render(<ClusterCard cluster={trialCluster({ source: 'comped', expiryPolicy: 'comped' })} />);
+		const pill = screen.getByText('Comped');
+		expect(pill.getAttribute('title')).toMatch(/^Comped ends /);
+		expect(pill.className).toContain('green');
+		expect(screen.getByText(/^Ends [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+		expect(screen.queryByText('Trial')).toBeNull();
+	});
+
 	it('shows nothing extra for a purchased plan', () => {
 		render(<ClusterCard cluster={trialCluster({ source: 'purchased', expiryPolicy: null })} />);
 		expect(screen.queryByText(/^Trial/)).toBeNull();
@@ -199,5 +208,28 @@ describe('ClusterCard — upgrade badge', () => {
 	it('does not spin once the upgrade has failed', () => {
 		render(<ClusterCard cluster={trialCluster({}, { conversionState: 'FAILED' })} />);
 		expect(screen.getByText('Upgrade failed').querySelector('.animate-spin')).toBeNull();
+	});
+});
+
+// Same gate as ClusterStateMenu, keyed on the server's: a plan-ended cluster refuses Start (402) but
+// still admits Stop and Restart while it is up.
+describe('ClusterCard — container actions once the plan has ended', () => {
+	const lapsed = { isActive: false, status: 'EXPIRED', source: 'trial' } as Cluster['grant'];
+	const menuFor = (c: Cluster) => {
+		render(<ClusterCard cluster={c} />);
+		fireEvent.pointerDown(screen.getByRole('button', { name: 'Cluster options' }), { button: 0, ctrlKey: false });
+		return screen.getAllByRole('menuitem').map(node => (node.textContent ?? '').trim());
+	};
+
+	it('drops the container group from a stopped cluster whose plan has ended', () => {
+		const items = menuFor(cluster({ status: 'STOPPED', suspendedReason: 'PLAN_ENDED', grant: lapsed }));
+		expect(screen.queryByText('Container')).toBeNull();
+		expect(items).not.toContain('Start');
+	});
+
+	it('keeps Stop on a running cluster whose plan has ended, but never Start', () => {
+		const items = menuFor(cluster({ status: 'RUNNING', suspendedReason: 'PLAN_ENDED', grant: lapsed }));
+		expect(items).toContain('Stop');
+		expect(items).not.toContain('Start');
 	});
 });

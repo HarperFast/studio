@@ -12,7 +12,8 @@ import { Cluster, ClusterGrant, ExpiryStage } from '@/integrations/api/api.patch
 export type ExpirySeverity = 'info' | 'warning' | 'critical';
 
 export interface GrantExpiryDescription {
-	stage: ExpiryStage | 'EXPIRED';
+	/** AWAITING_PLAN is a conversion still applying; UPGRADE_FAILED one that stopped, a separate stage so no reader can spin or hide on it. */
+	stage: ExpiryStage | 'EXPIRED' | 'UPGRADE_FAILED';
 	severity: ExpirySeverity;
 	/** Short form for the cluster card. */
 	badgeLabel: string;
@@ -193,7 +194,7 @@ export function describeGrantExpiry(
 	// the plan change), so the copy can promise that flatly.
 	if (isConversionFailed(cluster)) {
 		return {
-			stage: 'AWAITING_PLAN',
+			stage: 'UPGRADE_FAILED',
 			severity: 'critical',
 			badgeLabel: 'Upgrade failed',
 			title: 'Your upgrade did not go through',
@@ -306,9 +307,11 @@ export function describeGrantExpiry(
 	}
 }
 
-/** The quiet reminder for a cluster on its trial. */
-export interface TrialReminder {
-	/** Pill text: "Trial · ends September 30", or just "Trial" without a usable end date. */
+/** The quiet reminder for a cluster on its trial, or on a comp that ends. */
+export interface GrantReminder {
+	/** Which kind, for the card's pill: a comp is good news and reads green, a trial neutral. */
+	pill: 'Trial' | 'Comped';
+	/** Long form: "Trial · ends September 30", "Comped · ends September 30", or "Trial" with no usable end date. */
 	label: string;
 	/** Sentence form, for a tooltip. */
 	detail: string;
@@ -317,22 +320,24 @@ export interface TrialReminder {
 }
 
 /**
- * A cluster on a live trial that nothing louder is being said about. Yields null whenever
- * `describeGrantExpiry` has something to show, so the countdown replaces this in the same spot
- * instead of sitting next to it.
+ * A cluster on a live trial, or a comp with an end date, that nothing louder is being said about.
+ * Yields null whenever `describeGrantExpiry` has something to show, so the countdown replaces this
+ * in the same spot instead of sitting next to it. A comp with no end date is the cluster's normal
+ * terms and gets no reminder.
  */
-export function describeTrial(
+export function describeGrantReminder(
 	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
 	now: number = Date.now(),
-): TrialReminder | null {
+): GrantReminder | null {
 	const grant = cluster.grant;
-	if (!grant || grant.source !== 'trial' || !grant.isActive) { return null; }
+	if (!grant || !grant.isActive || (grant.source !== 'trial' && grant.source !== 'comped')) { return null; }
 	if (describeGrantExpiry(cluster, now)) { return null; }
 	const at = grant.endsAt ? new Date(grant.endsAt) : null;
 	const usable = at && !Number.isNaN(at.getTime()) ? at : null;
-	if (!usable) { return { label: 'Trial', detail: 'Trial cluster', endsOn: null }; }
+	const pill = grant.source === 'trial' ? 'Trial' : 'Comped';
+	if (!usable) { return pill === 'Trial' ? { pill, label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
 	const endsOn = onDate(usable);
-	return { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}`, endsOn: onShortDate(usable) };
+	return { pill, label: `${pill} · ends ${endsOn}`, detail: `${pill} ends ${endsOn}`, endsOn: onShortDate(usable) };
 }
 
 /**

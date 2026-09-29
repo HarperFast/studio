@@ -2,7 +2,7 @@ import { ClusterGrant } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
 	describeGrantExpiry,
-	describeTrial,
+	describeGrantReminder,
 	isConversionComplete,
 	isConversionFailed,
 	isConversionPending,
@@ -295,8 +295,10 @@ describe('describeGrantExpiry', () => {
 	it('reports a marked-FAILED conversion as failed, not as upgrading or expired', () => {
 		const failing = grant({ source: 'purchased', isActive: true, expiryPolicy: 'conversion-pending' });
 		const result = describeGrantExpiry({ grant: failing, status: 'RUNNING', conversionState: 'FAILED' }, NOW);
-		expect(result).toMatchObject({ stage: 'AWAITING_PLAN', severity: 'critical', offerUpgrade: true });
+		expect(result).toMatchObject({ stage: 'UPGRADE_FAILED', severity: 'critical', offerUpgrade: true });
 		expect(result?.title).toContain('did not go through');
+		// Repeated on the working surfaces like any other warning; only an upgrade still applying is exempt.
+		expect(isExpiryWarning(result)).toBe(true);
 		expect(result?.detail).toContain('Nothing was charged');
 	});
 
@@ -410,36 +412,49 @@ describe('isExpiryWarning', () => {
 	});
 });
 
-describe('describeTrial', () => {
+describe('describeGrantReminder', () => {
 	it('names the trial and its end date while nothing louder applies', () => {
-		expect(describeTrial({ grant: grant() }, NOW)).toEqual({
+		expect(describeGrantReminder({ grant: grant() }, NOW)).toEqual({
+			pill: 'Trial',
 			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
 			endsOn: 'Sep 24',
 		});
 	});
 
-	it('stays quiet for a cluster with no grant, or a grant that is not a trial', () => {
-		expect(describeTrial({ grant: null }, NOW)).toBeNull();
-		expect(describeTrial({}, NOW)).toBeNull();
-		for (const source of ['purchased', 'comped', 'contracted', 'free']) {
-			expect(describeTrial({ grant: grant({ source }) }, NOW)).toBeNull();
+	it('stays quiet for a cluster with no grant, or a grant that is neither a trial nor a comp', () => {
+		expect(describeGrantReminder({ grant: null }, NOW)).toBeNull();
+		expect(describeGrantReminder({}, NOW)).toBeNull();
+		for (const source of ['purchased', 'contracted', 'free']) {
+			expect(describeGrantReminder({ grant: grant({ source }) }, NOW)).toBeNull();
 		}
+	});
+
+	it('names a comp that ends, the same way, and says nothing for one that does not', () => {
+		expect(describeGrantReminder({ grant: grant({ source: 'comped', expiryPolicy: 'comped' }) }, NOW)).toEqual({
+			pill: 'Comped',
+			label: 'Comped · ends September 24',
+			detail: 'Comped ends September 24',
+			endsOn: 'Sep 24',
+		});
+		expect(describeGrantReminder({ grant: grant({ source: 'comped', endsAt: null, expiryPolicy: 'none' }) }, NOW))
+			.toBeNull();
 	});
 
 	// One spot, one message: from WARNED on, the countdown is what shows there.
 	it('yields to the expiry countdown once the runner stages the grant', () => {
-		expect(describeTrial({ grant: grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) }) }, NOW)).toBeNull();
+		expect(describeGrantReminder({ grant: grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) }) }, NOW)).toBeNull();
 	});
 
 	it('stays quiet for a trial that has already ended', () => {
 		expect(
-			describeTrial({ grant: grant({ isActive: false, status: 'EXPIRED', endsAt: daysFromNow(-1) }) }, NOW),
+			describeGrantReminder({ grant: grant({ isActive: false, status: 'EXPIRED', endsAt: daysFromNow(-1) }) }, NOW),
 		).toBeNull();
 	});
 
 	it('still says Trial when the grant carries no usable end date', () => {
-		expect(describeTrial({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
+		expect(describeGrantReminder({ grant: grant({ endsAt: null }) }, NOW)).toEqual({
+			pill: 'Trial',
 			label: 'Trial',
 			detail: 'Trial cluster',
 			endsOn: null,

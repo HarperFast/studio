@@ -9,10 +9,11 @@ import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateClust
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { plansFromShape, prefillFromGrant } from '@/features/clusters/upsert/lib/grantPrefill';
+import { allowedRegionIdsFor, shapeCoversRequest, trialScope } from '@/features/clusters/upsert/lib/grantScope';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
-import { Organization } from '@/integrations/api/api.patch';
+import { ClusterGrant, Organization } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
@@ -57,6 +58,8 @@ interface ClusterFormProps {
 	currentPlanId?: string;
 	/** Lowest planLevel central-manager accepts for this cluster; unset when creating or self-hosted. */
 	planLevelFloor?: number;
+	/** The cluster's live grant when editing, so an unchanged free plan reads as the trial or comp it is. */
+	currentGrant?: ClusterGrant | null;
 	setSavedClusterState: (value: null | ({ clusterId?: string } & UpsertClusterSchemaType)) => void;
 	startOffOnBilling: boolean;
 }
@@ -77,6 +80,7 @@ export function ClusterForm({
 	regionSetFrozen,
 	currentPlanId,
 	planLevelFloor,
+	currentGrant,
 	setSavedClusterState,
 	startOffOnBilling,
 }: ClusterFormProps) {
@@ -295,6 +299,40 @@ export function ClusterForm({
 		[clusterId, selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated],
 	);
 	const lockedByGrant = grantPrefill != null;
+	// A trial voucher's allow-lists narrow the pickers: central-manager refuses a claim outside them.
+	const scope = useMemo(() => (clusterId ? null : trialScope(selectedGrant)), [clusterId, selectedGrant]);
+	const allowedRegionIds = useMemo(() => allowedRegionIdsFor(selectedPlan, scope), [selectedPlan, scope]);
+	const scopedDeployments = useMemo(
+		() =>
+			scope?.planIds
+				? [...new Set(planTypes.filter((p) => scope.planIds!.includes(p.id)).map((p) => p.deploymentDescription))]
+					.filter((d): d is string => !!d)
+				: null,
+		[scope, planTypes],
+	);
+	const deploymentLockedByGrant = scopedDeployments?.length === 1;
+	useEffect(function selectTheOnlyScopedDeployment() {
+		if (deploymentLockedByGrant && selectedDeployment !== scopedDeployments[0]) {
+			form.setValue('deploymentDescription', scopedDeployments[0]);
+			void form.trigger();
+		}
+	}, [deploymentLockedByGrant, form, scopedDeployments, selectedDeployment]);
+	// A live comp waives the card for exactly what its shape names — the test central-manager applies.
+	const coveredByComp = useMemo(() => {
+		if (!clusterId || currentGrant?.source !== 'comped' || !currentGrant.isActive) { return false; }
+		const regionIds = selectedDeployment === 'Self-Hosted'
+			? selectedInstances.map(() => null)
+			: selectedRegionPlans.map((rp) => regionNameToLatencyToRegion[rp.regionName]?.[rp.latencyDescription]?.id);
+		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, regionIds);
+	}, [
+		clusterId,
+		currentGrant,
+		regionNameToLatencyToRegion,
+		selectedDeployment,
+		selectedInstances,
+		selectedPlan,
+		selectedRegionPlans,
+	]);
 	useEffect(function fillFormFromGrant() {
 		if (!grantPrefill) { return; }
 		form.setValue('deploymentDescription', grantPrefill.deploymentDescription);
@@ -304,7 +342,6 @@ export function ClusterForm({
 	}, [form, grantPrefill]);
 
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
-		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		// A frozen region set must reach the server exactly as the cluster already has it. Disabling
 		// the select only stopped the customer changing it — these effects still rewrote the value
 		// underneath, and the mutated set was what got submitted, which the server then refused.
@@ -324,6 +361,7 @@ export function ClusterForm({
 			}
 		}
 	}, [
+		allowedRegionIds,
 		selectedPlan,
 		selectedRegionPlans,
 		form,
@@ -541,12 +579,12 @@ export function ClusterForm({
 	]);
 
 	const submitClusterDetailsForm = useCallback(() => {
-		if (needsBillingStep({ mode, totalPrice, grantId: form.getValues('grantId') })) {
+		if (needsBillingStep({ mode, totalPrice, grantId: form.getValues('grantId'), coveredByGrant: coveredByComp })) {
 			setConfirmingPaymentDetails(true);
 			return;
 		}
 		return executeChangesToCluster();
-	}, [form, mode, executeChangesToCluster, totalPrice]);
+	}, [form, mode, executeChangesToCluster, totalPrice, coveredByComp]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
 		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
@@ -556,6 +594,11 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
+	const labelledGrant = selectedGrant
+		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && (totalPrice === 0 || coveredByComp)
+			? currentGrant
+			: null);
+	const grantLabel = labelledGrant && (labelledGrant.source === 'trial' ? 'Trial' : 'Complimentary');
 	const priceSummary = !isEnterprise && mode !== 'version'
 		? (
 			<aside
@@ -566,12 +609,8 @@ export function ClusterForm({
 				<dl>
 					<dt className="text-sm text-muted-foreground">{termMonths ? 'Monthly Price' : 'Total Price'}</dt>
 					<dd className="mt-2 font-bold">
-						{selectedGrant
-							? (
-								<span className="text-3xl text-green">
-									{selectedGrant.source === 'trial' ? 'Trial' : 'Complimentary'}
-								</span>
-							)
+						{grantLabel
+							? <span className="text-3xl text-green">{grantLabel}</span>
 							: totalPrice > 0
 							? (
 								<span className="inline-flex items-baseline">
@@ -586,7 +625,7 @@ export function ClusterForm({
 							: <span className="text-4xl text-green">Free</span>}
 					</dd>
 				</dl>
-				{!selectedGrant && !!termMonths && termMonths > 1 && totalPrice > 0 && (
+				{!grantLabel && !!termMonths && termMonths > 1 && totalPrice > 0 && (
 					<p className="mt-4 text-sm leading-relaxed text-muted-foreground">
 						* Billed as {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalPrice)}{' '}
 						every {pluralize(termMonths, 'month', 'months')}. Usage beyond that is added to your next bill.
@@ -646,6 +685,11 @@ export function ClusterForm({
 									planLevelFloor={planLevelFloor}
 									unboundGrants={organization?.unboundGrants}
 									lockedByGrant={lockedByGrant}
+									deploymentLockedByGrant={deploymentLockedByGrant}
+									grantPlanIds={scope?.planIds ?? null}
+									grantRegionIds={scope?.regionIds ?? null}
+									allowedRegionIds={allowedRegionIds}
+									coveredByGrant={coveredByComp}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

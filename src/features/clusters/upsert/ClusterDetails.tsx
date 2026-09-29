@@ -46,6 +46,16 @@ interface ClusterDetailsProps {
 	unboundGrants?: ClusterGrant[];
 	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
 	lockedByGrant?: boolean;
+	/** A trial voucher's allowed plans all share one deployment, so that picker has nothing to offer. */
+	deploymentLockedByGrant?: boolean;
+	/** A trial voucher's allowed plans; tiers outside them are shown but cannot be picked. */
+	grantPlanIds?: string[] | null;
+	/** Its allowed regions; a tier whose own regions share none of them cannot be picked either. */
+	grantRegionIds?: string[] | null;
+	/** The regions a row may pick, from the plan and the grant. */
+	allowedRegionIds?: string[];
+	/** A live comp covers this edit as it stands, so no card is needed. */
+	coveredByGrant?: boolean;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -71,6 +81,11 @@ export function ClusterDetails({
 	planLevelFloor,
 	unboundGrants,
 	lockedByGrant,
+	deploymentLockedByGrant,
+	grantPlanIds,
+	grantRegionIds,
+	allowedRegionIds,
+	coveredByGrant,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -92,6 +107,10 @@ export function ClusterDetails({
 			const disabledReason = planLevelFloor != null && plan.deploymentType !== 'self-hosted'
 					&& plan.planLevel < planLevelFloor
 				? 'Moving to a smaller plan isn’t supported yet.'
+				: (grantPlanIds && !grantPlanIds.includes(plan.id))
+						|| (grantRegionIds && plan.allowedRegionIds?.length
+							&& !plan.allowedRegionIds.some((id) => grantRegionIds.includes(id)))
+				? 'Not covered by the grant chosen above.'
 				: undefined;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
@@ -122,6 +141,8 @@ export function ClusterDetails({
 		clusterId,
 		currentPlanId,
 		planLevelFloor,
+		grantPlanIds,
+		grantRegionIds,
 		deploymentToPerformanceToPlan,
 		selectedDeployment,
 		selectedPerformance,
@@ -150,6 +171,11 @@ export function ClusterDetails({
 		const selectable = availablePerformanceDescriptions?.filter(sp => !sp.disabledReason) ?? [];
 		if (selectable.length && !selectable.find(sp => sp.performanceTier === selectedPerformance)) {
 			form.setValue('performanceDescription', selectable[0].performanceTier);
+			void form.trigger();
+		} else if (availablePerformanceDescriptions?.length && !selectable.length && selectedPerformance) {
+			// Nothing in this deployment can be picked, so the selection is cleared rather than left on a
+			// tier the server would refuse — or, from another deployment, one that names no plan at all.
+			form.setValue('performanceDescription', '');
 			void form.trigger();
 		}
 	}, [selectedDeployment, selectedPerformance, availablePerformanceDescriptions, form]);
@@ -191,7 +217,7 @@ export function ClusterDetails({
 					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
 					|| !isValid}
 			>
-				{needsBillingStep({ mode, totalPrice, grantId: form.watch('grantId') })
+				{needsBillingStep({ mode, totalPrice, grantId: form.watch('grantId'), coveredByGrant })
 					? 'Confirm Payment Details'
 					: clusterId
 					? 'Edit Cluster'
@@ -279,7 +305,6 @@ export function ClusterDetails({
 							<CardDescription>Choose your infrastructure and the capacity your workload needs.</CardDescription>
 						</CardHeader>
 						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
-							{/* First in the card: a grant can set everything below it. */}
 							{!clusterId && (
 								<ClusterGrantId
 									className="col-span-3 md:col-span-6"
@@ -292,7 +317,7 @@ export function ClusterDetails({
 							<ClusterDeploymentDescription
 								form={form}
 								availableDeploymentTypes={availableDeploymentTypes}
-								disabled={isHobbyist || lockedByGrant}
+								disabled={isHobbyist || lockedByGrant || deploymentLockedByGrant}
 							/>
 
 							<ClusterPerformanceDescription
@@ -312,6 +337,7 @@ export function ClusterDetails({
 											: undefined}
 										form={form}
 										regionLocations={regionLocations}
+										allowedRegionIds={allowedRegionIds}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
