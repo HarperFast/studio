@@ -309,7 +309,9 @@ export function describeGrantExpiry(
 
 /** The quiet reminder for a cluster on its trial, or on a comp that ends. */
 export interface TrialReminder {
-	/** Pill text: "Trial · ends September 30", "Complimentary · ends September 30", or "Trial" with no usable end date. */
+	/** Which kind, for the card's pill: a comp is good news and reads green, a trial neutral. */
+	pill: 'Trial' | 'Comped';
+	/** Long form: "Trial · ends September 30", "Comped · ends September 30", or "Trial" with no usable end date. */
 	label: string;
 	/** Sentence form, for a tooltip. */
 	detail: string;
@@ -332,10 +334,10 @@ export function describeTrial(
 	if (describeGrantExpiry(cluster, now)) { return null; }
 	const at = grant.endsAt ? new Date(grant.endsAt) : null;
 	const usable = at && !Number.isNaN(at.getTime()) ? at : null;
-	if (!usable) { return grant.source === 'trial' ? { label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
-	const label = grant.source === 'trial' ? 'Trial' : 'Complimentary';
+	const pill = grant.source === 'trial' ? 'Trial' : 'Comped';
+	if (!usable) { return pill === 'Trial' ? { pill, label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
 	const endsOn = onDate(usable);
-	return { label: `${label} · ends ${endsOn}`, detail: `${label} ends ${endsOn}`, endsOn: onShortDate(usable) };
+	return { pill, label: `${pill} · ends ${endsOn}`, detail: `${pill} ends ${endsOn}`, endsOn: onShortDate(usable) };
 }
 
 /**
