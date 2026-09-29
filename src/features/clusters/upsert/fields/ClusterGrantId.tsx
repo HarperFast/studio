@@ -62,9 +62,9 @@ export function ClusterGrantId({
 									</button>
 								</TooltipTrigger>
 								<TooltipContent className="max-w-xs text-left">
-									Complimentary deployments assigned to your organization. Each grant includes predefined plans and
-									regions, so selecting one will automatically populate the available options. No payment is required
-									for the duration of the grant.
+									Complimentary plans and trials assigned to your organization. Each grant sets which plans and regions
+									it covers, so selecting one fills in or limits the options. No payment is required for the duration of
+									the grant.
 								</TooltipContent>
 							</Tooltip>
 						</div>
