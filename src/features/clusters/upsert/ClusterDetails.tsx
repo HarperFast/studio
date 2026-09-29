@@ -50,6 +50,8 @@ interface ClusterDetailsProps {
 	deploymentLockedByGrant?: boolean;
 	/** A trial voucher's allowed plans; tiers outside them are shown but cannot be picked. */
 	grantPlanIds?: string[] | null;
+	/** Its allowed regions; a tier whose own regions share none of them cannot be picked either. */
+	grantRegionIds?: string[] | null;
 	/** The regions a row may pick, from the plan and the grant. */
 	allowedRegionIds?: string[];
 	/** A live comp covers this edit as it stands, so no card is needed. */
@@ -81,6 +83,7 @@ export function ClusterDetails({
 	lockedByGrant,
 	deploymentLockedByGrant,
 	grantPlanIds,
+	grantRegionIds,
 	allowedRegionIds,
 	coveredByGrant,
 	selectedDeployment,
@@ -104,7 +107,9 @@ export function ClusterDetails({
 			const disabledReason = planLevelFloor != null && plan.deploymentType !== 'self-hosted'
 					&& plan.planLevel < planLevelFloor
 				? 'Moving to a smaller plan isn’t supported yet.'
-				: grantPlanIds && !grantPlanIds.includes(plan.id)
+				: (grantPlanIds && !grantPlanIds.includes(plan.id))
+						|| (grantRegionIds && plan.allowedRegionIds?.length
+							&& !plan.allowedRegionIds.some((id) => grantRegionIds.includes(id)))
 				? 'Not covered by the grant chosen above.'
 				: undefined;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
@@ -137,6 +142,7 @@ export function ClusterDetails({
 		currentPlanId,
 		planLevelFloor,
 		grantPlanIds,
+		grantRegionIds,
 		deploymentToPerformanceToPlan,
 		selectedDeployment,
 		selectedPerformance,
@@ -167,8 +173,8 @@ export function ClusterDetails({
 			form.setValue('performanceDescription', selectable[0].performanceTier);
 			void form.trigger();
 		} else if (availablePerformanceDescriptions?.length && !selectable.length && selectedPerformance) {
-			// Every tier of this deployment is below the floor: a leftover tier from another deployment
-			// names no plan here, and saving it would throw rather than be refused.
+			// Every tier of this deployment is below the floor: whatever is selected names no plan here,
+			// and saving it would throw rather than be refused.
 			form.setValue('performanceDescription', '');
 			void form.trigger();
 		}
@@ -299,7 +305,6 @@ export function ClusterDetails({
 							<CardDescription>Choose your infrastructure and the capacity your workload needs.</CardDescription>
 						</CardHeader>
 						<CardContent className="grid min-w-0 grid-cols-3 items-start gap-6 py-6 text-foreground md:grid-cols-6">
-							{/* First in the card: a grant can set everything below it. */}
 							{!clusterId && (
 								<ClusterGrantId
 									className="col-span-3 md:col-span-6"
