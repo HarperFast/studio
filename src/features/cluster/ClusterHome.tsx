@@ -9,7 +9,7 @@ import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayo
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
-import { describeTrial, HOBBYIST_UPGRADE, TrialReminder } from '@/features/clusters/lib/grantExpiry';
+import { describeGrantReminder, GrantReminder, HOBBYIST_UPGRADE } from '@/features/clusters/lib/grantExpiry';
 import { useInstanceAuth } from '@/hooks/useAuth';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
@@ -146,7 +146,7 @@ export function ClusterHome() {
 		&& activeClusterStatuses.includes(cluster.status)
 		&& clusterInstances.length > 0
 		&& clusterInstances.every((instance) => instance.safeMode);
-	const trial = describeTrial(cluster);
+	const trial = describeGrantReminder(cluster);
 
 	return (
 		<ClusterHomeShell>
@@ -159,7 +159,7 @@ export function ClusterHome() {
 						<h1 className="text-2xl font-light text-foreground">{cluster.name}</h1>
 						<StatusPill status={cluster.status} />
 						{allInSafeMode && <SafeModePill />}
-						{trial && <TrialPill reminder={trial} upgradeHref={update ? `${base}/edit` : undefined} />}
+						{trial && <ReminderPill reminder={trial} upgradeHref={update ? `${base}/edit` : undefined} />}
 					</div>
 					<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
 						<span>{instanceCount} {instanceCount === 1 ? 'instance' : 'instances'}</span>
@@ -451,17 +451,18 @@ function SafeModePill() {
 
 // The Self-Hosted pill's grey, in full foreground so it reads at a glance. The expiry banner takes
 // over once there is a countdown to show, and this disappears with it. For someone who can manage
-// the cluster it is also the shortest path to an upgrade: the scaling editor, opened on Hobbyist
-// like the expiry CTAs rather than on the trial the cluster runs today.
-function TrialPill({ reminder, upgradeHref }: { reminder: TrialReminder; upgradeHref?: string }) {
+// the cluster it is also the shortest path to a plan: a trial's opens the scaling editor on Hobbyist
+// like the expiry CTAs; a comp's opens it on the plan the comp already runs.
+function ReminderPill({ reminder, upgradeHref }: { reminder: GrantReminder; upgradeHref?: string }) {
 	const className = 'inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full text-foreground bg-muted';
 	if (upgradeHref) {
+		const action = reminder.pill === 'Trial' ? 'Upgrade' : 'Change plan';
 		return (
 			<Link
 				to={upgradeHref}
-				search={{ upgrade: HOBBYIST_UPGRADE }}
-				title={`${reminder.detail} · Upgrade`}
-				aria-label={`${reminder.label} — upgrade`}
+				search={reminder.pill === 'Trial' ? { upgrade: HOBBYIST_UPGRADE } : {}}
+				title={`${reminder.detail} · ${action}`}
+				aria-label={`${reminder.label} — ${action.toLowerCase()}`}
 				className={`${className} hover:bg-accent hover:underline`}
 			>
 				{reminder.label}
