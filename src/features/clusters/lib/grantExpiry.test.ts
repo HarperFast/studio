@@ -421,12 +421,21 @@ describe('describeTrial', () => {
 		});
 	});
 
-	it('stays quiet for a cluster with no grant, or a grant that is not a trial', () => {
+	it('stays quiet for a cluster with no grant, or a grant that is neither a trial nor a comp', () => {
 		expect(describeTrial({ grant: null }, NOW)).toBeNull();
 		expect(describeTrial({}, NOW)).toBeNull();
-		for (const source of ['purchased', 'comped', 'contracted', 'free']) {
+		for (const source of ['purchased', 'contracted', 'free']) {
 			expect(describeTrial({ grant: grant({ source }) }, NOW)).toBeNull();
 		}
+	});
+
+	it('names a comp that ends, the same way, and says nothing for one that does not', () => {
+		expect(describeTrial({ grant: grant({ source: 'comped', expiryPolicy: 'comped' }) }, NOW)).toEqual({
+			label: 'Complimentary · ends September 24',
+			detail: 'Complimentary ends September 24',
+			endsOn: 'Sep 24',
+		});
+		expect(describeTrial({ grant: grant({ source: 'comped', endsAt: null, expiryPolicy: 'none' }) }, NOW)).toBeNull();
 	});
 
 	// One spot, one message: from WARNED on, the countdown is what shows there.
