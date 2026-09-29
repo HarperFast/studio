@@ -45,6 +45,10 @@ The wide hero artwork spans both columns beneath the form card in three independ
 - A **global** entry is offered only above the cluster's `current` version and only if no instance already runs it — no downgrades, so a `next` v5 cluster is never handed `stable` v4.
 - An entry central manager marked **`scoped`** (released to this organization by name, HarperFast/central-manager#862) is offered whatever its order, and hidden only when it _is_ `current`. Staff scope a build to pin a customer to it, and it is usually older than the fleet default; a mixed-version cluster with the pinned build on some instances still needs it selectable to converge. `dedupeHarperVersionsByTag` carries `scoped` across a tag collision because the flag belongs to the version string, not the tag.
 
+Both rules read only the cluster's live instances (`liveReportedVersions`, shared with `detectPartialUpgrade`): a terminated instance still reporting a higher version must not become `current`, or the version every live instance runs would be offered back as a change.
+
+Offering a lower pinned version changes what a mixed-version cluster means. Before, the highest reported version was always the intended target and the form let the user re-run it for the lagging instances. With a pin among the lagging versions that is no longer knowable — an upgrade off the pin that failed on one instance looks exactly like a downgrade to the pin that succeeded on one, and central manager records no target on the cluster. `detectPartialUpgrade` reports that case as `ambiguous`; the form then pre-selects nothing and withholds the re-run affordance, so the user names the target and either choice dirties the form.
+
 Central manager only ever sends the boolean, never the other organizations' ids; a missing flag reads as global, so an older central manager leaves the picker exactly as it was.
 
 ## Repo conventions worth knowing

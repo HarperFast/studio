@@ -8,12 +8,33 @@ export interface PartialUpgrade {
 	behindCount: number;
 	/** Total number of instances reporting a version. */
 	total: number;
+	/**
+	 * A version pinned to this organization (`scoped`) sits among the lagging ones, so the intended
+	 * target is unknown: this is either an upgrade off the pin that failed on some instances or a
+	 * downgrade to the pin that succeeded on some. Nothing records which, so the form must not offer
+	 * to re-run toward `latest` on its own.
+	 */
+	ambiguous: boolean;
 }
 
 /** The minimal instance shape this detection needs — a reported version and a lifecycle status. */
 export interface UpgradeCandidateInstance {
 	version?: string | null;
 	status?: string | null;
+}
+
+/**
+ * The versions reported by the cluster's live instances. Terminating, terminated and removed
+ * instances are excluded: they are no longer part of the cluster, so their stale version must not
+ * make an otherwise-uniform cluster look mixed, or set `current` to a version nothing live runs.
+ */
+export function liveReportedVersions(instances: Array<UpgradeCandidateInstance | undefined | null>): string[] {
+	return instances
+		.filter((i): i is UpgradeCandidateInstance =>
+			!!i && !(i.status != null && deletedClusterStatuses.includes(i.status))
+		)
+		.map(i => i.version)
+		.filter((v): v is string => !!v);
 }
 
 /**
@@ -25,8 +46,8 @@ export interface UpgradeCandidateInstance {
  * version as "current" and offers nothing newer, so there is otherwise no way to re-run the upgrade
  * for the lagging instances.
  *
- * Terminated/removed instances are excluded — they are no longer part of the cluster, so their
- * (now-stale) reported version must not make an otherwise-uniform cluster look partially upgraded.
+ * `scopedVersions` names the versions pinned to the organization; when one of them is among the
+ * lagging versions the result is `ambiguous` (see {@link PartialUpgrade.ambiguous}).
  *
  * Returns the target version, how many instances are behind it, and the total reporting a version.
  * Returns null when the cluster is uniform (or fewer than two live instances report a version),
@@ -34,17 +55,17 @@ export interface UpgradeCandidateInstance {
  */
 export function detectPartialUpgrade(
 	instances: Array<UpgradeCandidateInstance | undefined | null>,
+	scopedVersions: Iterable<string> = [],
 ): PartialUpgrade | null {
-	const reported = instances
-		.filter((i): i is UpgradeCandidateInstance =>
-			!!i && !(i.status != null && deletedClusterStatuses.includes(i.status))
-		)
-		.map(i => i.version)
-		.filter((v): v is string => !!v);
+	const reported = liveReportedVersions(instances);
 	if (reported.length < 2) {
 		return null;
 	}
 	const latest = reported.reduce((max, v) => compareVersions(v, max) > 0 ? v : max);
-	const behindCount = reported.filter(v => v !== latest).length;
-	return behindCount > 0 ? { latest, behindCount, total: reported.length } : null;
+	const behind = reported.filter(v => v !== latest);
+	if (behind.length === 0) {
+		return null;
+	}
+	const scoped = new Set(scopedVersions);
+	return { latest, behindCount: behind.length, total: reported.length, ambiguous: behind.some(v => scoped.has(v)) };
 }
