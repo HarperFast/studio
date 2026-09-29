@@ -333,6 +333,20 @@ describe('ClusterDetails — plan levels central-manager refuses on edit', () =>
 		expect(selectFor('Performance & Usage').textContent).toContain('Choose Tier');
 	});
 
+	it('greys out a tier whose own regions the grant never allows', async () => {
+		const EU_ONLY = { ...MEDIUM, allowedRegionIds: ['europe-1'] } as SchemaPlan;
+		await mountEditor({
+			deploymentToPerformanceToPlan: {
+				Colocated: { ...LEVELED.Colocated, [EU_ONLY.performanceDescription!]: EU_ONLY },
+			},
+			grantRegionIds: ['us-1'],
+			selectedPerformance: SMALL.performanceDescription!,
+			selectedPlan: SMALL,
+		});
+		await openedOptions('Performance & Usage');
+		expect(disabledOptions()).toEqual([expect.stringMatching(/^Medium.*Not covered by the grant chosen above/)]);
+	});
+
 	it('moves a selection that sits below the floor onto the first plan that is allowed', async () => {
 		await mountEditor({
 			clusterId: 'clu-test',
