@@ -1,4 +1,5 @@
 import Mailosaur from 'mailosaur';
+import { maskInCi } from './maskInCi';
 
 /**
  * Thin wrapper around the controlled Mailosaur inbox.
@@ -61,6 +62,11 @@ export async function waitForVerificationEmail(
 	const hrefs = [...(message.html?.links ?? []), ...(message.text?.links ?? [])]
 		.map((l) => l.href)
 		.filter((href): href is string => Boolean(href));
+	// Before anything can print one: a changed template may carry its token somewhere else.
+	for (const href of hrefs) {
+		maskInCi(href);
+		maskInCi(/[?&]token=([^&#]+)/.exec(href)?.[1]);
+	}
 	const link = hrefs.find((href) => /(verify-email|[?&]token=)/i.test(href));
 	if (!link) {
 		throw new Error(

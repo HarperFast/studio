@@ -27,6 +27,18 @@ out of this repo so a studio PR can't alter what decides whether or how its code
 **specs stay here**, co-located with the app for local dev; both lanes exercise these same
 files. Run them locally with the commands below.
 
+A spec only means something against a deployment of **its own commit**. `dev` is an
+integration branch that does not track `stage`, so `stage`'s specs against the dev site fail for
+every feature dev lacks — all 36 failures in the 2026-09-25 trusted-lane run were that. The trusted
+lane still runs exactly that pairing until the harness tests the commit each site serves, a change
+that belongs in studio-e2e-harness; until it lands, its failures on features dev lacks are skew,
+not regressions.
+
+**Post-deploy check.** `deploy-dev.yaml` also runs these specs right after each dev deploy, from
+the deployed commit, and a red suite fails the deploy run (`.github/deploying.md`, "Post-deploy
+e2e"). It publishes no traces or screenshots — this repo is public — so debug a failure with the
+repro command in the job summary.
+
 ## Running it
 
 ### 1. During local development — against your running UI (fastest feedback)
