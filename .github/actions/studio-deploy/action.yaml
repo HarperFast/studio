@@ -121,5 +121,8 @@ runs:
         CLI_DEPLOY_TARGET: ${{ inputs.cli-deploy-target }}
       run: |
         cd deploy
-        pnpm harper deploy_component project=hdbms target="$CLI_DEPLOY_TARGET" \
+        # Not `pnpm harper`: deploy/ has its own package.json and is not a workspace member, so pnpm
+        # treats it as a separate project (pnpm/pnpm#3561) — it installs the template's
+        # dependencies into deploy/ and cannot find the repo's harper.
+        ../node_modules/.bin/harper deploy_component project=hdbms target="$CLI_DEPLOY_TARGET" \
           restart="${DEPLOY_RESTART:?staging step did not run}" replicated=true
