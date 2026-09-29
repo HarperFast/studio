@@ -311,6 +311,16 @@ describe('ClusterForm — a trial voucher’s allow-lists narrow the pickers', (
 		expect(selectFor(/^Region/).textContent).not.toContain('South America');
 	});
 
+	it('keeps the regions outside the list unpickable', async () => {
+		await mountCreate([scopedTrial], scopedTrial.id);
+		fireEvent.keyDown(selectFor(/^Region/), { key: 'ArrowDown' });
+		await act(() => null);
+		const byName = Object.fromEntries(
+			screen.getAllByRole('option').map((o) => [o.textContent?.trim(), o.getAttribute('aria-disabled') === 'true']),
+		);
+		expect(byName).toMatchObject({ US: false, 'South America': true });
+	});
+
 	it('keeps the tiers outside the list visible but unpickable, and says why', async () => {
 		await mountCreate([scopedTrial], scopedTrial.id);
 		fireEvent.keyDown(selectFor(/Performance/), { key: 'ArrowDown' });
