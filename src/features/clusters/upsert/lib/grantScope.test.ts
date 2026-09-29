@@ -11,8 +11,17 @@ describe('shapeCoversRequest', () => {
 		expect(shapeCoversRequest(shape, 'plan-b', ['us-1', 'eu-1'])).toBe(false);
 	});
 
-	it('covers a self-hosted plan with no region', () => {
+	it('covers a self-hosted plan with no region, instance for instance', () => {
 		expect(shapeCoversRequest([{ planId: 'self', regionId: null }], 'self', [null])).toBe(true);
+		// Adding instances is more than the comp names; central-manager counts pairs, not kinds.
+		expect(shapeCoversRequest([{ planId: 'self', regionId: null }], 'self', [null, null])).toBe(false);
+		expect(
+			shapeCoversRequest([{ planId: 'self', regionId: null }, { planId: 'self', regionId: null }], 'self', [
+				null,
+				null,
+			]),
+		)
+			.toBe(true);
 	});
 
 	it('covers nothing without a shape, a plan, or a resolved region', () => {
