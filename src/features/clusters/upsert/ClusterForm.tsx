@@ -9,6 +9,7 @@ import { useEditClusterMutation } from '@/features/clusters/hooks/useUpdateClust
 import { terminateCluster } from '@/features/clusters/mutations/terminateCluster';
 import { HarperVersionsResponse } from '@/features/clusters/queries/getHarperVersionsQuery';
 import { plansFromShape, prefillFromGrant } from '@/features/clusters/upsert/lib/grantPrefill';
+import { allowedRegionIdsFor, shapeCoversRequest, trialScope } from '@/features/clusters/upsert/lib/grantScope';
 import { needsBillingStep } from '@/features/clusters/upsert/lib/needsBillingStep';
 import { getOrganization } from '@/features/organization/queries/getOrganizationQuery';
 import { SchemaPlan, SchemaRegion, SchemaRegionPlan } from '@/integrations/api/api.gen';
@@ -298,6 +299,32 @@ export function ClusterForm({
 		[clusterId, selectedGrant, planTypes, regionLocationsColocated, regionLocationsDedicated],
 	);
 	const lockedByGrant = grantPrefill != null;
+	// A trial voucher's allow-lists narrow the pickers: central-manager refuses a claim outside them.
+	const scope = useMemo(() => (clusterId ? null : trialScope(selectedGrant)), [clusterId, selectedGrant]);
+	const allowedRegionIds = useMemo(() => allowedRegionIdsFor(selectedPlan, scope), [selectedPlan, scope]);
+	const scopedDeployments = useMemo(
+		() =>
+			scope?.planIds
+				? [...new Set(planTypes.filter((p) => scope.planIds!.includes(p.id)).map((p) => p.deploymentDescription))]
+					.filter((d): d is string => !!d)
+				: null,
+		[scope, planTypes],
+	);
+	const deploymentLockedByGrant = scopedDeployments?.length === 1;
+	useEffect(function selectTheOnlyScopedDeployment() {
+		if (deploymentLockedByGrant && selectedDeployment !== scopedDeployments[0]) {
+			form.setValue('deploymentDescription', scopedDeployments[0]);
+			void form.trigger();
+		}
+	}, [deploymentLockedByGrant, form, scopedDeployments, selectedDeployment]);
+	// A live comp waives the card for exactly what its shape names — the test central-manager applies.
+	const coveredByComp = useMemo(() => {
+		if (!clusterId || currentGrant?.source !== 'comped' || !currentGrant.isActive) { return false; }
+		const regionIds = selectedDeployment === 'Self-Hosted'
+			? [null]
+			: selectedRegionPlans.map((rp) => regionNameToLatencyToRegion[rp.regionName]?.[rp.latencyDescription]?.id);
+		return shapeCoversRequest(currentGrant.shape, selectedPlan?.id, regionIds);
+	}, [clusterId, currentGrant, regionNameToLatencyToRegion, selectedDeployment, selectedPlan, selectedRegionPlans]);
 	useEffect(function fillFormFromGrant() {
 		if (!grantPrefill) { return; }
 		form.setValue('deploymentDescription', grantPrefill.deploymentDescription);
@@ -307,7 +334,6 @@ export function ClusterForm({
 	}, [form, grantPrefill]);
 
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
-		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		// A frozen region set must reach the server exactly as the cluster already has it. Disabling
 		// the select only stopped the customer changing it — these effects still rewrote the value
 		// underneath, and the mutated set was what got submitted, which the server then refused.
@@ -327,6 +353,7 @@ export function ClusterForm({
 			}
 		}
 	}, [
+		allowedRegionIds,
 		selectedPlan,
 		selectedRegionPlans,
 		form,
@@ -546,12 +573,12 @@ export function ClusterForm({
 	]);
 
 	const submitClusterDetailsForm = useCallback(() => {
-		if (needsBillingStep({ mode, totalPrice, grantId: form.getValues('grantId') })) {
+		if (needsBillingStep({ mode, totalPrice, grantId: form.getValues('grantId'), coveredByGrant: coveredByComp })) {
 			setConfirmingPaymentDetails(true);
 			return;
 		}
 		return executeChangesToCluster();
-	}, [form, mode, executeChangesToCluster, totalPrice]);
+	}, [form, mode, executeChangesToCluster, totalPrice, coveredByComp]);
 
 	const onSaveStateForBillingRedirect = useCallback((redirecting: boolean) => {
 		setSavedClusterState(redirecting ? { clusterId, ...form.getValues(), skipToBilling: true } : null);
@@ -563,7 +590,9 @@ export function ClusterForm({
 
 	// Named only while nothing is priced: what an edit to a comped cluster costs is central-manager's call.
 	const labelledGrant = selectedGrant
-		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && totalPrice === 0 ? currentGrant : null);
+		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && (totalPrice === 0 || coveredByComp)
+			? currentGrant
+			: null);
 	const grantLabel = labelledGrant && (labelledGrant.source === 'trial' ? 'Trial' : 'Complimentary');
 	const priceSummary = !isEnterprise && mode !== 'version'
 		? (
@@ -651,6 +680,10 @@ export function ClusterForm({
 									planLevelFloor={planLevelFloor}
 									unboundGrants={organization?.unboundGrants}
 									lockedByGrant={lockedByGrant}
+									deploymentLockedByGrant={deploymentLockedByGrant}
+									grantPlanIds={scope?.planIds ?? null}
+									allowedRegionIds={allowedRegionIds}
+									coveredByGrant={coveredByComp}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

@@ -24,6 +24,8 @@ type RegionFormInputsProps = {
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	index: number;
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
+	/** Regions this row may pick; falls back to the plan's own list. */
+	allowedRegionIds?: string[];
 	premiumOnlyRegions: PremiumOnlyRegions;
 	usageScale: UsageScale;
 	selectedPlan: SchemaPlan | undefined;
@@ -38,6 +40,7 @@ export function RegionFormInputs({
 	form,
 	index,
 	regionNameToLatencyToRegion,
+	allowedRegionIds: allowedRegionIdsProp,
 	premiumOnlyRegions,
 	usageScale,
 	selectedPlan,
@@ -55,7 +58,7 @@ export function RegionFormInputs({
 		[regionNameToLatencyToRegion, selectedRegionName],
 	);
 
-	const allowedRegionIds = selectedPlan?.allowedRegionIds;
+	const allowedRegionIds = allowedRegionIdsProp ?? selectedPlan?.allowedRegionIds;
 	const isRegionAllowedByPlan = useCallback(
 		(regionName: string) =>
 			!allowedRegionIds?.length

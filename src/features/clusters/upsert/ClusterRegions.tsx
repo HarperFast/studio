@@ -17,6 +17,8 @@ interface ClusterRegionsProps {
 	disabledReason?: string;
 	form: UseFormReturn<UpsertClusterSchemaType>;
 	regionLocations: SchemaRegion[] | undefined;
+	/** Regions a row may pick; the rest are shown but cannot be chosen or added. */
+	allowedRegionIds?: string[];
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	premiumOnlyRegions: PremiumOnlyRegions;
 	usageScale: UsageScale;
@@ -31,6 +33,7 @@ export function ClusterRegions({
 	disabledReason,
 	form,
 	regionLocations,
+	allowedRegionIds,
 	regionNameToLatencyToRegion,
 	premiumOnlyRegions,
 	usageScale,
@@ -54,8 +57,10 @@ export function ClusterRegions({
 			// Free plans — and any plan whose region set is fixed — get a single region.
 			return null;
 		}
-		return regionLocations?.find(r => !selectedRegionNames.includes(r.region));
-	}, [disabled, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans, totalPrice]);
+		return regionLocations?.find(r =>
+			!selectedRegionNames.includes(r.region) && (!allowedRegionIds?.length || allowedRegionIds.includes(r.id))
+		);
+	}, [allowedRegionIds, disabled, regionLocations, regionNameToLatencyToRegion, selectedRegionPlans, totalPrice]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {
@@ -98,6 +103,7 @@ export function ClusterRegions({
 					index={index}
 					key={field.id}
 					regionNameToLatencyToRegion={regionNameToLatencyToRegion}
+					allowedRegionIds={allowedRegionIds}
 					premiumOnlyRegions={premiumOnlyRegions}
 					usageScale={usageScale}
 					selectedPlan={selectedPlan}
