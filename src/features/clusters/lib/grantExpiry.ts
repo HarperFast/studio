@@ -307,9 +307,9 @@ export function describeGrantExpiry(
 	}
 }
 
-/** The quiet reminder for a cluster on its trial. */
+/** The quiet reminder for a cluster on its trial, or on a comp that ends. */
 export interface TrialReminder {
-	/** Pill text: "Trial · ends September 30", or just "Trial" without a usable end date. */
+	/** Pill text: "Trial · ends September 30", "Complimentary · ends September 30", or "Trial" with no usable end date. */
 	label: string;
 	/** Sentence form, for a tooltip. */
 	detail: string;
@@ -318,22 +318,24 @@ export interface TrialReminder {
 }
 
 /**
- * A cluster on a live trial that nothing louder is being said about. Yields null whenever
- * `describeGrantExpiry` has something to show, so the countdown replaces this in the same spot
- * instead of sitting next to it.
+ * A cluster on a live trial, or a comp with an end date, that nothing louder is being said about.
+ * Yields null whenever `describeGrantExpiry` has something to show, so the countdown replaces this
+ * in the same spot instead of sitting next to it. A comp with no end date is the cluster's normal
+ * terms and gets no reminder.
  */
 export function describeTrial(
 	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
 	now: number = Date.now(),
 ): TrialReminder | null {
 	const grant = cluster.grant;
-	if (!grant || grant.source !== 'trial' || !grant.isActive) { return null; }
+	if (!grant || !grant.isActive || (grant.source !== 'trial' && grant.source !== 'comped')) { return null; }
 	if (describeGrantExpiry(cluster, now)) { return null; }
 	const at = grant.endsAt ? new Date(grant.endsAt) : null;
 	const usable = at && !Number.isNaN(at.getTime()) ? at : null;
-	if (!usable) { return { label: 'Trial', detail: 'Trial cluster', endsOn: null }; }
+	if (!usable) { return grant.source === 'trial' ? { label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
+	const label = grant.source === 'trial' ? 'Trial' : 'Complimentary';
 	const endsOn = onDate(usable);
-	return { label: `Trial · ends ${endsOn}`, detail: `Trial ends ${endsOn}`, endsOn: onShortDate(usable) };
+	return { label: `${label} · ends ${endsOn}`, detail: `${label} ends ${endsOn}`, endsOn: onShortDate(usable) };
 }
 
 /**
