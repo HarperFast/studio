@@ -195,9 +195,10 @@ export function UpsertCluster() {
 			regionPlans.push({ regionName: '', latencyDescription: '' });
 		}
 
-		// On an ambiguous partial upgrade nothing is pre-selected: either choice then dirties the form,
-		// so the user states the target instead of the form assuming the highest version.
-		const version = partialUpgrade?.ambiguous
+		// On an ambiguous partial upgrade the version picker pre-selects nothing: either choice then
+		// dirties the form, so the user states the target instead of the form assuming the highest
+		// version. Other modes show the field disabled, where the running version is the right display.
+		const version = partialUpgrade?.ambiguous && mode === 'version'
 			? undefined
 			: harperVersions.value?.find(v => v.name === 'current')?.version
 				?? harperVersions.value?.find(v => v.name === 'stable')?.version;
@@ -218,6 +219,8 @@ export function UpsertCluster() {
 		alreadyUsingFree,
 		cluster,
 		clusterId,
+		mode,
+		partialUpgrade,
 		planTypes,
 		harperVersions,
 		regionLocationsColocated,
