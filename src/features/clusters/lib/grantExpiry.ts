@@ -308,7 +308,7 @@ export function describeGrantExpiry(
 }
 
 /** The quiet reminder for a cluster on its trial, or on a comp that ends. */
-export interface TrialReminder {
+export interface GrantReminder {
 	/** Which kind, for the card's pill: a comp is good news and reads green, a trial neutral. */
 	pill: 'Trial' | 'Comped';
 	/** Long form: "Trial · ends September 30", "Comped · ends September 30", or "Trial" with no usable end date. */
@@ -325,10 +325,10 @@ export interface TrialReminder {
  * in the same spot instead of sitting next to it. A comp with no end date is the cluster's normal
  * terms and gets no reminder.
  */
-export function describeTrial(
+export function describeGrantReminder(
 	cluster: Pick<Cluster, 'grant' | 'status' | 'suspendedReason' | 'conversionState'>,
 	now: number = Date.now(),
-): TrialReminder | null {
+): GrantReminder | null {
 	const grant = cluster.grant;
 	if (!grant || !grant.isActive || (grant.source !== 'trial' && grant.source !== 'comped')) { return null; }
 	if (describeGrantExpiry(cluster, now)) { return null; }
