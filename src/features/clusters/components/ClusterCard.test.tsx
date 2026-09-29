@@ -205,6 +205,15 @@ describe('ClusterCard — trial reminder', () => {
 		expect(screen.getByText(/^Ends [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
 	});
 
+	it('shows a green Comped pill and its end date for a comp that ends', () => {
+		render(<ClusterCard cluster={trialCluster({ source: 'comped', expiryPolicy: 'comped' })} />);
+		const pill = screen.getByText('Comped');
+		expect(pill.getAttribute('title')).toMatch(/^Comped ends /);
+		expect(pill.className).toContain('green');
+		expect(screen.getByText(/^Ends [A-Z][a-z]{2} \d{1,2}$/)).toBeTruthy();
+		expect(screen.queryByText('Trial')).toBeNull();
+	});
+
 	it('shows nothing extra for a purchased plan', () => {
 		render(<ClusterCard cluster={trialCluster({ source: 'purchased', expiryPolicy: null })} />);
 		expect(screen.queryByText(/^Trial/)).toBeNull();
