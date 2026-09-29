@@ -72,19 +72,19 @@ const defaults: UpsertClusterSchemaType = {
 	grantId: COMPED.id,
 } as UpsertClusterSchemaType;
 
-async function mountCreate() {
+async function mountCreate(grants: ClusterGrant[] = [COMPED, COMPED_SA], grantId: string = COMPED.id) {
 	render(
 		<TestProvider>
 			<ClusterForm
 				alreadyUsingFree={false}
-				defaultValues={defaults}
+				defaultValues={{ ...defaults, grantId }}
 				deploymentToPerformanceToPlan={CATALOGUE}
 				harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
 				mode={undefined}
 				organization={{
 					id: 'org-1',
 					type: 'SELF_SERVICE',
-					unboundGrants: [COMPED, COMPED_SA],
+					unboundGrants: grants,
 				} as unknown as Organization}
 				organizationId="org-1"
 				partialUpgrade={null}
@@ -289,5 +289,95 @@ describe('ClusterForm — the price summary when editing a cluster on a grant', 
 	it('still says free for a free plan with no grant behind it', async () => {
 		await mountEdit(null);
 		expect(summary()).toContain('Free');
+	});
+});
+
+describe('ClusterForm — a trial voucher’s allow-lists narrow the pickers', () => {
+	// central-manager refuses a claim outside the lists, so the form does not offer one.
+	const scopedTrial = {
+		id: 'cgr-trial',
+		organizationId: 'org-1',
+		source: 'trial',
+		status: 'ACTIVE',
+		isActive: true,
+		allowedPlanIds: [HOBBYIST.id],
+		allowedRegionIds: ['us-1'],
+	} as unknown as ClusterGrant;
+
+	it('moves onto the one allowed plan and region', async () => {
+		await mountCreate([scopedTrial], scopedTrial.id);
+		expect(nativeValue('performanceDescription')).toBe(HOBBYIST.performanceDescription);
+		expect(selectFor(/^Region/).textContent).toContain('US');
+		expect(selectFor(/^Region/).textContent).not.toContain('South America');
+	});
+
+	it('keeps the tiers outside the list visible but unpickable, and says why', async () => {
+		await mountCreate([scopedTrial], scopedTrial.id);
+		fireEvent.keyDown(selectFor(/Performance/), { key: 'ArrowDown' });
+		await act(() => null);
+		const blocked = screen.getAllByRole('option').filter((o) => o.getAttribute('aria-disabled') === 'true');
+		expect(blocked.map((o) => o.textContent)).toEqual([
+			expect.stringMatching(/^30-day trial.*Not covered by the grant chosen above/),
+			expect.stringMatching(/^Medium.*Not covered by the grant chosen above/),
+		]);
+	});
+});
+
+describe('ClusterForm — editing a comped cluster', () => {
+	const comp = (regionId: string) =>
+		({
+			id: 'cgr-c',
+			source: 'comped',
+			status: 'ACTIVE',
+			isActive: true,
+			shape: [{ planId: HOBBYIST.id, regionId }],
+		}) as unknown as ClusterGrant;
+
+	async function mountCompEdit(grant: ClusterGrant) {
+		render(
+			<TestProvider>
+				<ClusterForm
+					alreadyUsingFree={false}
+					clusterId="clu-1"
+					currentPlanId={HOBBYIST.id}
+					currentGrant={grant}
+					defaultValues={{
+						...defaults,
+						performanceDescription: HOBBYIST.performanceDescription!,
+						grantId: undefined,
+					} as UpsertClusterSchemaType}
+					deploymentToPerformanceToPlan={CATALOGUE}
+					harperVersions={{ value: [{ name: 'current', version: '4.6.0' }] } as never}
+					mode={undefined}
+					organization={{ id: 'org-1', type: 'SELF_SERVICE' } as unknown as Organization}
+					organizationId="org-1"
+					partialUpgrade={null}
+					planTypes={PLANS}
+					regionLocationsColocated={REGIONS}
+					regionLocationsDedicated={[]}
+					setSavedClusterState={() => {}}
+					startOffOnBilling={false}
+				/>
+			</TestProvider>,
+		);
+		await act(() => null);
+		await act(() => null);
+	}
+	const summary = () => screen.getByRole('complementary', { name: 'Price summary' }).textContent ?? '';
+
+	// The form opens on the comp's own plan and region (South America), so the request still matches
+	// the shape: central-manager waives the card, and so does the form.
+	it('needs no card while the edit keeps exactly what the comp covers', async () => {
+		await mountCompEdit(comp('south-america-1'));
+		expect(summary()).toContain('Complimentary');
+		expect(screen.getByRole('button', { name: /Edit Cluster/ })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Confirm Payment Details/ })).toBeNull();
+	});
+
+	it('asks for payment once the request leaves the shape', async () => {
+		await mountCompEdit(comp('us-1'));
+		expect(summary()).toContain('$20.00');
+		expect(summary()).not.toContain('Complimentary');
+		expect(screen.getByRole('button', { name: /Confirm Payment Details/ })).toBeTruthy();
 	});
 });
