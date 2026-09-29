@@ -46,6 +46,14 @@ interface ClusterDetailsProps {
 	unboundGrants?: ClusterGrant[];
 	/** A scoped grant is selected: its plan and regions are the request, so those pickers lock. */
 	lockedByGrant?: boolean;
+	/** A trial voucher's allowed plans all share one deployment, so that picker has nothing to offer. */
+	deploymentLockedByGrant?: boolean;
+	/** A trial voucher's allowed plans; tiers outside them are shown but cannot be picked. */
+	grantPlanIds?: string[] | null;
+	/** The regions a row may pick, from the plan and the grant. */
+	allowedRegionIds?: string[];
+	/** A live comp covers this edit as it stands, so no card is needed. */
+	coveredByGrant?: boolean;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -71,6 +79,10 @@ export function ClusterDetails({
 	planLevelFloor,
 	unboundGrants,
 	lockedByGrant,
+	deploymentLockedByGrant,
+	grantPlanIds,
+	allowedRegionIds,
+	coveredByGrant,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -92,6 +104,8 @@ export function ClusterDetails({
 			const disabledReason = planLevelFloor != null && plan.deploymentType !== 'self-hosted'
 					&& plan.planLevel < planLevelFloor
 				? 'Moving to a smaller plan isn’t supported yet.'
+				: grantPlanIds && !grantPlanIds.includes(plan.id)
+				? 'Not covered by the grant chosen above.'
 				: undefined;
 			const splitByParens = performanceTier.slice(0, -1).split('(');
 			if (splitByParens.length > 1) {
@@ -122,6 +136,7 @@ export function ClusterDetails({
 		clusterId,
 		currentPlanId,
 		planLevelFloor,
+		grantPlanIds,
 		deploymentToPerformanceToPlan,
 		selectedDeployment,
 		selectedPerformance,
@@ -196,7 +211,7 @@ export function ClusterDetails({
 					|| (clusterId && !isDirty && !allowVersionResubmit && !allowUpgradeResubmit)
 					|| !isValid}
 			>
-				{needsBillingStep({ mode, totalPrice, grantId: form.watch('grantId') })
+				{needsBillingStep({ mode, totalPrice, grantId: form.watch('grantId'), coveredByGrant })
 					? 'Confirm Payment Details'
 					: clusterId
 					? 'Edit Cluster'
@@ -297,7 +312,7 @@ export function ClusterDetails({
 							<ClusterDeploymentDescription
 								form={form}
 								availableDeploymentTypes={availableDeploymentTypes}
-								disabled={isHobbyist || lockedByGrant}
+								disabled={isHobbyist || lockedByGrant || deploymentLockedByGrant}
 							/>
 
 							<ClusterPerformanceDescription
@@ -317,6 +332,7 @@ export function ClusterDetails({
 											: undefined}
 										form={form}
 										regionLocations={regionLocations}
+										allowedRegionIds={allowedRegionIds}
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
