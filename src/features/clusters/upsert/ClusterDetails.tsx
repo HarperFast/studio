@@ -173,8 +173,8 @@ export function ClusterDetails({
 			form.setValue('performanceDescription', selectable[0].performanceTier);
 			void form.trigger();
 		} else if (availablePerformanceDescriptions?.length && !selectable.length && selectedPerformance) {
-			// Every tier of this deployment is below the floor: whatever is selected names no plan here,
-			// and saving it would throw rather than be refused.
+			// Nothing in this deployment can be picked, so the selection is cleared rather than left on a
+			// tier the server would refuse — or, from another deployment, one that names no plan at all.
 			form.setValue('performanceDescription', '');
 			void form.trigger();
 		}

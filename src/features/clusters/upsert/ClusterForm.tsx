@@ -594,7 +594,6 @@ export function ClusterForm({
 		setConfirmingPaymentDetails(false);
 	}, []);
 
-	// Named while nothing is priced, or while a live comp covers the edit as it stands.
 	const labelledGrant = selectedGrant
 		?? (currentGrant && ['trial', 'comped'].includes(currentGrant.source) && (totalPrice === 0 || coveredByComp)
 			? currentGrant
