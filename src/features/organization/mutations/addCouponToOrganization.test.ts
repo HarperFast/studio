@@ -44,4 +44,9 @@ describe('onAddCouponToOrganizationSubmit', () => {
 		mockedPost.mockResolvedValue({ status: 400, data: 'No such coupon: 100OFF' });
 		await expect(onAddCouponToOrganizationSubmit(params)).resolves.toBe('No such coupon: 100OFF');
 	});
+
+	it('never resolves an empty refusal, which the modal would read as success', async () => {
+		mockedPost.mockResolvedValue({ status: 400, data: '' });
+		await expect(onAddCouponToOrganizationSubmit(params)).resolves.toBeTruthy();
+	});
 });
