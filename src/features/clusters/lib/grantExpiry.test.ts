@@ -49,7 +49,7 @@ describe('describeGrantExpiry', () => {
 		expect(result?.endsOn).toBe('Aug 30');
 	});
 
-	it('says the usage ran out when the trial was extended after an overage', () => {
+	it('says the usage ran out after an overage', () => {
 		const extended = grant({ currentStage: 'WARNED', endsAt: daysFromNow(5), overageAt: daysFromNow(-2) });
 		expect(describeGrantExpiry({ grant: extended }, NOW)?.detail).toMatch(
 			/^You’ve used all of your trial’s included usage\. /,
@@ -431,7 +431,6 @@ describe('describeGrantReminder', () => {
 		});
 	});
 
-	// The date may have moved earlier, so the pill still says "ends"; only the detail says the usage ran out.
 	it('keeps the end date and says the usage ran out after an overage', () => {
 		expect(describeGrantReminder({ grant: grant({ overageAt: daysFromNow(-1) }) }, NOW)).toEqual({
 			pill: 'Trial',
