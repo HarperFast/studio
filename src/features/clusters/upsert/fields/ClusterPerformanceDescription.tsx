@@ -61,7 +61,7 @@ export function ClusterPerformanceDescription({
 													{performanceDescription.name}
 												</dt>
 												{performanceDescription.description && (
-													<dd className="text-left font-light">{performanceDescription.description}</dd>
+													<dd className="truncate text-left font-light">{performanceDescription.description}</dd>
 												)}
 												{performanceDescription.disabledReason && (
 													<dd className="text-left text-xs">{performanceDescription.disabledReason}</dd>
