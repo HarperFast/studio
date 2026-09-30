@@ -18,8 +18,12 @@
  * Error Tracking, and the stack keeps the frames that are ours. Telling those causes apart needs
  * `SSEOperationError`'s `code` and `phase`, which reach the browser but are not on the RUM event;
  * reporting them deliberately would restore that detail without the message.
+ *
+ * `ImportJobError` is the same relay for a failed load job (`waitForJob`), and worse: Harper's
+ * validation text quotes the offending row values, and a mis-typed upload has put raw file bytes in
+ * it. Studio's only text for that failure is its own fallback constant.
  */
-const RELAYED_ERROR_TYPES = new Set(['SSEOperationError']);
+const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError']);
 
 const WITHHELD = 'Harper reported an operation failure (server message withheld).';
 

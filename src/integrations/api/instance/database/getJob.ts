@@ -16,6 +16,18 @@ export async function getJob({ jobId, instanceClient }: { jobId: string } & Inst
 	return data?.[0];
 }
 
+/**
+ * A load job Harper finished with `ERROR`. The message is Harper's, and for a CSV load it quotes
+ * the rows that failed validation — the customer's table data — so Datadog withholds it by this
+ * name (`src/integrations/datadog/redactRelayedMessage.ts`) while the dialog still shows it.
+ */
+export class ImportJobError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ImportJobError';
+	}
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -52,7 +64,7 @@ export async function waitForJob({
 		// CREATED (no worker picked it up yet), so anything else means keep polling.
 		const status = job?.status?.toUpperCase();
 		if (status === 'ERROR') {
-			throw new Error(job?.message || 'The import job failed.');
+			throw new ImportJobError(job?.message || 'The import job failed.');
 		}
 		if (status === 'COMPLETE' && job) {
 			return job;
