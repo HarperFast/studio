@@ -54,7 +54,7 @@ export function AddCouponModal({
 			mutate(
 				{ organizationId, couponId: values.couponId },
 				{
-					onSuccess: (error?: string) => {
+					onSuccess: (error) => {
 						if (!error) {
 							toast.success('Success', {
 								description: `Coupon "${values.couponId}" added to ${organizationName || organizationId}.`,
