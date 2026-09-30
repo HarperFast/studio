@@ -7,7 +7,8 @@ export function FormItem({ className, ...props }: ComponentProps<'div'>) {
 
 	return (
 		<FormItemContext1 value={{ id }}>
-			<div data-slot="form-item" className={cn('grid gap-2', className)} {...props} />
+			{/* A bounded column: an auto one grows to its widest control's unwrapped content and spills out. */}
+			<div data-slot="form-item" className={cn('grid grid-cols-[minmax(0,1fr)] gap-2', className)} {...props} />
 		</FormItemContext1>
 	);
 }
