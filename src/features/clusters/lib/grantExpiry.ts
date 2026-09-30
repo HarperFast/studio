@@ -342,15 +342,10 @@ export function describeGrantReminder(
 	const endsOn = onDate(usable);
 	// After an overage the usage was extended, not the date — that may have moved earlier — so the
 	// pill keeps "ends" and only the detail says why.
-	if (pill === 'Trial' && grant.overageAt) {
-		return {
-			pill,
-			label: `Trial · ends ${endsOn}`,
-			detail: `Trial usage used up; extra usage runs until ${endsOn}`,
-			endsOn: onShortDate(usable),
-		};
-	}
-	return { pill, label: `${pill} · ends ${endsOn}`, detail: `${pill} ends ${endsOn}`, endsOn: onShortDate(usable) };
+	const detail = pill === 'Trial' && grant.overageAt
+		? `Trial usage used up; extra usage runs until ${endsOn}`
+		: `${pill} ends ${endsOn}`;
+	return { pill, label: `${pill} · ends ${endsOn}`, detail, endsOn: onShortDate(usable) };
 }
 
 /**
