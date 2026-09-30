@@ -298,7 +298,11 @@ export interface ClusterGrant {
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
-	/** Trial only: when its first overage minted the one grace block and pulled `endsAt` forward. */
+	/**
+	 * Trial only: when its first overage minted the one grace block. `endsAt` is then the sooner of
+	 * the original end and the end of the grace period — the usage was extended, the date may have
+	 * moved earlier.
+	 */
 	overageAt?: string | null;
 	/**
 	 * What an admin-issued grant covers, or null when unrestricted. Both are EXACT lists — an id not
