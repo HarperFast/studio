@@ -167,7 +167,6 @@ const shortEndsOn = (endsAt: string | null | undefined) => {
 	return at && !Number.isNaN(at.getTime()) ? onShortDate(at) : null;
 };
 
-/** Why a trial's date moved: its usage ran out and central-manager extended it once (overageAt). */
 const overageNote = (grant: Pick<ClusterGrant, 'source' | 'overageAt'>) =>
 	grant.source === 'trial' && grant.overageAt ? 'You’ve used all of your trial’s included usage. ' : '';
 
@@ -341,12 +340,13 @@ export function describeGrantReminder(
 	const pill = grant.source === 'trial' ? 'Trial' : 'Comped';
 	if (!usable) { return pill === 'Trial' ? { pill, label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
 	const endsOn = onDate(usable);
-	// A trial that used its usage was extended once; the pill says so, since the date it shows moved.
+	// After an overage the usage was extended, not the date — that may have moved earlier — so the
+	// pill keeps "ends" and only the detail says why.
 	if (pill === 'Trial' && grant.overageAt) {
 		return {
 			pill,
-			label: `Trial · extended through ${endsOn}`,
-			detail: `Trial usage used up; extended through ${endsOn}`,
+			label: `Trial · ends ${endsOn}`,
+			detail: `Trial usage used up; extra usage runs until ${endsOn}`,
 			endsOn: onShortDate(usable),
 		};
 	}
