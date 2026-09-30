@@ -49,6 +49,15 @@ describe('describeGrantExpiry', () => {
 		expect(result?.endsOn).toBe('Aug 30');
 	});
 
+	it('says the usage ran out after an overage', () => {
+		const extended = grant({ currentStage: 'WARNED', endsAt: daysFromNow(5), overageAt: daysFromNow(-2) });
+		expect(describeGrantExpiry({ grant: extended }, NOW)?.detail).toMatch(
+			/^You’ve used all of your trial’s included usage\. /,
+		);
+		const plain = grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) });
+		expect(describeGrantExpiry({ grant: plain }, NOW)?.detail).not.toMatch(/included usage/);
+	});
+
 	it('escalates to critical at FINAL_WARNING without claiming service has ended', () => {
 		const result = describeGrantExpiry(
 			{ grant: grant({ currentStage: 'FINAL_WARNING', endsAt: daysFromNow(2) }) },
@@ -418,6 +427,15 @@ describe('describeGrantReminder', () => {
 			pill: 'Trial',
 			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
+			endsOn: 'Sep 24',
+		});
+	});
+
+	it('keeps the end date and says the usage ran out after an overage', () => {
+		expect(describeGrantReminder({ grant: grant({ overageAt: daysFromNow(-1) }) }, NOW)).toEqual({
+			pill: 'Trial',
+			label: 'Trial · ends September 24',
+			detail: 'Trial usage used up; extra usage runs until September 24',
 			endsOn: 'Sep 24',
 		});
 	});
