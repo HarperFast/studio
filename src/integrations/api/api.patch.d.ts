@@ -298,6 +298,8 @@ export interface ClusterGrant {
 	/** Last expiry-policy stage the runner applied; null before the first one. */
 	currentStage: ExpiryStage | null;
 	stageUpdatedAt: string | null;
+	/** Trial only: when its first overage minted the one grace block and pulled `endsAt` forward. */
+	overageAt?: string | null;
 	/**
 	 * What an admin-issued grant covers, or null when unrestricted. Both are EXACT lists — an id not
 	 * named is not covered, with no family or size inference. A picker should offer exactly these.
