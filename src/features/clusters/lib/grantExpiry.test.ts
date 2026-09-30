@@ -49,6 +49,16 @@ describe('describeGrantExpiry', () => {
 		expect(result?.endsOn).toBe('Aug 30');
 	});
 
+	// central-manager pulls a trial's end forward after its first overage; the date alone would not say why.
+	it('says the usage ran out when the trial was extended after an overage', () => {
+		const extended = grant({ currentStage: 'WARNED', endsAt: daysFromNow(5), overageAt: daysFromNow(-2) });
+		expect(describeGrantExpiry({ grant: extended }, NOW)?.detail).toMatch(
+			/^You’ve used all of your trial’s included usage\. /,
+		);
+		const plain = grant({ currentStage: 'WARNED', endsAt: daysFromNow(5) });
+		expect(describeGrantExpiry({ grant: plain }, NOW)?.detail).not.toMatch(/included usage/);
+	});
+
 	it('escalates to critical at FINAL_WARNING without claiming service has ended', () => {
 		const result = describeGrantExpiry(
 			{ grant: grant({ currentStage: 'FINAL_WARNING', endsAt: daysFromNow(2) }) },
@@ -418,6 +428,15 @@ describe('describeGrantReminder', () => {
 			pill: 'Trial',
 			label: 'Trial · ends September 24',
 			detail: 'Trial ends September 24',
+			endsOn: 'Sep 24',
+		});
+	});
+
+	it('names the extension instead of a plain end date after an overage', () => {
+		expect(describeGrantReminder({ grant: grant({ overageAt: daysFromNow(-1) }) }, NOW)).toEqual({
+			pill: 'Trial',
+			label: 'Trial · extended through September 24',
+			detail: 'Trial usage used up; extended through September 24',
 			endsOn: 'Sep 24',
 		});
 	});
