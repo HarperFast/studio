@@ -3,11 +3,8 @@ import { describeError } from '@/react-query/queryClient';
 import { useMutation } from '@tanstack/react-query';
 
 /**
- * Resolves with the reason the central manager refused the coupon, or `undefined` once it is applied.
- * A 400 (Stripe rejected it) or 409 (already applied) is an answer for the form, not a failure, so
- * it resolves rather than reaching the global error toast. The body is not text on every version: a
- * Harper 5 central manager sends an RFC 9457 object, which React cannot render as a toast
- * description and which took the whole app down with it.
+ * Resolves with the reason the coupon was refused (400/409), or `undefined` once it is applied. A
+ * refusal is an answer for the form, so it resolves as text rather than reaching the global toast.
  */
 export async function onAddCouponToOrganizationSubmit(
 	{ organizationId, couponId }: { organizationId: string; couponId: string },

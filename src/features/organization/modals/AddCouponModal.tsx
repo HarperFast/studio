@@ -62,7 +62,7 @@ export function AddCouponModal({
 							onClose();
 						} else {
 							toast.error('Error', {
-								description: error || 'Failed to add coupon.',
+								description: error,
 							});
 						}
 					},
