@@ -54,7 +54,6 @@ describe('waitForJob', () => {
 		pending.catch(() => {}); // avoid unhandled rejection before the assertion below
 		await vi.advanceTimersByTimeAsync(500);
 		await expect(pending).rejects.toThrow('CSV was malformed');
-		// The name is what keeps Harper's text, which quotes the rejected rows, out of Datadog.
 		await expect(pending).rejects.toBeInstanceOf(ImportJobError);
 	});
 
