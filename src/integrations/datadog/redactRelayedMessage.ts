@@ -19,9 +19,7 @@
  * `SSEOperationError`'s `code` and `phase`, which reach the browser but are not on the RUM event;
  * reporting them deliberately would restore that detail without the message.
  *
- * `ImportJobError` is the same relay for a failed load job (`waitForJob`), and worse: Harper's
- * validation text quotes the offending row values, and a mis-typed upload has put raw file bytes in
- * it. Studio's only text for that failure is its own fallback constant.
+ * `ImportJobError` is the same relay for a failed load job, whose text quotes the rejected rows.
  */
 const RELAYED_ERROR_TYPES = new Set(['SSEOperationError', 'ImportJobError']);
 

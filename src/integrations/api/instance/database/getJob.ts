@@ -16,11 +16,7 @@ export async function getJob({ jobId, instanceClient }: { jobId: string } & Inst
 	return data?.[0];
 }
 
-/**
- * A load job Harper finished with `ERROR`. The message is Harper's, and for a CSV load it quotes
- * the rows that failed validation — the customer's table data — so Datadog withholds it by this
- * name (`src/integrations/datadog/redactRelayedMessage.ts`) while the dialog still shows it.
- */
+/** A load job Harper finished with `ERROR`. Datadog withholds its message by this `name`. */
 export class ImportJobError extends Error {
 	constructor(message: string) {
 		super(message);
