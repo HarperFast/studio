@@ -167,6 +167,10 @@ const shortEndsOn = (endsAt: string | null | undefined) => {
 	return at && !Number.isNaN(at.getTime()) ? onShortDate(at) : null;
 };
 
+/** Why a trial's date moved: its usage ran out and central-manager extended it once (overageAt). */
+const overageNote = (grant: Pick<ClusterGrant, 'source' | 'overageAt'>) =>
+	grant.source === 'trial' && grant.overageAt ? 'You’ve used all of your trial’s included usage. ' : '';
+
 /** The customer-facing name for what a grant is: Trial, Complimentary plan, Plan… */
 export function grantSourceLabel(grant: Pick<ClusterGrant, 'source'>): string {
 	return SOURCE_LABEL[grant.source] ?? 'Plan';
@@ -287,7 +291,7 @@ export function describeGrantExpiry(
 				badgeLabel: `Ends ${whenPhrase(days)}`,
 				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
-				detail: 'Choose a paid plan to keep this cluster running.',
+				detail: `${overageNote(grant)}Choose a paid plan to keep this cluster running.`,
 				needsUpgrade: false,
 				offerUpgrade: true,
 			};
@@ -298,7 +302,7 @@ export function describeGrantExpiry(
 				badgeLabel: `Ends ${whenPhrase(days)}`,
 				endsOn: shortEndsOn(grant.endsAt),
 				title: `${grantSourceLabel(grant)} ends ${whenPhrase(days)}`,
-				detail: 'The cluster will be stopped when it ends. Choose a paid plan to keep it running.',
+				detail: `${overageNote(grant)}The cluster will be stopped when it ends. Choose a paid plan to keep it running.`,
 				needsUpgrade: false,
 				offerUpgrade: true,
 			};
@@ -337,6 +341,15 @@ export function describeGrantReminder(
 	const pill = grant.source === 'trial' ? 'Trial' : 'Comped';
 	if (!usable) { return pill === 'Trial' ? { pill, label: 'Trial', detail: 'Trial cluster', endsOn: null } : null; }
 	const endsOn = onDate(usable);
+	// A trial that used its usage was extended once; the pill says so, since the date it shows moved.
+	if (pill === 'Trial' && grant.overageAt) {
+		return {
+			pill,
+			label: `Trial · extended through ${endsOn}`,
+			detail: `Trial usage used up; extended through ${endsOn}`,
+			endsOn: onShortDate(usable),
+		};
+	}
 	return { pill, label: `${pill} · ends ${endsOn}`, detail: `${pill} ends ${endsOn}`, endsOn: onShortDate(usable) };
 }
 
