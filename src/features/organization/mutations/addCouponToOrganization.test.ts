@@ -19,9 +19,14 @@ describe('onAddCouponToOrganizationSubmit', () => {
 	it('resolves undefined once the coupon is applied', async () => {
 		mockedPost.mockResolvedValue({ status: 204, data: '' });
 		await expect(onAddCouponToOrganizationSubmit(params)).resolves.toBeUndefined();
+		expect(mockedPost).toHaveBeenCalledWith(
+			'/Coupon',
+			{ organizationId: 'org-1', couponId: '100OFF' },
+			expect.anything(),
+		);
 	});
 
-	it('turns a Harper 5 problem-details refusal into text', async () => {
+	it('turns a problem-details refusal into text', async () => {
 		mockedPost.mockResolvedValue({
 			status: 409,
 			data: {
