@@ -122,6 +122,19 @@ describe('poll-stops-on-403, end to end', () => {
 		unsubscribe();
 	});
 
+	it('backs off once per query, not once per observer, when two rows share it', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const first = observe(post);
+		const second = observe(post);
+
+		await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+		// Each observer owns a timer, but both read the one shared Query's run.
+		expect(post.mock.calls.length).toBeLessThanOrEqual(2 * 17);
+		first.unsubscribe();
+		second.unsubscribe();
+	});
+
 	it('returns to the 10s cadence as soon as a poll succeeds', async () => {
 		const post = vi.fn().mockRejectedValue(httpError(400));
 		const { observer, unsubscribe } = observe(post);
