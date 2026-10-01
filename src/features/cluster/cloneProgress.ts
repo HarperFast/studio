@@ -18,13 +18,7 @@ export interface CloneProgress {
 	startedAt?: number;
 }
 
-/**
- * Data-sync progress for an instance in a clone status, else null. Central manager leaves the clone fields on the
- * instance after it reaches RUNNING, so they mean nothing outside a clone status.
- *
- * Both sizes are approximate: "copied" is the new instance's whole-disk usage and "expected" is the source's usage
- * when the copy started, so the raw ratio can pass 1 or plateau below it while the copy finalizes.
- */
+/** Null outside a clone status: central manager leaves the clone fields on the row after RUNNING. */
 export function cloneProgressOf(instance: CloneFields): CloneProgress | null {
 	if (!isCloning(instance.status)) {
 		return null;
@@ -44,14 +38,20 @@ export function cloneProgressOf(instance: CloneFields): CloneProgress | null {
 	};
 }
 
-/** Share of the expected data copied across the cloning instances that have an expected size, or null if none do. */
+/**
+ * Null unless every instance in a clone status has an expected size: a pending or unmeasurable copy left out of the sum
+ * would let the caption read ~100% while it has barely begun.
+ */
 export function aggregateCloneRatio(instances: readonly CloneFields[]): number | null {
 	let copiedGb = 0;
 	let expectedGb = 0;
 	for (const instance of instances) {
 		const progress = cloneProgressOf(instance);
-		if (progress?.expectedGb === undefined) {
+		if (!progress) {
 			continue;
+		}
+		if (progress.expectedGb === undefined) {
+			return null;
 		}
 		copiedGb += Math.min(progress.copiedGb, progress.expectedGb);
 		expectedGb += progress.expectedGb;
@@ -63,7 +63,6 @@ export function clonePercent(ratio: number): number {
 	return Math.floor(ratio * 100);
 }
 
-/** e.g. "Syncing data · ~12.4 of ~40 GB (31%) · last progress 2 minutes ago". */
 export function describeCloneProgress(progress: CloneProgress, now: number): string {
 	if (progress.waiting) {
 		return 'Waiting to sync data';
