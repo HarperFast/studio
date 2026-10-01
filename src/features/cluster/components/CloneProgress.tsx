@@ -1,17 +1,23 @@
 import { isCloning } from '@/components/ui/utils/badgeStatus';
-import { clonePercent, cloneProgressOf, describeCloneProgress } from '@/features/cluster/cloneProgress';
+import {
+	clonePercent,
+	type CloneProgress,
+	cloneProgressOf,
+	describeCloneProgress,
+} from '@/features/cluster/cloneProgress';
 import { useNow } from '@/hooks/useNow';
 import type { Instance } from '@/integrations/api/api.patch';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { cn } from '@/lib/cn';
 
-/** Progress bar and caption for an instance copying its data from an existing member; nothing otherwise. */
 export function InstanceCloneProgress({ instance, className }: { instance: Instance; className?: string }) {
-	const now = useNow();
 	const progress = cloneProgressOf(instance);
-	if (!progress) {
-		return null;
-	}
+	// Checked before the clock subscribes, so non-cloning rows never re-render on its tick.
+	return progress ? <CloneProgressBar progress={progress} className={className} /> : null;
+}
+
+function CloneProgressBar({ progress, className }: { progress: CloneProgress; className?: string }) {
+	const now = useNow();
 	const description = describeCloneProgress(progress, now);
 	const percent = progress.ratio === undefined ? undefined : clonePercent(progress.ratio);
 	return (
@@ -42,7 +48,6 @@ export function InstanceCloneProgress({ instance, className }: { instance: Insta
 	);
 }
 
-/** One progress row per instance in a clone status, for the Starting-up and Scaling screens. */
 export function CloneProgressList({ instances }: { instances: readonly Instance[] | undefined }) {
 	const cloning = (instances ?? []).filter((instance) => isCloning(instance.status)).sort(byInstanceFqdnThenPort);
 	if (!cloning.length) {
