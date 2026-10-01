@@ -1,5 +1,5 @@
 import type { EntityMenuItem } from '@/components/ui/entityMenu';
-import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
+import { isOperationsProxyRefused } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { containerActionsForStatus } from '@/features/cluster/containerActionsForStatus';
@@ -60,7 +60,7 @@ export function useInstanceMenuItems(
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
 	const { data: statusResponse } = useQuery(
-		getStatusQueryOptions(statusParams, enabled && canManage && !isStoppedOrTransitioning(instance.status)),
+		getStatusQueryOptions(statusParams, enabled && canManage && !isOperationsProxyRefused(instance.status)),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';
