@@ -136,3 +136,65 @@ test('finds live instance regions when only some plan regions resolve', async ({
 	await expect(page.getByRole('status')).toHaveText('Showing 1 of 1 clusters');
 	await expect(page.getByRole('link', { name: 'Open Production' })).toBeVisible();
 });
+
+const cloningCluster = {
+	...clusters[0],
+	instances: [
+		{ id: 'ins-a', name: 'node-a', status: 'RUNNING', cloneExpectedGb: 40, cloneProgressGb: 40 },
+		{
+			id: 'ins-b',
+			name: 'node-b',
+			status: 'CLONING',
+			cloneExpectedGb: 40,
+			cloneProgressGb: 12.4,
+			cloneStartedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+			cloneProgressAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+		},
+	].map((instance, index) => ({
+		...instance,
+		planId: 'shared',
+		instanceFqdn: `${instance.name}.example.test`,
+		operationsApiPort: 9925,
+		operationsApiSecure: true,
+		storageGb: 100,
+		cpuCores: 2,
+		threads: 4,
+		memoryMb: 4096,
+		version: '5.2.13',
+		hostId: `host-${index}`,
+	})),
+};
+
+test('the instances table shows data-sync progress for a cloning member', async ({ page }) => {
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster }));
+	await page.goto('/#/org-fixture/clu-production/instances');
+	const cloningRow = page.getByRole('row').filter({ hasText: 'node-b' });
+	await expect(cloningRow.getByText('Cloning', { exact: true })).toBeVisible();
+	await expect(cloningRow.getByRole('progressbar', { name: 'Data sync progress' })).toHaveAttribute(
+		'aria-valuenow',
+		'31',
+	);
+	await expect(cloningRow.getByText('Syncing data · ~12.4 of ~40 GB (31%) · last progress 3 minutes ago'))
+		.toBeVisible();
+	const runningRow = page.getByRole('row').filter({ hasText: 'node-a' });
+	await expect(runningRow.getByText('Running', { exact: true })).toBeVisible();
+	await expect(runningRow.getByRole('progressbar')).toHaveCount(0);
+});
+
+test('scaling is not done while a new member is still cloning', async ({ page }) => {
+	let cluster = cloningCluster;
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cluster }));
+	await page.goto('/#/org-fixture/clu-production/scaling');
+	await expect(page.getByRole('heading', { name: 'Here we go!' })).toBeVisible();
+	await expect(page.getByText('1 Running · 1 Cloning · ~31% synced')).toBeVisible();
+	const syncing = page.getByRole('list', { name: 'Instances syncing data' });
+	await expect(syncing.getByRole('listitem')).toHaveCount(1);
+	await expect(syncing).toContainText('node-b');
+
+	cluster = {
+		...cloningCluster,
+		instances: cloningCluster.instances.map(instance => ({ ...instance, status: 'RUNNING' })),
+	};
+	await expect(page.getByRole('heading', { name: 'All done!' })).toBeVisible();
+	await expect(page.getByRole('progressbar')).toHaveCount(0);
+});
