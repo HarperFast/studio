@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	isDeterministicRejection,
 	isForbiddenError,
+	MAX_REJECTED_POLL_INTERVAL_MS,
 	pollUnlessForbidden,
 	retryUnlessRejected,
 } from './pollUnlessForbidden';
@@ -65,6 +66,94 @@ describe('pollUnlessForbidden', () => {
 
 	it('preserves a custom (non-10s) interval', () => {
 		expect(pollUnlessForbidden(2_000)(queryWithError(null))).toBe(2_000);
+	});
+});
+
+describe('pollUnlessForbidden on a sustained 400', () => {
+	/** React Query hands `refetchInterval` the same `Query` every time and replaces its
+	 *  `state`, so the tests do the same: one object, state swapped per update. */
+	function pollingQuery() {
+		const query: { state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number } } = {
+			state: { error: null, dataUpdatedAt: 0 },
+		};
+		const poll = pollUnlessForbidden(10_000);
+		return {
+			rejectAt(at: number) {
+				query.state = { ...query.state, error: axiosErrorWithStatus(400), errorUpdatedAt: at };
+				return poll(query);
+			},
+			rejectAfterUnseenSuccess(succeededAt: number, at: number) {
+				query.state = { error: axiosErrorWithStatus(400), errorUpdatedAt: at, dataUpdatedAt: succeededAt };
+				return poll(query);
+			},
+			succeedAt(at: number) {
+				query.state = { ...query.state, error: null, dataUpdatedAt: at };
+				return poll(query);
+			},
+		};
+	}
+
+	it('waits as long as the run of 400s has lasted, from the base interval up', () => {
+		const q = pollingQuery();
+		expect(q.rejectAt(1_000_000)).toBe(10_000);
+		expect(q.rejectAt(1_010_000)).toBe(10_000);
+		expect(q.rejectAt(1_020_000)).toBe(20_000);
+		expect(q.rejectAt(1_040_000)).toBe(40_000);
+		expect(q.rejectAt(1_080_000)).toBe(80_000);
+	});
+
+	it('caps the back-off so a 400 that clears is still picked up', () => {
+		const q = pollingQuery();
+		q.rejectAt(0);
+		expect(q.rejectAt(60 * 60_000)).toBe(MAX_REJECTED_POLL_INTERVAL_MS);
+	});
+
+	it('returns to the base interval after a success, and a later 400 starts over', () => {
+		const q = pollingQuery();
+		q.rejectAt(1_000_000);
+		expect(q.rejectAt(1_300_000)).toBe(MAX_REJECTED_POLL_INTERVAL_MS);
+		expect(q.succeedAt(1_310_000)).toBe(10_000);
+		expect(q.rejectAt(1_320_000)).toBe(10_000);
+		expect(q.rejectAt(1_330_000)).toBe(10_000);
+		expect(q.rejectAt(1_340_000)).toBe(20_000);
+	});
+
+	it('starts a new run when a success landed between two 400s it never saw', () => {
+		// The callback is not guaranteed to run on every state change; `dataUpdatedAt`
+		// moving past the recorded start is what proves the earlier run ended.
+		const q = pollingQuery();
+		q.rejectAt(1_000_000);
+		expect(q.rejectAt(1_200_000)).toBe(200_000);
+		expect(q.rejectAfterUnseenSuccess(1_250_000, 1_260_000)).toBe(10_000);
+	});
+
+	it('keeps the run going through the null error React Query sets at each fetch start', () => {
+		// On a query with no data, every fetch resets `error` to null before the next 400.
+		const poll = pollUnlessForbidden(10_000);
+		const query: { state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number } } = {
+			state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 0, dataUpdatedAt: 0 },
+		};
+		poll(query);
+		query.state = { error: null, errorUpdatedAt: 0, dataUpdatedAt: 0 };
+		expect(poll(query)).toBe(10_000);
+		query.state = { error: axiosErrorWithStatus(400), errorUpdatedAt: 40_000, dataUpdatedAt: 0 };
+		expect(poll(query)).toBe(40_000);
+	});
+
+	it('does not back off other failures — 5xx and network errors keep the base interval', () => {
+		const poll = pollUnlessForbidden(10_000);
+		const query = { state: { error: axiosErrorWithStatus(500), errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		poll(query);
+		query.state = { ...query.state, errorUpdatedAt: 60 * 60_000 };
+		expect(poll(query)).toBe(10_000);
+	});
+
+	it('never shortens an interval already longer than the cap', () => {
+		const poll = pollUnlessForbidden(10 * 60_000);
+		const query = { state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		poll(query);
+		query.state = { ...query.state, errorUpdatedAt: 60 * 60_000 };
+		expect(poll(query)).toBe(10 * 60_000);
 	});
 });
 

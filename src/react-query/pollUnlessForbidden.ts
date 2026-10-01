@@ -5,7 +5,7 @@ import { errorStatus } from '@/lib/errorStatus';
  *  concrete `Query<StatusResponse, …>` will not accept a `(query: Query) => …`
  *  callback. A supertype parameter accepts every instantiation. */
 interface QueryErrorState {
-	state: { error: unknown };
+	state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number };
 }
 
 /** A 403 means the caller is authenticated but not permitted on this resource.
@@ -33,8 +33,41 @@ export function isDeterministicRejection(err: unknown): boolean {
 	return status === 400 || status === 403;
 }
 
+/** The slowest a poll that keeps answering 400 is backed off to. Slow enough that an
+ *  abandoned tab costs ~12 requests an hour instead of 360, fast enough that a 400 which
+ *  does clear is picked up within a few minutes without a refocus. */
+export const MAX_REJECTED_POLL_INTERVAL_MS = 5 * 60_000;
+
+/** When each query's current run of 400s began. Keyed on the query object so it goes
+ *  away with the query. */
+const rejectedSince = new WeakMap<QueryErrorState, number>();
+
+/** How long `query` has been answering 400 without a success in between, in ms.
+ *
+ *  Only a success (`dataUpdatedAt` passing the recorded start) or a different error
+ *  ends a run. A null `error` must not: on a query that has never loaded, React Query
+ *  resets `error` to null at the start of every fetch, so clearing on null would
+ *  restart the run on every tick and the back-off would never engage. */
+function rejectionStreakMs(query: QueryErrorState): number {
+	const { error, errorUpdatedAt, dataUpdatedAt = 0 } = query.state;
+	if (error != null && errorStatus(error) !== 400) {
+		rejectedSince.delete(query);
+	}
+	if (errorStatus(error) !== 400 || errorUpdatedAt === undefined) {
+		return 0;
+	}
+	let since = rejectedSince.get(query);
+	// A success after the recorded start ended that run; this 400 starts a new one.
+	if (since === undefined || since < dataUpdatedAt) {
+		since = errorUpdatedAt;
+		rejectedSince.set(query, since);
+	}
+	return errorUpdatedAt - since;
+}
+
 /**
- * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403.
+ * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403, and
+ * BACKS OFF while it keeps answering 400.
  *
  * `refetchInterval` fires on a timer regardless of the query's error state, so a
  * poll against a resource the user may not touch retries forever. On 2026-07-27 a
@@ -54,16 +87,31 @@ export function isDeterministicRejection(err: unknown): boolean {
  * Only 403 stops the timer. 5xx, network failures, and timeouts are transient
  * (instance restarting, unreachable) and should keep polling so the UI self-heals.
  *
- * A 400 deliberately does NOT stop the timer, even though it is just as
- * deterministic (`isDeterministicRejection`). Halting on it would freeze a poll
- * whose 400 came from state that is still settling — a certificate challenge
- * mid-provision, an argument derived from a not-yet-loaded resource — until the user
- * remounts or refocuses the tab. `retryUnlessRejected` removes the retry
- * amplification instead, which is the part that is waste either way. Whether the
- * timer itself should stop on a *sustained* 400 is open in #1569.
+ * A 400 does NOT stop the timer, even though it is just as deterministic
+ * (`isDeterministicRejection`). Halting on it would freeze a poll whose 400 came from
+ * state that is still settling — a certificate challenge mid-provision, an argument
+ * derived from a not-yet-loaded resource — until the user remounts or refocuses the tab.
+ *
+ * But a 400 that does not settle must not poll at full rate forever either (#1569). On
+ * 2026-09-24 one `/instances` tab sent ~2,300 rejected `get_status` polls over ~90
+ * minutes, and on 2026-10-01 another sent 126 in ~20 — each one a `console.error`
+ * (Error Tracking) and a fresh toast. So the next poll waits as long as the run of 400s
+ * has already lasted, never less than `interval` and never more than
+ * `MAX_REJECTED_POLL_INTERVAL_MS`: 10s, 10s, 20s, 40s, … 5min. A 400 that clears within
+ * a tick or two is barely delayed; one that lasts an hour costs ~17 requests, not 360.
+ * Any success resets it to `interval`, and remount/refocus still refetch immediately.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
-	return (query: QueryErrorState) => (isForbiddenError(query.state.error) ? false : (interval ?? false));
+	return (query: QueryErrorState) => {
+		if (isForbiddenError(query.state.error)) {
+			return false;
+		}
+		if (!interval) {
+			return interval ?? false;
+		}
+		const streak = rejectionStreakMs(query);
+		return Math.min(Math.max(interval, streak), Math.max(interval, MAX_REJECTED_POLL_INTERVAL_MS));
+	};
 }
 
 /**
@@ -76,8 +124,8 @@ export function pollUnlessForbidden(interval: number | false | undefined) {
  * timer cannot see the 403 until three more doomed requests have gone out — ~30s
  * later on a query that also sets `retryDelay: 10_000`.
  *
- * For 400 the poll timer deliberately keeps running (see `pollUnlessForbidden`) —
- * this only removes the retry amplification, which is worth two distinct things:
+ * For 400 the poll timer keeps running, backed off (see `pollUnlessForbidden`) —
+ * this removes the retry amplification, which is worth two distinct things:
  *
  *   - On the five callers that leave `retryDelay` at React Query's default
  *     exponential backoff (1s/2s/4s), a 400ing tick spent 4 requests inside ~7s.
