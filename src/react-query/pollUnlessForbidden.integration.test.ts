@@ -103,9 +103,6 @@ describe('poll-stops-on-403, end to end', () => {
 
 		await vi.advanceTimersByTimeAsync(60_000);
 
-		// A 400 is deterministic but can come from state that is still settling, so the
-		// timer keeps running — halting it would freeze the UI until remount or refocus.
-		// Mount + polls at 10s, 20s, 40s (backing off, see the next test).
 		expect(post).toHaveBeenCalledTimes(4);
 		unsubscribe();
 	});
@@ -116,8 +113,6 @@ describe('poll-stops-on-403, end to end', () => {
 
 		await vi.advanceTimersByTimeAsync(60 * 60_000);
 
-		// At a flat 10s an hour is 361 requests, each a console.error and a toast (#1569).
-		// Backed off: 0, 10s, 20s, 40s, 80s, 160s, 320s, then every 5min — 17.
 		expect(post).toHaveBeenCalledTimes(17);
 		unsubscribe();
 	});
@@ -129,8 +124,9 @@ describe('poll-stops-on-403, end to end', () => {
 
 		await vi.advanceTimersByTimeAsync(60 * 60_000);
 
-		// Each observer owns a timer, but both read the one shared Query's run.
-		expect(post.mock.calls.length).toBeLessThanOrEqual(2 * 17);
+		// Each observer owns a timer; both re-arm on every update of the one shared Query, so
+		// they fire together and React Query dedupes the fetch.
+		expect(post).toHaveBeenCalledTimes(17);
 		first.unsubscribe();
 		second.unsubscribe();
 	});

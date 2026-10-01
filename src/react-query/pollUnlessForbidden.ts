@@ -81,20 +81,19 @@ function rejectedPollInterval(query: QueryErrorState, interval: number): number 
  * state that is still settling — a certificate challenge mid-provision, an argument
  * derived from a not-yet-loaded resource — until the user remounts or refocuses the tab.
  *
- * But a 400 that does not settle must not poll at full rate forever either (#1569). The
- * next tick waits as long as the run of 400s has lasted, clamped to [`interval`, 5min]:
- * 10s, 10s, 20s, 40s, … 5min. Any success resets it; remount and refocus still refetch
- * immediately, since this only paces the timer.
+ * Instead the next tick waits as long as the run of 400s has lasted, clamped to
+ * [`interval`, 5min]. This paces only the timer; remount and refocus still refetch.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
 	return (query: QueryErrorState) => {
-		if (isForbiddenError(query.state.error)) {
+		const status = errorStatus(query.state.error);
+		if (status === 403) {
 			return false;
 		}
 		if (!interval) {
 			return interval ?? false;
 		}
-		return errorStatus(query.state.error) === 400 ? rejectedPollInterval(query, interval) : interval;
+		return status === 400 ? rejectedPollInterval(query, interval) : interval;
 	};
 }
 

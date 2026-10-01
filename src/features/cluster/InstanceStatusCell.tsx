@@ -32,10 +32,8 @@ export function InstanceStatusCell(
 		return () => clearTimeout(timer);
 	}, [index]);
 
-	// Don't poll get_status for a status central manager won't proxy — the request just 400s on a
-	// 10s loop.
-	const stopped = isStoppedOrTransitioning(instance.status);
-	const statusPollEnabled = ready && canManage && !isOperationsProxyRefused(instance.status);
+	const notProxied = isOperationsProxyRefused(instance.status);
+	const statusPollEnabled = ready && canManage && !notProxied;
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
@@ -48,16 +46,17 @@ export function InstanceStatusCell(
 		return null;
 	}
 
-	// Stopped / transitioning: availability + rotation are N/A. Show a muted dot rather than a stale
-	// green "Available" (cached from before it stopped) or an endless spinner.
-	if (stopped) {
+	// Availability and rotation are N/A while central manager refuses the instance's operations. Show
+	// a muted dot rather than a stale green "Available" (cached from before) or an endless spinner.
+	if (notProxied) {
+		const label = isStoppedOrTransitioning(instance.status) ? 'Not running' : 'Status unavailable';
 		return (
 			<div className="flex items-center gap-2">
 				<Tooltip>
 					<TooltipTrigger asChild>
-						<span className="inline-block size-4 rounded-full bg-muted-foreground/40" aria-label="Not running" />
+						<span className="inline-block size-4 rounded-full bg-muted-foreground/40" aria-label={label} />
 					</TooltipTrigger>
-					<TooltipContent>Not running</TooltipContent>
+					<TooltipContent>{label}</TooltipContent>
 				</Tooltip>
 			</div>
 		);

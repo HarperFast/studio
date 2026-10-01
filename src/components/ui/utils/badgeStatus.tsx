@@ -55,12 +55,8 @@ export function isStoppedOrTransitioning(value: string | undefined): boolean {
 	}
 }
 
-/**
- * Central manager refuses every proxied operation for an instance in one of these states with
- * `400 "Instance is not active"` (its `INACTIVE_STATES`, checked in `HDBInstance` before proxying).
- * Wider than `isStoppedOrTransitioning`: an ERROR or FAILED instance's poll was rejected on every
- * tick for as long as its row stayed open (HarperFast/studio#1569).
- */
+/** Mirrors central manager's `INACTIVE_STATES`, for which its operation proxy answers
+ *  `400 "Instance is not active"`. Keep in sync by hand; there is no shared package. */
 export function isOperationsProxyRefused(value: string | undefined): boolean {
 	switch (value) {
 		case 'TERMINATING':
