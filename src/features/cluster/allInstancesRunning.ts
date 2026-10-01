@@ -22,9 +22,10 @@ const restingInstanceStatuses = ['STOPPED', 'ERROR', 'FAILED'];
 
 /** Scaling's completion gate. How and why it differs from allClusterInstancesRunning: DESIGN.md. */
 export function allClusterInstancesSettled(cluster: Cluster | undefined): boolean {
-	return (cluster?.instances ?? []).every((instance) =>
-		(instance.status && deletedClusterStatuses.includes(instance.status))
-		|| isRunning(instance.status)
-		|| (instance.status && restingInstanceStatuses.includes(instance.status))
-	);
+	return !!cluster?.instances
+		&& cluster.instances.every((instance) =>
+			(instance.status && deletedClusterStatuses.includes(instance.status))
+			|| isRunning(instance.status)
+			|| (instance.status && restingInstanceStatuses.includes(instance.status))
+		);
 }

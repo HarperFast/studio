@@ -78,8 +78,9 @@ describe('allClusterInstancesSettled', () => {
 		expect(allClusterInstancesSettled(makeCluster(['RUNNING', 'TERMINATING', 'TERMINATED', 'REMOVED']))).toBe(true);
 	});
 
-	it('has nothing in progress without instances', () => {
-		expect(allClusterInstancesSettled({ id: 'clu-1' } as Cluster)).toBe(true);
+	it('is false without instance data, but an empty instance list has nothing in progress', () => {
+		expect(allClusterInstancesSettled(undefined)).toBe(false);
+		expect(allClusterInstancesSettled({ id: 'clu-1' } as Cluster)).toBe(false);
 		expect(allClusterInstancesSettled(makeCluster([]))).toBe(true);
 	});
 });

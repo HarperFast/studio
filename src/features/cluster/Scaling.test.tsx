@@ -24,7 +24,7 @@ vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
 }));
 
 let clusterStatus = 'UPDATING';
-let clusterInstances: Record<string, unknown>[] | undefined;
+let clusterInstances: Record<string, unknown>[] = [];
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
 		queryKey: [clusterId],
@@ -50,7 +50,7 @@ function mount() {
 beforeEach(() => {
 	currentSearch = {};
 	clusterStatus = 'UPDATING';
-	clusterInstances = undefined;
+	clusterInstances = [];
 });
 
 afterEach(() => {
