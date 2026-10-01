@@ -96,14 +96,18 @@ describe('describeCloneProgress', () => {
 });
 
 describe('aggregateCloneRatio', () => {
-	it('sums copied over expected across cloning instances that have an expected size', () => {
+	it('sums copied over expected across instances in a clone status, ignoring leftover fields on others', () => {
 		expect(aggregateCloneRatio([
 			instance({ status: 'CLONING', cloneExpectedGb: 30, cloneProgressGb: 15 }),
-			instance({ status: 'CLONING', cloneExpectedGb: 10, cloneProgressGb: 5 }),
-			instance({ status: 'CLONING', cloneProgressGb: 99 }),
+			instance({ status: 'CLONE_READY', cloneExpectedGb: 10, cloneProgressGb: 5 }),
 			instance({ status: 'RUNNING', cloneExpectedGb: 1000, cloneProgressGb: 0 }),
-			instance({ status: 'CLONE_PENDING' }),
 		])).toBe(0.5);
+	});
+
+	it('is null while any copy is pending or has no expected size, rather than reading ~100% around it', () => {
+		const done = instance({ status: 'CLONING', cloneExpectedGb: 40, cloneProgressGb: 40 });
+		expect(aggregateCloneRatio([done, instance({ status: 'CLONE_PENDING' })])).toBeNull();
+		expect(aggregateCloneRatio([done, instance({ status: 'CLONING', cloneProgressGb: 3 })])).toBeNull();
 	});
 
 	it("caps each instance's contribution at its expected size", () => {
@@ -113,7 +117,7 @@ describe('aggregateCloneRatio', () => {
 		])).toBe(0.5);
 	});
 
-	it('is null when no cloning instance has an expected size', () => {
+	it('is null with nothing measurable in a clone status', () => {
 		expect(aggregateCloneRatio([])).toBeNull();
 		expect(aggregateCloneRatio([instance({ status: 'CLONING', cloneProgressGb: 3 })])).toBeNull();
 		expect(aggregateCloneRatio([instance({ status: 'RUNNING', cloneExpectedGb: 40 })])).toBeNull();
