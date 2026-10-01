@@ -4,6 +4,7 @@ import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
@@ -94,6 +95,7 @@ export function StartingUp() {
 			<div className="center max-w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+				<CloneProgressList instances={cluster.instances} />
 				<p>
 					Your cluster is spinning up with the latest changes, including your own DNS records and private connections.
 					Please wait while we get everything going.{' '}

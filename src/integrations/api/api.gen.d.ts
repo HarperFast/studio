@@ -9262,6 +9262,14 @@ export interface components {
             [key: string]: unknown;
         };
         HDBInstance: {
+            /** Format: Float */
+            cloneExpectedGb?: number;
+            /** Format: Date */
+            cloneProgressAt?: string;
+            /** Format: Float */
+            cloneProgressGb?: number;
+            /** Format: Date */
+            cloneStartedAt?: string;
             cloneToken?: string;
             cluster: components["schemas"]["Cluster"];
             clusterFqdn?: string;

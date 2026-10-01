@@ -1,5 +1,6 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
@@ -50,6 +51,7 @@ export function Scaling() {
 			<div className="center w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+				<CloneProgressList instances={cluster.instances} />
 				<p>
 					{isImmediate
 						? 'Your cluster is applying the latest changes immediately, without waiting to take instances out of rotation.'
