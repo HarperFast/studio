@@ -137,7 +137,8 @@ test('finds live instance regions when only some plan regions resolve', async ({
 	await expect(page.getByRole('link', { name: 'Open Production' })).toBeVisible();
 });
 
-const cloningCluster = {
+// Built per test: the ages in the caption are relative to now, and a worker can load this file long before running it.
+const cloningCluster = (now = Date.now()) => ({
 	...clusters[0],
 	instances: [
 		{ id: 'ins-a', name: 'node-a', status: 'RUNNING', cloneExpectedGb: 40, cloneProgressGb: 40 },
@@ -147,8 +148,8 @@ const cloningCluster = {
 			status: 'CLONING',
 			cloneExpectedGb: 40,
 			cloneProgressGb: 12.4,
-			cloneStartedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
-			cloneProgressAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+			cloneStartedAt: new Date(now - 10 * 60_000).toISOString(),
+			cloneProgressAt: new Date(now - 3 * 60_000).toISOString(),
 		},
 	].map((instance, index) => ({
 		...instance,
@@ -163,10 +164,10 @@ const cloningCluster = {
 		version: '5.2.13',
 		hostId: `host-${index}`,
 	})),
-};
+});
 
 test('the instances table shows data-sync progress for a cloning member', async ({ page }) => {
-	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster }));
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster() }));
 	await page.goto('/#/org-fixture/clu-production/instances');
 	const cloningRow = page.getByRole('row').filter({ hasText: 'node-b' });
 	await expect(cloningRow.getByText('Cloning', { exact: true })).toBeVisible();
@@ -182,7 +183,8 @@ test('the instances table shows data-sync progress for a cloning member', async 
 });
 
 test('scaling is not done while a new member is still cloning', async ({ page }) => {
-	let cluster = cloningCluster;
+	const cloning = cloningCluster();
+	let cluster = cloning;
 	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cluster }));
 	await page.goto('/#/org-fixture/clu-production/scaling');
 	await expect(page.getByRole('heading', { name: 'Here we go!' })).toBeVisible();
@@ -192,8 +194,8 @@ test('scaling is not done while a new member is still cloning', async ({ page })
 	await expect(syncing).toContainText('node-b');
 
 	cluster = {
-		...cloningCluster,
-		instances: cloningCluster.instances.map(instance => ({ ...instance, status: 'RUNNING' })),
+		...cloning,
+		instances: cloning.instances.map(instance => ({ ...instance, status: 'RUNNING' })),
 	};
 	await expect(page.getByRole('heading', { name: 'All done!' })).toBeVisible();
 	await expect(page.getByRole('progressbar')).toHaveCount(0);
