@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ackNotification, unackNotification, useNotificationAcks } from '@/features/notifications/acks';
 import { NotificationLink } from '@/features/notifications/components/NotificationLink';
-import { useNotifications, useNow } from '@/features/notifications/hooks';
+import { useNotifications } from '@/features/notifications/hooks';
 import {
 	getSeverityConfig,
 	getWindowStatus,
@@ -11,6 +11,7 @@ import {
 	toMs,
 	type WindowState,
 } from '@/features/notifications/notificationHelpers';
+import { useNow } from '@/hooks/useNow';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { useMemo } from 'react';

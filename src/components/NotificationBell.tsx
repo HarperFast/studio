@@ -4,13 +4,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/compon
 import { ScrollArea } from '@/components/ui/scrollArea';
 import { ackNotification, unackNotification, useNotificationAcks } from '@/features/notifications/acks';
 import { NotificationLink } from '@/features/notifications/components/NotificationLink';
-import { useActiveNotifications, useNow, useUnackedActiveNotifications } from '@/features/notifications/hooks';
+import { useActiveNotifications, useUnackedActiveNotifications } from '@/features/notifications/hooks';
 import {
 	BellIcon,
 	getSeverityConfig,
 	getWindowStatus,
 	SEVERITY_ORDER,
 } from '@/features/notifications/notificationHelpers';
+import { useNow } from '@/hooks/useNow';
 import { SystemStatusNotification } from '@/integrations/api/api.patch';
 import { cn } from '@/lib/cn';
 import { Link } from '@tanstack/react-router';
