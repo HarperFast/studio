@@ -17,3 +17,20 @@ export function allClusterInstancesRunning(cluster: Cluster | undefined): boolea
 	);
 	return instances.length > 0 && instances.every((instance) => isRunning(instance.status));
 }
+
+const restingInstanceStatuses = ['STOPPED', 'ERROR', 'FAILED'];
+
+/**
+ * True once no (non-deleted) instance is still mid-change — cloning, provisioning, updating. During a scale-up the
+ * cluster reports RUNNING while its new members are still cloning, so the cluster status alone can't say the update
+ * is done. Looser than allClusterInstancesRunning: an instance at rest outside RUNNING (stopped, errored) doesn't hold
+ * this open, or scaling a cluster with a stopped member would never finish. A missing or unknown status counts as
+ * still in progress.
+ */
+export function allClusterInstancesSettled(cluster: Cluster | undefined): boolean {
+	return (cluster?.instances ?? []).every((instance) =>
+		(instance.status && deletedClusterStatuses.includes(instance.status))
+		|| isRunning(instance.status)
+		|| (instance.status && restingInstanceStatuses.includes(instance.status))
+	);
+}
