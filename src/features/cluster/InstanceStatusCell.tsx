@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
+import { isOperationsProxyRefused, isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { useOrganizationClusterInstancePermissions } from '@/hooks/usePermissions';
 import { Instance } from '@/integrations/api/api.patch';
@@ -32,10 +32,10 @@ export function InstanceStatusCell(
 		return () => clearTimeout(timer);
 	}, [index]);
 
-	// Don't poll get_status while the instance is stopped / mid container-transition — its ops API
-	// is unreachable, so the request just errors on a 10s loop.
+	// Don't poll get_status for a status central manager won't proxy — the request just 400s on a
+	// 10s loop.
 	const stopped = isStoppedOrTransitioning(instance.status);
-	const statusPollEnabled = ready && canManage && !stopped;
+	const statusPollEnabled = ready && canManage && !isOperationsProxyRefused(instance.status);
 	const { data: statusResponse, isLoading, isFetching } = useQuery(
 		getStatusQueryOptions(instanceParams, statusPollEnabled),
 	);
