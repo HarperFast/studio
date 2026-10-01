@@ -33,36 +33,25 @@ export function isDeterministicRejection(err: unknown): boolean {
 	return status === 400 || status === 403;
 }
 
-/** The slowest a poll that keeps answering 400 is backed off to. Slow enough that an
- *  abandoned tab costs ~12 requests an hour instead of 360, fast enough that a 400 which
- *  does clear is picked up within a few minutes without a refocus. */
-export const MAX_REJECTED_POLL_INTERVAL_MS = 5 * 60_000;
+const MAX_REJECTED_POLL_INTERVAL_MS = 5 * 60_000;
 
-/** When each query's current run of 400s began. Keyed on the query object so it goes
- *  away with the query. */
 const rejectedSince = new WeakMap<QueryErrorState, number>();
 
-/** How long `query` has been answering 400 without a success in between, in ms.
- *
- *  Only a success (`dataUpdatedAt` passing the recorded start) or a different error
- *  ends a run. A null `error` must not: on a query that has never loaded, React Query
- *  resets `error` to null at the start of every fetch, so clearing on null would
- *  restart the run on every tick and the back-off would never engage. */
-function rejectionStreakMs(query: QueryErrorState): number {
-	const { error, errorUpdatedAt, dataUpdatedAt = 0 } = query.state;
-	if (error != null && errorStatus(error) !== 400) {
-		rejectedSince.delete(query);
-	}
-	if (errorStatus(error) !== 400 || errorUpdatedAt === undefined) {
-		return 0;
+/** Only a success (`dataUpdatedAt` passing the recorded start) ends a run. A null `error`
+ *  must not: on a query that has never loaded, React Query resets `error` to null at the
+ *  start of every fetch, so the run would restart on every tick. */
+function rejectedPollInterval(query: QueryErrorState, interval: number): number {
+	const { errorUpdatedAt, dataUpdatedAt = 0 } = query.state;
+	if (!Number.isFinite(errorUpdatedAt)) {
+		return interval;
 	}
 	let since = rejectedSince.get(query);
-	// A success after the recorded start ended that run; this 400 starts a new one.
 	if (since === undefined || since < dataUpdatedAt) {
-		since = errorUpdatedAt;
+		since = errorUpdatedAt!;
 		rejectedSince.set(query, since);
 	}
-	return errorUpdatedAt - since;
+	const streak = errorUpdatedAt! - since;
+	return Math.min(Math.max(interval, streak), Math.max(interval, MAX_REJECTED_POLL_INTERVAL_MS));
 }
 
 /**
@@ -92,14 +81,10 @@ function rejectionStreakMs(query: QueryErrorState): number {
  * state that is still settling — a certificate challenge mid-provision, an argument
  * derived from a not-yet-loaded resource — until the user remounts or refocuses the tab.
  *
- * But a 400 that does not settle must not poll at full rate forever either (#1569). On
- * 2026-09-24 one `/instances` tab sent ~2,300 rejected `get_status` polls over ~90
- * minutes, and on 2026-10-01 another sent 126 in ~20 — each one a `console.error`
- * (Error Tracking) and a fresh toast. So the next poll waits as long as the run of 400s
- * has already lasted, never less than `interval` and never more than
- * `MAX_REJECTED_POLL_INTERVAL_MS`: 10s, 10s, 20s, 40s, … 5min. A 400 that clears within
- * a tick or two is barely delayed; one that lasts an hour costs ~17 requests, not 360.
- * Any success resets it to `interval`, and remount/refocus still refetch immediately.
+ * But a 400 that does not settle must not poll at full rate forever either (#1569). The
+ * next tick waits as long as the run of 400s has lasted, clamped to [`interval`, 5min]:
+ * 10s, 10s, 20s, 40s, … 5min. Any success resets it; remount and refocus still refetch
+ * immediately, since this only paces the timer.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
 	return (query: QueryErrorState) => {
@@ -109,8 +94,7 @@ export function pollUnlessForbidden(interval: number | false | undefined) {
 		if (!interval) {
 			return interval ?? false;
 		}
-		const streak = rejectionStreakMs(query);
-		return Math.min(Math.max(interval, streak), Math.max(interval, MAX_REJECTED_POLL_INTERVAL_MS));
+		return errorStatus(query.state.error) === 400 ? rejectedPollInterval(query, interval) : interval;
 	};
 }
 

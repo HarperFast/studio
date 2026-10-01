@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	isDeterministicRejection,
 	isForbiddenError,
-	MAX_REJECTED_POLL_INTERVAL_MS,
 	pollUnlessForbidden,
 	retryUnlessRejected,
 } from './pollUnlessForbidden';
@@ -69,6 +68,8 @@ describe('pollUnlessForbidden', () => {
 	});
 });
 
+const FIVE_MINUTES = 5 * 60_000;
+
 describe('pollUnlessForbidden on a sustained 400', () => {
 	/** React Query hands `refetchInterval` the same `Query` every time and replaces its
 	 *  `state`, so the tests do the same: one object, state swapped per update. */
@@ -105,13 +106,13 @@ describe('pollUnlessForbidden on a sustained 400', () => {
 	it('caps the back-off so a 400 that clears is still picked up', () => {
 		const q = pollingQuery();
 		q.rejectAt(0);
-		expect(q.rejectAt(60 * 60_000)).toBe(MAX_REJECTED_POLL_INTERVAL_MS);
+		expect(q.rejectAt(60 * 60_000)).toBe(FIVE_MINUTES);
 	});
 
 	it('returns to the base interval after a success, and a later 400 starts over', () => {
 		const q = pollingQuery();
 		q.rejectAt(1_000_000);
-		expect(q.rejectAt(1_300_000)).toBe(MAX_REJECTED_POLL_INTERVAL_MS);
+		expect(q.rejectAt(1_300_000)).toBe(FIVE_MINUTES);
 		expect(q.succeedAt(1_310_000)).toBe(10_000);
 		expect(q.rejectAt(1_320_000)).toBe(10_000);
 		expect(q.rejectAt(1_330_000)).toBe(10_000);
@@ -142,9 +143,47 @@ describe('pollUnlessForbidden on a sustained 400', () => {
 
 	it('does not back off other failures — 5xx and network errors keep the base interval', () => {
 		const poll = pollUnlessForbidden(10_000);
-		const query = { state: { error: axiosErrorWithStatus(500), errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		expect(poll({ state: { error: axiosErrorWithStatus(500), errorUpdatedAt: 60 * 60_000, dataUpdatedAt: 0 } }))
+			.toBe(10_000);
+		expect(poll({ state: { error: new Error('Network Error'), errorUpdatedAt: 60 * 60_000, dataUpdatedAt: 0 } }))
+			.toBe(10_000);
+	});
+
+	it('keeps the run through a transient failure with no success in between', () => {
+		const poll = pollUnlessForbidden(10_000);
+		const query: { state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number } } = {
+			state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 0, dataUpdatedAt: 0 },
+		};
 		poll(query);
-		query.state = { ...query.state, errorUpdatedAt: 60 * 60_000 };
+		query.state = { error: axiosErrorWithStatus(502), errorUpdatedAt: 30_000, dataUpdatedAt: 0 };
+		expect(poll(query)).toBe(10_000);
+		query.state = { error: axiosErrorWithStatus(400), errorUpdatedAt: 60_000, dataUpdatedAt: 0 };
+		expect(poll(query)).toBe(60_000);
+	});
+
+	it('tracks each query separately', () => {
+		const poll = pollUnlessForbidden(10_000);
+		const a = { state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		poll(a);
+		a.state = { ...a.state, errorUpdatedAt: 120_000 };
+		const b = { state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 120_000, dataUpdatedAt: 0 } };
+		expect(poll(a)).toBe(120_000);
+		expect(poll(b)).toBe(10_000);
+	});
+
+	it('falls back to the base interval when the error timestamp is missing or invalid', () => {
+		const poll = pollUnlessForbidden(10_000);
+		expect(poll({ state: { error: axiosErrorWithStatus(400) } })).toBe(10_000);
+		expect(poll({ state: { error: axiosErrorWithStatus(400), errorUpdatedAt: Number.NaN } })).toBe(10_000);
+	});
+
+	it('backs a 5s poll off from 5s', () => {
+		const poll = pollUnlessForbidden(5_000);
+		const query = { state: { error: axiosErrorWithStatus(400), errorUpdatedAt: 0, dataUpdatedAt: 0 } };
+		expect(poll(query)).toBe(5_000);
+		query.state = { ...query.state, errorUpdatedAt: 5_000 };
+		expect(poll(query)).toBe(5_000);
+		query.state = { ...query.state, errorUpdatedAt: 10_000 };
 		expect(poll(query)).toBe(10_000);
 	});
 
