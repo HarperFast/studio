@@ -9,6 +9,7 @@ import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DatacenterCountSummary } from '@/features/admin/regions/components/DatacenterCountSummary';
 import { MultiSelect, MultiSelectOption } from '@/features/admin/regions/components/MultiSelect';
 import { useCreateRegionMutation } from '@/features/admin/regions/mutations/useCreateRegion';
 import { useUpdateRegionMutation } from '@/features/admin/regions/mutations/useUpdateRegion';
@@ -274,6 +275,7 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 												allowRepeats
 											/>
 										</FormControl>
+										<DatacenterCountSummary datacenters={field.value} ariaLabel="Linode instances per location" />
 										<FormMessage />
 									</FormItem>
 								)}
@@ -295,6 +297,7 @@ export function RegionFormModal({ open, onOpenChange, region }: RegionFormModalP
 												allowRepeats
 											/>
 										</FormControl>
+										<DatacenterCountSummary datacenters={field.value} ariaLabel="GCP instances per location" />
 										<FormMessage />
 									</FormItem>
 								)}
