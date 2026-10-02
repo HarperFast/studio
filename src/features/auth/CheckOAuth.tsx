@@ -26,26 +26,25 @@ export function CheckOAuth() {
 		if (checking) {
 			return;
 		}
-		// Deferred via Promise.resolve().then(...) rather than invoked as a plain async
-		// IIFE: `checking` must be assigned before any of the body below runs, including
-		// its own synchronous part (e.g. clearOAuthErrorParamsFromUrl's history.replaceState,
-		// which can throw synchronously). An immediately-invoked async function still runs
-		// synchronously up to its first `await`, so a synchronous throw there would run the
-		// `finally` (clearing the not-yet-assigned `checking`) before the assignment below
-		// completes — the next assignment then clobbers it back to a lock nothing ever
-		// releases again.
+		// Promise.resolve().then(...), not a plain async IIFE: guarantees `checking` is
+		// assigned before the body runs, so a synchronous throw inside can't run `finally`
+		// on a not-yet-assigned lock.
 		checking = Promise.resolve().then(async () => {
 			try {
-				// The plugin appends these with the URL API, which puts them before the
-				// hash; the hash router's `useSearch` only sees the hash's own (empty)
-				// query string, so this reads `window.location.search` directly.
+				// Hash router: `useSearch` only sees the hash's own query string, so the
+				// plugin's pre-hash error/reason params need `window.location.search` directly.
 				const params = new URLSearchParams(window.location.search);
 				const oauthErrorMessage = getOAuthErrorMessage(params.get('error'), params.get('reason'));
-				clearOAuthErrorParamsFromUrl();
+				// Isolated: a throw here (e.g. a throttled history.replaceState) must not
+				// skip the toast/navigate below, which is the one thing a failed sign-in
+				// redirect needs to show.
+				try {
+					clearOAuthErrorParamsFromUrl();
+				} catch (error) {
+					console.debug('Failed to clear OAuth error params from the URL, carrying on:', error);
+				}
 
 				if (oauthErrorMessage) {
-					// The redirect itself already tells us sign-in failed; no need to also
-					// ask getCurrentUser.
 					toast.error(oauthErrorMessage, { duration: 10_000 });
 					await navigate({ to: '/sign-in' });
 					return;
@@ -75,17 +74,11 @@ export function CheckOAuth() {
 					await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 				}
 			} finally {
-				// Any rejection above (navigate, router.invalidate, queryClient.invalidateQueries
-				// — getCurrentUser already catches its own) must still release the lock, or every
-				// later mount of CheckOAuth no-ops until a full reload.
 				checking = null;
 			}
 		}).catch((error) => {
-			// `console.debug`, never `console.error`: the RUM SDK promotes `console.error` to an
-			// Error Tracking event, which would report an interrupted navigation (e.g. the user
-			// clicking "Try signing in again" mid-flight) as a failure even though the lock
-			// release above already handled it correctly — same convention as authStore.ts's
-			// reportLogoutFailure (#1658).
+			// console.debug, not console.error: the RUM SDK promotes console.error to an
+			// Error Tracking event (authStore.ts's reportLogoutFailure, #1658, same reason).
 			console.debug('OAuth sign-in check failed, carrying on:', error);
 		});
 		// We only want this to fire once.

@@ -120,10 +120,8 @@ describe('CheckOAuth', () => {
 		expect(clearUtmParamsFromUrl).toHaveBeenCalled();
 	});
 
-	// The module-level `checking` lock must release even when an awaited call rejects, or every
-	// later mount of CheckOAuth no-ops forever (Gemini PRRT_kwDODRu1TM6ocSFz). `navigate` rejecting
-	// on the first mount's `await navigate(...)` stands in for any of navigate/router.invalidate/
-	// queryClient.invalidateQueries — all equally unguarded by a try/finally before this fix.
+	// `checking` is a module-level lock; it must release even when navigate/router.invalidate/
+	// queryClient.invalidateQueries rejects, or every later mount is a permanent no-op.
 	it('releases the lock when an awaited call rejects, so a later mount runs the check again', async () => {
 		stubLocationSearch('');
 		getCurrentUser.mockResolvedValue(null);
@@ -132,8 +130,6 @@ describe('CheckOAuth', () => {
 
 		const { unmount } = renderCheckOAuth();
 		await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
-		// Let the rejection propagate through the finally (releases the lock) and the
-		// outer .catch (logs via console.debug, not console.error — see CheckOAuth.tsx).
 		await waitFor(() =>
 			expect(consoleDebug).toHaveBeenCalledWith('OAuth sign-in check failed, carrying on:', expect.any(Error))
 		);
@@ -149,15 +145,10 @@ describe('CheckOAuth', () => {
 		consoleDebug.mockRestore();
 	});
 
-	// Codex (pre-push review) found that a SYNCHRONOUS throw before the first `await` — the only
-	// candidate is clearOAuthErrorParamsFromUrl's history.replaceState, which some browsers throttle
-	// into throwing — ran the try/finally's `checking = null` *before* `checking = <the IIFE's
-	// promise>` had been assigned (an async function body runs synchronously up to its first await),
-	// so the later assignment clobbered the lock back on with nothing left to ever release it.
-	// Deferring the whole body through `Promise.resolve().then(...)` guarantees the assignment
-	// completes first. Verified to fail without that deferral (reproduced the exact sequence in an
-	// isolated Node script before applying the fix).
-	it('releases the lock even when clearOAuthErrorParamsFromUrl throws synchronously, before any await', async () => {
+	// clearOAuthErrorParamsFromUrl's history.replaceState can throw synchronously (some browsers
+	// throttle it); the rest of the check (here, the no-error-param path) must still run on the
+	// same mount, logged separately from the check's own outer failure handler.
+	it('keeps checking on the same mount when clearOAuthErrorParamsFromUrl throws synchronously', async () => {
 		stubLocationSearch('');
 		getCurrentUser.mockResolvedValue(null);
 		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
@@ -165,18 +156,36 @@ describe('CheckOAuth', () => {
 			throw new Error('history.replaceState throttled');
 		});
 
-		const { unmount } = renderCheckOAuth();
+		renderCheckOAuth();
+
 		await waitFor(() =>
 			expect(consoleDebug).toHaveBeenCalledWith(
-				'OAuth sign-in check failed, carrying on:',
+				'Failed to clear OAuth error params from the URL, carrying on:',
 				expect.objectContaining({ message: 'history.replaceState throttled' }),
 			)
 		);
-		expect(navigate).not.toHaveBeenCalled();
-		unmount();
+		await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
+		consoleDebug.mockRestore();
+	});
+
+	// Cursor Grok (pre-push review): the same throw, but with an error param present, must not
+	// skip the one thing this component exists to do — show the mapped message and redirect.
+	it('still shows the mapped message when clearOAuthErrorParamsFromUrl throws on a failed redirect', async () => {
+		stubLocationSearch('?error=access_denied&reason=email_not_verified');
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		clearOAuthErrorParamsFromUrl.mockImplementationOnce(() => {
+			throw new Error('history.replaceState throttled');
+		});
 
 		renderCheckOAuth();
-		await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(1));
+
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
+		expect(toast.error).toHaveBeenCalledWith(
+			'Verify your email address before signing in with this provider.',
+			{ duration: 10_000 },
+		);
+		expect(getCurrentUser).not.toHaveBeenCalled();
 		consoleDebug.mockRestore();
 	});
 });
