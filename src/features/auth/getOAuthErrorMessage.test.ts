@@ -21,6 +21,12 @@ describe('getOAuthErrorMessage', () => {
 		expect(getOAuthErrorMessage('auth_failed', reason)).toContain(expectedSubstring);
 	});
 
+	// oauth#270: an hdb_user read failure during GitHub email-to-account matching arrives
+	// as error=server_error&reason=email_lookup_failed, same shape as account_lookup_failed.
+	it('tells the user to retry when a verified-email lookup fails (oauth#270)', () => {
+		expect(getOAuthErrorMessage('server_error', 'email_lookup_failed')).toContain('temporarily unavailable');
+	});
+
 	it('names the actual problem for an expired/mismatched CSRF state', () => {
 		expect(getOAuthErrorMessage('auth_failed', 'csrf')).toBe(
 			'Your sign-in session expired. Please try signing in again.',
@@ -33,9 +39,10 @@ describe('getOAuthErrorMessage', () => {
 		);
 	});
 
-	it('tells the user to contact an administrator when multiple verified emails match (oauth#270)', () => {
-		expect(getOAuthErrorMessage('access_denied', 'email_ambiguous')).toBe(
-			'More than one of your verified email addresses matches an existing account. Contact your administrator.',
+	it('tells the user to sign in with a single matching address or ask an admin when verified emails are ambiguous (oauth#270)', () => {
+		expect(getOAuthErrorMessage('auth_failed', 'email_ambiguous')).toBe(
+			'More than one of your verified email addresses matches an existing account. '
+				+ 'Try signing in with just one of them, or contact your administrator.',
 		);
 	});
 
