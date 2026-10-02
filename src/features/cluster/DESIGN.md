@@ -32,9 +32,10 @@ does not expose.
 
 The cluster list reads only the organization response, which doesn't expand instances, and it does no per-card
 polling. So the card can't derive sync state from instances the way the Instances table and the Starting-up and
-Scaling screens do. It reads the per-cluster `syncSummary` that central manager computes instead
-([HarperFast/central-manager#888](https://github.com/HarperFast/central-manager/issues/888)), and shows no chip when the
-field is absent.
+Scaling screens do. It reads the organization response's `clusterSyncSummaries` instead — computed by central manager
+and keyed by cluster id ([HarperFast/central-manager#888](https://github.com/HarperFast/central-manager/issues/888)) —
+which `buildClusterList` attaches to each list item. A cluster with no entry, or a response without the map, shows no
+chip.
 
 The chip reads "Syncing", or "Syncing · ~31%" once every copy has an expected size. It deliberately shows no instance
 count: Studio presents a cluster as one entity, and the percent already covers the whole cluster.

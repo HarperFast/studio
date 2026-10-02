@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { describeCluster } from '@/features/clusters/lib/clusterListModel';
-import type { Cluster } from '@/integrations/api/api.patch';
+import type { Cluster, ClusterSyncSummary } from '@/integrations/api/api.patch';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClusterCard as ClusterCardView } from './ClusterCard';
-function ClusterCard({ cluster }: { cluster: Cluster }) {
-	return <ClusterCardView item={describeCluster(cluster)} />;
+function ClusterCard({ cluster, syncSummary }: { cluster: Cluster; syncSummary?: ClusterSyncSummary }) {
+	return <ClusterCardView item={describeCluster(cluster, undefined, syncSummary)} />;
 }
 
 const state = vi.hoisted(() => ({
@@ -104,7 +104,7 @@ describe('ClusterCard', () => {
 
 	it('flags a running cluster whose members are still copying data, from the sync summary', () => {
 		const { container } = render(
-			<ClusterCard cluster={cluster({ syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } })} />,
+			<ClusterCard cluster={cluster()} syncSummary={{ syncing: 2, copiedGb: 12.4, expectedGb: 40 }} />,
 		);
 		expect(screen.getByText('Running')).toBeTruthy();
 		expect(screen.getByText('Syncing · ~31%')).toBeTruthy();
@@ -112,7 +112,7 @@ describe('ClusterCard', () => {
 	});
 
 	it('shows no sync chip without a summary or with nothing syncing', () => {
-		render(<ClusterCard cluster={cluster({ syncSummary: null })} />);
+		render(<ClusterCard cluster={cluster()} syncSummary={{ syncing: 0 }} />);
 		expect(screen.queryByText(/^Syncing/)).toBeNull();
 		cleanup();
 		render(<ClusterCard cluster={cluster()} />);
