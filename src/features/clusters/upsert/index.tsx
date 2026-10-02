@@ -30,7 +30,7 @@ import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
 import { detectPartialUpgrade } from './lib/detectPartialUpgrade';
-import { buildRegionLookup } from './lib/regionLookup';
+import { buildRegionLookup, isOrganizationRegionId } from './lib/regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './lib/regionPlanDefaults';
 import { RegionPlanEntry, UpsertClusterSchema, UpsertClusterSchemaType } from './upsertClusterSchema';
 
@@ -75,10 +75,21 @@ export function UpsertCluster() {
 		organizationId,
 	}));
 	const { data: regionLocationsDedicated } = useQuery(getRegionLocationsOptions({ organizationId }));
-	const { data: organizationRegions } = useQuery(getOrganizationRegionsQueryOptions(organizationId));
+	const { data: organizationRegionsData, isError: organizationRegionsFailed } = useQuery(
+		getOrganizationRegionsQueryOptions(organizationId),
+	);
+	// A failed fetch must not strand a catalog-only form on "Loading…"; an edit that needs one of
+	// the missing rows is refused below instead.
+	const organizationRegions = organizationRegionsFailed ? organizationRegionsData ?? [] : organizationRegionsData;
 	// Central-manager lets staff with the matching cluster permission place custom regions.
 	const canUseCustomRegions = useStaffPermission(clusterId ? 'cluster:update' : 'cluster:create');
+	const canWriteRegions = useStaffPermission('region:write');
+	const canDefineCustomRegions = canUseCustomRegions && canWriteRegions;
 	const cloudProvider = organization?.channel === 'Akamai' ? 'linode' : undefined;
+	const lockedOrganizationRegionIds = useMemo(
+		() => (cluster?.plans ?? []).map(plan => plan.regionId).filter((id): id is string => isOrganizationRegionId(id)),
+		[cluster],
+	);
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
@@ -142,6 +153,12 @@ export function UpsertCluster() {
 
 		let clusterToLoad = cluster;
 
+		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
+		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
+			? regionLocationsColocated
+			: regionLocationsDedicated;
+		const regionLookup = buildRegionLookup(regionLocations, organizationRegions, cloudProvider);
+
 		if (savedClusterState) {
 			if (isUpsertClusterSchema(savedClusterState)) {
 				const draftLookup = buildRegionLookup(
@@ -161,22 +178,18 @@ export function UpsertCluster() {
 						regionPlans: migrateDraftRegionPlans(savedClusterState.regionPlans, draftLookup),
 						instances: savedClusterState.instances || [],
 					},
-					unresolvedRegionIds: [],
+					// The draft may have lost a region the live cluster still deploys; the refusal below
+					// keys on the server's plans, not the draft.
+					unresolvedRegionIds: buildRegionPlanDefaults(cluster?.plans, regionLookup).unresolvedRegionIds,
 				};
 			} else {
 				clusterToLoad = savedClusterState;
 			}
 		}
 
-		const selectedPlan = planTypes?.find(planType => planType.id === cluster?.plans?.[0].planId);
-
 		const regionPlans: RegionPlanEntry[] = [];
 		let unresolvedRegionIds: string[] = [];
 		const instances: z.infer<typeof UpsertClusterSchema.shape.instances> = [];
-		const regionLocations = selectedPlan?.deploymentDescription !== 'Dedicated'
-			? regionLocationsColocated
-			: regionLocationsDedicated;
-		const regionLookup = buildRegionLookup(regionLocations, organizationRegions, cloudProvider);
 		const defaults = calculateDefaultDeploymentPerformanceAndRegionPlans(planTypes, regionLocations, alreadyUsingFree);
 
 		let isSelfManaged = false;
@@ -261,14 +274,22 @@ export function UpsertCluster() {
 		return (
 			<UpsertClusterLayout isEdit={!!clusterId}>
 				<ErrorComponent
-					title="Region Unavailable"
+					title={organizationRegionsFailed ? 'Custom Regions Unavailable' : 'Region Unavailable'}
 					error={{
-						message: (
-							<>
-								This cluster deploys a region that is no longer available ({defaultsResult.unresolvedRegionIds.join(', ')}),
-								so it cannot be edited here. Please <ContactUs />.
-							</>
-						),
+						message: organizationRegionsFailed
+							? (
+								<>
+									This organization's custom regions could not be loaded, so this cluster cannot be edited right now.
+									Please try again, or <ContactUs />.
+								</>
+							)
+							: (
+								<>
+									This cluster deploys a region that is no longer available ({defaultsResult.unresolvedRegionIds.join(
+										', ',
+									)}), so it cannot be edited here. Please <ContactUs />.
+								</>
+							),
 					}}
 				/>
 			</UpsertClusterLayout>
@@ -322,6 +343,8 @@ export function UpsertCluster() {
 				organizationId={organizationId}
 				organizationRegions={organizationRegions}
 				canUseCustomRegions={canUseCustomRegions}
+				canDefineCustomRegions={canDefineCustomRegions}
+				lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				partialUpgrade={partialUpgrade}
 				planTypes={planTypes}
 				regionLocationsColocated={regionLocationsColocated}

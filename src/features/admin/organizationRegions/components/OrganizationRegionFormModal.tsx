@@ -112,8 +112,11 @@ export function OrganizationRegionFormModal(
 
 	const onSubmit = (values: OrganizationRegionFormValues) => {
 		// Mirrors central-manager: a fallback pool must cover every listed datacenter, or a pooled deploy
-		// could never reach the shape's own datacenters.
-		if (values.fallbackGroup !== NO_FALLBACK) {
+		// could never reach the shape's own datacenters. Only checked when the shape or pool is being
+		// written, so an `active` toggle on a frozen region never waits on the Location catalog.
+		const patch = region ? toPatch(region, values) : null;
+		const placementWritten = !patch || patch.placement !== undefined || patch.fallbackGroup !== undefined;
+		if (placementWritten && values.fallbackGroup !== NO_FALLBACK) {
 			const outside = [...values.linodeDatacenters, ...values.gcpDatacenters].find((dc) =>
 				!regionsByDatacenter.get(dc)?.includes(values.fallbackGroup)
 			);
