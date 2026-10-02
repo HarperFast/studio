@@ -26,13 +26,19 @@ export function CheckOAuth() {
 		if (checking) {
 			return;
 		}
-		checking = (async function() {
+		// Deferred via Promise.resolve().then(...) rather than invoked as a plain async
+		// IIFE: `checking` must be assigned before any of the body below runs, including
+		// its own synchronous part (e.g. clearOAuthErrorParamsFromUrl's history.replaceState,
+		// which can throw synchronously). An immediately-invoked async function still runs
+		// synchronously up to its first `await`, so a synchronous throw there would run the
+		// `finally` (clearing the not-yet-assigned `checking`) before the assignment below
+		// completes — the next assignment then clobbers it back to a lock nothing ever
+		// releases again.
+		checking = Promise.resolve().then(async () => {
 			try {
 				// The plugin appends these with the URL API, which puts them before the
-				// hash (e.g. `/?error=auth_failed&reason=csrf#/check-oauth`); the hash
-				// router's `useSearch` only sees the hash's own (empty) query string, so
-				// this reads `window.location.search` directly, as ProcessSetupIntent does
-				// for the same reason.
+				// hash; the hash router's `useSearch` only sees the hash's own (empty)
+				// query string, so this reads `window.location.search` directly.
 				const params = new URLSearchParams(window.location.search);
 				const oauthErrorMessage = getOAuthErrorMessage(params.get('error'), params.get('reason'));
 				clearOAuthErrorParamsFromUrl();
@@ -69,18 +75,18 @@ export function CheckOAuth() {
 					await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
 				}
 			} finally {
-				// A rejection from any awaited call above (navigate, router.invalidate,
-				// queryClient.invalidateQueries — getCurrentUser already catches its own)
-				// must still release the lock, or every later mount of CheckOAuth no-ops
-				// until a full reload.
+				// Any rejection above (navigate, router.invalidate, queryClient.invalidateQueries
+				// — getCurrentUser already catches its own) must still release the lock, or every
+				// later mount of CheckOAuth no-ops until a full reload.
 				checking = null;
 			}
-		})().catch((error) => {
-			// The IIFE's own promise still rejects past the finally above (finally
-			// releases the lock but doesn't swallow the error); nothing else awaits
-			// this effect's promise, so leaving it uncaught here would be a real
-			// unhandled rejection.
-			console.error('OAuth sign-in check failed:', error);
+		}).catch((error) => {
+			// `console.debug`, never `console.error`: the RUM SDK promotes `console.error` to an
+			// Error Tracking event, which would report an interrupted navigation (e.g. the user
+			// clicking "Try signing in again" mid-flight) as a failure even though the lock
+			// release above already handled it correctly — same convention as authStore.ts's
+			// reportLogoutFailure (#1658).
+			console.debug('OAuth sign-in check failed, carrying on:', error);
 		});
 		// We only want this to fire once.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
