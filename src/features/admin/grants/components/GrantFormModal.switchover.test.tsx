@@ -198,6 +198,18 @@ describe('GrantFormModal — switchover', () => {
 		expect(switchToPaid).toHaveBeenCalledTimes(1);
 	});
 
+	it('the confirmation cannot be dismissed while the charge is in flight', async () => {
+		holdSwitch = true;
+		await mount(grant());
+		await typeReason('contract ended');
+		fireEvent.click(switchButton()!);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		fireEvent.click(within(confirmDialog()).getByRole('button', { name: 'Switch to paid' }));
+		fireEvent.keyDown(confirmDialog(), { key: 'Escape' });
+		await act(() => null);
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+	});
+
 	it('says when the organization has no card to charge', async () => {
 		switchFailure = {
 			response: {
