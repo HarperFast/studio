@@ -82,6 +82,17 @@ export function isCloning(value: string | undefined): value is 'CLONE_PENDING' |
 	}
 }
 
+/** Central manager has the leader mint a token before each new member's copy (`GENERATE_TOKEN` → `TOKEN_GENERATED`). */
+export function isMintingCloneToken(value: string | undefined): value is 'GENERATE_TOKEN' | 'TOKEN_GENERATED' {
+	switch (value) {
+		case 'GENERATE_TOKEN':
+		case 'TOKEN_GENERATED':
+			return true;
+		default:
+			return false;
+	}
+}
+
 export function isRunning(value: string | undefined): value is 'RUNNING' | 'UPDATED' {
 	switch (value) {
 		case 'RUNNING':

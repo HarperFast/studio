@@ -1,4 +1,11 @@
-import { isBeingUpdated, isFailed, isPendingUpdate, isRunning, isTerminated } from '@/components/ui/utils/badgeStatus';
+import {
+	isBeingUpdated,
+	isFailed,
+	isMintingCloneToken,
+	isPendingUpdate,
+	isRunning,
+	isTerminated,
+} from '@/components/ui/utils/badgeStatus';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Cluster } from '@/integrations/api/api.patch';
 import { mapBy } from '@/lib/arrays/mapBy';
@@ -59,9 +66,11 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			} else if (!instance.planId || !activePlanIds.includes(instance.planId)) {
 				updating += 1;
 				updatingTexts['DRAINING_TRAFFIC'] = `${updating} ${capitalizeWords('Draining Traffic')}`;
-			} else if (isRunning(status)) {
+			} else if (isRunning(status) || isMintingCloneToken(status)) {
+				// The leader keeps serving while it mints a new member's clone token, so it still counts as running.
+				const label = isRunning(status) ? status : 'RUNNING';
 				running += 1;
-				runningTexts[status] = `${running} ${capitalizeWords(status)}`;
+				runningTexts[label] = `${running} ${capitalizeWords(label)}`;
 			}
 			// We'll ignore terminated or non-updated instances from the totals.
 		}
