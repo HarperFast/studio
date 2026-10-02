@@ -27,50 +27,61 @@ export function CheckOAuth() {
 			return;
 		}
 		checking = (async function() {
-			// The plugin appends these with the URL API, which puts them before the
-			// hash (e.g. `/?error=auth_failed&reason=csrf#/check-oauth`); the hash
-			// router's `useSearch` only sees the hash's own (empty) query string, so
-			// this reads `window.location.search` directly, as ProcessSetupIntent does
-			// for the same reason.
-			const params = new URLSearchParams(window.location.search);
-			const oauthErrorMessage = getOAuthErrorMessage(params.get('error'), params.get('reason'));
-			clearOAuthErrorParamsFromUrl();
+			try {
+				// The plugin appends these with the URL API, which puts them before the
+				// hash (e.g. `/?error=auth_failed&reason=csrf#/check-oauth`); the hash
+				// router's `useSearch` only sees the hash's own (empty) query string, so
+				// this reads `window.location.search` directly, as ProcessSetupIntent does
+				// for the same reason.
+				const params = new URLSearchParams(window.location.search);
+				const oauthErrorMessage = getOAuthErrorMessage(params.get('error'), params.get('reason'));
+				clearOAuthErrorParamsFromUrl();
 
-			if (oauthErrorMessage) {
-				// The redirect itself already tells us sign-in failed; no need to also
-				// ask getCurrentUser.
-				toast.error(oauthErrorMessage, { duration: 10_000 });
-				await navigate({ to: '/sign-in' });
+				if (oauthErrorMessage) {
+					// The redirect itself already tells us sign-in failed; no need to also
+					// ask getCurrentUser.
+					toast.error(oauthErrorMessage, { duration: 10_000 });
+					await navigate({ to: '/sign-in' });
+					return;
+				}
+
+				const user = await getCurrentUser().catch(() => null);
+				if (!user) {
+					toast.error(OAUTH_GENERIC_ERROR_MESSAGE, {
+						duration: 10_000,
+					});
+					await navigate({ to: '/sign-in' });
+				} else {
+					authStore.setUserForEntity(OverallAppSignIn, user);
+					clearUtmParamsFromUrl();
+					const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
+
+					loginSuccessDatadogAction(user);
+
+					const company = parseCompanyFromEmail(user.email);
+					reoClient?.identify?.({
+						username: user.email,
+						type: 'email',
+						...(company ? { company } : {}),
+					});
+					await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
+					await router.invalidate();
+					await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
+				}
+			} finally {
+				// A rejection from any awaited call above (navigate, router.invalidate,
+				// queryClient.invalidateQueries — getCurrentUser already catches its own)
+				// must still release the lock, or every later mount of CheckOAuth no-ops
+				// until a full reload.
 				checking = null;
-				return;
 			}
-
-			const user = await getCurrentUser().catch(() => null);
-			if (!user) {
-				toast.error(OAUTH_GENERIC_ERROR_MESSAGE, {
-					duration: 10_000,
-				});
-				await navigate({ to: '/sign-in' });
-			} else {
-				authStore.setUserForEntity(OverallAppSignIn, user);
-				clearUtmParamsFromUrl();
-				const defaultCloudRoute = getDefaultSignedInCloudRouteForUser(user);
-
-				loginSuccessDatadogAction(user);
-
-				const company = parseCompanyFromEmail(user.email);
-				reoClient?.identify?.({
-					username: user.email,
-					type: 'email',
-					...(company ? { company } : {}),
-				});
-				await queryClient.invalidateQueries({ queryKey: currentUserQueryKey, refetchType: 'none' });
-				await router.invalidate();
-				await navigate({ to: redirect?.startsWith('/') ? redirect : defaultCloudRoute });
-			}
-
-			checking = null;
-		})();
+		})().catch((error) => {
+			// The IIFE's own promise still rejects past the finally above (finally
+			// releases the lock but doesn't swallow the error); nothing else awaits
+			// this effect's promise, so leaving it uncaught here would be a real
+			// unhandled rejection.
+			console.error('OAuth sign-in check failed:', error);
+		});
 		// We only want this to fire once.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
