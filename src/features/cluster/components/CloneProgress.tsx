@@ -11,10 +11,17 @@ export function InstanceCloneProgress({ instance, className }: { instance: Insta
 	if (!progress) {
 		return null;
 	}
-	// A pending copy has no age to show, so it skips the clock.
-	return progress.waiting
-		? <CloneProgressLine waiting description={describeCloneProgress(progress, Date.now())} className={className} />
-		: <ActiveCloneProgress progress={progress} className={className} />;
+	// Only a caption that shows an age needs the clock.
+	const showsAge = !progress.waiting && (progress.lastProgressAt !== undefined || progress.startedAt !== undefined);
+	return showsAge
+		? <ActiveCloneProgress progress={progress} className={className} />
+		: (
+			<CloneProgressLine
+				waiting={progress.waiting}
+				description={describeCloneProgress(progress, Date.now())}
+				className={className}
+			/>
+		);
 }
 
 function ActiveCloneProgress({ progress, className }: { progress: CloneProgress; className?: string }) {

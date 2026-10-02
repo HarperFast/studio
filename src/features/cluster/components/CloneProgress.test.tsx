@@ -1,7 +1,11 @@
 /** @vitest-environment jsdom */
 import type { Instance } from '@/integrations/api/api.patch';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const clock = vi.hoisted(() => ({ useNow: vi.fn(() => Date.parse('2026-10-01T12:00:00Z')) }));
+vi.mock('@/hooks/useNow', () => clock);
+
 import { CloneProgressList, InstanceCloneProgress } from './CloneProgress';
 
 function instance(fields: Partial<Instance>): Instance {
@@ -10,6 +14,7 @@ function instance(fields: Partial<Instance>): Instance {
 
 afterEach(() => {
 	cleanup();
+	clock.useNow.mockClear();
 });
 
 describe('InstanceCloneProgress', () => {
@@ -32,6 +37,19 @@ describe('InstanceCloneProgress', () => {
 		expect(screen.getByText('Waiting to sync data')).toBeTruthy();
 		expect(container.querySelector('svg.lucide-clock')).toBeTruthy();
 		expect(container.querySelector('svg.lucide-refresh-cw')).toBeNull();
+	});
+
+	it('subscribes to the clock only when the caption shows an age', () => {
+		render(<InstanceCloneProgress instance={instance({ status: 'CLONING', cloneProgressGb: 1 })} />);
+		render(<InstanceCloneProgress instance={instance({ status: 'CLONE_PENDING' })} />);
+		expect(clock.useNow).not.toHaveBeenCalled();
+		render(
+			<InstanceCloneProgress
+				instance={instance({ status: 'CLONING', cloneProgressGb: 1, cloneProgressAt: '2026-10-01T11:58:00Z' })}
+			/>,
+		);
+		expect(clock.useNow).toHaveBeenCalled();
+		expect(screen.getByText('Syncing data · ~1 GB copied · last progress 2 minutes ago')).toBeTruthy();
 	});
 
 	it('renders nothing for a running instance that kept its clone fields', () => {
