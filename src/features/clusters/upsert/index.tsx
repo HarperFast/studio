@@ -215,7 +215,8 @@ export function UpsertCluster() {
 		} else if (defaults) {
 			regionPlans.push(...defaults.regionPlans);
 		}
-		if (!isSelfManaged && !regionPlans.length) {
+		// A version edit never submits regions, so it must not carry a placeholder the schema rejects.
+		if (!isSelfManaged && !regionPlans.length && mode !== 'version') {
 			regionPlans.push({ regionId: '' });
 		}
 

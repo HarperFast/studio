@@ -25,9 +25,7 @@ interface ClusterRegionsProps {
 	isEnterprise: boolean;
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 	organizationId: string;
-	/** Staff may pick an organization's custom regions and set their quantity. */
 	canUseCustomRegions: boolean;
-	/** Defining one inline additionally needs region:write. */
 	canDefineCustomRegions: boolean;
 }
 

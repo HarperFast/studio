@@ -28,7 +28,6 @@ export function buildRegionPlanDefaults(
 	return { regionPlans, unresolvedRegionIds };
 }
 
-/** The shape drafts carried before entries were keyed by id. */
 interface LegacyDraftEntry {
 	regionName?: string;
 	latencyDescription?: string;

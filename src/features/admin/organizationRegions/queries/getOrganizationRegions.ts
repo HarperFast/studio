@@ -22,7 +22,6 @@ export async function getOrganizationRegions(organizationId: string): Promise<Or
 	}
 }
 
-/** GET /OrganizationRegion/:id → one row plus the live clusters that reference it. */
 export async function getOrganizationRegion(id: string): Promise<OrganizationRegion> {
 	const { data } = await apiClient.get(`/OrganizationRegion/${encodeURIComponent(id)}` as '/Region/{id}');
 	return data as unknown as OrganizationRegion;
