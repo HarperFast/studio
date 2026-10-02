@@ -70,6 +70,29 @@ export function isOperationsProxyRefused(value: string | undefined): boolean {
 	}
 }
 
+/** Mirrors central manager's `CLONE_STATUSES`: the instance is copying its data from an existing member. */
+export function isCloning(value: string | undefined): value is 'CLONE_PENDING' | 'CLONE_READY' | 'CLONING' {
+	switch (value) {
+		case 'CLONE_PENDING':
+		case 'CLONE_READY':
+		case 'CLONING':
+			return true;
+		default:
+			return false;
+	}
+}
+
+/** Central manager has the leader mint a token before each new member's copy (`GENERATE_TOKEN` → `TOKEN_GENERATED`). */
+export function isMintingCloneToken(value: string | undefined): value is 'GENERATE_TOKEN' | 'TOKEN_GENERATED' {
+	switch (value) {
+		case 'GENERATE_TOKEN':
+		case 'TOKEN_GENERATED':
+			return true;
+		default:
+			return false;
+	}
+}
+
 export function isRunning(value: string | undefined): value is 'RUNNING' | 'UPDATED' {
 	switch (value) {
 		case 'RUNNING':

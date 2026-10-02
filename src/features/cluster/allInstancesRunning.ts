@@ -17,3 +17,15 @@ export function allClusterInstancesRunning(cluster: Cluster | undefined): boolea
 	);
 	return instances.length > 0 && instances.every((instance) => isRunning(instance.status));
 }
+
+const restingInstanceStatuses = ['STOPPED', 'ERROR', 'FAILED'];
+
+/** Like allClusterInstancesRunning, but STOPPED/ERROR/FAILED count as at rest; missing or unknown data fails closed. */
+export function allClusterInstancesSettled(cluster: Cluster | undefined): boolean {
+	return !!cluster?.instances
+		&& cluster.instances.every((instance) =>
+			(instance.status && deletedClusterStatuses.includes(instance.status))
+			|| isRunning(instance.status)
+			|| (instance.status && restingInstanceStatuses.includes(instance.status))
+		);
+}

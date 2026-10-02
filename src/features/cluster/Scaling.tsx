@@ -1,11 +1,13 @@
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
+import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { useMemo } from 'react';
+import { allClusterInstancesSettled } from './allInstancesRunning';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Scaling() {
@@ -18,9 +20,9 @@ export function Scaling() {
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
 	const status = cluster?.status;
-	const clusterIsActive = useMemo(() => {
-		return status && activeClusterStatuses.includes(status);
-	}, [status]);
+	const updateIsDone = useMemo(() => {
+		return status && activeClusterStatuses.includes(status) && allClusterInstancesSettled(cluster);
+	}, [status, cluster]);
 
 	if (clusterIsLoading || !cluster) {
 		return (
@@ -30,7 +32,7 @@ export function Scaling() {
 		);
 	}
 
-	if (clusterIsActive) {
+	if (updateIsDone) {
 		return (
 			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<div className="center w-2xl flex flex-col gap-4">
@@ -50,6 +52,7 @@ export function Scaling() {
 			<div className="center w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+				<CloneProgressList instances={cluster.instances} />
 				<p>
 					{isImmediate
 						? 'Your cluster is applying the latest changes immediately, without waiting to take instances out of rotation.'

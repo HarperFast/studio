@@ -30,6 +30,19 @@ describe('cluster list model', () => {
 		expect(item.hosting).toBe('Harper Cloud');
 	});
 
+	it("gives each cluster its own entry from central manager's sync summaries, and null without one", () => {
+		const { items } = buildClusterList(
+			[cluster({ id: 'clu-a' }), cluster({ id: 'clu-b', name: 'Staging' })],
+			undefined,
+			{ 'clu-a': { syncing: 2, copiedGb: 12.4, expectedGb: 40 } },
+		);
+		expect(items.map(item => [item.cluster.id, item.syncSummary])).toEqual([
+			['clu-a', { syncing: 2, copiedGb: 12.4, expectedGb: 40 }],
+			['clu-b', null],
+		]);
+		expect(buildClusterList([cluster()]).items[0].syncSummary).toBeNull();
+	});
+
 	it('reports self-hosted lifecycle consistently without claiming monitored health', () => {
 		const item = describeCluster(cluster({ plans: [{ planId: 'self-hosted' }] }));
 		expect(item.category).toBe('running');

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { isStoppedOrTransitioning, renderBadgeStatusVariant } from '@/components/ui/utils/badgeStatus';
 import { deletedClusterStatuses } from '@/config/clusterStatuses';
+import { InstanceCloneProgress } from '@/features/cluster/components/CloneProgress';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { calculateInstanceFQDN } from '@/features/clusters/upsert/lib/calculateInstanceFQDN';
 import { useRestartTrackerVersion } from '@/hooks/useRestartState';
@@ -73,17 +74,20 @@ export function Instances() {
 					cell: (cell) => {
 						const status = cell.getValue() as string;
 						return (
-							<div className="flex items-center gap-2">
-								<InstanceStatusCell instance={cell.row.original} index={cell.row.index} />
-								{status ? <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge> : null}
-								{cell.row.original.safeMode && !isStoppedOrTransitioning(cell.row.original.status)
-									? (
-										<Badge variant="warning" title="Running in safe mode — user apps/components are not loaded">
-											<LifeBuoyIcon />
-											Safe mode
-										</Badge>
-									)
-									: null}
+							<div className="flex flex-col gap-1.5">
+								<div className="flex items-center gap-2">
+									<InstanceStatusCell instance={cell.row.original} index={cell.row.index} />
+									{status ? <Badge variant={renderBadgeStatusVariant(status)}>{capitalizeWords(status)}</Badge> : null}
+									{cell.row.original.safeMode && !isStoppedOrTransitioning(cell.row.original.status)
+										? (
+											<Badge variant="warning" title="Running in safe mode — user apps/components are not loaded">
+												<LifeBuoyIcon />
+												Safe mode
+											</Badge>
+										)
+										: null}
+								</div>
+								<InstanceCloneProgress instance={cell.row.original} className="w-64" />
 							</div>
 						);
 					},

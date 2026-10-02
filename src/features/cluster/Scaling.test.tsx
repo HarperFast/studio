@@ -24,10 +24,11 @@ vi.mock('@/features/clusters/components/ClusterCardAction', () => ({
 }));
 
 let clusterStatus = 'UPDATING';
+let clusterInstances: Record<string, unknown>[] = [];
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
 		queryKey: [clusterId],
-		queryFn: async () => ({ id: clusterId, status: clusterStatus }),
+		queryFn: async () => ({ id: clusterId, status: clusterStatus, instances: clusterInstances }),
 		retry: false,
 		enabled: !!clusterId,
 	}),
@@ -49,6 +50,7 @@ function mount() {
 beforeEach(() => {
 	currentSearch = {};
 	clusterStatus = 'UPDATING';
+	clusterInstances = [];
 });
 
 afterEach(() => {
@@ -92,5 +94,41 @@ describe('Scaling status copy', () => {
 		mount();
 		await waitFor(() => screen.getByText('All done!'));
 		expect(screen.getByText(/finished updating/)).toBeTruthy();
+	});
+});
+
+describe('Scaling completion', () => {
+	const runningMember = { id: 'ins-1', name: 'member-1', instanceFqdn: 'a.example.com', status: 'RUNNING' };
+	const cloningMember = {
+		id: 'ins-2',
+		name: 'member-2',
+		instanceFqdn: 'b.example.com',
+		status: 'CLONING',
+		cloneExpectedGb: 40,
+		cloneProgressGb: 10,
+	};
+
+	it('is not done while a new member is still cloning, even though the cluster reports RUNNING', async () => {
+		clusterStatus = 'RUNNING';
+		clusterInstances = [runningMember, cloningMember];
+		mount();
+		await waitFor(() => screen.getByText('Here we go!'));
+		expect(screen.queryByText('All done!')).toBeNull();
+		const syncing = screen.getByRole('list', { name: 'Instances syncing data' });
+		expect(syncing.textContent).toContain('member-2');
+		expect(syncing.textContent).toContain('~10 of ~40 GB (25%)');
+		expect(syncing.textContent).not.toContain('member-1');
+	});
+
+	it('is done once every member is running or at rest', async () => {
+		clusterStatus = 'RUNNING';
+		clusterInstances = [runningMember, { ...cloningMember, status: 'RUNNING' }, {
+			id: 'ins-3',
+			instanceFqdn: 'c.example.com',
+			status: 'STOPPED',
+		}];
+		mount();
+		await waitFor(() => screen.getByText('All done!'));
+		expect(screen.queryByRole('list', { name: 'Instances syncing data' })).toBeNull();
 	});
 });

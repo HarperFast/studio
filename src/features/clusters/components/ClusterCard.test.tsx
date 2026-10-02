@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { describeCluster } from '@/features/clusters/lib/clusterListModel';
-import type { Cluster } from '@/integrations/api/api.patch';
+import type { Cluster, ClusterSyncSummary } from '@/integrations/api/api.patch';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ClusterCard as ClusterCardView } from './ClusterCard';
-function ClusterCard({ cluster }: { cluster: Cluster }) {
-	return <ClusterCardView item={describeCluster(cluster)} />;
+function ClusterCard({ cluster, syncSummary }: { cluster: Cluster; syncSummary?: ClusterSyncSummary }) {
+	return <ClusterCardView item={describeCluster(cluster, undefined, syncSummary)} />;
 }
 
 const state = vi.hoisted(() => ({
@@ -80,6 +80,43 @@ describe('ClusterCard', () => {
 		expect(screen.getByRole('link', { name: 'Open Production' }).getAttribute('href')).toBe('/org-a/clu-a');
 		fireEvent.click(screen.getByRole('button', { name: 'Copy host name' }));
 		expect(state.copy).toHaveBeenCalledOnce();
+	});
+
+	it('opens the progress screen while a managed cluster is building or updating', () => {
+		render(<ClusterCard cluster={cluster({ status: 'PROVISIONING' })} />);
+		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
+			.toBe('/org-a/clu-a/starting-up');
+		expect(screen.getByText('View progress')).toBeTruthy();
+		cleanup();
+		render(<ClusterCard cluster={cluster({ status: 'UPDATING' })} />);
+		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
+			.toBe('/org-a/clu-a/scaling');
+	});
+
+	it('offers no progress link for other non-active statuses', () => {
+		for (const status of ['FAILED', 'STARTING', 'RESTARTING']) {
+			render(<ClusterCard cluster={cluster({ status })} />);
+			expect(screen.queryByRole('link', { name: /View progress/ }), status).toBeNull();
+			expect(screen.queryByText('View progress'), status).toBeNull();
+			cleanup();
+		}
+	});
+
+	it('flags a running cluster whose members are still copying data, from the sync summary', () => {
+		const { container } = render(
+			<ClusterCard cluster={cluster()} syncSummary={{ syncing: 2, copiedGb: 12.4, expectedGb: 40 }} />,
+		);
+		expect(screen.getByText('Running')).toBeTruthy();
+		expect(screen.getByText('Syncing · ~31%')).toBeTruthy();
+		expect(container.querySelector('svg.lucide-refresh-cw')).toBeTruthy();
+	});
+
+	it('shows no sync chip without a summary or with nothing syncing', () => {
+		render(<ClusterCard cluster={cluster()} syncSummary={{ syncing: 0 }} />);
+		expect(screen.queryByText(/^Syncing/)).toBeNull();
+		cleanup();
+		render(<ClusterCard cluster={cluster()} />);
+		expect(screen.queryByText(/^Syncing/)).toBeNull();
 	});
 
 	it('keeps stopped clusters reachable through instances and exposes the start action', () => {
