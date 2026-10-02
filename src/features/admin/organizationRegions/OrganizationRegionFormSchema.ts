@@ -52,7 +52,6 @@ export function toCreatePayload(organizationId: string, values: OrganizationRegi
 	};
 }
 
-/** Only the fields that differ from the stored row, so a frozen field is never resubmitted unchanged. */
 export function toPatch(region: OrganizationRegion, values: OrganizationRegionFormValues): OrganizationRegionPatch {
 	const stored = toFormValues(region);
 	const patch: OrganizationRegionPatch = {};

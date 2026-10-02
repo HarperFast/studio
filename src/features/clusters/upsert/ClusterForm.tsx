@@ -470,7 +470,7 @@ export function ClusterForm({
 					planId: plan.id,
 				});
 			}
-		} else {
+		} else if (mode !== 'version') {
 			for (const regionPlan of formData.regionPlans) {
 				// Re-resolve at submit: the catalog or the custom-region list may have changed since validation.
 				const region = regionLookup.get(regionPlan.regionId);

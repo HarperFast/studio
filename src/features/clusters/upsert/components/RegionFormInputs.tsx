@@ -41,16 +41,12 @@ type RegionFormInputsProps = {
 	canUseCustomRegions: boolean;
 };
 
-/** The latency tier in `options` closest to `preferred` ("Low …" → "Low …"), else the first. */
 function pickLatencyDescription(options: readonly string[], preferred: string | undefined): string | undefined {
 	const tier = preferred?.split(' ')[0].toLowerCase();
 	return options.find(description => !tier ? true : description.split(' ')[0].toLowerCase() === tier) || options[0];
 }
 
-/**
- * One region plan row. The form stores a region id; the region-name and latency selects are a view
- * over the catalog for that id, and a custom region swaps the latency select for a quantity field.
- */
+// The form stores a region id; the name and latency selects are a view over the catalog for it.
 export function RegionFormInputs({
 	control,
 	fieldArray,
