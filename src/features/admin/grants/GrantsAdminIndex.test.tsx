@@ -360,6 +360,8 @@ describe('GrantsAdminIndex — switchover', () => {
 		['UNRESTRICTED', false],
 		['ENTERPRISE', false],
 		['SELF_SERVICE', true],
+		// Charging a card fails closed: an organization whose type is unknown is not offered it.
+		[undefined, false],
 	])('an organization of type %s is offered a switch to paid: %s', async (type, offered) => {
 		canWriteGrants = true;
 		orgType = type;
