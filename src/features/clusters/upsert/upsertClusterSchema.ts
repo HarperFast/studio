@@ -1,6 +1,7 @@
 import { hostNameRegex } from '@/lib/string/regex/hostNameRegex';
 import { maxPortNumber, minPortNumber } from '@/lib/types/portNumbers';
 import { z } from 'zod';
+import { MAX_REGION_PLAN_QUANTITY } from './lib/regionLookup';
 
 export const specifiedAbbreviatedName = z
 	.string()
@@ -9,6 +10,16 @@ export const specifiedAbbreviatedName = z
 		/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
 		'Can only contain lowercase letters, numbers and dashes. Must not start or end with a dash.',
 	);
+
+/**
+ * One region plan entry, keyed by the region id central-manager stores on the cluster: a catalog
+ * tier or an organization's custom region (`oreg-…`). `quantity` only applies to the latter.
+ */
+export const RegionPlanEntrySchema = z.object({
+	regionId: z.string().nonempty('Please select a region.'),
+	quantity: z.number().int().min(1, 'At least 1.').max(MAX_REGION_PLAN_QUANTITY, `At most ${MAX_REGION_PLAN_QUANTITY}.`)
+		.optional(),
+});
 
 export const UpsertClusterSchema = z.object({
 	clusterName: z.string()
@@ -28,12 +39,7 @@ export const UpsertClusterSchema = z.object({
 	deploymentDescription: z.string().nonempty('Please select a deployment tier.'),
 	performanceDescription: z.string().nonempty('Please select a performance tier.'),
 
-	regionPlans: z.array(
-		z.object({
-			regionName: z.string().nonempty('Please select a region.'),
-			latencyDescription: z.string().nonempty('Please select a latency tier.'),
-		}),
-	).max(50, { error: 'A maximum of 50 regions can be selected for each cluster. ' }),
+	regionPlans: z.array(RegionPlanEntrySchema).max(50, { error: 'A maximum of 50 regions can be selected for each cluster. ' }),
 
 	instances: z.array(
 		z.object({
@@ -54,3 +60,4 @@ export const UpsertClusterSchema = z.object({
 });
 
 export type UpsertClusterSchemaType = z.infer<typeof UpsertClusterSchema>;
+export type RegionPlanEntry = z.infer<typeof RegionPlanEntrySchema>;
