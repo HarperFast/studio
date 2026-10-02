@@ -34,6 +34,16 @@ const regionsRoute = createRoute({
 	component: lazyRouteComponent(async () => import('@/features/admin/regions/index'), 'RegionsIndex'),
 });
 
+const organizationRegionsRoute = createRoute({
+	getParentRoute: () => adminLayoutRoute,
+	path: 'custom-regions',
+	head: () => ({ meta: [{ title: 'Custom regions — Harper Fabric' }] }),
+	component: lazyRouteComponent(
+		async () => import('@/features/admin/organizationRegions/index'),
+		'OrganizationRegionsIndex',
+	),
+});
+
 const apiTokenRoute = createRoute({
 	getParentRoute: () => adminLayoutRoute,
 	path: 'api-token',
@@ -42,4 +52,4 @@ const apiTokenRoute = createRoute({
 });
 
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
-export const adminRoutes = [adminIndexRoute, notificationsAdminRoute, regionsRoute, apiTokenRoute];
+export const adminRoutes = [adminIndexRoute, notificationsAdminRoute, regionsRoute, organizationRegionsRoute, apiTokenRoute];

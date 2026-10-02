@@ -12,15 +12,18 @@ const labels = (u: User | null) => visibleAdminItems(u).map((item) => item.label
 describe('admin section visibility', () => {
 	it('shows every page to a holder of all three page permissions', () => {
 		const admin = user('fabric_admin', ['systemStatus:write', 'region:read', 'apiToken:create']);
-		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'API Token']);
+		expect(labels(admin)).toEqual(['Notifications', 'Regions', 'Custom regions', 'API Token']);
 	});
 
 	it('shows only the pages a narrower role holds', () => {
 		expect(labels(user('fabric_support', ['systemStatus:write', 'region:read']))).toEqual([
 			'Notifications',
 			'Regions',
+			'Custom regions',
 		]);
-		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions']);
+		// Both region pages ride the same read permission.
+		expect(labels(user('fabric_readonly', ['region:read']))).toEqual(['Regions', 'Custom regions']);
+		expect(labels(user('fabric_readonly', ['systemStatus:write']))).toEqual(['Notifications']);
 	});
 
 	it('hides the section entirely from customers', () => {
@@ -32,12 +35,12 @@ describe('admin section visibility', () => {
 	// 403s, so the API Token page stays hidden even though it holds the permission.
 	it('never shows the API Token page to super_user', () => {
 		const withField = user('super_user', ['systemStatus:write', 'region:read', 'apiToken:create']);
-		expect(labels(withField)).toEqual(['Notifications', 'Regions']);
+		expect(labels(withField)).toEqual(['Notifications', 'Regions', 'Custom regions']);
 		// Legacy API without staffPermissions: same carve-out via the fallback.
-		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions']);
+		expect(labels(user('super_user'))).toEqual(['Notifications', 'Regions', 'Custom regions']);
 	});
 
 	it('keeps the whole section for a legacy-API fabric_admin', () => {
-		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'API Token']);
+		expect(labels(user('fabric_admin'))).toEqual(['Notifications', 'Regions', 'Custom regions', 'API Token']);
 	});
 });
