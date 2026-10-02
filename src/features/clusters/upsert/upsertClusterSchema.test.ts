@@ -7,8 +7,7 @@ const validBase = {
 	performanceDescription: 'Standard',
 	regionPlans: [
 		{
-			regionName: 'us-east-1',
-			latencyDescription: 'Low',
+			regionId: 'us-1',
 		},
 	],
 	instances: [
@@ -122,16 +121,32 @@ describe('UpsertClusterSchema', () => {
 			expect(result.success).toBe(true);
 		});
 
-		it('validates regionName and latencyDescription are required', () => {
+		it('requires a region id', () => {
 			const result = UpsertClusterSchema.safeParse({
 				...validBase,
-				regionPlans: [{ regionName: '', latencyDescription: '' }],
+				regionPlans: [{ regionId: '' }],
+			});
+			expect(result.success).toBe(false);
+		});
+
+		it('accepts a custom region with a quantity', () => {
+			const result = UpsertClusterSchema.safeParse({
+				...validBase,
+				regionPlans: [{ regionId: 'oreg-abc', quantity: 3 }],
+			});
+			expect(result.success).toBe(true);
+		});
+
+		it.each([0, -1, 1.5, 51])('rejects quantity %s', (quantity) => {
+			const result = UpsertClusterSchema.safeParse({
+				...validBase,
+				regionPlans: [{ regionId: 'oreg-abc', quantity }],
 			});
 			expect(result.success).toBe(false);
 		});
 
 		it('limits to 50 regions', () => {
-			const manyRegions = Array(51).fill({ regionName: 'r', latencyDescription: 'l' });
+			const manyRegions = Array(51).fill({ regionId: 'r' });
 			const result = UpsertClusterSchema.safeParse({ ...validBase, regionPlans: manyRegions });
 			expect(result.success).toBe(false);
 			if (!result.success) {
