@@ -11,7 +11,6 @@ export function InstanceCloneProgress({ instance, className }: { instance: Insta
 	if (!progress) {
 		return null;
 	}
-	// Only a caption that shows an age needs the clock.
 	const showsAge = !progress.waiting && (progress.lastProgressAt !== undefined || progress.startedAt !== undefined);
 	return showsAge
 		? <ActiveCloneProgress progress={progress} className={className} />

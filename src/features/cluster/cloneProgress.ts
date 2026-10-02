@@ -67,8 +67,10 @@ export function describeCloneProgress(progress: CloneProgress, now: number): str
 	return ['Syncing data', amount, age].filter(Boolean).join(' · ');
 }
 
+const gbFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+
 function formatGb(gb: number): string {
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(gb);
+	return gbFormat.format(gb);
 }
 
 function ago(timeMs: number, now: number): string {

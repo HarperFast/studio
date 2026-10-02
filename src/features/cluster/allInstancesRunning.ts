@@ -20,7 +20,7 @@ export function allClusterInstancesRunning(cluster: Cluster | undefined): boolea
 
 const restingInstanceStatuses = ['STOPPED', 'ERROR', 'FAILED'];
 
-/** Scaling's completion gate. How and why it differs from allClusterInstancesRunning: DESIGN.md. */
+/** Like allClusterInstancesRunning, but STOPPED/ERROR/FAILED count as at rest; missing or unknown data fails closed. */
 export function allClusterInstancesSettled(cluster: Cluster | undefined): boolean {
 	return !!cluster?.instances
 		&& cluster.instances.every((instance) =>
