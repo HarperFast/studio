@@ -27,6 +27,10 @@ const REASON_MESSAGES: Readonly<Record<string, string>> = {
 	csrf: 'Your sign-in session expired. Please try signing in again.',
 	// The application's onLogin hook denied the login.
 	email_not_verified: 'Verify your email address before signing in with this provider.',
+	// oauth#270: the hook found more than one verified email matching an existing
+	// account, so it can't pick which one to adopt without a human deciding.
+	email_ambiguous:
+		'More than one of your verified email addresses matches an existing account. Contact your administrator.',
 	provider_not_authorized: METHOD_NOT_ALLOWED_MESSAGE,
 	login_not_allowed: METHOD_NOT_ALLOWED_MESSAGE,
 	denied: METHOD_NOT_ALLOWED_MESSAGE,
