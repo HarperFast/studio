@@ -11,7 +11,7 @@ import { RegionFormInputs } from './components/RegionFormInputs';
 import { PremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { UsageScale } from './lib/calculateUsageScale';
 import { regionCohortKey, RegionLookup } from './lib/regionLookup';
-import { UpsertClusterSchemaType } from './upsertClusterSchema';
+import { RegionPlanEntry, UpsertClusterSchemaType } from './upsertClusterSchema';
 
 interface ClusterRegionsProps {
 	form: UseFormReturn<UpsertClusterSchemaType>;
@@ -27,6 +27,8 @@ interface ClusterRegionsProps {
 	organizationId: string;
 	/** Staff may pick an organization's custom regions and set their quantity. */
 	canUseCustomRegions: boolean;
+	/** Defining one inline additionally needs region:write. */
+	canDefineCustomRegions: boolean;
 }
 
 export function ClusterRegions({
@@ -42,6 +44,7 @@ export function ClusterRegions({
 	cloudProvider,
 	organizationId,
 	canUseCustomRegions,
+	canDefineCustomRegions,
 }: ClusterRegionsProps) {
 	const selectedRegionPlans = form.watch('regionPlans');
 
@@ -50,7 +53,7 @@ export function ClusterRegions({
 		name: 'regionPlans',
 	});
 
-	const nextAvailableRegionToAdd = useMemo(() => {
+	const nextAvailableRegionToAdd = useMemo<RegionPlanEntry | null>(() => {
 		if (!totalPrice) {
 			// Free plans can only add a single region.
 			return null;
@@ -61,19 +64,28 @@ export function ClusterRegions({
 				return region ? regionCohortKey(region) : null;
 			}),
 		);
-		return regionLocations?.find(r => !selectedCohorts.has(r.region));
-	}, [regionLocations, regionLookup, selectedRegionPlans, totalPrice]);
+		const nextCatalogRegion = regionLocations?.find(r => !selectedCohorts.has(r.region));
+		if (nextCatalogRegion) {
+			return { regionId: nextCatalogRegion.id };
+		}
+		if (canUseCustomRegions) {
+			for (const region of regionLookup.values()) {
+				if (region.kind === 'organization' && region.active && !selectedCohorts.has(region.id)) {
+					return { regionId: region.id, quantity: 1 };
+				}
+			}
+		}
+		return null;
+	}, [canUseCustomRegions, regionLocations, regionLookup, selectedRegionPlans, totalPrice]);
 
 	const onAddARegionClick = useCallback(() => {
 		if (nextAvailableRegionToAdd) {
-			regionPlansFieldArray.append({ regionId: nextAvailableRegionToAdd.id });
+			regionPlansFieldArray.append(nextAvailableRegionToAdd);
 			void form.trigger();
 		}
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
 	const [definingCustomRegion, setDefiningCustomRegion] = useState(false);
-	// The new row lands on the form before its refetch reaches the lookup; validation reports it
-	// as unavailable until then rather than the row being dropped.
 	const onCustomRegionSaved = useCallback((region: OrganizationRegion) => {
 		const values = form.getValues('regionPlans');
 		const blankIndex = values.findIndex(entry => !entry.regionId);
@@ -127,7 +139,7 @@ export function ClusterRegions({
 				/>
 			))}
 
-			{(nextAvailableRegionToAdd || canUseCustomRegions) && (
+			{(nextAvailableRegionToAdd || canDefineCustomRegions) && (
 				<div className="md:col-span-6 col-span-3 flex flex-wrap gap-3">
 					{nextAvailableRegionToAdd && (
 						<Button
@@ -139,7 +151,7 @@ export function ClusterRegions({
 							Add Additional Region Usage
 						</Button>
 					)}
-					{canUseCustomRegions && (
+					{canDefineCustomRegions && (
 						<Button
 							type="button"
 							variant="outline"
@@ -151,7 +163,7 @@ export function ClusterRegions({
 					)}
 				</div>
 			)}
-			{canUseCustomRegions && (
+			{canDefineCustomRegions && (
 				<OrganizationRegionFormModal
 					open={definingCustomRegion}
 					onOpenChange={setDefiningCustomRegion}
