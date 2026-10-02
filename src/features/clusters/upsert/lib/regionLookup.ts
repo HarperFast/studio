@@ -7,7 +7,7 @@ export function isOrganizationRegionId(regionId: string | undefined | null): boo
 	return typeof regionId === 'string' && regionId.startsWith(ORGANIZATION_REGION_ID_PREFIX);
 }
 
-/** How many instances per quantity unit a region plan may ask for (central-manager's MAX_QUANTITY). */
+/** Central-manager's MAX_QUANTITY: the most units one region plan may deploy. */
 export const MAX_REGION_PLAN_QUANTITY = 50;
 
 /** Central-manager refuses a cluster that deploys a custom region with fewer instances than this. */
@@ -33,7 +33,6 @@ export type ResolvedRegion =
 
 export type RegionLookup = ReadonlyMap<string, ResolvedRegion>;
 
-/** The datacenters one unit of an organization region occupies on the organization's provider. */
 export function organizationRegionShape(
 	region: OrganizationRegion,
 	provider: keyof SchemaCloudInstanceTypes | undefined,
@@ -76,10 +75,7 @@ export function buildRegionLookup(
 	return lookup;
 }
 
-/**
- * What the resources panel and the price line scale by: a quantity-expanded view of the region
- * that reads like a catalog row.
- */
+/** A quantity-expanded view shaped like a catalog row, for the resources panel. */
 export function regionAtQuantity(region: ResolvedRegion, quantity: number | undefined): SchemaRegion {
 	const units = quantity ?? 1;
 	return {

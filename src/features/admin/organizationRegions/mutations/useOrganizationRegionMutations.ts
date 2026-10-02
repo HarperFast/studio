@@ -16,12 +16,16 @@ export async function updateOrganizationRegion(
 	return data as unknown as OrganizationRegion;
 }
 
+// The modal puts failures on the form; the global handler must not toast them a second time.
+const meta = { skipGlobalErrorToast: true };
+
 export function useCreateOrganizationRegionMutation() {
-	return useMutation<OrganizationRegion, Error, OrganizationRegionPayload>({ mutationFn: createOrganizationRegion });
+	return useMutation<OrganizationRegion, Error, OrganizationRegionPayload>({ mutationFn: createOrganizationRegion, meta });
 }
 
 export function useUpdateOrganizationRegionMutation() {
 	return useMutation<OrganizationRegion, Error, { id: string; changes: OrganizationRegionPatch }>({
 		mutationFn: updateOrganizationRegion,
+		meta,
 	});
 }
