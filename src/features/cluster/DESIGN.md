@@ -36,6 +36,9 @@ Scaling screens do. It reads the per-cluster `syncSummary` that central manager 
 ([HarperFast/central-manager#888](https://github.com/HarperFast/central-manager/issues/888)), and shows no chip when the
 field is absent.
 
+The chip reads "Syncing", or "Syncing · ~31%" once every copy has an expected size. It deliberately shows no instance
+count: Studio presents a cluster as one entity, and the percent already covers the whole cluster.
+
 ## A 403 on the cluster route means setup isn't finished
 
 `clusterLayoutRoute` loads the cluster in `beforeLoad`, so a refusal fails the route before any page under it renders.

@@ -107,7 +107,7 @@ describe('ClusterCard', () => {
 			<ClusterCard cluster={cluster({ syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } })} />,
 		);
 		expect(screen.getByText('Running')).toBeTruthy();
-		expect(screen.getByText('Syncing 2 · ~31%')).toBeTruthy();
+		expect(screen.getByText('Syncing · ~31%')).toBeTruthy();
 		expect(container.querySelector('svg.lucide-refresh-cw')).toBeTruthy();
 	});
 
