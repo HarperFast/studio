@@ -38,6 +38,7 @@ interface ClusterDetailsProps {
 	regionNameToLatencyToRegion: Record<string, Record<string, SchemaRegion>>;
 	organizationId: string;
 	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -61,6 +62,7 @@ export function ClusterDetails({
 	regionNameToLatencyToRegion,
 	organizationId,
 	canUseCustomRegions,
+	canDefineCustomRegions,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -252,6 +254,7 @@ export function ClusterDetails({
 										regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 										organizationId={organizationId}
 										canUseCustomRegions={canUseCustomRegions}
+										canDefineCustomRegions={canDefineCustomRegions}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
 										selectedPlan={selectedPlan}

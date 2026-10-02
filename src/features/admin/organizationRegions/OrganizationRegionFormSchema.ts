@@ -7,11 +7,7 @@ export const FROZEN_WHILE_REFERENCED = ['name', 'linodeDatacenters', 'gcpDatacen
 /** The form's "no fallback pool" choice; the API stores null for it. */
 export const NO_FALLBACK = '';
 
-/**
- * Create/edit form for an organization's custom region. Mirrors the OrganizationRegion contract: a
- * name unique within the organization, at least one provider's datacenter list (a repeated datacenter
- * asks for another instance there), an optional fallback pool and 1–10 purchased blocks per unit.
- */
+// A repeated datacenter asks for another instance there; bounds mirror central-manager's validation.
 export const OrganizationRegionFormSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(64, 'Keep the name to 64 characters'),
 	linodeDatacenters: z.array(z.string()),
