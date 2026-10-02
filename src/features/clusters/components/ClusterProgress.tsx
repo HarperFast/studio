@@ -78,7 +78,7 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		}
 		const describe = (counts: Record<string, number>) =>
 			Object.keys(counts).sort().map((label) => `${counts[label]} ${capitalizeWords(label)}`);
-		const total = pending + updating + running;
+		const total = pending + updating + running + failed;
 		return {
 			pendingWidth: `${total === 0 ? 100 : pending === 0 ? 0 : (pending / total * 100)}%`,
 			updatingWidth: `${updating === 0 ? 0 : (updating / total * 100)}%`,

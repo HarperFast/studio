@@ -89,6 +89,13 @@ describe('describeCloneProgress', () => {
 		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · ~0 of ~40 GB (0%) · started 5 minutes ago');
 	});
 
+	it('treats a progress time ahead of the local clock as just now', () => {
+		const progress = cloneProgressOf(
+			instance({ status: 'CLONING', cloneProgressGb: 1, cloneProgressAt: minutesAgo(-3) }),
+		)!;
+		expect(describeCloneProgress(progress, NOW)).toBe('Syncing data · ~1 GB copied · last progress a few seconds ago');
+	});
+
 	it('says a pending clone is waiting', () => {
 		expect(describeCloneProgress(cloneProgressOf(instance({ status: 'CLONE_PENDING' }))!, NOW))
 			.toBe('Waiting to sync data');
