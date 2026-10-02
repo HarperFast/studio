@@ -448,7 +448,10 @@ export function GrantFormModal(
 				</Form>
 
 				{/* Held open while the charge is in flight, so it cannot be dismissed with the request still running. */}
-				<AlertDialog open={confirmingPaid} onOpenChange={(next) => !next && !switching && setConfirmingPaid(false)}>
+				<AlertDialog
+					open={confirmingPaid}
+					onOpenChange={(next) => !next && !inFlight.current && setConfirmingPaid(false)}
+				>
 					<AlertDialogContent>
 						<AlertDialogHeader>
 							<AlertDialogTitle>Switch {grant?.clusterId} to paid?</AlertDialogTitle>
