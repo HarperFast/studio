@@ -45,7 +45,6 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		let updating = 0;
 		let running = 0;
 		let failed = 0;
-		// Counted per label, not from the group's running total, or "1 Running · 1 Updated" reads "1 Running · 2 Updated".
 		const pendingCounts: Record<string, number> = {};
 		const updatingCounts: Record<string, number> = {};
 		const runningCounts: Record<string, number> = {};

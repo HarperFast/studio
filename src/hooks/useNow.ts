@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react';
 
-// One shared tick instead of an interval per component.
 const TICK_MS = 30_000;
 const nowListeners = new Set<() => void>();
 let nowValue = Date.now();
@@ -12,7 +11,7 @@ function subscribeNow(listener: () => void): () => void {
 		nowValue = Date.now(); // refresh on (re)start so the first subscriber isn't handed a stale value
 		nowInterval = setInterval(() => {
 			nowValue = Date.now();
-			nowListeners.forEach((l) => l());
+			nowListeners.forEach((notify) => notify());
 		}, TICK_MS);
 	}
 	return () => {
