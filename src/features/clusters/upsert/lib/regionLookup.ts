@@ -87,7 +87,6 @@ export function regionAtQuantity(region: ResolvedRegion, quantity: number | unde
 	};
 }
 
-/** "fr-par ×2 · it-mil" — each datacenter once, with its count when repeated. */
 export function describeShape(shape: readonly string[]): string {
 	const counts = new Map<string, number>();
 	for (const datacenter of shape) {
