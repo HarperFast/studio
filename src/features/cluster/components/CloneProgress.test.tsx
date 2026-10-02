@@ -13,20 +13,25 @@ afterEach(() => {
 });
 
 describe('InstanceCloneProgress', () => {
-	it('renders a determinate bar and caption while cloning with an expected size', () => {
-		render(
+	it('shows a spinning sync icon and the copied amount while cloning', () => {
+		const { container } = render(
 			<InstanceCloneProgress instance={instance({ status: 'CLONING', cloneExpectedGb: 40, cloneProgressGb: 12.4 })} />,
 		);
-		const bar = screen.getByRole('progressbar', { name: 'Data sync progress' });
-		expect(bar.getAttribute('aria-valuenow')).toBe('31');
-		expect(bar.getAttribute('aria-valuetext')).toBe('Syncing data · ~12.4 of ~40 GB (31%)');
 		expect(screen.getByText('Syncing data · ~12.4 of ~40 GB (31%)')).toBeTruthy();
+		expect(container.querySelector('svg.lucide-refresh-cw')).toBeTruthy();
+		expect(container.querySelector('[role="progressbar"]')).toBeNull();
 	});
 
-	it('renders an indeterminate bar without an expected size', () => {
+	it('shows the copied amount alone without an expected size', () => {
 		render(<InstanceCloneProgress instance={instance({ status: 'CLONING', cloneProgressGb: 0 })} />);
-		expect(screen.getByRole('progressbar').hasAttribute('aria-valuenow')).toBe(false);
 		expect(screen.getByText('Syncing data · ~0 GB copied')).toBeTruthy();
+	});
+
+	it('shows a static clock icon while the copy is pending', () => {
+		const { container } = render(<InstanceCloneProgress instance={instance({ status: 'CLONE_PENDING' })} />);
+		expect(screen.getByText('Waiting to sync data')).toBeTruthy();
+		expect(container.querySelector('svg.lucide-clock')).toBeTruthy();
+		expect(container.querySelector('svg.lucide-refresh-cw')).toBeNull();
 	});
 
 	it('renders nothing for a running instance that kept its clone fields', () => {

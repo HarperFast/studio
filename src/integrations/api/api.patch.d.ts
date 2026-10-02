@@ -249,6 +249,15 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
+	// On the organization response only, once central-manager#888 ships; null when nothing is cloning.
+	syncSummary?: ClusterSyncSummary | null;
+}
+
+export interface ClusterSyncSummary {
+	syncing: number;
+	// Both present only when every syncing instance has an expected size.
+	copiedGb?: number;
+	expectedGb?: number;
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {

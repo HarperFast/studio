@@ -8,6 +8,7 @@ import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterS
 import { isLocalStudio } from '@/config/constants';
 import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { describeSyncSummary } from '@/features/cluster/cloneProgress';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
@@ -37,6 +38,7 @@ import {
 	KeyIcon,
 	LifeBuoyIcon,
 	PlayIcon,
+	RefreshCwIcon,
 	RocketIcon,
 	RotateCwIcon,
 	ScaleIcon,
@@ -49,6 +51,7 @@ import { toast } from 'sonner';
 
 export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const { cluster } = summary;
+	const syncLabel = describeSyncSummary(cluster.syncSummary);
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);
@@ -342,6 +345,15 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 								<span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
 								{summary.label}
 							</Badge>
+							{syncLabel && (
+								<Badge variant="warning" className="rounded-full">
+									<RefreshCwIcon
+										aria-hidden="true"
+										className="animate-[spin_2.5s_linear_infinite] motion-reduce:animate-none"
+									/>
+									{syncLabel}
+								</Badge>
+							)}
 							<span className="text-xs text-muted-foreground">{summary.hosting}</span>
 						</div>
 						{!isTerminated && (

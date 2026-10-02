@@ -1,5 +1,5 @@
 import { isCloning } from '@/components/ui/utils/badgeStatus';
-import type { Instance } from '@/integrations/api/api.patch';
+import type { ClusterSyncSummary, Instance } from '@/integrations/api/api.patch';
 import { translateSecondsToAgo } from '@/lib/translateSecondsToAgo';
 
 type CloneFields = Pick<
@@ -38,25 +38,14 @@ export function cloneProgressOf(instance: CloneFields): CloneProgress | null {
 	};
 }
 
-/**
- * Null unless every instance in a clone status has an expected size: a pending or unmeasurable copy left out of the sum
- * would let the caption read ~100% while it has barely begun.
- */
-export function aggregateCloneRatio(instances: readonly CloneFields[]): number | null {
-	let copiedGb = 0;
-	let expectedGb = 0;
-	for (const instance of instances) {
-		const progress = cloneProgressOf(instance);
-		if (!progress) {
-			continue;
-		}
-		if (progress.expectedGb === undefined) {
-			return null;
-		}
-		copiedGb += Math.min(progress.copiedGb, progress.expectedGb);
-		expectedGb += progress.expectedGb;
+export function describeSyncSummary(summary: ClusterSyncSummary | null | undefined): string | null {
+	if (!summary || !(summary.syncing > 0)) {
+		return null;
 	}
-	return expectedGb > 0 ? copiedGb / expectedGb : null;
+	const { copiedGb, expectedGb } = summary;
+	return copiedGb !== undefined && expectedGb !== undefined && expectedGb > 0
+		? `Syncing ${summary.syncing} · ~${clonePercent(Math.min(1, Math.max(0, copiedGb) / expectedGb))}%`
+		: `Syncing ${summary.syncing}`;
 }
 
 export function clonePercent(ratio: number): number {

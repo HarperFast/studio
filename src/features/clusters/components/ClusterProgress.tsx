@@ -1,5 +1,4 @@
 import { isBeingUpdated, isFailed, isPendingUpdate, isRunning, isTerminated } from '@/components/ui/utils/badgeStatus';
-import { aggregateCloneRatio, clonePercent } from '@/features/cluster/cloneProgress';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { Cluster } from '@/integrations/api/api.patch';
 import { mapBy } from '@/lib/arrays/mapBy';
@@ -67,7 +66,6 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			// We'll ignore terminated or non-updated instances from the totals.
 		}
 		const total = pending + updating + running;
-		const syncedRatio = aggregateCloneRatio(instances);
 		return {
 			pendingWidth: `${total === 0 ? 100 : pending === 0 ? 0 : (pending / total * 100)}%`,
 			updatingWidth: `${updating === 0 ? 0 : (updating / total * 100)}%`,
@@ -78,7 +76,6 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 				...Object.values(failedTexts).sort(),
 				...Object.values(updatingTexts).sort(),
 				...Object.values(pendingTexts).sort(),
-				...(syncedRatio === null ? [] : [`~${clonePercent(syncedRatio)}% synced`]),
 			].join(' · '),
 		};
 	}, [clusterById]);

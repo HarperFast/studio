@@ -171,15 +171,12 @@ test('the instances table shows data-sync progress for a cloning member', async 
 	await page.goto('/#/org-fixture/clu-production/instances');
 	const cloningRow = page.getByRole('row').filter({ hasText: 'node-b' });
 	await expect(cloningRow.getByText('Cloning', { exact: true })).toBeVisible();
-	await expect(cloningRow.getByRole('progressbar', { name: 'Data sync progress' })).toHaveAttribute(
-		'aria-valuenow',
-		'31',
-	);
+	await expect(cloningRow.locator('svg.lucide-refresh-cw')).toBeVisible();
 	await expect(cloningRow.getByText('Syncing data · ~12.4 of ~40 GB (31%) · last progress 3 minutes ago'))
 		.toBeVisible();
 	const runningRow = page.getByRole('row').filter({ hasText: 'node-a' });
 	await expect(runningRow.getByText('Running', { exact: true })).toBeVisible();
-	await expect(runningRow.getByRole('progressbar')).toHaveCount(0);
+	await expect(runningRow.getByText(/Syncing data/)).toHaveCount(0);
 });
 
 test('scaling is not done while a new member is still cloning', async ({ page }) => {
@@ -188,7 +185,7 @@ test('scaling is not done while a new member is still cloning', async ({ page })
 	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cluster }));
 	await page.goto('/#/org-fixture/clu-production/scaling');
 	await expect(page.getByRole('heading', { name: 'Here we go!' })).toBeVisible();
-	await expect(page.getByText('1 Running · 1 Cloning · ~31% synced')).toBeVisible();
+	await expect(page.getByText('1 Running · 1 Cloning', { exact: true })).toBeVisible();
 	const syncing = page.getByRole('list', { name: 'Instances syncing data' });
 	await expect(syncing.getByRole('listitem')).toHaveCount(1);
 	await expect(syncing).toContainText('node-b');
@@ -198,5 +195,20 @@ test('scaling is not done while a new member is still cloning', async ({ page })
 		instances: cloning.instances.map(instance => ({ ...instance, status: 'RUNNING' })),
 	};
 	await expect(page.getByRole('heading', { name: 'All done!' })).toBeVisible();
-	await expect(page.getByRole('progressbar')).toHaveCount(0);
+	await expect(page.getByRole('list', { name: 'Instances syncing data' })).toHaveCount(0);
+});
+
+test('a running cluster card flags members still copying data', async ({ page }) => {
+	await page.route('**/Organization/org-fixture', route =>
+		route.fulfill({
+			json: {
+				...organization,
+				clusters: [{ ...clusters[0], syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } }, clusters[1]],
+			},
+		}));
+	await page.goto('/#/org-fixture');
+	const card = page.getByRole('link', { name: 'Open Production' }).locator('..');
+	await expect(card.getByText('Running', { exact: true })).toBeVisible();
+	await expect(card.getByText('Syncing 2 · ~31%')).toBeVisible();
+	await expect(page.getByText(/^Syncing \d/)).toHaveCount(1);
 });
