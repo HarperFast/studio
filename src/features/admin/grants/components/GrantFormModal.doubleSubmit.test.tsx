@@ -80,7 +80,7 @@ describe('GrantFormModal — one write at a time', () => {
 		await mount();
 		fireEvent.change(screen.getByPlaceholderText(/Why these terms/), { target: { value: 'ending the pilot' } });
 		await act(() => null);
-		const revoke = screen.getByRole('button', { name: 'Revoke grant' });
+		const revoke = screen.getByRole('button', { name: 'Revoke and stop cluster' });
 		fireEvent.click(revoke);
 		fireEvent.click(revoke);
 		await act(() => null);
@@ -90,7 +90,7 @@ describe('GrantFormModal — one write at a time', () => {
 
 	it('a refused revoke (no reason) leaves the latch open, so the corrected one still sends', async () => {
 		await mount();
-		const revoke = screen.getByRole('button', { name: 'Revoke grant' });
+		const revoke = screen.getByRole('button', { name: 'Revoke and stop cluster' });
 		fireEvent.click(revoke);
 		await act(() => null);
 		expect(updateGrant).not.toHaveBeenCalled();
