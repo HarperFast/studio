@@ -42,13 +42,17 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 		const activePlanIds = mapBy(clusterById?.plans ?? [], 'planId');
 		const instances = clusterById?.instances ?? [];
 		let pending = 0;
-		const pendingTexts: Record<string, string> = {};
 		let updating = 0;
-		const updatingTexts: Record<string, string> = {};
 		let running = 0;
-		const runningTexts: Record<string, string> = {};
 		let failed = 0;
-		const failedTexts: Record<string, string> = {};
+		// Counted per label, not from the group's running total, or "1 Running · 1 Updated" reads "1 Running · 2 Updated".
+		const pendingCounts: Record<string, number> = {};
+		const updatingCounts: Record<string, number> = {};
+		const runningCounts: Record<string, number> = {};
+		const failedCounts: Record<string, number> = {};
+		const tally = (counts: Record<string, number>, label: string) => {
+			counts[label] = (counts[label] ?? 0) + 1;
+		};
 		for (const instance of instances) {
 			const status = instance.status;
 			if (!status || isTerminated(status)) {
@@ -56,24 +60,25 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			}
 			if (isPendingUpdate(status)) {
 				pending += 1;
-				pendingTexts[status] = `${pending} ${capitalizeWords(status)}`;
+				tally(pendingCounts, status);
 			} else if (isBeingUpdated(status)) {
 				updating += 1;
-				updatingTexts[status] = `${updating} ${capitalizeWords(status)}`;
+				tally(updatingCounts, status);
 			} else if (isFailed(status)) {
 				failed += 1;
-				failedTexts[status] = `${failed} ${capitalizeWords(status)}`;
+				tally(failedCounts, status);
 			} else if (!instance.planId || !activePlanIds.includes(instance.planId)) {
 				updating += 1;
-				updatingTexts['DRAINING_TRAFFIC'] = `${updating} ${capitalizeWords('Draining Traffic')}`;
+				tally(updatingCounts, 'Draining Traffic');
 			} else if (isRunning(status) || isMintingCloneToken(status)) {
 				// The leader keeps serving while it mints a new member's clone token, so it still counts as running.
-				const label = isRunning(status) ? status : 'RUNNING';
 				running += 1;
-				runningTexts[label] = `${running} ${capitalizeWords(label)}`;
+				tally(runningCounts, isRunning(status) ? status : 'RUNNING');
 			}
 			// We'll ignore terminated or non-updated instances from the totals.
 		}
+		const describe = (counts: Record<string, number>) =>
+			Object.keys(counts).sort().map((label) => `${counts[label]} ${capitalizeWords(label)}`);
 		const total = pending + updating + running;
 		return {
 			pendingWidth: `${total === 0 ? 100 : pending === 0 ? 0 : (pending / total * 100)}%`,
@@ -81,10 +86,10 @@ export function ClusterProgress({ cluster, forceProgressBarVisible }: {
 			failedWidth: `${failed === 0 ? 0 : (failed / total * 100)}%`,
 			runningWidth: `${running === 0 ? 0 : (running / total * 100)}%`,
 			text: [
-				...Object.values(runningTexts).sort(),
-				...Object.values(failedTexts).sort(),
-				...Object.values(updatingTexts).sort(),
-				...Object.values(pendingTexts).sort(),
+				...describe(runningCounts),
+				...describe(failedCounts),
+				...describe(updatingCounts),
+				...describe(pendingCounts),
 			].join(' · '),
 		};
 	}, [clusterById]);

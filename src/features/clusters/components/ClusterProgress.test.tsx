@@ -41,4 +41,15 @@ describe('ClusterProgress', () => {
 			cleanup();
 		}
 	});
+
+	it("counts each status on its own, not from its group's running total", async () => {
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'UPDATED' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'GENERATE_TOKEN' },
+			{ id: 'ins-3', planId: 'plan-1', status: 'CLONE_READY' },
+			{ id: 'ins-4', planId: 'plan-1', status: 'CLONING' },
+		];
+		mount();
+		expect(await screen.findByText('1 Running · 1 Updated · 1 Clone Ready · 1 Cloning')).toBeTruthy();
+	});
 });
