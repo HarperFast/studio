@@ -33,6 +33,12 @@ describe('getOAuthErrorMessage', () => {
 		);
 	});
 
+	it('tells the user to contact an administrator when multiple verified emails match (oauth#270)', () => {
+		expect(getOAuthErrorMessage('access_denied', 'email_ambiguous')).toBe(
+			'More than one of your verified email addresses matches an existing account. Contact your administrator.',
+		);
+	});
+
 	it.each(['provider_not_authorized', 'login_not_allowed', 'denied', 'login_denied'])(
 		'tells the user the method is not allowed for reason=%s, not to retry',
 		(reason) => {
