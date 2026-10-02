@@ -52,15 +52,6 @@ vi.mock('@/features/admin/regions/queries/getOrganizations', async (importOrigin
 		retry: false,
 	}),
 }));
-// The replace dialog reads what the cluster runs to fill the comp's shape.
-vi.mock('@/features/cluster/queries/getClusterInfoQuery', () => ({
-	getClusterInfoQueryOptions: (clusterId: string | false) => ({
-		queryKey: ['test-cluster', clusterId],
-		queryFn: async () => ({ id: clusterId, plans: [{ planId: 'fabric-block-level-1', regionId: 'global-1' }] }),
-		enabled: !!clusterId,
-		retry: false,
-	}),
-}));
 
 afterEach(() => {
 	cleanup();

@@ -184,7 +184,6 @@ describe('CreateGrantModal', () => {
 		await mount();
 		await pick('Applies to', /existing cluster/);
 		fireEvent.change(screen.getByPlaceholderText('clu-…'), { target: { value: 'clu-abc' } });
-		await fillCompedScope();
 		fireEvent.change(reasonBox(), { target: { value: 'pilot' } });
 		await act(() => null);
 		fireEvent.click(submit());
@@ -193,6 +192,25 @@ describe('CreateGrantModal', () => {
 		const [body] = createGrant.mock.calls[0];
 		expect(body.clusterId).toBe('clu-abc');
 		expect(body).not.toHaveProperty('organizationId');
+	});
+
+	// A comp on an existing cluster can only cover what it runs, so central-manager reads the shape off
+	// the cluster; asking for it could only ever earn a 400.
+	it('asks for no shape on an existing cluster, and sends none', async () => {
+		await mount();
+		await pick('Organization', /org-1/);
+		await fillCompedScope();
+		await pick('Applies to', /existing cluster/);
+		expect(screen.queryByText('Cluster shape (required)')).toBeNull();
+		expect(screen.getByText(/Covers exactly what the cluster runs today/)).toBeTruthy();
+		fireEvent.change(screen.getByPlaceholderText('clu-…'), { target: { value: 'clu-abc' } });
+		fireEvent.change(reasonBox(), { target: { value: 'pilot' } });
+		await act(() => null);
+		fireEvent.click(submit());
+		await act(() => null);
+
+		const [body] = createGrant.mock.calls[0];
+		expect(body).not.toHaveProperty('shape');
 	});
 
 	it('will not submit without a reason', async () => {
