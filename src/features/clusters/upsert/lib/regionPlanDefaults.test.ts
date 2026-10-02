@@ -52,9 +52,9 @@ describe('buildRegionPlanDefaults', () => {
 });
 
 describe('migrateDraftRegionPlans', () => {
-	it('keeps id-keyed entries that still resolve', () => {
+	it('keeps every id-keyed entry, resolvable or not, for validation to report', () => {
 		expect(migrateDraftRegionPlans([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }, { regionId: 'gone' }], lookup))
-			.toEqual([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }]);
+			.toEqual([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }, { regionId: 'gone' }]);
 	});
 
 	it('resolves a legacy name + latency draft through the catalog', () => {
