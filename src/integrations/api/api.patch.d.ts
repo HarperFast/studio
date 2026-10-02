@@ -177,7 +177,6 @@ export interface OrganizationRegion {
 	clusters?: Array<{ id: string; name: string; status?: string; quantity: number }>;
 }
 
-/** Payload for POST /OrganizationRegion/ (create). */
 export interface OrganizationRegionPayload {
 	organizationId: string;
 	name: string;
@@ -187,7 +186,7 @@ export interface OrganizationRegionPayload {
 	active?: boolean;
 }
 
-/** Payload for PATCH /OrganizationRegion/:id. Only `active` may change while a live cluster references the row. */
+/** Only `active` may change while a live cluster references the row. */
 export type OrganizationRegionPatch = Partial<Omit<OrganizationRegionPayload, 'organizationId'>>;
 
 /** A cluster's region plan entry; `quantity` (default 1) is only meaningful for an `oreg-` region. */
