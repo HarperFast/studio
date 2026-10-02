@@ -127,14 +127,16 @@ describe('CheckOAuth', () => {
 	it('releases the lock when an awaited call rejects, so a later mount runs the check again', async () => {
 		stubLocationSearch('');
 		getCurrentUser.mockResolvedValue(null);
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
 		navigate.mockRejectedValueOnce(new Error('navigation aborted'));
 
 		const { unmount } = renderCheckOAuth();
 		await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
-		// Let the rejection propagate through the IIFE's finally (releases the lock)
-		// and its outer .catch (logs instead of an unhandled rejection).
-		await waitFor(() => expect(consoleError).toHaveBeenCalledWith('OAuth sign-in check failed:', expect.any(Error)));
+		// Let the rejection propagate through the finally (releases the lock) and the
+		// outer .catch (logs via console.debug, not console.error — see CheckOAuth.tsx).
+		await waitFor(() =>
+			expect(consoleDebug).toHaveBeenCalledWith('OAuth sign-in check failed, carrying on:', expect.any(Error))
+		);
 		unmount();
 
 		getCurrentUser.mockClear();
@@ -144,6 +146,37 @@ describe('CheckOAuth', () => {
 
 		await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(1));
 		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
-		consoleError.mockRestore();
+		consoleDebug.mockRestore();
+	});
+
+	// Codex (pre-push review) found that a SYNCHRONOUS throw before the first `await` — the only
+	// candidate is clearOAuthErrorParamsFromUrl's history.replaceState, which some browsers throttle
+	// into throwing — ran the try/finally's `checking = null` *before* `checking = <the IIFE's
+	// promise>` had been assigned (an async function body runs synchronously up to its first await),
+	// so the later assignment clobbered the lock back on with nothing left to ever release it.
+	// Deferring the whole body through `Promise.resolve().then(...)` guarantees the assignment
+	// completes first. Verified to fail without that deferral (reproduced the exact sequence in an
+	// isolated Node script before applying the fix).
+	it('releases the lock even when clearOAuthErrorParamsFromUrl throws synchronously, before any await', async () => {
+		stubLocationSearch('');
+		getCurrentUser.mockResolvedValue(null);
+		const consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+		clearOAuthErrorParamsFromUrl.mockImplementationOnce(() => {
+			throw new Error('history.replaceState throttled');
+		});
+
+		const { unmount } = renderCheckOAuth();
+		await waitFor(() =>
+			expect(consoleDebug).toHaveBeenCalledWith(
+				'OAuth sign-in check failed, carrying on:',
+				expect.objectContaining({ message: 'history.replaceState throttled' }),
+			)
+		);
+		expect(navigate).not.toHaveBeenCalled();
+		unmount();
+
+		renderCheckOAuth();
+		await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(1));
+		consoleDebug.mockRestore();
 	});
 });
