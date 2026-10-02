@@ -1,9 +1,6 @@
-// `@harperfast/oauth` redirects a failed sign-in back to the app with `error`/`reason`
-// query params (see its handlers.ts and docs/configuration.md) naming why. This maps
-// those documented values to a specific, actionable message for `CheckOAuth`. Every
-// entry is one of our own fixed strings — `error`/`reason` come straight off the URL
-// (an IdP's own value, under `error=oauth_failed`, is arbitrary), so neither is ever
-// interpolated into a message or otherwise reaches the DOM.
+// Maps @harperfast/oauth's documented `error`/`reason` redirect params to a message
+// for CheckOAuth. `error`/`reason` are attacker-controlled URL values, so every
+// returned value is one of our own fixed strings — never interpolated or echoed.
 
 export const OAUTH_GENERIC_ERROR_MESSAGE = 'We were not able to verify your sign-in. Please try signing in again.';
 
