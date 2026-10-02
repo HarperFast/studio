@@ -55,13 +55,18 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
  * `error` is absent (not a failed OAuth redirect at all). An `error` with no mapped
  * `reason` still gets a message — sign-in definitely failed — falling back to
  * `error`'s own message, then to a generic one for anything neither names.
+ *
+ * `Object.hasOwn` guards both lookups: `error`/`reason` are attacker-controlled URL
+ * values, and a plain object literal inherits `Object.prototype` — `reason=constructor`
+ * or `reason=toString` would otherwise resolve to that inherited function instead of
+ * `undefined`.
  */
 export function getOAuthErrorMessage(error: string | null, reason: string | null): string | undefined {
 	if (!error) {
 		return undefined;
 	}
-	if (reason && reason in REASON_MESSAGES) {
+	if (reason && Object.hasOwn(REASON_MESSAGES, reason)) {
 		return REASON_MESSAGES[reason];
 	}
-	return ERROR_MESSAGES[error] ?? OAUTH_GENERIC_ERROR_MESSAGE;
+	return Object.hasOwn(ERROR_MESSAGES, error) ? ERROR_MESSAGES[error] : OAUTH_GENERIC_ERROR_MESSAGE;
 }
