@@ -111,12 +111,12 @@ export function OrganizationRegionFormModal(
 	const gcpDatacenters = form.watch('gcpDatacenters');
 
 	const onSubmit = (values: OrganizationRegionFormValues) => {
-		// Mirrors central-manager: a fallback pool must cover every listed datacenter, or a pooled deploy
-		// could never reach the shape's own datacenters. Only checked when the shape or pool is being
-		// written, so an `active` toggle on a frozen region never waits on the Location catalog.
+		// Mirrors central-manager's rule that a fallback pool covers every listed datacenter, as an early
+		// form error only: skipped while the Location catalog is absent, and when the shape and pool are
+		// not being written, so neither a pending catalog nor an `active` toggle gets refused here.
 		const patch = region ? toPatch(region, values) : null;
 		const placementWritten = !patch || patch.placement !== undefined || patch.fallbackGroup !== undefined;
-		if (placementWritten && values.fallbackGroup !== NO_FALLBACK) {
+		if (placementWritten && locations.length && values.fallbackGroup !== NO_FALLBACK) {
 			const outside = [...values.linodeDatacenters, ...values.gcpDatacenters].find((dc) =>
 				!regionsByDatacenter.get(dc)?.includes(values.fallbackGroup)
 			);
