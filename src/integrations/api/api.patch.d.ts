@@ -1,8 +1,10 @@
 import {
 	SchemaCluster,
 	SchemaClusterUpsert,
+	SchemaClusterUpsertRegionPlan,
 	SchemaHdbInstance,
 	SchemaOrganization,
+	SchemaRegionPlan,
 	SchemaRole,
 	SchemaUser,
 } from './api.gen';
@@ -118,6 +120,51 @@ export interface AdminRegionPayload {
 	forceLocations?: boolean;
 	active?: boolean;
 	organizationIds?: string[] | null;
+}
+
+/**
+ * An organization-owned custom region (central-manager `OrganizationRegion`, ids `oreg-…`): the
+ * datacenters one unit occupies per provider, an optional fallback pool and the purchased blocks
+ * minted per unit. Clusters deploy it with `RegionPlan.quantity` units. Internal-only: staff with
+ * `region:write` create and edit rows; organization members may read them.
+ */
+export interface OrganizationRegion {
+	id: string;
+	organizationId: string;
+	name: string;
+	placement: { linode?: string[]; gcp?: string[] };
+	/** A Location region tag to fall back to; null = forced placement (never spills elsewhere). */
+	fallbackGroup?: string | null;
+	blocksPerUnit: number;
+	active?: boolean;
+	createdByUserId?: string;
+	updatedByUserId?: string;
+	createdAt?: string;
+	updatedAt?: string;
+	/** GET /OrganizationRegion/:id only: live clusters whose plans deploy this region. */
+	clusters?: Array<{ id: string; name: string; status?: string; quantity: number }>;
+}
+
+export interface OrganizationRegionPayload {
+	organizationId: string;
+	name: string;
+	placement: { linode?: string[]; gcp?: string[] };
+	fallbackGroup?: string | null;
+	blocksPerUnit: number;
+	active?: boolean;
+}
+
+/** Only `active` may change while a live cluster references the row. */
+export type OrganizationRegionPatch = Partial<Omit<OrganizationRegionPayload, 'organizationId'>>;
+
+/** A cluster's region plan entry; `quantity` (default 1) is only meaningful for an `oreg-` region. */
+export interface RegionPlan extends SchemaRegionPlan {
+	quantity?: number;
+}
+
+/** A submitted region plan entry; `quantity` is accepted only for an `oreg-` region. */
+export interface ClusterUpsertRegionPlan extends SchemaClusterUpsertRegionPlan {
+	quantity?: number;
 }
 
 /**
@@ -244,14 +291,16 @@ export interface Instance extends SchemaHdbInstance {
 	safeMode?: boolean;
 }
 
-export interface Cluster extends Omit<SchemaCluster, 'instances'> {
+export interface Cluster extends Omit<SchemaCluster, 'instances' | 'plans'> {
 	// TODO: Can we return enums from the server to make this easier?
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
+	plans?: RegionPlan[];
 }
 
-export interface ClusterUpsert extends SchemaClusterUpsert {
+export interface ClusterUpsert extends Omit<SchemaClusterUpsert, 'regionPlans'> {
+	regionPlans: ClusterUpsertRegionPlan[];
 	skipGtmWait?: boolean;
 	version?: string;
 }

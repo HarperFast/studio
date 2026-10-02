@@ -10,11 +10,14 @@ const state = vi.hoisted(() => ({
 	create: false,
 	saved: null as unknown,
 	regions: [] as { id: string; region: string }[],
+	organizationRegions: [] as { id: string; name: string }[],
 }));
 vi.mock(
 	'@tanstack/react-query',
 	() => ({
-		useQuery: () => ({ data: state.regions }),
+		useQuery: ({ queryKey }: { queryKey?: unknown[] }) => ({
+			data: queryKey?.[0] === 'organizationRegions' ? state.organizationRegions : state.regions,
+		}),
 		useSuspenseQuery: () => ({ data: { clusters: state.clusters } }),
 		queryOptions: (value: unknown) => value,
 	}),
@@ -43,6 +46,7 @@ afterEach(() => {
 	state.create = false;
 	state.saved = null;
 	state.regions = [];
+	state.organizationRegions = [];
 });
 const cluster = (id: string, status: string, region: string): Cluster => ({
 	id,
@@ -80,10 +84,15 @@ describe('ClustersList', () => {
 	});
 
 	it('resolves id-only plans from the shared catalog and preserves sorting when clearing filters', () => {
-		state.clusters = [{ ...cluster('Production', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'reg-east' }] }];
+		state.clusters = [
+			{ ...cluster('Production', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'reg-east' }] },
+			{ ...cluster('Edge', 'RUNNING', ''), plans: [{ planId: 'shared', regionId: 'oreg-1', quantity: 2 }] },
+		];
 		state.regions = [{ id: 'reg-east', region: 'US East' }];
+		state.organizationRegions = [{ id: 'oreg-1', name: 'EU edge' }];
 		render(<ClustersList />);
 		expect(screen.getByRole('option', { name: 'US East' })).toBeTruthy();
+		expect(screen.getByRole('option', { name: 'EU edge' })).toBeTruthy();
 		fireEvent.change(screen.getByLabelText('Sort clusters'), { target: { value: 'name' } });
 		fireEvent.change(screen.getByLabelText('Search clusters'), { target: { value: 'East' } });
 		expect(screen.getByRole('article').textContent).toBe('Production');
