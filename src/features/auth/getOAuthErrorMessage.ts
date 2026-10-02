@@ -22,20 +22,18 @@ const REASON_MESSAGES: Readonly<Record<string, string>> = {
 	login_hook: TRY_AGAIN_LATER_MESSAGE,
 	internal_error: TRY_AGAIN_LATER_MESSAGE,
 	unknown: TRY_AGAIN_LATER_MESSAGE,
-	// oauth#270 (GitHub email-to-account matching, usernameClaim: 'email'): an `hdb_user`
-	// read failed while matching a verified address to an existing account — never
-	// promoted to "no match", so this is retryable like the other lookup failures above.
+	// oauth#270 (GitHub email matching): retryable, like the other lookup failures above.
 	email_lookup_failed: TRY_AGAIN_LATER_MESSAGE,
 	// State/browser-binding mismatch: the flow took too long, or started in another
 	// browser. Retrying from scratch is the actual fix.
 	csrf: 'Your sign-in session expired. Please try signing in again.',
 	// The application's onLogin hook denied the login.
 	email_not_verified: 'Verify your email address before signing in with this provider.',
-	// oauth#270: two or more of the user's verified GitHub emails each match a DIFFERENT
-	// existing Harper account, so the plugin refuses rather than guessing which to adopt.
-	// Not retryable as-is — the fix is a single matching address, or an admin's help.
-	email_ambiguous:
-		'More than one of your verified email addresses matches an existing account. Try signing in with just one of them, or contact your administrator.',
+	// oauth#270: two+ verified GitHub emails each match a DIFFERENT existing Harper
+	// account; the plugin refuses rather than guessing. Not user-fixable by retrying —
+	// GitHub's OAuth consent sends every verified address, not a chosen one.
+	email_ambiguous: 'More than one of your verified email addresses matches an existing account. '
+		+ 'Contact your administrator for help signing in.',
 	provider_not_authorized: METHOD_NOT_ALLOWED_MESSAGE,
 	login_not_allowed: METHOD_NOT_ALLOWED_MESSAGE,
 	denied: METHOD_NOT_ALLOWED_MESSAGE,

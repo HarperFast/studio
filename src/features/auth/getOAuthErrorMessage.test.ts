@@ -39,10 +39,10 @@ describe('getOAuthErrorMessage', () => {
 		);
 	});
 
-	it('tells the user to sign in with a single matching address or ask an admin when verified emails are ambiguous (oauth#270)', () => {
+	it('tells the user to contact an administrator when verified emails are ambiguous (oauth#270)', () => {
 		expect(getOAuthErrorMessage('auth_failed', 'email_ambiguous')).toBe(
 			'More than one of your verified email addresses matches an existing account. '
-				+ 'Try signing in with just one of them, or contact your administrator.',
+				+ 'Contact your administrator for help signing in.',
 		);
 	});
 
