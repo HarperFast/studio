@@ -35,8 +35,9 @@ interface LegacyDraftEntry {
 }
 
 /**
- * A saved draft may predate id-keyed entries. Its name + latency pairs resolve through the catalog
- * where they still match a row; anything else is dropped rather than guessed at.
+ * A saved draft may predate id-keyed entries: its name + latency pairs resolve through the catalog
+ * where they still match a row. An id-keyed entry is kept as-is even when the lookup lacks it, so
+ * validation reports it on the row instead of the draft silently losing a selection.
  */
 export function migrateDraftRegionPlans(
 	entries: readonly (Partial<RegionPlanEntry> & LegacyDraftEntry)[] | undefined,
@@ -45,9 +46,7 @@ export function migrateDraftRegionPlans(
 	const migrated: RegionPlanEntry[] = [];
 	for (const entry of entries ?? []) {
 		if (entry.regionId) {
-			if (lookup.has(entry.regionId)) {
-				migrated.push({ regionId: entry.regionId, ...(entry.quantity ? { quantity: entry.quantity } : {}) });
-			}
+			migrated.push({ regionId: entry.regionId, ...(entry.quantity ? { quantity: entry.quantity } : {}) });
 			continue;
 		}
 		if (entry.regionName && entry.latencyDescription) {

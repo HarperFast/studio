@@ -270,7 +270,8 @@ export function UpsertCluster() {
 
 	// Editing with a region the form cannot resolve would save without it, which central-manager
 	// treats as removing that region — so the form refuses to open instead.
-	if (defaultsResult?.unresolvedRegionIds.length) {
+	// A version-only edit never sends region plans, so an unresolvable one cannot be lost by it.
+	if (mode !== 'version' && defaultsResult?.unresolvedRegionIds.length) {
 		return (
 			<UpsertClusterLayout isEdit={!!clusterId}>
 				<ErrorComponent

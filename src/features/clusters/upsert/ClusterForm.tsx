@@ -320,8 +320,8 @@ export function ClusterForm({
 	useEffect(function autoSelectRegionBasedOnAllowedRegionIds() {
 		const allowedRegionIds = selectedPlan?.allowedRegionIds;
 		if (allowedRegionIds?.length && selectedRegionPlans?.length === 1) {
-			const firstSelectedRegion = regionLookup.get(selectedRegionPlans[0].regionId);
-			if (firstSelectedRegion?.kind !== 'organization' && !allowedRegionIds.includes(firstSelectedRegion?.id ?? '')) {
+			const firstRegionId = selectedRegionPlans[0].regionId;
+			if (!isOrganizationRegionId(firstRegionId) && !allowedRegionIds.includes(firstRegionId)) {
 				const possibleRegions = regionLocations?.filter(r => allowedRegionIds.includes(r.id));
 				const regionToSelect = possibleRegions?.find(r => r.region === 'US') || possibleRegions?.[0];
 				if (regionToSelect) {
