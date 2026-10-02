@@ -63,4 +63,23 @@ describe('getOAuthErrorMessage', () => {
 		const message = getOAuthErrorMessage('auth_failed', rawReason);
 		expect(message).not.toContain(rawReason);
 	});
+
+	// A plain object literal inherits Object.prototype, so a naive `reason in table` /
+	// `table[reason]` lookup resolves an attacker-chosen `constructor`/`toString`/etc to
+	// that inherited function instead of falling through to the generic message.
+	it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])(
+		'treats reason=%s as unrecognized rather than resolving an inherited Object.prototype member',
+		(reason) => {
+			// `error` is itself unmapped, so a reason lookup that fell through to an
+			// inherited member (rather than `undefined`) would surface here directly.
+			expect(getOAuthErrorMessage('something_new', reason)).toBe(OAUTH_GENERIC_ERROR_MESSAGE);
+		},
+	);
+
+	it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])(
+		'treats error=%s as unrecognized rather than resolving an inherited Object.prototype member',
+		(error) => {
+			expect(getOAuthErrorMessage(error, null)).toBe(OAUTH_GENERIC_ERROR_MESSAGE);
+		},
+	);
 });
