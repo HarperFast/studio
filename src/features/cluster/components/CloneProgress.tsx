@@ -11,7 +11,7 @@ export function InstanceCloneProgress({ instance, className }: { instance: Insta
 	if (!progress) {
 		return null;
 	}
-	// Only an active copy shows an age, so only it subscribes to the clock.
+	// A pending copy has no age to show, so it skips the clock.
 	return progress.waiting
 		? <CloneProgressLine waiting description={describeCloneProgress(progress, Date.now())} className={className} />
 		: <ActiveCloneProgress progress={progress} className={className} />;

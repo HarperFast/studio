@@ -255,7 +255,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 
 export interface ClusterSyncSummary {
 	syncing: number;
-	// Both present only when every syncing instance has an expected size.
+	// Both present only when every syncing instance has an expected size. copiedGb caps each instance at its own
+	// expected size before summing; the card clamps only the total, so it relies on that.
 	copiedGb?: number;
 	expectedGb?: number;
 }
