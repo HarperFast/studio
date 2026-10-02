@@ -10,7 +10,7 @@ import { useInstanceClient } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
 import { describeSyncSummary } from '@/features/cluster/cloneProgress';
 import { getClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
-import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
+import { CardLinkAffordance, ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterContainerOpModals } from '@/features/clusters/components/ClusterContainerOpModals';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
@@ -166,8 +166,19 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	// Stopped/partial clusters aren't "active" but must still be reachable: a fully-stopped cluster
 	// opens its instances page (where you start them back up); a partial cluster (some instances still
 	// running) opens the cluster overview like a normal cluster.
+	// A managed cluster mid-build or mid-update opens the screen tracking it, for every viewer — Starting-up
+	// explains the 403 central manager gives non-admins until a new cluster's setup is finished.
+	const progressHref = isSelfManaged
+		? undefined
+		: cluster.status === 'PROVISIONING'
+		? `/${cluster.organizationId}/${cluster.id}/starting-up`
+		: cluster.status === 'UPDATING'
+		? `/${cluster.organizationId}/${cluster.id}/scaling`
+		: undefined;
 	const cardHref = !view || isTerminated
 		? undefined
+		: progressHref
+		? progressHref
 		: cluster.status === 'STOPPED'
 		? `/${cluster.organizationId}/${cluster.id}/instances`
 		: cluster.status === 'PARTIAL'
@@ -182,6 +193,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 		? `/${cluster.organizationId}/${cluster.id}`
 		: undefined;
 
+	const opensProgress = !!progressHref && cardHref === progressHref;
 	const clusterFQDN = cluster.domains?.[0]?.domain || cluster.fqdn;
 	const [onCopyFQDNClick, onCopyAPIClick] = useCopyToClipboard(
 		`${clusterFQDN}`,
@@ -325,7 +337,9 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 				{cardHref && (
 					<Link
 						to={cardHref}
-						aria-label={`${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
+						aria-label={opensProgress
+							? `View progress for ${cluster.name}`
+							: `${isSelfManaged || cluster.fqdn ? 'Open' : 'View'} ${cluster.name}`}
 						className="absolute inset-0 z-1 cursor-pointer rounded-[inherit] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
 					/>
 				)}
@@ -423,6 +437,7 @@ export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 								<p className="mt-1 text-muted-foreground">Open cluster options to retry or manage this cluster.</p>
 							)}
 						</div>
+						{opensProgress && <CardLinkAffordance>View progress</CardLinkAffordance>}
 						{isActive && view && <ClusterCardAction cluster={cluster} hasCardLink={!!cardHref} />}
 					</div>
 				</CardContent>

@@ -7,6 +7,7 @@ import { authStore } from '@/features/auth/store/authStore';
 import { allClusterInstancesRunning } from '@/features/cluster/allInstancesRunning';
 import { ClusterPageLayout } from '@/features/cluster/components/ClusterPageLayout';
 import { ClusterUsageCard } from '@/features/cluster/components/ClusterUsageCard';
+import { PendingOwnerSetup } from '@/features/cluster/components/PendingOwnerSetup';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { ClusterStateMenu } from '@/features/clusters/components/ClusterStateMenu';
 import { useInstanceAuth } from '@/hooks/useAuth';
@@ -113,13 +114,7 @@ export function ClusterHome() {
 		if (!update) {
 			return (
 				<ClusterHomeShell>
-					<div className="text-center py-12">
-						<Server className="size-12 text-muted-foreground mx-auto mb-4" />
-						<h1 className="text-xl font-medium mb-2 text-foreground">Pending Owner Setup</h1>
-						<p className="text-sm text-muted-foreground max-w-md mx-auto">
-							This cluster needs an administrator to finish setup before it can be used.
-						</p>
-					</div>
+					<PendingOwnerSetup />
 				</ClusterHomeShell>
 			);
 		}

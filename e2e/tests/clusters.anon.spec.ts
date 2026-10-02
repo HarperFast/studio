@@ -212,3 +212,23 @@ test('a running cluster card flags members still copying data', async ({ page })
 	await expect(card.getByText('Syncing 2 · ~31%')).toBeVisible();
 	await expect(page.getByText(/^Syncing \d/)).toHaveCount(1);
 });
+
+test('a building cluster card opens its progress, and a refused member sees why', async ({ page }) => {
+	await page.route(
+		'**/Organization/org-fixture',
+		route => route.fulfill({ json: { ...organization, clusters: [{ ...clusters[0], status: 'PROVISIONING' }] } }),
+	);
+	await page.route('**/Cluster/clu-production', route =>
+		route.fulfill({
+			status: 403,
+			json: {
+				error: 'Cluster reset password is enabled, ask an organization admin to set a password for this cluster',
+			},
+		}));
+	await page.goto('/#/org-fixture');
+	await page.getByRole('link', { name: 'View progress for Production' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture\/clu-production\/starting-up$/);
+	await expect(page.getByRole('heading', { name: 'Pending Owner Setup' })).toBeVisible();
+	await page.getByRole('link', { name: 'Back to clusters' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture$/);
+});
