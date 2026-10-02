@@ -2,8 +2,10 @@ import { apiClient } from '@/config/apiClient';
 import { SchemaOrganization } from '@/integrations/api/api.gen';
 import { queryOptions } from '@tanstack/react-query';
 
-/** Just what the org picker needs; the endpoint returns full organization records. */
-export type AdminOrganizationSummary = Pick<SchemaOrganization, 'id' | 'name'>;
+/** Just what the org picker and the grants page need; the endpoint returns full organization records. */
+export type AdminOrganizationSummary =
+	& Pick<SchemaOrganization, 'id' | 'name'>
+	& Partial<Pick<SchemaOrganization, 'type'>>;
 
 /** How an organization is shown everywhere it appears: the id first, then its name in parens. */
 export function formatOrgLabel(id: string, name?: string): string {
