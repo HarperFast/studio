@@ -164,10 +164,13 @@ export function GrantFormModal(
 	}, [isComped, endsAt, grant, form]);
 	// Only a contract moves a renewal to the 1st; the server refuses a cadence on any other source.
 	const isContracted = grant?.source === 'contracted';
-	// A switchover replaces a cluster's live grant without stopping it; an unbound voucher has no cluster.
+	// A switchover replaces the cluster's live grant without stopping it: never an unbound voucher, nor a
+	// lapsed or not-yet-started grant, which the server refuses as not the live one.
 	const bound = grant?.clusterId != null;
-	const canSwitchToPaid = bound && canBill && grant?.source !== 'purchased'
-		&& !isUnrestrictedOrgType(organizationType);
+	const switchable = bound && grant?.isActive !== false;
+	// It charges a card, so it fails closed: offered only once the organization is known not to be unrestricted.
+	const canSwitchToPaid = switchable && canBill && grant?.source !== 'purchased'
+		&& organizationType != null && !isUnrestrictedOrgType(organizationType);
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and
 	// why; the button is held so the save can't be attempted from here either.
@@ -220,14 +223,16 @@ export function GrantFormModal(
 	};
 
 	const onReplace = () => {
+		if (inFlight.current) { return; }
 		if (grant && onReplaceWithComp) { onReplaceWithComp(grant, form.getValues('reason').trim()); }
 	};
 
-	const onSwitchToPaid = () => {
+	const onSwitchToPaid = async () => {
 		if (!form.getValues('reason').trim()) {
 			form.setError('reason', { message: 'A reason is required to switch to paid' });
 			return;
 		}
+		if (!(await form.trigger('reason'))) { return; }
 		setConfirmingPaid(true);
 	};
 
@@ -393,7 +398,7 @@ export function GrantFormModal(
 							)}
 						/>
 
-						{bound && (onReplaceWithComp || canSwitchToPaid) && (
+						{switchable && (onReplaceWithComp || canSwitchToPaid) && (
 							<div className="flex flex-col gap-2 rounded-md border border-border/60 p-3">
 								<p className="text-sm font-medium">Change terms without stopping the cluster</p>
 								<p className="text-xs text-muted-foreground">
@@ -407,7 +412,12 @@ export function GrantFormModal(
 										</Button>
 									)}
 									{canSwitchToPaid && (
-										<Button type="button" variant="outline" disabled={isPending} onClick={onSwitchToPaid}>
+										<Button
+											type="button"
+											variant="outline"
+											disabled={isPending}
+											onClick={() => void onSwitchToPaid()}
+										>
 											Switch to paid
 										</Button>
 									)}
@@ -437,7 +447,8 @@ export function GrantFormModal(
 					</form>
 				</Form>
 
-				<AlertDialog open={confirmingPaid} onOpenChange={(next) => !next && setConfirmingPaid(false)}>
+				{/* Held open while the charge is in flight, so it cannot be dismissed with the request still running. */}
+				<AlertDialog open={confirmingPaid} onOpenChange={(next) => !next && !switching && setConfirmingPaid(false)}>
 					<AlertDialogContent>
 						<AlertDialogHeader>
 							<AlertDialogTitle>Switch {grant?.clusterId} to paid?</AlertDialogTitle>
@@ -447,7 +458,7 @@ export function GrantFormModal(
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogCancel disabled={switching}>Cancel</AlertDialogCancel>
 							<AlertDialogAction
 								disabled={switching}
 								onClick={(event) => {
