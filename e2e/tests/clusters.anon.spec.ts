@@ -209,8 +209,8 @@ test('a running cluster card flags members still copying data', async ({ page })
 	await page.goto('/#/org-fixture');
 	const card = page.getByRole('link', { name: 'Open Production' }).locator('..');
 	await expect(card.getByText('Running', { exact: true })).toBeVisible();
-	await expect(card.getByText('Syncing 2 · ~31%')).toBeVisible();
-	await expect(page.getByText(/^Syncing \d/)).toHaveCount(1);
+	await expect(card.getByText('Syncing · ~31%')).toBeVisible();
+	await expect(page.getByText(/^Syncing/)).toHaveCount(1);
 });
 
 test('a building cluster card opens its progress, and a refused member sees why', async ({ page }) => {

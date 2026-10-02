@@ -44,8 +44,8 @@ export function describeSyncSummary(summary: ClusterSyncSummary | null | undefin
 	}
 	const { copiedGb, expectedGb } = summary;
 	return copiedGb !== undefined && expectedGb !== undefined && expectedGb > 0
-		? `Syncing ${summary.syncing} · ~${clonePercent(Math.min(1, Math.max(0, copiedGb) / expectedGb))}%`
-		: `Syncing ${summary.syncing}`;
+		? `Syncing · ~${clonePercent(Math.min(1, Math.max(0, copiedGb) / expectedGb))}%`
+		: 'Syncing';
 }
 
 export function clonePercent(ratio: number): number {
