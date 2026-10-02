@@ -82,6 +82,23 @@ describe('ClusterCard', () => {
 		expect(state.copy).toHaveBeenCalledOnce();
 	});
 
+	it('flags a running cluster whose members are still copying data, from the sync summary', () => {
+		const { container } = render(
+			<ClusterCard cluster={cluster({ syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } })} />,
+		);
+		expect(screen.getByText('Running')).toBeTruthy();
+		expect(screen.getByText('Syncing 2 · ~31%')).toBeTruthy();
+		expect(container.querySelector('svg.lucide-refresh-cw')).toBeTruthy();
+	});
+
+	it('shows no sync chip without a summary or with nothing syncing', () => {
+		render(<ClusterCard cluster={cluster({ syncSummary: null })} />);
+		expect(screen.queryByText(/^Syncing/)).toBeNull();
+		cleanup();
+		render(<ClusterCard cluster={cluster()} />);
+		expect(screen.queryByText(/^Syncing/)).toBeNull();
+	});
+
 	it('keeps stopped clusters reachable through instances and exposes the start action', () => {
 		render(<ClusterCard cluster={cluster({ status: 'STOPPED' })} />);
 		expect(screen.getByRole('link', { name: 'Open Production' }).getAttribute('href')).toBe('/org-a/clu-a/instances');

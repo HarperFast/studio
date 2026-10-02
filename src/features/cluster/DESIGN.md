@@ -27,3 +27,11 @@ can therefore pass 100% or plateau below it, which is why it is clamped and both
 
 There is no "stalled" or "host not reporting" state. Telling those apart needs the host's last report time, which CM
 does not expose.
+
+## The cluster card's sync chip comes from central manager
+
+The cluster list reads only the organization response, which doesn't expand instances, and it does no per-card
+polling. So the card can't derive sync state from instances the way the Instances table and the Starting-up and
+Scaling screens do. It reads the per-cluster `syncSummary` that central manager computes instead
+([HarperFast/central-manager#888](https://github.com/HarperFast/central-manager/issues/888)), and shows no chip when the
+field is absent.

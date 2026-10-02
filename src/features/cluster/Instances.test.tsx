@@ -57,12 +57,12 @@ describe('Instances status column', () => {
 		);
 		const copyingRow = (await waitFor(() => screen.getByText('copying'))).closest('tr')!;
 		expect(within(copyingRow).getByText('Cloning')).toBeTruthy();
-		expect(within(copyingRow).getByRole('progressbar').getAttribute('aria-valuenow')).toBe('31');
+		expect(copyingRow.querySelector('svg.lucide-refresh-cw')).toBeTruthy();
 		expect(within(copyingRow).getByText('Syncing data · ~12.4 of ~40 GB (31%)')).toBeTruthy();
 
 		const settledRow = screen.getByText('settled').closest('tr')!;
 		expect(within(settledRow).getByText('Running')).toBeTruthy();
-		expect(within(settledRow).queryByRole('progressbar')).toBeNull();
+		expect(settledRow.querySelector('svg.lucide-refresh-cw')).toBeNull();
 		expect(within(settledRow).queryByText(/Syncing data/)).toBeNull();
 	});
 });

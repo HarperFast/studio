@@ -1,49 +1,43 @@
 import { isCloning } from '@/components/ui/utils/badgeStatus';
-import {
-	clonePercent,
-	type CloneProgress,
-	cloneProgressOf,
-	describeCloneProgress,
-} from '@/features/cluster/cloneProgress';
+import { type CloneProgress, cloneProgressOf, describeCloneProgress } from '@/features/cluster/cloneProgress';
 import { useNow } from '@/hooks/useNow';
 import type { Instance } from '@/integrations/api/api.patch';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { cn } from '@/lib/cn';
+import { ClockIcon, RefreshCwIcon } from 'lucide-react';
 
 export function InstanceCloneProgress({ instance, className }: { instance: Instance; className?: string }) {
 	const progress = cloneProgressOf(instance);
-	// Checked before the clock subscribes, so non-cloning rows never re-render on its tick.
-	return progress ? <CloneProgressBar progress={progress} className={className} /> : null;
+	if (!progress) {
+		return null;
+	}
+	// Only an active copy shows an age, so only it subscribes to the clock.
+	return progress.waiting
+		? <CloneProgressLine waiting description={describeCloneProgress(progress, Date.now())} className={className} />
+		: <ActiveCloneProgress progress={progress} className={className} />;
 }
 
-function CloneProgressBar({ progress, className }: { progress: CloneProgress; className?: string }) {
+function ActiveCloneProgress({ progress, className }: { progress: CloneProgress; className?: string }) {
 	const now = useNow();
-	const description = describeCloneProgress(progress, now);
-	const percent = progress.ratio === undefined ? undefined : clonePercent(progress.ratio);
+	return <CloneProgressLine description={describeCloneProgress(progress, now)} className={className} />;
+}
+
+function CloneProgressLine(
+	{ description, waiting, className }: { description: string; waiting?: boolean; className?: string },
+) {
+	const Icon = waiting ? ClockIcon : RefreshCwIcon;
 	return (
-		<div className={cn('flex flex-col gap-1', className)}>
-			<div
-				role="progressbar"
-				aria-label="Data sync progress"
-				aria-valuemin={0}
-				aria-valuemax={100}
-				aria-valuenow={percent}
-				aria-valuetext={description}
-				className="h-1.5 w-full rounded-full overflow-clip bg-muted"
-			>
-				{percent === undefined
-					// Hatched, not filled: a solid full-width bar would read as 100%.
-					? (
-						<div className="h-full w-full animate-pulse bg-[repeating-linear-gradient(-45deg,transparent,transparent_5px,var(--color-yellow)_5px,var(--color-yellow)_9px)] opacity-80 motion-reduce:animate-none" />
-					)
-					: (
-						<div
-							style={{ width: `${percent}%` }}
-							className="h-full bg-yellow/80 transition-[width] duration-1000 ease-in-out motion-reduce:transition-none"
-						/>
-					)}
-			</div>
-			<span className="text-xs text-muted-foreground font-light">{description}</span>
+		<div className={cn('flex items-center gap-1.5 text-xs font-light text-muted-foreground', className)}>
+			<Icon
+				aria-hidden="true"
+				className={cn(
+					'size-3.5 shrink-0',
+					waiting
+						? 'text-muted-foreground'
+						: 'text-yellow animate-[spin_2.5s_linear_infinite] motion-reduce:animate-none',
+				)}
+			/>
+			<span>{description}</span>
 		</div>
 	);
 }

@@ -1,6 +1,6 @@
 import type { Instance } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { aggregateCloneRatio, cloneProgressOf, describeCloneProgress } from './cloneProgress';
+import { cloneProgressOf, describeCloneProgress, describeSyncSummary } from './cloneProgress';
 
 const NOW = Date.parse('2026-10-01T12:00:00Z');
 const minutesAgo = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
@@ -95,31 +95,25 @@ describe('describeCloneProgress', () => {
 	});
 });
 
-describe('aggregateCloneRatio', () => {
-	it('sums copied over expected across instances in a clone status, ignoring leftover fields on others', () => {
-		expect(aggregateCloneRatio([
-			instance({ status: 'CLONING', cloneExpectedGb: 30, cloneProgressGb: 15 }),
-			instance({ status: 'CLONE_READY', cloneExpectedGb: 10, cloneProgressGb: 5 }),
-			instance({ status: 'RUNNING', cloneExpectedGb: 1000, cloneProgressGb: 0 }),
-		])).toBe(0.5);
+describe('describeSyncSummary', () => {
+	it('shows the count and a floored percent when both sizes are present', () => {
+		expect(describeSyncSummary({ syncing: 2, copiedGb: 12.4, expectedGb: 40 })).toBe('Syncing 2 · ~31%');
+		expect(describeSyncSummary({ syncing: 1, copiedGb: 39.9, expectedGb: 40 })).toBe('Syncing 1 · ~99%');
 	});
 
-	it('is null while any copy is pending or has no expected size, rather than reading ~100% around it', () => {
-		const done = instance({ status: 'CLONING', cloneExpectedGb: 40, cloneProgressGb: 40 });
-		expect(aggregateCloneRatio([done, instance({ status: 'CLONE_PENDING' })])).toBeNull();
-		expect(aggregateCloneRatio([done, instance({ status: 'CLONING', cloneProgressGb: 3 })])).toBeNull();
+	it('clamps a copy past its expected size to 100%', () => {
+		expect(describeSyncSummary({ syncing: 1, copiedGb: 41, expectedGb: 40 })).toBe('Syncing 1 · ~100%');
 	});
 
-	it("caps each instance's contribution at its expected size", () => {
-		expect(aggregateCloneRatio([
-			instance({ status: 'CLONING', cloneExpectedGb: 10, cloneProgressGb: 50 }),
-			instance({ status: 'CLONING', cloneExpectedGb: 10, cloneProgressGb: 0 }),
-		])).toBe(0.5);
+	it('shows only the count without both sizes', () => {
+		expect(describeSyncSummary({ syncing: 3 })).toBe('Syncing 3');
+		expect(describeSyncSummary({ syncing: 3, copiedGb: 5 })).toBe('Syncing 3');
+		expect(describeSyncSummary({ syncing: 3, copiedGb: 5, expectedGb: 0 })).toBe('Syncing 3');
 	});
 
-	it('is null with nothing measurable in a clone status', () => {
-		expect(aggregateCloneRatio([])).toBeNull();
-		expect(aggregateCloneRatio([instance({ status: 'CLONING', cloneProgressGb: 3 })])).toBeNull();
-		expect(aggregateCloneRatio([instance({ status: 'RUNNING', cloneExpectedGb: 40 })])).toBeNull();
+	it('is null when nothing is syncing or central manager sent no summary', () => {
+		expect(describeSyncSummary(undefined)).toBeNull();
+		expect(describeSyncSummary(null)).toBeNull();
+		expect(describeSyncSummary({ syncing: 0 })).toBeNull();
 	});
 });
