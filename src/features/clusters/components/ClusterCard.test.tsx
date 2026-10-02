@@ -82,6 +82,26 @@ describe('ClusterCard', () => {
 		expect(state.copy).toHaveBeenCalledOnce();
 	});
 
+	it('opens the progress screen while a managed cluster is building or updating', () => {
+		render(<ClusterCard cluster={cluster({ status: 'PROVISIONING' })} />);
+		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
+			.toBe('/org-a/clu-a/starting-up');
+		expect(screen.getByText('View progress')).toBeTruthy();
+		cleanup();
+		render(<ClusterCard cluster={cluster({ status: 'UPDATING' })} />);
+		expect(screen.getByRole('link', { name: 'View progress for Production' }).getAttribute('href'))
+			.toBe('/org-a/clu-a/scaling');
+	});
+
+	it('offers no progress link for other non-active statuses', () => {
+		for (const status of ['FAILED', 'STARTING', 'RESTARTING']) {
+			render(<ClusterCard cluster={cluster({ status })} />);
+			expect(screen.queryByRole('link', { name: /View progress/ }), status).toBeNull();
+			expect(screen.queryByText('View progress'), status).toBeNull();
+			cleanup();
+		}
+	});
+
 	it('flags a running cluster whose members are still copying data, from the sync summary', () => {
 		const { container } = render(
 			<ClusterCard cluster={cluster({ syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } })} />,

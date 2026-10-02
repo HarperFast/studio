@@ -35,3 +35,15 @@ polling. So the card can't derive sync state from instances the way the Instance
 Scaling screens do. It reads the per-cluster `syncSummary` that central manager computes instead
 ([HarperFast/central-manager#888](https://github.com/HarperFast/central-manager/issues/888)), and shows no chip when the
 field is absent.
+
+## A 403 on the cluster route means setup isn't finished
+
+`clusterLayoutRoute` loads the cluster in `beforeLoad`, so a refusal fails the route before any page under it renders.
+Central manager answers `GET /Cluster/{id}` with 403 to members who aren't org admins until a new cluster's setup is
+finished; its other per-cluster refusals read as 404, so they can't be mistaken for this. The route's
+[`ClusterRouteError`](components/ClusterRouteError.tsx) shows "Pending Owner Setup" for a 403 and the generic error
+page for anything else. Handle it there, not per page: every page under the route would otherwise need its own check.
+
+The cluster card links a `PROVISIONING` cluster to Starting-up and an `UPDATING` one to Scaling for every viewer, so a
+non-admin on a new cluster lands on that message instead of a dead card
+([HarperFast/studio#1773](https://github.com/HarperFast/studio/issues/1773)).
