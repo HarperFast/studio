@@ -49,6 +49,9 @@ interface ClusterFormProps {
 	organizationRegions: OrganizationRegion[];
 	/** Staff may place the organization's custom regions and set their quantity. */
 	canUseCustomRegions: boolean;
+	canDefineCustomRegions: boolean;
+	/** Custom regions the server already has on this cluster; a member keeps these but adds none. */
+	lockedOrganizationRegionIds: string[];
 	partialUpgrade: PartialUpgrade | null;
 	planTypes: SchemaPlan[];
 	regionLocationsColocated: SchemaRegion[];
@@ -68,6 +71,8 @@ export function ClusterForm({
 	organizationId,
 	organizationRegions,
 	canUseCustomRegions,
+	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	partialUpgrade,
 	planTypes,
 	regionLocationsColocated,
@@ -112,11 +117,9 @@ export function ClusterForm({
 		() => buildRegionLookup(regionLocationsDedicated, organizationRegions, cloudProvider),
 		[cloudProvider, organizationRegions, regionLocationsDedicated],
 	);
-	// A member may keep a custom region staff already placed on this cluster, but not add one.
-	const preexistingOrganizationRegionIds = useMemo(
-		() => new Set(defaultValues.regionPlans.map(entry => entry.regionId).filter(isOrganizationRegionId)),
-		[defaultValues],
-	);
+	const preexistingOrganizationRegionIds = useMemo(() => new Set(lockedOrganizationRegionIds), [
+		lockedOrganizationRegionIds,
+	]);
 
 	const refineZod = useCallback((data: UpsertClusterSchemaType, ctx: z.RefinementCtx) => {
 		const names = new Set();
@@ -354,15 +357,26 @@ export function ClusterForm({
 		}
 	}, [colocatedRegionLookup, dedicatedRegionLookup, form, regionLocations, regionLookup, selectedDeployment, selectedRegionPlans]);
 
+	useEffect(function revalidateCustomRegionsWhenLookupChanges() {
+		// A custom region defined inline only resolves once its refetch lands.
+		if (form.getValues('regionPlans').some(entry => isOrganizationRegionId(entry.regionId))) {
+			void form.trigger('regionPlans');
+		}
+	}, [form, regionLookup]);
+
 	const totalPrice = !selectedPlan?.priceUsd
 		? 0
 		: selectedDeployment === 'Self-Hosted'
 		? selectedInstances.length * selectedPlan.priceUsd
 		: selectedRegionPlans.reduce((total, entry) => {
 			const region = regionLookup.get(entry.regionId);
-			return total + (!region
-				? 0
-				: selectedPlan.priceUsd * region.instanceCount * (entry.quantity ?? 1) / 2);
+			if (!region) {
+				return total;
+			}
+			// Central-manager mints blocksPerUnit × quantity blocks for a custom region.
+			return total + (region.kind === 'organization'
+				? selectedPlan.priceUsd * region.blocksPerUnit * (entry.quantity ?? 1)
+				: selectedPlan.priceUsd * region.instanceCount / 2);
 		}, 0);
 
 	const expirationMonths = selectedPlan?.planLimits?.expirationMonths;
@@ -629,6 +643,7 @@ export function ClusterForm({
 									regionNameToLatencyToRegion={regionNameToLatencyToRegion}
 									organizationId={organizationId}
 									canUseCustomRegions={canUseCustomRegions}
+									canDefineCustomRegions={canDefineCustomRegions}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

@@ -12,7 +12,6 @@ import { useQuery } from '@tanstack/react-query';
 import { PencilIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
-/** "Linode: fr-par ×2 · it-mil" per populated provider, one line each. */
 export function PlacementSummary({ placement }: { placement: OrganizationRegion['placement'] }) {
 	const lines = [
 		placement?.linode?.length ? `Linode: ${describeShape(placement.linode)}` : null,

@@ -80,7 +80,6 @@ export function RegionFormInputs({
 		() => Object.keys(regionNameToLatencyToRegion[selectedRegionName] || {}).sort(sortByNumberPrefix).reverse(),
 		[regionNameToLatencyToRegion, selectedRegionName],
 	);
-	// Inactive custom regions stay listed only while this row already deploys one.
 	const organizationRegions = useMemo(
 		() =>
 			[...regionLookup.values()].filter(region =>
@@ -139,6 +138,11 @@ export function RegionFormInputs({
 		fieldArray?.remove(index);
 		void form.trigger();
 	}, [fieldArray, form, index]);
+
+	const resourcesRegion = useMemo(() => resolved ? regionAtQuantity(resolved, entryQuantity) : undefined, [
+		entryQuantity,
+		resolved,
+	]);
 
 	return (
 		<div className="md:col-span-6 col-span-3 py-2 pl-4 border-l-4 border-border gap-6 flex flex-wrap items-start">
@@ -287,7 +291,7 @@ export function RegionFormInputs({
 			)}
 			<ResourcesPerInstance
 				selectedPlan={selectedPlan}
-				selectedRegion={resolved ? regionAtQuantity(resolved, entryQuantity) : undefined}
+				selectedRegion={resourcesRegion}
 				usageScale={usageScale}
 				isEnterprise={isEnterprise}
 				cloudProvider={cloudProvider}
