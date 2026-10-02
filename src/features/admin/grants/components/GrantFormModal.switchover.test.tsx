@@ -124,26 +124,53 @@ describe('GrantFormModal — switchover', () => {
 		expect(onReplaceWithComp).toHaveBeenCalledWith(expect.objectContaining({ id: 'cgr-a' }), 'sales agreed a comp');
 	});
 
+	it('a replacement waits for a revoke already in flight', async () => {
+		const onReplaceWithComp = vi.fn();
+		await mount(grant(), { onReplaceWithComp });
+		await typeReason('ending it');
+		// The update mock never settles, so the revoke stays in flight.
+		fireEvent.click(screen.getByRole('button', { name: 'Revoke and stop cluster' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Replace with comp' }));
+		expect(onReplaceWithComp).not.toHaveBeenCalled();
+	});
+
 	it.each([
 		['the viewer lacks billing:write', grant(), { canBill: false }],
 		['the grant is already paid', grant({ source: 'purchased' }), {}],
 		['the organization is unrestricted', grant(), { organizationType: 'UNRESTRICTED' }],
 		['the organization is on the legacy enterprise alias', grant(), { organizationType: 'ENTERPRISE' }],
+		// It charges a card: an organization whose type has not loaded is not assumed eligible.
+		['the organization type is not known', grant(), { organizationType: undefined }],
 	])('offers no switch to paid when %s', async (_why, g, props) => {
 		await mount(g, props as Props);
 		expect(switchButton()).toBeNull();
 	});
 
+	it('offers no switchover on a grant that is not the live one (lapsed or not yet started)', async () => {
+		await mount(grant({ isActive: false }));
+		expect(screen.queryByRole('button', { name: 'Replace with comp' })).toBeNull();
+		expect(switchButton()).toBeNull();
+	});
+
+	it('refuses an over-long reason before asking to confirm the charge', async () => {
+		await mount(grant());
+		await typeReason('x'.repeat(513));
+		fireEvent.click(switchButton()!);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(screen.getByText('Keep the reason under 512 characters')).toBeTruthy();
+		expect(screen.queryByRole('alertdialog')).toBeNull();
+	});
+
 	it('asks for a reason, confirms the charge, then posts the switchover', async () => {
 		await mount(grant());
 		fireEvent.click(switchButton()!);
-		await act(() => null);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 		expect(screen.getByText('A reason is required to switch to paid')).toBeTruthy();
 		expect(screen.queryByRole('alertdialog')).toBeNull();
 
 		await typeReason('contract ended; sales confirmed');
 		fireEvent.click(switchButton()!);
-		await act(() => null);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 		expect(within(confirmDialog()).getByText(/card on file is charged now/)).toBeTruthy();
 		expect(switchToPaid).not.toHaveBeenCalled();
 
@@ -163,7 +190,7 @@ describe('GrantFormModal — switchover', () => {
 		await mount(grant());
 		await typeReason('contract ended');
 		fireEvent.click(switchButton()!);
-		await act(() => null);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 		const confirm = within(confirmDialog()).getByRole('button', { name: 'Switch to paid' });
 		fireEvent.click(confirm);
 		fireEvent.click(confirm);
@@ -181,7 +208,7 @@ describe('GrantFormModal — switchover', () => {
 		await mount(grant());
 		await typeReason('contract ended');
 		fireEvent.click(switchButton()!);
-		await act(() => null);
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 		fireEvent.click(within(confirmDialog()).getByRole('button', { name: 'Switch to paid' }));
 		await act(() => null);
 		expect(toastError).toHaveBeenCalledTimes(1);
