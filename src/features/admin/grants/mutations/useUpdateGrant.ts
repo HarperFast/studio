@@ -68,6 +68,8 @@ export interface CreateGrantBody {
 	shape?: GrantShapeEntry[];
 	/** Unbound only: mint this many identical vouchers in one request (1–100). Refused with a clusterId. */
 	quantity?: number;
+	/** The cluster's live grant this one replaces in the same step, so the cluster is never stopped. Refused with startsAt. */
+	replaceGrantId?: string;
 	reason: string;
 }
 
