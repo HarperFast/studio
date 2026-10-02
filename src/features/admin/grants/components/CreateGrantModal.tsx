@@ -23,7 +23,6 @@ import {
 import { useCreateGrantMutation } from '@/features/admin/grants/mutations/useUpdateGrant';
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
-import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,10 +52,6 @@ function replacementDefaults(replacing: GrantReplacement): CreateGrantValues {
 		bindTo: 'cluster',
 		clusterId: replacing.grant.clusterId ?? '',
 		source: 'comped',
-		shape: (replacing.grant.source === 'comped' ? replacing.grant.shape ?? [] : []).map((entry) => ({
-			planId: entry.planId,
-			regionId: entry.regionId ?? '',
-		})),
 		reason: replacing.reason,
 	};
 }
@@ -102,23 +97,6 @@ export function CreateGrantModal({ open, onOpenChange, onCreated, replacing = nu
 	useEffect(() => {
 		if (open) { form.reset(replacing ? replacementDefaults(replacing) : DEFAULTS); }
 	}, [open, replacing, form]);
-
-	// The comp must match what the cluster runs exactly, so its shape is filled from the cluster itself
-	// once that loads — unless the admin has already started on it.
-	const replacingClusterId = replacing?.grant.clusterId ?? false;
-	const { data: cluster } = useQuery({
-		...getClusterInfoQueryOptions(replacingClusterId),
-		enabled: open && !!replacingClusterId,
-	});
-	useEffect(() => {
-		const plans = cluster?.plans;
-		if (!open || !replacing || !plans?.length || form.getValues('shape').length > 0) { return; }
-		form.setValue(
-			'shape',
-			plans.map((plan) => ({ planId: plan.planId, regionId: plan.regionId ?? '' })),
-			{ shouldValidate: true },
-		);
-	}, [open, replacing, cluster, form]);
 
 	const policies = useMemo(
 		() => [
@@ -179,10 +157,13 @@ export function CreateGrantModal({ open, onOpenChange, onCreated, replacing = nu
 			// Omitted means forever, which only a comped grant may be.
 			endsAt: values.endsAt ? new Date(values.endsAt).toISOString() : null,
 			expiryPolicy: values.expiryPolicy,
-			// A comp carries its shape and nothing else; the server refuses the allow-lists on it. For
-			// a trial an empty list is refused too; null — omitted here — is "any".
+			// A comp carries its shape and nothing else; the server refuses the allow-lists on it, and reads
+			// a bound comp's shape off its cluster. For a trial an empty list is refused too; null — omitted
+			// here — is "any".
 			...(values.source === 'comped'
-				? { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }
+				? values.bindTo === 'organization'
+					? { shape: values.shape.map((row) => ({ planId: row.planId, regionId: row.regionId || null })) }
+					: {}
 				: {
 					...(values.allowedPlanIds.length ? { allowedPlanIds: values.allowedPlanIds } : {}),
 					...(values.allowedRegionIds.length ? { allowedRegionIds: values.allowedRegionIds } : {}),
@@ -411,7 +392,15 @@ export function CreateGrantModal({ open, onOpenChange, onCreated, replacing = nu
 							)}
 						/>
 
-						{isComped ? <GrantShapeFields enabled={open} /> : <GrantScopeFields enabled={open} />}
+						{isComped
+							? bindTo === 'organization'
+								? <GrantShapeFields enabled={open} />
+								: (
+									<p className="text-xs text-muted-foreground">
+										Covers exactly what the cluster runs today; any later change to it converts the cluster to paid.
+									</p>
+								)
+							: <GrantScopeFields enabled={open} />}
 
 						<FormField
 							control={form.control}

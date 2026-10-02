@@ -163,17 +163,19 @@ export const CreateGrantSchema = z
 			}
 		}
 
-		// A comp has no external bound — no clock, no card — so the shape IS the bound: the server
-		// requires it. And once it has an end date it must stage, or the runner would never act on it.
+		// A comp has no external bound — no clock, no card — so the shape IS the bound. A voucher must
+		// state it; a comp on an existing cluster takes the cluster's own, server-side. And once it has an
+		// end date it must stage, or the runner would never act on it.
 		if (values.source === 'comped') {
-			if (values.shape.length === 0) {
+			if (values.bindTo === 'organization' && values.shape.length === 0) {
 				ctx.addIssue({
 					code: 'custom',
 					path: ['shape'],
 					message: 'A comped grant must say which cluster it is for — at least one plan and region',
 				});
 			}
-			addShapeIssues(values.shape, ctx);
+			// Rows left over from an unbound draft are not sent once the grant binds to a cluster.
+			if (values.bindTo === 'organization') { addShapeIssues(values.shape, ctx); }
 			if (values.expiryPolicy !== compedExpiryPolicy(values.endsAt)) {
 				ctx.addIssue({
 					code: 'custom',
