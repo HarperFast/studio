@@ -97,10 +97,6 @@ describe('CreateGrantModal — one submit at a time', () => {
 		await mount();
 		await pick('Applies to', /existing cluster/);
 		fireEvent.change(screen.getByPlaceholderText('clu-…'), { target: { value: 'clu-abc' } });
-		fireEvent.click(screen.getByRole('button', { name: /Add region/ }));
-		await act(() => null);
-		await pick('Plan 1', /plan-hobby/);
-		await pick('Region 1', /us-east-1/);
 		fireEvent.change(screen.getByPlaceholderText(/Why this grant exists/), { target: { value: 'pilot' } });
 		await act(() => null);
 		const submit = screen.getByRole('button', { name: 'Create grant' });
