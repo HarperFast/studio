@@ -51,7 +51,7 @@ import { toast } from 'sonner';
 
 export function ClusterCard({ item: summary }: { item: ClusterListItem }) {
 	const { cluster } = summary;
-	const syncLabel = describeSyncSummary(cluster.syncSummary);
+	const syncLabel = describeSyncSummary(summary.syncSummary);
 	const router = useRouter();
 	const queryClient = useQueryClient();
 	const operationsUrl = useMemo(() => getOperationsUrlForCluster(cluster), [cluster]);

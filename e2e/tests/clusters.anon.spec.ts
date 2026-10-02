@@ -203,7 +203,8 @@ test('a running cluster card flags members still copying data', async ({ page })
 		route.fulfill({
 			json: {
 				...organization,
-				clusters: [{ ...clusters[0], syncSummary: { syncing: 2, copiedGb: 12.4, expectedGb: 40 } }, clusters[1]],
+				clusters,
+				clusterSyncSummaries: { 'clu-production': { syncing: 2, copiedGb: 12.4, expectedGb: 40 } },
 			},
 		}));
 	await page.goto('/#/org-fixture');

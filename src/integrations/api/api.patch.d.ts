@@ -154,6 +154,8 @@ export interface SystemStatusNotification {
 
 export interface Organization extends SchemaOrganization {
 	type: ENTERPRISE | SELF_SERVICE | string | undefined;
+	// From central-manager#888: only the clusters with an instance still copying; absent when central manager can't say.
+	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
 		oauthConfigs?: OAuthConfig[];
 	};
@@ -249,8 +251,6 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	status?: string | 'PROVISIONING' | 'UPDATING' | 'RUNNING' | 'TERMINATED' | 'FAILED';
 	// Use the patched Instance (adds status + safeMode) rather than the raw generated shape.
 	instances?: Instance[];
-	// On the organization response only, once central-manager#888 ships; null when nothing is cloning.
-	syncSummary?: ClusterSyncSummary | null;
 }
 
 export interface ClusterSyncSummary {
