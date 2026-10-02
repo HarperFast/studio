@@ -119,4 +119,31 @@ describe('CheckOAuth', () => {
 		expect(setUserForEntity).toHaveBeenCalledWith('OverallAppSignIn', { id: 'u1', email: 'user@example.com' });
 		expect(clearUtmParamsFromUrl).toHaveBeenCalled();
 	});
+
+	// The module-level `checking` lock must release even when an awaited call rejects, or every
+	// later mount of CheckOAuth no-ops forever (Gemini PRRT_kwDODRu1TM6ocSFz). `navigate` rejecting
+	// on the first mount's `await navigate(...)` stands in for any of navigate/router.invalidate/
+	// queryClient.invalidateQueries — all equally unguarded by a try/finally before this fix.
+	it('releases the lock when an awaited call rejects, so a later mount runs the check again', async () => {
+		stubLocationSearch('');
+		getCurrentUser.mockResolvedValue(null);
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		navigate.mockRejectedValueOnce(new Error('navigation aborted'));
+
+		const { unmount } = renderCheckOAuth();
+		await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+		// Let the rejection propagate through the IIFE's finally (releases the lock)
+		// and its outer .catch (logs instead of an unhandled rejection).
+		await waitFor(() => expect(consoleError).toHaveBeenCalledWith('OAuth sign-in check failed:', expect.any(Error)));
+		unmount();
+
+		getCurrentUser.mockClear();
+		navigate.mockClear();
+		navigate.mockResolvedValue(undefined);
+		renderCheckOAuth();
+
+		await waitFor(() => expect(getCurrentUser).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/sign-in' }));
+		consoleError.mockRestore();
+	});
 });
