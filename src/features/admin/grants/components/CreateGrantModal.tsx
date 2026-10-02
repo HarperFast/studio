@@ -47,7 +47,6 @@ const DEFAULTS: CreateGrantValues = {
 	reason: '',
 };
 
-/** A replacement comp: bound to the grant's cluster, starting now, its shape what the cluster runs. */
 function replacementDefaults(replacing: GrantReplacement): CreateGrantValues {
 	return {
 		...DEFAULTS,
