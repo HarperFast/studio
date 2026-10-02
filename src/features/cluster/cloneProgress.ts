@@ -74,7 +74,7 @@ function formatGb(gb: number): string {
 }
 
 function ago(timeMs: number, now: number): string {
-	return translateSecondsToAgo(Math.round((now - timeMs) / 1000), timeMs);
+	return translateSecondsToAgo(Math.max(0, Math.round((now - timeMs) / 1000)), timeMs);
 }
 
 function toTime(value: string | undefined): number | undefined {

@@ -52,4 +52,27 @@ describe('ClusterProgress', () => {
 		mount();
 		expect(await screen.findByText('1 Running · 1 Updated · 1 Clone Ready · 1 Cloning')).toBeTruthy();
 	});
+
+	it('counts failed members in the width total, so the segments add up to the whole bar', async () => {
+		const widths = (container: HTMLElement) =>
+			['green', 'red', 'yellow', 'gray-600'].map((color) =>
+				(container.querySelector(`.bg-${color}\\/80, .bg-${color}`) as HTMLElement).style.width
+			);
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'FAILED' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'FAILED' },
+		];
+		let { container } = mount();
+		await screen.findByText('2 Failed');
+		expect(widths(container)).toEqual(['0%', '100%', '0%', '0%']);
+		cleanup();
+
+		clusterInstances = [
+			{ id: 'ins-1', planId: 'plan-1', status: 'RUNNING' },
+			{ id: 'ins-2', planId: 'plan-1', status: 'FAILED' },
+		];
+		({ container } = mount());
+		await screen.findByText('1 Running · 1 Failed');
+		expect(widths(container)).toEqual(['50%', '50%', '0%', '0%']);
+	});
 });
