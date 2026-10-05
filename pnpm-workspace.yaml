@@ -1,5 +1,6 @@
 allowBuilds:
   '@datadog/pprof': true
+  '@harperfast/hnsw': true
   '@scarf/scarf': true
   '@tree-sitter-grammars/tree-sitter-yaml': true
   argon2: true
