@@ -79,7 +79,8 @@ export function RegionFormInputs({
 	const organizationRegions = useMemo(
 		() =>
 			[...regionLookup.values()].filter(region =>
-				region.kind === 'organization' && (region.active || region.id === entryRegionId)
+				region.kind === 'organization'
+				&& ((region.active && region.instanceCount > 0) || region.id === entryRegionId)
 			),
 		[entryRegionId, regionLookup],
 	);

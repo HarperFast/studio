@@ -68,7 +68,10 @@ export function ClusterRegions({
 		}
 		if (canUseCustomRegions) {
 			for (const region of regionLookup.values()) {
-				if (region.kind === 'organization' && region.active && !selectedCohorts.has(region.id)) {
+				if (
+					region.kind === 'organization' && region.active && region.instanceCount > 0
+					&& !selectedCohorts.has(region.id)
+				) {
 					return { regionId: region.id, quantity: 1 };
 				}
 			}

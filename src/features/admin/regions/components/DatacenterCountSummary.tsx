@@ -1,9 +1,6 @@
 import { describeShape } from '@/features/clusters/upsert/lib/regionLookup';
 
-/**
- * The per-datacenter counts a repeated-location list amounts to ("fr-par ×2 · it-mil"). The pickers
- * allow repeats but render one chip per entry, which is why the resulting count was never visible.
- */
+// The pickers allow repeats but render one chip per entry; this is where the count shows.
 export function DatacenterCountSummary({ datacenters, ariaLabel }: { datacenters: readonly string[]; ariaLabel: string }) {
 	if (datacenters.length === 0) {
 		return null;

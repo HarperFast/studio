@@ -125,6 +125,10 @@ export function ClusterForm({
 		const names = new Set();
 		const selectedPlan = deploymentToPerformanceToPlan?.[data.deploymentDescription]?.[data.performanceDescription];
 		const isSelfManaged = data.deploymentDescription === 'Self-Hosted';
+		// A version edit submits neither regions nor instances, so a stale draft cannot block it.
+		if (mode === 'version') {
+			return;
+		}
 		if (isSelfManaged) {
 			for (let i = 0; i < data.instances.length; i++) {
 				const fqdn = calculateInstanceFQDN(data.instances[i]);
@@ -178,6 +182,13 @@ export function ClusterForm({
 					if (firstOrganizationRegionIndex < 0) {
 						firstOrganizationRegionIndex = i;
 					}
+					if (region.instanceCount === 0) {
+						ctx.addIssue({
+							code: 'custom',
+							path: [`regionPlans.${i}.regionId`],
+							message: "This custom region has no datacenters on the organization's cloud provider.",
+						});
+					}
 					if (!canUseCustomRegions && !preexistingOrganizationRegionIds.has(region.id)) {
 						ctx.addIssue({
 							code: 'custom',
@@ -230,6 +241,7 @@ export function ClusterForm({
 		colocatedRegionLookup,
 		dedicatedRegionLookup,
 		deploymentToPerformanceToPlan,
+		mode,
 		preexistingOrganizationRegionIds,
 	]);
 

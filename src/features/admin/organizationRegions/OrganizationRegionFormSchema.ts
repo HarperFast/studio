@@ -7,8 +7,7 @@ export const FROZEN_WHILE_REFERENCED = ['name', 'linodeDatacenters', 'gcpDatacen
 /** The form's "no fallback pool" choice; the API stores null for it. */
 export const NO_FALLBACK = '';
 
-// A repeated datacenter asks for another instance there. Blocks are not a field: central-manager
-// derives a block per instance pair from the shape.
+// A repeated datacenter asks for another instance there.
 export const OrganizationRegionFormSchema = z.object({
 	name: z.string().trim().min(1, 'Name is required').max(64, 'Keep the name to 64 characters'),
 	linodeDatacenters: z.array(z.string()),

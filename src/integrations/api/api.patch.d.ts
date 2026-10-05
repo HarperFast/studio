@@ -124,9 +124,9 @@ export interface AdminRegionPayload {
 
 /**
  * An organization-owned custom region (central-manager `OrganizationRegion`, ids `oreg-…`): the
- * datacenters one unit occupies per provider, an optional fallback pool and the purchased blocks
- * minted per unit. Clusters deploy it with `RegionPlan.quantity` units. Internal-only: staff with
- * `region:write` create and edit rows; organization members may read them.
+ * datacenters one unit occupies per provider and an optional fallback pool; its blocks per unit
+ * derive from the shape. Clusters deploy it with `RegionPlan.quantity` units. Internal-only: staff
+ * with `region:write` create and edit rows; organization members may read them.
  */
 export interface OrganizationRegion {
 	id: string;
