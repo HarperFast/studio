@@ -248,10 +248,10 @@ importers:
         version: 1.2.16(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@stripe/react-stripe-js':
         specifier: ^6.0.0
-        version: 6.12.0(@stripe/stripe-js@9.17.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 6.12.0(@stripe/stripe-js@10.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@stripe/stripe-js':
-        specifier: ^9.0.0
-        version: 9.17.0
+        specifier: ^10.0.0
+        version: 10.0.0
       '@tailwindcss/vite':
         specifier: ^4.0.9
         version: 4.3.3(vite@8.3.1(@types/node@24.13.6)(jiti@2.7.0)(terser@5.48.0)(yaml@2.9.1))
@@ -2411,8 +2411,8 @@ packages:
       react: '>=16.8.0 <20.0.0'
       react-dom: '>=16.8.0 <20.0.0'
 
-  '@stripe/stripe-js@9.17.0':
-    resolution: {integrity: sha512-uidL4OJum5kivsOAQnVfQmYLJ2zdgirtmT0zWgskASZ4TPXxpXQ0MNrzW4NsXB90uEqmPHpSEtciLFbF1QQvNA==}
+  '@stripe/stripe-js@10.0.0':
+    resolution: {integrity: sha512-y5LKFTtnz1ciM+IQfrDfHcpjGlsm5Ao4onaUn4scurI/B6rNhrmV+ScTPDo+3Ges5oF8ol4tBkBAIZyVXVBIXw==}
     engines: {node: '>=12.16'}
 
   '@swc/helpers@0.5.23':
@@ -9359,14 +9359,14 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@stripe/react-stripe-js@6.12.0(@stripe/stripe-js@9.17.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@stripe/react-stripe-js@6.12.0(@stripe/stripe-js@10.0.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
-      '@stripe/stripe-js': 9.17.0
+      '@stripe/stripe-js': 10.0.0
       prop-types: 15.8.1
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
-  '@stripe/stripe-js@9.17.0': {}
+  '@stripe/stripe-js@10.0.0': {}
 
   '@swc/helpers@0.5.23':
     dependencies:
