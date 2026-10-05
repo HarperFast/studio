@@ -136,3 +136,112 @@ test('finds live instance regions when only some plan regions resolve', async ({
 	await expect(page.getByRole('status')).toHaveText('Showing 1 of 1 clusters');
 	await expect(page.getByRole('link', { name: 'Open Production' })).toBeVisible();
 });
+
+// Built per test: the ages in the caption are relative to now, and a worker can load this file long before running it.
+const cloningCluster = (now = Date.now()) => ({
+	...clusters[0],
+	instances: [
+		{ id: 'ins-a', name: 'node-a', status: 'RUNNING', cloneExpectedGb: 40, cloneProgressGb: 40 },
+		{
+			id: 'ins-b',
+			name: 'node-b',
+			status: 'CLONING',
+			cloneExpectedGb: 40,
+			cloneProgressGb: 12.4,
+			cloneStartedAt: new Date(now - 10 * 60_000).toISOString(),
+			cloneProgressAt: new Date(now - 3 * 60_000).toISOString(),
+		},
+	].map((instance, index) => ({
+		...instance,
+		planId: 'shared',
+		instanceFqdn: `${instance.name}.example.test`,
+		operationsApiPort: 9925,
+		operationsApiSecure: true,
+		storageGb: 100,
+		cpuCores: 2,
+		threads: 4,
+		memoryMb: 4096,
+		version: '5.2.13',
+		hostId: `host-${index}`,
+	})),
+});
+
+test('the instances table shows data-sync progress for a cloning member', async ({ page }) => {
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cloningCluster() }));
+	await page.goto('/#/org-fixture/clu-production/instances');
+	const cloningRow = page.getByRole('row').filter({ hasText: 'node-b' });
+	await expect(cloningRow.getByText('Cloning', { exact: true })).toBeVisible();
+	await expect(cloningRow.locator('svg.lucide-refresh-cw')).toBeVisible();
+	await expect(cloningRow.getByText('Syncing data · ~12.4 of ~40 GB (31%) · last progress 3 minutes ago'))
+		.toBeVisible();
+	const runningRow = page.getByRole('row').filter({ hasText: 'node-a' });
+	await expect(runningRow.getByText('Running', { exact: true })).toBeVisible();
+	await expect(runningRow.getByText(/Syncing data/)).toHaveCount(0);
+});
+
+test('scaling is not done while a new member is still cloning', async ({ page }) => {
+	const cloning = cloningCluster();
+	let cluster = cloning;
+	await page.route('**/Cluster/clu-production', route => route.fulfill({ json: cluster }));
+	await page.goto('/#/org-fixture/clu-production/scaling');
+	await expect(page.getByRole('heading', { name: 'Here we go!' })).toBeVisible();
+	await expect(page.getByText('1 Running · 1 Cloning', { exact: true })).toBeVisible();
+	const syncing = page.getByRole('list', { name: 'Instances syncing data' });
+	await expect(syncing.getByRole('listitem')).toHaveCount(1);
+	await expect(syncing).toContainText('node-b');
+
+	cluster = {
+		...cloning,
+		instances: cloning.instances.map(instance => ({ ...instance, status: 'RUNNING' })),
+	};
+	await expect(page.getByRole('heading', { name: 'All done!' })).toBeVisible();
+	await expect(page.getByRole('list', { name: 'Instances syncing data' })).toHaveCount(0);
+});
+
+test('a running cluster card flags members still copying data', async ({ page }) => {
+	await page.route('**/Organization/org-fixture', route =>
+		route.fulfill({
+			json: {
+				...organization,
+				clusters,
+				clusterSyncSummaries: { 'clu-production': { syncing: 2, progress: 0.31 } },
+			},
+		}));
+	await page.goto('/#/org-fixture');
+	const card = page.getByRole('link', { name: 'Open Production' }).locator('..');
+	await expect(card.getByText('Running', { exact: true })).toBeVisible();
+	await expect(card.getByText('Syncing · ~31%')).toBeVisible();
+	await expect(page.getByText(/^Syncing/)).toHaveCount(1);
+});
+
+test('a building cluster card opens its progress, and a refused member sees why', async ({ page }) => {
+	await page.route(
+		'**/Organization/org-fixture',
+		route => route.fulfill({ json: { ...organization, clusters: [{ ...clusters[0], status: 'PROVISIONING' }] } }),
+	);
+	await page.route('**/Cluster/clu-production', route =>
+		route.fulfill({
+			status: 403,
+			json: {
+				error: 'Cluster reset password is enabled, ask an organization admin to set a password for this cluster',
+			},
+		}));
+	await page.goto('/#/org-fixture');
+	await page.getByRole('link', { name: 'View progress for Production' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture\/clu-production\/starting-up$/);
+	await expect(page.getByRole('heading', { name: 'Pending Owner Setup' })).toBeVisible();
+	await page.getByRole('link', { name: 'Back to clusters' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture$/);
+});
+
+test('scaling explains a failed update instead of waiting forever', async ({ page }) => {
+	await page.route(
+		'**/Cluster/clu-production',
+		route => route.fulfill({ json: { ...cloningCluster(), status: 'FAILED' } }),
+	);
+	await page.goto('/#/org-fixture/clu-production/scaling');
+	await expect(page.getByRole('heading', { name: "Your cluster's update didn't finish" })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Here we go!' })).toHaveCount(0);
+	await page.getByRole('link', { name: 'View Instances' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture\/clu-production\/instances$/);
+});

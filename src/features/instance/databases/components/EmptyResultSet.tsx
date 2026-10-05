@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button';
+import { addCommasToNumbers } from '@/lib/addCommasToNumbers';
+import { pluralize } from '@/lib/pluralize';
 import { CloudUploadIcon, FunnelXIcon, PackageIcon, PlusIcon, TableIcon } from 'lucide-react';
 import { ComponentType, ReactNode } from 'react';
 
@@ -9,6 +11,7 @@ import { ComponentType, ReactNode } from 'react';
  */
 export function EmptyResultSet({
 	tableName,
+	hasPrimaryKey,
 	isFiltered,
 	isPastFirstPage,
 	recordCount,
@@ -23,6 +26,8 @@ export function EmptyResultSet({
 	onClearFilters,
 }: {
 	readonly tableName: string;
+	/** False only once the schema has arrived without one. */
+	readonly hasPrimaryKey: boolean;
 	readonly isFiltered: boolean;
 	readonly isPastFirstPage: boolean;
 	/** The table's own count, `undefined` until describe_table lands (describe_all carries none). */
@@ -39,6 +44,25 @@ export function EmptyResultSet({
 	readonly onAddRecords: () => void;
 	readonly onClearFilters: () => void;
 }) {
+	// Ahead of every other reason: no page, filter or count can explain a table that can't be listed.
+	// The remedy is a new table, never this one: see ../DESIGN.md.
+	if (!hasPrimaryKey) {
+		return (
+			<EmptyResultSetShell>
+				<Heading>
+					<span className="font-mono">{tableName}</span> has no primary key
+				</Heading>
+				<p className="text-sm text-muted-foreground">
+					{recordCount
+						? `It reports ${pluralize(addCommasToNumbers(recordCount), 'record', 'records')}, but Studio`
+						: 'Studio'}{' '}
+					lists and opens records by their primary key, so it can't browse this table. To browse its records here, copy
+					them into a new table that has a primary key.
+				</p>
+			</EmptyResultSetShell>
+		);
+	}
+
 	// Page before filters: on page 3 of a filtered set, "nothing matched" would be wrong -- the
 	// matches are on an earlier page.
 	if (isPastFirstPage) {

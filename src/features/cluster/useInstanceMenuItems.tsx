@@ -1,7 +1,8 @@
 import type { EntityMenuItem } from '@/components/ui/entityMenu';
-import { isStoppedOrTransitioning } from '@/components/ui/utils/badgeStatus';
+import { isOperationsProxyRefused } from '@/components/ui/utils/badgeStatus';
 import { useInstanceClient, useInstanceClientIdParams } from '@/config/useInstanceClient';
 import { authStore } from '@/features/auth/store/authStore';
+import { containerActionsForStatus } from '@/features/cluster/containerActionsForStatus';
 import { getClusterInfoQueryOptions } from '@/features/cluster/queries/getClusterInfoQuery';
 import { signOutOfInstance } from '@/features/cluster/signOutOfInstance';
 import { SafeModeConfirmDialog } from '@/features/clusters/components/SafeModeConfirmDialog';
@@ -66,7 +67,7 @@ export function useInstanceMenuItems(
 
 	const statusParams = useInstanceClientIdParams({ operationsUrl, instanceId: instance.id, forceFabricConnect: true });
 	const { data: statusResponse } = useQuery(
-		getStatusQueryOptions(statusParams, enabled && canManage && !isStoppedOrTransitioning(instance.status)),
+		getStatusQueryOptions(statusParams, enabled && canManage && !isOperationsProxyRefused(instance.status)),
 	);
 	const systemStatus = getSystemStatusById(statusResponse, 'availability') || 'Unknown';
 	const isAvailable = systemStatus === 'Available';
@@ -96,14 +97,15 @@ export function useInstanceMenuItems(
 	const hasRotation = canManage && isReady && (isAvailable || isUnavailable);
 
 	// Container lifecycle ops (stop/start/restart) — distinct from the proxied Harper "restart".
-	// Only offered from a settled RUNNING/STOPPED state; hidden mid-transition (the instances poll
-	// reveals the resting state and the actions reappear). Self-hosted clusters have no managed
-	// container lifecycle (Harper doesn't control their runtime), so the group is hidden for them.
-	const isRunning = instance.status === 'RUNNING';
-	const isStopped = instance.status === 'STOPPED';
-	// Only the stopped-instance actions die with the plan: Start is refused with a 402, while a
-	// still-running instance keeps Restart and Stop, which central-manager allows on the way down.
-	const hasContainerOps = canRunContainerOps && !isSelfManaged && (isRunning || (isStopped && !planEnded));
+	// Hidden mid-transition (the instances poll reveals the resting state and the actions reappear).
+	// Self-hosted clusters have no managed container lifecycle (Harper doesn't control their
+	// runtime), so the group is hidden for them. Only Start dies with the plan: central-manager
+	// refuses it with a 402, while Restart and Stop stay on the way down.
+	const available = containerActionsForStatus(instance.status);
+	const containerActions = planEnded ? { ...available, start: false } : available;
+	const hasContainerOps = canRunContainerOps
+		&& !isSelfManaged
+		&& (containerActions.start || containerActions.restart || containerActions.stop);
 
 	const actions: EntityMenuItem[] = [
 		hasAuth && isDirectlyLoggedIn && {
@@ -160,35 +162,35 @@ export function useInstanceMenuItems(
 			className: 'text-gray-600 text-xs',
 			label: 'Container',
 		},
-		hasContainerOps && isStopped && {
+		hasContainerOps && containerActions.start && {
 			key: 'container-start',
 			disabled: isContainerOpPending,
 			onClick: () => void runContainerOp('start', { safeMode: false }),
 			icon: <PlayIcon />,
 			label: 'Start',
 		},
-		hasContainerOps && isStopped && {
+		hasContainerOps && containerActions.start && {
 			key: 'container-start-safe',
 			disabled: isContainerOpPending,
 			onClick: () => setSafeModeAction('start'),
 			icon: <LifeBuoyIcon />,
 			label: 'Start in safe mode',
 		},
-		hasContainerOps && isRunning && {
+		hasContainerOps && containerActions.restart && {
 			key: 'container-restart',
 			disabled: isContainerOpPending,
 			onClick: () => void runContainerOp('restart', { safeMode: false }),
 			icon: <RotateCwIcon />,
 			label: 'Restart',
 		},
-		hasContainerOps && isRunning && {
+		hasContainerOps && containerActions.restart && {
 			key: 'container-restart-safe',
 			disabled: isContainerOpPending,
 			onClick: () => setSafeModeAction('restart'),
 			icon: <LifeBuoyIcon />,
 			label: 'Restart in safe mode',
 		},
-		hasContainerOps && isRunning && {
+		hasContainerOps && containerActions.stop && {
 			key: 'container-stop',
 			variant: 'destructive' as const,
 			disabled: isContainerOpPending,

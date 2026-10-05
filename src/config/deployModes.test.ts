@@ -1,8 +1,11 @@
 import { deployModes } from '@/config/constants';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
+
+type ActionStep = { name?: string; run?: string };
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const envDir = path.join(repoRoot, '.github/deploy-public-env');
@@ -55,5 +58,17 @@ describe('the deploy action', () => {
 		for (const file of readdirSync(envDir)) {
 			expect(readFileSync(path.join(envDir, file), 'utf8')).not.toContain('VITE_TELEMETRY_ENABLED');
 		}
+	});
+
+	it('deploys with the repo’s own harper bin, which a pnpm command inside deploy/ cannot see', () => {
+		const steps: ActionStep[] = parse(action).runs.steps;
+		const deployScript = steps.find((step) => step.name?.startsWith('Deploy to '))?.run;
+		expect(deployScript).toBeTypeOf('string');
+		const harperBin = deployScript?.match(/^\s*(\S+) deploy_component /m)?.[1] ?? '';
+		const rootHarperBin = path.join(repoRoot, 'node_modules/.bin/harper');
+
+		expect(deployScript).toMatch(/^\s*cd deploy$/m);
+		expect(path.resolve(repoRoot, 'deploy', harperBin)).toBe(rootHarperBin);
+		expect(existsSync(rootHarperBin)).toBe(true);
 	});
 });

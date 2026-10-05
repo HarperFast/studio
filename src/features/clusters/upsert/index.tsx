@@ -15,18 +15,17 @@ import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { SchemaPlan } from '@/integrations/api/api.gen';
 import { Cluster, Organization } from '@/integrations/api/api.patch';
-import { excludeFalsy } from '@/lib/arrays/excludeFalsy';
 import { sortByField } from '@/lib/arrays/sort/byField';
 import { byInstanceFqdnThenPort } from '@/lib/arrays/sort/byInstanceFqdnThenPort';
 import { groupThenKeyBy } from '@/lib/groupThenKeyBy';
 import { LocalStorageKeys } from '@/lib/storage/localStorageKeys';
-import { compareVersions, wasAReleasedBeforeB } from '@/lib/string/wasAReleasedBeforeB';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useRouteContext, useSearch } from '@tanstack/react-router';
 import { ReactNode, useMemo } from 'react';
 import { z } from 'zod';
 import { ClusterForm } from './ClusterForm';
 import { isUpsertClusterSchema } from './isUpsertClusterSchema';
+import { buildUpgradeVersionOptions } from './lib/buildUpgradeVersionOptions';
 import {
 	calculateDefaultDeploymentPerformanceAndRegionPlans,
 } from './lib/calculateDefaultDeploymentPerformanceAndRegionPlans';
@@ -91,30 +90,11 @@ export function UpsertCluster() {
 
 	const { data: newHarperVersions } = useQuery(getHarperVersionsOptions(organizationId));
 	const harperVersions = useMemo(() => {
-		if (cluster) {
-			const clusterVersions = cluster.instances?.map(i => i.version).filter(excludeFalsy);
-			if (newHarperVersions && clusterVersions) {
-				// Copy before sort — sort mutates in place, and we reuse the full set below.
-				const latestClusterVersion = [...clusterVersions].sort(compareVersions).pop();
-				const clusterVersionSet = new Set(clusterVersions);
-				return {
-					...newHarperVersions,
-					value: [
-						!!latestClusterVersion && {
-							name: 'current',
-							version: latestClusterVersion,
-						} as const,
-						...(newHarperVersions?.value || []).filter(v => {
-							// Drop any version this cluster already runs: the current version is shown once as
-							// "current" above, and the backend also returns it (and any co-tenant instance's
-							// version, mid-upgrade) as a "deployed on <cluster>" entry we don't want to duplicate.
-							return !clusterVersionSet.has(v.version)
-								// Only offer newer releases — no downgrades (e.g. don't drop from "next" v5 to "stable" v4).
-								&& (!latestClusterVersion || wasAReleasedBeforeB(latestClusterVersion, v.version));
-						}),
-					].filter(excludeFalsy),
-				} satisfies HarperVersionsResponse;
-			}
+		if (cluster?.instances && newHarperVersions) {
+			return {
+				...newHarperVersions,
+				value: buildUpgradeVersionOptions(newHarperVersions.value ?? [], cluster.instances),
+			} satisfies HarperVersionsResponse;
 		}
 		return newHarperVersions;
 	}, [newHarperVersions, cluster]);
@@ -123,10 +103,15 @@ export function UpsertCluster() {
 	// rest of the cluster is on. In that state the version picker pre-selects the latest version as
 	// "current" and offers nothing newer, so the form can never become dirty — leaving no way to
 	// re-run the upgrade for the lagging instances. We surface this so the form can allow re-submitting
-	// the current target as a recovery path.
+	// the current target as a recovery path — unless a pinned (scoped) version is among the lagging
+	// ones, in which case the target is ambiguous and the user picks it.
 	const partialUpgrade = useMemo(
-		() => detectPartialUpgrade(cluster?.instances ?? []),
-		[cluster],
+		() =>
+			detectPartialUpgrade(
+				cluster?.instances ?? [],
+				(newHarperVersions?.value ?? []).filter(v => v.scoped).map(v => v.version),
+			),
+		[cluster, newHarperVersions],
 	);
 
 	const alreadyUsingFree = useMemo(() => {
@@ -229,8 +214,13 @@ export function UpsertCluster() {
 			regionPlans.push({ regionName: '', latencyDescription: '' });
 		}
 
-		const version = harperVersions.value?.find(v => v.name === 'current')?.version
-			?? harperVersions.value?.find(v => v.name === 'stable')?.version;
+		// On an ambiguous partial upgrade the version picker pre-selects nothing: either choice then
+		// dirties the form, so the user states the target instead of the form assuming the highest
+		// version. Other modes show the field disabled, where the running version is the right display.
+		const version = partialUpgrade?.ambiguous && mode === 'version'
+			? undefined
+			: harperVersions.value?.find(v => v.name === 'current')?.version
+				?? harperVersions.value?.find(v => v.name === 'stable')?.version;
 
 		return {
 			sourceClusterId: clusterToLoad?.id,
@@ -251,6 +241,8 @@ export function UpsertCluster() {
 		cluster,
 		clusterId,
 		upgradingToHobbyist,
+		mode,
+		partialUpgrade,
 		planTypes,
 		harperVersions,
 		regionLocationsColocated,

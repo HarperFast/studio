@@ -47,7 +47,10 @@ export function ClustersList() {
 		staleTime: 60_000,
 	});
 	const regionNames = useMemo(() => new Map(regionCatalog?.map(region => [region.id, region.region])), [regionCatalog]);
-	const model = useMemo(() => buildClusterList(orgInfo?.clusters ?? [], regionNames), [orgInfo?.clusters, regionNames]);
+	const model = useMemo(
+		() => buildClusterList(orgInfo?.clusters ?? [], regionNames, orgInfo?.clusterSyncSummaries),
+		[orgInfo?.clusters, regionNames, orgInfo?.clusterSyncSummaries],
+	);
 	const filteredClusters = useMemo(() => selectClusters(model.items, controls), [model.items, controls]);
 	const hasFilters = !!controls.search || controls.category !== 'all' || !!controls.region;
 

@@ -103,10 +103,46 @@ describe('poll-stops-on-403, end to end', () => {
 
 		await vi.advanceTimersByTimeAsync(60_000);
 
-		// A 400 is deterministic but can come from state that is still settling, so the
-		// timer deliberately keeps running — halting it would freeze the UI until remount
-		// or refocus. Whether a *sustained* 400 should stop it is open in #1569.
-		expect(post.mock.calls.length).toBeGreaterThan(3);
+		expect(post).toHaveBeenCalledTimes(4);
+		unsubscribe();
+	});
+
+	it('backs off a sustained 400 instead of polling every 10s for the life of the tab', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const { unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+		expect(post).toHaveBeenCalledTimes(17);
+		unsubscribe();
+	});
+
+	it('backs off once per query, not once per observer, when two rows share it', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const first = observe(post);
+		const second = observe(post);
+
+		await vi.advanceTimersByTimeAsync(60 * 60_000);
+
+		// Each observer owns a timer; both re-arm on every update of the one shared Query, so
+		// they fire together and React Query dedupes the fetch.
+		expect(post).toHaveBeenCalledTimes(17);
+		first.unsubscribe();
+		second.unsubscribe();
+	});
+
+	it('returns to the 10s cadence as soon as a poll succeeds', async () => {
+		const post = vi.fn().mockRejectedValue(httpError(400));
+		const { observer, unsubscribe } = observe(post);
+
+		await vi.advanceTimersByTimeAsync(30 * 60_000);
+		post.mockResolvedValue(okStatus);
+		await observer.refetch();
+		const afterRecovery = post.mock.calls.length;
+
+		await vi.advanceTimersByTimeAsync(60_000);
+
+		expect(post.mock.calls.length - afterRecovery).toBe(6);
 		unsubscribe();
 	});
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { waitForJob } from './getJob';
+import { ImportJobError, waitForJob } from './getJob';
 
 type InstanceClient = Parameters<typeof waitForJob>[0]['instanceClient'];
 
@@ -54,6 +54,7 @@ describe('waitForJob', () => {
 		pending.catch(() => {}); // avoid unhandled rejection before the assertion below
 		await vi.advanceTimersByTimeAsync(500);
 		await expect(pending).rejects.toThrow('CSV was malformed');
+		await expect(pending).rejects.toBeInstanceOf(ImportJobError);
 	});
 
 	it('tolerates transient get_job failures and keeps polling', async () => {

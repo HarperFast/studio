@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ImportJobError } from '../api/instance/database/getJob';
 import { SSEOperationError } from '../api/sse/errors';
 import { redactRelayedMessage, redactRelayedStack } from './redactRelayedMessage';
 
@@ -52,6 +53,15 @@ describe('redactRelayedMessage', () => {
 	it('matches the name SSEOperationError actually carries', () => {
 		expect(new SSEOperationError('boom').name).toBe('SSEOperationError');
 		expect(redactRelayedMessage(new SSEOperationError('boom').name, 'boom')).toBe(WITHHELD);
+	});
+
+	it('withholds a failed import job, whose message quotes the rows it rejected', () => {
+		const error = new ImportJobError('Value "[]" in property tags must be an Array. Value "[\\"Acme widget\\"]"');
+		expect(error.name).toBe('ImportJobError');
+		expect(redactRelayedMessage(error.name, error.message)).toBe(WITHHELD);
+		const frames = '\n  at waitForJob @ https://fabric.harper.fast/assets/index-A1b2C3d4.js:5:1234';
+		expect(redactRelayedStack(error.name, error.message, `ImportJobError: ${error.message}${frames}`))
+			.toBe(WITHHELD + frames);
 	});
 
 	it('removes exactly the message and keeps what follows', () => {

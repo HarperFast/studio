@@ -21,6 +21,7 @@ import { FormField } from '@/components/ui/form/FormField';
 import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
+import { revealFieldErrorOnEnter } from '@/components/ui/form/revealFieldErrorOnEnter';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ENV_KEY_REGEX, ENV_VALUE_MASK } from '@/lib/env/envFile';
@@ -45,8 +46,9 @@ export interface SecretDeliveryOptions {
 const secretKeySchema = z
 	.string()
 	.trim()
-	.min(1)
+	.min(1, { error: 'Enter a key.' })
 	.regex(ENV_KEY_REGEX, { error: 'Letters, numbers, underscore, dash and dot only.' });
+const secretValueSchema = z.string().min(1, { error: 'Enter a value.' });
 
 export function AddSecretModal({
 	description,
@@ -80,12 +82,13 @@ export function AddSecretModal({
 				key: secretKeySchema.refine((key) => !existingKeys?.includes(key), {
 					error: 'This key already exists — edit it instead.',
 				}),
-				value: z.string().min(1),
+				value: secretValueSchema,
 			}),
 		[existingKeys],
 	);
 	const form = useForm({
 		resolver: zodResolver(schema),
+		mode: 'onTouched',
 		defaultValues: { key: '', value: '' },
 	});
 	// Destructured unconditionally so react-hook-form tracks all three (see EditSecretModal).
@@ -134,6 +137,7 @@ export function AddSecretModal({
 						id="add-secret-form"
 						name="add-secret-form"
 						onSubmit={form.handleSubmit(onSubmitClick)}
+						onKeyDown={revealFieldErrorOnEnter(form)}
 						className="grid gap-4 my-4"
 					>
 						<DialogHeader>
@@ -213,7 +217,7 @@ export function AddSecretModal({
 	);
 }
 
-const EditSecretSchema = z.object({ value: z.string().min(1) });
+const EditSecretSchema = z.object({ value: secretValueSchema });
 
 export function EditSecretModal({
 	name,
@@ -248,7 +252,7 @@ export function EditSecretModal({
 	/** The secret's stored tier, pre-selected in the chooser. */
 	currentTier?: SecretTier;
 }) {
-	const form = useForm({ resolver: zodResolver(EditSecretSchema), defaultValues: { value: '' } });
+	const form = useForm({ resolver: zodResolver(EditSecretSchema), mode: 'onTouched', defaultValues: { value: '' } });
 	// Destructured unconditionally: react-hook-form only tracks formState fields that are actually
 	// read during render, and the short-circuiting `disabled` expression below would otherwise
 	// never read `isValid` while the form is pristine — leaving Save disabled after a single

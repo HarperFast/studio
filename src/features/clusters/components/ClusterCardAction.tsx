@@ -4,6 +4,7 @@ import { Cluster } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { Link } from '@tanstack/react-router';
 import { ArrowRight } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: Cluster; hasCardLink?: boolean }) {
 	const { view, update } = useOrganizationClusterPermissions(cluster.organizationId, cluster.id);
@@ -21,12 +22,7 @@ export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: C
 	// A managed cluster with no FQDN can't be connected to yet — send them to its instances.
 	if (!cluster.fqdn) {
 		if (hasCardLink) {
-			return (
-				<span className="pointer-events-none text-sm text-nowrap py-2 ml-auto">
-					Instances{' '}
-					<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
-				</span>
-			);
+			return <CardLinkAffordance>Instances</CardLinkAffordance>;
 		}
 		return (
 			<Link
@@ -72,12 +68,7 @@ export function ClusterCardAction({ cluster, hasCardLink = false }: { cluster: C
 // stretched link), so this is just a visual affordance. Standalone (Scaling, StartingUp) it links.
 function OpenAction({ cluster, hasCardLink }: { cluster: Cluster; hasCardLink: boolean }) {
 	if (hasCardLink) {
-		return (
-			<span className="pointer-events-none text-sm text-nowrap py-2 ml-auto">
-				Open{' '}
-				<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
-			</span>
-		);
+		return <CardLinkAffordance>Open</CardLinkAffordance>;
 	}
 	return (
 		<Link
@@ -91,5 +82,15 @@ function OpenAction({ cluster, hasCardLink }: { cluster: Cluster; hasCardLink: b
 				<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
 			</span>
 		</Link>
+	);
+}
+
+/** The footer label of a card whose whole surface is the link — visual only, so it never takes the click. */
+export function CardLinkAffordance({ children }: { children: ReactNode }) {
+	return (
+		<span className="pointer-events-none text-sm text-nowrap py-2 ml-auto">
+			{children}{' '}
+			<ArrowRight className="inline-block transition-transform duration-200 group-hover/cluster:translate-x-1 motion-reduce:transform-none motion-reduce:transition-none" />
+		</span>
 	);
 }

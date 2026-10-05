@@ -5,7 +5,7 @@ import { errorStatus } from '@/lib/errorStatus';
  *  concrete `Query<StatusResponse, …>` will not accept a `(query: Query) => …`
  *  callback. A supertype parameter accepts every instantiation. */
 interface QueryErrorState {
-	state: { error: unknown };
+	state: { error: unknown; errorUpdatedAt?: number; dataUpdatedAt?: number };
 }
 
 /** A 403 means the caller is authenticated but not permitted on this resource.
@@ -33,8 +33,30 @@ export function isDeterministicRejection(err: unknown): boolean {
 	return status === 400 || status === 403;
 }
 
+const MAX_REJECTED_POLL_INTERVAL_MS = 5 * 60_000;
+
+const rejectedSince = new WeakMap<QueryErrorState, number>();
+
+/** Only a success (`dataUpdatedAt` passing the recorded start) ends a run. A null `error`
+ *  must not: on a query that has never loaded, React Query resets `error` to null at the
+ *  start of every fetch, so the run would restart on every tick. */
+function rejectedPollInterval(query: QueryErrorState, interval: number): number {
+	const { errorUpdatedAt, dataUpdatedAt = 0 } = query.state;
+	if (!Number.isFinite(errorUpdatedAt)) {
+		return interval;
+	}
+	let since = rejectedSince.get(query);
+	if (since === undefined || since < dataUpdatedAt) {
+		since = errorUpdatedAt!;
+		rejectedSince.set(query, since);
+	}
+	const streak = errorUpdatedAt! - since;
+	return Math.min(Math.max(interval, streak), Math.max(interval, MAX_REJECTED_POLL_INTERVAL_MS));
+}
+
 /**
- * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403.
+ * Wrap a fixed poll interval so polling STOPS once the endpoint answers 403, and
+ * BACKS OFF while it keeps answering 400.
  *
  * `refetchInterval` fires on a timer regardless of the query's error state, so a
  * poll against a resource the user may not touch retries forever. On 2026-07-27 a
@@ -54,16 +76,25 @@ export function isDeterministicRejection(err: unknown): boolean {
  * Only 403 stops the timer. 5xx, network failures, and timeouts are transient
  * (instance restarting, unreachable) and should keep polling so the UI self-heals.
  *
- * A 400 deliberately does NOT stop the timer, even though it is just as
- * deterministic (`isDeterministicRejection`). Halting on it would freeze a poll
- * whose 400 came from state that is still settling — a certificate challenge
- * mid-provision, an argument derived from a not-yet-loaded resource — until the user
- * remounts or refocuses the tab. `retryUnlessRejected` removes the retry
- * amplification instead, which is the part that is waste either way. Whether the
- * timer itself should stop on a *sustained* 400 is open in #1569.
+ * A 400 does NOT stop the timer, even though it is just as deterministic
+ * (`isDeterministicRejection`). Halting on it would freeze a poll whose 400 came from
+ * state that is still settling — a certificate challenge mid-provision, an argument
+ * derived from a not-yet-loaded resource — until the user remounts or refocuses the tab.
+ *
+ * Instead the next tick waits as long as the run of 400s has lasted, clamped to
+ * [`interval`, 5min]. This paces only the timer; remount and refocus still refetch.
  */
 export function pollUnlessForbidden(interval: number | false | undefined) {
-	return (query: QueryErrorState) => (isForbiddenError(query.state.error) ? false : (interval ?? false));
+	return (query: QueryErrorState) => {
+		const status = errorStatus(query.state.error);
+		if (status === 403) {
+			return false;
+		}
+		if (!interval) {
+			return interval ?? false;
+		}
+		return status === 400 ? rejectedPollInterval(query, interval) : interval;
+	};
 }
 
 /**
@@ -76,8 +107,8 @@ export function pollUnlessForbidden(interval: number | false | undefined) {
  * timer cannot see the 403 until three more doomed requests have gone out — ~30s
  * later on a query that also sets `retryDelay: 10_000`.
  *
- * For 400 the poll timer deliberately keeps running (see `pollUnlessForbidden`) —
- * this only removes the retry amplification, which is worth two distinct things:
+ * For 400 the poll timer keeps running, backed off (see `pollUnlessForbidden`) —
+ * this removes the retry amplification, which is worth two distinct things:
  *
  *   - On the five callers that leave `retryDelay` at React Query's default
  *     exponential backoff (1s/2s/4s), a 400ing tick spent 4 requests inside ~7s.

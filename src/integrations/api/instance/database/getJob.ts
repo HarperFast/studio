@@ -16,6 +16,14 @@ export async function getJob({ jobId, instanceClient }: { jobId: string } & Inst
 	return data?.[0];
 }
 
+/** A load job Harper finished with `ERROR`. Datadog withholds its message by this `name`. */
+export class ImportJobError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ImportJobError';
+	}
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -52,7 +60,7 @@ export async function waitForJob({
 		// CREATED (no worker picked it up yet), so anything else means keep polling.
 		const status = job?.status?.toUpperCase();
 		if (status === 'ERROR') {
-			throw new Error(job?.message || 'The import job failed.');
+			throw new ImportJobError(job?.message || 'The import job failed.');
 		}
 		if (status === 'COMPLETE' && job) {
 			return job;

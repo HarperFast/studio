@@ -18,23 +18,41 @@ describe('detectPartialUpgrade', () => {
 	it('detects the reported partial-upgrade scenario (one instance stuck on the old version)', () => {
 		// First instance failed to upgrade and stayed on 5.0.31 while the rest reached 5.0.32.
 		const result = detectPartialUpgrade([inst('5.0.31'), inst('5.0.32'), inst('5.0.32')]);
-		expect(result).toEqual({ latest: '5.0.32', behindCount: 1, total: 3 });
+		expect(result).toEqual({ latest: '5.0.32', behindCount: 1, total: 3, ambiguous: false });
 	});
 
 	it('counts every instance behind the latest, including differing older versions', () => {
 		const result = detectPartialUpgrade([inst('5.0.30'), inst('5.0.31'), inst('5.0.32')]);
-		expect(result).toEqual({ latest: '5.0.32', behindCount: 2, total: 3 });
+		expect(result).toEqual({ latest: '5.0.32', behindCount: 2, total: 3, ambiguous: false });
 	});
 
 	it('ignores instances that are not yet reporting a version', () => {
 		const result = detectPartialUpgrade([inst('5.0.31'), inst(undefined), inst('5.0.32'), inst(null)]);
-		expect(result).toEqual({ latest: '5.0.32', behindCount: 1, total: 2 });
+		expect(result).toEqual({ latest: '5.0.32', behindCount: 1, total: 2, ambiguous: false });
 	});
 
 	it('treats the latest as the semver-highest, not the lexicographically-highest', () => {
 		// "5.0.9" < "5.0.10" by semver, but "5.0.9" > "5.0.10" lexicographically.
 		const result = detectPartialUpgrade([inst('5.0.9'), inst('5.0.10')]);
-		expect(result).toEqual({ latest: '5.0.10', behindCount: 1, total: 2 });
+		expect(result).toEqual({ latest: '5.0.10', behindCount: 1, total: 2, ambiguous: false });
+	});
+
+	it('is ambiguous when a version pinned to the organization is among the lagging ones', () => {
+		// Either an upgrade off the pin failed on one instance, or a downgrade to the pin succeeded on
+		// one — nothing records which, so the form must not assume the highest version is the target.
+		const result = detectPartialUpgrade([inst('5.1.20'), inst('5.2.13'), inst('5.2.13')], ['5.1.20']);
+		expect(result).toEqual({ latest: '5.2.13', behindCount: 1, total: 3, ambiguous: true });
+	});
+
+	it('is not ambiguous when the pinned version is the one the cluster is converging on', () => {
+		// A pinned newer build: the lagging instance simply failed to reach it.
+		const result = detectPartialUpgrade([inst('5.1.20'), inst('5.2.13')], ['5.2.13']);
+		expect(result).toEqual({ latest: '5.2.13', behindCount: 1, total: 2, ambiguous: false });
+	});
+
+	it('ignores pinned versions no live instance runs', () => {
+		const result = detectPartialUpgrade([inst('5.2.12'), inst('5.2.13')], ['5.1.20']);
+		expect(result).toEqual({ latest: '5.2.13', behindCount: 1, total: 2, ambiguous: false });
 	});
 
 	it('excludes terminated/removed instances, so their stale version does not fake a partial upgrade', () => {
@@ -56,6 +74,6 @@ describe('detectPartialUpgrade', () => {
 			inst('5.1.17'),
 			inst('5.0.31', 'TERMINATED'),
 		]);
-		expect(result).toEqual({ latest: '5.1.17', behindCount: 1, total: 3 });
+		expect(result).toEqual({ latest: '5.1.17', behindCount: 1, total: 3, ambiguous: false });
 	});
 });

@@ -1,11 +1,17 @@
+import { ContactUs } from '@/components/ContactUs';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Button } from '@/components/ui/button';
+import { isFailed } from '@/components/ui/utils/badgeStatus';
+import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
 import { isConversionComplete, isConversionFailed } from '@/features/clusters/lib/grantExpiry';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { CloudAlertIcon } from 'lucide-react';
 import { useMemo } from 'react';
+import { allClusterInstancesSettled } from './allInstancesRunning';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
 
 export function Scaling() {
@@ -17,9 +23,13 @@ export function Scaling() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
+	const status = cluster?.status;
 	// Not RUNNING alone: a trial->paid conversion reaches RUNNING before the server applies the plan,
-	// so status by itself declares the update finished while the plan change is still in flight.
-	const clusterIsActive = useMemo(() => cluster && isConversionComplete(cluster), [cluster]);
+	// and a scale-up reaches it while new members are still cloning.
+	const updateIsDone = useMemo(
+		() => !!cluster && isConversionComplete(cluster) && allClusterInstancesSettled(cluster),
+		[cluster],
+	);
 
 	if (clusterIsLoading || !cluster) {
 		return (
@@ -46,7 +56,29 @@ export function Scaling() {
 		);
 	}
 
-	if (clusterIsActive) {
+	if (isFailed(status)) {
+		return (
+			<ClusterContentWithSubNavMenu className="flex justify-center">
+				<div className="center w-2xl flex flex-col gap-4 items-center">
+					<CloudAlertIcon className="w-24 h-24" />
+					<h1 className="text-xl text-center">Your cluster's update didn't finish</h1>
+					<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+					<p>
+						Some of the changes may already be applied, so check the instances. The cluster can't take another update
+						until it's healthy again, so get in touch and we'll help get it back into a state you can update.{' '}
+						<span className="text-muted-foreground">
+							We also get notified about these failures. <ContactUs /> if you want more help.
+						</span>
+					</p>
+					<Link to={`/${cluster.organizationId}/${cluster.id}/instances`}>
+						<Button type="button" variant="positiveOutline">View Instances</Button>
+					</Link>
+				</div>
+			</ClusterContentWithSubNavMenu>
+		);
+	}
+
+	if (updateIsDone) {
 		return (
 			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<div className="center w-2xl flex flex-col gap-4">
@@ -66,6 +98,7 @@ export function Scaling() {
 			<div className="center w-2xl flex flex-col gap-4">
 				<h1 className="text-xl text-center">Here we go!</h1>
 				<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+				<CloneProgressList instances={cluster.instances} />
 				<p>
 					{isImmediate
 						? 'Your cluster is applying the latest changes immediately, without waiting to take instances out of rotation.'

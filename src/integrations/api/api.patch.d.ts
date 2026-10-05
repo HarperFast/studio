@@ -164,6 +164,8 @@ export interface Organization extends SchemaOrganization {
 	 * ending first. Absent on a central-manager that predates the field.
 	 */
 	unboundGrants?: ClusterGrant[];
+	// From central-manager#888: only the clusters with an instance still copying; absent when central manager can't say.
+	clusterSyncSummaries?: Record<string, ClusterSyncSummary>;
 	settings?: {
 		oauthConfigs?: OAuthConfig[];
 	};
@@ -419,6 +421,12 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 	 * success.
 	 */
 	conversionState?: 'APPLYING' | 'FAILED' | null;
+}
+
+export interface ClusterSyncSummary {
+	syncing: number;
+	// The slowest syncing member's fraction copied (0..1); absent while any member's expected size is unknown.
+	progress?: number;
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {

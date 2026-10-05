@@ -9,6 +9,7 @@ let currentSearch: Record<string, unknown> = {};
 vi.mock('@tanstack/react-router', () => ({
 	useParams: () => ({ organizationId: 'org-1', clusterId: 'clu-1' }),
 	useSearch: () => currentSearch,
+	Link: ({ children, to }: { children?: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
 
 // The page's chrome and progress widgets pull in nav/auth machinery that is
@@ -31,10 +32,18 @@ let clusterStatus = 'UPDATING';
 // LAPSED provisional grant must read as ended, not as still applying.
 let clusterGrant: { expiryPolicy: string | null; isActive?: boolean } | null = null;
 let conversionState: 'APPLYING' | 'FAILED' | null = null;
+let clusterInstances: Record<string, unknown>[] = [];
 vi.mock('./queries/getClusterInfoQuery', () => ({
 	getClusterInfoQueryOptions: (clusterId: string) => ({
 		queryKey: [clusterId, clusterStatus, clusterGrant?.expiryPolicy, conversionState],
-		queryFn: async () => ({ id: clusterId, status: clusterStatus, grant: clusterGrant, conversionState }),
+		queryFn: async () => ({
+			id: clusterId,
+			organizationId: 'org-1',
+			status: clusterStatus,
+			grant: clusterGrant,
+			conversionState,
+			instances: clusterInstances,
+		}),
 		retry: false,
 		enabled: !!clusterId,
 	}),
@@ -58,6 +67,7 @@ beforeEach(() => {
 	clusterStatus = 'UPDATING';
 	clusterGrant = null;
 	conversionState = null;
+	clusterInstances = [];
 });
 
 afterEach(() => {
@@ -131,5 +141,53 @@ describe('Scaling status copy', () => {
 		mount();
 		await waitFor(() => screen.getByText('All done!'));
 		expect(screen.getByText(/finished updating/)).toBeTruthy();
+	});
+});
+
+describe('Scaling completion', () => {
+	const runningMember = { id: 'ins-1', name: 'member-1', instanceFqdn: 'a.example.com', status: 'RUNNING' };
+	const cloningMember = {
+		id: 'ins-2',
+		name: 'member-2',
+		instanceFqdn: 'b.example.com',
+		status: 'CLONING',
+		cloneExpectedGb: 40,
+		cloneProgressGb: 10,
+	};
+
+	it('is not done while a new member is still cloning, even though the cluster reports RUNNING', async () => {
+		clusterStatus = 'RUNNING';
+		clusterInstances = [runningMember, cloningMember];
+		mount();
+		await waitFor(() => screen.getByText('Here we go!'));
+		expect(screen.queryByText('All done!')).toBeNull();
+		const syncing = screen.getByRole('list', { name: 'Instances syncing data' });
+		expect(syncing.textContent).toContain('member-2');
+		expect(syncing.textContent).toContain('~10 of ~40 GB (25%)');
+		expect(syncing.textContent).not.toContain('member-1');
+	});
+
+	it('is done once every member is running or at rest', async () => {
+		clusterStatus = 'RUNNING';
+		clusterInstances = [runningMember, { ...cloningMember, status: 'RUNNING' }, {
+			id: 'ins-3',
+			instanceFqdn: 'c.example.com',
+			status: 'STOPPED',
+		}];
+		mount();
+		await waitFor(() => screen.getByText('All done!'));
+		expect(screen.queryByRole('list', { name: 'Instances syncing data' })).toBeNull();
+	});
+});
+
+describe('Scaling after a failed update', () => {
+	it('says the update did not finish, links the instances, and points at support rather than another update', async () => {
+		clusterStatus = 'FAILED';
+		mount();
+		await waitFor(() => screen.getByText("Your cluster's update didn't finish"));
+		expect(screen.queryByText('Here we go!')).toBeNull();
+		expect(screen.getByRole('link', { name: 'View Instances' }).getAttribute('href')).toBe('/org-1/clu-1/instances');
+		expect(screen.queryByRole('link', { name: /Edit/ })).toBeNull();
+		expect(screen.getByText(/can't take another update/)).toBeTruthy();
 	});
 });

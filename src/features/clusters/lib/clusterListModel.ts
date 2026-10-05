@@ -2,7 +2,7 @@ import { isBeingUpdated, isPendingUpdate } from '@/components/ui/utils/badgeStat
 import { activeClusterStatuses, deletedClusterStatuses } from '@/config/clusterStatuses';
 import { describeGrantExpiry } from '@/features/clusters/lib/grantExpiry';
 import { detectPartialUpgrade } from '@/features/clusters/upsert/lib/detectPartialUpgrade';
-import type { Cluster } from '@/integrations/api/api.patch';
+import type { Cluster, ClusterSyncSummary } from '@/integrations/api/api.patch';
 import { clusterIsSelfManaged } from '@/integrations/api/clusterIsSelfManaged';
 import { capitalizeWords } from '@/lib/string/capitalizeWords';
 
@@ -22,7 +22,11 @@ export const defaultClusterListControls: ClusterListControls = {
 	sort: 'attention',
 };
 
-export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<string, string>) {
+export function describeCluster(
+	cluster: Cluster,
+	regionNames?: ReadonlyMap<string, string>,
+	syncSummary?: ClusterSyncSummary,
+) {
 	const selfHosted = clusterIsSelfManaged(cluster);
 	const instances = cluster.instances?.filter(instance => !deletedClusterStatuses.includes(instance.status ?? ''));
 	const planRegions = (cluster.plans ?? []).map(plan => plan.region || regionNames?.get(plan.regionId ?? '')).filter(
@@ -70,6 +74,7 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 	const date = Date.parse(cluster.createdAt ?? '');
 	return {
 		cluster,
+		syncSummary: syncSummary ?? null,
 		category,
 		label: failed && status !== 'FAILED' && status !== 'ERROR'
 			? 'Instance failure'
@@ -95,9 +100,13 @@ export function describeCluster(cluster: Cluster, regionNames?: ReadonlyMap<stri
 
 export type ClusterListItem = ReturnType<typeof describeCluster>;
 
-export function buildClusterList(clusters: readonly Cluster[], regionNames?: ReadonlyMap<string, string>) {
+export function buildClusterList(
+	clusters: readonly Cluster[],
+	regionNames?: ReadonlyMap<string, string>,
+	syncSummaries?: Readonly<Record<string, ClusterSyncSummary>>,
+) {
 	const items = clusters.filter(cluster => cluster.status !== 'TERMINATED' && cluster.status !== 'REMOVED')
-		.map(cluster => describeCluster(cluster, regionNames));
+		.map(cluster => describeCluster(cluster, regionNames, syncSummaries?.[cluster.id]));
 	const counts: Record<ClusterCategory, number> = { running: 0, attention: 0, failed: 0, other: 0 };
 	for (const item of items) { counts[item.category]++; }
 	return { items, counts, regions: [...new Set(items.flatMap(item => item.regions))].sort() };

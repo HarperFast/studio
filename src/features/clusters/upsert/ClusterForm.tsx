@@ -435,7 +435,9 @@ export function ClusterForm({
 		toastId: string | number;
 		skipGtmWait?: boolean;
 	}) => {
-		if (sourceClusterId) {
+		// Only a Try Again create replaces its source. On an edit the source is the edited cluster itself, which an
+		// update that fails straight away already shows as FAILED.
+		if (creating && sourceClusterId) {
 			const existingOrg = await getOrganization(organizationId);
 			const sourceCluster = existingOrg.clusters?.find(c => c.id === sourceClusterId);
 			if (isFailed(sourceCluster?.status)) {
