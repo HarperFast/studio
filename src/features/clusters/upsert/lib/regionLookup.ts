@@ -76,7 +76,6 @@ export function buildRegionLookup(
 	return lookup;
 }
 
-/** A quantity-expanded view shaped like a catalog row, for the resources panel. */
 export function regionAtQuantity(region: ResolvedRegion, quantity: number | undefined): SchemaRegion {
 	const units = quantity ?? 1;
 	return {

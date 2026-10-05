@@ -167,8 +167,8 @@ export function OrganizationRegionFormModal(
 				</DialogDescription>
 				{frozen && (
 					<p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground" role="note">
-						Deployed by {referencingClusters.map((c) => `${c.name} (×${c.quantity})`).join(', ')}. The name, datacenters,
-						fallback and blocks per unit are fixed while a cluster runs on this region; create a new region to change them.
+						Deployed by {referencingClusters.map((c) => `${c.name} (×${c.quantity})`).join(', ')}. The name, datacenters and
+						fallback are fixed while a cluster runs on this region; create a new region to change them.
 					</p>
 				)}
 				<Form {...form}>
