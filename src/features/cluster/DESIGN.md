@@ -37,8 +37,9 @@ and keyed by cluster id ([HarperFast/central-manager#888](https://github.com/Har
 which `buildClusterList` attaches to each list item. A cluster with no entry, or a response without the map, shows no
 chip.
 
-The chip reads "Syncing", or "Syncing · ~31%" once every copy has an expected size. It deliberately shows no instance
-count: Studio presents a cluster as one entity, and the percent already covers the whole cluster.
+The chip reads "Syncing", or "Syncing · ~31%" once every copy has an expected size. The percent is the slowest
+member's progress, not the cluster's total bytes: a cluster is synced when its last member is, and a byte total read 50%
+with one member not yet started. It deliberately shows no instance count: Studio presents a cluster as one entity.
 
 ## A 403 on the cluster route means setup isn't finished
 

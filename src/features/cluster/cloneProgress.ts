@@ -42,9 +42,8 @@ export function describeSyncSummary(summary: ClusterSyncSummary | null | undefin
 	if (!summary || !(summary.syncing > 0)) {
 		return null;
 	}
-	const { copiedGb, expectedGb } = summary;
-	return copiedGb !== undefined && expectedGb !== undefined && expectedGb > 0
-		? `Syncing · ~${clonePercent(Math.min(1, Math.max(0, copiedGb) / expectedGb))}%`
+	return summary.progress !== undefined && Number.isFinite(summary.progress)
+		? `Syncing · ~${clonePercent(Math.min(1, Math.max(0, summary.progress)))}%`
 		: 'Syncing';
 }
 

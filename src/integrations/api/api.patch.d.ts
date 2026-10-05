@@ -255,10 +255,8 @@ export interface Cluster extends Omit<SchemaCluster, 'instances'> {
 
 export interface ClusterSyncSummary {
 	syncing: number;
-	// Both present only when every syncing instance has an expected size. copiedGb caps each instance at its own
-	// expected size before summing; the card clamps only the total, so it relies on that.
-	copiedGb?: number;
-	expectedGb?: number;
+	// The slowest syncing member's fraction copied (0..1); absent while any member's expected size is unknown.
+	progress?: number;
 }
 
 export interface ClusterUpsert extends SchemaClusterUpsert {

@@ -204,7 +204,7 @@ test('a running cluster card flags members still copying data', async ({ page })
 			json: {
 				...organization,
 				clusters,
-				clusterSyncSummaries: { 'clu-production': { syncing: 2, copiedGb: 12.4, expectedGb: 40 } },
+				clusterSyncSummaries: { 'clu-production': { syncing: 2, progress: 0.31 } },
 			},
 		}));
 	await page.goto('/#/org-fixture');
