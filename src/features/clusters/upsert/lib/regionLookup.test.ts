@@ -1,5 +1,5 @@
-import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { SchemaRegion } from '@/integrations/api/api.gen';
+import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import {
 	buildRegionLookup,
@@ -90,7 +90,10 @@ describe('regionAtQuantity', () => {
 	});
 
 	it('leaves a catalog tier at one unit', () => {
-		expect(regionAtQuantity(lookup.get('us-2')!, undefined)).toMatchObject({ instanceCount: 4, purchasedBlockMultiplier: 2 });
+		expect(regionAtQuantity(lookup.get('us-2')!, undefined)).toMatchObject({
+			instanceCount: 4,
+			purchasedBlockMultiplier: 2,
+		});
 	});
 });
 

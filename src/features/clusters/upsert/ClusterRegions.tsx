@@ -7,6 +7,7 @@ import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { MapPinnedIcon, PlusIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useFieldArray, UseFormReturn } from 'react-hook-form';
+import { toast } from 'sonner';
 import { RegionFormInputs } from './components/RegionFormInputs';
 import { PremiumOnlyRegions } from './lib/calculatePremiumOnlyRegions';
 import { UsageScale } from './lib/calculateUsageScale';
@@ -90,17 +91,11 @@ export function ClusterRegions({
 	}, [form, nextAvailableRegionToAdd, regionPlansFieldArray]);
 
 	const [definingCustomRegion, setDefiningCustomRegion] = useState(false);
+	// Defining a region only adds it to the picker's Custom regions group: staff define as many as
+	// the organization needs, then choose which ones this cluster deploys.
 	const onCustomRegionSaved = useCallback((region: OrganizationRegion) => {
-		const values = form.getValues('regionPlans');
-		const blankIndex = values.findIndex(entry => !entry.regionId);
-		if (blankIndex >= 0) {
-			form.setValue(`regionPlans.${blankIndex}.regionId`, region.id, { shouldDirty: true });
-			form.setValue(`regionPlans.${blankIndex}.quantity`, 1, { shouldDirty: true });
-		} else {
-			regionPlansFieldArray.append({ regionId: region.id, quantity: 1 });
-		}
-		void form.trigger();
-	}, [form, regionPlansFieldArray]);
+		toast.success(`${region.name} is ready to pick under Custom regions`);
+	}, []);
 
 	if (!regionLocations?.length) {
 		return (
@@ -141,6 +136,7 @@ export function ClusterRegions({
 					organizationId={organizationId}
 					canUseCustomRegions={canUseCustomRegions}
 					lockedOrganizationRegionIds={lockedOrganizationRegionIds}
+					selectedRegionIds={selectedRegionPlans.map(entry => entry.regionId)}
 				/>
 			))}
 

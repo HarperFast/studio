@@ -12,7 +12,10 @@ export async function createOrganizationRegion(payload: OrganizationRegionPayloa
 export async function updateOrganizationRegion(
 	{ id, changes }: { id: string; changes: OrganizationRegionPatch },
 ): Promise<OrganizationRegion> {
-	const { data } = await apiClient.patch(`/OrganizationRegion/${encodeURIComponent(id)}` as '/Region/{id}', changes as never);
+	const { data } = await apiClient.patch(
+		`/OrganizationRegion/${encodeURIComponent(id)}` as '/Region/{id}',
+		changes as never,
+	);
 	return data as unknown as OrganizationRegion;
 }
 
@@ -20,7 +23,10 @@ export async function updateOrganizationRegion(
 const meta = { skipGlobalErrorToast: true };
 
 export function useCreateOrganizationRegionMutation() {
-	return useMutation<OrganizationRegion, Error, OrganizationRegionPayload>({ mutationFn: createOrganizationRegion, meta });
+	return useMutation<OrganizationRegion, Error, OrganizationRegionPayload>({
+		mutationFn: createOrganizationRegion,
+		meta,
+	});
 }
 
 export function useUpdateOrganizationRegionMutation() {
