@@ -15,8 +15,9 @@ Both treat a missing or unknown status as still in progress.
 
 Scaling also has a failure state. Central manager marks the cluster `FAILED` when an update task crashes while the
 cluster is still `UPDATING`, because a partial update leaves the cluster's shape unknown. Scaling then says the update
-didn't finish and links to the instances, plus the edit page for members who can update the cluster, rather than
-offering a retry that would resubmit blindly ([HarperFast/studio#1784](https://github.com/HarperFast/studio/issues/1784)).
+didn't finish, links to the instances and points at support. It offers no retry or edit link: central manager's
+`assertClusterMutable` refuses any update unless the cluster is `RUNNING` with no `FAILED` instance, so either would end
+in a 400 ([HarperFast/studio#1784](https://github.com/HarperFast/studio/issues/1784)).
 
 ## Clone progress is approximate, and only read in a clone status
 
