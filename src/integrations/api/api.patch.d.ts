@@ -169,7 +169,6 @@ export interface OrganizationRegion {
 	placement: { linode?: string[]; gcp?: string[] };
 	/** A Location region tag to fall back to; null = forced placement (never spills elsewhere). */
 	fallbackGroup?: string | null;
-	blocksPerUnit: number;
 	active?: boolean;
 	createdByUserId?: string;
 	updatedByUserId?: string;
@@ -184,7 +183,6 @@ export interface OrganizationRegionPayload {
 	name: string;
 	placement: { linode?: string[]; gcp?: string[] };
 	fallbackGroup?: string | null;
-	blocksPerUnit: number;
 	active?: boolean;
 }
 
