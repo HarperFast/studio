@@ -27,6 +27,8 @@ interface ClusterRegionsProps {
 	organizationId: string;
 	canUseCustomRegions: boolean;
 	canDefineCustomRegions: boolean;
+	/** Custom regions the server already has on this cluster; a member keeps these, read-only. */
+	lockedOrganizationRegionIds: string[];
 }
 
 export function ClusterRegions({
@@ -43,6 +45,7 @@ export function ClusterRegions({
 	organizationId,
 	canUseCustomRegions,
 	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 }: ClusterRegionsProps) {
 	const selectedRegionPlans = form.watch('regionPlans');
 
@@ -137,6 +140,7 @@ export function ClusterRegions({
 					cloudProvider={cloudProvider}
 					organizationId={organizationId}
 					canUseCustomRegions={canUseCustomRegions}
+					lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 				/>
 			))}
 
