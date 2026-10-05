@@ -11,10 +11,6 @@ vi.mock('@tanstack/react-router', () => ({
 	useSearch: () => currentSearch,
 	Link: ({ children, to }: { children?: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
 }));
-let canUpdate = true;
-vi.mock('@/hooks/usePermissions', () => ({
-	useOrganizationClusterPermissions: () => ({ update: canUpdate }),
-}));
 
 // The page's chrome and progress widgets pull in nav/auth machinery that is
 // irrelevant here — we're testing the status copy, not the layout.
@@ -61,7 +57,6 @@ beforeEach(() => {
 	currentSearch = {};
 	clusterStatus = 'UPDATING';
 	clusterInstances = [];
-	canUpdate = true;
 });
 
 afterEach(() => {
@@ -145,22 +140,13 @@ describe('Scaling completion', () => {
 });
 
 describe('Scaling after a failed update', () => {
-	it('says the update did not finish and offers the instances and the cluster edit page', async () => {
+	it('says the update did not finish, links the instances, and points at support rather than another update', async () => {
 		clusterStatus = 'FAILED';
 		mount();
 		await waitFor(() => screen.getByText("Your cluster's update didn't finish"));
 		expect(screen.queryByText('Here we go!')).toBeNull();
 		expect(screen.getByRole('link', { name: 'View Instances' }).getAttribute('href')).toBe('/org-1/clu-1/instances');
-		expect(screen.getByRole('link', { name: 'Edit Cluster' }).getAttribute('href')).toBe('/org-1/clu-1/edit');
-		expect(screen.getByText(/submit the update again/)).toBeTruthy();
-	});
-
-	it('sends a member who cannot update the cluster to an admin instead of the edit page', async () => {
-		clusterStatus = 'FAILED';
-		canUpdate = false;
-		mount();
-		await waitFor(() => screen.getByText("Your cluster's update didn't finish"));
-		expect(screen.queryByRole('link', { name: 'Edit Cluster' })).toBeNull();
-		expect(screen.getByText(/An organization admin can review/)).toBeTruthy();
+		expect(screen.queryByRole('link', { name: /Edit/ })).toBeNull();
+		expect(screen.getByText(/can't take another update/)).toBeTruthy();
 	});
 });
