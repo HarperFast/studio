@@ -1,11 +1,16 @@
+import { ContactUs } from '@/components/ContactUs';
 import { TextLoadingSkeleton } from '@/components/TextLoadingSkeleton';
+import { Button } from '@/components/ui/button';
+import { isFailed } from '@/components/ui/utils/badgeStatus';
 import { activeClusterStatuses } from '@/config/clusterStatuses';
 import { CloneProgressList } from '@/features/cluster/components/CloneProgress';
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
 import { ClusterCardAction } from '@/features/clusters/components/ClusterCardAction';
 import { ClusterProgress } from '@/features/clusters/components/ClusterProgress';
+import { useOrganizationClusterPermissions } from '@/hooks/usePermissions';
 import { useQuery } from '@tanstack/react-query';
-import { useParams, useSearch } from '@tanstack/react-router';
+import { Link, useParams, useSearch } from '@tanstack/react-router';
+import { CloudAlertIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { allClusterInstancesSettled } from './allInstancesRunning';
 import { getClusterInfoQueryOptions } from './queries/getClusterInfoQuery';
@@ -19,6 +24,7 @@ export function Scaling() {
 	const { data: cluster, isLoading: clusterIsLoading } = useQuery(
 		getClusterInfoQueryOptions(clusterId, 2_000),
 	);
+	const { update: canUpdate } = useOrganizationClusterPermissions(cluster?.organizationId, clusterId);
 	const status = cluster?.status;
 	const updateIsDone = useMemo(() => {
 		return status && activeClusterStatuses.includes(status) && allClusterInstancesSettled(cluster);
@@ -28,6 +34,37 @@ export function Scaling() {
 		return (
 			<ClusterContentWithSubNavMenu className="flex justify-center">
 				<TextLoadingSkeleton />
+			</ClusterContentWithSubNavMenu>
+		);
+	}
+
+	if (isFailed(status)) {
+		const base = `/${cluster.organizationId}/${cluster.id}`;
+		return (
+			<ClusterContentWithSubNavMenu className="flex justify-center">
+				<div className="center w-2xl flex flex-col gap-4 items-center">
+					<CloudAlertIcon className="w-24 h-24" />
+					<h1 className="text-xl text-center">Your cluster's update didn't finish</h1>
+					<ClusterProgress cluster={cluster} forceProgressBarVisible={true} />
+					<p>
+						Some of the changes may already be applied, so check the instances first. {canUpdate
+							? "Then review the cluster's settings and submit the update again."
+							: "An organization admin can review the cluster's settings and submit the update again."}{' '}
+						<span className="text-muted-foreground">
+							We also get notified about these failures. <ContactUs /> if you want more help.
+						</span>
+					</p>
+					<div className="flex flex-wrap justify-center gap-3">
+						<Link to={`${base}/instances`}>
+							<Button type="button" variant="positiveOutline">View Instances</Button>
+						</Link>
+						{canUpdate && (
+							<Link to={`${base}/edit`}>
+								<Button type="button" variant="defaultOutline">Edit Cluster</Button>
+							</Link>
+						)}
+					</div>
+				</div>
 			</ClusterContentWithSubNavMenu>
 		);
 	}
