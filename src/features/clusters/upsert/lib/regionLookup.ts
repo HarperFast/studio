@@ -67,7 +67,8 @@ export function buildRegionLookup(
 			shape,
 			fallbackGroup: region.fallbackGroup ?? null,
 			instanceCount: shape.length,
-			blocksPerUnit: region.blocksPerUnit ?? 1,
+			// Central-manager's rule for both tables: a purchased block per instance pair, rounded up.
+			blocksPerUnit: Math.ceil(shape.length / 2),
 			active: region.active !== false,
 			source: region,
 		});
