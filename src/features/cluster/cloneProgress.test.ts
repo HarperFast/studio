@@ -103,19 +103,20 @@ describe('describeCloneProgress', () => {
 });
 
 describe('describeSyncSummary', () => {
-	it('shows a floored percent for the whole cluster when both sizes are present', () => {
-		expect(describeSyncSummary({ syncing: 2, copiedGb: 12.4, expectedGb: 40 })).toBe('Syncing · ~31%');
-		expect(describeSyncSummary({ syncing: 1, copiedGb: 39.9, expectedGb: 40 })).toBe('Syncing · ~99%');
+	it("shows the slowest member's progress as a floored percent", () => {
+		expect(describeSyncSummary({ syncing: 2, progress: 0.31 })).toBe('Syncing · ~31%');
+		expect(describeSyncSummary({ syncing: 1, progress: 0.999 })).toBe('Syncing · ~99%');
+		expect(describeSyncSummary({ syncing: 2, progress: 0 })).toBe('Syncing · ~0%');
 	});
 
-	it('clamps a copy past its expected size to 100%', () => {
-		expect(describeSyncSummary({ syncing: 1, copiedGb: 41, expectedGb: 40 })).toBe('Syncing · ~100%');
+	it('clamps a progress outside 0..1', () => {
+		expect(describeSyncSummary({ syncing: 1, progress: 1.4 })).toBe('Syncing · ~100%');
+		expect(describeSyncSummary({ syncing: 1, progress: -0.2 })).toBe('Syncing · ~0%');
 	});
 
-	it('shows no percent without both sizes', () => {
+	it('shows no percent without a finite progress', () => {
 		expect(describeSyncSummary({ syncing: 3 })).toBe('Syncing');
-		expect(describeSyncSummary({ syncing: 3, copiedGb: 5 })).toBe('Syncing');
-		expect(describeSyncSummary({ syncing: 3, copiedGb: 5, expectedGb: 0 })).toBe('Syncing');
+		expect(describeSyncSummary({ syncing: 3, progress: Number.NaN })).toBe('Syncing');
 	});
 
 	it('is null when nothing is syncing or central manager sent no summary', () => {

@@ -104,7 +104,7 @@ describe('ClusterCard', () => {
 
 	it('flags a running cluster whose members are still copying data, from the sync summary', () => {
 		const { container } = render(
-			<ClusterCard cluster={cluster()} syncSummary={{ syncing: 2, copiedGb: 12.4, expectedGb: 40 }} />,
+			<ClusterCard cluster={cluster()} syncSummary={{ syncing: 2, progress: 0.31 }} />,
 		);
 		expect(screen.getByText('Running')).toBeTruthy();
 		expect(screen.getByText('Syncing · ~31%')).toBeTruthy();

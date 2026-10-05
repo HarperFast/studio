@@ -34,10 +34,10 @@ describe('cluster list model', () => {
 		const { items } = buildClusterList(
 			[cluster({ id: 'clu-a' }), cluster({ id: 'clu-b', name: 'Staging' })],
 			undefined,
-			{ 'clu-a': { syncing: 2, copiedGb: 12.4, expectedGb: 40 } },
+			{ 'clu-a': { syncing: 2, progress: 0.31 } },
 		);
 		expect(items.map(item => [item.cluster.id, item.syncSummary])).toEqual([
-			['clu-a', { syncing: 2, copiedGb: 12.4, expectedGb: 40 }],
+			['clu-a', { syncing: 2, progress: 0.31 }],
 			['clu-b', null],
 		]);
 		expect(buildClusterList([cluster()]).items[0].syncSummary).toBeNull();
