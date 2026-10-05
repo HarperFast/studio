@@ -1,6 +1,12 @@
 import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
-import { NO_FALLBACK, OrganizationRegionFormSchema, toCreatePayload, toFormValues, toPatch } from './OrganizationRegionFormSchema';
+import {
+	NO_FALLBACK,
+	OrganizationRegionFormSchema,
+	toCreatePayload,
+	toFormValues,
+	toPatch,
+} from './OrganizationRegionFormSchema';
 
 const stored: OrganizationRegion = {
 	id: 'oreg-1',

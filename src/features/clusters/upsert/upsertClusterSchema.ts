@@ -39,7 +39,9 @@ export const UpsertClusterSchema = z.object({
 	deploymentDescription: z.string().nonempty('Please select a deployment tier.'),
 	performanceDescription: z.string().nonempty('Please select a performance tier.'),
 
-	regionPlans: z.array(RegionPlanEntrySchema).max(50, { error: 'A maximum of 50 regions can be selected for each cluster. ' }),
+	regionPlans: z.array(RegionPlanEntrySchema).max(50, {
+		error: 'A maximum of 50 regions can be selected for each cluster. ',
+	}),
 
 	instances: z.array(
 		z.object({
