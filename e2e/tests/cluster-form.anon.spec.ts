@@ -24,6 +24,13 @@ const cluster = {
 		version: '5.2.12',
 	}],
 };
+const organizationWith = (clusterRecord: typeof cluster) => ({
+	id: 'org-fixture',
+	name: 'Fixture',
+	subdomain: 'fixture',
+	clusters: [clusterRecord],
+	billing: { paymentMethod: { status: 'pass', brand: 'visa', last4: '4242' } },
+});
 
 test.beforeEach(async ({ page }) => {
 	await page.addInitScript(() =>
@@ -51,16 +58,7 @@ test.beforeEach(async ({ page }) => {
 				},
 			},
 		}));
-	await page.route('**/Organization/org-fixture', route =>
-		route.fulfill({
-			json: {
-				id: 'org-fixture',
-				name: 'Fixture',
-				subdomain: 'fixture',
-				clusters: [cluster],
-				billing: { paymentMethod: { status: 'pass', brand: 'visa', last4: '4242' } },
-			},
-		}));
+	await page.route('**/Organization/org-fixture', route => route.fulfill({ json: organizationWith(cluster) }));
 	await page.route('**/Cluster/clu-fixture', route => route.fulfill({ json: cluster }));
 	await page.route(
 		'**/Plan/**',
@@ -131,6 +129,45 @@ test('partial version upgrade can resubmit without changing fields', async ({ pa
 	await expect(page.getByLabel('Cluster Name', { exact: true })).toBeDisabled();
 	await page.getByRole('button', { name: 'Edit Cluster', exact: true }).click();
 	await expect.poll(() => payload).toEqual({ version: '5.2.13' });
+});
+
+test('an edit whose update fails straight away leaves the cluster in place', async ({ page }) => {
+	const methods: string[] = [];
+	let updated = false;
+	const current = () => updated ? { ...cluster, status: 'FAILED' } : cluster;
+	await page.route('**/Organization/org-fixture', route => route.fulfill({ json: organizationWith(current()) }));
+	await page.route('**/Cluster/clu-fixture', route => {
+		const method = route.request().method();
+		methods.push(method);
+		if (method === 'GET') { return route.fulfill({ json: current() }); }
+		updated = true;
+		return route.fulfill({ json: { ...cluster, status: 'UPDATING' } });
+	});
+	await page.goto('/#/org-fixture/clu-fixture/edit/version');
+	await page.getByRole('button', { name: 'Edit Cluster', exact: true }).click();
+	await expect(page.getByRole('heading', { name: "Your cluster's update didn't finish" })).toBeVisible();
+	expect(methods).not.toContain('DELETE');
+});
+
+test('trying a failed cluster again terminates it once its replacement is created', async ({ page }) => {
+	const failed = { ...cluster, status: 'FAILED' };
+	const writes: string[] = [];
+	await page.route('**/Organization/org-fixture', route => route.fulfill({ json: organizationWith(failed) }));
+	await page.route('**/Cluster/clu-fixture', route => {
+		if (route.request().method() === 'GET') { return route.fulfill({ json: failed }); }
+		writes.push(`${route.request().method()} clu-fixture`);
+		return route.fulfill({ json: { ...failed, status: 'TERMINATED' } });
+	});
+	await page.route('**/Cluster/', route => {
+		writes.push(`${route.request().method()} new cluster`);
+		return route.fulfill({ json: { ...cluster, id: 'clu-replacement', status: 'PROVISIONING' } });
+	});
+	await page.goto('/#/org-fixture');
+	await page.getByRole('button', { name: 'Cluster options' }).click();
+	await page.getByRole('menuitem', { name: 'Try Again' }).click();
+	await page.getByRole('button', { name: 'Confirm Payment Details' }).click();
+	await page.getByRole('button', { name: 'Create New Cluster' }).click();
+	await expect.poll(() => writes).toEqual(['POST new cluster', 'DELETE clu-fixture']);
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {

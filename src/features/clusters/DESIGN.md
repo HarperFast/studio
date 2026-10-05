@@ -7,3 +7,10 @@ SystemStatus notices have no cluster association and remain in the cloud-wide no
 # Cluster configuration
 
 The upsert page keeps a single form owner for create, edit, and version-only flows. Details submit remains inside the HTML form; payment review uses its existing click handler outside that form. The shared price summary uses the existing price calculations on both steps and follows the fields on narrow screens. `cluster-form.anon.spec.ts` pins request payloads, partial-upgrade retry, billing transitions, and responsive bounds.
+
+The form terminates a cluster only after creating its replacement: Try Again on a failed cluster's card opens a
+create prefilled from it, and once that create succeeds the form terminates the original if it's still `FAILED`.
+`sourceClusterId` names that original, but the form also fills it with the edited cluster's own id on an edit, and
+saved form values can bring it back after a billing redirect. So `onClusterSavedCallback` gates the terminate on
+`creating`, not on `sourceClusterId` alone. Without that gate, an update that failed straight away made an edit delete
+the cluster it was editing.

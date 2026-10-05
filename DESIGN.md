@@ -6,7 +6,7 @@ This file collects architecture and design notes for studio that aren't otherwis
 
 - [`src/features/organizations/DESIGN.md`](src/features/organizations/DESIGN.md) — shared organization target policy, switch destinations, and account-menu behavior.
 
-- [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope.
+- [`src/features/clusters/DESIGN.md`](src/features/clusters/DESIGN.md) — cluster list lifecycle classification, optional metadata and notification scope, and when the cluster form may terminate a cluster.
 
 - [`src/features/cluster/DESIGN.md`](src/features/cluster/DESIGN.md) — when the Starting-up and Scaling screens may report done, how clone progress is read, and where the cluster card's sync chip gets its data.
 
