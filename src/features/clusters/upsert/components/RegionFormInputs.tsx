@@ -6,7 +6,15 @@ import { FormItem } from '@/components/ui/form/FormItem';
 import { FormLabel } from '@/components/ui/form/FormLabel';
 import { FormMessage } from '@/components/ui/form/FormMessage';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectLabel,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select';
 import { UpsertClusterSchemaType } from '@/features/clusters/upsert/upsertClusterSchema';
 import { SchemaCloudInstanceTypes, SchemaPlan, SchemaRegion } from '@/integrations/api/api.gen';
 import { sortByNumberPrefix } from '@/lib/arrays/sort/byNumberPrefix';
@@ -40,6 +48,8 @@ type RegionFormInputsProps = {
 	organizationId: string;
 	canUseCustomRegions: boolean;
 	lockedOrganizationRegionIds: string[];
+	/** Every row's region id, this row's included; a custom region already on another row cannot be picked twice. */
+	selectedRegionIds: string[];
 };
 
 function pickLatencyDescription(options: readonly string[], preferred: string | undefined): string | undefined {
@@ -62,6 +72,7 @@ export function RegionFormInputs({
 	cloudProvider,
 	canUseCustomRegions,
 	lockedOrganizationRegionIds,
+	selectedRegionIds,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() => Object.keys(regionNameToLatencyToRegion).sort(), [
 		regionNameToLatencyToRegion,
@@ -181,15 +192,23 @@ export function RegionFormInputs({
 									{showCustomGroup && (
 										<SelectGroup>
 											<SelectLabel>Custom regions</SelectLabel>
-											{organizationRegions.map((region) => (
-												<SelectItem key={region.id} value={region.id}>
-													<span className="flex items-center gap-2">
-														{region.name}
-														<Badge variant="secondary">Custom</Badge>
-														{!region.active && <Badge variant="secondary">Inactive</Badge>}
-													</span>
-												</SelectItem>
-											))}
+											{organizationRegions.map((region) => {
+												const onAnotherRow = region.id !== entryRegionId && selectedRegionIds.includes(region.id);
+												return (
+													<SelectItem key={region.id} value={region.id} disabled={onAnotherRow}>
+														<span className="flex items-center gap-2">
+															{region.name}
+															<Badge variant="secondary">Custom</Badge>
+															{!region.active && <Badge variant="secondary">Inactive</Badge>}
+															{onAnotherRow && (
+																<span className="text-xs text-muted-foreground">
+																	already on this cluster — change its units
+																</span>
+															)}
+														</span>
+													</SelectItem>
+												);
+											})}
 										</SelectGroup>
 									)}
 								</SelectContent>

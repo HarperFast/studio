@@ -68,7 +68,10 @@ export function OrganizationRegionFormModal(
 
 	const { data: locations = [] } = useQuery({ ...getLocationsQueryOptions(), enabled: open });
 	// The list row carries no `clusters`; the by-id read does, and it decides which fields are frozen.
-	const { data: regionWithClusters } = useQuery({ ...getOrganizationRegionQueryOptions(region?.id), enabled: open && isEdit });
+	const { data: regionWithClusters } = useQuery({
+		...getOrganizationRegionQueryOptions(region?.id),
+		enabled: open && isEdit,
+	});
 	const referencingClusters = regionWithClusters?.clusters ?? [];
 	const frozen = referencingClusters.length > 0;
 
@@ -154,7 +157,8 @@ export function OrganizationRegionFormModal(
 		}
 	};
 
-	const isFrozen = (field: (typeof FROZEN_WHILE_REFERENCED)[number]) => frozen && FROZEN_WHILE_REFERENCED.includes(field);
+	const isFrozen = (field: (typeof FROZEN_WHILE_REFERENCED)[number]) =>
+		frozen && FROZEN_WHILE_REFERENCED.includes(field);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -167,8 +171,10 @@ export function OrganizationRegionFormModal(
 				</DialogDescription>
 				{frozen && (
 					<p className="rounded-md border border-border bg-muted/40 p-3 text-sm text-muted-foreground" role="note">
-						Deployed by {referencingClusters.map((c) => `${c.name} (×${c.quantity})`).join(', ')}. The name, datacenters and
-						fallback are fixed while a cluster runs on this region; create a new region to change them.
+						Deployed by {referencingClusters.map((c) =>
+							`${c.name} (×${c.quantity})`
+						).join(', ')}. The name, datacenters and fallback are fixed while a cluster runs on this region; create a
+						new region to change them.
 					</p>
 				)}
 				<Form {...form}>
@@ -296,7 +302,12 @@ export function OrganizationRegionFormModal(
 						)}
 						<DialogFooter>
 							<div className="flex w-full justify-between">
-								<Button variant="destructiveOutline" type="button" onClick={() => onOpenChange(false)} disabled={isPending}>
+								<Button
+									variant="destructiveOutline"
+									type="button"
+									onClick={() => onOpenChange(false)}
+									disabled={isPending}
+								>
 									Cancel
 								</Button>
 								<Button variant="submit" disabled={isPending}>

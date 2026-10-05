@@ -367,7 +367,15 @@ export function ClusterForm({
 					?? regionLocations?.find(r => r.region === previous.name));
 			form.setValue(`regionPlans.${i}.regionId`, replacement?.id ?? '');
 		}
-	}, [colocatedRegionLookup, dedicatedRegionLookup, form, regionLocations, regionLookup, selectedDeployment, selectedRegionPlans]);
+	}, [
+		colocatedRegionLookup,
+		dedicatedRegionLookup,
+		form,
+		regionLocations,
+		regionLookup,
+		selectedDeployment,
+		selectedRegionPlans,
+	]);
 
 	useEffect(function revalidateCustomRegionsWhenLookupChanges() {
 		// A custom region defined inline only resolves once its refetch lands.
@@ -493,7 +501,9 @@ export function ClusterForm({
 				}
 				// Payment review submits without re-validating, and the shape can change while the user is away.
 				if (region.kind === 'organization' && region.instanceCount === 0) {
-					toast.error(`${region.name} has no datacenters on the organization's cloud provider. Please review your regions.`);
+					toast.error(
+						`${region.name} has no datacenters on the organization's cloud provider. Please review your regions.`,
+					);
 					void form.trigger();
 					return;
 				}
@@ -664,7 +674,7 @@ export function ClusterForm({
 									organizationId={organizationId}
 									canUseCustomRegions={canUseCustomRegions}
 									canDefineCustomRegions={canDefineCustomRegions}
-					lockedOrganizationRegionIds={lockedOrganizationRegionIds}
+									lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}

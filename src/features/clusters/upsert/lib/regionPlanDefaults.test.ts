@@ -1,5 +1,5 @@
-import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { SchemaRegion } from '@/integrations/api/api.gen';
+import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { describe, expect, it } from 'vitest';
 import { buildRegionLookup } from './regionLookup';
 import { buildRegionPlanDefaults, migrateDraftRegionPlans } from './regionPlanDefaults';
@@ -37,7 +37,10 @@ describe('buildRegionPlanDefaults', () => {
 	});
 
 	it('reports ids it cannot resolve instead of dropping them', () => {
-		const result = buildRegionPlanDefaults([{ regionId: 'us-1', planId: 'p' }, { regionId: 'oreg-gone', planId: 'p' }], lookup);
+		const result = buildRegionPlanDefaults(
+			[{ regionId: 'us-1', planId: 'p' }, { regionId: 'oreg-gone', planId: 'p' }],
+			lookup,
+		);
 		expect(result.regionPlans).toEqual([{ regionId: 'us-1' }]);
 		expect(result.unresolvedRegionIds).toEqual(['oreg-gone']);
 	});
@@ -52,7 +55,12 @@ describe('buildRegionPlanDefaults', () => {
 
 describe('migrateDraftRegionPlans', () => {
 	it('keeps every id-keyed entry, resolvable or not, for validation to report', () => {
-		expect(migrateDraftRegionPlans([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }, { regionId: 'gone' }], lookup))
+		expect(
+			migrateDraftRegionPlans(
+				[{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }, { regionId: 'gone' }],
+				lookup,
+			),
+		)
 			.toEqual([{ regionId: 'us-1' }, { regionId: 'oreg-1', quantity: 2 }, { regionId: 'gone' }]);
 	});
 

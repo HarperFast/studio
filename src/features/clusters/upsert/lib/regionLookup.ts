@@ -1,5 +1,5 @@
-import { OrganizationRegion } from '@/integrations/api/api.patch';
 import { SchemaCloudInstanceTypes, SchemaRegion } from '@/integrations/api/api.gen';
+import { OrganizationRegion } from '@/integrations/api/api.patch';
 
 const ORGANIZATION_REGION_ID_PREFIX = 'oreg-';
 
