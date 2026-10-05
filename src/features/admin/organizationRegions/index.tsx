@@ -12,7 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { PencilIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 
-export function PlacementSummary({ placement }: { placement: OrganizationRegion['placement'] }) {
+function PlacementSummary({ placement }: { placement: OrganizationRegion['placement'] }) {
 	const lines = [
 		placement?.linode?.length ? `Linode: ${describeShape(placement.linode)}` : null,
 		placement?.gcp?.length ? `GCP: ${describeShape(placement.gcp)}` : null,
