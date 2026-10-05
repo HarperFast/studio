@@ -22,7 +22,9 @@ export function buildRegionPlanDefaults(
 			continue;
 		}
 		regionPlans.push(
-			isOrganizationRegionId(plan.regionId) ? { regionId: plan.regionId, quantity: plan.quantity ?? 1 } : { regionId: plan.regionId },
+			isOrganizationRegionId(plan.regionId)
+				? { regionId: plan.regionId, quantity: plan.quantity ?? 1 }
+				: { regionId: plan.regionId },
 		);
 	}
 	return { regionPlans, unresolvedRegionIds };

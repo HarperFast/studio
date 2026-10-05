@@ -27,7 +27,9 @@ function PlacementSummary({ placement }: { placement: OrganizationRegion['placem
 export function OrganizationRegionsIndex() {
 	const [organizationId, setOrganizationId] = useState<string>('');
 	const { data: orgResult, isLoading: orgsLoading } = useQuery(getOrganizationsQueryOptions());
-	const { data: regions, isLoading, isError } = useQuery(getOrganizationRegionsQueryOptions(organizationId || undefined));
+	const { data: regions, isLoading, isError } = useQuery(
+		getOrganizationRegionsQueryOptions(organizationId || undefined),
+	);
 	const [modalOpen, setModalOpen] = useState(false);
 	const [editing, setEditing] = useState<OrganizationRegion | null>(null);
 	const canWriteRegions = useStaffPermission('region:write');
@@ -112,7 +114,12 @@ export function OrganizationRegionsIndex() {
 										<TableCell className="text-muted-foreground">{region.fallbackGroup ?? 'None (forced)'}</TableCell>
 										<TableCell className="text-right">
 											{canWriteRegions && (
-												<Button variant="ghost" size="icon" aria-label={`Edit ${region.name}`} onClick={() => openEdit(region)}>
+												<Button
+													variant="ghost"
+													size="icon"
+													aria-label={`Edit ${region.name}`}
+													onClick={() => openEdit(region)}
+												>
 													<PencilIcon />
 												</Button>
 											)}

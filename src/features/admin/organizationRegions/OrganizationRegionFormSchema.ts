@@ -36,7 +36,10 @@ export function toFormValues(region?: OrganizationRegion | null): OrganizationRe
 	};
 }
 
-export function toCreatePayload(organizationId: string, values: OrganizationRegionFormValues): OrganizationRegionPayload {
+export function toCreatePayload(
+	organizationId: string,
+	values: OrganizationRegionFormValues,
+): OrganizationRegionPayload {
 	return {
 		organizationId,
 		name: values.name,
@@ -53,7 +56,10 @@ export function toPatch(region: OrganizationRegion, values: OrganizationRegionFo
 		patch.name = values.name;
 	}
 	const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
-	if (!sameList(values.linodeDatacenters, stored.linodeDatacenters) || !sameList(values.gcpDatacenters, stored.gcpDatacenters)) {
+	if (
+		!sameList(values.linodeDatacenters, stored.linodeDatacenters)
+		|| !sameList(values.gcpDatacenters, stored.gcpDatacenters)
+	) {
 		patch.placement = { linode: values.linodeDatacenters, gcp: values.gcpDatacenters };
 	}
 	if (values.fallbackGroup !== stored.fallbackGroup) {

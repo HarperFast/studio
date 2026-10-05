@@ -52,4 +52,10 @@ const apiTokenRoute = createRoute({
 });
 
 // Parent: adminLayoutRoute (keep in lockstep with rootRouteTree's addChildren).
-export const adminRoutes = [adminIndexRoute, notificationsAdminRoute, regionsRoute, organizationRegionsRoute, apiTokenRoute];
+export const adminRoutes = [
+	adminIndexRoute,
+	notificationsAdminRoute,
+	regionsRoute,
+	organizationRegionsRoute,
+	apiTokenRoute,
+];
