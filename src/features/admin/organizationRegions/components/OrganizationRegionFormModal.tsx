@@ -267,30 +267,6 @@ export function OrganizationRegionFormModal(
 									</FormItem>
 								)}
 							/>
-							<FormField
-								control={form.control}
-								name="blocksPerUnit"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel className="pb-1">Purchased blocks per unit</FormLabel>
-										<FormControl>
-											<Input
-												type="number"
-												min={1}
-												max={10}
-												step={1}
-												name={field.name}
-												ref={field.ref}
-												onBlur={field.onBlur}
-												value={Number.isFinite(field.value) ? field.value : ''}
-												onChange={(e) => field.onChange(e.target.valueAsNumber)}
-												disabled={isFrozen('blocksPerUnit')}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
 						</div>
 						<FormField
 							control={form.control}

@@ -14,7 +14,6 @@ const orgRegion: OrganizationRegion = {
 	name: 'EU edge',
 	placement: { gcp: ['europe-west1'] },
 	fallbackGroup: null,
-	blocksPerUnit: 1,
 	active: true,
 };
 const lookup = buildRegionLookup(catalog, [orgRegion], undefined);
