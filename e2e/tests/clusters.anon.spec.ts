@@ -233,3 +233,15 @@ test('a building cluster card opens its progress, and a refused member sees why'
 	await page.getByRole('link', { name: 'Back to clusters' }).click();
 	await expect(page).toHaveURL(/#\/org-fixture$/);
 });
+
+test('scaling explains a failed update instead of waiting forever', async ({ page }) => {
+	await page.route(
+		'**/Cluster/clu-production',
+		route => route.fulfill({ json: { ...cloningCluster(), status: 'FAILED' } }),
+	);
+	await page.goto('/#/org-fixture/clu-production/scaling');
+	await expect(page.getByRole('heading', { name: "Your cluster's update didn't finish" })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Here we go!' })).toHaveCount(0);
+	await page.getByRole('link', { name: 'View Instances' }).click();
+	await expect(page).toHaveURL(/#\/org-fixture\/clu-production\/instances$/);
+});
