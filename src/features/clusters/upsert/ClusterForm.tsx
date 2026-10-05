@@ -373,7 +373,7 @@ export function ClusterForm({
 			if (!region) {
 				return total;
 			}
-			// Central-manager mints blocksPerUnit × quantity blocks for a custom region.
+			// Central-manager mints a block per instance pair (rounded up) × quantity for a custom region.
 			return total + (region.kind === 'organization'
 				? selectedPlan.priceUsd * region.blocksPerUnit * (entry.quantity ?? 1)
 				: selectedPlan.priceUsd * region.instanceCount / 2);

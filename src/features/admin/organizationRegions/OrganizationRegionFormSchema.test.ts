@@ -8,7 +8,6 @@ const stored: OrganizationRegion = {
 	name: 'EU edge',
 	placement: { linode: ['fr-par', 'it-mil'], gcp: [] },
 	fallbackGroup: 'europe',
-	blocksPerUnit: 2,
 	active: true,
 };
 
@@ -17,7 +16,6 @@ const valid = {
 	linodeDatacenters: ['fr-par'],
 	gcpDatacenters: [],
 	fallbackGroup: NO_FALLBACK,
-	blocksPerUnit: 1,
 	active: true,
 };
 
@@ -34,10 +32,6 @@ describe('OrganizationRegionFormSchema', () => {
 		}
 	});
 
-	it.each([0, 11, 1.5])('rejects %s blocks per unit', (blocksPerUnit) => {
-		expect(OrganizationRegionFormSchema.safeParse({ ...valid, blocksPerUnit }).success).toBe(false);
-	});
-
 	it('trims and requires the name', () => {
 		expect(OrganizationRegionFormSchema.safeParse({ ...valid, name: '   ' }).success).toBe(false);
 		const parsed = OrganizationRegionFormSchema.safeParse({ ...valid, name: '  EU  ' });
@@ -52,7 +46,6 @@ describe('toFormValues', () => {
 			linodeDatacenters: ['fr-par', 'it-mil'],
 			gcpDatacenters: [],
 			fallbackGroup: 'europe',
-			blocksPerUnit: 2,
 			active: true,
 		});
 		expect(toFormValues(null)).toEqual({
@@ -60,7 +53,6 @@ describe('toFormValues', () => {
 			linodeDatacenters: [],
 			gcpDatacenters: [],
 			fallbackGroup: NO_FALLBACK,
-			blocksPerUnit: 1,
 			active: true,
 		});
 	});
@@ -73,7 +65,6 @@ describe('toCreatePayload', () => {
 			name: 'EU edge',
 			placement: { linode: ['fr-par'], gcp: [] },
 			fallbackGroup: null,
-			blocksPerUnit: 1,
 			active: true,
 		});
 	});

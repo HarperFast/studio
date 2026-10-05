@@ -93,7 +93,6 @@ export function OrganizationRegionsIndex() {
 									<TableHead>Name</TableHead>
 									<TableHead>Datacenters per unit</TableHead>
 									<TableHead>Fallback pool</TableHead>
-									<TableHead className="text-right pr-6">Blocks / unit</TableHead>
 									<TableHead className="w-0" />
 								</TableRow>
 							</TableHeader>
@@ -111,7 +110,6 @@ export function OrganizationRegionsIndex() {
 											<PlacementSummary placement={region.placement} />
 										</TableCell>
 										<TableCell className="text-muted-foreground">{region.fallbackGroup ?? 'None (forced)'}</TableCell>
-										<TableCell className="text-right pr-6">{region.blocksPerUnit}</TableCell>
 										<TableCell className="text-right">
 											{canWriteRegions && (
 												<Button variant="ghost" size="icon" aria-label={`Edit ${region.name}`} onClick={() => openEdit(region)}>

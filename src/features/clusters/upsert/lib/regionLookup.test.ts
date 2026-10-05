@@ -21,7 +21,6 @@ const orgRegion: OrganizationRegion = {
 	name: 'EU edge',
 	placement: { linode: ['fr-par', 'fr-par', 'it-mil'], gcp: ['europe-west1'] },
 	fallbackGroup: null,
-	blocksPerUnit: 2,
 	active: true,
 };
 
