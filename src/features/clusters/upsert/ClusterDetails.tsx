@@ -39,6 +39,7 @@ interface ClusterDetailsProps {
 	organizationId: string;
 	canUseCustomRegions: boolean;
 	canDefineCustomRegions: boolean;
+	lockedOrganizationRegionIds: string[];
 	selectedDeployment: string;
 	selectedPerformance: string;
 	selectedPlan: SchemaPlan | undefined;
@@ -63,6 +64,7 @@ export function ClusterDetails({
 	organizationId,
 	canUseCustomRegions,
 	canDefineCustomRegions,
+	lockedOrganizationRegionIds,
 	selectedDeployment,
 	selectedPerformance,
 	selectedPlan,
@@ -255,6 +257,7 @@ export function ClusterDetails({
 										organizationId={organizationId}
 										canUseCustomRegions={canUseCustomRegions}
 										canDefineCustomRegions={canDefineCustomRegions}
+										lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 										premiumOnlyRegions={premiumOnlyRegions}
 										usageScale={usageScale}
 										selectedPlan={selectedPlan}

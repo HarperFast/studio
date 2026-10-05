@@ -39,6 +39,7 @@ type RegionFormInputsProps = {
 	cloudProvider: keyof SchemaCloudInstanceTypes | undefined;
 	organizationId: string;
 	canUseCustomRegions: boolean;
+	lockedOrganizationRegionIds: string[];
 };
 
 function pickLatencyDescription(options: readonly string[], preferred: string | undefined): string | undefined {
@@ -60,6 +61,7 @@ export function RegionFormInputs({
 	isEnterprise,
 	cloudProvider,
 	canUseCustomRegions,
+	lockedOrganizationRegionIds,
 }: RegionFormInputsProps) {
 	const availableRegionNames = useMemo(() => Object.keys(regionNameToLatencyToRegion).sort(), [
 		regionNameToLatencyToRegion,
@@ -86,7 +88,10 @@ export function RegionFormInputs({
 	);
 	const showCustomGroup = canUseCustomRegions ? organizationRegions.length > 0 : !!organizationSelection;
 	// A member keeps a custom region staff placed, but cannot swap it for anything else.
-	const lockedToOrganizationRegion = !!organizationSelection && !canUseCustomRegions;
+	// Locked only when the server's plans carry it: a retried failed cluster carries the row as a draft,
+	// which a member must be able to swap out.
+	const lockedToOrganizationRegion = !!organizationSelection && !canUseCustomRegions
+		&& lockedOrganizationRegionIds.includes(organizationSelection.id);
 
 	const allowedRegionIds = selectedPlan?.allowedRegionIds;
 	const isRegionAllowedByPlan = useCallback(

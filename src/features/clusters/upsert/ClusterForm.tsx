@@ -491,6 +491,12 @@ export function ClusterForm({
 					void form.trigger();
 					return;
 				}
+				// Payment review submits without re-validating, and the shape can change while the user is away.
+				if (region.kind === 'organization' && region.instanceCount === 0) {
+					toast.error(`${region.name} has no datacenters on the organization's cloud provider. Please review your regions.`);
+					void form.trigger();
+					return;
+				}
 				plans.push({
 					autoRenew: true,
 					planId: plan.id,
@@ -658,6 +664,7 @@ export function ClusterForm({
 									organizationId={organizationId}
 									canUseCustomRegions={canUseCustomRegions}
 									canDefineCustomRegions={canDefineCustomRegions}
+					lockedOrganizationRegionIds={lockedOrganizationRegionIds}
 									selectedDeployment={selectedDeployment}
 									selectedPerformance={selectedPerformance}
 									selectedPlan={selectedPlan}
