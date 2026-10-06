@@ -1,3 +1,4 @@
+import { cycleCostSummary } from '@/features/cluster/components/CycleCost';
 import { METRIC_LABEL, toMeter, UsageMeter, UsageMetric } from '@/features/cluster/components/UsageMeter';
 import { ClusterUsage, usageSubtitle, useClusterUsage } from '@/integrations/api/cluster/getClusterUsage';
 import { Link } from '@tanstack/react-router';
@@ -16,6 +17,7 @@ export function ClusterUsageCard(
 	// Nothing to show until there's a managed plan with reportable regions (also covers loading, errors,
 	// and self-hosted clusters).
 	if (!data || data.selfManaged || data.regions.length === 0) { return null; }
+	const cost = cycleCostSummary(data);
 
 	return (
 		<section className="mt-6 rounded-2xl border border-border bg-card p-5">
@@ -29,6 +31,7 @@ export function ClusterUsageCard(
 				</Link>
 			</div>
 			<p className="mt-0.5 text-xs text-muted-foreground">{usageSubtitle(data, { trial })}</p>
+			{cost && <p className="mt-1 text-sm text-foreground">{cost}</p>}
 
 			<div className="mt-4">
 				{data.regions.length === 1 ? <SingleRegion data={data} /> : <MultiRegion data={data} />}
