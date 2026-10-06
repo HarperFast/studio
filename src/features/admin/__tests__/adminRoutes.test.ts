@@ -28,6 +28,7 @@ describe('admin section routes', () => {
 		['/admin/regions', '/regions'],
 		['/admin/plans', '/plans'],
 		['/admin/grants', '/grants'],
+		['/admin/promo-codes', '/promo-codes'],
 		['/admin/billing', '/billing'],
 		['/admin/api-token', '/api-token'],
 	])('%s resolves to its own route', (path, expectedId) => {
