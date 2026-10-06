@@ -56,7 +56,6 @@ function replacementDefaults(replacing: GrantReplacement): CreateGrantValues {
 	};
 }
 
-/** The live grant a comp is to replace, and the reason already typed against it. */
 export interface GrantReplacement {
 	grant: AdminClusterGrant;
 	reason: string;
@@ -98,13 +97,15 @@ export function CreateGrantModal({ open, onOpenChange, onCreated, replacing = nu
 		if (open) { form.reset(replacing ? replacementDefaults(replacing) : DEFAULTS); }
 	}, [open, replacing, form]);
 
-	const policies = useMemo(
-		() => [
+	// The policy the form holds stays listed even when the server's list omits it, or the select reads blank.
+	const expiryPolicy = form.watch('expiryPolicy');
+	const policies = useMemo(() => {
+		const offered = [
 			NO_EXPIRY_POLICY,
 			...Object.keys(policyData?.policies ?? {}).filter((policy) => !INTERNAL_EXPIRY_POLICIES.includes(policy)),
-		],
-		[policyData],
-	);
+		];
+		return expiryPolicy && !offered.includes(expiryPolicy) ? [...offered, expiryPolicy] : offered;
+	}, [policyData, expiryPolicy]);
 
 	const bindTo = form.watch('bindTo');
 	const source = form.watch('source');

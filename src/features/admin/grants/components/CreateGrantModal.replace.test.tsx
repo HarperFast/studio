@@ -20,10 +20,11 @@ vi.mock('@/features/admin/grants/mutations/useUpdateGrant', () => ({
 		isPending: false,
 	}),
 }));
+const served = vi.hoisted(() => ({ policies: { comped: [] } as Record<string, string[]> }));
 vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 	getExpiryPoliciesQueryOptions: () => ({
-		queryKey: ['test-policies'],
-		queryFn: async () => ({ editableAtRuntime: false, policies: { comped: [] } }),
+		queryKey: ['test-policies', served.policies],
+		queryFn: async () => ({ editableAtRuntime: false, policies: served.policies }),
 		retry: false,
 	}),
 }));
@@ -31,6 +32,7 @@ vi.mock('@/features/admin/grants/queries/getExpiryPolicies', () => ({
 afterEach(() => {
 	cleanup();
 	createGrant.mockClear();
+	served.policies = { comped: [] };
 });
 
 function grant(overrides: Partial<AdminClusterGrant> = {}): AdminClusterGrant {
@@ -89,6 +91,14 @@ describe('CreateGrantModal — replacing a live grant with a comp', () => {
 			expiryPolicy: 'none',
 			reason: 'sales agreed a comp',
 		});
+	});
+
+	it('shows the comp policy the form picks even when the server does not list it', async () => {
+		served.policies = {};
+		await mount(grant());
+		fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2099-01-01T00:00' } });
+		await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+		expect(screen.getByLabelText('Expiry policy').textContent).toBe('comped');
 	});
 
 	it('needs a reason, as any grant does', async () => {

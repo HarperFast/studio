@@ -47,7 +47,6 @@ interface GrantFormModalProps {
 	grant: AdminClusterGrant | null;
 	/** Whether the viewer holds billing:write, which switching to paid needs because it charges the card. */
 	canBill?: boolean;
-	/** Hands the grant to the create dialog, to mint the comp that replaces it. */
 	onReplaceWithComp?: (grant: AdminClusterGrant, reason: string) => void;
 }
 
@@ -165,8 +164,7 @@ export function GrantFormModal(
 	// lapsed or not-yet-started grant, which the server refuses as not the live one.
 	const bound = grant?.clusterId != null;
 	const switchable = bound && grant?.isActive !== false;
-	// It charges a card, so only billing:write is offered it. The organization's own terms do not matter:
-	// one cluster of an unrestricted organization can be put on paid terms by itself.
+	// It charges a card, so it is offered only with billing:write.
 	const canSwitchToPaid = switchable && canBill && grant?.source !== 'purchased';
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and

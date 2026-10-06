@@ -64,7 +64,7 @@ export interface CreateGrantBody {
 	expiryPolicy?: string;
 	allowedPlanIds?: string[] | null;
 	allowedRegionIds?: string[] | null;
-	/** Required on comped and refused on anything else: the one cluster the comp is for. */
+	/** The one cluster a comp is for: required on an unbound comp, read from the cluster on a bound one, refused on any other source. */
 	shape?: GrantShapeEntry[];
 	/** Unbound only: mint this many identical vouchers in one request (1–100). Refused with a clusterId. */
 	quantity?: number;
