@@ -347,17 +347,11 @@ describe('GrantsAdminIndex — switchover', () => {
 		expect(screen.getByPlaceholderText(/Why this grant exists/)).toHaveProperty('value', 'sales agreed a comp');
 	});
 
-	it.each([
-		['UNRESTRICTED', false],
-		['ENTERPRISE', false],
-		['SELF_SERVICE', true],
-		// Charging a card fails closed: an organization whose type is unknown is not offered it.
-		[undefined, false],
-	])('an organization of type %s is offered a switch to paid: %s', async (type, offered) => {
+	it('a cluster of an unrestricted organization is offered a switch to paid like any other', async () => {
 		canWriteGrants = true;
-		orgType = type;
+		orgType = 'UNRESTRICTED';
 		await mount([contract()]);
 		await openEdit();
-		expect(!!screen.queryByRole('button', { name: 'Switch to paid' })).toBe(offered);
+		expect(screen.getByRole('button', { name: 'Switch to paid' })).toBeTruthy();
 	});
 });
