@@ -38,7 +38,6 @@ export function RegionCycleCost({ region }: { region: ClusterUsageRegion }) {
 	);
 }
 
-/** What the overage is, what ran out, and what each block of extra capacity has cost so far. */
 function OverageExplained({ region }: { region: ClusterUsageRegion }) {
 	const cause = region.overageCause;
 	const meter = cause?.metric ? `${METRIC_LABEL[cause.metric]} ` : '';
@@ -80,7 +79,6 @@ function overageDetail(topUps: number, since: string | null, renewsAt: string | 
 	].join(' · ');
 }
 
-/** The cluster's cost this cycle so far as the page's headline figure, the plan and overage beneath it. */
 export function ClusterCycleCost(
 	{ usage }: { usage: { planUsd?: number; overageUsd?: number; cycleUsd?: number } },
 ) {
