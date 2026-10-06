@@ -389,4 +389,18 @@ describe('UsagePage — what the cycle costs so far', () => {
 		render(<UsagePage />);
 		expect(screen.getByText('$1,170.00 this cycle so far, $170.00 of it overage')).toBeTruthy();
 	});
+
+	it('adds the total when a removed region still owes overage the listed one does not show', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({
+				regions: [billed({ overageUsd: 0, cycleUsd: 500, topUpCount: 0, overageSince: null })],
+				planUsd: 500,
+				overageUsd: 85,
+				cycleUsd: 585,
+			}),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.getByText('$585.00 this cycle so far, $85.00 of it overage')).toBeTruthy();
+	});
 });
