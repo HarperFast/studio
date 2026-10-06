@@ -14,6 +14,8 @@ export interface UsageMetric {
 	unlimited: boolean;
 	limitKnown: boolean;
 	format: (n: number) => string;
+	/** A short flag beside the label, such as the date this meter ran the plan's allowance out. */
+	note?: string;
 }
 
 export const fmtCount = (n: number) =>
@@ -67,7 +69,7 @@ export function toMeter(key: UsageMetricKey, value: UsageValue, labelOverride?: 
 	};
 }
 
-export function UsageMeter({ label, used, limit, unlimited, limitKnown, format }: UsageMetric) {
+export function UsageMeter({ label, used, limit, unlimited, limitKnown, format, note }: UsageMetric) {
 	// Defensive: a negative limit is also "unlimited" (server sentinel), and a null/0 finite limit can't
 	// be a denominator — treat as unknown so we never divide by zero (NaN) or invent a ceiling.
 	const isUnlimited = unlimited || (limit != null && limit < 0);
@@ -78,7 +80,10 @@ export function UsageMeter({ label, used, limit, unlimited, limitKnown, format }
 	return (
 		<div>
 			<div className="flex items-baseline justify-between gap-2 text-sm">
-				<span className="text-foreground">{label}</span>
+				<span className="flex items-center gap-1.5 text-foreground">
+					{label}
+					{note && <span className="rounded-full bg-yellow/10 px-1.5 py-0.5 text-[11px] text-yellow">{note}</span>}
+				</span>
 				<span className="text-muted-foreground tabular-nums">
 					<span className="text-foreground">{format(used)}</span>
 					{isKnown ? <>/ {format(limit)}</> : ' used'}
