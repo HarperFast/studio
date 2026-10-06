@@ -10,7 +10,7 @@ import type {
 	UsageRateLimits,
 	UsageValue,
 } from '@/integrations/api/cluster/getClusterUsage';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tanstack/react-router', () => ({ useParams: () => ({ clusterId: 'clu-1' }) }));
@@ -330,6 +330,7 @@ describe('UsagePage — what the cycle costs so far', () => {
 			overageSince: '2026-07-10T12:00:00.000Z',
 			...over,
 		});
+	const clusterTotal = () => screen.queryByRole('region', { name: 'This cycle so far' });
 	// The breakdown is a <dl>: the amount sits in the <dd> beside its label.
 	const amountBeside = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
 
@@ -374,7 +375,7 @@ describe('UsagePage — what the cycle costs so far', () => {
 			isLoading: false,
 		});
 		render(<UsagePage />);
-		expect(screen.queryByText(/this cycle so far,/)).toBeNull();
+		expect(clusterTotal()).toBeNull();
 		cleanup();
 
 		mockUseClusterUsage.mockReturnValue({
@@ -387,7 +388,9 @@ describe('UsagePage — what the cycle costs so far', () => {
 			isLoading: false,
 		});
 		render(<UsagePage />);
-		expect(screen.getByText('$1,170.00 this cycle so far, $170.00 of it overage')).toBeTruthy();
+		const total = within(clusterTotal()!);
+		expect(total.getByText('$1,170.00')).toBeTruthy();
+		expect(total.getByText('$1,000.00 plan + $170.00 overage, billed at renewal')).toBeTruthy();
 	});
 
 	it('states what removed regions still owe instead of saying nothing was used', () => {
@@ -411,6 +414,8 @@ describe('UsagePage — what the cycle costs so far', () => {
 			isLoading: false,
 		});
 		render(<UsagePage />);
-		expect(screen.getByText('$585.00 this cycle so far, $85.00 of it overage')).toBeTruthy();
+		const total = within(clusterTotal()!);
+		expect(total.getByText('$585.00')).toBeTruthy();
+		expect(total.getByText('$500.00 plan + $85.00 overage, billed at renewal')).toBeTruthy();
 	});
 });
