@@ -40,9 +40,8 @@ export function toCreateBody(values: CreatePromoCodeValues): CreatePromoCodeBody
 }
 
 /**
- * Create a promo code. Only the kinds the account may write are offered: billing:write for credit,
- * grant:write for vouchers. The dialog cannot close while a create is in flight: closing would drop the
- * response, which is the only place a generated code is shown.
+ * Create a promo code. The dialog cannot close while a create is in flight: closing unmounts it, which
+ * drops the result toast and lets a second create start before the first has answered.
  */
 export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 	kinds: PromoKind[];
@@ -84,7 +83,7 @@ export function CreatePromoCodeModal({ kinds, onClose, onCreated }: {
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !isPending && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !isPending && !inFlight.current && onClose()}>
 			<DialogContent className="max-w-lg">
 				<DialogTitle>Create promo code</DialogTitle>
 				<DialogDescription>

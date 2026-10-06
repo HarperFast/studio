@@ -37,11 +37,7 @@ function statusOf(code: AdminPromoCode) {
 	return <Badge variant="outline">Live</Badge>;
 }
 
-/**
- * Admin → Promo codes. Lists every code the account may read with how often it was redeemed and, for
- * credit, how much was issued and expired. A cap is soft — redemptions at the same moment can pass it —
- * so a code over its cap is flagged rather than impossible.
- */
+// A cap is soft on central manager: redemptions at the same moment can pass it, so it is flagged, not prevented.
 export function PromoCodesAdminIndex() {
 	const canWriteCredit = useStaffPermission('billing:write');
 	const canWriteVoucher = useStaffPermission('grant:write');

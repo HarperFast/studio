@@ -13,7 +13,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getOrganizationQueryOptions } from '@/features/organization/queries/getOrganizationQuery';
 import { PromoRedemptionView } from '@/integrations/api/api.patch';
 import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
-import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
@@ -38,16 +37,24 @@ function describeValue(redemption: PromoRedemptionView) {
 	}`;
 }
 
+// An unclaimed voucher past its end can no longer be claimed; central manager leaves its row APPLIED.
+const voucherLapsed = (redemption: PromoRedemptionView) =>
+	redemption.kind === 'voucher' && !redemption.voucherClaimed && !!redemption.voucherEndsAt
+	&& new Date(redemption.voucherEndsAt).getTime() <= Date.now();
+
+const voucherReady = (redemption: PromoRedemptionView) =>
+	redemption.kind === 'voucher' && redemption.status === 'APPLIED' && !redemption.voucherClaimed
+	&& !voucherLapsed(redemption);
+
 function describeBalance(redemption: PromoRedemptionView) {
 	if (redemption.status === 'CLAIMED') { return 'Being added…'; }
 	if (redemption.status === 'FAILED') { return 'Didn’t go through — redeem the code again'; }
+	if (redemption.status === 'EXPIRED' || voucherLapsed(redemption)) { return 'Expired'; }
 	if (redemption.kind === 'credit') {
-		if (redemption.status === 'EXPIRED') { return 'Expired'; }
 		if (redemption.remainingCents == null) { return '—'; }
 		return `${formatCents(redemption.remainingCents)} left`;
 	}
-	if (redemption.voucherClaimed) { return 'In use'; }
-	return 'Ready to use';
+	return redemption.voucherClaimed ? 'In use' : 'Ready to use';
 }
 
 function useByDate(redemption: PromoRedemptionView) {
@@ -55,7 +62,6 @@ function useByDate(redemption: PromoRedemptionView) {
 	return iso ? formatDay(iso) : '—';
 }
 
-/** Billing → Promo codes: redeem a code, and see what each redeemed code still gives. */
 export function PromoCodes() {
 	const { organizationId } = useParams({ strict: false }) as { organizationId?: string };
 	const queryClient = useQueryClient();
@@ -89,8 +95,10 @@ export function PromoCodes() {
 						});
 					},
 					// A timeout or 5xx may still have redeemed the code, so the list is refreshed either way.
-					onError: (error) => {
-						form.setError('code', { message: describeError(error).message });
+					onError: () => {
+						form.setError('code', {
+							message: 'We couldn’t confirm the redemption. Check Your codes below before trying again.',
+						});
 						void queryClient.invalidateQueries({ queryKey: [organizationId] });
 					},
 				},
@@ -160,7 +168,7 @@ export function PromoCodes() {
 										<TableCell className="font-mono">{redemption.code}</TableCell>
 										<TableCell>{describeValue(redemption)}</TableCell>
 										<TableCell>
-											{redemption.kind === 'voucher' && !redemption.voucherClaimed && redemption.status === 'APPLIED'
+											{voucherReady(redemption)
 												? (
 													<Link to={`/${organizationId}/new-cluster`}>
 														<Badge variant="outline">Ready to use</Badge>
