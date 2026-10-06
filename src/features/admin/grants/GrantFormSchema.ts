@@ -26,7 +26,7 @@ export type ShapeRow = z.infer<typeof ShapeRowSchema>;
  * admits a claim only when the request's (plan, region) pairs equal these — so every Harper-hosted
  * row needs its region, and a self-hosted row must not carry one.
  */
-function addShapeIssues(shape: ShapeRow[], ctx: z.RefinementCtx) {
+export function addShapeIssues(shape: ShapeRow[], ctx: z.RefinementCtx) {
 	shape.forEach((row, index) => {
 		if (!row.planId) {
 			ctx.addIssue({ code: 'custom', path: ['shape', index, 'planId'], message: 'Choose a plan' });

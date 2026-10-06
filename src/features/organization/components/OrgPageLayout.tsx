@@ -28,6 +28,7 @@ export function OrgPageLayout({ children }: { children: ReactNode }) {
 			children: [
 				{ to: `${base}/billing`, label: 'Payment Method', exact: true },
 				{ to: `${base}/billing/invoices`, label: 'Invoices' },
+				{ to: `${base}/billing/promo-codes`, label: 'Promo Codes' },
 			],
 		},
 		canManageOrg && { to: `${base}/settings`, label: 'Settings', icon: SettingsIcon },
