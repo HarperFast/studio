@@ -35,8 +35,12 @@ export function UsagePage() {
 	// Rate limits + per-instance resources are usually identical across a cluster's regions (same plan),
 	// so when they're uniform we show them once in a shared card instead of repeating them per region.
 	const shared = data && !data.selfManaged ? uniformPlanInfo(data.regions) : null;
-	// One region already shows its own total; the cluster's adds something only across several.
-	const clusterCost = data && !data.selfManaged && data.regions.length > 1 ? cycleCostSummary(data) : null;
+	// One region already shows its own total; the cluster's adds something across several, or when a
+	// removed region still owes overage the regions listed do not show.
+	const clusterCost = data && !data.selfManaged
+			&& (data.regions.length !== 1 || (data.cycleUsd ?? 0) !== (data.regions[0].cycleUsd ?? 0))
+		? cycleCostSummary(data)
+		: null;
 
 	return (
 		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
