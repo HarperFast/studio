@@ -56,15 +56,21 @@ const withPaidCluster = {
 };
 
 describe('card screen', () => {
-	it('lets an unrestricted organization put a card on file, saying what it is charged for', async () => {
+	it('shows an unrestricted organization with no paid cluster what it always has, its admins included', async () => {
 		renderWith(contracted, <PaymentMethodsDisplay />);
+		expect(await screen.findByText(/We don.t currently show your payment methods/)).toBeTruthy();
+		expect(screen.queryByText('card form')).toBeNull();
+	});
+
+	it('lets an unrestricted organization with a paid cluster manage its card, saying what it is charged for', async () => {
+		renderWith(withPaidCluster, <PaymentMethodsDisplay />);
 		expect(await screen.findByText(/charged only for a cluster your account team moves onto paid terms/)).toBeTruthy();
 		expect(screen.getByText('card form')).toBeTruthy();
 	});
 
 	it('keeps the contract message for a member who cannot add a card', async () => {
 		state.canUpdate = false;
-		renderWith(contracted, <PaymentMethodsDisplay />);
+		renderWith(withPaidCluster, <PaymentMethodsDisplay />);
 		expect(await screen.findByText(/We don.t currently show your payment methods/)).toBeTruthy();
 		expect(screen.queryByText('card form')).toBeNull();
 	});
