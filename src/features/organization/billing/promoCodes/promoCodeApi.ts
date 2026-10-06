@@ -7,7 +7,7 @@ import { queryOptions, useMutation } from '@tanstack/react-query';
 /** Served by central-manager but not yet in the generated spec; shapes declared in api.patch.d.ts. */
 const PROMO_REDEMPTION_PATH = '/PromoRedemption/' as unknown as keyof paths;
 
-export const promoRedemptionsQueryKey = (organizationId: string | undefined) => [organizationId, 'promoRedemptions'];
+const promoRedemptionsQueryKey = (organizationId: string | undefined) => [organizationId, 'promoRedemptions'];
 
 export function getPromoRedemptionsQueryOptions(organizationId: string | undefined) {
 	return queryOptions({
@@ -21,7 +21,7 @@ export function getPromoRedemptionsQueryOptions(organizationId: string | undefin
 	});
 }
 
-export type RedeemResult =
+type RedeemResult =
 	| { ok: true; kind: PromoRedemptionView['kind'] }
 	| { ok: false; message: string };
 
