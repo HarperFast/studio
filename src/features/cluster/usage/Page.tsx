@@ -1,5 +1,5 @@
 import { ClusterContentWithSubNavMenu } from '@/features/cluster/components/ClusterContentWithSubNavMenu';
-import { cycleCostSummary, RegionCycleCost } from '@/features/cluster/components/CycleCost';
+import { ClusterCycleCost, cycleCostSummary, RegionCycleCost } from '@/features/cluster/components/CycleCost';
 import { METERED_ORDER, toMeter, UsageMeter } from '@/features/cluster/components/UsageMeter';
 import { useClusterInfo } from '@/features/cluster/queries/getClusterInfoQuery';
 import {
@@ -44,7 +44,7 @@ export function UsagePage() {
 	return (
 		<ClusterContentWithSubNavMenu className="max-w-4xl pb-20">
 			<h1 className="text-2xl font-light text-foreground">Usage</h1>
-			{showClusterCost && clusterCost && <p className="mt-1 text-sm text-muted-foreground">{clusterCost}</p>}
+			{showClusterCost && data && <ClusterCycleCost usage={data} />}
 			{!data
 				? <LoadError />
 				: data.selfManaged
