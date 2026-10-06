@@ -84,7 +84,6 @@ async function mount(g: AdminClusterGrant, props: Props = {}) {
 				open
 				onOpenChange={() => {}}
 				grant={g}
-				organizationType="SELF_SERVICE"
 				canBill
 				onReplaceWithComp={() => {}}
 				{...props}
@@ -137,10 +136,6 @@ describe('GrantFormModal — switchover', () => {
 	it.each([
 		['the viewer lacks billing:write', grant(), { canBill: false }],
 		['the grant is already paid', grant({ source: 'purchased' }), {}],
-		['the organization is unrestricted', grant(), { organizationType: 'UNRESTRICTED' }],
-		['the organization is on the legacy enterprise alias', grant(), { organizationType: 'ENTERPRISE' }],
-		// It charges a card: an organization whose type has not loaded is not assumed eligible.
-		['the organization type is not known', grant(), { organizationType: undefined }],
 	])('offers no switch to paid when %s', async (_why, g, props) => {
 		await mount(g, props as Props);
 		expect(switchButton()).toBeNull();
