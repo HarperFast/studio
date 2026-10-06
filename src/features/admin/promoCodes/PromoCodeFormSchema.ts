@@ -6,7 +6,7 @@ const PROMO_CODE_PATTERN = /^[A-Z0-9-]{8,32}$/;
 /** Mirrors central-manager's cap: a typo in a credit amount mints real money for every redeemer. */
 export const MAX_CREDIT_DOLLARS = 1000;
 
-// Up to nine digits: a longer number loses precision, and past ~309 digits JSON sends it as null (no cap).
+// Bounded because a long enough number becomes Infinity, which JSON sends as null: no cap at all.
 const positiveWhole = (raw: string) => /^\d{1,9}$/.test(raw.trim()) && Number(raw) >= 1;
 // Read as text: binary floating point makes 19.99 * 100 come out as 1998.9999…
 const DOLLARS_TO_THE_CENT = /^\d+(\.\d{1,2})?$/;
@@ -14,7 +14,6 @@ const DOLLARS_TO_THE_CENT = /^\d+(\.\d{1,2})?$/;
 /** The moment a redeem-by day ends in the creator's time zone, which is what central manager is sent. */
 export const endOfDay = (day: string) => new Date(`${day}T23:59:59.999`);
 
-/** Number fields are held as text, as form inputs are; the submit converts them. */
 export const CreatePromoCodeSchema = z
 	.object({
 		kind: z.enum(['credit', 'voucher']),
