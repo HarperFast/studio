@@ -34,7 +34,6 @@ import { useUpdateGrantMutation } from '@/features/admin/grants/mutations/useUpd
 import { getExpiryPoliciesQueryOptions } from '@/features/admin/grants/queries/getExpiryPolicies';
 import { grantsQueryKey } from '@/features/admin/grants/queries/getGrants';
 import { AdminClusterGrant } from '@/integrations/api/api.patch';
-import { isUnrestrictedOrgType } from '@/integrations/api/orgType';
 import { describeError } from '@/react-query/queryClient';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,8 +45,6 @@ interface GrantFormModalProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	grant: AdminClusterGrant | null;
-	/** The grant's organization type, when known: an unrestricted organization's clusters run on contracts. */
-	organizationType?: string | null;
 	/** Whether the viewer holds billing:write, which switching to paid needs because it charges the card. */
 	canBill?: boolean;
 	/** Hands the grant to the create dialog, to mint the comp that replaces it. */
@@ -104,7 +101,7 @@ function toFormValues(grant: AdminClusterGrant | null): GrantFormValues {
  * be undone.
  */
 export function GrantFormModal(
-	{ open, onOpenChange, grant, organizationType, canBill = false, onReplaceWithComp }: GrantFormModalProps,
+	{ open, onOpenChange, grant, canBill = false, onReplaceWithComp }: GrantFormModalProps,
 ) {
 	const queryClient = useQueryClient();
 	const { mutate: update, isPending: updating } = useUpdateGrantMutation();
@@ -168,9 +165,9 @@ export function GrantFormModal(
 	// lapsed or not-yet-started grant, which the server refuses as not the live one.
 	const bound = grant?.clusterId != null;
 	const switchable = bound && grant?.isActive !== false;
-	// It charges a card, so it fails closed: offered only once the organization is known not to be unrestricted.
-	const canSwitchToPaid = switchable && canBill && grant?.source !== 'purchased'
-		&& organizationType != null && !isUnrestrictedOrgType(organizationType);
+	// It charges a card, so only billing:write is offered it. The organization's own terms do not matter:
+	// one cluster of an unrestricted organization can be put on paid terms by itself.
+	const canSwitchToPaid = switchable && canBill && grant?.source !== 'purchased';
 
 	// A bound grant's scope may only widen (409 otherwise). GrantScopeFields says which field and
 	// why; the button is held so the save can't be attempted from here either.

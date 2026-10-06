@@ -135,10 +135,6 @@ export function GrantsAdminIndex() {
 		() => new Map((orgResult?.organizations ?? []).map((o) => [o.id, o.name])),
 		[orgResult],
 	);
-	const orgTypeById = useMemo(
-		() => new Map((orgResult?.organizations ?? []).map((o) => [o.id, o.type])),
-		[orgResult],
-	);
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
@@ -388,7 +384,6 @@ export function GrantsAdminIndex() {
 				open={!!editing}
 				onOpenChange={(next) => !next && setEditing(null)}
 				grant={editing}
-				organizationType={editing ? orgTypeById.get(editing.organizationId) : undefined}
 				canBill={canBill}
 				onReplaceWithComp={(grant, reason) => {
 					setEditing(null);
