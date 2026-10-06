@@ -120,6 +120,23 @@ describe('PromoCodes', () => {
 		await waitFor(() => expect((input as HTMLInputElement).value).toBe(''));
 	});
 
+	it('calls an unclaimed voucher past its end expired, not ready', async () => {
+		redemptions = [
+			{
+				code: 'LAUNCH-30DAYS',
+				kind: 'voucher',
+				status: 'APPLIED',
+				redeemedAt: '2026-01-02T00:00:00Z',
+				shape: [{ planId: 'hobbyist', regionId: 'us-east' }],
+				voucherEndsAt: '2026-02-01T00:00:00Z',
+				voucherClaimed: false,
+			},
+		];
+		renderPage();
+		expect(await screen.findByText('Expired')).toBeTruthy();
+		expect(screen.queryByText('Ready to use')).toBeNull();
+	});
+
 	it('says a redemption is still being added, or did not go through, instead of calling it ready', async () => {
 		redemptions = [
 			{
@@ -151,7 +168,7 @@ describe('PromoCodes', () => {
 		renderPage();
 		fireEvent.change(await screen.findByPlaceholderText('e.g. WELCOME100'), { target: { value: 'WELCOME100' } });
 		fireEvent.click(screen.getByRole('button', { name: 'Redeem' }));
-		expect(await screen.findByText(/timeout/)).toBeTruthy();
+		expect(await screen.findByText(/couldn’t confirm the redemption/)).toBeTruthy();
 	});
 
 	it('says the list failed rather than that nothing was redeemed', async () => {
