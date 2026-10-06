@@ -390,6 +390,16 @@ describe('UsagePage — what the cycle costs so far', () => {
 		expect(screen.getByText('$1,170.00 this cycle so far, $170.00 of it overage')).toBeTruthy();
 	});
 
+	it('states what removed regions still owe instead of saying nothing was used', () => {
+		mockUseClusterUsage.mockReturnValue({
+			data: usage({ regions: [], planUsd: 0, overageUsd: 85, cycleUsd: 85 }),
+			isLoading: false,
+		});
+		render(<UsagePage />);
+		expect(screen.getByText('No region is running now; $85.00 this cycle so far, $85.00 of it overage.')).toBeTruthy();
+		expect(screen.queryByText(/No usage has been recorded/)).toBeNull();
+	});
+
 	it('adds the total when a removed region still owes overage the listed one does not show', () => {
 		mockUseClusterUsage.mockReturnValue({
 			data: usage({
