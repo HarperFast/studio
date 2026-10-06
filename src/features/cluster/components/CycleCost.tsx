@@ -1,4 +1,4 @@
-import type { ClusterUsageRegion } from '@/integrations/api/cluster/getClusterUsage';
+import { type ClusterUsageRegion, formatCycleDate } from '@/integrations/api/cluster/getClusterUsage';
 import { toUSD } from '@/lib/toUSD';
 
 /**
@@ -35,20 +35,15 @@ export function RegionCycleCost({ region }: { region: ClusterUsageRegion }) {
 
 function overageDetail(topUps: number, since: string | null, renewsAt: string | null): string {
 	return [
-		`${topUps} ${topUps === 1 ? 'top-up' : 'top-ups'}${since ? ` since ${fmtDate(since)}` : ''}`,
-		renewsAt ? `billed at renewal on ${fmtDate(renewsAt)}` : 'billed at renewal',
+		`${topUps} ${topUps === 1 ? 'top-up' : 'top-ups'}${since ? ` since ${formatCycleDate(since)}` : ''}`,
+		renewsAt ? `billed at renewal on ${formatCycleDate(renewsAt)}` : 'billed at renewal',
 	].join(' · ');
 }
 
-/** "$585.00 this cycle so far, $85.00 of it overage": the cluster's total, for the overview card. */
 export function cycleCostSummary(
 	{ cycleUsd, overageUsd }: { cycleUsd?: number; overageUsd?: number },
 ): string | null {
 	if (!((cycleUsd ?? 0) > 0)) { return null; }
 	const overage = overageUsd ?? 0;
 	return `${toUSD(cycleUsd ?? 0)} this cycle so far${overage > 0 ? `, ${toUSD(overage)} of it overage` : ''}`;
-}
-
-function fmtDate(iso: string): string {
-	return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
